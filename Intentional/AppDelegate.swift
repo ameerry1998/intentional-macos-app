@@ -14,6 +14,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Menu bar icon
     var statusBarItem: NSStatusItem?
 
+    // Main window
+    var mainWindowController: MainWindow?
+
     // Monitoring components
     var sleepWakeMonitor: SleepWakeMonitor?
     var processMonitor: ProcessMonitor?
@@ -24,6 +27,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Initialize backend client
         backendClient = BackendClient(baseURL: "https://api.intentional.social")
+
+        // Create main window
+        mainWindowController = MainWindow()
+        mainWindowController?.showWindow(nil)
 
         // Create menu bar icon
         setupMenuBar()
@@ -39,6 +46,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             await backendClient?.sendEvent(type: "app_started", details: [:])
         }
+
+        // Notify UI
+        postEventNotification(type: "app_started")
 
         print("✅ All monitors initialized")
     }
@@ -76,6 +86,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
+        // Show window
+        menu.addItem(NSMenuItem(title: "Show Window", action: #selector(showMainWindow), keyEquivalent: "w"))
+
         // Dashboard
         menu.addItem(NSMenuItem(title: "Open Dashboard", action: #selector(openDashboard), keyEquivalent: "d"))
 
@@ -87,6 +100,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusBarItem?.menu = menu
     }
 
+    @objc func showMainWindow() {
+        mainWindowController?.showWindow(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
     @objc func openDashboard() {
         // Open web dashboard
         if let url = URL(string: "https://intentional.social/dashboard") {
@@ -96,5 +114,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func quitApp() {
         NSApplication.shared.terminate(self)
+    }
+
+    // MARK: - Event Notifications
+
+    func postEventNotification(type: String) {
+        NotificationCenter.default.post(
+            name: NSNotification.Name("SystemEventOccurred"),
+            object: nil,
+            userInfo: ["type": type]
+        )
     }
 }

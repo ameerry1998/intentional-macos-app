@@ -69,6 +69,11 @@ class SleepWakeMonitor {
                 "timestamp": ISO8601DateFormatter().string(from: Date())
             ])
         }
+
+        // Notify UI
+        if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+            appDelegate.postEventNotification(type: "computer_sleeping")
+        }
     }
 
     private func computerDidWake() {
@@ -78,6 +83,11 @@ class SleepWakeMonitor {
             await backendClient.sendEvent(type: "computer_waking", details: [
                 "timestamp": ISO8601DateFormatter().string(from: Date())
             ])
+        }
+
+        // Notify UI
+        if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+            appDelegate.postEventNotification(type: "computer_waking")
         }
     }
 
@@ -89,6 +99,11 @@ class SleepWakeMonitor {
                 "timestamp": ISO8601DateFormatter().string(from: Date())
             ])
         }
+
+        // Notify UI
+        if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+            appDelegate.postEventNotification(type: "screen_locked")
+        }
     }
 
     private func screenDidUnlock() {
@@ -98,6 +113,11 @@ class SleepWakeMonitor {
             await backendClient.sendEvent(type: "screen_unlocked", details: [
                 "timestamp": ISO8601DateFormatter().string(from: Date())
             ])
+        }
+
+        // Notify UI
+        if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+            appDelegate.postEventNotification(type: "screen_unlocked")
         }
     }
 

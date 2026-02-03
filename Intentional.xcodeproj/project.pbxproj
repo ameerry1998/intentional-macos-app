@@ -11,6 +11,7 @@
 		A1000003000000000000001 /* SleepWakeMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000004000000000000001 /* SleepWakeMonitor.swift */; };
 		A1000005000000000000001 /* ProcessMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000006000000000000001 /* ProcessMonitor.swift */; };
 		A1000007000000000000001 /* BackendClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000008000000000000001 /* BackendClient.swift */; };
+		A1000010000000000000002 /* MainWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000011000000000000002 /* MainWindow.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -20,6 +21,7 @@
 		A1000006000000000000001 /* ProcessMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessMonitor.swift; sourceTree = "<group>"; };
 		A1000008000000000000001 /* BackendClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendClient.swift; sourceTree = "<group>"; };
 		A1000009000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1000011000000000000002 /* MainWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindow.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -45,6 +47,7 @@
 			isa = PBXGroup;
 			children = (
 				A1000002000000000000001 /* AppDelegate.swift */,
+				A1000011000000000000002 /* MainWindow.swift */,
 				A1000004000000000000001 /* SleepWakeMonitor.swift */,
 				A1000006000000000000001 /* ProcessMonitor.swift */,
 				A1000008000000000000001 /* BackendClient.swift */,
@@ -130,6 +133,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1000001000000000000001 /* AppDelegate.swift in Sources */,
+				A1000010000000000000002 /* MainWindow.swift in Sources */,
 				A1000003000000000000001 /* SleepWakeMonitor.swift in Sources */,
 				A1000005000000000000001 /* ProcessMonitor.swift in Sources */,
 				A1000007000000000000001 /* BackendClient.swift in Sources */,
@@ -270,7 +274,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Intentional/Info.plist;
-				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_LSUIElement = NO;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Intentional. All rights reserved.";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -298,7 +302,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Intentional/Info.plist;
-				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_LSUIElement = NO;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Intentional. All rights reserved.";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (

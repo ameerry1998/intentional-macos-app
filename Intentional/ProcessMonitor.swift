@@ -63,11 +63,21 @@ class ProcessMonitor {
             Task {
                 await backendClient.sendEvent(type: "chrome_started", details: [:])
             }
+
+            // Notify UI
+            if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+                appDelegate.postEventNotification(type: "chrome_started")
+            }
         } else {
             print("🚫 Chrome closed")
 
             Task {
                 await backendClient.sendEvent(type: "chrome_closed", details: [:])
+            }
+
+            // Notify UI
+            if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+                appDelegate.postEventNotification(type: "chrome_closed")
             }
         }
     }
