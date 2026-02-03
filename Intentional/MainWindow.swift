@@ -34,6 +34,7 @@ class MainWindow: NSWindowController {
 // SwiftUI Main View
 struct MainView: View {
     @State private var events: [SystemEvent] = []
+    @State private var logs: [LogEntry] = []
     @State private var deviceId: String = ""
     @State private var isMonitoring: Bool = true
 
@@ -94,53 +95,101 @@ struct MainView: View {
 
             Divider()
 
-            // Events List
-            VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    Text("Recent System Events")
-                        .font(.headline)
+            // Split view: Events on left, Console on right
+            HSplitView {
+                // Events List
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Text("System Events")
+                            .font(.headline)
+                            .padding(.horizontal)
+                            .padding(.top, 12)
+                            .padding(.bottom, 8)
+
+                        Spacer()
+
+                        Button(action: {
+                            events.removeAll()
+                        }) {
+                            Label("Clear", systemImage: "trash")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.plain)
                         .padding(.horizontal)
                         .padding(.top, 12)
                         .padding(.bottom, 8)
-
-                    Spacer()
-
-                    Button(action: {
-                        events.removeAll()
-                    }) {
-                        Label("Clear", systemImage: "trash")
-                            .font(.caption)
                     }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal)
-                    .padding(.top, 12)
-                    .padding(.bottom, 8)
-                }
 
-                ScrollView {
-                    if events.isEmpty {
-                        VStack(spacing: 12) {
-                            Image(systemName: "clock.arrow.circlepath")
-                                .font(.system(size: 48))
-                                .foregroundColor(.secondary)
+                    ScrollView {
+                        if events.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .font(.system(size: 32))
+                                    .foregroundColor(.secondary)
 
-                            Text("No events yet")
-                                .foregroundColor(.secondary)
-
-                            Text("Events will appear here as they occur")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding()
-                    } else {
-                        LazyVStack(spacing: 1) {
-                            ForEach(events.reversed()) { event in
-                                EventRow(event: event)
+                                Text("No events yet")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .padding()
+                        } else {
+                            LazyVStack(spacing: 1) {
+                                ForEach(events.reversed()) { event in
+                                    EventRow(event: event)
+                                }
                             }
                         }
                     }
                 }
+                .frame(minWidth: 250)
+
+                Divider()
+
+                // Console Log
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Text("Console Log")
+                            .font(.headline)
+                            .padding(.horizontal)
+                            .padding(.top, 12)
+                            .padding(.bottom, 8)
+
+                        Spacer()
+
+                        Button(action: {
+                            logs.removeAll()
+                        }) {
+                            Label("Clear", systemImage: "trash")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal)
+                        .padding(.top, 12)
+                        .padding(.bottom, 8)
+                    }
+
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 2) {
+                                ForEach(logs) { log in
+                                    LogRow(log: log)
+                                        .id(log.id)
+                                }
+                            }
+                            .padding(8)
+                        }
+                        .onChange(of: logs.count) { _ in
+                            if let lastLog = logs.last {
+                                withAnimation {
+                                    proxy.scrollTo(lastLog.id, anchor: .bottom)
+                                }
+                            }
+                        }
+                    }
+                }
+                .frame(minWidth: 300)
+                .background(Color(NSColor.textBackgroundColor))
             }
 
             Divider()
@@ -177,7 +226,7 @@ struct MainView: View {
     }
 
     private func startListeningForEvents() {
-        // Listen for notifications from AppDelegate
+        // Listen for event notifications
         NotificationCenter.default.addObserver(
             forName: NSNotification.Name("SystemEventOccurred"),
             object: nil,
@@ -185,6 +234,17 @@ struct MainView: View {
         ) { notification in
             if let eventType = notification.userInfo?["type"] as? String {
                 addEvent(type: eventType)
+            }
+        }
+
+        // Listen for log notifications
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("AppLogMessage"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let message = notification.userInfo?["message"] as? String {
+                addLog(message: message)
             }
         }
     }
@@ -197,6 +257,71 @@ struct MainView: View {
         if events.count > 50 {
             events.removeFirst()
         }
+    }
+
+    private func addLog(message: String) {
+        let log = LogEntry(message: message, timestamp: Date())
+        logs.append(log)
+
+        // Keep only last 200 logs
+        if logs.count > 200 {
+            logs.removeFirst()
+        }
+    }
+}
+
+// Log Entry Model
+struct LogEntry: Identifiable {
+    let id = UUID()
+    let message: String
+    let timestamp: Date
+
+    var icon: String {
+        if message.contains("✅") { return "checkmark.circle.fill" }
+        if message.contains("❌") { return "xmark.circle.fill" }
+        if message.contains("⚠️") { return "exclamationmark.triangle.fill" }
+        if message.contains("📱") { return "iphone" }
+        if message.contains("💤") { return "moon.fill" }
+        if message.contains("👁️") { return "eye.fill" }
+        if message.contains("🔒") { return "lock.fill" }
+        if message.contains("🔓") { return "lock.open.fill" }
+        if message.contains("🌐") { return "safari.fill" }
+        if message.contains("🚫") { return "xmark.circle.fill" }
+        return "circle.fill"
+    }
+
+    var color: Color {
+        if message.contains("✅") { return .green }
+        if message.contains("❌") { return .red }
+        if message.contains("⚠️") { return .orange }
+        return .primary
+    }
+}
+
+struct LogRow: View {
+    let log: LogEntry
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(log.timestamp, style: .time)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundColor(.secondary)
+                .frame(width: 70, alignment: .leading)
+
+            Image(systemName: log.icon)
+                .font(.system(size: 10))
+                .foregroundColor(log.color)
+                .frame(width: 16)
+
+            Text(log.message)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundColor(.primary)
+                .textSelection(.enabled)
+
+            Spacer()
+        }
+        .padding(.vertical, 2)
+        .padding(.horizontal, 4)
     }
 }
 

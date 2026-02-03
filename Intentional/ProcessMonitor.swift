@@ -11,11 +11,13 @@ import Cocoa
 class ProcessMonitor {
 
     private let backendClient: BackendClient
+    private weak var appDelegate: AppDelegate?
     private var monitorTimer: Timer?
     private var wasChromeRunning: Bool = false
 
-    init(backendClient: BackendClient) {
+    init(backendClient: BackendClient, appDelegate: AppDelegate) {
         self.backendClient = backendClient
+        self.appDelegate = appDelegate
     }
 
     func startMonitoring() {
@@ -27,7 +29,7 @@ class ProcessMonitor {
         // Check immediately on start
         checkBrowserStatus()
 
-        print("✅ Process monitoring started")
+        // Logged by AppDelegate
     }
 
     func stopMonitoring() {
@@ -58,27 +60,21 @@ class ProcessMonitor {
 
     private func handleBrowserStateChange(isRunning: Bool) {
         if isRunning {
-            print("🌐 Chrome started")
+            appDelegate?.postLog("🌐 Chrome started")
 
             Task {
                 await backendClient.sendEvent(type: "chrome_started", details: [:])
             }
 
-            // Notify UI
-            if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
-                appDelegate.postEventNotification(type: "chrome_started")
-            }
+            appDelegate?.postEventNotification(type: "chrome_started")
         } else {
-            print("🚫 Chrome closed")
+            appDelegate?.postLog("🚫 Chrome closed")
 
             Task {
                 await backendClient.sendEvent(type: "chrome_closed", details: [:])
             }
 
-            // Notify UI
-            if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
-                appDelegate.postEventNotification(type: "chrome_closed")
-            }
+            appDelegate?.postEventNotification(type: "chrome_closed")
         }
     }
 

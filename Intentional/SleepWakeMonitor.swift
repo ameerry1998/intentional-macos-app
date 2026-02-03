@@ -11,9 +11,11 @@ import Cocoa
 class SleepWakeMonitor {
 
     private let backendClient: BackendClient
+    private weak var appDelegate: AppDelegate?
 
-    init(backendClient: BackendClient) {
+    init(backendClient: BackendClient, appDelegate: AppDelegate) {
         self.backendClient = backendClient
+        self.appDelegate = appDelegate
         registerForNotifications()
     }
 
@@ -56,13 +58,13 @@ class SleepWakeMonitor {
             self?.screenDidUnlock()
         }
 
-        print("✅ Sleep/wake notifications registered")
+        // Logged by AppDelegate
     }
 
     // MARK: - Event Handlers
 
     private func computerWillSleep() {
-        print("💤 Computer going to sleep")
+        appDelegate?.postLog("💤 Computer going to sleep")
 
         Task {
             await backendClient.sendEvent(type: "computer_sleeping", details: [
@@ -70,14 +72,11 @@ class SleepWakeMonitor {
             ])
         }
 
-        // Notify UI
-        if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
-            appDelegate.postEventNotification(type: "computer_sleeping")
-        }
+        appDelegate?.postEventNotification(type: "computer_sleeping")
     }
 
     private func computerDidWake() {
-        print("👁️ Computer woke up")
+        appDelegate?.postLog("👁️ Computer woke up")
 
         Task {
             await backendClient.sendEvent(type: "computer_waking", details: [
@@ -85,14 +84,11 @@ class SleepWakeMonitor {
             ])
         }
 
-        // Notify UI
-        if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
-            appDelegate.postEventNotification(type: "computer_waking")
-        }
+        appDelegate?.postEventNotification(type: "computer_waking")
     }
 
     private func screenDidLock() {
-        print("🔒 Screen locked")
+        appDelegate?.postLog("🔒 Screen locked")
 
         Task {
             await backendClient.sendEvent(type: "screen_locked", details: [
@@ -100,14 +96,11 @@ class SleepWakeMonitor {
             ])
         }
 
-        // Notify UI
-        if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
-            appDelegate.postEventNotification(type: "screen_locked")
-        }
+        appDelegate?.postEventNotification(type: "screen_locked")
     }
 
     private func screenDidUnlock() {
-        print("🔓 Screen unlocked")
+        appDelegate?.postLog("🔓 Screen unlocked")
 
         Task {
             await backendClient.sendEvent(type: "screen_unlocked", details: [
@@ -115,10 +108,7 @@ class SleepWakeMonitor {
             ])
         }
 
-        // Notify UI
-        if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
-            appDelegate.postEventNotification(type: "screen_unlocked")
-        }
+        appDelegate?.postEventNotification(type: "screen_unlocked")
     }
 
     deinit {

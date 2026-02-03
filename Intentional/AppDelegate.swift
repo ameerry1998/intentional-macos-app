@@ -23,27 +23,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var backendClient: BackendClient?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        print("✅ Intentional app launched")
+        postLog("✅ Intentional app launched")
 
         // Initialize backend client
         backendClient = BackendClient(baseURL: "https://api.intentional.social")
+        postLog("🔗 Backend URL: https://api.intentional.social")
 
         // Create main window
         mainWindowController = MainWindow()
         mainWindowController?.showWindow(nil)
+        postLog("🪟 Main window created")
 
         // Bring window to front
         NSApp.activate(ignoringOtherApps: true)
 
         // Create menu bar icon
         setupMenuBar()
+        postLog("🔝 Menu bar icon added")
 
         // Start sleep/wake monitoring
-        sleepWakeMonitor = SleepWakeMonitor(backendClient: backendClient!)
+        sleepWakeMonitor = SleepWakeMonitor(backendClient: backendClient!, appDelegate: self)
+        postLog("✅ Sleep/wake monitoring registered")
 
         // Start process monitoring
-        processMonitor = ProcessMonitor(backendClient: backendClient!)
+        processMonitor = ProcessMonitor(backendClient: backendClient!, appDelegate: self)
         processMonitor?.startMonitoring()
+        postLog("✅ Process monitoring started")
 
         // Send startup event
         Task {
@@ -53,11 +58,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Notify UI
         postEventNotification(type: "app_started")
 
-        print("✅ All monitors initialized")
+        postLog("✅ All monitors initialized")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        print("⚠️ App terminating")
+        postLog("⚠️ App terminating")
 
         // Send shutdown event before quitting
         Task {
@@ -126,6 +131,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSNotification.Name("SystemEventOccurred"),
             object: nil,
             userInfo: ["type": type]
+        )
+    }
+
+    func postLog(_ message: String) {
+        print(message)
+        NotificationCenter.default.post(
+            name: NSNotification.Name("AppLogMessage"),
+            object: nil,
+            userInfo: ["message": message]
         )
     }
 }

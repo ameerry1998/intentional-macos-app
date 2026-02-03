@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Cocoa
 
 class BackendClient {
 
@@ -26,7 +27,12 @@ class BackendClient {
             UserDefaults.standard.set(self.deviceId, forKey: "deviceId")
         }
 
-        print("📱 Device ID: \(deviceId.prefix(16))...")
+        // Log device ID via AppDelegate if available
+        if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+            appDelegate.postLog("📱 Device ID: \(deviceId.prefix(16))...")
+        } else {
+            print("📱 Device ID: \(deviceId.prefix(16))...")
+        }
     }
 
     /// Send system event to backend
@@ -43,7 +49,9 @@ class BackendClient {
         payload.merge(details) { (_, new) in new }
 
         guard let url = URL(string: endpoint) else {
-            print("❌ Invalid URL: \(endpoint)")
+            if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+                appDelegate.postLog("❌ Invalid URL: \(endpoint)")
+            }
             return
         }
 
@@ -58,17 +66,20 @@ class BackendClient {
             let (data, response) = try await URLSession.shared.data(for: request)
 
             if let httpResponse = response as? HTTPURLResponse {
+                let appDelegate = NSApplication.shared.delegate as? AppDelegate
                 if httpResponse.statusCode == 200 {
-                    print("✅ Event sent: \(type)")
+                    appDelegate?.postLog("✅ Event sent: \(type)")
                 } else {
-                    print("⚠️ Event failed: \(type) - Status \(httpResponse.statusCode)")
+                    appDelegate?.postLog("⚠️ Event failed: \(type) - Status \(httpResponse.statusCode)")
                     if let body = String(data: data, encoding: .utf8) {
-                        print("   Response: \(body)")
+                        appDelegate?.postLog("   Response: \(body)")
                     }
                 }
             }
         } catch {
-            print("❌ Network error sending event \(type): \(error.localizedDescription)")
+            if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+                appDelegate.postLog("❌ Network error sending event \(type): \(error.localizedDescription)")
+            }
         }
     }
 
@@ -88,16 +99,19 @@ class BackendClient {
             request.httpBody = try JSONSerialization.data(withJSONObject: payload)
             let (data, response) = try await URLSession.shared.data(for: request)
 
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
             if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
-                print("✅ Device registered")
+                appDelegate?.postLog("✅ Device registered")
             } else {
-                print("⚠️ Device registration failed")
+                appDelegate?.postLog("⚠️ Device registration failed")
                 if let body = String(data: data, encoding: .utf8) {
-                    print("   Response: \(body)")
+                    appDelegate?.postLog("   Response: \(body)")
                 }
             }
         } catch {
-            print("❌ Registration error: \(error.localizedDescription)")
+            if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+                appDelegate.postLog("❌ Registration error: \(error.localizedDescription)")
+            }
         }
     }
 }
