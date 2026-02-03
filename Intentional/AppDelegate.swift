@@ -60,8 +60,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         processMonitor?.startMonitoring()
         postLog("✅ Process monitoring started")
 
-        // Send startup event
+        // Register device and send startup event (in sequence)
         Task {
+            // Register first (idempotent - safe to call every time)
+            await backendClient?.registerDevice()
+
+            // Then send startup event
             await backendClient?.sendEvent(type: "app_started", details: [:])
         }
 
