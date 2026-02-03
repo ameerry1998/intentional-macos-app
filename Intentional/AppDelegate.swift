@@ -32,6 +32,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mainWindowController = MainWindow()
         mainWindowController?.showWindow(nil)
 
+        // Bring window to front
+        NSApp.activate(ignoringOtherApps: true)
+
         // Create menu bar icon
         setupMenuBar()
 
