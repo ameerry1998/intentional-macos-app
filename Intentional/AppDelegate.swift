@@ -8,7 +8,7 @@
 import Cocoa
 import Foundation
 
-@main
+// @main removed - using explicit main.swift instead
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Menu bar icon
@@ -23,6 +23,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var backendClient: BackendClient?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Multiple logging methods to ensure we see SOMETHING
+        print("=== applicationDidFinishLaunching CALLED ===")
+        NSLog("=== applicationDidFinishLaunching CALLED (NSLog) ===")
+
+        let logPath = NSTemporaryDirectory() + "intentional-debug.log"
+        try? "applicationDidFinishLaunching called at \(Date())\n".appendLine(to: logPath)
+
         postLog("✅ Intentional app launched")
 
         // Initialize backend client
@@ -143,5 +150,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil,
             userInfo: ["message": message]
         )
+    }
+}
+
+// Helper extension for file logging
+extension String {
+    func appendLine(to path: String) {
+        if let handle = FileHandle(forWritingAtPath: path) {
+            handle.seekToEndOfFile()
+            if let data = self.data(using: .utf8) {
+                handle.write(data)
+            }
+            handle.closeFile()
+        } else {
+            // File doesn't exist, create it
+            try? self.write(toFile: path, atomically: true, encoding: .utf8)
+        }
     }
 }
