@@ -1,0 +1,103 @@
+//
+//  BackendClient.swift
+//  Intentional
+//
+//  Handles communication with backend API
+//
+
+import Foundation
+
+class BackendClient {
+
+    private let baseURL: String
+    private let deviceId: String
+
+    init(baseURL: String) {
+        self.baseURL = baseURL
+
+        // Get or generate device ID (stored in UserDefaults)
+        if let stored = UserDefaults.standard.string(forKey: "deviceId") {
+            self.deviceId = stored
+        } else {
+            // Generate random 64-char hex string
+            let uuid = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+            let random = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+            self.deviceId = (uuid + random).prefix(64).lowercased()
+            UserDefaults.standard.set(self.deviceId, forKey: "deviceId")
+        }
+
+        print("📱 Device ID: \(deviceId.prefix(16))...")
+    }
+
+    /// Send system event to backend
+    func sendEvent(type: String, details: [String: Any]) async {
+        let endpoint = "\(baseURL)/system-event"
+
+        var payload: [String: Any] = [
+            "event_type": type,
+            "timestamp": ISO8601DateFormatter().string(from: Date()),
+            "source": "native_app_macos"
+        ]
+
+        // Merge details
+        payload.merge(details) { (_, new) in new }
+
+        guard let url = URL(string: endpoint) else {
+            print("❌ Invalid URL: \(endpoint)")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 200 {
+                    print("✅ Event sent: \(type)")
+                } else {
+                    print("⚠️ Event failed: \(type) - Status \(httpResponse.statusCode)")
+                    if let body = String(data: data, encoding: .utf8) {
+                        print("   Response: \(body)")
+                    }
+                }
+            }
+        } catch {
+            print("❌ Network error sending event \(type): \(error.localizedDescription)")
+        }
+    }
+
+    /// Register device with backend (call on first launch)
+    func registerDevice() async {
+        let endpoint = "\(baseURL)/register"
+
+        guard let url = URL(string: endpoint) else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let payload = ["device_id": deviceId]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                print("✅ Device registered")
+            } else {
+                print("⚠️ Device registration failed")
+                if let body = String(data: data, encoding: .utf8) {
+                    print("   Response: \(body)")
+                }
+            }
+        } catch {
+            print("❌ Registration error: \(error.localizedDescription)")
+        }
+    }
+}
