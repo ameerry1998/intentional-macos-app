@@ -33,8 +33,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         postLog("✅ Intentional app launched")
 
         // Initialize backend client
-        backendClient = BackendClient(baseURL: "https://api.intentional.social")
-        postLog("🔗 Backend URL: https://api.intentional.social")
+        // TODO: Change to https://api.intentional.social when deployed
+        backendClient = BackendClient(baseURL: "http://localhost:8000")
+        postLog("🔗 Backend URL: http://localhost:8000")
 
         // Create main window
         mainWindowController = MainWindow()
