@@ -13,21 +13,26 @@ class MainWindow: NSWindowController {
     convenience init() {
         // Create window
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 600, height: 400),
+            contentRect: NSRect(x: 100, y: 100, width: 800, height: 600),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
 
+        // Initialize controller FIRST
+        self.init(window: window)
+
+        // Configure window AFTER init
         window.title = "Intentional - System Monitor"
         window.center()
         window.setFrameAutosaveName("MainWindow")
 
         // Set content view
-        let contentView = MainView()
-        window.contentView = NSHostingView(rootView: contentView)
+        window.contentView = NSHostingView(rootView: MainView())
 
-        self.init(window: window)
+        // Force window visible
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
     }
 }
 

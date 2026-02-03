@@ -34,8 +34,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mainWindowController?.showWindow(nil)
         postLog("🪟 Main window created")
 
-        // Bring window to front
+        // Bring window to front - force it
         NSApp.activate(ignoringOtherApps: true)
+        mainWindowController?.window?.makeKeyAndOrderFront(nil)
+        mainWindowController?.window?.orderFrontRegardless()
 
         // Create menu bar icon
         setupMenuBar()
