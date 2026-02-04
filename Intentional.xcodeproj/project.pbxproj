@@ -21,6 +21,8 @@
 		A1000031000000000000008 /* NativeMessagingHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000030000000000000008 /* NativeMessagingHost.swift */; };
 		A1000033000000000000009 /* NativeMessagingSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000032000000000000009 /* NativeMessagingSetup.swift */; };
 		A1000035000000000000010 /* TimeTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000034000000000000010 /* TimeTracker.swift */; };
+		A1000036000000000000011 /* BrowserDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000037000000000000011 /* BrowserDatabase.swift */; };
+		A1000038000000000000012 /* BrowserDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000039000000000000012 /* BrowserDiscovery.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,6 +43,8 @@
 		A1000030000000000000008 /* NativeMessagingHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMessagingHost.swift; sourceTree = "<group>"; };
 		A1000032000000000000009 /* NativeMessagingSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMessagingSetup.swift; sourceTree = "<group>"; };
 		A1000034000000000000010 /* TimeTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeTracker.swift; sourceTree = "<group>"; };
+		A1000037000000000000011 /* BrowserDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserDatabase.swift; sourceTree = "<group>"; };
+		A1000039000000000000012 /* BrowserDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserDiscovery.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -71,6 +75,8 @@
 				A1000004000000000000001 /* SleepWakeMonitor.swift */,
 				A1000006000000000000001 /* ProcessMonitor.swift */,
 				A1000015000000000000002 /* BrowserMonitor.swift */,
+				A1000037000000000000011 /* BrowserDatabase.swift */,
+				A1000039000000000000012 /* BrowserDiscovery.swift */,
 				A1000017000000000000003 /* WebsiteBlocker.swift */,
 				A1000021000000000000005 /* PermissionManager.swift */,
 				A1000008000000000000001 /* BackendClient.swift */,
@@ -170,6 +176,8 @@
 				A1000003000000000000001 /* SleepWakeMonitor.swift in Sources */,
 				A1000005000000000000001 /* ProcessMonitor.swift in Sources */,
 				A1000014000000000000002 /* BrowserMonitor.swift in Sources */,
+				A1000036000000000000011 /* BrowserDatabase.swift in Sources */,
+				A1000038000000000000012 /* BrowserDiscovery.swift in Sources */,
 				A1000016000000000000003 /* WebsiteBlocker.swift in Sources */,
 				A1000020000000000000005 /* PermissionManager.swift in Sources */,
 				A1000007000000000000001 /* BackendClient.swift in Sources */,

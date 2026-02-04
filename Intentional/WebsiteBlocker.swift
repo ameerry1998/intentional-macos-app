@@ -59,6 +59,10 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     private var lastNotificationTime: Date?
     private let notificationCooldown: TimeInterval = 60.0  // 1 minute between notifications
 
+    // Track last tab count log time per browser to avoid spam
+    private var lastTabLogTime: [String: Date] = [:]
+    private let tabLogCooldown: TimeInterval = 60.0  // Log tab counts once per minute
+
     init(backendClient: BackendClient, appDelegate: AppDelegate) {
         self.backendClient = backendClient
         self.appDelegate = appDelegate
@@ -654,9 +658,14 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
 
         executeScript(script, browserName: "Arc") { [weak self] urls in
             guard let self = self else { return }
-            // Log found URLs for debugging
+            // Log found URLs for debugging (throttled to once per minute)
             if !urls.isEmpty {
-                self.appDelegate?.postLog("🔍 Arc: Found \(urls.count) tabs")
+                let browserName = "Arc"
+                let shouldLog = self.lastTabLogTime[browserName].map { Date().timeIntervalSince($0) >= self.tabLogCooldown } ?? true
+                if shouldLog {
+                    self.lastTabLogTime[browserName] = Date()
+                    self.appDelegate?.postLog("🔍 Arc: Found \(urls.count) tabs")
+                }
                 for url in urls {
                     if self.matchesBlockedDomain(url: url) {
                         self.appDelegate?.postLog("⚠️ Arc: Blocked domain found: \(url)")
@@ -758,9 +767,13 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
 
         executeScript(script, browserName: browserName) { [weak self] urls in
             guard let self = self else { return }
-            // Log found URLs for debugging
+            // Log found URLs for debugging (throttled to once per minute)
             if !urls.isEmpty {
-                self.appDelegate?.postLog("🔍 \(browserName): Found \(urls.count) tabs")
+                let shouldLog = self.lastTabLogTime[browserName].map { Date().timeIntervalSince($0) >= self.tabLogCooldown } ?? true
+                if shouldLog {
+                    self.lastTabLogTime[browserName] = Date()
+                    self.appDelegate?.postLog("🔍 \(browserName): Found \(urls.count) tabs")
+                }
                 for url in urls {
                     if self.matchesBlockedDomain(url: url) {
                         self.appDelegate?.postLog("⚠️ \(browserName): Blocked domain found: \(url)")

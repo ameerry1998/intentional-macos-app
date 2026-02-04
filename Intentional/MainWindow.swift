@@ -906,13 +906,24 @@ struct BrowserStatusRow: View {
             Spacer()
 
             if browser.hasExtension {
-                // Connected badge
-                HStack(spacing: 4) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                    Text("Connected")
-                        .font(.caption)
-                        .foregroundColor(.green)
+                if browser.isEnabled {
+                    // Extension installed and enabled
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text("Connected")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    }
+                } else {
+                    // Extension installed but disabled
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text("Disabled")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
                 }
             } else {
                 // Install button
