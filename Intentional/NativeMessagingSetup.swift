@@ -1,6 +1,17 @@
 import Foundation
 import Cocoa
 
+/// Represents the extension status for a single browser
+struct BrowserExtensionStatus: Identifiable {
+    let name: String
+    let bundleId: String
+    let hasExtension: Bool
+    let extensionId: String?
+    let extensionPageUrl: String
+
+    var id: String { bundleId }
+}
+
 /// Handles installation and management of Native Messaging manifests for all Chromium browsers
 /// This allows the extension to communicate with the native app for cross-browser time tracking
 class NativeMessagingSetup {
@@ -61,6 +72,47 @@ class NativeMessagingSetup {
     // Auto-discovered extension IDs (separate from manually registered)
     private var autoDiscoveredIds: [String] = []
 
+    // Track which browsers have the extension installed (browser name -> extension ID)
+    private var browserExtensionMap: [String: String] = [:]
+
+    // Extension page URLs for each browser (bundle ID -> URL scheme)
+    private let browserExtensionUrls: [String: String] = [
+        // Chrome variants
+        "com.google.Chrome": "chrome://extensions/",
+        "com.google.Chrome.beta": "chrome://extensions/",
+        "com.google.Chrome.dev": "chrome://extensions/",
+        "com.google.Chrome.canary": "chrome://extensions/",
+
+        // Chromium
+        "org.chromium.Chromium": "chrome://extensions/",
+
+        // Microsoft Edge
+        "com.microsoft.edgemac": "edge://extensions/",
+        "com.microsoft.edgemac.Beta": "edge://extensions/",
+        "com.microsoft.edgemac.Dev": "edge://extensions/",
+        "com.microsoft.edgemac.Canary": "edge://extensions/",
+
+        // Brave
+        "com.brave.Browser": "brave://extensions/",
+        "com.brave.Browser.beta": "brave://extensions/",
+        "com.brave.Browser.nightly": "brave://extensions/",
+
+        // Arc (uses Chrome extensions page)
+        "company.thebrowser.Browser": "chrome://extensions/",
+
+        // Opera
+        "com.operasoftware.Opera": "opera://extensions/",
+        "com.operasoftware.OperaGX": "opera://extensions/",
+
+        // Vivaldi
+        "com.vivaldi.Vivaldi": "vivaldi://extensions/",
+
+        // Others (use Chrome URL as fallback)
+        "com.nickvision.sigmaos": "chrome://extensions/",
+        "io.nickvision.nickvision.nickvision.desktop": "chrome://extensions/",
+        "nickvision.nickvision.nickvision": "chrome://extensions/",
+    ]
+
     private init() {
         // Store registered IDs in Application Support
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -103,6 +155,49 @@ class NativeMessagingSetup {
         return installedBrowsers.map { ($0.name, $0.bundleId) }
     }
 
+    /// Get browser status with extension info for UI display
+    /// Returns list of browsers with: name, bundleId, hasExtension, extensionId (if any), extensionPageUrl
+    func getBrowserStatus() -> [BrowserExtensionStatus] {
+        return installedBrowsers.map { browser in
+            let extensionId = browserExtensionMap[browser.name]
+            let extensionUrl = browserExtensionUrls[browser.bundleId] ?? "chrome://extensions/"
+
+            return BrowserExtensionStatus(
+                name: browser.name,
+                bundleId: browser.bundleId,
+                hasExtension: extensionId != nil,
+                extensionId: extensionId,
+                extensionPageUrl: extensionUrl
+            )
+        }
+    }
+
+    /// Open the extensions page in the specified browser
+    func openExtensionsPage(bundleId: String) {
+        guard let url = browserExtensionUrls[bundleId],
+              let browserUrl = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
+            return
+        }
+
+        // Create a URL with the extensions:// scheme
+        // Note: We can't directly open chrome:// URLs, so we launch the browser
+        // and it will open to its default page. User needs to navigate to extensions manually.
+        // However, we can try using NSWorkspace to open the URL in the specific browser.
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+
+        // For internal browser URLs (chrome://, brave://, etc.), we need to launch the browser directly
+        // These URLs can't be opened via NSWorkspace.shared.open(URL)
+        NSWorkspace.shared.openApplication(at: browserUrl, configuration: configuration) { _, error in
+            if let error = error {
+                print("[NativeMessagingSetup] Failed to open browser: \(error)")
+            } else {
+                print("[NativeMessagingSetup] Opened \(bundleId) - user should navigate to \(url)")
+            }
+        }
+    }
+
     // MARK: - Public API
 
     /// Scan browsers for installed Intentional extensions and auto-register them
@@ -114,6 +209,9 @@ class NativeMessagingSetup {
 
         var discoveredIds: [String] = []
         var browsersScanned: [String] = []
+
+        // Reset browser-extension mapping
+        browserExtensionMap = [:]
 
         for browser in installedBrowsers {
             let browserDir = NSHomeDirectory() + "/Library/Application Support/" + browser.dataPath
@@ -154,6 +252,8 @@ class NativeMessagingSetup {
 
                         if isIntentionalExtension(manifestPath: manifestPath) {
                             discoveredIds.append(extensionId)
+                            // Track which browser has this extension
+                            browserExtensionMap[browser.name] = extensionId
                             print("[NativeMessagingSetup] 🔍 Auto-discovered Intentional extension: \(extensionId) in \(browser.name) (\(profile))")
                             break
                         }

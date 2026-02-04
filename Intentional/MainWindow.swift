@@ -675,8 +675,7 @@ struct ExtensionSetupSection: View {
     @Binding var newExtensionId: String
     @Binding var extensionIdError: String?
 
-    @State private var autoDiscoveredIds: [String] = []
-    @State private var installedBrowsers: [(name: String, bundleId: String)] = []
+    @State private var browserStatus: [BrowserExtensionStatus] = []
     @State private var isScanning: Bool = false
     @State private var lastScanMessage: String? = nil
     @State private var showManualEntry: Bool = false
@@ -684,7 +683,7 @@ struct ExtensionSetupSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Extension Setup")
+                Text("Browser Extensions")
                     .font(.title2)
                     .fontWeight(.bold)
 
@@ -706,107 +705,79 @@ struct ExtensionSetupSection: View {
                 .disabled(isScanning)
             }
 
-            // Show detected browsers
-            if !installedBrowsers.isEmpty {
-                HStack(spacing: 4) {
-                    Image(systemName: "globe")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                    Text("Scanning: \(installedBrowsers.map { $0.name }.joined(separator: ", "))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-
-            Text("The app automatically scans your browsers to find installed Intentional extensions. No manual setup required!")
+            Text("Install the Intentional extension in each browser you want to track. The app automatically detects installed extensions.")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            // Auto-discovered Extensions
-            let allIds = NativeMessagingSetup.shared.getAllExtensionIds()
+            if let message = lastScanMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundColor(.green)
+            }
 
-            if allIds.isEmpty {
+            // Browser list with status
+            if browserStatus.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.orange)
-                        Text("No extensions found")
+                        Image(systemName: "globe")
+                            .foregroundColor(.secondary)
+                        Text("No Chromium browsers detected")
                             .font(.headline)
-                            .foregroundColor(.orange)
+                            .foregroundColor(.secondary)
                     }
 
-                    Text("Install the Intentional extension in Chrome, Brave, Arc, or another browser, then click Scan.")
+                    Text("Install Chrome, Brave, Arc, Edge, or another Chromium-based browser.")
                         .font(.caption)
                         .foregroundColor(.secondary)
-
-                    if let message = lastScanMessage {
-                        Text(message)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .padding(.top, 4)
-                    }
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.orange.opacity(0.1))
+                .background(Color.secondary.opacity(0.1))
                 .cornerRadius(8)
             } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                        Text("Connected Extensions")
-                            .font(.headline)
-                    }
+                VStack(spacing: 0) {
+                    ForEach(browserStatus) { browser in
+                        BrowserStatusRow(browser: browser, onOpenBrowser: {
+                            NativeMessagingSetup.shared.openExtensionsPage(bundleId: browser.bundleId)
+                        })
 
-                    if let message = lastScanMessage {
-                        Text(message)
-                            .font(.caption)
-                            .foregroundColor(.green)
-                    }
-
-                    ForEach(allIds, id: \.self) { extensionId in
-                        let isAutoDiscovered = autoDiscoveredIds.contains(extensionId)
-
-                        HStack(spacing: 8) {
-                            Image(systemName: isAutoDiscovered ? "sparkle" : "puzzlepiece.extension.fill")
-                                .font(.system(size: 14))
-                                .foregroundColor(isAutoDiscovered ? .green : .blue)
-
-                            Text(extensionId)
-                                .font(.system(.caption, design: .monospaced))
-                                .textSelection(.enabled)
-
-                            if isAutoDiscovered {
-                                Text("auto")
-                                    .font(.system(size: 10))
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Color.green.opacity(0.2))
-                                    .foregroundColor(.green)
-                                    .cornerRadius(4)
-                            }
-
-                            Spacer()
-
-                            // Only show remove button for manually added ones
-                            if !isAutoDiscovered {
-                                Button(action: {
-                                    NativeMessagingSetup.shared.unregisterExtensionId(extensionId)
-                                    refreshIds()
-                                }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(.red.opacity(0.7))
-                                }
-                                .buttonStyle(.plain)
-                            }
+                        if browser.id != browserStatus.last?.id {
+                            Divider()
+                                .padding(.leading, 44)
                         }
-                        .padding(.vertical, 4)
                     }
                 }
-                .padding()
-                .background(Color.green.opacity(0.1))
+                .background(Color(NSColor.controlBackgroundColor))
                 .cornerRadius(8)
+            }
+
+            // Summary
+            let connectedCount = browserStatus.filter { $0.hasExtension }.count
+            let totalCount = browserStatus.count
+
+            if totalCount > 0 {
+                HStack(spacing: 6) {
+                    if connectedCount == totalCount {
+                        Image(systemName: "checkmark.seal.fill")
+                            .foregroundColor(.green)
+                        Text("All browsers connected")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    } else if connectedCount > 0 {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text("\(connectedCount)/\(totalCount) browsers connected - install extension in remaining browsers for complete tracking")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    } else {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.red)
+                        Text("No extensions detected - click 'Install' to open each browser")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
+                }
+                .padding(.top, 4)
             }
 
             // Manual Entry (collapsed by default)
@@ -844,14 +815,13 @@ struct ExtensionSetupSection: View {
             .cornerRadius(8)
         }
         .onAppear {
-            refreshIds()
+            refreshStatus()
         }
     }
 
-    private func refreshIds() {
-        autoDiscoveredIds = NativeMessagingSetup.shared.getAutoDiscoveredIds()
+    private func refreshStatus() {
+        browserStatus = NativeMessagingSetup.shared.getBrowserStatus()
         registeredExtensionIds = NativeMessagingSetup.shared.getRegisteredIds()
-        installedBrowsers = NativeMessagingSetup.shared.getInstalledBrowsers()
     }
 
     private func scanForExtensions() {
@@ -864,14 +834,17 @@ struct ExtensionSetupSection: View {
 
             DispatchQueue.main.async {
                 isScanning = false
-                refreshIds()
+                refreshStatus()
 
                 if found > 0 {
                     lastScanMessage = "Found \(found) new extension(s)!"
-                } else if NativeMessagingSetup.shared.getAllExtensionIds().isEmpty {
-                    lastScanMessage = "No extensions found. Make sure you've installed the Intentional extension."
                 } else {
-                    lastScanMessage = "Scan complete. No new extensions found."
+                    let connectedCount = browserStatus.filter { $0.hasExtension }.count
+                    if connectedCount > 0 {
+                        lastScanMessage = "Scan complete."
+                    } else {
+                        lastScanMessage = nil
+                    }
                 }
             }
         }
@@ -892,11 +865,89 @@ struct ExtensionSetupSection: View {
         }
 
         if NativeMessagingSetup.shared.registerExtensionId(trimmed) {
-            refreshIds()
+            refreshStatus()
             newExtensionId = ""
             extensionIdError = nil
         } else {
             extensionIdError = "Invalid extension ID format. Must be 32 lowercase letters (a-p)."
+        }
+    }
+}
+
+// Individual browser row showing status
+struct BrowserStatusRow: View {
+    let browser: BrowserExtensionStatus
+    let onOpenBrowser: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Browser icon
+            Image(systemName: browserIcon(for: browser.name))
+                .font(.system(size: 20))
+                .foregroundColor(.primary)
+                .frame(width: 32)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(browser.name)
+                    .font(.headline)
+
+                if let extensionId = browser.extensionId {
+                    Text(extensionId)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .textSelection(.enabled)
+                } else {
+                    Text("Extension not installed")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            Spacer()
+
+            if browser.hasExtension {
+                // Connected badge
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("Connected")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                }
+            } else {
+                // Install button
+                Button(action: onOpenBrowser) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.up.right.square")
+                        Text("Install")
+                    }
+                    .font(.caption)
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+    }
+
+    private func browserIcon(for name: String) -> String {
+        switch name.lowercased() {
+        case let n where n.contains("chrome"):
+            return "globe"
+        case let n where n.contains("brave"):
+            return "shield.fill"
+        case let n where n.contains("edge"):
+            return "globe.americas.fill"
+        case let n where n.contains("arc"):
+            return "rainbow"
+        case let n where n.contains("opera"):
+            return "music.note"
+        case let n where n.contains("vivaldi"):
+            return "music.quarternote.3"
+        case let n where n.contains("safari"):
+            return "safari.fill"
+        default:
+            return "globe"
         }
     }
 }

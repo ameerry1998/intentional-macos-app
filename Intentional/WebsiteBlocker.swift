@@ -980,7 +980,7 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
                     self.appDelegate?.postLog("🚫 Blocked: \(blockedURL) in \(browserName)")
 
                     // Show native notification
-                    let domain = self.getSafeDomain(from: blockedURL) ?? "site"
+                    let domain = self.getSafeDomain(from: blockedURL)
                     self.showBlockedSiteNotification(site: domain, browser: browserName)
 
                     // Log to backend
@@ -1035,7 +1035,7 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
                         self.appDelegate?.postLog("🚫 Blocked: \(blockedURL) in \(browserName)")
 
                         // Show native notification
-                        let domain = self.getSafeDomain(from: blockedURL) ?? "site"
+                        let domain = self.getSafeDomain(from: blockedURL)
                         self.showBlockedSiteNotification(site: domain, browser: browserName)
 
                         // Log to backend
