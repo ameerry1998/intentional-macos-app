@@ -111,6 +111,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             nativeMessagingHost?.timeTracker = timeTracker
             nativeMessagingHost?.start()
             postLog("🔌 Native Messaging mode - connected to extension")
+        } else {
+            // Normal GUI mode - install/update Native Messaging manifests
+            NativeMessagingSetup.shared.installManifestsIfNeeded()
+            if NativeMessagingSetup.shared.hasRegisteredExtensions() {
+                postLog("📋 Native Messaging manifests installed for \(NativeMessagingSetup.shared.getRegisteredIds().count) extension(s)")
+            } else {
+                postLog("⚠️ No extension IDs registered - add your extension ID in Settings")
+            }
         }
 
         postLog("✅ All monitors initialized")

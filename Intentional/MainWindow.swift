@@ -519,9 +519,21 @@ struct SettingsTabView: View {
     @Binding var unprotectedBrowsers: [UnprotectedBrowser]
     let openSystemPreferencesForPermission: (String) -> Void
 
+    @State private var registeredExtensionIds: [String] = []
+    @State private var newExtensionId: String = ""
+    @State private var extensionIdError: String? = nil
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                // Extension Setup Section
+                ExtensionSetupSection(
+                    registeredExtensionIds: $registeredExtensionIds,
+                    newExtensionId: $newExtensionId,
+                    extensionIdError: $extensionIdError
+                )
+
+                Divider()
                 // Permissions Section
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Permissions")
@@ -646,6 +658,169 @@ struct SettingsTabView: View {
                 Spacer()
             }
             .padding()
+        }
+        .onAppear {
+            registeredExtensionIds = NativeMessagingSetup.shared.getRegisteredIds()
+        }
+    }
+}
+
+// Extension Setup Section
+struct ExtensionSetupSection: View {
+    @Binding var registeredExtensionIds: [String]
+    @Binding var newExtensionId: String
+    @Binding var extensionIdError: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Extension Setup")
+                .font(.title2)
+                .fontWeight(.bold)
+
+            Text("Register your Chrome extension ID to enable cross-browser time tracking. The extension and native app will communicate to enforce a unified daily budget across all browsers.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            // Registered Extensions
+            if registeredExtensionIds.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                    Text("No extensions registered yet")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(8)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text("Registered Extensions")
+                            .font(.headline)
+                    }
+
+                    ForEach(registeredExtensionIds, id: \.self) { extensionId in
+                        HStack(spacing: 8) {
+                            Image(systemName: "puzzlepiece.extension.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(.blue)
+
+                            Text(extensionId)
+                                .font(.system(.body, design: .monospaced))
+                                .textSelection(.enabled)
+
+                            Spacer()
+
+                            Button(action: {
+                                NativeMessagingSetup.shared.unregisterExtensionId(extensionId)
+                                registeredExtensionIds = NativeMessagingSetup.shared.getRegisteredIds()
+                            }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.red.opacity(0.7))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+                .padding()
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(8)
+            }
+
+            // Add New Extension
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Add Extension ID")
+                    .font(.headline)
+
+                HStack {
+                    TextField("Extension ID (32 characters)", text: $newExtensionId)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+
+                    Button("Add") {
+                        addExtension()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(newExtensionId.isEmpty)
+                }
+
+                if let error = extensionIdError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+
+                // Instructions
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("How to find your extension ID:")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+
+                    HStack(alignment: .top, spacing: 4) {
+                        Text("1.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("Open Chrome and go to")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("chrome://extensions")
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundColor(.blue)
+                            .textSelection(.enabled)
+                    }
+
+                    HStack(alignment: .top, spacing: 4) {
+                        Text("2.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("Enable \"Developer mode\" (toggle in top right)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    HStack(alignment: .top, spacing: 4) {
+                        Text("3.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("Find \"Intentional\" and copy the ID below the name")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding()
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(8)
+            }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+            .cornerRadius(8)
+        }
+    }
+
+    private func addExtension() {
+        let trimmed = newExtensionId.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        if trimmed.isEmpty {
+            extensionIdError = "Please enter an extension ID"
+            return
+        }
+
+        if registeredExtensionIds.contains(trimmed) {
+            extensionIdError = "This extension is already registered"
+            return
+        }
+
+        if NativeMessagingSetup.shared.registerExtensionId(trimmed) {
+            registeredExtensionIds = NativeMessagingSetup.shared.getRegisteredIds()
+            newExtensionId = ""
+            extensionIdError = nil
+        } else {
+            extensionIdError = "Invalid extension ID format. Must be 32 lowercase letters (a-p)."
         }
     }
 }
