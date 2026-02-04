@@ -24,6 +24,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var backendClient: BackendClient?
     var permissionManager: PermissionManager?
 
+    // Cross-browser time tracking (Phase 3)
+    var nativeMessagingHost: NativeMessagingHost?
+    var timeTracker: TimeTracker?
+
+    // Native app heartbeat timer (Phase 2: Tamper Detection)
+    var heartbeatTimer: Timer?
+    private let heartbeatInterval: TimeInterval = 120.0  // 2 minutes
+    private let appStartTime = Date()
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Multiple logging methods to ensure we see SOMETHING
         print("=== applicationDidFinishLaunching CALLED ===")
@@ -85,16 +94,101 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Notify UI
         postEventNotification(type: "app_started")
 
+        // Start native app heartbeat (Phase 2: Tamper Detection)
+        // Backend uses this to detect if native app is quit while computer is awake
+        startHeartbeat()
+
+        // Initialize cross-browser time tracking (Phase 3)
+        // TimeTracker aggregates time from ALL browsers into single budget
+        timeTracker = TimeTracker(appDelegate: self)
+        timeTracker?.backendClient = backendClient
+        postLog("⏱️ TimeTracker initialized")
+
+        // Native Messaging host for extension communication
+        // Note: Only starts if launched via Native Messaging (stdin available)
+        if isLaunchedViaNativeMessaging() {
+            nativeMessagingHost = NativeMessagingHost(appDelegate: self)
+            nativeMessagingHost?.timeTracker = timeTracker
+            nativeMessagingHost?.start()
+            postLog("🔌 Native Messaging mode - connected to extension")
+        }
+
         postLog("✅ All monitors initialized")
+    }
+
+    // MARK: - Native App Heartbeat (Tamper Detection)
+
+    private func startHeartbeat() {
+        // Send first heartbeat immediately
+        sendHeartbeat()
+
+        // Schedule recurring heartbeats every 2 minutes
+        heartbeatTimer = Timer.scheduledTimer(withTimeInterval: heartbeatInterval, repeats: true) { [weak self] _ in
+            self?.sendHeartbeat()
+        }
+        postLog("💓 Heartbeat timer started (every \(Int(heartbeatInterval))s)")
+    }
+
+    private func stopHeartbeat() {
+        heartbeatTimer?.invalidate()
+        heartbeatTimer = nil
+        postLog("💔 Heartbeat timer stopped")
+    }
+
+    private func sendHeartbeat() {
+        let uptime = Date().timeIntervalSince(appStartTime)
+
+        // Collect running browsers for additional context
+        var runningBrowsers: [String] = []
+        if let browsers = browserMonitor?.getAllBrowsers() {
+            let runningApps = NSWorkspace.shared.runningApplications
+            for (bundleId, info) in browsers {
+                if runningApps.contains(where: { $0.bundleIdentifier == bundleId }) {
+                    runningBrowsers.append(info.name)
+                }
+            }
+        }
+
+        Task {
+            await backendClient?.sendEvent(type: "native_app_heartbeat", details: [
+                "version": "1.0",
+                "uptime_seconds": Int(uptime),
+                "running_browsers": runningBrowsers,
+                "browser_count": runningBrowsers.count
+            ])
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         postLog("⚠️ App terminating")
 
-        // Send shutdown event before quitting
+        // Stop heartbeat timer
+        stopHeartbeat()
+
+        // Stop Native Messaging host
+        nativeMessagingHost?.stop()
+
+        // Force sync time tracking data
+        timeTracker?.forceSync()
+
+        // Send shutdown event before quitting (synchronously to ensure it's sent)
+        let semaphore = DispatchSemaphore(value: 0)
         Task {
-            await backendClient?.sendEvent(type: "app_quit", details: [:])
+            await backendClient?.sendEvent(type: "app_quit", details: [
+                "uptime_seconds": Int(Date().timeIntervalSince(appStartTime)),
+                "quit_type": "normal"  // Distinguishes from crash/force-quit
+            ])
+            semaphore.signal()
         }
+        // Wait up to 2 seconds for the event to send
+        _ = semaphore.wait(timeout: .now() + 2.0)
+    }
+
+    /// Check if app was launched via Native Messaging (stdin is a pipe, not a terminal)
+    private func isLaunchedViaNativeMessaging() -> Bool {
+        // When launched by Chrome via Native Messaging, stdin is a pipe
+        // When launched normally, stdin is /dev/ttys00X or similar
+        return isatty(STDIN_FILENO) == 0
     }
 
     // MARK: - Menu Bar Setup

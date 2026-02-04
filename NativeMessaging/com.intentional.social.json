@@ -1,0 +1,9 @@
+{
+  "name": "com.intentional.social",
+  "description": "Intentional - Cross-browser time tracking and accountability",
+  "path": "/Applications/Intentional.app/Contents/MacOS/Intentional",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://YOUR_EXTENSION_ID_HERE/"
+  ]
+}
