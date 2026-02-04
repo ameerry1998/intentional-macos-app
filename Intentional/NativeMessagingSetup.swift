@@ -1,4 +1,5 @@
 import Foundation
+import Cocoa
 
 /// Handles installation and management of Native Messaging manifests for all Chromium browsers
 /// This allows the extension to communicate with the native app for cross-browser time tracking
@@ -15,29 +16,47 @@ class NativeMessagingSetup {
     // Known extension IDs (add production ID here when published)
     private var registeredExtensionIds: [String] = []
 
-    // Browser manifest directories (for installing Native Messaging manifests)
-    private let browserPaths: [(name: String, path: String)] = [
-        ("Google Chrome", "Google/Chrome/NativeMessagingHosts"),
-        ("Google Chrome Canary", "Google/Chrome Canary/NativeMessagingHosts"),
-        ("Chromium", "Chromium/NativeMessagingHosts"),
-        ("Brave", "BraveSoftware/Brave-Browser/NativeMessagingHosts"),
-        ("Microsoft Edge", "Microsoft Edge/NativeMessagingHosts"),
-        ("Arc", "Arc/User Data/NativeMessagingHosts"),
-        ("Vivaldi", "Vivaldi/NativeMessagingHosts"),
-        ("Opera", "com.operasoftware.Opera/NativeMessagingHosts")
+    // Map bundle ID → Application Support data directory (relative to ~/Library/Application Support/)
+    // This is the canonical mapping - used for both extensions and Native Messaging manifests
+    private let browserDataPaths: [String: (name: String, dataPath: String)] = [
+        // Chrome variants
+        "com.google.Chrome": ("Google Chrome", "Google/Chrome"),
+        "com.google.Chrome.beta": ("Chrome Beta", "Google/Chrome Beta"),
+        "com.google.Chrome.dev": ("Chrome Dev", "Google/Chrome Dev"),
+        "com.google.Chrome.canary": ("Chrome Canary", "Google/Chrome Canary"),
+
+        // Chromium
+        "org.chromium.Chromium": ("Chromium", "Chromium"),
+
+        // Microsoft Edge variants
+        "com.microsoft.edgemac": ("Microsoft Edge", "Microsoft Edge"),
+        "com.microsoft.edgemac.Beta": ("Edge Beta", "Microsoft Edge Beta"),
+        "com.microsoft.edgemac.Dev": ("Edge Dev", "Microsoft Edge Dev"),
+        "com.microsoft.edgemac.Canary": ("Edge Canary", "Microsoft Edge Canary"),
+
+        // Brave variants
+        "com.brave.Browser": ("Brave", "BraveSoftware/Brave-Browser"),
+        "com.brave.Browser.beta": ("Brave Beta", "BraveSoftware/Brave-Browser-Beta"),
+        "com.brave.Browser.nightly": ("Brave Nightly", "BraveSoftware/Brave-Browser-Nightly"),
+
+        // Arc
+        "company.thebrowser.Browser": ("Arc", "Arc/User Data"),
+
+        // Opera variants
+        "com.operasoftware.Opera": ("Opera", "com.operasoftware.Opera"),
+        "com.operasoftware.OperaGX": ("Opera GX", "com.operasoftware.OperaGX"),
+
+        // Vivaldi
+        "com.vivaldi.Vivaldi": ("Vivaldi", "Vivaldi"),
+
+        // Other Chromium-based
+        "com.nickvision.sigmaos": ("SigmaOS", "SigmaOS"),
+        "io.nickvision.nickvision.nickvision.desktop": ("Wavebox", "WaveboxApp"),
+        "nickvision.nickvision.nickvision": ("Sidekick", "Sidekick"),
     ]
 
-    // Browser extension directories (for auto-discovering installed Intentional extensions)
-    private let browserExtensionPaths: [(name: String, basePath: String)] = [
-        ("Google Chrome", "Google/Chrome"),
-        ("Google Chrome Canary", "Google/Chrome Canary"),
-        ("Chromium", "Chromium"),
-        ("Brave", "BraveSoftware/Brave-Browser"),
-        ("Microsoft Edge", "Microsoft Edge"),
-        ("Arc", "Arc/User Data"),
-        ("Vivaldi", "Vivaldi"),
-        ("Opera", "com.operasoftware.Opera")
-    ]
+    // Cache of discovered installed browsers
+    private var installedBrowsers: [(bundleId: String, name: String, dataPath: String)] = []
 
     // Auto-discovered extension IDs (separate from manually registered)
     private var autoDiscoveredIds: [String] = []
@@ -50,6 +69,38 @@ class NativeMessagingSetup {
         registeredIdsFile = intentionalDir.appendingPathComponent("registered_extension_ids.json")
 
         loadRegisteredIds()
+        discoverInstalledBrowsers()
+    }
+
+    // MARK: - Browser Discovery
+
+    /// Discover which Chromium-based browsers are installed on this system
+    private func discoverInstalledBrowsers() {
+        installedBrowsers = []
+
+        for (bundleId, info) in browserDataPaths {
+            // Check if the browser is installed using NSWorkspace
+            if let _ = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
+                // Also verify the data directory exists
+                let dataPath = NSHomeDirectory() + "/Library/Application Support/" + info.dataPath
+                if FileManager.default.fileExists(atPath: dataPath) {
+                    installedBrowsers.append((bundleId: bundleId, name: info.name, dataPath: info.dataPath))
+                    print("[NativeMessagingSetup] ✅ Found installed browser: \(info.name)")
+                }
+            }
+        }
+
+        print("[NativeMessagingSetup] 📊 Discovered \(installedBrowsers.count) Chromium-based browsers")
+    }
+
+    /// Re-scan for installed browsers (call if user installs new browser)
+    func refreshInstalledBrowsers() {
+        discoverInstalledBrowsers()
+    }
+
+    /// Get list of installed browsers
+    func getInstalledBrowsers() -> [(name: String, bundleId: String)] {
+        return installedBrowsers.map { ($0.name, $0.bundleId) }
     }
 
     // MARK: - Public API
@@ -58,10 +109,14 @@ class NativeMessagingSetup {
     /// Returns the number of newly discovered extensions
     @discardableResult
     func autoDiscoverExtensions() -> Int {
-        var discoveredIds: [String] = []
+        // Refresh browser list in case new browsers were installed
+        discoverInstalledBrowsers()
 
-        for (browserName, basePath) in browserExtensionPaths {
-            let browserDir = NSHomeDirectory() + "/Library/Application Support/" + basePath
+        var discoveredIds: [String] = []
+        var browsersScanned: [String] = []
+
+        for browser in installedBrowsers {
+            let browserDir = NSHomeDirectory() + "/Library/Application Support/" + browser.dataPath
 
             // Look in Default profile and any numbered profiles (Profile 1, Profile 2, etc.)
             let profileDirs = ["Default"] + (1...10).map { "Profile \($0)" }
@@ -70,6 +125,11 @@ class NativeMessagingSetup {
                 let extensionsDir = browserDir + "/" + profile + "/Extensions"
 
                 guard FileManager.default.fileExists(atPath: extensionsDir) else { continue }
+
+                // Track that we scanned this browser
+                if !browsersScanned.contains(browser.name) {
+                    browsersScanned.append(browser.name)
+                }
 
                 // Each subfolder in Extensions/ is an extension ID
                 guard let extensionFolders = try? FileManager.default.contentsOfDirectory(atPath: extensionsDir) else { continue }
@@ -94,13 +154,15 @@ class NativeMessagingSetup {
 
                         if isIntentionalExtension(manifestPath: manifestPath) {
                             discoveredIds.append(extensionId)
-                            print("[NativeMessagingSetup] 🔍 Auto-discovered Intentional extension: \(extensionId) in \(browserName) (\(profile))")
+                            print("[NativeMessagingSetup] 🔍 Auto-discovered Intentional extension: \(extensionId) in \(browser.name) (\(profile))")
                             break
                         }
                     }
                 }
             }
         }
+
+        print("[NativeMessagingSetup] 📋 Scanned \(browsersScanned.count) browsers: \(browsersScanned.joined(separator: ", "))")
 
         // Update auto-discovered list
         let newlyDiscovered = discoveredIds.filter { !autoDiscoveredIds.contains($0) }
@@ -143,16 +205,16 @@ class NativeMessagingSetup {
         }
 
         let appPath = Bundle.main.executablePath ?? "/Applications/Intentional.app/Contents/MacOS/Intentional"
+        var installedCount = 0
 
-        for (browserName, relativePath) in browserPaths {
-            let fullPath = NSHomeDirectory() + "/Library/Application Support/" + relativePath
-
-            // Only install if browser directory exists (browser is installed)
-            let browserBaseDir = (fullPath as NSString).deletingLastPathComponent
-            if FileManager.default.fileExists(atPath: browserBaseDir) {
-                installManifest(for: browserName, at: fullPath, appPath: appPath)
-            }
+        for browser in installedBrowsers {
+            // Native Messaging manifests go in <dataPath>/NativeMessagingHosts/
+            let manifestDir = NSHomeDirectory() + "/Library/Application Support/" + browser.dataPath + "/NativeMessagingHosts"
+            installManifest(for: browser.name, at: manifestDir, appPath: appPath)
+            installedCount += 1
         }
+
+        print("[NativeMessagingSetup] 📦 Installed manifests for \(installedCount) browsers")
     }
 
     /// Get all extension IDs (both auto-discovered and manually registered)
@@ -265,15 +327,16 @@ class NativeMessagingSetup {
 
     /// Remove all installed manifests (for uninstall)
     func removeAllManifests() {
-        for (browserName, relativePath) in browserPaths {
-            let manifestPath = NSHomeDirectory() + "/Library/Application Support/" + relativePath + "/" + manifestName
+        // Remove from all known browser data paths (even if browser was uninstalled)
+        for (_, info) in browserDataPaths {
+            let manifestPath = NSHomeDirectory() + "/Library/Application Support/" + info.dataPath + "/NativeMessagingHosts/" + manifestName
 
             if FileManager.default.fileExists(atPath: manifestPath) {
                 do {
                     try FileManager.default.removeItem(atPath: manifestPath)
-                    print("[NativeMessagingSetup] Removed manifest for \(browserName)")
+                    print("[NativeMessagingSetup] Removed manifest for \(info.name)")
                 } catch {
-                    print("[NativeMessagingSetup] Failed to remove manifest for \(browserName): \(error)")
+                    print("[NativeMessagingSetup] Failed to remove manifest for \(info.name): \(error)")
                 }
             }
         }

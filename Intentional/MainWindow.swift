@@ -676,6 +676,7 @@ struct ExtensionSetupSection: View {
     @Binding var extensionIdError: String?
 
     @State private var autoDiscoveredIds: [String] = []
+    @State private var installedBrowsers: [(name: String, bundleId: String)] = []
     @State private var isScanning: Bool = false
     @State private var lastScanMessage: String? = nil
     @State private var showManualEntry: Bool = false
@@ -703,6 +704,18 @@ struct ExtensionSetupSection: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(isScanning)
+            }
+
+            // Show detected browsers
+            if !installedBrowsers.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "globe")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                    Text("Scanning: \(installedBrowsers.map { $0.name }.joined(separator: ", "))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
 
             Text("The app automatically scans your browsers to find installed Intentional extensions. No manual setup required!")
@@ -838,6 +851,7 @@ struct ExtensionSetupSection: View {
     private func refreshIds() {
         autoDiscoveredIds = NativeMessagingSetup.shared.getAutoDiscoveredIds()
         registeredExtensionIds = NativeMessagingSetup.shared.getRegisteredIds()
+        installedBrowsers = NativeMessagingSetup.shared.getInstalledBrowsers()
     }
 
     private func scanForExtensions() {
