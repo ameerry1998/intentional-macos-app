@@ -660,8 +660,12 @@ struct SettingsTabView: View {
             .padding()
         }
         .onAppear {
-            registeredExtensionIds = NativeMessagingSetup.shared.getRegisteredIds()
+            refreshExtensionIds()
         }
+    }
+
+    private func refreshExtensionIds() {
+        registeredExtensionIds = NativeMessagingSetup.shared.getRegisteredIds()
     }
 }
 
@@ -671,24 +675,63 @@ struct ExtensionSetupSection: View {
     @Binding var newExtensionId: String
     @Binding var extensionIdError: String?
 
+    @State private var autoDiscoveredIds: [String] = []
+    @State private var isScanning: Bool = false
+    @State private var lastScanMessage: String? = nil
+    @State private var showManualEntry: Bool = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Extension Setup")
-                .font(.title2)
-                .fontWeight(.bold)
+            HStack {
+                Text("Extension Setup")
+                    .font(.title2)
+                    .fontWeight(.bold)
 
-            Text("Register your Chrome extension ID to enable cross-browser time tracking. The extension and native app will communicate to enforce a unified daily budget across all browsers.")
+                Spacer()
+
+                Button(action: scanForExtensions) {
+                    HStack(spacing: 4) {
+                        if isScanning {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                                .frame(width: 14, height: 14)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        Text(isScanning ? "Scanning..." : "Scan")
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isScanning)
+            }
+
+            Text("The app automatically scans your browsers to find installed Intentional extensions. No manual setup required!")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            // Registered Extensions
-            if registeredExtensionIds.isEmpty {
-                HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.orange)
-                    Text("No extensions registered yet")
-                        .font(.body)
+            // Auto-discovered Extensions
+            let allIds = NativeMessagingSetup.shared.getAllExtensionIds()
+
+            if allIds.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.orange)
+                        Text("No extensions found")
+                            .font(.headline)
+                            .foregroundColor(.orange)
+                    }
+
+                    Text("Install the Intentional extension in Chrome, Brave, Arc, or another browser, then click Scan.")
+                        .font(.caption)
                         .foregroundColor(.secondary)
+
+                    if let message = lastScanMessage {
+                        Text(message)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 4)
+                    }
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -699,30 +742,51 @@ struct ExtensionSetupSection: View {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundColor(.green)
-                        Text("Registered Extensions")
+                        Text("Connected Extensions")
                             .font(.headline)
                     }
 
-                    ForEach(registeredExtensionIds, id: \.self) { extensionId in
+                    if let message = lastScanMessage {
+                        Text(message)
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    }
+
+                    ForEach(allIds, id: \.self) { extensionId in
+                        let isAutoDiscovered = autoDiscoveredIds.contains(extensionId)
+
                         HStack(spacing: 8) {
-                            Image(systemName: "puzzlepiece.extension.fill")
+                            Image(systemName: isAutoDiscovered ? "sparkle" : "puzzlepiece.extension.fill")
                                 .font(.system(size: 14))
-                                .foregroundColor(.blue)
+                                .foregroundColor(isAutoDiscovered ? .green : .blue)
 
                             Text(extensionId)
-                                .font(.system(.body, design: .monospaced))
+                                .font(.system(.caption, design: .monospaced))
                                 .textSelection(.enabled)
+
+                            if isAutoDiscovered {
+                                Text("auto")
+                                    .font(.system(size: 10))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.green.opacity(0.2))
+                                    .foregroundColor(.green)
+                                    .cornerRadius(4)
+                            }
 
                             Spacer()
 
-                            Button(action: {
-                                NativeMessagingSetup.shared.unregisterExtensionId(extensionId)
-                                registeredExtensionIds = NativeMessagingSetup.shared.getRegisteredIds()
-                            }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.red.opacity(0.7))
+                            // Only show remove button for manually added ones
+                            if !isAutoDiscovered {
+                                Button(action: {
+                                    NativeMessagingSetup.shared.unregisterExtensionId(extensionId)
+                                    refreshIds()
+                                }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.red.opacity(0.7))
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                         .padding(.vertical, 4)
                     }
@@ -732,73 +796,70 @@ struct ExtensionSetupSection: View {
                 .cornerRadius(8)
             }
 
-            // Add New Extension
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Add Extension ID")
-                    .font(.headline)
-
-                HStack {
-                    TextField("Extension ID (32 characters)", text: $newExtensionId)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(.body, design: .monospaced))
-
-                    Button("Add") {
-                        addExtension()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(newExtensionId.isEmpty)
-                }
-
-                if let error = extensionIdError {
-                    Text(error)
+            // Manual Entry (collapsed by default)
+            DisclosureGroup("Manual Entry", isExpanded: $showManualEntry) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("If auto-discovery doesn't find your extension, you can add it manually.")
                         .font(.caption)
-                        .foregroundColor(.red)
-                }
+                        .foregroundColor(.secondary)
 
-                // Instructions
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("How to find your extension ID:")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-
-                    HStack(alignment: .top, spacing: 4) {
-                        Text("1.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("Open Chrome and go to")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("chrome://extensions")
+                    HStack {
+                        TextField("Extension ID (32 characters)", text: $newExtensionId)
+                            .textFieldStyle(.roundedBorder)
                             .font(.system(.caption, design: .monospaced))
-                            .foregroundColor(.blue)
-                            .textSelection(.enabled)
+
+                        Button("Add") {
+                            addExtension()
+                        }
+                        .disabled(newExtensionId.isEmpty)
                     }
 
-                    HStack(alignment: .top, spacing: 4) {
-                        Text("2.")
+                    if let error = extensionIdError {
+                        Text(error)
                             .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("Enable \"Developer mode\" (toggle in top right)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.red)
                     }
 
-                    HStack(alignment: .top, spacing: 4) {
-                        Text("3.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("Find \"Intentional\" and copy the ID below the name")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                    Text("Find your extension ID at chrome://extensions with Developer mode enabled.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
-                .padding()
-                .background(Color(NSColor.controlBackgroundColor))
-                .cornerRadius(8)
+                .padding(.top, 8)
             }
             .padding()
             .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
             .cornerRadius(8)
+        }
+        .onAppear {
+            refreshIds()
+        }
+    }
+
+    private func refreshIds() {
+        autoDiscoveredIds = NativeMessagingSetup.shared.getAutoDiscoveredIds()
+        registeredExtensionIds = NativeMessagingSetup.shared.getRegisteredIds()
+    }
+
+    private func scanForExtensions() {
+        isScanning = true
+        lastScanMessage = nil
+
+        // Run scan in background
+        DispatchQueue.global(qos: .userInitiated).async {
+            let found = NativeMessagingSetup.shared.autoDiscoverExtensions()
+
+            DispatchQueue.main.async {
+                isScanning = false
+                refreshIds()
+
+                if found > 0 {
+                    lastScanMessage = "Found \(found) new extension(s)!"
+                } else if NativeMessagingSetup.shared.getAllExtensionIds().isEmpty {
+                    lastScanMessage = "No extensions found. Make sure you've installed the Intentional extension."
+                } else {
+                    lastScanMessage = "Scan complete. No new extensions found."
+                }
+            }
         }
     }
 
@@ -810,13 +871,14 @@ struct ExtensionSetupSection: View {
             return
         }
 
-        if registeredExtensionIds.contains(trimmed) {
+        let allIds = NativeMessagingSetup.shared.getAllExtensionIds()
+        if allIds.contains(trimmed) {
             extensionIdError = "This extension is already registered"
             return
         }
 
         if NativeMessagingSetup.shared.registerExtensionId(trimmed) {
-            registeredExtensionIds = NativeMessagingSetup.shared.getRegisteredIds()
+            refreshIds()
             newExtensionId = ""
             extensionIdError = nil
         } else {

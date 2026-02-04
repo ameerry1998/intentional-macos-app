@@ -15,7 +15,7 @@ class NativeMessagingSetup {
     // Known extension IDs (add production ID here when published)
     private var registeredExtensionIds: [String] = []
 
-    // Browser manifest directories
+    // Browser manifest directories (for installing Native Messaging manifests)
     private let browserPaths: [(name: String, path: String)] = [
         ("Google Chrome", "Google/Chrome/NativeMessagingHosts"),
         ("Google Chrome Canary", "Google/Chrome Canary/NativeMessagingHosts"),
@@ -26,6 +26,21 @@ class NativeMessagingSetup {
         ("Vivaldi", "Vivaldi/NativeMessagingHosts"),
         ("Opera", "com.operasoftware.Opera/NativeMessagingHosts")
     ]
+
+    // Browser extension directories (for auto-discovering installed Intentional extensions)
+    private let browserExtensionPaths: [(name: String, basePath: String)] = [
+        ("Google Chrome", "Google/Chrome"),
+        ("Google Chrome Canary", "Google/Chrome Canary"),
+        ("Chromium", "Chromium"),
+        ("Brave", "BraveSoftware/Brave-Browser"),
+        ("Microsoft Edge", "Microsoft Edge"),
+        ("Arc", "Arc/User Data"),
+        ("Vivaldi", "Vivaldi"),
+        ("Opera", "com.operasoftware.Opera")
+    ]
+
+    // Auto-discovered extension IDs (separate from manually registered)
+    private var autoDiscoveredIds: [String] = []
 
     private init() {
         // Store registered IDs in Application Support
@@ -39,10 +54,90 @@ class NativeMessagingSetup {
 
     // MARK: - Public API
 
+    /// Scan browsers for installed Intentional extensions and auto-register them
+    /// Returns the number of newly discovered extensions
+    @discardableResult
+    func autoDiscoverExtensions() -> Int {
+        var discoveredIds: [String] = []
+
+        for (browserName, basePath) in browserExtensionPaths {
+            let browserDir = NSHomeDirectory() + "/Library/Application Support/" + basePath
+
+            // Look in Default profile and any numbered profiles (Profile 1, Profile 2, etc.)
+            let profileDirs = ["Default"] + (1...10).map { "Profile \($0)" }
+
+            for profile in profileDirs {
+                let extensionsDir = browserDir + "/" + profile + "/Extensions"
+
+                guard FileManager.default.fileExists(atPath: extensionsDir) else { continue }
+
+                // Each subfolder in Extensions/ is an extension ID
+                guard let extensionFolders = try? FileManager.default.contentsOfDirectory(atPath: extensionsDir) else { continue }
+
+                for extensionId in extensionFolders {
+                    // Skip if already discovered or registered
+                    if discoveredIds.contains(extensionId) || registeredExtensionIds.contains(extensionId) {
+                        continue
+                    }
+
+                    // Validate extension ID format (32 lowercase letters a-p)
+                    let pattern = "^[a-p]{32}$"
+                    guard extensionId.range(of: pattern, options: .regularExpression) != nil else { continue }
+
+                    let extensionPath = extensionsDir + "/" + extensionId
+
+                    // Look for version subfolders
+                    guard let versionFolders = try? FileManager.default.contentsOfDirectory(atPath: extensionPath) else { continue }
+
+                    for version in versionFolders {
+                        let manifestPath = extensionPath + "/" + version + "/manifest.json"
+
+                        if isIntentionalExtension(manifestPath: manifestPath) {
+                            discoveredIds.append(extensionId)
+                            print("[NativeMessagingSetup] 🔍 Auto-discovered Intentional extension: \(extensionId) in \(browserName) (\(profile))")
+                            break
+                        }
+                    }
+                }
+            }
+        }
+
+        // Update auto-discovered list
+        let newlyDiscovered = discoveredIds.filter { !autoDiscoveredIds.contains($0) }
+        autoDiscoveredIds = discoveredIds
+
+        if !newlyDiscovered.isEmpty {
+            print("[NativeMessagingSetup] ✅ Found \(newlyDiscovered.count) new Intentional extension(s)")
+            installManifestsIfNeeded()
+        }
+
+        return newlyDiscovered.count
+    }
+
+    /// Check if a manifest.json belongs to the Intentional extension
+    private func isIntentionalExtension(manifestPath: String) -> Bool {
+        guard FileManager.default.fileExists(atPath: manifestPath) else { return false }
+
+        do {
+            let data = try Data(contentsOf: URL(fileURLWithPath: manifestPath))
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let name = json["name"] as? String {
+                // Check for our extension name
+                return name == "Intentional"
+            }
+        } catch {
+            // Ignore parse errors
+        }
+
+        return false
+    }
+
     /// Install manifests for all detected browsers
     /// Call this on app startup
     func installManifestsIfNeeded() {
-        guard !registeredExtensionIds.isEmpty else {
+        let allIds = getAllExtensionIds()
+
+        guard !allIds.isEmpty else {
             print("[NativeMessagingSetup] No extension IDs registered yet")
             return
         }
@@ -58,6 +153,16 @@ class NativeMessagingSetup {
                 installManifest(for: browserName, at: fullPath, appPath: appPath)
             }
         }
+    }
+
+    /// Get all extension IDs (both auto-discovered and manually registered)
+    func getAllExtensionIds() -> [String] {
+        return Array(Set(autoDiscoveredIds + registeredExtensionIds))
+    }
+
+    /// Get only auto-discovered extension IDs
+    func getAutoDiscoveredIds() -> [String] {
+        return autoDiscoveredIds
     }
 
     /// Register a new extension ID and reinstall manifests
@@ -87,14 +192,14 @@ class NativeMessagingSetup {
         installManifestsIfNeeded()
     }
 
-    /// Get all registered extension IDs
+    /// Get manually registered extension IDs (not auto-discovered)
     func getRegisteredIds() -> [String] {
         return registeredExtensionIds
     }
 
-    /// Check if any extension IDs are registered
+    /// Check if any extension IDs are available (auto-discovered or manually registered)
     func hasRegisteredExtensions() -> Bool {
-        return !registeredExtensionIds.isEmpty
+        return !getAllExtensionIds().isEmpty
     }
 
     // MARK: - Private
@@ -134,8 +239,8 @@ class NativeMessagingSetup {
             return
         }
 
-        // Build allowed_origins list
-        let allowedOrigins = registeredExtensionIds.map { "chrome-extension://\($0)/" }
+        // Build allowed_origins list from ALL extension IDs (auto-discovered + manually registered)
+        let allowedOrigins = getAllExtensionIds().map { "chrome-extension://\($0)/" }
 
         // Create manifest
         let manifest: [String: Any] = [

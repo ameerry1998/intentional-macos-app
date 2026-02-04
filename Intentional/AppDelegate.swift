@@ -112,12 +112,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             nativeMessagingHost?.start()
             postLog("🔌 Native Messaging mode - connected to extension")
         } else {
-            // Normal GUI mode - install/update Native Messaging manifests
+            // Normal GUI mode - auto-discover extensions and install manifests
+            let discovered = NativeMessagingSetup.shared.autoDiscoverExtensions()
+            if discovered > 0 {
+                postLog("🔍 Auto-discovered \(discovered) Intentional extension(s)")
+            }
+
             NativeMessagingSetup.shared.installManifestsIfNeeded()
-            if NativeMessagingSetup.shared.hasRegisteredExtensions() {
-                postLog("📋 Native Messaging manifests installed for \(NativeMessagingSetup.shared.getRegisteredIds().count) extension(s)")
+
+            let totalIds = NativeMessagingSetup.shared.getAllExtensionIds()
+            if !totalIds.isEmpty {
+                postLog("📋 Native Messaging manifests installed for \(totalIds.count) extension(s)")
             } else {
-                postLog("⚠️ No extension IDs registered - add your extension ID in Settings")
+                postLog("⚠️ No extensions found - install the Intentional extension in Chrome")
             }
         }
 
