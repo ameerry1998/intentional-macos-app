@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Site Blocked - Intentional</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* Full-screen nature video background */
+        .video-background {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            transform: translate(-50%, -50%);
+            object-fit: cover;
+            z-index: -2;
+        }
+
+        /* Black vignette overlay - MUCH darker for focus */
+        .vignette {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(
+                ellipse at center,
+                transparent 0%,
+                transparent 20%,
+                rgba(0, 0, 0, 0.5) 40%,
+                rgba(0, 0, 0, 0.85) 70%,
+                rgba(0, 0, 0, 0.95) 100%
+            );
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* Main content container */
+        .content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 40px;
+            text-align: center;
+        }
+
+        /* Blocked domain badge - smaller and less prominent */
+        .blocked-domain {
+            position: absolute;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            padding: 8px 18px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.85);
+            text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+            font-weight: 500;
+            opacity: 0.7;
+        }
+
+        /* Breathing circle container */
+        .breathing-container {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 60px;
+        }
+
+        .breathing-circle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.1));
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            box-shadow:
+                0 0 30px rgba(255, 255, 255, 0.3),
+                inset 0 0 30px rgba(255, 255, 255, 0.2);
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 0.6;
+            transition: transform 0.1s linear, opacity 0.1s linear;
+        }
+
+        /* Breathing text - single element controlled by JS */
+        .breathing-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 18px;
+            color: #ffffff;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-shadow:
+                0 2px 8px rgba(0, 0, 0, 0.9),
+                0 4px 20px rgba(0, 0, 0, 0.7);
+            white-space: nowrap;
+            transition: opacity 0.3s ease;
+        }
+
+        /* Explanation text */
+        .explanation {
+            font-size: 22px;
+            color: #ffffff;
+            margin-bottom: 24px;
+            text-shadow:
+                0 2px 8px rgba(0, 0, 0, 0.95),
+                0 4px 24px rgba(0, 0, 0, 0.8);
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            max-width: 500px;
+        }
+
+        /* Protected browsers list */
+        .protected-browsers {
+            display: flex;
+            gap: 28px;
+            justify-content: center;
+            flex-wrap: wrap;
+            font-size: 19px;
+            color: #ffffff;
+            font-weight: 500;
+            text-shadow:
+                0 2px 8px rgba(0, 0, 0, 0.9),
+                0 4px 20px rgba(0, 0, 0, 0.7);
+        }
+
+        .browser-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .browser-checkmark {
+            color: #4ade80;
+            font-size: 22px;
+            filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7));
+        }
+
+        /* Progress indicator for breathing cycles */
+        .progress-indicator {
+            position: fixed;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            z-index: 10;
+        }
+
+        .progress-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            transition: all 0.5s ease;
+        }
+
+        .progress-dot.active {
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
+            transform: scale(1.2);
+        }
+
+        /* Fade in animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .breathing-container { animation: fadeIn 0.6s ease-out 0.2s both; }
+        .explanation { animation: fadeIn 0.6s ease-out 0.4s both; }
+        .protected-browsers { animation: fadeIn 0.6s ease-out 0.6s both; }
+        .progress-indicator { animation: fadeIn 0.6s ease-out 0.8s both; }
+    </style>
+</head>
+<body>
+    <!-- Nature video background (randomly selected) -->
+    <video class="video-background" autoplay muted loop playsinline id="bgVideo"></video>
+
+    <!-- Vignette overlay -->
+    <div class="vignette"></div>
+
+    <!-- Blocked domain badge - small and subtle -->
+    <div class="blocked-domain" id="blockedDomain">
+        Loading...
+    </div>
+
+    <!-- Main content -->
+    <div class="content">
+        <!-- Breathing circle -->
+        <div class="breathing-container">
+            <div class="breathing-circle" id="breathingCircle"></div>
+            <div class="breathing-text" id="breathingText">Breathe In</div>
+        </div>
+
+        <!-- Explanation -->
+        <div class="explanation" id="explanation">
+            Loading...
+        </div>
+
+        <!-- Protected browsers -->
+        <div class="protected-browsers" id="protectedBrowsers">
+            <!-- Populated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Progress indicator - shows breathing cycle progress -->
+    <div class="progress-indicator" id="progressIndicator">
+        <div class="progress-dot" id="dot1"></div>
+        <div class="progress-dot" id="dot2"></div>
+        <div class="progress-dot" id="dot3"></div>
+    </div>
+
+    <script>
+        // ========== DEBUG LOGGING ==========
+        const DEBUG = true;
+        const pageLoadTime = Date.now();
+        const pageId = Math.random().toString(36).substring(2, 8); // Unique ID per page load
+        let initCount = 0;
+
+        function debugLog(label, data) {
+            if (!DEBUG) return;
+            const elapsed = Date.now() - pageLoadTime;
+            console.log(`[BLOCKED:${pageId} ${elapsed}ms] ${label}:`, data);
+        }
+
+        // Log immediately on script execution
+        debugLog('SCRIPT LOADED', {
+            pageId,
+            url: window.location.href,
+            search: window.location.search,
+            pathname: window.location.pathname,
+            protocol: window.location.protocol,
+            referrer: document.referrer,
+            readyState: document.readyState,
+            timestamp: new Date().toISOString()
+        });
+
+        // Check if this might be causing recursion - log the blocked URL from query params early
+        const earlyParams = new URLSearchParams(window.location.search);
+        const blockedUrl = earlyParams.get('blocked');
+        debugLog('BLOCKED URL FROM PARAMS', {
+            blockedUrl,
+            containsYoutube: blockedUrl?.includes('youtube'),
+            containsInstagram: blockedUrl?.includes('instagram'),
+            containsFile: blockedUrl?.includes('file://'),
+            containsBlocked: blockedUrl?.includes('blocked')
+        });
+
+        // Track page visibility changes (could cause re-renders)
+        document.addEventListener('visibilitychange', () => {
+            debugLog('VISIBILITY CHANGE', {
+                hidden: document.hidden,
+                visibilityState: document.visibilityState
+            });
+        });
+
+        // Track any navigation events
+        window.addEventListener('beforeunload', (e) => {
+            debugLog('BEFORE UNLOAD', { type: e.type });
+        });
+
+        window.addEventListener('unload', (e) => {
+            debugLog('UNLOAD', { type: e.type });
+        });
+
+        // Track if page is being redirected/navigated
+        const originalPushState = history.pushState;
+        history.pushState = function(...args) {
+            debugLog('HISTORY PUSH STATE', args);
+            return originalPushState.apply(this, args);
+        };
+
+        const originalReplaceState = history.replaceState;
+        history.replaceState = function(...args) {
+            debugLog('HISTORY REPLACE STATE', args);
+            return originalReplaceState.apply(this, args);
+        };
+
+        window.addEventListener('popstate', (e) => {
+            debugLog('POP STATE', { state: e.state });
+        });
+
+        // ========== END DEBUG LOGGING ==========
+
+        // Single nature video for testing
+        const NATURE_VIDEOS = [
+            '13136082_3840_2160_60fps.mp4'
+        ];
+
+        // Breathing cycle timing (in seconds)
+        const INHALE_DURATION = 4;
+        const HOLD_DURATION = 4;
+        const EXHALE_DURATION = 6;
+        const CYCLE_DURATION = INHALE_DURATION + HOLD_DURATION + EXHALE_DURATION; // 14s
+        const TOTAL_CYCLES = 3;
+
+        // Elements
+        let circle, text, dots;
+        let startTime;
+
+        // Extract blocked URL and browser info from query parameters
+        function getQueryParams() {
+            const params = new URLSearchParams(window.location.search);
+            const result = {
+                blocked: params.get('blocked') || 'unknown site',
+                browser: params.get('browser') || 'This browser',
+                protected: params.get('protected') || ''
+            };
+            debugLog('QUERY PARAMS', result);
+            return result;
+        }
+
+        // Easing function for smooth breathing
+        function easeInOutSine(t) {
+            return -(Math.cos(Math.PI * t) - 1) / 2;
+        }
+
+        // Update breathing animation based on elapsed time
+        function updateBreathing() {
+            const elapsed = (Date.now() - startTime) / 1000; // seconds
+            const cycleTime = elapsed % CYCLE_DURATION;
+            const currentCycle = Math.floor(elapsed / CYCLE_DURATION);
+
+            // Update progress dots
+            for (let i = 0; i < 3; i++) {
+                if (i <= currentCycle && currentCycle < TOTAL_CYCLES) {
+                    dots[i].classList.add('active');
+                } else if (i > currentCycle) {
+                    dots[i].classList.remove('active');
+                }
+            }
+
+            // Determine phase and calculate circle scale
+            let scale, opacity, phase;
+
+            if (cycleTime < INHALE_DURATION) {
+                // Inhale phase: 0-4s, scale 1 -> 1.5
+                const progress = cycleTime / INHALE_DURATION;
+                scale = 1 + 0.5 * easeInOutSine(progress);
+                opacity = 0.6 + 0.4 * easeInOutSine(progress);
+                phase = 'Breathe In';
+            } else if (cycleTime < INHALE_DURATION + HOLD_DURATION) {
+                // Hold phase: 4-8s, scale stays at 1.5
+                scale = 1.5;
+                opacity = 1;
+                phase = 'Hold';
+            } else {
+                // Exhale phase: 8-14s, scale 1.5 -> 1
+                const exhaleTime = cycleTime - INHALE_DURATION - HOLD_DURATION;
+                const progress = exhaleTime / EXHALE_DURATION;
+                scale = 1.5 - 0.5 * easeInOutSine(progress);
+                opacity = 1 - 0.4 * easeInOutSine(progress);
+                phase = 'Breathe Out';
+            }
+
+            // Apply to circle
+            circle.style.transform = `translate(-50%, -50%) scale(${scale})`;
+            circle.style.opacity = opacity;
+
+            // Update text
+            text.textContent = phase;
+
+            // Continue animation
+            requestAnimationFrame(updateBreathing);
+        }
+
+        // Initialize page content
+        function init() {
+            initCount++;
+            debugLog('INIT CALLED', {
+                initCount,
+                documentReadyState: document.readyState,
+                bodyExists: !!document.body
+            });
+
+            const params = getQueryParams();
+
+            // Get elements
+            circle = document.getElementById('breathingCircle');
+            text = document.getElementById('breathingText');
+            dots = [
+                document.getElementById('dot1'),
+                document.getElementById('dot2'),
+                document.getElementById('dot3')
+            ];
+
+            debugLog('ELEMENTS FOUND', {
+                circle: !!circle,
+                text: !!text,
+                dots: dots.map(d => !!d)
+            });
+
+            // Extract domain from URL
+            let domain = params.blocked;
+            try {
+                const url = new URL(params.blocked.startsWith('http') ? params.blocked : 'https://' + params.blocked);
+                domain = url.hostname;
+                debugLog('DOMAIN PARSED', { original: params.blocked, parsed: domain });
+            } catch (e) {
+                debugLog('DOMAIN PARSE ERROR', { error: e.message, blocked: params.blocked });
+                // Use raw string if URL parsing fails
+            }
+
+            // Update blocked domain (no emoji - just domain)
+            document.getElementById('blockedDomain').textContent = domain;
+
+            // Update explanation
+            document.getElementById('explanation').textContent =
+                `${params.browser} doesn't have the extension.`;
+
+            // Parse and display protected browsers
+            const protectedBrowsers = params.protected ? params.protected.split(',') : [];
+            const browsersContainer = document.getElementById('protectedBrowsers');
+
+            debugLog('PROTECTED BROWSERS', { count: protectedBrowsers.length, browsers: protectedBrowsers });
+
+            if (protectedBrowsers.length > 0) {
+                browsersContainer.innerHTML = protectedBrowsers.map(browser => `
+                    <div class="browser-item">
+                        <span class="browser-checkmark">✓</span>
+                        <span>${browser.trim()}</span>
+                    </div>
+                `).join('');
+            } else {
+                browsersContainer.innerHTML = '<div class="browser-item">No protected browsers yet</div>';
+            }
+
+            // Pick a random video and play it
+            const video = document.getElementById('bgVideo');
+            const randomVideo = NATURE_VIDEOS[Math.floor(Math.random() * NATURE_VIDEOS.length)];
+            debugLog('VIDEO SETUP', { videoElement: !!video, selectedVideo: randomVideo });
+
+            video.src = randomVideo;
+            video.muted = true;
+            video.volume = 0;
+
+            // Add video event listeners for debugging
+            video.addEventListener('loadstart', () => debugLog('VIDEO EVENT', 'loadstart'));
+            video.addEventListener('loadeddata', () => debugLog('VIDEO EVENT', 'loadeddata'));
+            video.addEventListener('canplay', () => debugLog('VIDEO EVENT', 'canplay'));
+            video.addEventListener('playing', () => debugLog('VIDEO EVENT', 'playing'));
+            video.addEventListener('error', (e) => debugLog('VIDEO ERROR', { error: video.error }));
+
+            video.play().catch(e => {
+                debugLog('VIDEO AUTOPLAY BLOCKED', { error: e.message });
+                setTimeout(() => video.play().catch(() => {}), 100);
+            });
+
+            // Start breathing animation
+            startTime = Date.now();
+            debugLog('ANIMATION STARTING', { startTime });
+            requestAnimationFrame(updateBreathing);
+        }
+
+        // Run on page load
+        debugLog('CALLING INIT', { readyState: document.readyState });
+        init();
+    </script>
+</body>
+</html>

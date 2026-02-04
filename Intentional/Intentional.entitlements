@@ -2,11 +2,38 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- TEMPORARILY DISABLED for testing - re-enable for App Store -->
 	<key>com.apple.security.app-sandbox</key>
-	<true/>
+	<false/>
+
 	<key>com.apple.security.network.client</key>
 	<true/>
 	<key>com.apple.security.files.user-selected.read-only</key>
 	<true/>
+
+	<!-- ScreenTime API (Family Controls) -->
+	<key>com.apple.developer.family-controls</key>
+	<true/>
+
+	<!-- AppleEvents for browser automation -->
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
+
+	<!-- Temporary exception for AppleEvents to specific browsers -->
+	<key>com.apple.security.temporary-exception.apple-events</key>
+	<array>
+		<string>com.apple.Safari</string>
+		<string>com.google.Chrome</string>
+		<string>org.mozilla.firefox</string>
+		<string>com.microsoft.edgemac</string>
+		<string>com.brave.Browser</string>
+		<string>company.thebrowser.Browser</string>
+		<string>com.operasoftware.Opera</string>
+		<string>com.vivaldi.Vivaldi</string>
+		<string>org.chromium.Chromium</string>
+		<string>org.torproject.torbrowser</string>
+		<string>com.duckduckgo.macos.browser</string>
+		<string>com.kagi.kagimacOS</string>
+	</array>
 </dict>
 </plist>

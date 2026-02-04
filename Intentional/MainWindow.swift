@@ -42,6 +42,9 @@ struct MainView: View {
     @State private var logs: [LogEntry] = []
     @State private var deviceId: String = ""
     @State private var isMonitoring: Bool = true
+    @State private var missingPermissions: [String] = []
+    @State private var unprotectedBrowsers: [UnprotectedBrowser] = []
+    @State private var selectedTab: Int = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -56,7 +59,7 @@ struct MainView: View {
                         .font(.title2)
                         .fontWeight(.bold)
 
-                    Text("Monitoring system events and Chrome status")
+                    Text("Monitoring system events and browser status")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -100,122 +103,26 @@ struct MainView: View {
 
             Divider()
 
-            // Split view: Events on left, Console on right
-            HSplitView {
-                // Events List
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        Text("System Events")
-                            .font(.headline)
-                            .padding(.horizontal)
-                            .padding(.top, 12)
-                            .padding(.bottom, 8)
-
-                        Spacer()
-
-                        Button(action: {
-                            events.removeAll()
-                        }) {
-                            Label("Clear", systemImage: "trash")
-                                .font(.caption)
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal)
-                        .padding(.top, 12)
-                        .padding(.bottom, 8)
+            // Tabs
+            TabView(selection: $selectedTab) {
+                // Monitor Tab
+                MonitorTabView(events: $events, logs: $logs)
+                    .tabItem {
+                        Label("Monitor", systemImage: "chart.line.uptrend.xyaxis")
                     }
+                    .tag(0)
 
-                    ScrollView {
-                        if events.isEmpty {
-                            VStack(spacing: 12) {
-                                Image(systemName: "clock.arrow.circlepath")
-                                    .font(.system(size: 32))
-                                    .foregroundColor(.secondary)
-
-                                Text("No events yet")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .padding()
-                        } else {
-                            LazyVStack(spacing: 1) {
-                                ForEach(events.reversed()) { event in
-                                    EventRow(event: event)
-                                }
-                            }
-                        }
-                    }
+                // Settings Tab
+                SettingsTabView(
+                    missingPermissions: $missingPermissions,
+                    unprotectedBrowsers: $unprotectedBrowsers,
+                    openSystemPreferencesForPermission: openSystemPreferencesForPermission
+                )
+                .tabItem {
+                    Label("Settings", systemImage: "gearshape")
                 }
-                .frame(minWidth: 250)
-
-                Divider()
-
-                // Console Log
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        Text("Console Log")
-                            .font(.headline)
-                            .padding(.horizontal)
-                            .padding(.top, 12)
-                            .padding(.bottom, 8)
-
-                        Spacer()
-
-                        Button(action: {
-                            logs.removeAll()
-                        }) {
-                            Label("Clear", systemImage: "trash")
-                                .font(.caption)
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal)
-                        .padding(.top, 12)
-                        .padding(.bottom, 8)
-                    }
-
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            LazyVStack(alignment: .leading, spacing: 2) {
-                                ForEach(logs) { log in
-                                    LogRow(log: log)
-                                        .id(log.id)
-                                }
-                            }
-                            .padding(8)
-                        }
-                        .onChange(of: logs.count) { _ in
-                            if let lastLog = logs.last {
-                                withAnimation {
-                                    proxy.scrollTo(lastLog.id, anchor: .bottom)
-                                }
-                            }
-                        }
-                    }
-                }
-                .frame(minWidth: 300)
-                .background(Color(NSColor.textBackgroundColor))
+                .tag(1)
             }
-
-            Divider()
-
-            // Footer
-            HStack {
-                Text("Monitoring active - events sent to backend automatically")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Spacer()
-
-                Button("Open Dashboard") {
-                    if let url = URL(string: "https://intentional.social/dashboard") {
-                        NSWorkspace.shared.open(url)
-                    }
-                }
-                .buttonStyle(.link)
-            }
-            .padding(8)
-            .background(Color(NSColor.controlBackgroundColor))
         }
         .frame(minWidth: 500, minHeight: 300)
         .onAppear {
@@ -236,9 +143,34 @@ struct MainView: View {
             forName: NSNotification.Name("SystemEventOccurred"),
             object: nil,
             queue: .main
-        ) { notification in
+        ) { [self] notification in
             if let eventType = notification.userInfo?["type"] as? String {
                 addEvent(type: eventType)
+
+                // Track browser status for unprotected browsers
+                if eventType == "browser_started",
+                   let details = notification.userInfo?["details"] as? [String: Any],
+                   let browserName = details["browser"] as? String,
+                   let hasExtension = details["has_extension"] as? Bool {
+
+                    if !hasExtension {
+                        // Add to unprotected browsers if not already there
+                        if !unprotectedBrowsers.contains(where: { $0.name == browserName }) {
+                            unprotectedBrowsers.append(UnprotectedBrowser(
+                                name: browserName,
+                                lastDetected: Date()
+                            ))
+                        } else {
+                            // Update last detected time
+                            if let index = unprotectedBrowsers.firstIndex(where: { $0.name == browserName }) {
+                                unprotectedBrowsers[index].lastDetected = Date()
+                            }
+                        }
+                    } else {
+                        // Remove from unprotected browsers if present
+                        unprotectedBrowsers.removeAll(where: { $0.name == browserName })
+                    }
+                }
             }
         }
 
@@ -251,6 +183,46 @@ struct MainView: View {
             if let message = notification.userInfo?["message"] as? String {
                 addLog(message: message)
             }
+        }
+
+        // Listen for permission status updates
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("PermissionStatusUpdated"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let missing = notification.userInfo?["missing"] as? [String] {
+                missingPermissions = missing
+            }
+        }
+
+        // Check permissions immediately
+        checkPermissions()
+    }
+
+    private func checkPermissions() {
+        // Request permission status from AppDelegate
+        if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+            missingPermissions = appDelegate.permissionManager?.getMissingPermissions() ?? []
+        }
+    }
+
+    private func openSystemPreferencesForPermission(_ permission: String) {
+        var urlString: String
+
+        if permission.contains("Notifications") {
+            // Open Notifications settings
+            urlString = "x-apple.systempreferences:com.apple.preference.notifications"
+        } else if permission.contains("AppleEvents") {
+            // Open Privacy & Security → Automation
+            urlString = "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation"
+        } else {
+            // Fallback to general Privacy & Security
+            urlString = "x-apple.systempreferences:com.apple.preference.security?Privacy"
+        }
+
+        if let url = URL(string: urlString) {
+            NSWorkspace.shared.open(url)
         }
     }
 
@@ -403,6 +375,277 @@ struct SystemEvent: Identifiable {
             return .orange
         default:
             return .blue
+        }
+    }
+}
+
+// Unprotected Browser Model
+struct UnprotectedBrowser: Identifiable {
+    let id = UUID()
+    let name: String
+    var lastDetected: Date
+}
+
+// Monitor Tab View
+struct MonitorTabView: View {
+    @Binding var events: [SystemEvent]
+    @Binding var logs: [LogEntry]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Split view: Events on left, Console on right
+            HSplitView {
+                // Events List
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Text("System Events")
+                            .font(.headline)
+                            .padding(.horizontal)
+                            .padding(.top, 12)
+                            .padding(.bottom, 8)
+
+                        Spacer()
+
+                        Button(action: {
+                            events.removeAll()
+                        }) {
+                            Label("Clear", systemImage: "trash")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal)
+                        .padding(.top, 12)
+                        .padding(.bottom, 8)
+                    }
+
+                    ScrollView {
+                        if events.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .font(.system(size: 32))
+                                    .foregroundColor(.secondary)
+
+                                Text("No events yet")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .padding()
+                        } else {
+                            LazyVStack(spacing: 1) {
+                                ForEach(events.reversed()) { event in
+                                    EventRow(event: event)
+                                }
+                            }
+                        }
+                    }
+                }
+                .frame(minWidth: 250)
+
+                Divider()
+
+                // Console Log
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Text("Console Log")
+                            .font(.headline)
+                            .padding(.horizontal)
+                            .padding(.top, 12)
+                            .padding(.bottom, 8)
+
+                        Spacer()
+
+                        Button(action: {
+                            logs.removeAll()
+                        }) {
+                            Label("Clear", systemImage: "trash")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal)
+                        .padding(.top, 12)
+                        .padding(.bottom, 8)
+                    }
+
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 2) {
+                                ForEach(logs) { log in
+                                    LogRow(log: log)
+                                        .id(log.id)
+                                }
+                            }
+                            .padding(8)
+                        }
+                        .onChange(of: logs.count) { _ in
+                            if let lastLog = logs.last {
+                                withAnimation {
+                                    proxy.scrollTo(lastLog.id, anchor: .bottom)
+                                }
+                            }
+                        }
+                    }
+                }
+                .frame(minWidth: 300)
+                .background(Color(NSColor.textBackgroundColor))
+            }
+
+            Divider()
+
+            // Footer
+            HStack {
+                Text("Monitoring active - events sent to backend automatically")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Spacer()
+
+                Button("Open Dashboard") {
+                    if let url = URL(string: "https://intentional.social/dashboard") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+                .buttonStyle(.link)
+            }
+            .padding(8)
+            .background(Color(NSColor.controlBackgroundColor))
+        }
+    }
+}
+
+// Settings Tab View
+struct SettingsTabView: View {
+    @Binding var missingPermissions: [String]
+    @Binding var unprotectedBrowsers: [UnprotectedBrowser]
+    let openSystemPreferencesForPermission: (String) -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Permissions Section
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Permissions")
+                        .font(.title2)
+                        .fontWeight(.bold)
+
+                    if missingPermissions.isEmpty {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text("All permissions granted")
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(8)
+                    } else {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.orange)
+                                Text("Missing Permissions")
+                                    .font(.headline)
+                                    .foregroundColor(.orange)
+                            }
+
+                            ForEach(missingPermissions, id: \.self) { permission in
+                                HStack(spacing: 8) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.red)
+
+                                    Text(permission)
+                                        .font(.body)
+                                        .foregroundColor(.secondary)
+
+                                    Spacer()
+
+                                    Button("Grant") {
+                                        openSystemPreferencesForPermission(permission)
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .controlSize(.small)
+                                }
+                                .padding(.vertical, 4)
+                            }
+                        }
+                        .padding()
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(8)
+                    }
+                }
+
+                Divider()
+
+                // Unprotected Browsers Section
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Browser Status")
+                        .font(.title2)
+                        .fontWeight(.bold)
+
+                    if unprotectedBrowsers.isEmpty {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.shield.fill")
+                                .foregroundColor(.green)
+                            Text("No unprotected browsers detected")
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(8)
+                    } else {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.shield.fill")
+                                    .foregroundColor(.orange)
+                                Text("Browsers Without Extension")
+                                    .font(.headline)
+                                    .foregroundColor(.orange)
+                            }
+
+                            Text("The following browsers are running without the Intentional extension. Install the extension to enable accountability on all browsers.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding(.bottom, 4)
+
+                            ForEach(unprotectedBrowsers) { browser in
+                                HStack(spacing: 12) {
+                                    Image(systemName: "safari")
+                                        .font(.system(size: 20))
+                                        .foregroundColor(.orange)
+                                        .frame(width: 30)
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(browser.name)
+                                            .font(.body)
+                                            .fontWeight(.medium)
+
+                                        Text("Last detected: \(browser.lastDetected, style: .relative)")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+
+                                    Spacer()
+                                }
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 12)
+                                .background(Color(NSColor.controlBackgroundColor))
+                                .cornerRadius(6)
+                            }
+                        }
+                        .padding()
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(8)
+                    }
+                }
+
+                Spacer()
+            }
+            .padding()
         }
     }
 }

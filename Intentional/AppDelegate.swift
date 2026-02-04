@@ -19,8 +19,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Monitoring components
     var sleepWakeMonitor: SleepWakeMonitor?
-    var processMonitor: ProcessMonitor?
+    var browserMonitor: BrowserMonitor?
+    var websiteBlocker: WebsiteBlocker?
     var backendClient: BackendClient?
+    var permissionManager: PermissionManager?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Multiple logging methods to ensure we see SOMETHING
@@ -28,7 +30,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSLog("=== applicationDidFinishLaunching CALLED (NSLog) ===")
 
         let logPath = NSTemporaryDirectory() + "intentional-debug.log"
-        try? "applicationDidFinishLaunching called at \(Date())\n".appendLine(to: logPath)
+        "applicationDidFinishLaunching called at \(Date())\n".appendLine(to: logPath)
 
         postLog("✅ Intentional app launched")
 
@@ -51,14 +53,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupMenuBar()
         postLog("🔝 Menu bar icon added")
 
+        // Start permission monitoring
+        permissionManager = PermissionManager(appDelegate: self)
+        permissionManager?.startMonitoring()
+        postLog("✅ Permission monitoring started")
+
         // Start sleep/wake monitoring
         sleepWakeMonitor = SleepWakeMonitor(backendClient: backendClient!, appDelegate: self)
         postLog("✅ Sleep/wake monitoring registered")
 
-        // Start process monitoring
-        processMonitor = ProcessMonitor(backendClient: backendClient!, appDelegate: self)
-        processMonitor?.startMonitoring()
-        postLog("✅ Process monitoring started")
+        // Start website blocker (ScreenTime + AppleEvents fallback)
+        websiteBlocker = WebsiteBlocker(backendClient: backendClient!, appDelegate: self)
+        websiteBlocker?.startBlocking()
+        postLog("✅ Website blocking initialized")
+
+        // Start browser monitoring (all browsers)
+        browserMonitor = BrowserMonitor(backendClient: backendClient!, appDelegate: self)
+        browserMonitor?.websiteBlocker = websiteBlocker  // Connect them
+        browserMonitor?.startMonitoring()
+        postLog("✅ Multi-browser monitoring started")
 
         // Register device and send startup event (in sequence)
         Task {
@@ -150,6 +163,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func postLog(_ message: String) {
         print(message)
+
+        // Also write to log file for debugging
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let logPath = NSTemporaryDirectory() + "intentional-debug.log"
+        "[\(timestamp)] \(message)\n".appendLine(to: logPath)
+
         NotificationCenter.default.post(
             name: NSNotification.Name("AppLogMessage"),
             object: nil,

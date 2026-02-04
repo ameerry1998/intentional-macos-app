@@ -24,5 +24,9 @@
 	<string>Copyright © 2026 Intentional. All rights reserved.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Intentional needs to monitor browser tabs to block distracting websites when you're not using the browser extension.</string>
+	<key>NSSystemExtensionUsageDescription</key>
+	<string>Intentional uses Screen Time to block distracting websites across all browsers for your accountability.</string>
 </dict>
 </plist>
