@@ -153,6 +153,11 @@ class NativeMessagingSetup {
     /// Returns the number of newly discovered extensions
     @discardableResult
     func autoDiscoverExtensions() -> Int {
+        // Save previous state to detect changes
+        let previousExtensionMap = browserExtensionMap
+        let previousEnabledMap = browserExtensionEnabledMap
+        let isFirstScan = previousExtensionMap.isEmpty && autoDiscoveredIds.isEmpty
+
         // Refresh browser list in case new browsers were installed
         discoverInstalledBrowsers()
 
@@ -163,20 +168,16 @@ class NativeMessagingSetup {
         browserExtensionMap = [:]
         browserExtensionEnabledMap = [:]
 
-        log("[NativeMessagingSetup] 🔍 Starting extension discovery for \(installedBrowsers.count) browsers...")
+        if isFirstScan {
+            log("[NativeMessagingSetup] 🔍 Starting extension discovery for \(installedBrowsers.count) browsers...")
+        }
 
         for browser in installedBrowsers {
-            guard browser.info.supportsWebExtensions else {
-                log("[NativeMessagingSetup] ⏭️ Skipping \(browser.info.name) - doesn't support web extensions")
-                continue
-            }
-
-            log("[NativeMessagingSetup] 📂 Scanning browser: \(browser.info.name) (engine: \(browser.info.engine))")
+            guard browser.info.supportsWebExtensions else { continue }
 
             // Route to appropriate detection method based on browser engine
             switch browser.info.engine {
             case .chromium:
-                // Chromium-based browsers: Chrome, Arc, Edge, Brave, Electron apps, etc.
                 if let found = scanChromiumBrowser(browser, discoveredIds: &discoveredIds, browsersScanned: &browsersScanned) {
                     if !discoveredIds.contains(found) {
                         discoveredIds.append(found)
@@ -184,8 +185,6 @@ class NativeMessagingSetup {
                 }
 
             case .gecko:
-                // Firefox-based browsers: Firefox, Tor Browser, etc.
-                log("[NativeMessagingSetup]   🦊 Using Firefox/Gecko detection method")
                 if let found = scanFirefoxBrowser(browser, discoveredIds: &discoveredIds, browsersScanned: &browsersScanned) {
                     if !discoveredIds.contains(found) {
                         discoveredIds.append(found)
@@ -193,8 +192,6 @@ class NativeMessagingSetup {
                 }
 
             case .webkit:
-                // Safari-based browsers
-                log("[NativeMessagingSetup]   🧭 Using Safari/WebKit detection method")
                 if let found = scanSafariBrowser(browser, discoveredIds: &discoveredIds, browsersScanned: &browsersScanned) {
                     if !discoveredIds.contains(found) {
                         discoveredIds.append(found)
@@ -202,8 +199,6 @@ class NativeMessagingSetup {
                 }
 
             default:
-                // Unknown engine - try Chromium method as fallback
-                log("[NativeMessagingSetup]   ⚠️ Unknown engine, trying Chromium detection as fallback")
                 if let found = scanChromiumBrowser(browser, discoveredIds: &discoveredIds, browsersScanned: &browsersScanned) {
                     if !discoveredIds.contains(found) {
                         discoveredIds.append(found)
@@ -212,20 +207,46 @@ class NativeMessagingSetup {
             }
         }
 
-        log("[NativeMessagingSetup] 📋 Scanned \(browsersScanned.count) browsers: \(browsersScanned.joined(separator: ", "))")
-
         // Update auto-discovered list
         let newlyDiscovered = discoveredIds.filter { !autoDiscoveredIds.contains($0) }
         autoDiscoveredIds = discoveredIds
 
-        if discoveredIds.isEmpty {
-            log("[NativeMessagingSetup] ⚠️ No Intentional extensions found in any browser")
-        } else {
-            log("[NativeMessagingSetup] ✅ Found \(discoveredIds.count) Intentional extension(s): \(discoveredIds.joined(separator: ", "))")
+        // Only log if state changed or first scan
+        let extensionMapChanged = browserExtensionMap != previousExtensionMap
+        let enabledMapChanged = browserExtensionEnabledMap != previousEnabledMap
+
+        if isFirstScan || extensionMapChanged || enabledMapChanged {
+            if extensionMapChanged || enabledMapChanged {
+                log("[NativeMessagingSetup] 🔄 Extension status changed:")
+                for (browser, extId) in browserExtensionMap {
+                    let wasPresent = previousExtensionMap[browser] != nil
+                    let wasEnabled = previousEnabledMap[browser] ?? false
+                    let isEnabled = browserExtensionEnabledMap[browser] ?? false
+                    if !wasPresent {
+                        log("[NativeMessagingSetup]   🆕 \(browser): \(extId) (enabled: \(isEnabled))")
+                    } else if wasEnabled != isEnabled {
+                        log("[NativeMessagingSetup]   🔄 \(browser): enabled \(wasEnabled) → \(isEnabled)")
+                    }
+                }
+                // Check for removed extensions
+                for browser in previousExtensionMap.keys where browserExtensionMap[browser] == nil {
+                    log("[NativeMessagingSetup]   ❌ \(browser): extension removed")
+                }
+            }
+
+            if isFirstScan {
+                log("[NativeMessagingSetup] 📋 Scanned \(browsersScanned.count) browsers: \(browsersScanned.joined(separator: ", "))")
+                if discoveredIds.isEmpty {
+                    log("[NativeMessagingSetup] ⚠️ No Intentional extensions found in any browser")
+                } else {
+                    log("[NativeMessagingSetup] ✅ Found \(discoveredIds.count) Intentional extension(s): \(discoveredIds.joined(separator: ", "))")
+                }
+            }
+
             if !newlyDiscovered.isEmpty {
                 log("[NativeMessagingSetup] 🆕 \(newlyDiscovered.count) newly discovered")
+                installManifestsIfNeeded()
             }
-            installManifestsIfNeeded()
         }
 
         return newlyDiscovered.count
@@ -385,7 +406,7 @@ class NativeMessagingSetup {
 
             // Get the Native Messaging path for this browser
             if let manifestPath = BrowserDiscovery.getNativeMessagingPath(for: browser.info, dataPath: browser.dataPath) {
-                installManifest(for: browser.info.name, at: manifestPath.path, appPath: appPath)
+                installManifest(for: browser.info, at: manifestPath.path, appPath: appPath)
                 installedCount += 1
             } else {
                 log("[NativeMessagingSetup] ⚠️ Could not determine Native Messaging path for \(browser.info.name)")
@@ -470,26 +491,45 @@ class NativeMessagingSetup {
         }
     }
 
-    private func installManifest(for browserName: String, at directoryPath: String, appPath: String) {
+    private func installManifest(for browserInfo: BrowserInfo, at directoryPath: String, appPath: String) {
         // Create directory if needed
         do {
             try FileManager.default.createDirectory(atPath: directoryPath, withIntermediateDirectories: true)
         } catch {
-            log("[NativeMessagingSetup] Failed to create directory for \(browserName): \(error)")
+            log("[NativeMessagingSetup] Failed to create directory for \(browserInfo.name): \(error)")
             return
         }
 
-        // Build allowed_origins list from ALL extension IDs (auto-discovered + manually registered)
-        let allowedOrigins = getAllExtensionIds().map { "chrome-extension://\($0)/" }
+        // Create manifest based on browser type
+        let manifest: [String: Any]
 
-        // Create manifest
-        let manifest: [String: Any] = [
-            "name": hostName,
-            "description": "Intentional - Cross-browser time tracking and accountability",
-            "path": appPath,
-            "type": "stdio",
-            "allowed_origins": allowedOrigins
-        ]
+        switch browserInfo.nativeMessagingType {
+        case .mozilla:
+            // Firefox uses allowed_extensions with extension IDs
+            let allowedExtensions = ["intentional@intentional.social"]
+            manifest = [
+                "name": hostName,
+                "description": "Intentional - Cross-browser time tracking and accountability",
+                "path": appPath,
+                "type": "stdio",
+                "allowed_extensions": allowedExtensions
+            ]
+
+        case .chromium:
+            // Chrome uses allowed_origins with chrome-extension:// URLs
+            let allowedOrigins = getAllExtensionIds().map { "chrome-extension://\($0)/" }
+            manifest = [
+                "name": hostName,
+                "description": "Intentional - Cross-browser time tracking and accountability",
+                "path": appPath,
+                "type": "stdio",
+                "allowed_origins": allowedOrigins
+            ]
+
+        default:
+            log("[NativeMessagingSetup] ⚠️ Unsupported Native Messaging type for \(browserInfo.name)")
+            return
+        }
 
         // Write manifest
         let manifestPath = (directoryPath as NSString).appendingPathComponent(manifestName)
@@ -497,9 +537,9 @@ class NativeMessagingSetup {
         do {
             let data = try JSONSerialization.data(withJSONObject: manifest, options: .prettyPrinted)
             try data.write(to: URL(fileURLWithPath: manifestPath))
-            log("[NativeMessagingSetup] ✅ Installed manifest for \(browserName)")
+            log("[NativeMessagingSetup] ✅ Installed manifest for \(browserInfo.name)")
         } catch {
-            log("[NativeMessagingSetup] Failed to write manifest for \(browserName): \(error)")
+            log("[NativeMessagingSetup] Failed to write manifest for \(browserInfo.name): \(error)")
         }
     }
 
@@ -638,8 +678,11 @@ class NativeMessagingSetup {
                        name == "Intentional" {
                         let userDisabled = addon["userDisabled"] as? Bool ?? false
                         let appDisabled = addon["appDisabled"] as? Bool ?? false
-                        let state = !userDisabled && !appDisabled ? "enabled ✅" : "disabled ⏸️"
+                        let isEnabled = !userDisabled && !appDisabled
+                        let state = isEnabled ? "enabled ✅" : "disabled ⏸️"
 
+                        browserExtensionMap[browserName] = id
+                        browserExtensionEnabledMap[browserName] = isEnabled
                         log("[NativeMessagingSetup]   ✅ Found Intentional: \(id)")
                         log("[NativeMessagingSetup]      State: \(state)")
                         log("[NativeMessagingSetup]      userDisabled: \(userDisabled), appDisabled: \(appDisabled)")
@@ -667,8 +710,11 @@ class NativeMessagingSetup {
                        name == "Intentional" {
                         let active = addon["active"] as? Bool ?? false
                         let userDisabled = addon["userDisabled"] as? Bool ?? false
-                        let state = active && !userDisabled ? "enabled ✅" : "disabled ⏸️"
+                        let isEnabled = active && !userDisabled
+                        let state = isEnabled ? "enabled ✅" : "disabled ⏸️"
 
+                        browserExtensionMap[browserName] = id
+                        browserExtensionEnabledMap[browserName] = isEnabled
                         log("[NativeMessagingSetup]   ✅ Found Intentional: \(id)")
                         log("[NativeMessagingSetup]      State: \(state)")
                         log("[NativeMessagingSetup]      active: \(active), userDisabled: \(userDisabled)")

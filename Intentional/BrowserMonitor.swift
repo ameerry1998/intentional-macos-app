@@ -23,9 +23,16 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
     // Track last known state of each browser
     private var browserStates: [String: Bool] = [:]
 
+    // Track last unprotected set for change-only logging
+    private var lastUnprotectedBrowsers: Set<String> = []
+
     // Track when we last notified user (avoid spam)
     private var lastNotificationTime: [String: Date] = [:]
     private let notificationCooldown: TimeInterval = 300 // 5 minutes
+
+    // Safety: limit notifications per check to prevent notification bombs
+    private let maxNotificationsPerCheck = 2
+    private var appStartTime = Date()
 
     // Known browser bundle IDs → (friendly name, AppleScript app name)
     // This helps us display friendly names and use correct AppleScript commands
@@ -267,6 +274,12 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
         monitorTimer = nil
     }
 
+    /// Force recheck of all browser protection status
+    /// Call this after extension discovery completes to update protection status
+    func recheckBrowserProtection() {
+        checkAllBrowsers()
+    }
+
     private func checkAllBrowsers() {
         let runningApps = NSWorkspace.shared.runningApplications
         var currentStates: [String: Bool] = [:]
@@ -319,25 +332,52 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
     }
 
     /// Determine which browsers have the Intentional extension installed
-    /// Currently only Chrome has extension support
+    /// Uses NativeMessagingSetup to check actual extension status
     private func hasExtension(bundleId: String) -> Bool {
-        // Chrome-based browsers can have our extension
-        return bundleId.contains("Chrome") || bundleId.contains("google.Chrome")
+        // Get browser statuses from NativeMessagingSetup
+        let browserStatuses = NativeMessagingSetup.shared.getBrowserStatus()
+
+        // Find this browser in the status list
+        if let status = browserStatuses.first(where: { $0.bundleId == bundleId }) {
+            // Browser has extension AND it's enabled
+            return status.hasExtension && status.isEnabled
+        }
+
+        return false
     }
 
     private func checkForUnprotectedBrowsers(runningBrowsers: [String]) {
+        let browserStatuses = NativeMessagingSetup.shared.getBrowserStatus()
+
         let unprotectedBrowsers = runningBrowsers.filter { browserName in
-            // Only Chrome currently has extension
-            !browserName.contains("Chrome")
+            guard let bundleId = browsers.first(where: { $0.value.name == browserName })?.key else {
+                return true // Unknown browser, consider unprotected
+            }
+            if let status = browserStatuses.first(where: { $0.bundleId == bundleId }) {
+                return !status.hasExtension || !status.isEnabled
+            }
+            return true
+        }
+
+        // Only log when the unprotected set changes
+        let currentUnprotected = Set(unprotectedBrowsers)
+        if currentUnprotected != lastUnprotectedBrowsers {
+            if !currentUnprotected.isEmpty {
+                appDelegate?.postLog("⚠️ Unprotected browsers changed: \(currentUnprotected.sorted().joined(separator: ", "))")
+                // Log detailed status on change for debugging
+                for status in browserStatuses {
+                    appDelegate?.postLog("   - \(status.name) (\(status.bundleId)): hasExt=\(status.hasExtension), enabled=\(status.isEnabled)")
+                }
+            } else if !lastUnprotectedBrowsers.isEmpty {
+                appDelegate?.postLog("✅ All running browsers now protected")
+            }
+            lastUnprotectedBrowsers = currentUnprotected
         }
 
         if !unprotectedBrowsers.isEmpty {
-            appDelegate?.postLog("⚠️ Unprotected browsers running: \(unprotectedBrowsers.joined(separator: ", "))")
 
-            // Show notification for each unprotected browser (with cooldown)
-            for browser in unprotectedBrowsers {
-                showExtensionMissingNotification(browserName: browser)
-            }
+            // NO NOTIFICATIONS - Users can see extension status in Settings
+            // The blocking page will show install prompts when they visit blocked sites
 
             // Notify website blocker to block YouTube/Instagram
             websiteBlocker?.updateBlockedBrowsers(browsers: unprotectedBrowsers)
@@ -355,38 +395,10 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    private func showExtensionMissingNotification(browserName: String) {
-        // Check cooldown to avoid spam
-        let now = Date()
-        if let lastNotified = lastNotificationTime[browserName],
-           now.timeIntervalSince(lastNotified) < notificationCooldown {
-            return // Too soon, skip notification
-        }
-
-        lastNotificationTime[browserName] = now
-
-        let content = UNMutableNotificationContent()
-        content.title = "Intentional Protection Missing"
-        content.body = "\(browserName) is open without the Intentional extension. Install the extension to enable accountability on all browsers."
-        content.sound = .default
-        content.categoryIdentifier = "EXTENSION_MISSING"
-        content.userInfo = ["browser": browserName]
-
-        // Deliver notification immediately
-        let request = UNNotificationRequest(
-            identifier: "missing-extension-\(browserName)-\(UUID().uuidString)",
-            content: content,
-            trigger: nil
-        )
-
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("❌ Failed to show notification: \(error.localizedDescription)")
-            } else {
-                print("📬 Notification shown: \(browserName) missing extension")
-            }
-        }
-    }
+    // REMOVED: showExtensionMissingNotification
+    // No longer showing notifications for missing extensions
+    // Users can check extension status in Settings, and the blocking page
+    // will show install prompts when they visit blocked sites
 
     // MARK: - UNUserNotificationCenterDelegate
 

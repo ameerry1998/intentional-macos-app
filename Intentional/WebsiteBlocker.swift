@@ -300,6 +300,7 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
                     if !isOnBlockPage && shouldBlock(url: url) && !wasRecentlyBlocked(url: url) {
                         if domainsToBlock[domain] == nil {
                             domainsToBlock[domain] = url
+                            appDelegate?.postLog("🎯 \(browserName): Will block \(domain) (not on block page, should block, not cached)")
                         }
                     }
                 }
@@ -309,8 +310,9 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         // Now execute blocking for each unique domain
         for (domain, url) in domainsToBlock {
             markAsBlocked(url: url)
+            let protectedList = getProtectedBrowsersList()
+            appDelegate?.postLog("🚫 BLOCKING \(browserName): domain=\(domain), protectedBrowsers=[\(protectedList)]")
             blockAction(url)
-            appDelegate?.postLog("📋 Queued blocking for domain: \(domain)")
         }
     }
 
@@ -356,8 +358,6 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         "Tor Browser": "Tor Browser",
     ]
 
-    private var lastCheckLog = Date.distantPast  // Throttle check logging
-
     private func checkAllBrowserTabs() {
         // Clear cache periodically
         if Date().timeIntervalSince(lastCacheClear) > cacheDuration {
@@ -367,18 +367,7 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
 
         // Only check browsers that are currently running and unprotected
         guard !activeBrowsers.isEmpty else {
-            // Log this only once every 10 seconds to avoid spam
-            if Date().timeIntervalSince(lastCheckLog) > 10 {
-                appDelegate?.postLog("⏸️ checkAllBrowserTabs: No active browsers to check")
-                lastCheckLog = Date()
-            }
             return
-        }
-
-        // Log active browsers occasionally
-        if Date().timeIntervalSince(lastCheckLog) > 10 {
-            appDelegate?.postLog("🔍 Checking tabs in: \(activeBrowsers.joined(separator: ", "))")
-            lastCheckLog = Date()
         }
 
         for browser in activeBrowsers {
@@ -666,11 +655,7 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
                     self.lastTabLogTime[browserName] = Date()
                     self.appDelegate?.postLog("🔍 Arc: Found \(urls.count) tabs")
                 }
-                for url in urls {
-                    if self.matchesBlockedDomain(url: url) {
-                        self.appDelegate?.postLog("⚠️ Arc: Blocked domain found: \(url)")
-                    }
-                }
+                // Domain match detection handled by processURLs
             }
             self.processURLs(urls, browserName: "Arc") { url in
                 self.blockArcTab(url: url)
@@ -774,11 +759,7 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
                     self.lastTabLogTime[browserName] = Date()
                     self.appDelegate?.postLog("🔍 \(browserName): Found \(urls.count) tabs")
                 }
-                for url in urls {
-                    if self.matchesBlockedDomain(url: url) {
-                        self.appDelegate?.postLog("⚠️ \(browserName): Blocked domain found: \(url)")
-                    }
-                }
+                // Domain match detection handled by processURLs
             }
             self.processURLs(urls, browserName: browserName) { url in
                 self.blockChromiumTab(url: url, browserName: browserName, scriptName: scriptName)
@@ -882,10 +863,13 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     // MARK: - Helper Methods
 
     private func getProtectedBrowsersList() -> String {
-        // TODO: Integrate with BrowserMonitor to detect which browsers have extension
-        // For now, return empty string (will show "No protected browsers yet" in UI)
-        // Future: Query backend or local state to determine which browsers have extension
-        return ""
+        let setup = NativeMessagingSetup.shared
+        let extensionIds = setup.getAllExtensionIds()
+        guard !extensionIds.isEmpty else { return "" }
+
+        let statuses = setup.getBrowserStatus()
+        let protectedBrowsers = statuses.filter { $0.isEnabled }.map { $0.name }
+        return protectedBrowsers.joined(separator: ",")
     }
 
     private func shouldBlock(url: String) -> Bool {

@@ -8,7 +8,6 @@
 import Cocoa
 import Foundation
 
-// @main removed - using explicit main.swift instead
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Menu bar icon
@@ -30,10 +29,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Native app heartbeat timer (Phase 2: Tamper Detection)
     var heartbeatTimer: Timer?
+
+    // Socket relay server for Native Messaging
+    var socketRelayServer: SocketRelayServer?
+
+    // Extension re-scan timer
+    var extensionRescanTimer: Timer?
     private let heartbeatInterval: TimeInterval = 120.0  // 2 minutes
     private let appStartTime = Date()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // DIAGNOSTIC: Log every launch attempt to persistent file
+        let diagnosticLogPath = NSTemporaryDirectory() + "intentional-launches.log"
+        let launchTime = Date()
+        let launchLog = """
+        ===== LAUNCH ATTEMPT =====
+        Time: \(launchTime)
+        PID: \(ProcessInfo.processInfo.processIdentifier)
+        Args: \(CommandLine.arguments.joined(separator: " "))
+        isatty(STDIN): \(isatty(STDIN_FILENO))
+        isatty(STDOUT): \(isatty(STDOUT_FILENO))
+        ========================
+
+        """
+        if let existingLog = try? String(contentsOfFile: diagnosticLogPath, encoding: .utf8) {
+            try? (existingLog + launchLog).write(toFile: diagnosticLogPath, atomically: true, encoding: .utf8)
+        } else {
+            try? launchLog.write(toFile: diagnosticLogPath, atomically: true, encoding: .utf8)
+        }
+
         // Multiple logging methods to ensure we see SOMETHING
         print("=== applicationDidFinishLaunching CALLED ===")
         NSLog("=== applicationDidFinishLaunching CALLED (NSLog) ===")
@@ -42,6 +66,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         "applicationDidFinishLaunching called at \(Date())\n".appendLine(to: logPath)
 
         postLog("✅ Intentional app launched")
+
+        // Re-enable auto-launch from extensions (user manually started the app)
+        // This allows extension relays to launch the app via NSWorkspace
+        UserDefaults.standard.set(true, forKey: "allowAutoLaunchFromExtension")
+        postLog("✅ Auto-launch from extensions enabled (app manually started)")
 
         // Initialize backend client
         // TODO: Change to https://api.intentional.social when deployed
@@ -104,29 +133,54 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         timeTracker?.backendClient = backendClient
         postLog("⏱️ TimeTracker initialized")
 
-        // Native Messaging host for extension communication
-        // Note: Only starts if launched via Native Messaging (stdin available)
-        if isLaunchedViaNativeMessaging() {
-            nativeMessagingHost = NativeMessagingHost(appDelegate: self)
-            nativeMessagingHost?.timeTracker = timeTracker
-            nativeMessagingHost?.start()
-            postLog("🔌 Native Messaging mode - connected to extension")
-        } else {
-            // Normal GUI mode - auto-discover extensions and install manifests
-            let discovered = NativeMessagingSetup.shared.autoDiscoverExtensions()
-            if discovered > 0 {
-                postLog("🔍 Auto-discovered \(discovered) Intentional extension(s)")
-            }
-
-            NativeMessagingSetup.shared.installManifestsIfNeeded()
-
-            let totalIds = NativeMessagingSetup.shared.getAllExtensionIds()
-            if !totalIds.isEmpty {
-                postLog("📋 Native Messaging manifests installed for \(totalIds.count) extension(s)")
-            } else {
-                postLog("⚠️ No extensions found - install the Intentional extension in Chrome")
-            }
+        // Wire up cross-browser session sync: when a session changes in TimeTracker,
+        // broadcast SESSION_SYNC to all connected browsers via the socket relay server
+        timeTracker?.onSessionChanged = { [weak self] platform in
+            self?.postLog("🌐 Session changed for \(platform) — broadcasting to all browsers")
+            self?.socketRelayServer?.broadcastSessionSync()
         }
+
+        // All extension connections come through the socket relay server.
+        // Chrome-launched processes are thin relays (in main.swift) that forward
+        // stdin/stdout ↔ socket. The primary app never reads from stdin.
+        // nativeMessagingHost is kept as a template for SocketRelayServer's per-connection handlers.
+        nativeMessagingHost = NativeMessagingHost(appDelegate: self)
+        nativeMessagingHost?.timeTracker = timeTracker
+        postLog("🔌 Primary app — all extension connections via socket relay")
+
+        // Start socket relay server for Native Messaging
+        socketRelayServer = SocketRelayServer(appDelegate: self)
+        if socketRelayServer?.start() == true {
+            postLog("🔌 Socket relay server started - extensions will relay through socket")
+        } else {
+            postLog("⚠️ Socket relay server failed to start")
+        }
+
+        // Auto-discover extensions and install manifests
+        let discovered = NativeMessagingSetup.shared.autoDiscoverExtensions()
+        if discovered > 0 {
+            postLog("🔍 Auto-discovered \(discovered) Intentional extension(s)")
+        }
+
+        NativeMessagingSetup.shared.installManifestsIfNeeded()
+
+        let totalIds = NativeMessagingSetup.shared.getAllExtensionIds()
+        if !totalIds.isEmpty {
+            postLog("📋 Native Messaging manifests installed for \(totalIds.count) extension(s)")
+        } else {
+            postLog("⚠️ No extensions found - install the Intentional extension in Chrome")
+        }
+
+        // CRITICAL: Re-check browser protection status after extension discovery
+        browserMonitor?.recheckBrowserProtection()
+
+        // Start periodic extension re-scanning (detects enable/disable changes)
+        extensionRescanTimer = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            NativeMessagingSetup.shared.autoDiscoverExtensions()
+            self.browserMonitor?.recheckBrowserProtection()
+        }
+        postLog("🔄 Extension re-scan timer started (every 60s)")
 
         postLog("✅ All monitors initialized")
     }
@@ -177,10 +231,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         postLog("⚠️ App terminating")
 
-        // Stop heartbeat timer
-        stopHeartbeat()
+        // User quit the primary app — disable auto-launch from extensions.
+        // With the relay architecture, the primary is always manually launched,
+        // so this always runs when the user quits.
+        UserDefaults.standard.set(false, forKey: "allowAutoLaunchFromExtension")
+        postLog("🚫 Auto-launch from extensions disabled (app was quit by user)")
 
-        // Stop Native Messaging host
+        // Stop timers
+        stopHeartbeat()
+        extensionRescanTimer?.invalidate()
+        extensionRescanTimer = nil
+
+        // Stop socket relay server and Native Messaging host
+        socketRelayServer?.stop()
         nativeMessagingHost?.stop()
 
         // Force sync time tracking data
@@ -197,13 +260,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // Wait up to 2 seconds for the event to send
         _ = semaphore.wait(timeout: .now() + 2.0)
-    }
-
-    /// Check if app was launched via Native Messaging (stdin is a pipe, not a terminal)
-    private func isLaunchedViaNativeMessaging() -> Bool {
-        // When launched by Chrome via Native Messaging, stdin is a pipe
-        // When launched normally, stdin is /dev/ttys00X or similar
-        return isatty(STDIN_FILENO) == 0
     }
 
     // MARK: - Menu Bar Setup
@@ -276,6 +332,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Also write to log file for debugging
         let timestamp = ISO8601DateFormatter().string(from: Date())
         let logPath = NSTemporaryDirectory() + "intentional-debug.log"
+
+        // Log rotation: if file exceeds 50MB, rotate
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: logPath),
+           let size = attrs[.size] as? Int,
+           size > 50_000_000 {
+            let oldPath = logPath + ".old"
+            try? FileManager.default.removeItem(atPath: oldPath)
+            try? FileManager.default.moveItem(atPath: logPath, toPath: oldPath)
+        }
+
         "[\(timestamp)] \(message)\n".appendLine(to: logPath)
 
         NotificationCenter.default.post(

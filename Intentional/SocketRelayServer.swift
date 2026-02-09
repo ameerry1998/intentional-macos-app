@@ -1,0 +1,284 @@
+import Cocoa
+import Foundation
+
+/// Unix Domain Socket server that accepts relay connections from duplicate processes.
+///
+/// When Chrome launches a new Intentional process for Native Messaging and an instance
+/// is already running, the new process connects to this socket and relays Chrome's
+/// stdin/stdout through it. This server accepts those connections and creates a
+/// NativeMessagingHost for each one, allowing the existing app to handle messages
+/// from multiple browser extension connections simultaneously.
+class SocketRelayServer {
+
+    weak var appDelegate: AppDelegate?
+
+    private var serverFd: Int32 = -1
+    private var isListening = false
+    private let acceptQueue = DispatchQueue(label: "com.intentional.socket.accept", qos: .userInitiated)
+
+    // Active connections: fd -> NativeMessagingHost
+    private var activeConnections: [Int32: NativeMessagingHost] = [:]
+    private let connectionsLock = NSLock()
+    private var connectionCounter = 0
+
+    let socketPath: String
+
+    init(appDelegate: AppDelegate?) {
+        self.appDelegate = appDelegate
+        let uid = getuid()
+        self.socketPath = NSTemporaryDirectory() + "intentional-native-messaging-\(uid).sock"
+    }
+
+    /// Start the socket server. Returns true on success.
+    func start() -> Bool {
+        cleanupStaleSocket()
+
+        // Create Unix Domain Socket
+        serverFd = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard serverFd >= 0 else {
+            appDelegate?.postLog("Socket server: Failed to create socket: \(String(cString: strerror(errno)))")
+            return false
+        }
+
+        // Bind to socket path
+        var addr = sockaddr_un()
+        addr.sun_family = sa_family_t(AF_UNIX)
+        let pathBytes = socketPath.utf8CString
+        withUnsafeMutableBytes(of: &addr.sun_path) { rawBuf in
+            for i in 0..<min(pathBytes.count, rawBuf.count - 1) {
+                rawBuf[i] = UInt8(bitPattern: pathBytes[i])
+            }
+        }
+
+        let bindResult = withUnsafePointer(to: &addr) { ptr in
+            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
+                bind(serverFd, sockPtr, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
+
+        guard bindResult == 0 else {
+            appDelegate?.postLog("Socket server: Failed to bind: \(String(cString: strerror(errno)))")
+            Darwin.close(serverFd)
+            serverFd = -1
+            return false
+        }
+
+        // Listen with backlog of 5
+        guard listen(serverFd, 5) == 0 else {
+            appDelegate?.postLog("Socket server: Failed to listen: \(String(cString: strerror(errno)))")
+            Darwin.close(serverFd)
+            serverFd = -1
+            return false
+        }
+
+        isListening = true
+        appDelegate?.postLog("🔌 Socket relay server listening on \(socketPath)")
+
+        // Accept connections in background
+        acceptQueue.async { [weak self] in
+            self?.acceptLoop()
+        }
+
+        return true
+    }
+
+    /// Stop the server and close all connections
+    func stop() {
+        isListening = false
+
+        // Close server socket (unblocks accept())
+        if serverFd >= 0 {
+            Darwin.close(serverFd)
+            serverFd = -1
+        }
+
+        // Stop all active connection handlers
+        connectionsLock.lock()
+        for (_, handler) in activeConnections {
+            handler.stop()
+        }
+        activeConnections.removeAll()
+        connectionsLock.unlock()
+
+        // Remove socket file
+        try? FileManager.default.removeItem(atPath: socketPath)
+        appDelegate?.postLog("🔌 Socket relay server stopped")
+    }
+
+    /// Send a message to all active connections
+    func broadcastToAll(_ message: [String: Any]) {
+        connectionsLock.lock()
+        let handlers = Array(activeConnections.values)
+        connectionsLock.unlock()
+
+        for handler in handlers {
+            handler.sendMessage(message)
+        }
+    }
+
+    /// Broadcast SESSION_SYNC to all connected browsers.
+    /// Called when session state changes in TimeTracker (via onSessionChanged callback).
+    func broadcastSessionSync() {
+        guard let tracker = appDelegate?.timeTracker else { return }
+        let message = tracker.getSessionSyncPayload()
+        broadcastToAll(message)
+
+        appDelegate?.postLog("🌐 SESSION_SYNC broadcast to \(activeConnections.count) connection(s)")
+    }
+
+    private func acceptLoop() {
+        while isListening {
+            var clientAddr = sockaddr_un()
+            var clientAddrLen = socklen_t(MemoryLayout<sockaddr_un>.size)
+
+            let clientFd = withUnsafeMutablePointer(to: &clientAddr) { ptr in
+                ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
+                    accept(serverFd, sockPtr, &clientAddrLen)
+                }
+            }
+
+            guard clientFd >= 0 else {
+                if isListening {
+                    appDelegate?.postLog("Socket server: Accept error: \(String(cString: strerror(errno)))")
+                }
+                break
+            }
+
+            connectionCounter += 1
+            let connLabel = "relay-\(connectionCounter)"
+
+            // Detect browser BEFORE dispatching to main queue (sysctl is safe off-main)
+            let detectedBrowser = self.detectBrowser(forSocketFd: clientFd)
+
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else {
+                    Darwin.close(clientFd)
+                    return
+                }
+
+                let browserLabel = detectedBrowser ?? "unknown browser"
+                self.appDelegate?.postLog("🔌 Socket relay: New connection (\(connLabel), fd: \(clientFd), browser: \(browserLabel))")
+
+                // A new extension just connected — immediately re-scan to update protection status
+                // This eliminates the delay between enabling an extension and the app recognizing it
+                NativeMessagingSetup.shared.autoDiscoverExtensions()
+                self.appDelegate?.browserMonitor?.recheckBrowserProtection()
+
+                // Create a NativeMessagingHost for this socket connection
+                let handler = NativeMessagingHost(appDelegate: self.appDelegate, label: connLabel)
+                handler.timeTracker = self.appDelegate?.timeTracker
+                handler.detectedBrowser = detectedBrowser
+
+                self.connectionsLock.lock()
+                self.activeConnections[clientFd] = handler
+                self.connectionsLock.unlock()
+
+                handler.startWithFileDescriptor(clientFd)
+
+                // Monitor for disconnection in background
+                DispatchQueue.global(qos: .utility).async { [weak self, weak handler] in
+                    // Wait until handler stops running (readLoop exits on disconnect)
+                    while handler?.isActive == true {
+                        Thread.sleep(forTimeInterval: 1.0)
+                    }
+                    self?.connectionsLock.lock()
+                    self?.activeConnections.removeValue(forKey: clientFd)
+                    self?.connectionsLock.unlock()
+                    DispatchQueue.main.async {
+                        self?.appDelegate?.postLog("🔌 Socket relay: Disconnected (\(connLabel))")
+                    }
+                }
+            }
+        }
+    }
+
+    /// Detect which browser spawned the relay process connected on this socket fd.
+    ///
+    /// Process tree: Browser → relay process → socket connection
+    /// We use LOCAL_PEERPID to get the relay PID, then sysctl to get its parent PID (the browser),
+    /// then NSRunningApplication to get the human-readable app name.
+    private func detectBrowser(forSocketFd fd: Int32) -> String? {
+        // Step 1: Get the PID of the relay process on the other end of the socket
+        var peerPid: pid_t = 0
+        var pidSize = socklen_t(MemoryLayout<pid_t>.size)
+        // LOCAL_PEERPID = 0x002 on macOS
+        guard getsockopt(fd, SOL_LOCAL, 0x002, &peerPid, &pidSize) == 0, peerPid > 0 else {
+            appDelegate?.postLog("Socket relay: Could not get peer PID: \(String(cString: strerror(errno)))")
+            return nil
+        }
+
+        // Step 2: Get the parent PID of the relay process using sysctl
+        let parentPid = getParentPid(of: peerPid)
+        guard parentPid > 0 else {
+            appDelegate?.postLog("Socket relay: Could not get parent PID of relay \(peerPid)")
+            return nil
+        }
+
+        // Step 3: Look up the app name via NSRunningApplication
+        if let app = NSRunningApplication(processIdentifier: parentPid) {
+            let name = app.localizedName ?? app.bundleIdentifier ?? "PID \(parentPid)"
+            appDelegate?.postLog("🔍 Browser detected: \(name) (relay PID: \(peerPid), browser PID: \(parentPid))")
+            return name
+        }
+
+        // Fallback: walk further up the tree (some browsers have helper processes in between)
+        let grandparentPid = getParentPid(of: parentPid)
+        if grandparentPid > 0, let app = NSRunningApplication(processIdentifier: grandparentPid) {
+            let name = app.localizedName ?? app.bundleIdentifier ?? "PID \(grandparentPid)"
+            appDelegate?.postLog("🔍 Browser detected (grandparent): \(name) (relay PID: \(peerPid), parent: \(parentPid), browser PID: \(grandparentPid))")
+            return name
+        }
+
+        appDelegate?.postLog("Socket relay: Could not identify browser for relay PID \(peerPid) (parent: \(parentPid))")
+        return nil
+    }
+
+    /// Get the parent PID of a process using sysctl
+    private func getParentPid(of pid: pid_t) -> pid_t {
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.size
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
+
+        let result = sysctl(&mib, UInt32(mib.count), &info, &size, nil, 0)
+        guard result == 0 else { return 0 }
+
+        return info.kp_eproc.e_ppid
+    }
+
+    private func cleanupStaleSocket() {
+        guard FileManager.default.fileExists(atPath: socketPath) else { return }
+
+        // Try connecting to see if another server is listening
+        let testFd = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard testFd >= 0 else {
+            try? FileManager.default.removeItem(atPath: socketPath)
+            return
+        }
+        defer { Darwin.close(testFd) }
+
+        var addr = sockaddr_un()
+        addr.sun_family = sa_family_t(AF_UNIX)
+        let pathBytes = socketPath.utf8CString
+        withUnsafeMutableBytes(of: &addr.sun_path) { rawBuf in
+            for i in 0..<min(pathBytes.count, rawBuf.count - 1) {
+                rawBuf[i] = UInt8(bitPattern: pathBytes[i])
+            }
+        }
+
+        let connectResult = withUnsafePointer(to: &addr) { ptr in
+            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
+                connect(testFd, sockPtr, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
+
+        if connectResult != 0 {
+            // No one listening, safe to remove stale socket
+            try? FileManager.default.removeItem(atPath: socketPath)
+            appDelegate?.postLog("Socket server: Removed stale socket file")
+        }
+    }
+
+    deinit {
+        stop()
+    }
+}

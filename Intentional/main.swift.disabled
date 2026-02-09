@@ -1,0 +1,150 @@
+//
+//  main.swift
+//  Intentional
+//
+//  Explicit app entry point - bypasses @main to ensure initialization
+//
+
+import Cocoa
+
+// Print to console AND file to diagnose execution
+let logPath = NSTemporaryDirectory() + "intentional-debug.log"
+print("=== MAIN.SWIFT EXECUTING ===")
+
+// Create diagnostic log file that persists across launches
+let diagnosticLogPath = NSTemporaryDirectory() + "intentional-launches.log"
+let launchTime = Date()
+let launchLog = """
+===== LAUNCH ATTEMPT =====
+Time: \(launchTime)
+PID: \(ProcessInfo.processInfo.processIdentifier)
+Args: \(CommandLine.arguments.joined(separator: " "))
+isatty(STDIN): \(isatty(STDIN_FILENO))
+isatty(STDOUT): \(isatty(STDOUT_FILENO))
+Working Dir: \(FileManager.default.currentDirectoryPath)
+========================
+
+"""
+if let existingLog = try? String(contentsOfFile: diagnosticLogPath, encoding: .utf8) {
+    try? (existingLog + launchLog).write(toFile: diagnosticLogPath, atomically: true, encoding: .utf8)
+} else {
+    try? launchLog.write(toFile: diagnosticLogPath, atomically: true, encoding: .utf8)
+}
+
+// Also write to per-session log
+try? "main.swift executed at \(Date())\nAppDelegate set at \(Date())\n".write(toFile: logPath, atomically: true, encoding: .utf8)
+
+// CRITICAL: Prevent browser extensions from auto-launching the app
+// Check if launched via Native Messaging (browser extension)
+let launchedByExtension = isatty(STDIN_FILENO) == 0
+
+print("🔍 Launch method check:")
+print("   isatty(STDIN_FILENO) = \(isatty(STDIN_FILENO))")
+print("   launchedByExtension = \(launchedByExtension)")
+
+// CRITICAL: Prevent multiple instances of the app from running
+// Use a lock file for robust single-instance enforcement (more reliable than NSWorkspace check)
+let lockFilePath = NSTemporaryDirectory() + "intentional-app.lock"
+let fileManager = FileManager.default
+let pid = ProcessInfo.processInfo.processIdentifier
+
+// Try to create lock file exclusively
+if fileManager.fileExists(atPath: lockFilePath) {
+    // Lock file exists - check if the process is still running
+    if let existingPID = try? String(contentsOfFile: lockFilePath, encoding: .utf8),
+       let pidInt = Int32(existingPID.trimmingCharacters(in: .whitespacesAndNewlines)) {
+        // Check if process is still alive
+        if kill(pidInt, 0) == 0 {
+            // Process is alive - another instance is running
+            print("⚠️ Lock file exists and process \(pidInt) is running")
+
+            // Log this duplicate launch attempt
+            let duplicateLog = """
+            DUPLICATE LAUNCH BLOCKED
+            Existing PID: \(pidInt)
+            Launched by extension: \(launchedByExtension)
+            Command line args: \(CommandLine.arguments)
+
+            """
+            if let existingDiagLog = try? String(contentsOfFile: diagnosticLogPath, encoding: .utf8) {
+                try? (existingDiagLog + duplicateLog).write(toFile: diagnosticLogPath, atomically: true, encoding: .utf8)
+            }
+
+            if launchedByExtension {
+                print("✅ Exiting duplicate instance - existing app will handle Native Messaging")
+                try? "Duplicate instance prevented at \(Date()) - existing app running\n".write(toFile: logPath, atomically: true, encoding: .utf8)
+                exit(0)
+            } else {
+                print("🔄 Activating existing instance (PID: \(pidInt))...")
+                let runningApps = NSWorkspace.shared.runningApplications
+                let intentionalApps = runningApps.filter { app in
+                    app.processIdentifier == pidInt
+                }
+                if let existingApp = intentionalApps.first {
+                    existingApp.activate(options: .activateIgnoringOtherApps)
+                }
+                exit(0)
+            }
+        } else {
+            // Stale lock file - process is dead
+            print("⚠️ Removing stale lock file (process \(pidInt) is dead)")
+            try? fileManager.removeItem(atPath: lockFilePath)
+        }
+    } else {
+        // Corrupted lock file
+        print("⚠️ Removing corrupted lock file")
+        try? fileManager.removeItem(atPath: lockFilePath)
+    }
+}
+
+// Create lock file with our PID
+do {
+    try "\(pid)".write(toFile: lockFilePath, atomically: true, encoding: .utf8)
+    print("✅ This is the only running instance (PID: \(pid))")
+    print("🔒 Lock file created at: \(lockFilePath)")
+
+    // Register cleanup handler to remove lock file when app quits
+    atexit {
+        try? fileManager.removeItem(atPath: lockFilePath)
+    }
+} catch {
+    print("⚠️ Failed to create lock file: \(error)")
+    print("⚠️ Continuing anyway, but single-instance check may not work")
+}
+
+if launchedByExtension {
+    // Check if user has disabled auto-launch (e.g., by quitting the app)
+    let defaults = UserDefaults.standard
+    let prefValue = defaults.object(forKey: "allowAutoLaunchFromExtension")
+
+    print("🔍 Native Messaging launch detected!")
+    print("   Preference key exists: \(prefValue != nil)")
+    if let boolValue = prefValue as? Bool {
+        print("   Preference value: \(boolValue)")
+    } else {
+        print("   Preference value: nil (default to allow)")
+    }
+
+    // If key doesn't exist (first launch), default to allowing auto-launch
+    // If key exists and is false, user quit the app - block auto-launch
+    if let allowAutoLaunch = defaults.object(forKey: "allowAutoLaunchFromExtension") as? Bool,
+       !allowAutoLaunch {
+        // User explicitly closed the app - don't let extensions restart it
+        print("❌ Auto-launch BLOCKED - app was closed by user")
+        print("   Exiting with code 0...")
+        try? "Auto-launch blocked at \(Date()) - exiting\n".write(toFile: logPath, atomically: true, encoding: .utf8)
+        exit(0)
+    }
+
+    print("✅ Auto-launch ALLOWED - extension connection accepted")
+} else {
+    print("🖥️ Manual launch detected (not via Native Messaging)")
+}
+
+let app = NSApplication.shared
+let delegate = AppDelegate()
+app.delegate = delegate
+
+print("=== APP DELEGATE SET ===")
+
+_ = NSApplicationMain(CommandLine.argc, CommandLine.unsafeArgv)

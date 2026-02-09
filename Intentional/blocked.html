@@ -138,6 +138,45 @@
             max-width: 500px;
         }
 
+        /* Install prompt */
+        .install-prompt {
+            margin: 32px 0;
+            text-align: center;
+        }
+
+        .install-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 32px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 18px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 20px rgba(118, 75, 162, 0.4);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .install-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(118, 75, 162, 0.6);
+        }
+
+        .install-subtitle {
+            margin-top: 12px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+        }
+
+        .not-supported-message {
+            font-size: 18px;
+            color: #ff6b6b;
+            margin-top: 16px;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+        }
+
         /* Protected browsers list */
         .protected-browsers {
             display: flex;
@@ -198,6 +237,7 @@
 
         .breathing-container { animation: fadeIn 0.6s ease-out 0.2s both; }
         .explanation { animation: fadeIn 0.6s ease-out 0.4s both; }
+        .install-prompt { animation: fadeIn 0.6s ease-out 0.5s both; }
         .protected-browsers { animation: fadeIn 0.6s ease-out 0.6s both; }
         .progress-indicator { animation: fadeIn 0.6s ease-out 0.8s both; }
     </style>
@@ -225,6 +265,11 @@
         <!-- Explanation -->
         <div class="explanation" id="explanation">
             Loading...
+        </div>
+
+        <!-- Install prompt (shown if browser supports extensions) -->
+        <div class="install-prompt" id="installPrompt" style="display: none;">
+            <!-- Populated by JavaScript -->
         </div>
 
         <!-- Protected browsers -->
@@ -394,6 +439,40 @@
             requestAnimationFrame(updateBreathing);
         }
 
+        // Detect browser type from user agent
+        function detectBrowser() {
+            const ua = navigator.userAgent.toLowerCase();
+
+            if (ua.includes('edg/')) return { name: 'edge', type: 'chromium' };
+            if (ua.includes('opr/') || ua.includes('opera')) return { name: 'opera', type: 'chromium' };
+            if (ua.includes('brave')) return { name: 'brave', type: 'chromium' };
+            if (ua.includes('vivaldi')) return { name: 'vivaldi', type: 'chromium' };
+            if (ua.includes('firefox') || ua.includes('fxios')) return { name: 'firefox', type: 'firefox' };
+            if (ua.includes('safari') && !ua.includes('chrome')) return { name: 'safari', type: 'unsupported' };
+            if (ua.includes('chrome') || ua.includes('crios')) return { name: 'chrome', type: 'chromium' };
+
+            return { name: 'unknown', type: 'chromium' }; // Default to chromium
+        }
+
+        // Get install URL based on browser
+        function getInstallInfo(browserType) {
+            // TODO: Replace with actual store URLs when published
+            if (browserType === 'chromium') {
+                return {
+                    url: 'https://chrome.google.com/webstore', // Placeholder - will be specific extension URL
+                    storeName: 'Chrome Web Store',
+                    buttonText: 'Install Extension'
+                };
+            } else if (browserType === 'firefox') {
+                return {
+                    url: 'https://addons.mozilla.org/firefox/', // Placeholder - will be specific extension URL
+                    storeName: 'Firefox Add-ons',
+                    buttonText: 'Install Extension'
+                };
+            }
+            return null;
+        }
+
         // Initialize page content
         function init() {
             initCount++;
@@ -404,6 +483,9 @@
             });
 
             const params = getQueryParams();
+            const browser = detectBrowser();
+
+            debugLog('BROWSER DETECTED', browser);
 
             // Get elements
             circle = document.getElementById('breathingCircle');
@@ -437,6 +519,29 @@
             // Update explanation
             document.getElementById('explanation').textContent =
                 `${params.browser} doesn't have the extension.`;
+
+            // Show install prompt based on browser support
+            const installPromptContainer = document.getElementById('installPrompt');
+            const installInfo = getInstallInfo(browser.type);
+
+            if (browser.type === 'unsupported') {
+                installPromptContainer.innerHTML = `
+                    <div class="not-supported-message">
+                        Safari is not supported yet. Please use Chrome, Firefox, Brave, Arc, Edge, or another Chromium/Firefox-based browser.
+                    </div>
+                `;
+                installPromptContainer.style.display = 'block';
+            } else if (installInfo) {
+                installPromptContainer.innerHTML = `
+                    <a href="${installInfo.url}" class="install-button" target="_blank">
+                        ${installInfo.buttonText}
+                    </a>
+                    <div class="install-subtitle">
+                        Extension will be available on ${installInfo.storeName} soon
+                    </div>
+                `;
+                installPromptContainer.style.display = 'block';
+            }
 
             // Parse and display protected browsers
             const protectedBrowsers = params.protected ? params.protected.split(',') : [];

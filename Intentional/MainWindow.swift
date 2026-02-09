@@ -390,9 +390,64 @@ struct UnprotectedBrowser: Identifiable {
 struct MonitorTabView: View {
     @Binding var events: [SystemEvent]
     @Binding var logs: [LogEntry]
+    @State private var showDetailedBreakdown = false
+    @State private var refreshTimer: Timer? = nil
+
+    // Time tracking state
+    @State private var youtubeMinutes: Int = 0
+    @State private var instagramMinutes: Int = 0
+    @State private var youtubeBudget: Int = 0
+    @State private var instagramBudget: Int = 0
+    @State private var activeSessions: [TimeTracker.BrowserSession] = []
 
     var body: some View {
         VStack(spacing: 0) {
+            // Time Tracking Header
+            VStack(spacing: 12) {
+                HStack {
+                    Text("Today's Usage")
+                        .font(.headline)
+
+                    Spacer()
+
+                    Button(action: {
+                        showDetailedBreakdown = true
+                    }) {
+                        Label("View Details", systemImage: "chart.bar.doc.horizontal")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding(.horizontal)
+                .padding(.top, 12)
+
+                // Time usage cards
+                HStack(spacing: 12) {
+                    // YouTube
+                    TimeUsageCard(
+                        platform: "YouTube",
+                        icon: "play.rectangle.fill",
+                        minutes: youtubeMinutes,
+                        budget: youtubeBudget,
+                        color: .red
+                    )
+
+                    // Instagram
+                    TimeUsageCard(
+                        platform: "Instagram",
+                        icon: "camera.fill",
+                        minutes: instagramMinutes,
+                        budget: instagramBudget,
+                        color: .pink
+                    )
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 12)
+            }
+            .background(Color(NSColor.controlBackgroundColor))
+
+            Divider()
+
             // Split view: Events on left, Console on right
             HSplitView {
                 // Events List
@@ -510,6 +565,43 @@ struct MonitorTabView: View {
             .padding(8)
             .background(Color(NSColor.controlBackgroundColor))
         }
+        .sheet(isPresented: $showDetailedBreakdown) {
+            DetailedUsageBreakdownView(
+                activeSessions: activeSessions,
+                youtubeMinutes: youtubeMinutes,
+                instagramMinutes: instagramMinutes
+            )
+        }
+        .onAppear {
+            // Delay initial refresh to ensure app is fully initialized
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                refreshUsageData()
+
+                // Start refresh timer (every 5 seconds)
+                refreshTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
+                    refreshUsageData()
+                }
+            }
+        }
+        .onDisappear {
+            refreshTimer?.invalidate()
+            refreshTimer = nil
+        }
+    }
+
+    private func refreshUsageData() {
+        guard let appDelegate = NSApplication.shared.delegate as? AppDelegate else {
+            return
+        }
+        guard let timeTracker = appDelegate.timeTracker else {
+            return
+        }
+
+        youtubeMinutes = timeTracker.getMinutesUsed(for: "youtube")
+        instagramMinutes = timeTracker.getMinutesUsed(for: "instagram")
+        youtubeBudget = timeTracker.getBudget(for: "youtube")
+        instagramBudget = timeTracker.getBudget(for: "instagram")
+        activeSessions = timeTracker.getActiveSessions()
     }
 }
 
@@ -679,6 +771,7 @@ struct ExtensionSetupSection: View {
     @State private var isScanning: Bool = false
     @State private var lastScanMessage: String? = nil
     @State private var showManualEntry: Bool = false
+    @State private var refreshTimer: Timer? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -815,7 +908,19 @@ struct ExtensionSetupSection: View {
             .cornerRadius(8)
         }
         .onAppear {
+            // Refresh immediately when view appears
             refreshStatus()
+
+            // Start periodic refresh timer (every 5 seconds)
+            // Chrome writes Preferences file within ~5 seconds of extension state changes
+            refreshTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
+                refreshStatus()
+            }
+        }
+        .onDisappear {
+            // Stop timer when view disappears to save resources
+            refreshTimer?.invalidate()
+            refreshTimer = nil
         }
     }
 
@@ -955,6 +1060,281 @@ struct BrowserStatusRow: View {
             return "music.note"
         case let n where n.contains("vivaldi"):
             return "music.quarternote.3"
+        case let n where n.contains("safari"):
+            return "safari.fill"
+        default:
+            return "globe"
+        }
+    }
+}
+
+// Time Usage Card
+struct TimeUsageCard: View {
+    let platform: String
+    let icon: String
+    let minutes: Int
+    let budget: Int
+    let color: Color
+
+    var progress: Double {
+        guard budget > 0 else { return 0 }
+        return Double(minutes) / Double(budget)
+    }
+
+    var isOverBudget: Bool {
+        budget > 0 && minutes >= budget
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundColor(color)
+                Text(platform)
+                    .font(.headline)
+                Spacer()
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text("\(minutes)")
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundColor(isOverBudget ? .red : .primary)
+
+                Text("min")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Spacer()
+
+                if budget > 0 {
+                    Text("/ \(budget) min")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            if budget > 0 {
+                ProgressView(value: min(progress, 1.0))
+                    .progressViewStyle(.linear)
+                    .tint(isOverBudget ? .red : color)
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isOverBudget ? Color.red.opacity(0.5) : Color.clear, lineWidth: 2)
+        )
+    }
+}
+
+// Detailed Usage Breakdown View
+struct DetailedUsageBreakdownView: View {
+    let activeSessions: [TimeTracker.BrowserSession]
+    let youtubeMinutes: Int
+    let instagramMinutes: Int
+    @Environment(\.dismiss) private var dismiss
+
+    var sortedSessions: [(browser: String, platform: String, minutes: Int, videoMinutes: Int)] {
+        var breakdown: [(browser: String, platform: String, minutes: Int, videoMinutes: Int)] = []
+        for session in activeSessions {
+            let minutes = session.totalSeconds / 60
+            let videoMinutes = session.videoSeconds / 60
+            breakdown.append((browser: session.browser, platform: session.platform, minutes: minutes, videoMinutes: videoMinutes))
+        }
+        return breakdown.sorted { (a, b) in a.minutes > b.minutes }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack {
+                VStack(alignment: .leading) {
+                    Text("Usage Breakdown")
+                        .font(.title)
+                        .fontWeight(.bold)
+
+                    Text("Time spent by browser and platform")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                Button(action: { dismiss() }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding()
+
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Total Summary
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Total Usage Today")
+                            .font(.headline)
+
+                        HStack(spacing: 20) {
+                            VStack(alignment: .leading) {
+                                Text("YouTube")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text("\(youtubeMinutes) min")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.red)
+                            }
+
+                            Divider()
+                                .frame(height: 40)
+
+                            VStack(alignment: .leading) {
+                                Text("Instagram")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text("\(instagramMinutes) min")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.pink)
+                            }
+
+                            Divider()
+                                .frame(height: 40)
+
+                            VStack(alignment: .leading) {
+                                Text("Combined")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text("\(youtubeMinutes + instagramMinutes) min")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                            }
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .cornerRadius(8)
+                    }
+
+                    Divider()
+
+                    // Per-Browser Breakdown
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("By Browser")
+                            .font(.headline)
+
+                        if sortedSessions.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "safari")
+                                    .font(.system(size: 32))
+                                    .foregroundColor(.secondary)
+
+                                Text("No active sessions")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+
+                                Text("Usage data appears here when you visit YouTube or Instagram")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 40)
+                        } else {
+                            VStack(spacing: 8) {
+                                ForEach(sortedSessions, id: \.browser) { session in
+                                    BrowserUsageRow(
+                                        browser: session.browser,
+                                        platform: session.platform,
+                                        minutes: session.minutes,
+                                        videoMinutes: session.videoMinutes
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding()
+            }
+        }
+        .frame(width: 600, height: 500)
+    }
+}
+
+// Browser Usage Row
+struct BrowserUsageRow: View {
+    let browser: String
+    let platform: String
+    let minutes: Int
+    let videoMinutes: Int
+
+    var platformColor: Color {
+        platform.lowercased() == "youtube" ? .red : .pink
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Browser icon
+            Image(systemName: browserIcon(for: browser))
+                .font(.system(size: 24))
+                .foregroundColor(.primary)
+                .frame(width: 40)
+
+            // Browser info
+            VStack(alignment: .leading, spacing: 2) {
+                Text(browser)
+                    .font(.headline)
+
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(platformColor)
+                        .frame(width: 6, height: 6)
+
+                    Text(platform)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            Spacer()
+
+            // Time display
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("\(minutes) min")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+
+                if videoMinutes > 0 {
+                    Text("\(videoMinutes) min active")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding()
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(8)
+    }
+
+    private func browserIcon(for name: String) -> String {
+        switch name.lowercased() {
+        case let n where n.contains("chrome"):
+            return "globe"
+        case let n where n.contains("brave"):
+            return "shield.fill"
+        case let n where n.contains("edge"):
+            return "globe.americas.fill"
+        case let n where n.contains("arc"):
+            return "rainbow"
+        case let n where n.contains("firefox"):
+            return "flame.fill"
         case let n where n.contains("safari"):
             return "safari.fill"
         default:

@@ -93,18 +93,30 @@ class PermissionManager: NSObject {
     }
 
     private func checkAppleEventsPermissions() {
-        // Only check permissions for installed browsers
+        // Only check permissions for browsers that are CURRENTLY RUNNING
+        // Sending an AppleEvent to a non-running app causes macOS to LAUNCH it
         let installedBrowsers = getInstalledBrowsers()
+        let runningApps = NSWorkspace.shared.runningApplications
+        let runningBundleIds = Set(runningApps.compactMap { $0.bundleIdentifier })
 
         for bundleId in installedBrowsers {
+            guard runningBundleIds.contains(bundleId) else {
+                // Skip — don't want to accidentally launch the browser
+                continue
+            }
+
             let hasPermission = checkAppleEventsPermission(for: bundleId)
+            let changed = status.appleEvents[bundleId] != hasPermission
             status.appleEvents[bundleId] = hasPermission
 
-            let browserName = getBrowserName(for: bundleId)
-            if hasPermission {
-                appDelegate?.postLog("✅ AppleEvents permission granted for \(browserName)")
-            } else {
-                appDelegate?.postLog("⚠️ AppleEvents permission missing for \(browserName)")
+            // Only log on state change
+            if changed {
+                let browserName = getBrowserName(for: bundleId)
+                if hasPermission {
+                    appDelegate?.postLog("✅ AppleEvents permission granted for \(browserName)")
+                } else {
+                    appDelegate?.postLog("⚠️ AppleEvents permission missing for \(browserName)")
+                }
             }
         }
     }
