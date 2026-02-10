@@ -947,10 +947,16 @@ body {
 
 .config-panel.active {
   display: block;
+}
+
+/* Config steps within a panel */
+.config-step {
+  display: none;
+}
+
+.config-step.active {
+  display: block;
   animation: config-slide-in 0.3s ease-out;
-  max-height: calc(100vh - 100px);
-  overflow-y: auto;
-  padding-right: 4px;
 }
 
 .config-back-btn {
@@ -1018,13 +1024,6 @@ body {
   background: rgba(99, 102, 241, 0.15);
   border-color: #6366f1;
   color: white;
-}
-
-/* ===== Config Done Button ===== */
-.config-done-btn {
-  width: 100%;
-  max-width: none;
-  margin-top: 12px;
 }
 
 /* ===== Saving Overlay ===== */
@@ -1164,126 +1163,150 @@ body {
 
     <!-- YouTube Config Panel -->
     <div class="config-panel" id="youtube-config">
-      <button class="config-back-btn" type="button" onclick="closeConfigPanel()">&lsaquo; Back to platforms</button>
-      <h2 class="config-title">&#9654;&#65039; YouTube</h2>
 
-      <div class="config-section">
-        <div class="config-section-label">Daily Budget</div>
-        <div class="budget-selector">
-          <div class="budget-stepper">
-            <button class="stepper-btn" id="youtube-budget-down" type="button">&minus;</button>
-            <div class="budget-display">
-              <span class="budget-value" id="youtube-budget-value">30</span>
-              <span class="budget-unit">min / day</span>
+      <!-- Step 1: Budget & Controls -->
+      <div class="config-step active" id="youtube-step-1">
+        <button class="config-back-btn" type="button" onclick="closeConfigPanel()">&lsaquo; Back to platforms</button>
+        <h2 class="config-title">&#9654;&#65039; YouTube</h2>
+
+        <div class="config-section">
+          <div class="config-section-label">Daily Budget</div>
+          <div class="budget-selector">
+            <div class="budget-stepper">
+              <button class="stepper-btn" id="youtube-budget-down" type="button">&minus;</button>
+              <div class="budget-display">
+                <span class="budget-value" id="youtube-budget-value">30</span>
+                <span class="budget-unit">min / day</span>
+              </div>
+              <button class="stepper-btn" id="youtube-budget-up" type="button">+</button>
             </div>
-            <button class="stepper-btn" id="youtube-budget-up" type="button">+</button>
           </div>
         </div>
-      </div>
 
-      <div class="config-section">
-        <div class="config-section-label">Session Limit</div>
-        <div class="period-limit">
-          <label class="checkbox-label" style="justify-content:flex-start;">
-            <input type="checkbox" id="youtube-enable-period">
-            <span class="checkbox-custom"></span>
-            <span class="checkbox-text">Limit per session</span>
+        <div class="config-section">
+          <div class="config-section-label">Session Limit</div>
+          <div class="period-limit">
+            <label class="checkbox-label" style="justify-content:flex-start;">
+              <input type="checkbox" id="youtube-enable-period">
+              <span class="checkbox-custom"></span>
+              <span class="checkbox-text">Limit per session</span>
+            </label>
+            <div class="period-config" id="youtube-period-config">
+              <span>Max</span>
+              <select id="youtube-period-minutes" class="select-input">
+                <option value="10">10 min</option>
+                <option value="15">15 min</option>
+                <option value="20" selected>20 min</option>
+                <option value="30">30 min</option>
+              </select>
+              <span>per</span>
+              <select id="youtube-period-hours" class="select-input">
+                <option value="1" selected>hour</option>
+                <option value="2">2 hours</option>
+                <option value="3">3 hours</option>
+                <option value="4">4 hours</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <label class="toggle-row">
+            <span class="toggle-row-text">Block Shorts</span>
+            <input type="checkbox" checked id="youtube-block-shorts" class="toggle-input">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
           </label>
-          <div class="period-config" id="youtube-period-config">
-            <span>Max</span>
-            <select id="youtube-period-minutes" class="select-input">
-              <option value="10">10 min</option>
-              <option value="15">15 min</option>
-              <option value="20" selected>20 min</option>
-              <option value="30">30 min</option>
-            </select>
-            <span>per</span>
-            <select id="youtube-period-hours" class="select-input">
-              <option value="1" selected>hour</option>
-              <option value="2">2 hours</option>
-              <option value="3">3 hours</option>
-              <option value="4">4 hours</option>
-            </select>
+        </div>
+
+        <div class="config-section">
+          <div class="config-section-label">Block Mode</div>
+          <div class="block-mode-options" id="youtube-block-mode">
+            <button class="block-mode-option selected" data-mode="hide" type="button">🚫 Hide</button>
+            <button class="block-mode-option" data-mode="blur" type="button">🌫 Blur</button>
           </div>
+        </div>
+
+        <div class="footer">
+          <button class="btn btn-secondary" type="button" onclick="closeConfigPanel()">Cancel</button>
+          <button class="btn btn-primary" type="button" onclick="nextConfigStep('youtube')">Next</button>
         </div>
       </div>
 
-      <div class="config-section">
-        <div class="config-section-label">Danger Zones</div>
-        <p style="font-size:12px;color:rgba(255,255,255,0.35);margin-bottom:10px;">Content categories to filter out</p>
+      <!-- Step 2: Danger Zones -->
+      <div class="config-step" id="youtube-step-2">
+        <button class="config-back-btn" type="button" onclick="prevConfigStep('youtube')">&lsaquo; Back</button>
+        <h2 class="config-title">&#9654;&#65039; Danger Zones</h2>
+        <p class="subtitle" style="text-align:left;margin-bottom:16px;">Which content pulls you into the rabbit hole?</p>
+
         <div class="danger-zones-grid" id="youtube-danger-grid"></div>
         <div class="custom-category">
           <input type="text" id="youtube-custom-category" placeholder="+ Add custom category" class="text-input">
         </div>
         <div class="selected-categories" id="youtube-selected-categories"></div>
-      </div>
 
-      <div class="config-section">
-        <label class="toggle-row">
-          <span class="toggle-row-text">Block Shorts</span>
-          <input type="checkbox" checked id="youtube-block-shorts" class="toggle-input">
-          <span class="toggle-track"><span class="toggle-thumb"></span></span>
-        </label>
-      </div>
-
-      <div class="config-section">
-        <div class="config-section-label">Block Mode</div>
-        <div class="block-mode-options" id="youtube-block-mode">
-          <button class="block-mode-option selected" data-mode="hide" type="button">🚫 Hide</button>
-          <button class="block-mode-option" data-mode="blur" type="button">🌫 Blur</button>
+        <div class="footer">
+          <button class="btn btn-secondary" type="button" onclick="prevConfigStep('youtube')">Back</button>
+          <button class="btn btn-primary" type="button" onclick="closeConfigPanel()">Done</button>
         </div>
       </div>
 
-      <button class="btn btn-primary config-done-btn" type="button" onclick="closeConfigPanel()">Done</button>
     </div>
 
     <!-- Instagram Config Panel -->
     <div class="config-panel" id="instagram-config">
-      <button class="config-back-btn" type="button" onclick="closeConfigPanel()">&lsaquo; Back to platforms</button>
-      <h2 class="config-title">📷 Instagram</h2>
 
-      <div class="config-section">
-        <div class="config-section-label">Daily Budget</div>
-        <div class="budget-selector">
-          <div class="budget-stepper">
-            <button class="stepper-btn" id="instagram-budget-down" type="button">&minus;</button>
-            <div class="budget-display">
-              <span class="budget-value" id="instagram-budget-value">30</span>
-              <span class="budget-unit">min / day</span>
+      <!-- Single Step -->
+      <div class="config-step active" id="instagram-step-1">
+        <button class="config-back-btn" type="button" onclick="closeConfigPanel()">&lsaquo; Back to platforms</button>
+        <h2 class="config-title">📷 Instagram</h2>
+
+        <div class="config-section">
+          <div class="config-section-label">Daily Budget</div>
+          <div class="budget-selector">
+            <div class="budget-stepper">
+              <button class="stepper-btn" id="instagram-budget-down" type="button">&minus;</button>
+              <div class="budget-display">
+                <span class="budget-value" id="instagram-budget-value">30</span>
+                <span class="budget-unit">min / day</span>
+              </div>
+              <button class="stepper-btn" id="instagram-budget-up" type="button">+</button>
             </div>
-            <button class="stepper-btn" id="instagram-budget-up" type="button">+</button>
           </div>
+        </div>
+
+        <div class="config-section">
+          <label class="toggle-row">
+            <span class="toggle-row-text">Block Reels</span>
+            <input type="checkbox" checked id="instagram-block-reels" class="toggle-input">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+          <p class="toggle-hint">Removes video reels from your feed</p>
+        </div>
+
+        <div class="config-section">
+          <label class="toggle-row">
+            <span class="toggle-row-text">Block Explore</span>
+            <input type="checkbox" checked id="instagram-block-explore" class="toggle-input">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+          <p class="toggle-hint">Blocks the Explore page to reduce discovery rabbit holes</p>
+        </div>
+
+        <div class="config-section">
+          <label class="toggle-row">
+            <span class="toggle-row-text">NSFW Filter</span>
+            <input type="checkbox" checked id="instagram-nsfw-filter" class="toggle-input">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+          <p class="toggle-hint">Uses AI to detect and hide adult content</p>
+        </div>
+
+        <div class="footer">
+          <button class="btn btn-secondary" type="button" onclick="closeConfigPanel()">Cancel</button>
+          <button class="btn btn-primary" type="button" onclick="closeConfigPanel()">Done</button>
         </div>
       </div>
 
-      <div class="config-section">
-        <label class="toggle-row">
-          <span class="toggle-row-text">Block Reels</span>
-          <input type="checkbox" checked id="instagram-block-reels" class="toggle-input">
-          <span class="toggle-track"><span class="toggle-thumb"></span></span>
-        </label>
-        <p class="toggle-hint">Removes video reels from your feed</p>
-      </div>
-
-      <div class="config-section">
-        <label class="toggle-row">
-          <span class="toggle-row-text">Block Explore</span>
-          <input type="checkbox" checked id="instagram-block-explore" class="toggle-input">
-          <span class="toggle-track"><span class="toggle-thumb"></span></span>
-        </label>
-        <p class="toggle-hint">Blocks the Explore page to reduce discovery rabbit holes</p>
-      </div>
-
-      <div class="config-section">
-        <label class="toggle-row">
-          <span class="toggle-row-text">NSFW Filter</span>
-          <input type="checkbox" checked id="instagram-nsfw-filter" class="toggle-input">
-          <span class="toggle-track"><span class="toggle-thumb"></span></span>
-        </label>
-        <p class="toggle-hint">Uses AI to detect and hide adult content</p>
-      </div>
-
-      <button class="btn btn-primary config-done-btn" type="button" onclick="closeConfigPanel()">Done</button>
     </div>
 
   </div>
@@ -1386,6 +1409,8 @@ const totalScreens = 5;
 let selectedLockMode = 'none';
 let extensionPollTimer = null;
 let activeConfigPanel = null;
+let configSteps = { youtube: 1, instagram: 1 };
+const maxConfigSteps = { youtube: 2, instagram: 1 };
 
 const platformSettings = {
   youtube: {
@@ -1606,6 +1631,13 @@ function installExtension(browserName, bundleId) {
 function openConfigPanel(platform) {
   if (!platformSettings[platform].enabled) return;
 
+  // Reset to step 1
+  configSteps[platform] = 1;
+  for (let i = 1; i <= maxConfigSteps[platform]; i++) {
+    const step = document.getElementById(`${platform}-step-${i}`);
+    if (step) step.classList.toggle('active', i === 1);
+  }
+
   const listView = document.getElementById('platform-list-view');
   const configPanel = document.getElementById(`${platform}-config`);
 
@@ -1625,6 +1657,25 @@ function closeConfigPanel() {
   activeConfigPanel = null;
 
   updatePlatformSummaries();
+}
+
+function nextConfigStep(platform) {
+  const current = configSteps[platform];
+  const next = current + 1;
+  if (next > maxConfigSteps[platform]) return;
+
+  document.getElementById(`${platform}-step-${current}`).classList.remove('active');
+  document.getElementById(`${platform}-step-${next}`).classList.add('active');
+  configSteps[platform] = next;
+}
+
+function prevConfigStep(platform) {
+  const current = configSteps[platform];
+  if (current <= 1) { closeConfigPanel(); return; }
+
+  document.getElementById(`${platform}-step-${current}`).classList.remove('active');
+  document.getElementById(`${platform}-step-${current - 1}`).classList.add('active');
+  configSteps[platform] = current - 1;
 }
 
 function updatePlatformSummaries() {
