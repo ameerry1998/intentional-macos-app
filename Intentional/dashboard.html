@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intentional — Dashboard</title>
+<style>
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, sans-serif;
+  background: #0a0a0a;
+  color: #ffffff;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ===== Header ===== */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 32px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-ring {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.3) 0%, rgba(139, 92, 246, 0.2) 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.header-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #34d399;
+}
+
+.status-text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ===== Content ===== */
+.content {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 16px;
+}
+
+/* ===== Usage Cards ===== */
+.usage-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.usage-card {
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  transition: all 0.3s ease;
+}
+
+.usage-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.usage-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.usage-card-icon {
+  font-size: 20px;
+}
+
+.usage-card-platform {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.usage-card-time {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.usage-minutes {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.usage-minutes.youtube { color: #ef4444; }
+.usage-minutes.instagram { color: #e879f9; }
+
+.usage-unit {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.usage-budget {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.usage-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  margin-top: 12px;
+  overflow: hidden;
+}
+
+.usage-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+.usage-bar-fill.youtube { background: #ef4444; }
+.usage-bar-fill.instagram { background: #e879f9; }
+
+/* ===== Browser Status ===== */
+.browser-section {
+  margin-bottom: 32px;
+}
+
+.browser-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.browser-row {
+  display: flex;
+  align-items: center;
+  padding: 14px 20px;
+  gap: 14px;
+}
+
+.browser-row + .browser-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.browser-icon {
+  font-size: 20px;
+  width: 28px;
+  text-align: center;
+}
+
+.browser-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.browser-status {
+  font-size: 12px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.browser-status.connected { color: #34d399; }
+.browser-status.disconnected { color: rgba(255, 255, 255, 0.3); }
+
+.browser-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.browser-status-dot.connected { background: #34d399; }
+.browser-status-dot.disconnected { background: rgba(255, 255, 255, 0.2); }
+
+/* ===== Empty State ===== */
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-state-text {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ===== Footer ===== */
+.dashboard-footer {
+  text-align: center;
+  padding: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 16px;
+}
+
+.footer-text {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <div class="logo-ring">🎯</div>
+    <span class="header-title">Intentional</span>
+  </div>
+  <div class="header-right">
+    <span class="status-dot"></span>
+    <span class="status-text">Monitoring active</span>
+  </div>
+</div>
+
+<!-- Content -->
+<div class="content">
+
+  <!-- Today's Usage -->
+  <div class="section-title">Today</div>
+  <div class="usage-grid">
+    <div class="usage-card">
+      <div class="usage-card-header">
+        <span class="usage-card-icon">▶️</span>
+        <span class="usage-card-platform">YouTube</span>
+      </div>
+      <div class="usage-card-time">
+        <span class="usage-minutes youtube" id="yt-minutes">0</span>
+        <span class="usage-unit">min</span>
+      </div>
+      <div class="usage-budget" id="yt-budget">/ 30 min budget</div>
+      <div class="usage-bar">
+        <div class="usage-bar-fill youtube" id="yt-bar" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <div class="usage-card">
+      <div class="usage-card-header">
+        <span class="usage-card-icon">📷</span>
+        <span class="usage-card-platform">Instagram</span>
+      </div>
+      <div class="usage-card-time">
+        <span class="usage-minutes instagram" id="ig-minutes">0</span>
+        <span class="usage-unit">min</span>
+      </div>
+      <div class="usage-budget" id="ig-budget">/ 30 min budget</div>
+      <div class="usage-bar">
+        <div class="usage-bar-fill instagram" id="ig-bar" style="width: 0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Browsers -->
+  <div class="browser-section">
+    <div class="section-title">Browsers</div>
+    <div class="browser-card" id="browser-card">
+      <div class="empty-state" id="browser-empty">
+        <div class="empty-state-icon">🌐</div>
+        <div class="empty-state-text">Loading browser status...</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Footer -->
+<div class="dashboard-footer">
+  <span class="footer-text">Intentional is running. Close this window to keep monitoring in the background.</span>
+</div>
+
+<script>
+// ===== Bridge =====
+function sendMessage(payload) {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage(payload);
+  }
+}
+
+// ===== Refresh Data =====
+function refreshDashboard() {
+  sendMessage({ type: 'GET_DASHBOARD_DATA' });
+  sendMessage({ type: 'GET_EXTENSION_STATUS' });
+}
+
+// Callback from Swift for usage data
+window._dashboardDataResult = function(data) {
+  if (data.youtube) {
+    document.getElementById('yt-minutes').textContent = data.youtube.minutesUsed || 0;
+    document.getElementById('yt-budget').textContent = `/ ${data.youtube.budget || 30} min budget`;
+    const pct = Math.min(100, ((data.youtube.minutesUsed || 0) / (data.youtube.budget || 30)) * 100);
+    document.getElementById('yt-bar').style.width = pct + '%';
+  }
+  if (data.instagram) {
+    document.getElementById('ig-minutes').textContent = data.instagram.minutesUsed || 0;
+    document.getElementById('ig-budget').textContent = `/ ${data.instagram.budget || 30} min budget`;
+    const pct = Math.min(100, ((data.instagram.minutesUsed || 0) / (data.instagram.budget || 30)) * 100);
+    document.getElementById('ig-bar').style.width = pct + '%';
+  }
+};
+
+// Callback from Swift for browser status
+window._extensionStatusResult = function(data) {
+  const card = document.getElementById('browser-card');
+  const empty = document.getElementById('browser-empty');
+
+  if (!data.browsers || data.browsers.length === 0) {
+    empty.innerHTML = `
+      <div class="empty-state-icon">🌐</div>
+      <div class="empty-state-text">No Chromium browsers detected</div>
+    `;
+    return;
+  }
+
+  if (empty) empty.remove();
+
+  const icons = {
+    'chrome': '🌐', 'brave': '🛡️', 'arc': '🌈',
+    'edge': '🔵', 'opera': '🔴', 'vivaldi': '🎵'
+  };
+
+  card.innerHTML = data.browsers.map(b => {
+    const iconKey = Object.keys(icons).find(k => b.name.toLowerCase().includes(k));
+    const icon = icons[iconKey] || '🌐';
+    const isConnected = b.hasExtension && b.isEnabled;
+
+    return `
+      <div class="browser-row">
+        <span class="browser-icon">${icon}</span>
+        <span class="browser-name">${b.name}</span>
+        <span class="browser-status ${isConnected ? 'connected' : 'disconnected'}">
+          <span class="browser-status-dot ${isConnected ? 'connected' : 'disconnected'}"></span>
+          ${isConnected ? 'Connected' : (b.hasExtension ? 'Disabled' : 'No extension')}
+        </span>
+      </div>
+    `;
+  }).join('');
+};
+
+// ===== Init =====
+refreshDashboard();
+setInterval(refreshDashboard, 5000);
+</script>
+
+</body>
+</html>

@@ -21,6 +21,14 @@ class SocketRelayServer {
     private let connectionsLock = NSLock()
     private var connectionCounter = 0
 
+    /// Number of currently active extension connections
+    var connectionCount: Int {
+        connectionsLock.lock()
+        let count = activeConnections.count
+        connectionsLock.unlock()
+        return count
+    }
+
     let socketPath: String
 
     init(appDelegate: AppDelegate?) {

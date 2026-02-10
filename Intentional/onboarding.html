@@ -1,0 +1,1950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intentional — Setup</title>
+<style>
+/* ===== Reset & Base ===== */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, sans-serif;
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+  color: #ffffff;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ===== Glow Background ===== */
+.glow {
+  position: fixed;
+  width: 150%;
+  height: 150%;
+  top: -25%;
+  left: -25%;
+  background: radial-gradient(ellipse at center, rgba(99, 102, 241, 0.12) 0%, transparent 50%);
+  animation: glow-pulse 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+@keyframes icon-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes config-slide-in {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ===== Container ===== */
+.container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 520px;
+  padding: 20px;
+}
+
+/* ===== Screen Transitions ===== */
+.screen {
+  display: none;
+  opacity: 0;
+  transform: translateX(30px);
+  transition: all 0.4s ease-out;
+  text-align: center;
+}
+
+.screen.active {
+  display: block;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.screen.exit-left {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+/* ===== Typography ===== */
+.title {
+  font-size: 32px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 12px 0;
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 8px 0;
+  font-weight: 400;
+}
+
+.description {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0 0 20px 0;
+}
+
+/* ===== Welcome Screen ===== */
+.welcome-hero {
+  margin-bottom: 32px;
+}
+
+.welcome-icon {
+  font-size: 80px;
+  margin-bottom: 24px;
+  animation: icon-float 3s ease-in-out infinite;
+}
+
+.welcome-title {
+  font-size: 56px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -1px;
+}
+
+.welcome-tagline {
+  font-size: 32px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 12px 0;
+}
+
+.welcome-subtext {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+}
+
+/* ===== Buttons ===== */
+.btn {
+  padding: 14px 28px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  outline: none;
+  font-family: inherit;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  flex: 1;
+  max-width: 200px;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.btn-text {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 14px 16px;
+}
+
+.btn-text:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.btn-large {
+  padding: 18px 48px;
+  font-size: 18px;
+  max-width: none;
+}
+
+/* ===== Footer ===== */
+.footer {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  justify-content: center;
+}
+
+/* ===== Progress Dots ===== */
+.progress-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.dot.active {
+  background: #6366f1;
+  width: 24px;
+  border-radius: 5px;
+}
+
+.dot:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* ===== Budget Stepper ===== */
+.budget-selector {
+  margin: 24px 0;
+}
+
+.budget-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+
+.stepper-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 26px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-family: inherit;
+  backdrop-filter: blur(8px);
+}
+
+.stepper-btn:hover {
+  background: rgba(99, 102, 241, 0.25);
+  color: #ffffff;
+  transform: scale(1.08);
+}
+
+.stepper-btn:active {
+  transform: scale(0.92);
+  background: rgba(99, 102, 241, 0.35);
+}
+
+.budget-display {
+  text-align: center;
+  min-width: 120px;
+}
+
+.budget-value {
+  font-size: 56px;
+  font-weight: 700;
+  color: #6366f1;
+  line-height: 1;
+}
+
+.budget-unit {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.5);
+  display: block;
+  margin-top: 4px;
+}
+
+/* Config panel overrides for stepper */
+.config-panel .budget-selector {
+  margin: 12px 0;
+}
+
+.config-panel .budget-stepper {
+  gap: 16px;
+}
+
+.config-panel .stepper-btn {
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+}
+
+.config-panel .budget-value {
+  font-size: 42px;
+}
+
+.config-panel .budget-display {
+  min-width: 100px;
+}
+
+/* ===== Period Limit ===== */
+.period-limit {
+  margin-top: 0;
+  padding: 0;
+  text-align: center;
+}
+
+.period-config {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  justify-content: center;
+  animation: fade-in 0.25s ease-out;
+}
+
+.period-config.visible {
+  display: flex;
+}
+
+.period-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+  margin: 10px 0 0 0;
+  text-align: center;
+  transition: opacity 0.2s;
+}
+
+/* ===== Checkbox ===== */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  gap: 12px;
+  justify-content: center;
+}
+
+.checkbox-label input {
+  display: none;
+}
+
+.checkbox-custom {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.checkbox-label input:checked + .checkbox-custom {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border-color: transparent;
+}
+
+.checkbox-label input:checked + .checkbox-custom::after {
+  content: '\2713';
+  color: white;
+  font-size: 14px;
+}
+
+.checkbox-text {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* ===== Select Input ===== */
+.select-input {
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  outline: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.select-input:focus {
+  border-color: #6366f1;
+}
+
+.select-input option {
+  background: #1a1a2e;
+  color: #ffffff;
+}
+
+/* ===== Text Input ===== */
+.text-input {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  outline: none;
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.text-input:focus {
+  border-color: #6366f1;
+}
+
+.text-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* ===== Danger Zones Grid ===== */
+.danger-zones-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.danger-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  gap: 4px;
+}
+
+.danger-chip:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.danger-chip.selected {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: #6366f1;
+}
+
+.danger-chip-icon {
+  font-size: 20px;
+}
+
+.danger-chip-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ===== Custom Category ===== */
+.custom-category {
+  margin-top: 12px;
+}
+
+.custom-category .text-input {
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
+/* ===== Selected Categories Tags ===== */
+.selected-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  min-height: 24px;
+  justify-content: center;
+}
+
+.selected-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.selected-tag .remove-tag {
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  font-size: 13px;
+}
+
+.selected-tag .remove-tag:hover {
+  opacity: 1;
+}
+
+/* ===== Partner Form ===== */
+.partner-form {
+  margin: 24px 0;
+  text-align: left;
+}
+
+.input-group {
+  margin-bottom: 20px;
+}
+
+.input-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ===== Partner Benefits ===== */
+.partner-benefits {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 24px;
+  text-align: left;
+}
+
+.benefit-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.benefit-icon {
+  color: #34d399;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+/* ===== Lock Options ===== */
+.lock-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.lock-option {
+  display: flex;
+  align-items: center;
+  padding: 18px 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  gap: 16px;
+  font-family: inherit;
+}
+
+.lock-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.lock-option.selected {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: #6366f1;
+}
+
+.lock-option.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.lock-icon {
+  font-size: 28px;
+}
+
+.lock-info {
+  flex: 1;
+}
+
+.lock-title {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.lock-desc {
+  display: block;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 2px;
+}
+
+.lock-note {
+  font-size: 13px;
+  color: #f59e0b;
+  text-align: center;
+  margin-top: 16px;
+  min-height: 20px;
+}
+
+/* ===== Browser List (Screen 2) ===== */
+.browser-list {
+  margin: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.browser-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  gap: 12px;
+  transition: all 0.2s;
+}
+
+.browser-row:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.browser-row.connected {
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+}
+
+.browser-row.connected:hover {
+  background: rgba(52, 211, 153, 0.18);
+}
+
+.browser-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.browser-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Letter fallback when no app icon available */
+.browser-icon.bi-letter {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+  background: #6B7280;
+}
+
+.browser-name {
+  width: 110px;
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #ffffff;
+  text-align: left;
+}
+
+.browser-ext-url {
+  flex: 1;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  font-family: monospace;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+}
+
+.browser-ext-url:hover {
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.browser-ext-url.copied {
+  color: #34d399;
+}
+
+.browser-status {
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.browser-status.connected {
+  color: #34d399;
+  animation: check-pop 0.3s ease-out;
+}
+
+@keyframes check-pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  70% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.browser-install-btn {
+  padding: 5px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.browser-install-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.browser-summary {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.browser-summary.all-connected {
+  color: #34d399;
+}
+
+.poll-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ===== Platform Cards (Screen 3) ===== */
+.platform-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 24px 0;
+}
+
+.platform-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 20px;
+  transition: all 0.3s;
+  text-align: left;
+}
+
+.platform-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.platform-card.disabled {
+  opacity: 0.45;
+}
+
+.platform-card.disabled .platform-config-btn {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.platform-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.platform-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.platform-name {
+  font-size: 18px;
+  font-weight: 600;
+  flex: 1;
+  color: #ffffff;
+}
+
+.platform-summary {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 12px 0;
+  line-height: 1.4;
+}
+
+.platform-config-btn {
+  width: 100%;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  text-align: center;
+}
+
+.platform-config-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* ===== Toggle Switch ===== */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.toggle-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-track {
+  display: block;
+  width: 44px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  position: relative;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+
+.toggle-input:checked + .toggle-track {
+  background: #6366f1;
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.toggle-input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(20px);
+}
+
+/* ===== Toggle Row (config panel) ===== */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.toggle-row:last-child {
+  border-bottom: none;
+}
+
+.toggle-row-text {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 500;
+}
+
+.toggle-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  margin: -4px 0 8px 0;
+}
+
+/* ===== Config Panel ===== */
+.config-panel {
+  display: none;
+  text-align: left;
+}
+
+.config-panel.active {
+  display: block;
+  animation: config-slide-in 0.3s ease-out;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.config-back-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-bottom: 12px;
+  font-family: inherit;
+  transition: color 0.2s;
+}
+
+.config-back-btn:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.config-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 24px;
+  color: #ffffff;
+}
+
+.config-section {
+  margin-bottom: 20px;
+}
+
+.config-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+/* ===== Block Mode Options ===== */
+.block-mode-options {
+  display: flex;
+  gap: 10px;
+}
+
+.block-mode-option {
+  flex: 1;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  transition: all 0.2s;
+  font-family: inherit;
+  text-align: center;
+}
+
+.block-mode-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.block-mode-option.selected {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: #6366f1;
+  color: white;
+}
+
+/* ===== Config Done Button ===== */
+.config-done-btn {
+  width: 100%;
+  max-width: none;
+  margin-top: 12px;
+}
+
+/* ===== Saving Overlay ===== */
+.saving-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 15, 35, 0.9);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.saving-overlay.visible {
+  display: flex;
+}
+
+.saving-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.saving-text {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+</style>
+</head>
+<body>
+
+<div class="glow"></div>
+
+<div class="container">
+
+  <!-- Screen 1: Welcome -->
+  <div class="screen active" data-screen="1">
+    <div class="welcome-hero">
+      <div class="welcome-icon">🎯</div>
+      <h1 class="welcome-title">intentional</h1>
+    </div>
+    <p class="welcome-tagline">Take back your time.</p>
+    <p class="welcome-subtext">Watch what matters. Skip the rabbit holes.</p>
+    <div class="footer" style="margin-top: 48px;">
+      <button class="btn btn-primary btn-large" data-action="next">Set Up My Limits</button>
+    </div>
+  </div>
+
+  <!-- Screen 2: Install Extension -->
+  <div class="screen" data-screen="2">
+    <h1 class="title">Install the Extension</h1>
+    <p class="subtitle">Get protection in every browser you use.</p>
+    <p class="description">Intentional needs a browser extension to filter and manage content in your browsers.</p>
+
+    <div class="browser-list" id="browser-list">
+      <div class="browser-row">
+        <span class="browser-icon">🌐</span>
+        <span class="browser-name">Scanning browsers...</span>
+      </div>
+    </div>
+
+    <p class="browser-summary" id="browser-summary"><span class="poll-spinner"></span> Scanning for extensions...</p>
+
+    <div class="footer">
+      <button class="btn btn-secondary" data-action="back">Back</button>
+      <button class="btn btn-primary" data-action="next">Next</button>
+    </div>
+  </div>
+
+  <!-- Screen 3: Choose Your Platforms -->
+  <div class="screen" data-screen="3">
+
+    <!-- Platform List View -->
+    <div id="platform-list-view">
+      <h1 class="title">Choose Your Platforms</h1>
+      <p class="subtitle">Select which platforms to manage and configure each one.</p>
+
+      <div class="platform-cards">
+
+        <!-- YouTube Card -->
+        <div class="platform-card" id="youtube-card">
+          <div class="platform-card-header">
+            <span class="platform-icon">&#9654;&#65039;</span>
+            <span class="platform-name">YouTube</span>
+            <label class="toggle-switch">
+              <input type="checkbox" checked id="youtube-toggle" class="toggle-input">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+          <p class="platform-summary" id="youtube-summary">30 min/day &middot; Shorts blocked</p>
+          <button class="platform-config-btn" id="youtube-config-btn" type="button">Configure &rsaquo;</button>
+        </div>
+
+        <!-- Instagram Card -->
+        <div class="platform-card" id="instagram-card">
+          <div class="platform-card-header">
+            <span class="platform-icon">📷</span>
+            <span class="platform-name">Instagram</span>
+            <label class="toggle-switch">
+              <input type="checkbox" checked id="instagram-toggle" class="toggle-input">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+          <p class="platform-summary" id="instagram-summary">30 min/day &middot; Reels blocked</p>
+          <button class="platform-config-btn" id="instagram-config-btn" type="button">Configure &rsaquo;</button>
+        </div>
+
+      </div>
+
+      <div class="footer">
+        <button class="btn btn-secondary" data-action="back">Back</button>
+        <button class="btn btn-primary" data-action="next">Next</button>
+      </div>
+    </div>
+
+    <!-- YouTube Config Panel -->
+    <div class="config-panel" id="youtube-config">
+      <button class="config-back-btn" type="button" onclick="closeConfigPanel()">&lsaquo; Back to platforms</button>
+      <h2 class="config-title">&#9654;&#65039; YouTube</h2>
+
+      <div class="config-section">
+        <div class="config-section-label">Daily Budget</div>
+        <div class="budget-selector">
+          <div class="budget-stepper">
+            <button class="stepper-btn" id="youtube-budget-down" type="button">&minus;</button>
+            <div class="budget-display">
+              <span class="budget-value" id="youtube-budget-value">30</span>
+              <span class="budget-unit">min / day</span>
+            </div>
+            <button class="stepper-btn" id="youtube-budget-up" type="button">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="config-section">
+        <div class="config-section-label">Session Limit</div>
+        <div class="period-limit">
+          <label class="checkbox-label" style="justify-content:flex-start;">
+            <input type="checkbox" id="youtube-enable-period">
+            <span class="checkbox-custom"></span>
+            <span class="checkbox-text">Limit per session</span>
+          </label>
+          <div class="period-config" id="youtube-period-config">
+            <span>Max</span>
+            <select id="youtube-period-minutes" class="select-input">
+              <option value="10">10 min</option>
+              <option value="15">15 min</option>
+              <option value="20" selected>20 min</option>
+              <option value="30">30 min</option>
+            </select>
+            <span>per</span>
+            <select id="youtube-period-hours" class="select-input">
+              <option value="1" selected>hour</option>
+              <option value="2">2 hours</option>
+              <option value="3">3 hours</option>
+              <option value="4">4 hours</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="config-section">
+        <div class="config-section-label">Danger Zones</div>
+        <p style="font-size:12px;color:rgba(255,255,255,0.35);margin-bottom:10px;">Content categories to filter out</p>
+        <div class="danger-zones-grid" id="youtube-danger-grid"></div>
+        <div class="custom-category">
+          <input type="text" id="youtube-custom-category" placeholder="+ Add custom category" class="text-input">
+        </div>
+        <div class="selected-categories" id="youtube-selected-categories"></div>
+      </div>
+
+      <div class="config-section">
+        <label class="toggle-row">
+          <span class="toggle-row-text">Block Shorts</span>
+          <input type="checkbox" checked id="youtube-block-shorts" class="toggle-input">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+      </div>
+
+      <div class="config-section">
+        <div class="config-section-label">Block Mode</div>
+        <div class="block-mode-options" id="youtube-block-mode">
+          <button class="block-mode-option selected" data-mode="hide" type="button">🚫 Hide</button>
+          <button class="block-mode-option" data-mode="blur" type="button">🌫 Blur</button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary config-done-btn" type="button" onclick="closeConfigPanel()">Done</button>
+    </div>
+
+    <!-- Instagram Config Panel -->
+    <div class="config-panel" id="instagram-config">
+      <button class="config-back-btn" type="button" onclick="closeConfigPanel()">&lsaquo; Back to platforms</button>
+      <h2 class="config-title">📷 Instagram</h2>
+
+      <div class="config-section">
+        <div class="config-section-label">Daily Budget</div>
+        <div class="budget-selector">
+          <div class="budget-stepper">
+            <button class="stepper-btn" id="instagram-budget-down" type="button">&minus;</button>
+            <div class="budget-display">
+              <span class="budget-value" id="instagram-budget-value">30</span>
+              <span class="budget-unit">min / day</span>
+            </div>
+            <button class="stepper-btn" id="instagram-budget-up" type="button">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="config-section">
+        <label class="toggle-row">
+          <span class="toggle-row-text">Block Reels</span>
+          <input type="checkbox" checked id="instagram-block-reels" class="toggle-input">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+        <p class="toggle-hint">Removes video reels from your feed</p>
+      </div>
+
+      <div class="config-section">
+        <label class="toggle-row">
+          <span class="toggle-row-text">Block Explore</span>
+          <input type="checkbox" checked id="instagram-block-explore" class="toggle-input">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+        <p class="toggle-hint">Blocks the Explore page to reduce discovery rabbit holes</p>
+      </div>
+
+      <div class="config-section">
+        <label class="toggle-row">
+          <span class="toggle-row-text">NSFW Filter</span>
+          <input type="checkbox" checked id="instagram-nsfw-filter" class="toggle-input">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+        <p class="toggle-hint">Uses AI to detect and hide adult content</p>
+      </div>
+
+      <button class="btn btn-primary config-done-btn" type="button" onclick="closeConfigPanel()">Done</button>
+    </div>
+
+  </div>
+
+  <!-- Screen 4: Accountability Partner (was Screen 5) -->
+  <div class="screen" data-screen="4">
+    <h1 class="title">Accountability Partner</h1>
+    <p class="subtitle">Choose someone who can help keep you accountable.</p>
+
+    <div class="partner-form">
+      <div class="input-group">
+        <label for="partner-name" class="input-label">Partner's name (optional)</label>
+        <input type="text" id="partner-name" placeholder="e.g., Mom, Alex, Coach" class="text-input">
+      </div>
+      <div class="input-group">
+        <label for="partner-email" class="input-label">Partner's email</label>
+        <input type="email" id="partner-email" placeholder="partner@email.com" class="text-input">
+      </div>
+    </div>
+
+    <div class="partner-benefits">
+      <div class="benefit-item">
+        <span class="benefit-icon">&#10003;</span>
+        <span>Prevents impulsive changes</span>
+      </div>
+      <div class="benefit-item">
+        <span class="benefit-icon">&#10003;</span>
+        <span>Creates social accountability</span>
+      </div>
+      <div class="benefit-item">
+        <span class="benefit-icon">&#10003;</span>
+        <span>They only get notified when needed</span>
+      </div>
+    </div>
+
+    <div class="footer">
+      <button class="btn btn-secondary" data-action="back">Back</button>
+      <button class="btn btn-primary" data-action="next">Next</button>
+    </div>
+  </div>
+
+  <!-- Screen 5: Lock Settings (was Screen 6) -->
+  <div class="screen" data-screen="5">
+    <h1 class="title">Lock Your Settings?</h1>
+    <p class="subtitle">Prevents you from changing limits on impulse.</p>
+
+    <div class="lock-options">
+      <button class="lock-option" data-mode="partner" id="lock-partner">
+        <span class="lock-icon">🔐</span>
+        <div class="lock-info">
+          <span class="lock-title">Partner Lock</span>
+          <span class="lock-desc">Partner must share unlock code</span>
+        </div>
+      </button>
+      <button class="lock-option" data-mode="self" id="lock-self">
+        <span class="lock-icon">⏰</span>
+        <div class="lock-info">
+          <span class="lock-title">24-Hour Delay</span>
+          <span class="lock-desc">Changes available after 24 hours</span>
+        </div>
+      </button>
+      <button class="lock-option selected" data-mode="none" id="lock-none">
+        <span class="lock-icon">🔓</span>
+        <div class="lock-info">
+          <span class="lock-title">Keep Unlocked</span>
+          <span class="lock-desc">Change settings anytime</span>
+        </div>
+      </button>
+    </div>
+
+    <p class="lock-note" id="lock-note"></p>
+
+    <div class="footer">
+      <button class="btn btn-secondary" data-action="back">Back</button>
+      <button class="btn btn-primary" data-action="finish">Save &amp; Start</button>
+    </div>
+  </div>
+
+  <!-- Progress Dots (5 screens) -->
+  <div class="progress-dots" id="progress-dots">
+    <span class="dot active" data-screen="1"></span>
+    <span class="dot" data-screen="2"></span>
+    <span class="dot" data-screen="3"></span>
+    <span class="dot" data-screen="4"></span>
+    <span class="dot" data-screen="5"></span>
+  </div>
+
+</div>
+
+<!-- Saving Overlay -->
+<div class="saving-overlay" id="saving-overlay">
+  <div class="saving-spinner"></div>
+  <div class="saving-text">Saving your settings...</div>
+</div>
+
+<script>
+// ===== State =====
+let currentScreen = 1;
+const totalScreens = 5;
+let selectedLockMode = 'none';
+let extensionPollTimer = null;
+let activeConfigPanel = null;
+
+const platformSettings = {
+  youtube: {
+    enabled: true,
+    budget: 30,
+    maxPerPeriod: { enabled: false, minutes: 20, periodHours: 1 },
+    blockedCategories: [],
+    blockShorts: true,
+    blockMode: 'hide'
+  },
+  instagram: {
+    enabled: true,
+    budget: 30,
+    blockReels: true,
+    blockExplore: true,
+    nsfwFilter: true
+  }
+};
+
+const DANGER_ZONE_CATEGORIES = [
+  { id: 'gaming', icon: '🎮', label: 'Gaming' },
+  { id: 'shorts', icon: '📱', label: 'Shorts' },
+  { id: 'drama', icon: '🗣️', label: 'Drama & Gossip' },
+  { id: 'mukbang', icon: '🍜', label: 'Mukbang' },
+  { id: 'entertainment', icon: '🎬', label: 'Entertainment' },
+  { id: 'vlogs', icon: '📹', label: 'Vlogs' },
+  { id: 'sports', icon: '⚽', label: 'Sports' },
+  { id: 'politics', icon: '📢', label: 'Politics' }
+];
+
+// ===== Bridge =====
+function sendMessage(payload) {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage(payload);
+  } else {
+    console.log('[Onboarding] Bridge not available, message:', payload);
+  }
+}
+
+// ===== Navigation =====
+function goToScreen(target) {
+  if (target < 1 || target > totalScreens) return;
+
+  // Close any open config panel first
+  if (activeConfigPanel) closeConfigPanel();
+
+  const currentEl = document.querySelector(`.screen[data-screen="${currentScreen}"]`);
+  const targetEl = document.querySelector(`.screen[data-screen="${target}"]`);
+
+  // Animate out
+  currentEl.classList.add('exit-left');
+  currentEl.classList.remove('active');
+
+  setTimeout(() => {
+    currentEl.classList.remove('exit-left');
+    currentEl.style.display = 'none';
+
+    // Animate in
+    targetEl.style.display = 'block';
+    targetEl.classList.add('active');
+
+    currentScreen = target;
+    updateDots();
+
+    // Screen-specific init
+    if (target === 2) startExtensionPolling();
+    else stopExtensionPolling();
+
+    if (target === 3) updatePlatformSummaries();
+    if (target === 5) updateLockOptions();
+  }, 200);
+}
+
+function updateDots() {
+  document.querySelectorAll('.dot').forEach(dot => {
+    const screen = parseInt(dot.dataset.screen);
+    dot.classList.toggle('active', screen === currentScreen);
+  });
+}
+
+// ===== Screen 2: Extension Status =====
+function startExtensionPolling() {
+  pollExtensionStatus();
+  extensionPollTimer = setInterval(pollExtensionStatus, 5000);
+}
+
+function stopExtensionPolling() {
+  if (extensionPollTimer) {
+    clearInterval(extensionPollTimer);
+    extensionPollTimer = null;
+  }
+}
+
+function pollExtensionStatus() {
+  sendMessage({ type: 'GET_EXTENSION_STATUS' });
+}
+
+// Callback from Swift
+window._extensionStatusResult = function(data) {
+  const list = document.getElementById('browser-list');
+  const summary = document.getElementById('browser-summary');
+
+  if (!data.browsers || data.browsers.length === 0) {
+    list.innerHTML = `
+      <div class="browser-row">
+        <span class="browser-icon">?</span>
+        <span class="browser-name" style="color: rgba(255,255,255,0.5)">No browsers detected</span>
+      </div>
+    `;
+    summary.innerHTML = '<span class="poll-spinner"></span> Looking for browsers...';
+    summary.className = 'browser-summary';
+    return;
+  }
+
+  function getBrowserBadge(b) {
+    if (b.iconDataUrl) {
+      return `<span class="browser-icon"><img src="${b.iconDataUrl}" alt="${b.name}"></span>`;
+    }
+    return `<span class="browser-icon bi-letter">${b.name.charAt(0).toUpperCase()}</span>`;
+  }
+
+  // Sort: connected first, then alphabetical
+  data.browsers.sort((a, b) => {
+    const aConn = a.hasExtension && a.isEnabled ? 0 : 1;
+    const bConn = b.hasExtension && b.isEnabled ? 0 : 1;
+    if (aConn !== bConn) return aConn - bConn;
+    return a.name.localeCompare(b.name);
+  });
+
+  function getStoreUrl(name) {
+    const n = name.toLowerCase();
+    if (n.includes('firefox') || n.includes('waterfox') || n.includes('librewolf') || n.includes('zen') || n.includes('floorp'))
+      return 'addons.mozilla.org';
+    if (n.includes('safari') || n.includes('orion'))
+      return 'apps.apple.com';
+    return 'chromewebstore.google.com';
+  }
+
+  function getFullStoreUrl(name) {
+    const n = name.toLowerCase();
+    if (n.includes('firefox') || n.includes('waterfox') || n.includes('librewolf') || n.includes('zen') || n.includes('floorp'))
+      return 'https://addons.mozilla.org/en-US/firefox/search/?q=intentional';
+    if (n.includes('safari') || n.includes('orion'))
+      return 'https://apps.apple.com/search/intentional';
+    return 'https://chromewebstore.google.com/search/intentional';
+  }
+
+  list.innerHTML = data.browsers.map(b => {
+    const badge = getBrowserBadge(b);
+    const storeHint = getStoreUrl(b.name);
+    const fullUrl = getFullStoreUrl(b.name);
+    const isConnected = b.hasExtension && b.isEnabled;
+    const isDisabled = b.hasExtension && !b.isEnabled;
+    const rowClass = isConnected ? 'browser-row connected' : 'browser-row';
+
+    let statusHtml;
+    if (isConnected) {
+      statusHtml = '<span class="browser-status connected">&#10003;</span>';
+    } else if (isDisabled) {
+      statusHtml = `<span class="browser-status" style="color: #f59e0b;">Disabled</span>`;
+    } else {
+      statusHtml = `<button class="browser-install-btn" onclick="installExtension('${encodeURIComponent(b.name)}', '${b.bundleId || ''}')">Install</button>`;
+    }
+
+    return `
+      <div class="${rowClass}">
+        ${badge}
+        <span class="browser-name">${b.name}</span>
+        <span class="browser-ext-url" onclick="copyUrl(this, '${fullUrl}')" title="Click to copy">${storeHint}</span>
+        ${statusHtml}
+      </div>
+    `;
+  }).join('');
+
+  const connectedCount = data.browsers.filter(b => b.hasExtension && b.isEnabled).length;
+  const totalCount = data.browsers.length;
+
+  if (connectedCount === totalCount) {
+    summary.innerHTML = `&#10003; All ${totalCount} browsers connected!`;
+    summary.className = 'browser-summary all-connected';
+  } else if (connectedCount > 0) {
+    summary.innerHTML = `<span class="poll-spinner"></span> ${connectedCount} of ${totalCount} connected &mdash; scanning...`;
+    summary.className = 'browser-summary';
+  } else {
+    summary.innerHTML = `<span class="poll-spinner"></span> No extensions found yet &mdash; scanning...`;
+    summary.className = 'browser-summary';
+  }
+};
+
+function copyUrl(el, url) {
+  navigator.clipboard.writeText(url).then(() => {
+    const original = el.textContent;
+    el.textContent = 'Copied!';
+    el.classList.add('copied');
+    setTimeout(() => {
+      el.textContent = original;
+      el.classList.remove('copied');
+    }, 1500);
+  });
+}
+
+function installExtension(browserName, bundleId) {
+  const name = decodeURIComponent(browserName).toLowerCase();
+
+  let storeUrl;
+  if (name.includes('firefox') || name.includes('waterfox') || name.includes('librewolf') || name.includes('zen') || name.includes('floorp')) {
+    storeUrl = 'https://addons.mozilla.org/en-US/firefox/search/?q=intentional';
+  } else if (name.includes('safari') || name.includes('orion')) {
+    storeUrl = 'https://apps.apple.com/search/intentional';
+  } else {
+    storeUrl = 'https://chromewebstore.google.com/search/intentional';
+  }
+
+  sendMessage({ type: 'OPEN_EXTENSIONS_PAGE', url: storeUrl, bundleId: bundleId || null });
+}
+
+// ===== Screen 3: Platform Configuration =====
+function openConfigPanel(platform) {
+  if (!platformSettings[platform].enabled) return;
+
+  const listView = document.getElementById('platform-list-view');
+  const configPanel = document.getElementById(`${platform}-config`);
+
+  listView.style.display = 'none';
+  configPanel.classList.add('active');
+  activeConfigPanel = platform;
+}
+
+function closeConfigPanel() {
+  if (!activeConfigPanel) return;
+
+  const configPanel = document.getElementById(`${activeConfigPanel}-config`);
+  const listView = document.getElementById('platform-list-view');
+
+  configPanel.classList.remove('active');
+  listView.style.display = 'block';
+  activeConfigPanel = null;
+
+  updatePlatformSummaries();
+}
+
+function updatePlatformSummaries() {
+  // YouTube
+  const yt = platformSettings.youtube;
+  const ytSummary = document.getElementById('youtube-summary');
+  if (!yt.enabled) {
+    ytSummary.textContent = 'Disabled';
+  } else {
+    const parts = [`${yt.budget} min/day`];
+    if (yt.blockShorts) parts.push('Shorts blocked');
+    if (yt.blockedCategories.length > 0) parts.push(`${yt.blockedCategories.length} danger zones`);
+    if (yt.blockMode === 'blur') parts.push('blur mode');
+    ytSummary.textContent = parts.join(' \u00b7 ');
+  }
+
+  // Instagram
+  const ig = platformSettings.instagram;
+  const igSummary = document.getElementById('instagram-summary');
+  if (!ig.enabled) {
+    igSummary.textContent = 'Disabled';
+  } else {
+    const parts = [`${ig.budget} min/day`];
+    if (ig.blockReels) parts.push('Reels blocked');
+    if (ig.blockExplore) parts.push('Explore blocked');
+    if (ig.nsfwFilter) parts.push('NSFW filter');
+    igSummary.textContent = parts.join(' \u00b7 ');
+  }
+}
+
+// -- Platform Toggles --
+function initPlatformToggles() {
+  document.getElementById('youtube-toggle').addEventListener('change', (e) => {
+    platformSettings.youtube.enabled = e.target.checked;
+    document.getElementById('youtube-card').classList.toggle('disabled', !e.target.checked);
+    updatePlatformSummaries();
+  });
+
+  document.getElementById('instagram-toggle').addEventListener('change', (e) => {
+    platformSettings.instagram.enabled = e.target.checked;
+    document.getElementById('instagram-card').classList.toggle('disabled', !e.target.checked);
+    updatePlatformSummaries();
+  });
+
+  // Configure button click handlers
+  document.getElementById('youtube-config-btn').addEventListener('click', () => openConfigPanel('youtube'));
+  document.getElementById('instagram-config-btn').addEventListener('click', () => openConfigPanel('instagram'));
+}
+
+// -- Budget Steppers --
+function initStepper(platform) {
+  const upBtn = document.getElementById(`${platform}-budget-up`);
+  const downBtn = document.getElementById(`${platform}-budget-down`);
+  const valueEl = document.getElementById(`${platform}-budget-value`);
+
+  upBtn.addEventListener('click', () => {
+    const s = platformSettings[platform];
+    if (s.budget < 480) {
+      s.budget += (s.budget < 60) ? 5 : 10;
+      valueEl.textContent = s.budget;
+    }
+  });
+
+  downBtn.addEventListener('click', () => {
+    const s = platformSettings[platform];
+    if (s.budget > 5) {
+      s.budget -= (s.budget <= 60) ? 5 : 10;
+      valueEl.textContent = s.budget;
+    }
+  });
+}
+
+// -- YouTube: Period Limit --
+function initYoutubePeriodLimit() {
+  const checkbox = document.getElementById('youtube-enable-period');
+  const config = document.getElementById('youtube-period-config');
+
+  checkbox.addEventListener('change', () => {
+    platformSettings.youtube.maxPerPeriod.enabled = checkbox.checked;
+    config.classList.toggle('visible', checkbox.checked);
+  });
+}
+
+// -- YouTube: Danger Zones --
+function initYoutubeDangerZones() {
+  const grid = document.getElementById('youtube-danger-grid');
+
+  grid.innerHTML = DANGER_ZONE_CATEGORIES.map(cat => `
+    <div class="danger-chip" data-id="${cat.id}">
+      <span class="danger-chip-icon">${cat.icon}</span>
+      <span class="danger-chip-label">${cat.label}</span>
+    </div>
+  `).join('');
+
+  grid.addEventListener('click', (e) => {
+    const chip = e.target.closest('.danger-chip');
+    if (!chip) return;
+
+    const id = chip.dataset.id;
+    const cat = DANGER_ZONE_CATEGORIES.find(c => c.id === id);
+    if (!cat) return;
+
+    const cats = platformSettings.youtube.blockedCategories;
+    if (chip.classList.contains('selected')) {
+      chip.classList.remove('selected');
+      platformSettings.youtube.blockedCategories = cats.filter(c => c !== cat.label);
+    } else {
+      chip.classList.add('selected');
+      if (!cats.includes(cat.label)) {
+        cats.push(cat.label);
+      }
+    }
+    renderYoutubeCategories();
+  });
+
+  // Custom category input
+  const input = document.getElementById('youtube-custom-category');
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && input.value.trim()) {
+      const val = input.value.trim();
+      const cats = platformSettings.youtube.blockedCategories;
+      if (!cats.includes(val)) {
+        cats.push(val);
+        renderYoutubeCategories();
+      }
+      input.value = '';
+    }
+  });
+}
+
+function renderYoutubeCategories() {
+  const container = document.getElementById('youtube-selected-categories');
+  const cats = platformSettings.youtube.blockedCategories;
+  container.innerHTML = cats.map(cat => `
+    <span class="selected-tag">
+      ${cat}
+      <span class="remove-tag" onclick="removeYoutubeCategory('${cat.replace(/'/g, "\\'")}')">&times;</span>
+    </span>
+  `).join('');
+}
+
+function removeYoutubeCategory(cat) {
+  platformSettings.youtube.blockedCategories = platformSettings.youtube.blockedCategories.filter(c => c !== cat);
+  document.querySelectorAll('#youtube-danger-grid .danger-chip').forEach(chip => {
+    const match = DANGER_ZONE_CATEGORIES.find(c => c.id === chip.dataset.id);
+    if (match && match.label === cat) {
+      chip.classList.remove('selected');
+    }
+  });
+  renderYoutubeCategories();
+}
+
+// -- YouTube: Block Shorts Toggle --
+function initYoutubeToggles() {
+  document.getElementById('youtube-block-shorts').addEventListener('change', (e) => {
+    platformSettings.youtube.blockShorts = e.target.checked;
+  });
+}
+
+// -- YouTube: Block Mode --
+function initYoutubeBlockMode() {
+  document.querySelectorAll('#youtube-block-mode .block-mode-option').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#youtube-block-mode .block-mode-option').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      platformSettings.youtube.blockMode = btn.dataset.mode;
+    });
+  });
+}
+
+// -- Instagram: Toggles --
+function initInstagramToggles() {
+  document.getElementById('instagram-block-reels').addEventListener('change', (e) => {
+    platformSettings.instagram.blockReels = e.target.checked;
+  });
+  document.getElementById('instagram-block-explore').addEventListener('change', (e) => {
+    platformSettings.instagram.blockExplore = e.target.checked;
+  });
+  document.getElementById('instagram-nsfw-filter').addEventListener('change', (e) => {
+    platformSettings.instagram.nsfwFilter = e.target.checked;
+  });
+}
+
+// ===== Screen 5: Lock Settings =====
+function initLockOptions() {
+  document.querySelectorAll('.lock-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      if (opt.classList.contains('disabled')) return;
+
+      document.querySelectorAll('.lock-option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      selectedLockMode = opt.dataset.mode;
+      updateLockNote();
+    });
+  });
+}
+
+function updateLockOptions() {
+  const partnerEmail = document.getElementById('partner-email').value.trim();
+  const partnerOpt = document.getElementById('lock-partner');
+
+  if (!partnerEmail) {
+    partnerOpt.classList.add('disabled');
+    if (selectedLockMode === 'partner') {
+      selectedLockMode = 'none';
+      document.querySelectorAll('.lock-option').forEach(o => o.classList.remove('selected'));
+      document.getElementById('lock-none').classList.add('selected');
+    }
+  } else {
+    partnerOpt.classList.remove('disabled');
+  }
+
+  updateLockNote();
+}
+
+function updateLockNote() {
+  const note = document.getElementById('lock-note');
+  switch (selectedLockMode) {
+    case 'partner':
+      note.textContent = 'Your partner will receive an email to confirm.';
+      break;
+    case 'self':
+      note.textContent = 'You\'ll need to wait 24 hours before you can change settings.';
+      break;
+    default:
+      note.textContent = '';
+  }
+}
+
+// ===== Save =====
+function saveOnboarding() {
+  const overlay = document.getElementById('saving-overlay');
+  overlay.classList.add('visible');
+
+  // Sync period config dropdown values to state
+  platformSettings.youtube.maxPerPeriod.minutes = parseInt(document.getElementById('youtube-period-minutes').value);
+  platformSettings.youtube.maxPerPeriod.periodHours = parseInt(document.getElementById('youtube-period-hours').value);
+
+  const settings = {
+    platforms: {
+      youtube: {
+        enabled: platformSettings.youtube.enabled,
+        budget: platformSettings.youtube.budget,
+        maxPerPeriod: { ...platformSettings.youtube.maxPerPeriod },
+        blockedCategories: [...platformSettings.youtube.blockedCategories],
+        blockShorts: platformSettings.youtube.blockShorts,
+        blockMode: platformSettings.youtube.blockMode
+      },
+      instagram: {
+        enabled: platformSettings.instagram.enabled,
+        budget: platformSettings.instagram.budget,
+        blockReels: platformSettings.instagram.blockReels,
+        blockExplore: platformSettings.instagram.blockExplore,
+        nsfwFilter: platformSettings.instagram.nsfwFilter
+      }
+    },
+    // Legacy flat fields for backward compatibility
+    dailyBudgetMinutes: platformSettings.youtube.budget,
+    maxPerPeriod: { ...platformSettings.youtube.maxPerPeriod },
+    blockedCategories: [...platformSettings.youtube.blockedCategories],
+    partnerEmail: document.getElementById('partner-email').value.trim() || null,
+    partnerName: document.getElementById('partner-name').value.trim() || null,
+    lockMode: selectedLockMode
+  };
+
+  sendMessage({ type: 'SAVE_ONBOARDING', settings: settings });
+}
+
+// Callback from Swift
+window._onboardingSaveResult = function(result) {
+  const overlay = document.getElementById('saving-overlay');
+  overlay.classList.remove('visible');
+
+  if (result.success) {
+    sendMessage({ type: 'NAVIGATE_TO_DASHBOARD' });
+  } else {
+    alert('Failed to save settings. Please try again.');
+  }
+};
+
+// ===== Event Handlers =====
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+
+  const action = btn.dataset.action;
+  switch (action) {
+    case 'next':
+      goToScreen(currentScreen + 1);
+      break;
+    case 'back':
+      goToScreen(currentScreen - 1);
+      break;
+    case 'finish':
+      saveOnboarding();
+      break;
+  }
+});
+
+// Dot navigation
+document.querySelectorAll('.dot').forEach(dot => {
+  dot.addEventListener('click', () => {
+    const target = parseInt(dot.dataset.screen);
+    if (target <= currentScreen) {
+      goToScreen(target);
+    }
+  });
+});
+
+// ===== Init =====
+initPlatformToggles();
+initStepper('youtube');
+initStepper('instagram');
+initYoutubePeriodLimit();
+initYoutubeDangerZones();
+initYoutubeToggles();
+initYoutubeBlockMode();
+initInstagramToggles();
+initLockOptions();
+</script>
+
+</body>
+</html>

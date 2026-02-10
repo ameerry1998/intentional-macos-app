@@ -83,6 +83,69 @@ class BackendClient {
         }
     }
 
+    /// Set accountability partner via backend API
+    func setPartner(email: String, name: String?) async {
+        let endpoint = "\(baseURL)/partner"
+
+        guard let url = URL(string: endpoint) else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        var payload: [String: Any] = ["partner_email": email]
+        if let name = name, !name.isEmpty { payload["partner_name"] = name }
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                appDelegate?.postLog("✅ Partner set: \(email)")
+            } else {
+                if let body = String(data: data, encoding: .utf8) {
+                    appDelegate?.postLog("⚠️ Partner set failed: \(body)")
+                }
+            }
+        } catch {
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            appDelegate?.postLog("❌ Partner set error: \(error.localizedDescription)")
+        }
+    }
+
+    /// Set lock mode via backend API
+    func setLockMode(mode: String) async {
+        let endpoint = "\(baseURL)/lock"
+
+        guard let url = URL(string: endpoint) else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        let payload = ["mode": mode]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                appDelegate?.postLog("✅ Lock mode set: \(mode)")
+            } else {
+                if let body = String(data: data, encoding: .utf8) {
+                    appDelegate?.postLog("⚠️ Lock mode set failed: \(body)")
+                }
+            }
+        } catch {
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            appDelegate?.postLog("❌ Lock mode error: \(error.localizedDescription)")
+        }
+    }
+
     /// Register device with backend (call on first launch)
     func registerDevice() async {
         let endpoint = "\(baseURL)/register"

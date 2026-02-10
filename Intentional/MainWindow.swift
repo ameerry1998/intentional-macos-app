@@ -2,1349 +2,366 @@
 //  MainWindow.swift
 //  Intentional
 //
-//  Main application window showing status and recent events
+//  Main application window using WKWebView for web-like UI.
+//  Shows onboarding on first launch, then dashboard.
 //
 
 import Cocoa
-import SwiftUI
+import WebKit
 
-class MainWindow: NSWindowController {
+class MainWindow: NSWindowController, WKScriptMessageHandler {
 
-    convenience init() {
+    private var webView: WKWebView!
+    weak var appDelegate: AppDelegate?
+
+    /// Debug monitor window (legacy SwiftUI views)
+    private var debugMonitorWindow: LegacyMonitorWindow?
+
+    /// Cache browser icons so we don't re-extract every poll cycle
+    private var iconCache: [String: String] = [:]
+
+    convenience init(appDelegate: AppDelegate) {
         // Create window
         let window = NSWindow(
-            contentRect: NSRect(x: 100, y: 100, width: 800, height: 600),
+            contentRect: NSRect(x: 100, y: 100, width: 800, height: 680),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
 
-        // Initialize controller FIRST
+        // Initialize controller
         self.init(window: window)
+        self.appDelegate = appDelegate
 
-        // Configure window AFTER init
-        window.title = "Intentional - System Monitor"
+        // Configure WKWebView with message handler bridge
+        let contentController = WKUserContentController()
+        contentController.add(self, name: "intentional")
+
+        let config = WKWebViewConfiguration()
+        config.userContentController = contentController
+        // Allow file:// access for local resources
+        config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
+
+        webView = WKWebView(frame: window.contentView!.bounds, configuration: config)
+        webView.autoresizingMask = [.width, .height]
+
+        // Dark background to match the web UI
+        webView.setValue(false, forKey: "drawsBackground")
+
+        window.contentView = webView
+        window.title = "Intentional"
         window.center()
         window.setFrameAutosaveName("MainWindow")
-
-        // Set content view
-        window.contentView = NSHostingView(rootView: MainView())
+        window.backgroundColor = NSColor(red: 0.06, green: 0.06, blue: 0.14, alpha: 1.0)
 
         // Force window visible
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
-    }
-}
 
-// SwiftUI Main View
-struct MainView: View {
-    @State private var events: [SystemEvent] = []
-    @State private var logs: [LogEntry] = []
-    @State private var deviceId: String = ""
-    @State private var isMonitoring: Bool = true
-    @State private var missingPermissions: [String] = []
-    @State private var unprotectedBrowsers: [UnprotectedBrowser] = []
-    @State private var selectedTab: Int = 0
-
-    var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack {
-                Image(systemName: "eye.circle.fill")
-                    .font(.system(size: 32))
-                    .foregroundColor(.blue)
-
-                VStack(alignment: .leading) {
-                    Text("Intentional System Monitor")
-                        .font(.title2)
-                        .fontWeight(.bold)
-
-                    Text("Monitoring system events and browser status")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-
-                Spacer()
-
-                Circle()
-                    .fill(isMonitoring ? Color.green : Color.red)
-                    .frame(width: 12, height: 12)
-
-                Text(isMonitoring ? "Active" : "Inactive")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .padding()
-            .background(Color(NSColor.windowBackgroundColor))
-
-            Divider()
-
-            // Device Info
-            HStack {
-                Label("Device ID:", systemImage: "desktopcomputer")
-                    .foregroundColor(.secondary)
-
-                Text(deviceId.isEmpty ? "Loading..." : String(deviceId.prefix(16)) + "...")
-                    .font(.system(.body, design: .monospaced))
-                    .textSelection(.enabled)
-
-                Spacer()
-
-                Label("Backend:", systemImage: "network")
-                    .foregroundColor(.secondary)
-
-                Text("api.intentional.social")
-                    .font(.caption)
-                    .foregroundColor(.blue)
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-            .background(Color(NSColor.controlBackgroundColor))
-
-            Divider()
-
-            // Tabs
-            TabView(selection: $selectedTab) {
-                // Monitor Tab
-                MonitorTabView(events: $events, logs: $logs)
-                    .tabItem {
-                        Label("Monitor", systemImage: "chart.line.uptrend.xyaxis")
-                    }
-                    .tag(0)
-
-                // Settings Tab
-                SettingsTabView(
-                    missingPermissions: $missingPermissions,
-                    unprotectedBrowsers: $unprotectedBrowsers,
-                    openSystemPreferencesForPermission: openSystemPreferencesForPermission
-                )
-                .tabItem {
-                    Label("Settings", systemImage: "gearshape")
-                }
-                .tag(1)
-            }
-        }
-        .frame(minWidth: 500, minHeight: 300)
-        .onAppear {
-            loadDeviceId()
-            startListeningForEvents()
-        }
+        // Load appropriate page
+        loadCurrentPage()
     }
 
-    private func loadDeviceId() {
-        if let stored = UserDefaults.standard.string(forKey: "deviceId") {
-            deviceId = stored
-        }
-    }
+    // MARK: - Page Loading
 
-    private func startListeningForEvents() {
-        // Listen for event notifications
-        NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("SystemEventOccurred"),
-            object: nil,
-            queue: .main
-        ) { [self] notification in
-            if let eventType = notification.userInfo?["type"] as? String {
-                addEvent(type: eventType)
-
-                // Track browser status for unprotected browsers
-                if eventType == "browser_started",
-                   let details = notification.userInfo?["details"] as? [String: Any],
-                   let browserName = details["browser"] as? String,
-                   let hasExtension = details["has_extension"] as? Bool {
-
-                    if !hasExtension {
-                        // Add to unprotected browsers if not already there
-                        if !unprotectedBrowsers.contains(where: { $0.name == browserName }) {
-                            unprotectedBrowsers.append(UnprotectedBrowser(
-                                name: browserName,
-                                lastDetected: Date()
-                            ))
-                        } else {
-                            // Update last detected time
-                            if let index = unprotectedBrowsers.firstIndex(where: { $0.name == browserName }) {
-                                unprotectedBrowsers[index].lastDetected = Date()
-                            }
-                        }
-                    } else {
-                        // Remove from unprotected browsers if present
-                        unprotectedBrowsers.removeAll(where: { $0.name == browserName })
-                    }
-                }
-            }
-        }
-
-        // Listen for log notifications
-        NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("AppLogMessage"),
-            object: nil,
-            queue: .main
-        ) { notification in
-            if let message = notification.userInfo?["message"] as? String {
-                addLog(message: message)
-            }
-        }
-
-        // Listen for permission status updates
-        NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("PermissionStatusUpdated"),
-            object: nil,
-            queue: .main
-        ) { notification in
-            if let missing = notification.userInfo?["missing"] as? [String] {
-                missingPermissions = missing
-            }
-        }
-
-        // Check permissions immediately
-        checkPermissions()
-    }
-
-    private func checkPermissions() {
-        // Request permission status from AppDelegate
-        if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
-            missingPermissions = appDelegate.permissionManager?.getMissingPermissions() ?? []
-        }
-    }
-
-    private func openSystemPreferencesForPermission(_ permission: String) {
-        var urlString: String
-
-        if permission.contains("Notifications") {
-            // Open Notifications settings
-            urlString = "x-apple.systempreferences:com.apple.preference.notifications"
-        } else if permission.contains("AppleEvents") {
-            // Open Privacy & Security → Automation
-            urlString = "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation"
+    func loadCurrentPage() {
+        let isComplete = UserDefaults.standard.bool(forKey: "onboardingComplete")
+        if isComplete {
+            loadPage("dashboard")
         } else {
-            // Fallback to general Privacy & Security
-            urlString = "x-apple.systempreferences:com.apple.preference.security?Privacy"
-        }
-
-        if let url = URL(string: urlString) {
-            NSWorkspace.shared.open(url)
+            loadPage("onboarding")
         }
     }
 
-    private func addEvent(type: String) {
-        let event = SystemEvent(type: type, timestamp: Date())
-        events.append(event)
-
-        // Keep only last 50 events
-        if events.count > 50 {
-            events.removeFirst()
+    private func loadPage(_ name: String) {
+        guard let htmlURL = Bundle.main.url(forResource: name, withExtension: "html") else {
+            appDelegate?.postLog("ERROR: \(name).html not found in bundle")
+            return
         }
+        // allowingReadAccessTo the parent directory so HTML can load sibling resources
+        webView.loadFileURL(htmlURL, allowingReadAccessTo: htmlURL.deletingLastPathComponent())
+        appDelegate?.postLog("🌐 Loaded \(name).html in WKWebView")
     }
 
-    private func addLog(message: String) {
-        let log = LogEntry(message: message, timestamp: Date())
-        logs.append(log)
+    // MARK: - Debug Monitor
 
-        // Keep only last 200 logs
-        if logs.count > 200 {
-            logs.removeFirst()
+    func showDebugMonitor() {
+        if debugMonitorWindow == nil {
+            debugMonitorWindow = LegacyMonitorWindow()
         }
-    }
-}
-
-// Log Entry Model
-struct LogEntry: Identifiable {
-    let id = UUID()
-    let message: String
-    let timestamp: Date
-
-    var icon: String {
-        if message.contains("✅") { return "checkmark.circle.fill" }
-        if message.contains("❌") { return "xmark.circle.fill" }
-        if message.contains("⚠️") { return "exclamationmark.triangle.fill" }
-        if message.contains("📱") { return "iphone" }
-        if message.contains("💤") { return "moon.fill" }
-        if message.contains("👁️") { return "eye.fill" }
-        if message.contains("🔒") { return "lock.fill" }
-        if message.contains("🔓") { return "lock.open.fill" }
-        if message.contains("🌐") { return "safari.fill" }
-        if message.contains("🚫") { return "xmark.circle.fill" }
-        return "circle.fill"
+        debugMonitorWindow?.showWindow(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
-    var color: Color {
-        if message.contains("✅") { return .green }
-        if message.contains("❌") { return .red }
-        if message.contains("⚠️") { return .orange }
-        return .primary
-    }
-}
+    // MARK: - WKScriptMessageHandler
 
-struct LogRow: View {
-    let log: LogEntry
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Text(log.timestamp, style: .time)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundColor(.secondary)
-                .frame(width: 70, alignment: .leading)
-
-            Image(systemName: log.icon)
-                .font(.system(size: 10))
-                .foregroundColor(log.color)
-                .frame(width: 16)
-
-            Text(log.message)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundColor(.primary)
-                .textSelection(.enabled)
-
-            Spacer()
+    func userContentController(
+        _ userContentController: WKUserContentController,
+        didReceive message: WKScriptMessage
+    ) {
+        guard let body = message.body as? [String: Any],
+              let type = body["type"] as? String else {
+            appDelegate?.postLog("⚠️ WKWebView: Invalid message format")
+            return
         }
-        .padding(.vertical, 2)
-        .padding(.horizontal, 4)
-    }
-}
 
-struct EventRow: View {
-    let event: SystemEvent
+        switch type {
+        case "SAVE_ONBOARDING":
+            handleSaveOnboarding(body)
 
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: event.icon)
-                .font(.system(size: 20))
-                .foregroundColor(event.color)
-                .frame(width: 30)
+        case "GET_EXTENSION_STATUS":
+            handleGetExtensionStatus()
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(event.displayName)
-                    .font(.system(.body, design: .default))
+        case "GET_DASHBOARD_DATA":
+            handleGetDashboardData()
 
-                Text(event.timestamp, style: .relative)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+        case "OPEN_EXTENSIONS_PAGE":
+            if let urlStr = body["url"] as? String, let url = URL(string: urlStr) {
+                if let bundleId = body["bundleId"] as? String,
+                   let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
+                    let config = NSWorkspace.OpenConfiguration()
+                    NSWorkspace.shared.open([url], withApplicationAt: appURL, configuration: config)
+                } else {
+                    NSWorkspace.shared.open(url)
+                }
             }
 
-            Spacer()
+        case "NAVIGATE_TO_DASHBOARD":
+            loadPage("dashboard")
 
-            Text(event.timestamp, style: .time)
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-    }
-}
-
-// Event Model
-struct SystemEvent: Identifiable {
-    let id = UUID()
-    let type: String
-    let timestamp: Date
-
-    var displayName: String {
-        switch type {
-        case "app_started": return "App Started"
-        case "app_quit": return "App Quit"
-        case "computer_sleeping": return "Computer Sleeping"
-        case "computer_waking": return "Computer Woke Up"
-        case "screen_locked": return "Screen Locked"
-        case "screen_unlocked": return "Screen Unlocked"
-        case "chrome_started": return "Chrome Started"
-        case "chrome_closed": return "Chrome Closed"
-        default: return type.replacingOccurrences(of: "_", with: " ").capitalized
-        }
-    }
-
-    var icon: String {
-        switch type {
-        case "app_started": return "play.circle.fill"
-        case "app_quit": return "stop.circle.fill"
-        case "computer_sleeping": return "moon.fill"
-        case "computer_waking": return "sun.max.fill"
-        case "screen_locked": return "lock.fill"
-        case "screen_unlocked": return "lock.open.fill"
-        case "chrome_started": return "safari.fill"
-        case "chrome_closed": return "xmark.circle.fill"
-        default: return "circle.fill"
-        }
-    }
-
-    var color: Color {
-        switch type {
-        case "app_started", "computer_waking", "screen_unlocked", "chrome_started":
-            return .green
-        case "app_quit", "computer_sleeping", "screen_locked", "chrome_closed":
-            return .orange
         default:
-            return .blue
-        }
-    }
-}
-
-// Unprotected Browser Model
-struct UnprotectedBrowser: Identifiable {
-    let id = UUID()
-    let name: String
-    var lastDetected: Date
-}
-
-// Monitor Tab View
-struct MonitorTabView: View {
-    @Binding var events: [SystemEvent]
-    @Binding var logs: [LogEntry]
-    @State private var showDetailedBreakdown = false
-    @State private var refreshTimer: Timer? = nil
-
-    // Time tracking state
-    @State private var youtubeMinutes: Int = 0
-    @State private var instagramMinutes: Int = 0
-    @State private var youtubeBudget: Int = 0
-    @State private var instagramBudget: Int = 0
-    @State private var activeSessions: [TimeTracker.BrowserSession] = []
-
-    var body: some View {
-        VStack(spacing: 0) {
-            // Time Tracking Header
-            VStack(spacing: 12) {
-                HStack {
-                    Text("Today's Usage")
-                        .font(.headline)
-
-                    Spacer()
-
-                    Button(action: {
-                        showDetailedBreakdown = true
-                    }) {
-                        Label("View Details", systemImage: "chart.bar.doc.horizontal")
-                            .font(.caption)
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-                .padding(.horizontal)
-                .padding(.top, 12)
-
-                // Time usage cards
-                HStack(spacing: 12) {
-                    // YouTube
-                    TimeUsageCard(
-                        platform: "YouTube",
-                        icon: "play.rectangle.fill",
-                        minutes: youtubeMinutes,
-                        budget: youtubeBudget,
-                        color: .red
-                    )
-
-                    // Instagram
-                    TimeUsageCard(
-                        platform: "Instagram",
-                        icon: "camera.fill",
-                        minutes: instagramMinutes,
-                        budget: instagramBudget,
-                        color: .pink
-                    )
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 12)
-            }
-            .background(Color(NSColor.controlBackgroundColor))
-
-            Divider()
-
-            // Split view: Events on left, Console on right
-            HSplitView {
-                // Events List
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        Text("System Events")
-                            .font(.headline)
-                            .padding(.horizontal)
-                            .padding(.top, 12)
-                            .padding(.bottom, 8)
-
-                        Spacer()
-
-                        Button(action: {
-                            events.removeAll()
-                        }) {
-                            Label("Clear", systemImage: "trash")
-                                .font(.caption)
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal)
-                        .padding(.top, 12)
-                        .padding(.bottom, 8)
-                    }
-
-                    ScrollView {
-                        if events.isEmpty {
-                            VStack(spacing: 12) {
-                                Image(systemName: "clock.arrow.circlepath")
-                                    .font(.system(size: 32))
-                                    .foregroundColor(.secondary)
-
-                                Text("No events yet")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .padding()
-                        } else {
-                            LazyVStack(spacing: 1) {
-                                ForEach(events.reversed()) { event in
-                                    EventRow(event: event)
-                                }
-                            }
-                        }
-                    }
-                }
-                .frame(minWidth: 250)
-
-                Divider()
-
-                // Console Log
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        Text("Console Log")
-                            .font(.headline)
-                            .padding(.horizontal)
-                            .padding(.top, 12)
-                            .padding(.bottom, 8)
-
-                        Spacer()
-
-                        Button(action: {
-                            logs.removeAll()
-                        }) {
-                            Label("Clear", systemImage: "trash")
-                                .font(.caption)
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal)
-                        .padding(.top, 12)
-                        .padding(.bottom, 8)
-                    }
-
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            LazyVStack(alignment: .leading, spacing: 2) {
-                                ForEach(logs) { log in
-                                    LogRow(log: log)
-                                        .id(log.id)
-                                }
-                            }
-                            .padding(8)
-                        }
-                        .onChange(of: logs.count) { _ in
-                            if let lastLog = logs.last {
-                                withAnimation {
-                                    proxy.scrollTo(lastLog.id, anchor: .bottom)
-                                }
-                            }
-                        }
-                    }
-                }
-                .frame(minWidth: 300)
-                .background(Color(NSColor.textBackgroundColor))
-            }
-
-            Divider()
-
-            // Footer
-            HStack {
-                Text("Monitoring active - events sent to backend automatically")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Spacer()
-
-                Button("Open Dashboard") {
-                    if let url = URL(string: "https://intentional.social/dashboard") {
-                        NSWorkspace.shared.open(url)
-                    }
-                }
-                .buttonStyle(.link)
-            }
-            .padding(8)
-            .background(Color(NSColor.controlBackgroundColor))
-        }
-        .sheet(isPresented: $showDetailedBreakdown) {
-            DetailedUsageBreakdownView(
-                activeSessions: activeSessions,
-                youtubeMinutes: youtubeMinutes,
-                instagramMinutes: instagramMinutes
-            )
-        }
-        .onAppear {
-            // Delay initial refresh to ensure app is fully initialized
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                refreshUsageData()
-
-                // Start refresh timer (every 5 seconds)
-                refreshTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
-                    refreshUsageData()
-                }
-            }
-        }
-        .onDisappear {
-            refreshTimer?.invalidate()
-            refreshTimer = nil
+            appDelegate?.postLog("⚠️ WKWebView: Unknown message type: \(type)")
         }
     }
 
-    private func refreshUsageData() {
-        guard let appDelegate = NSApplication.shared.delegate as? AppDelegate else {
-            return
-        }
-        guard let timeTracker = appDelegate.timeTracker else {
+    // MARK: - Save Onboarding
+
+    private func handleSaveOnboarding(_ body: [String: Any]) {
+        guard let settings = body["settings"] as? [String: Any] else {
+            callJS("window._onboardingSaveResult({ success: false, error: 'Invalid settings' })")
             return
         }
 
-        youtubeMinutes = timeTracker.getMinutesUsed(for: "youtube")
-        instagramMinutes = timeTracker.getMinutesUsed(for: "instagram")
-        youtubeBudget = timeTracker.getBudget(for: "youtube")
-        instagramBudget = timeTracker.getBudget(for: "instagram")
-        activeSessions = timeTracker.getActiveSessions()
-    }
-}
+        // Extract per-platform settings
+        let platforms = settings["platforms"] as? [String: Any] ?? [:]
+        let ytSettings = platforms["youtube"] as? [String: Any] ?? [:]
+        let igSettings = platforms["instagram"] as? [String: Any] ?? [:]
 
-// Settings Tab View
-struct SettingsTabView: View {
-    @Binding var missingPermissions: [String]
-    @Binding var unprotectedBrowsers: [UnprotectedBrowser]
-    let openSystemPreferencesForPermission: (String) -> Void
+        let ytBudget = ytSettings["budget"] as? Int ?? 30
+        let igBudget = igSettings["budget"] as? Int ?? 30
+        let partnerEmail = settings["partnerEmail"] as? String
+        let partnerName = settings["partnerName"] as? String
+        let lockMode = settings["lockMode"] as? String ?? "none"
 
-    @State private var registeredExtensionIds: [String] = []
-    @State private var newExtensionId: String = ""
-    @State private var extensionIdError: String? = nil
+        appDelegate?.postLog("📋 Saving onboarding: YT=\(ytBudget)min, IG=\(igBudget)min, lock=\(lockMode)")
 
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                // Extension Setup Section
-                ExtensionSetupSection(
-                    registeredExtensionIds: $registeredExtensionIds,
-                    newExtensionId: $newExtensionId,
-                    extensionIdError: $extensionIdError
-                )
+        // 1. Save to UserDefaults
+        UserDefaults.standard.set(true, forKey: "onboardingComplete")
+        UserDefaults.standard.set(lockMode, forKey: "lockMode")
 
-                Divider()
-                // Permissions Section
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Permissions")
-                        .font(.title2)
-                        .fontWeight(.bold)
-
-                    if missingPermissions.isEmpty {
-                        HStack(spacing: 8) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                            Text("All permissions granted")
-                                .font(.body)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding()
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.green.opacity(0.1))
-                        .cornerRadius(8)
-                    } else {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.orange)
-                                Text("Missing Permissions")
-                                    .font(.headline)
-                                    .foregroundColor(.orange)
-                            }
-
-                            ForEach(missingPermissions, id: \.self) { permission in
-                                HStack(spacing: 8) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.red)
-
-                                    Text(permission)
-                                        .font(.body)
-                                        .foregroundColor(.secondary)
-
-                                    Spacer()
-
-                                    Button("Grant") {
-                                        openSystemPreferencesForPermission(permission)
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                    .controlSize(.small)
-                                }
-                                .padding(.vertical, 4)
-                            }
-                        }
-                        .padding()
-                        .background(Color.orange.opacity(0.1))
-                        .cornerRadius(8)
-                    }
-                }
-
-                Divider()
-
-                // Unprotected Browsers Section
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Browser Status")
-                        .font(.title2)
-                        .fontWeight(.bold)
-
-                    if unprotectedBrowsers.isEmpty {
-                        HStack(spacing: 8) {
-                            Image(systemName: "checkmark.shield.fill")
-                                .foregroundColor(.green)
-                            Text("No unprotected browsers detected")
-                                .font(.body)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding()
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.green.opacity(0.1))
-                        .cornerRadius(8)
-                    } else {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "exclamationmark.shield.fill")
-                                    .foregroundColor(.orange)
-                                Text("Browsers Without Extension")
-                                    .font(.headline)
-                                    .foregroundColor(.orange)
-                            }
-
-                            Text("The following browsers are running without the Intentional extension. Install the extension to enable accountability on all browsers.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .padding(.bottom, 4)
-
-                            ForEach(unprotectedBrowsers) { browser in
-                                HStack(spacing: 12) {
-                                    Image(systemName: "safari")
-                                        .font(.system(size: 20))
-                                        .foregroundColor(.orange)
-                                        .frame(width: 30)
-
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(browser.name)
-                                            .font(.body)
-                                            .fontWeight(.medium)
-
-                                        Text("Last detected: \(browser.lastDetected, style: .relative)")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-
-                                    Spacer()
-                                }
-                                .padding(.vertical, 8)
-                                .padding(.horizontal, 12)
-                                .background(Color(NSColor.controlBackgroundColor))
-                                .cornerRadius(6)
-                            }
-                        }
-                        .padding()
-                        .background(Color.orange.opacity(0.1))
-                        .cornerRadius(8)
-                    }
-                }
-
-                Spacer()
-            }
-            .padding()
-        }
-        .onAppear {
-            refreshExtensionIds()
-        }
-    }
-
-    private func refreshExtensionIds() {
-        registeredExtensionIds = NativeMessagingSetup.shared.getRegisteredIds()
-    }
-}
-
-// Extension Setup Section
-struct ExtensionSetupSection: View {
-    @Binding var registeredExtensionIds: [String]
-    @Binding var newExtensionId: String
-    @Binding var extensionIdError: String?
-
-    @State private var browserStatus: [BrowserExtensionStatus] = []
-    @State private var isScanning: Bool = false
-    @State private var lastScanMessage: String? = nil
-    @State private var showManualEntry: Bool = false
-    @State private var refreshTimer: Timer? = nil
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Browser Extensions")
-                    .font(.title2)
-                    .fontWeight(.bold)
-
-                Spacer()
-
-                Button(action: scanForExtensions) {
-                    HStack(spacing: 4) {
-                        if isScanning {
-                            ProgressView()
-                                .scaleEffect(0.7)
-                                .frame(width: 14, height: 14)
-                        } else {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                        Text(isScanning ? "Scanning..." : "Scan")
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(isScanning)
-            }
-
-            Text("Install the Intentional extension in each browser you want to track. The app automatically detects installed extensions.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-
-            if let message = lastScanMessage {
-                Text(message)
-                    .font(.caption)
-                    .foregroundColor(.green)
-            }
-
-            // Browser list with status
-            if browserStatus.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "globe")
-                            .foregroundColor(.secondary)
-                        Text("No Chromium browsers detected")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                    }
-
-                    Text("Install Chrome, Brave, Arc, Edge, or another Chromium-based browser.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.secondary.opacity(0.1))
-                .cornerRadius(8)
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(browserStatus) { browser in
-                        BrowserStatusRow(browser: browser, onOpenBrowser: {
-                            NativeMessagingSetup.shared.openExtensionsPage(bundleId: browser.bundleId)
-                        })
-
-                        if browser.id != browserStatus.last?.id {
-                            Divider()
-                                .padding(.leading, 44)
-                        }
-                    }
-                }
-                .background(Color(NSColor.controlBackgroundColor))
-                .cornerRadius(8)
-            }
-
-            // Summary
-            let connectedCount = browserStatus.filter { $0.hasExtension }.count
-            let totalCount = browserStatus.count
-
-            if totalCount > 0 {
-                HStack(spacing: 6) {
-                    if connectedCount == totalCount {
-                        Image(systemName: "checkmark.seal.fill")
-                            .foregroundColor(.green)
-                        Text("All browsers connected")
-                            .font(.caption)
-                            .foregroundColor(.green)
-                    } else if connectedCount > 0 {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.orange)
-                        Text("\(connectedCount)/\(totalCount) browsers connected - install extension in remaining browsers for complete tracking")
-                            .font(.caption)
-                            .foregroundColor(.orange)
-                    } else {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.red)
-                        Text("No extensions detected - click 'Install' to open each browser")
-                            .font(.caption)
-                            .foregroundColor(.red)
-                    }
-                }
-                .padding(.top, 4)
-            }
-
-            // Manual Entry (collapsed by default)
-            DisclosureGroup("Manual Entry", isExpanded: $showManualEntry) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("If auto-discovery doesn't find your extension, you can add it manually.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    HStack {
-                        TextField("Extension ID (32 characters)", text: $newExtensionId)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(.caption, design: .monospaced))
-
-                        Button("Add") {
-                            addExtension()
-                        }
-                        .disabled(newExtensionId.isEmpty)
-                    }
-
-                    if let error = extensionIdError {
-                        Text(error)
-                            .font(.caption)
-                            .foregroundColor(.red)
-                    }
-
-                    Text("Find your extension ID at chrome://extensions with Developer mode enabled.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.top, 8)
-            }
-            .padding()
-            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-            .cornerRadius(8)
-        }
-        .onAppear {
-            // Refresh immediately when view appears
-            refreshStatus()
-
-            // Start periodic refresh timer (every 5 seconds)
-            // Chrome writes Preferences file within ~5 seconds of extension state changes
-            refreshTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
-                refreshStatus()
-            }
-        }
-        .onDisappear {
-            // Stop timer when view disappears to save resources
-            refreshTimer?.invalidate()
-            refreshTimer = nil
-        }
-    }
-
-    private func refreshStatus() {
-        browserStatus = NativeMessagingSetup.shared.getBrowserStatus()
-        registeredExtensionIds = NativeMessagingSetup.shared.getRegisteredIds()
-    }
-
-    private func scanForExtensions() {
-        isScanning = true
-        lastScanMessage = nil
-
-        // Run scan in background
-        DispatchQueue.global(qos: .userInitiated).async {
-            let found = NativeMessagingSetup.shared.autoDiscoverExtensions()
-
-            DispatchQueue.main.async {
-                isScanning = false
-                refreshStatus()
-
-                if found > 0 {
-                    lastScanMessage = "Found \(found) new extension(s)!"
-                } else {
-                    let connectedCount = browserStatus.filter { $0.hasExtension }.count
-                    if connectedCount > 0 {
-                        lastScanMessage = "Scan complete."
-                    } else {
-                        lastScanMessage = nil
-                    }
-                }
-            }
-        }
-    }
-
-    private func addExtension() {
-        let trimmed = newExtensionId.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-
-        if trimmed.isEmpty {
-            extensionIdError = "Please enter an extension ID"
-            return
-        }
-
-        let allIds = NativeMessagingSetup.shared.getAllExtensionIds()
-        if allIds.contains(trimmed) {
-            extensionIdError = "This extension is already registered"
-            return
-        }
-
-        if NativeMessagingSetup.shared.registerExtensionId(trimmed) {
-            refreshStatus()
-            newExtensionId = ""
-            extensionIdError = nil
-        } else {
-            extensionIdError = "Invalid extension ID format. Must be 32 lowercase letters (a-p)."
-        }
-    }
-}
-
-// Individual browser row showing status
-struct BrowserStatusRow: View {
-    let browser: BrowserExtensionStatus
-    let onOpenBrowser: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            // Browser icon
-            Image(systemName: browserIcon(for: browser.name))
-                .font(.system(size: 20))
-                .foregroundColor(.primary)
-                .frame(width: 32)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(browser.name)
-                    .font(.headline)
-
-                if let extensionId = browser.extensionId {
-                    Text(extensionId)
-                        .font(.system(.caption2, design: .monospaced))
-                        .foregroundColor(.secondary)
-                        .textSelection(.enabled)
-                } else {
-                    Text("Extension not installed")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-
-            Spacer()
-
-            if browser.hasExtension {
-                if browser.isEnabled {
-                    // Extension installed and enabled
-                    HStack(spacing: 4) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                        Text("Connected")
-                            .font(.caption)
-                            .foregroundColor(.green)
-                    }
-                } else {
-                    // Extension installed but disabled
-                    HStack(spacing: 4) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.orange)
-                        Text("Disabled")
-                            .font(.caption)
-                            .foregroundColor(.orange)
-                    }
-                }
-            } else {
-                // Install button
-                Button(action: onOpenBrowser) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.up.right.square")
-                        Text("Install")
-                    }
-                    .font(.caption)
-                }
-                .buttonStyle(.bordered)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-    }
-
-    private func browserIcon(for name: String) -> String {
-        switch name.lowercased() {
-        case let n where n.contains("chrome"):
-            return "globe"
-        case let n where n.contains("brave"):
-            return "shield.fill"
-        case let n where n.contains("edge"):
-            return "globe.americas.fill"
-        case let n where n.contains("arc"):
-            return "rainbow"
-        case let n where n.contains("opera"):
-            return "music.note"
-        case let n where n.contains("vivaldi"):
-            return "music.quarternote.3"
-        case let n where n.contains("safari"):
-            return "safari.fill"
-        default:
-            return "globe"
-        }
-    }
-}
-
-// Time Usage Card
-struct TimeUsageCard: View {
-    let platform: String
-    let icon: String
-    let minutes: Int
-    let budget: Int
-    let color: Color
-
-    var progress: Double {
-        guard budget > 0 else { return 0 }
-        return Double(minutes) / Double(budget)
-    }
-
-    var isOverBudget: Bool {
-        budget > 0 && minutes >= budget
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: icon)
-                    .foregroundColor(color)
-                Text(platform)
-                    .font(.headline)
-                Spacer()
-            }
-
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text("\(minutes)")
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundColor(isOverBudget ? .red : .primary)
-
-                Text("min")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Spacer()
-
-                if budget > 0 {
-                    Text("/ \(budget) min")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-
-            if budget > 0 {
-                ProgressView(value: min(progress, 1.0))
-                    .progressViewStyle(.linear)
-                    .tint(isOverBudget ? .red : color)
-            }
-        }
-        .padding()
-        .frame(maxWidth: .infinity)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(8)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(isOverBudget ? Color.red.opacity(0.5) : Color.clear, lineWidth: 2)
+        // 2. Save structured data to JSON file
+        saveOnboardingSettings(
+            platforms: platforms,
+            partnerEmail: partnerEmail,
+            partnerName: partnerName,
+            lockMode: lockMode
         )
-    }
-}
 
-// Detailed Usage Breakdown View
-struct DetailedUsageBreakdownView: View {
-    let activeSessions: [TimeTracker.BrowserSession]
-    let youtubeMinutes: Int
-    let instagramMinutes: Int
-    @Environment(\.dismiss) private var dismiss
+        // 3. Update TimeTracker budgets per platform
+        appDelegate?.timeTracker?.setBudget(for: "youtube", minutes: ytBudget)
+        appDelegate?.timeTracker?.setBudget(for: "instagram", minutes: igBudget)
 
-    var sortedSessions: [(browser: String, platform: String, minutes: Int, videoMinutes: Int)] {
-        var breakdown: [(browser: String, platform: String, minutes: Int, videoMinutes: Int)] = []
-        for session in activeSessions {
-            let minutes = session.totalSeconds / 60
-            let videoMinutes = session.videoSeconds / 60
-            breakdown.append((browser: session.browser, platform: session.platform, minutes: minutes, videoMinutes: videoMinutes))
-        }
-        return breakdown.sorted { (a, b) in a.minutes > b.minutes }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header
-            HStack {
-                VStack(alignment: .leading) {
-                    Text("Usage Breakdown")
-                        .font(.title)
-                        .fontWeight(.bold)
-
-                    Text("Time spent by browser and platform")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-
-                Spacer()
-
-                Button(action: { dismiss() }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
+        // 4. Make API calls and broadcast to extensions
+        Task {
+            if let email = partnerEmail, !email.isEmpty {
+                await appDelegate?.backendClient?.setPartner(email: email, name: partnerName)
             }
-            .padding()
+            if lockMode != "none" {
+                await appDelegate?.backendClient?.setLockMode(mode: lockMode)
+            }
 
-            Divider()
+            // 5. Broadcast ONBOARDING_SYNC to all connected extensions
+            await MainActor.run {
+                self.broadcastOnboardingToExtensions(
+                    platforms: platforms,
+                    partnerEmail: partnerEmail,
+                    partnerName: partnerName,
+                    lockMode: lockMode
+                )
+            }
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Total Summary
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Total Usage Today")
-                            .font(.headline)
+            // 6. Respond to JS with success
+            await MainActor.run {
+                self.callJS("window._onboardingSaveResult && window._onboardingSaveResult({ success: true })")
+            }
+        }
+    }
 
-                        HStack(spacing: 20) {
-                            VStack(alignment: .leading) {
-                                Text("YouTube")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Text("\(youtubeMinutes) min")
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.red)
-                            }
+    // MARK: - Extension Status
 
-                            Divider()
-                                .frame(height: 40)
+    private func handleGetExtensionStatus() {
+        // Run heavy filesystem/icon work off the main thread
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
 
-                            VStack(alignment: .leading) {
-                                Text("Instagram")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Text("\(instagramMinutes) min")
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.pink)
-                            }
+            let statuses = NativeMessagingSetup.shared.getBrowserStatus()
+            let connectedCount = self.appDelegate?.socketRelayServer?.connectionCount ?? 0
 
-                            Divider()
-                                .frame(height: 40)
-
-                            VStack(alignment: .leading) {
-                                Text("Combined")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Text("\(youtubeMinutes + instagramMinutes) min")
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                            }
-                        }
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color(NSColor.controlBackgroundColor))
-                        .cornerRadius(8)
-                    }
-
-                    Divider()
-
-                    // Per-Browser Breakdown
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("By Browser")
-                            .font(.headline)
-
-                        if sortedSessions.isEmpty {
-                            VStack(spacing: 12) {
-                                Image(systemName: "safari")
-                                    .font(.system(size: 32))
-                                    .foregroundColor(.secondary)
-
-                                Text("No active sessions")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-
-                                Text("Usage data appears here when you visit YouTube or Instagram")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 40)
-                        } else {
-                            VStack(spacing: 8) {
-                                ForEach(sortedSessions, id: \.browser) { session in
-                                    BrowserUsageRow(
-                                        browser: session.browser,
-                                        platform: session.platform,
-                                        minutes: session.minutes,
-                                        videoMinutes: session.videoMinutes
-                                    )
-                                }
-                            }
-                        }
+            var browsersArray: [[String: Any]] = []
+            for browser in statuses {
+                var entry: [String: Any] = [
+                    "name": browser.name,
+                    "bundleId": browser.bundleId,
+                    "hasExtension": browser.hasExtension,
+                    "isEnabled": browser.isEnabled,
+                    "extensionPageUrl": browser.extensionPageUrl
+                ]
+                if let extId = browser.extensionId {
+                    entry["extensionId"] = extId
+                }
+                // Use cached icon or extract once
+                if let cached = self.iconCache[browser.bundleId] {
+                    entry["iconDataUrl"] = cached
+                } else if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: browser.bundleId) {
+                    let icon = NSWorkspace.shared.icon(forFile: appURL.path)
+                    icon.size = NSSize(width: 32, height: 32)
+                    if let tiffData = icon.tiffRepresentation,
+                       let bitmap = NSBitmapImageRep(data: tiffData),
+                       let pngData = bitmap.representation(using: .png, properties: [:]) {
+                        let dataUrl = "data:image/png;base64,\(pngData.base64EncodedString())"
+                        self.iconCache[browser.bundleId] = dataUrl
+                        entry["iconDataUrl"] = dataUrl
                     }
                 }
-                .padding()
-            }
-        }
-        .frame(width: 600, height: 500)
-    }
-}
-
-// Browser Usage Row
-struct BrowserUsageRow: View {
-    let browser: String
-    let platform: String
-    let minutes: Int
-    let videoMinutes: Int
-
-    var platformColor: Color {
-        platform.lowercased() == "youtube" ? .red : .pink
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            // Browser icon
-            Image(systemName: browserIcon(for: browser))
-                .font(.system(size: 24))
-                .foregroundColor(.primary)
-                .frame(width: 40)
-
-            // Browser info
-            VStack(alignment: .leading, spacing: 2) {
-                Text(browser)
-                    .font(.headline)
-
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(platformColor)
-                        .frame(width: 6, height: 6)
-
-                    Text(platform)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                browsersArray.append(entry)
             }
 
-            Spacer()
+            let result: [String: Any] = [
+                "browsers": browsersArray,
+                "connectedCount": connectedCount
+            ]
 
-            // Time display
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("\(minutes) min")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-
-                if videoMinutes > 0 {
-                    Text("\(videoMinutes) min active")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+            if let data = try? JSONSerialization.data(withJSONObject: result),
+               let json = String(data: data, encoding: .utf8) {
+                DispatchQueue.main.async {
+                    self.callJS("window._extensionStatusResult && window._extensionStatusResult(\(json))")
                 }
             }
         }
-        .padding()
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(8)
     }
 
-    private func browserIcon(for name: String) -> String {
-        switch name.lowercased() {
-        case let n where n.contains("chrome"):
-            return "globe"
-        case let n where n.contains("brave"):
-            return "shield.fill"
-        case let n where n.contains("edge"):
-            return "globe.americas.fill"
-        case let n where n.contains("arc"):
-            return "rainbow"
-        case let n where n.contains("firefox"):
-            return "flame.fill"
-        case let n where n.contains("safari"):
-            return "safari.fill"
-        default:
-            return "globe"
+    // MARK: - Dashboard Data
+
+    private func handleGetDashboardData() {
+        guard let tracker = appDelegate?.timeTracker else { return }
+
+        let ytMinutes = tracker.getMinutesUsed(for: "youtube")
+        let igMinutes = tracker.getMinutesUsed(for: "instagram")
+        let ytBudget = tracker.getBudget(for: "youtube")
+        let igBudget = tracker.getBudget(for: "instagram")
+
+        let result: [String: Any] = [
+            "youtube": [
+                "minutesUsed": ytMinutes,
+                "budget": ytBudget
+            ],
+            "instagram": [
+                "minutesUsed": igMinutes,
+                "budget": igBudget
+            ]
+        ]
+
+        if let data = try? JSONSerialization.data(withJSONObject: result),
+           let json = String(data: data, encoding: .utf8) {
+            callJS("window._dashboardDataResult && window._dashboardDataResult(\(json))")
         }
     }
-}
 
-struct MainView_Previews: PreviewProvider {
-    static var previews: some View {
-        MainView()
+    // MARK: - Extension Sync
+
+    private func broadcastOnboardingToExtensions(
+        platforms: [String: Any],
+        partnerEmail: String?,
+        partnerName: String?,
+        lockMode: String
+    ) {
+        let ytSettings = platforms["youtube"] as? [String: Any] ?? [:]
+        let igSettings = platforms["instagram"] as? [String: Any] ?? [:]
+
+        let message: [String: Any] = [
+            "type": "ONBOARDING_SYNC",
+            "platforms": platforms,
+            // Legacy flat fields for backward compatibility
+            "dailyBudgetMinutes": ytSettings["budget"] as? Int ?? 30,
+            "maxPerPeriod": ytSettings["maxPerPeriod"] ?? [
+                "enabled": false,
+                "minutes": 20,
+                "periodHours": 1
+            ],
+            "blockedCategories": ytSettings["blockedCategories"] ?? [],
+            "partnerEmail": partnerEmail ?? NSNull(),
+            "partnerName": partnerName ?? NSNull(),
+            "lockMode": lockMode,
+            "settingsLocked": lockMode != "none",
+            "youtube": [
+                "onboardingComplete": true,
+                "enabled": ytSettings["enabled"] ?? true,
+                "blockShorts": ytSettings["blockShorts"] ?? true,
+                "blockMode": ytSettings["blockMode"] ?? "hide"
+            ],
+            "instagram": [
+                "onboardingComplete": true,
+                "enabled": igSettings["enabled"] ?? true,
+                "blockReels": igSettings["blockReels"] ?? true,
+                "blockExplore": igSettings["blockExplore"] ?? true,
+                "nsfwFilter": igSettings["nsfwFilter"] ?? true
+            ]
+        ]
+
+        appDelegate?.socketRelayServer?.broadcastToAll(message)
+        appDelegate?.postLog("🌐 ONBOARDING_SYNC broadcast to \(appDelegate?.socketRelayServer?.connectionCount ?? 0) extension(s)")
+    }
+
+    // MARK: - Settings Persistence
+
+    private func saveOnboardingSettings(
+        platforms: [String: Any],
+        partnerEmail: String?,
+        partnerName: String?,
+        lockMode: String
+    ) {
+        let appSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first!
+        let dir = appSupport.appendingPathComponent("Intentional")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        let settingsURL = dir.appendingPathComponent("onboarding_settings.json")
+
+        let settings: [String: Any] = [
+            "platforms": platforms,
+            "partnerEmail": partnerEmail ?? "",
+            "partnerName": partnerName ?? "",
+            "lockMode": lockMode,
+            "completedAt": ISO8601DateFormatter().string(from: Date())
+        ]
+
+        if let data = try? JSONSerialization.data(withJSONObject: settings, options: .prettyPrinted) {
+            try? data.write(to: settingsURL)
+            appDelegate?.postLog("💾 Onboarding settings saved to \(settingsURL.lastPathComponent)")
+        }
+    }
+
+    // MARK: - JS Helper
+
+    private func callJS(_ script: String) {
+        DispatchQueue.main.async {
+            self.webView.evaluateJavaScript(script) { _, error in
+                if let error = error {
+                    self.appDelegate?.postLog("⚠️ JS eval error: \(error.localizedDescription)")
+                }
+            }
+        }
     }
 }

@@ -77,15 +77,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         backendClient = BackendClient(baseURL: "http://localhost:8000")
         postLog("🔗 Backend URL: http://localhost:8000")
 
-        // Create main window
-        mainWindowController = MainWindow()
-        mainWindowController?.showWindow(nil)
+        // Create main window (WKWebView-based: shows onboarding or dashboard)
+        mainWindowController = MainWindow(appDelegate: self)
         postLog("🪟 Main window created")
 
-        // Bring window to front - force it
+        // Bring window to front
         NSApp.activate(ignoringOtherApps: true)
-        mainWindowController?.window?.makeKeyAndOrderFront(nil)
-        mainWindowController?.window?.orderFrontRegardless()
 
         // Create menu bar icon
         setupMenuBar()
@@ -289,6 +286,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Show window
         menu.addItem(NSMenuItem(title: "Show Window", action: #selector(showMainWindow), keyEquivalent: "w"))
 
+        // Debug Monitor
+        menu.addItem(NSMenuItem(title: "Debug Monitor", action: #selector(showDebugMonitor), keyEquivalent: "m"))
+
         // Dashboard
         menu.addItem(NSMenuItem(title: "Open Dashboard", action: #selector(openDashboard), keyEquivalent: "d"))
 
@@ -303,6 +303,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func showMainWindow() {
         mainWindowController?.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc func showDebugMonitor() {
+        mainWindowController?.showDebugMonitor()
     }
 
     @objc func openDashboard() {
