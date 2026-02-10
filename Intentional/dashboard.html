@@ -20,38 +20,103 @@ body {
   -moz-osx-font-smoothing: grayscale;
   user-select: none;
   -webkit-user-select: none;
+  display: flex;
+}
+
+/* ===== Sidebar ===== */
+.sidebar {
+  width: 220px;
+  min-height: 100vh;
+  background: rgba(255, 255, 255, 0.02);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 20px 0;
+  flex-shrink: 0;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 12px;
+}
+
+.logo-ring {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.3) 0%, rgba(139, 92, 246, 0.2) 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.sidebar-title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 8px 20px;
+}
+
+.sidebar-label {
+  padding: 8px 20px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.25);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-left: 3px solid transparent;
+}
+
+.sidebar-item:hover {
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.sidebar-item.active {
+  color: #ffffff;
+  background: rgba(99, 102, 241, 0.1);
+  border-left-color: #6366f1;
+}
+
+.sidebar-item-icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+}
+
+/* ===== Main Content ===== */
+.main {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 100vh;
 }
 
 /* ===== Header ===== */
 .header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 20px 32px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.logo-ring {
-  width: 36px;
-  height: 36px;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.3) 0%, rgba(139, 92, 246, 0.2) 100%);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-}
-
-.header-title {
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: -0.3px;
 }
 
 .header-right {
@@ -72,11 +137,16 @@ body {
   color: rgba(255, 255, 255, 0.5);
 }
 
-/* ===== Content ===== */
-.content {
+/* ===== Pages ===== */
+.page {
+  display: none;
   max-width: 720px;
   margin: 0 auto;
   padding: 32px;
+}
+
+.page.active {
+  display: block;
 }
 
 .section-title {
@@ -116,14 +186,8 @@ body {
   margin-bottom: 16px;
 }
 
-.usage-card-icon {
-  font-size: 20px;
-}
-
-.usage-card-platform {
-  font-size: 15px;
-  font-weight: 600;
-}
+.usage-card-icon { font-size: 20px; }
+.usage-card-platform { font-size: 15px; font-weight: 600; }
 
 .usage-card-time {
   display: flex;
@@ -168,10 +232,154 @@ body {
 .usage-bar-fill.youtube { background: #ef4444; }
 .usage-bar-fill.instagram { background: #e879f9; }
 
-/* ===== Browser Status ===== */
-.browser-section {
-  margin-bottom: 32px;
+/* ===== Settings Card ===== */
+.settings-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 20px;
 }
+
+.settings-card-title {
+  padding: 16px 20px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  padding: 14px 20px;
+  gap: 14px;
+}
+
+.setting-row + .setting-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.setting-label {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.setting-desc {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-top: 2px;
+}
+
+.setting-value {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  min-width: 50px;
+  text-align: right;
+}
+
+/* Toggle Switch */
+.toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: #ffffff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.toggle input:checked + .toggle-track {
+  background: #6366f1;
+}
+
+.toggle input:checked + .toggle-track::after {
+  transform: translateX(20px);
+}
+
+/* Range Slider */
+.setting-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 120px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  outline: none;
+}
+
+.setting-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: #6366f1;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* Select Dropdown */
+.setting-select {
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+
+.setting-select option {
+  background: #1a1a2e;
+  color: #ffffff;
+}
+
+/* Number Input */
+.setting-number {
+  width: 70px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 14px;
+  text-align: center;
+  outline: none;
+}
+
+.setting-number:focus {
+  border-color: #6366f1;
+}
+
+/* ===== Browser Status ===== */
+.browser-section { margin-bottom: 32px; }
 
 .browser-card {
   background: rgba(255, 255, 255, 0.03);
@@ -191,17 +399,8 @@ body {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.browser-icon {
-  font-size: 20px;
-  width: 28px;
-  text-align: center;
-}
-
-.browser-name {
-  flex: 1;
-  font-size: 14px;
-  font-weight: 500;
-}
+.browser-icon { font-size: 20px; width: 28px; text-align: center; }
+.browser-name { flex: 1; font-size: 14px; font-weight: 500; }
 
 .browser-status {
   font-size: 12px;
@@ -230,97 +429,605 @@ body {
   color: rgba(255, 255, 255, 0.4);
 }
 
-.empty-state-icon {
+.empty-state-icon { font-size: 48px; margin-bottom: 16px; }
+.empty-state-text { font-size: 15px; line-height: 1.5; }
+
+/* ===== Lock / Accountability ===== */
+.lock-container {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.lock-icon {
   font-size: 48px;
   margin-bottom: 16px;
 }
 
-.empty-state-text {
-  font-size: 15px;
-  line-height: 1.5;
+.lock-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 12px;
 }
 
-/* ===== Footer ===== */
-.dashboard-footer {
-  text-align: center;
-  padding: 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  margin-top: 16px;
+.lock-desc {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.6;
+  margin-bottom: 16px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-.footer-text {
-  font-size: 12px;
+.lock-input-row {
+  margin-bottom: 12px;
+  max-width: 360px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.lock-input {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: #ffffff;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.lock-input:focus {
+  border-color: #6366f1;
+}
+
+.lock-input::placeholder {
   color: rgba(255, 255, 255, 0.3);
 }
 
+.lock-mode-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.lock-mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 24px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 100px;
+}
+
+.lock-mode-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.lock-mode-btn.active {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: #6366f1;
+  color: #ffffff;
+}
+
+.lock-mode-icon {
+  font-size: 24px;
+}
+
+/* Unlock code input */
+.unlock-code-input {
+  width: 200px;
+  padding: 16px 24px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 8px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.unlock-code-input:focus {
+  border-color: #6366f1;
+}
+
+.unlock-code-input::placeholder {
+  color: rgba(255, 255, 255, 0.2);
+  letter-spacing: 4px;
+  font-size: 18px;
+}
+
+/* Countdown timer */
+.countdown-display {
+  font-size: 48px;
+  font-weight: 700;
+  color: #f59e0b;
+  font-variant-numeric: tabular-nums;
+  margin: 16px 0;
+}
+
+/* Temporarily unlocked banner */
+.unlock-timer-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  margin: 16px auto;
+  max-width: 300px;
+  overflow: hidden;
+}
+
+.unlock-timer-fill {
+  height: 100%;
+  background: #34d399;
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+
+.btn-primary {
+  padding: 12px 32px;
+  background: #6366f1;
+  border: none;
+  border-radius: 10px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+
+.btn-primary:hover {
+  background: #5558e6;
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  padding: 12px 32px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-danger {
+  padding: 12px 32px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 10px;
+  color: #ef4444;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+/* ===== Advanced Page ===== */
+.info-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  gap: 14px;
+}
+
+.info-row + .info-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.info-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+  min-width: 120px;
+}
+
+.info-value {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: "SF Mono", Menlo, monospace;
+  word-break: break-all;
+}
+
+/* ===== Toast ===== */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  padding: 12px 24px;
+  background: #6366f1;
+  color: #ffffff;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 1000;
+  transition: transform 0.3s ease;
+  pointer-events: none;
+}
+
+.toast.visible {
+  transform: translateX(-50%) translateY(0);
+}
+
+.toast.error {
+  background: #ef4444;
+}
+
+.toast.warning {
+  background: #f59e0b;
+  color: #000000;
+}
+
 /* ===== Scrollbar ===== */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
-}
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 3px; }
 </style>
 </head>
 <body>
 
-<!-- Header -->
-<div class="header">
-  <div class="header-left">
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-header">
     <div class="logo-ring">🎯</div>
-    <span class="header-title">Intentional</span>
+    <span class="sidebar-title">Intentional</span>
   </div>
-  <div class="header-right">
-    <span class="status-dot"></span>
-    <span class="status-text">Monitoring active</span>
+  <div class="sidebar-item active" data-page="usage" onclick="navigateTo('usage')">
+    <span class="sidebar-item-icon">📊</span> Usage
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-label">Platforms</div>
+  <div class="sidebar-item" data-page="youtube" onclick="navigateTo('youtube')">
+    <span class="sidebar-item-icon">▶️</span> YouTube
+  </div>
+  <div class="sidebar-item" data-page="instagram" onclick="navigateTo('instagram')">
+    <span class="sidebar-item-icon">📷</span> Instagram
+  </div>
+  <div class="sidebar-item" data-page="facebook" onclick="navigateTo('facebook')">
+    <span class="sidebar-item-icon">👤</span> Facebook
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-item" data-page="lock" onclick="navigateTo('lock')">
+    <span class="sidebar-item-icon">🔒</span> Accountability
+  </div>
+  <div class="sidebar-item" data-page="browsers" onclick="navigateTo('browsers')">
+    <span class="sidebar-item-icon">🌐</span> Browsers
+  </div>
+  <div class="sidebar-item" data-page="advanced" onclick="navigateTo('advanced')">
+    <span class="sidebar-item-icon">⚙️</span> Advanced
   </div>
 </div>
 
-<!-- Content -->
-<div class="content">
+<!-- Main -->
+<div class="main">
 
-  <!-- Today's Usage -->
-  <div class="section-title">Today</div>
-  <div class="usage-grid">
-    <div class="usage-card">
-      <div class="usage-card-header">
-        <span class="usage-card-icon">▶️</span>
-        <span class="usage-card-platform">YouTube</span>
-      </div>
-      <div class="usage-card-time">
-        <span class="usage-minutes youtube" id="yt-minutes">0</span>
-        <span class="usage-unit">min</span>
-      </div>
-      <div class="usage-budget" id="yt-budget">/ 30 min budget</div>
-      <div class="usage-bar">
-        <div class="usage-bar-fill youtube" id="yt-bar" style="width: 0%"></div>
-      </div>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-right">
+      <span class="status-dot"></span>
+      <span class="status-text">Monitoring active</span>
     </div>
+  </div>
 
-    <div class="usage-card">
-      <div class="usage-card-header">
-        <span class="usage-card-icon">📷</span>
-        <span class="usage-card-platform">Instagram</span>
+  <!-- Page: Usage -->
+  <div class="page active" id="page-usage">
+    <div class="section-title">Today</div>
+    <div class="usage-grid">
+      <div class="usage-card">
+        <div class="usage-card-header">
+          <span class="usage-card-icon">▶️</span>
+          <span class="usage-card-platform">YouTube</span>
+        </div>
+        <div class="usage-card-time">
+          <span class="usage-minutes youtube" id="yt-minutes">0</span>
+          <span class="usage-unit">min</span>
+        </div>
+        <div class="usage-budget" id="yt-budget">/ 30 min budget</div>
+        <div class="usage-bar">
+          <div class="usage-bar-fill youtube" id="yt-bar" style="width: 0%"></div>
+        </div>
       </div>
-      <div class="usage-card-time">
-        <span class="usage-minutes instagram" id="ig-minutes">0</span>
-        <span class="usage-unit">min</span>
-      </div>
-      <div class="usage-budget" id="ig-budget">/ 30 min budget</div>
-      <div class="usage-bar">
-        <div class="usage-bar-fill instagram" id="ig-bar" style="width: 0%"></div>
+
+      <div class="usage-card">
+        <div class="usage-card-header">
+          <span class="usage-card-icon">📷</span>
+          <span class="usage-card-platform">Instagram</span>
+        </div>
+        <div class="usage-card-time">
+          <span class="usage-minutes instagram" id="ig-minutes">0</span>
+          <span class="usage-unit">min</span>
+        </div>
+        <div class="usage-budget" id="ig-budget">/ 30 min budget</div>
+        <div class="usage-bar">
+          <div class="usage-bar-fill instagram" id="ig-bar" style="width: 0%"></div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Browsers -->
-  <div class="browser-section">
+  <!-- Page: YouTube Settings -->
+  <div class="page" id="page-youtube">
+    <div class="section-title">YouTube Settings</div>
+
+    <div class="settings-card">
+      <div class="settings-card-title">General</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Enable YouTube filtering</div>
+          <div class="setting-desc">Filter content based on your stated intent</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="yt-enabled" checked onchange="onSettingChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Daily budget</div>
+          <div class="setting-desc">Maximum minutes per day</div>
+        </div>
+        <input type="number" class="setting-number" id="yt-budget-input" value="30" min="1" max="480" onchange="onSettingChange()">
+        <span class="setting-value">min</span>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <div class="settings-card-title">Filtering</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Relevance threshold</div>
+          <div class="setting-desc">Higher = stricter filtering</div>
+        </div>
+        <input type="range" class="setting-range" id="yt-threshold" min="1" max="100" value="35" oninput="document.getElementById('yt-threshold-val').textContent = this.value + '%'; onSettingChange()">
+        <span class="setting-value" id="yt-threshold-val">35%</span>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Block mode</div>
+          <div class="setting-desc">How to handle irrelevant videos</div>
+        </div>
+        <select class="setting-select" id="yt-block-mode" onchange="onSettingChange()">
+          <option value="hide">Hide</option>
+          <option value="blur">Blur</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <div class="settings-card-title">Content Blocking</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Block Shorts</div>
+          <div class="setting-desc">Remove YouTube Shorts from feed</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="yt-block-shorts" checked onchange="onSettingChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Hide sponsored content</div>
+          <div class="setting-desc">Remove ads and sponsored videos</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="yt-hide-sponsored" checked onchange="onSettingChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <div class="settings-card-title">Zen Loading Screen</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Zen duration</div>
+          <div class="setting-desc">Calming transition before browsing</div>
+        </div>
+        <input type="range" class="setting-range" id="yt-zen-duration" min="5" max="20" value="10" oninput="document.getElementById('yt-zen-val').textContent = this.value + 's'; onSettingChange()">
+        <span class="setting-value" id="yt-zen-val">10s</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page: Instagram Settings -->
+  <div class="page" id="page-instagram">
+    <div class="section-title">Instagram Settings</div>
+
+    <div class="settings-card">
+      <div class="settings-card-title">General</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Enable Instagram filtering</div>
+          <div class="setting-desc">Filter content on Instagram</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="ig-enabled" checked onchange="onSettingChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Daily budget</div>
+          <div class="setting-desc">Maximum minutes per day</div>
+        </div>
+        <input type="number" class="setting-number" id="ig-budget-input" value="30" min="1" max="480" onchange="onSettingChange()">
+        <span class="setting-value">min</span>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <div class="settings-card-title">Content Blocking</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Block Reels</div>
+          <div class="setting-desc">Remove video posts from feed and block /reels/</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="ig-block-reels" checked onchange="onSettingChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Block Explore page</div>
+          <div class="setting-desc">Block access to /explore/</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="ig-block-explore" checked onchange="onSettingChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">NSFW filter</div>
+          <div class="setting-desc">Block adult content using image classification</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="ig-nsfw-filter" checked onchange="onSettingChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Hide sponsored posts</div>
+          <div class="setting-desc">Remove ads from feed</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="ig-hide-ads" checked onchange="onSettingChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <div class="settings-card-title">Filtering</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Relevance threshold</div>
+          <div class="setting-desc">Higher = stricter filtering</div>
+        </div>
+        <input type="range" class="setting-range" id="ig-threshold" min="1" max="100" value="35" oninput="document.getElementById('ig-threshold-val').textContent = this.value + '%'; onSettingChange()">
+        <span class="setting-value" id="ig-threshold-val">35%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page: Facebook Settings -->
+  <div class="page" id="page-facebook">
+    <div class="section-title">Facebook Settings</div>
+
+    <div class="settings-card">
+      <div class="settings-card-title">General</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Enable Facebook filtering</div>
+          <div class="setting-desc">Filter content on Facebook</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="fb-enabled" checked onchange="onSettingChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Daily budget</div>
+          <div class="setting-desc">Maximum minutes per day</div>
+        </div>
+        <input type="number" class="setting-number" id="fb-budget-input" value="30" min="1" max="480" onchange="onSettingChange()">
+        <span class="setting-value">min</span>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <div class="settings-card-title">Content Blocking</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Block Watch videos</div>
+          <div class="setting-desc">Block access to Facebook Watch</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="fb-block-watch" checked onchange="onSettingChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Block Reels</div>
+          <div class="setting-desc">Block Facebook Reels</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="fb-block-reels" checked onchange="onSettingChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Block Marketplace</div>
+          <div class="setting-desc">Block Facebook Marketplace</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="fb-block-marketplace" onchange="onSettingChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Hide sponsored posts</div>
+          <div class="setting-desc">Remove ads from feed</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="fb-hide-ads" checked onchange="onSettingChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page: Accountability / Lock -->
+  <div class="page" id="page-lock">
+    <div class="section-title">Accountability Partner</div>
+    <div class="lock-container" id="lock-content">
+      <div class="lock-icon">🔓</div>
+      <div class="lock-title">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Page: Browsers -->
+  <div class="page" id="page-browsers">
     <div class="section-title">Browsers</div>
     <div class="browser-card" id="browser-card">
       <div class="empty-state" id="browser-empty">
@@ -330,12 +1037,72 @@ body {
     </div>
   </div>
 
+  <!-- Page: Advanced -->
+  <div class="page" id="page-advanced">
+    <div class="section-title">Advanced Settings</div>
+
+    <div class="settings-card">
+      <div class="settings-card-title">Time Limits</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Per-period limit</div>
+          <div class="setting-desc">Max time within a rolling period</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="adv-period-enabled" onchange="onSettingChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Period minutes</div>
+          <div class="setting-desc">Max minutes per period</div>
+        </div>
+        <input type="number" class="setting-number" id="adv-period-minutes" value="20" min="1" max="120" onchange="onSettingChange()">
+        <span class="setting-value">min</span>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Period length</div>
+          <div class="setting-desc">Rolling period in hours</div>
+        </div>
+        <input type="number" class="setting-number" id="adv-period-hours" value="1" min="1" max="24" onchange="onSettingChange()">
+        <span class="setting-value">hr</span>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <div class="settings-card-title">Device Info</div>
+      <div class="info-row">
+        <span class="info-label">Device ID</span>
+        <span class="info-value" id="adv-device-id">-</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Backend URL</span>
+        <span class="info-value">api.intentional.social</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">App Version</span>
+        <span class="info-value">1.0</span>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <div class="settings-card-title">Danger Zone</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Reset all settings</div>
+          <div class="setting-desc">Clear all settings and return to onboarding</div>
+        </div>
+        <button class="btn-danger" onclick="confirmReset()">Reset</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
-<!-- Footer -->
-<div class="dashboard-footer">
-  <span class="footer-text">Intentional is running. Close this window to keep monitoring in the background.</span>
-</div>
+<!-- Toast -->
+<div class="toast" id="toast"></div>
 
 <script>
 // ===== Bridge =====
@@ -345,69 +1112,700 @@ function sendMessage(payload) {
   }
 }
 
+// ===== Settings State =====
+var settings = {
+  lockMode: 'none',
+  partnerEmail: '',
+  partnerName: '',
+  consentStatus: 'none',
+  maxPerPeriod: { enabled: false, minutes: 20, periodHours: 1 },
+  temporaryUnlockUntil: null,
+  selfUnlockAvailableAt: null,
+  unlockRequested: false,
+  youtube: {},
+  instagram: {},
+  facebook: {},
+  deviceId: ''
+};
+
+var settingSaveTimer = null;
+
+// ===== Toast =====
+var toastTimer = null;
+function showToast(msg, type) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast visible' + (type ? ' ' + type : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function() {
+    el.className = 'toast';
+  }, type === 'error' ? 4000 : 3000);
+}
+
+// ===== Navigation =====
+function navigateTo(pageId) {
+  document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.sidebar-item').forEach(function(s) { s.classList.remove('active'); });
+  var page = document.getElementById('page-' + pageId);
+  if (page) page.classList.add('active');
+  var nav = document.querySelector('[data-page="' + pageId + '"]');
+  if (nav) nav.classList.add('active');
+
+  // Poll consent status when viewing accountability page with pending consent
+  if (pageId === 'lock' && settings.consentStatus === 'pending') {
+    sendMessage({ type: 'GET_PARTNER_STATUS' });
+    startConsentPolling();
+  } else {
+    stopConsentPolling();
+  }
+}
+
 // ===== Refresh Data =====
-function refreshDashboard() {
+function refresh() {
   sendMessage({ type: 'GET_DASHBOARD_DATA' });
   sendMessage({ type: 'GET_EXTENSION_STATUS' });
 }
 
-// Callback from Swift for usage data
+// ===== HTML Escape =====
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ===== Setting Change Handler (debounced save) =====
+function onSettingChange() {
+  clearTimeout(settingSaveTimer);
+  settingSaveTimer = setTimeout(saveAllSettings, 800);
+}
+
+function saveAllSettings() {
+  var ytSettings = {
+    enabled: document.getElementById('yt-enabled').checked,
+    budget: parseInt(document.getElementById('yt-budget-input').value) || 30,
+    threshold: parseInt(document.getElementById('yt-threshold').value) || 35,
+    blockShorts: document.getElementById('yt-block-shorts').checked,
+    hideSponsored: document.getElementById('yt-hide-sponsored').checked,
+    blockMode: document.getElementById('yt-block-mode').value,
+    zenDuration: parseInt(document.getElementById('yt-zen-duration').value) || 10
+  };
+
+  var igSettings = {
+    enabled: document.getElementById('ig-enabled').checked,
+    budget: parseInt(document.getElementById('ig-budget-input').value) || 30,
+    threshold: parseInt(document.getElementById('ig-threshold').value) || 35,
+    blockReels: document.getElementById('ig-block-reels').checked,
+    blockExplore: document.getElementById('ig-block-explore').checked,
+    nsfwFilter: document.getElementById('ig-nsfw-filter').checked,
+    hideAds: document.getElementById('ig-hide-ads').checked
+  };
+
+  var fbSettings = {
+    enabled: document.getElementById('fb-enabled').checked,
+    budget: parseInt(document.getElementById('fb-budget-input').value) || 30,
+    blockWatch: document.getElementById('fb-block-watch').checked,
+    blockReels: document.getElementById('fb-block-reels').checked,
+    blockMarketplace: document.getElementById('fb-block-marketplace').checked,
+    hideAds: document.getElementById('fb-hide-ads').checked
+  };
+
+  var maxPerPeriod = {
+    enabled: document.getElementById('adv-period-enabled').checked,
+    minutes: parseInt(document.getElementById('adv-period-minutes').value) || 20,
+    periodHours: parseInt(document.getElementById('adv-period-hours').value) || 1
+  };
+
+  sendMessage({
+    type: 'SAVE_SETTINGS',
+    settings: {
+      youtube: ytSettings,
+      instagram: igSettings,
+      facebook: fbSettings,
+      lockMode: settings.lockMode,
+      partnerEmail: settings.partnerEmail,
+      partnerName: settings.partnerName,
+      maxPerPeriod: maxPerPeriod
+    }
+  });
+}
+
+// Populate settings UI from loaded data
+function populateSettingsUI(data) {
+  if (data.youtube) {
+    var yt = data.youtube;
+    document.getElementById('yt-enabled').checked = yt.enabled !== false;
+    document.getElementById('yt-budget-input').value = yt.budget || 30;
+    document.getElementById('yt-threshold').value = yt.threshold || 35;
+    document.getElementById('yt-threshold-val').textContent = (yt.threshold || 35) + '%';
+    document.getElementById('yt-block-shorts').checked = yt.blockShorts !== false;
+    document.getElementById('yt-hide-sponsored').checked = yt.hideSponsored !== false;
+    document.getElementById('yt-block-mode').value = yt.blockMode || 'hide';
+    document.getElementById('yt-zen-duration').value = yt.zenDuration || 10;
+    document.getElementById('yt-zen-val').textContent = (yt.zenDuration || 10) + 's';
+  }
+
+  if (data.instagram) {
+    var ig = data.instagram;
+    document.getElementById('ig-enabled').checked = ig.enabled !== false;
+    document.getElementById('ig-budget-input').value = ig.budget || 30;
+    document.getElementById('ig-threshold').value = ig.threshold || 35;
+    document.getElementById('ig-threshold-val').textContent = (ig.threshold || 35) + '%';
+    document.getElementById('ig-block-reels').checked = ig.blockReels !== false;
+    document.getElementById('ig-block-explore').checked = ig.blockExplore !== false;
+    document.getElementById('ig-nsfw-filter').checked = ig.nsfwFilter !== false;
+    document.getElementById('ig-hide-ads').checked = ig.hideAds !== false;
+  }
+
+  if (data.facebook) {
+    var fb = data.facebook;
+    document.getElementById('fb-enabled').checked = fb.enabled !== false;
+    document.getElementById('fb-budget-input').value = fb.budget || 30;
+    document.getElementById('fb-block-watch').checked = fb.blockWatch !== false;
+    document.getElementById('fb-block-reels').checked = fb.blockReels !== false;
+    document.getElementById('fb-block-marketplace').checked = fb.blockMarketplace === true;
+    document.getElementById('fb-hide-ads').checked = fb.hideAds !== false;
+  }
+
+  if (data.maxPerPeriod) {
+    var mpp = data.maxPerPeriod;
+    document.getElementById('adv-period-enabled').checked = mpp.enabled === true;
+    document.getElementById('adv-period-minutes').value = mpp.minutes || 20;
+    document.getElementById('adv-period-hours').value = mpp.periodHours || 1;
+  }
+
+  if (data.deviceId) {
+    document.getElementById('adv-device-id').textContent = data.deviceId;
+  }
+}
+
+// ===== Lock State Machine =====
+function getLockState() {
+  var mode = settings.lockMode || 'none';
+  var consent = settings.consentStatus || 'none';
+  var hasPartner = settings.partnerEmail && settings.partnerEmail !== '';
+
+  // Check temporary unlock first
+  if (settings.temporaryUnlockUntil) {
+    var unlockEnd = new Date(settings.temporaryUnlockUntil).getTime();
+    if (unlockEnd > Date.now()) return 'temporarily_unlocked';
+  }
+
+  // Check self-lock countdown
+  if (mode === 'self' && settings.selfUnlockAvailableAt) {
+    var availAt = new Date(settings.selfUnlockAvailableAt).getTime();
+    if (availAt > Date.now()) return 'self_countdown';
+  }
+
+  // Check if we're waiting for unlock code entry
+  if (mode !== 'none' && settings.unlockRequested) return 'unlock_code_entry';
+
+  if (mode !== 'none') return 'locked';
+  if (!hasPartner) return 'setup';
+
+  if (consent === 'confirmed') return 'confirmed';
+  if (consent === 'pending') return 'pending';
+  if (consent === 'declined') return 'declined';
+  if (consent === 'expired') return 'expired';
+
+  return 'setup';
+}
+
+var selectedLockMode = 'none';
+
+function selectLockMode(mode, btn) {
+  selectedLockMode = mode;
+  document.querySelectorAll('.lock-mode-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+}
+
+var countdownInterval = null;
+
+function renderLockState() {
+  var el = document.getElementById('lock-content');
+  var state = getLockState();
+  var email = escapeHtml(settings.partnerEmail || '');
+  var name = escapeHtml(settings.partnerName || '');
+  var partnerDisplay = name ? name + ' (' + email + ')' : email;
+
+  // Clear any running countdown
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+
+  switch (state) {
+    case 'pending':
+      el.innerHTML =
+        '<div class="lock-icon">⏳</div>' +
+        '<div class="lock-title">Waiting for Partner</div>' +
+        '<div class="lock-desc">Invitation sent to ' + partnerDisplay + '</div>' +
+        '<div class="lock-desc">Your partner needs to accept the invitation email before lock mode can be activated.</div>' +
+        '<div style="display: flex; gap: 10px; justify-content: center;">' +
+          '<button class="btn-primary" onclick="resendInvite()">Resend Invitation</button>' +
+          '<button class="btn-secondary" onclick="changePartner()">Change Partner</button>' +
+        '</div>';
+      startConsentPolling();
+      break;
+
+    case 'confirmed':
+      el.innerHTML =
+        '<div class="lock-icon">✅</div>' +
+        '<div class="lock-title">Partner Confirmed!</div>' +
+        '<div class="lock-desc">' + partnerDisplay + ' accepted your invitation.</div>' +
+        '<div class="lock-desc">Choose a lock mode to protect your settings:</div>' +
+        '<div class="lock-mode-buttons">' +
+          '<button class="lock-mode-btn" onclick="enableLockMode(\'partner\')">' +
+            '<span class="lock-mode-icon">🔐</span>Partner Lock' +
+          '</button>' +
+          '<button class="lock-mode-btn" onclick="enableLockMode(\'self\')">' +
+            '<span class="lock-mode-icon">⏰</span>24-Hour Delay' +
+          '</button>' +
+        '</div>';
+      stopConsentPolling();
+      break;
+
+    case 'locked':
+      var mode = settings.lockMode || 'partner';
+      var modeLabel = mode === 'partner' ? 'Partner Lock' : '24-Hour Delay';
+      el.innerHTML =
+        '<div class="lock-icon">🔐</div>' +
+        '<div class="lock-title">Settings Locked — ' + modeLabel + '</div>' +
+        '<div class="lock-desc">Partner: ' + partnerDisplay + '</div>' +
+        '<div class="lock-desc" style="text-align: left; max-width: 360px;">' +
+          'When locked, you cannot:<br>' +
+          '&bull; Disable platform filtering<br>' +
+          '&bull; Lower relevance thresholds<br>' +
+          '&bull; Turn off Shorts/Reels blocking<br>' +
+          '&bull; Remove blocked categories' +
+        '</div>' +
+        '<button class="btn-primary" onclick="requestUnlock()">Request Unlock Code</button>';
+      stopConsentPolling();
+      break;
+
+    case 'unlock_code_entry':
+      var codeMode = settings.lockMode || 'partner';
+      var codeMsg = codeMode === 'partner'
+        ? 'A 6-digit code has been sent to your partner. Enter it below to temporarily unlock settings.'
+        : 'Enter the 6-digit code you received to temporarily unlock settings.';
+      el.innerHTML =
+        '<div class="lock-icon">🔑</div>' +
+        '<div class="lock-title">Enter Unlock Code</div>' +
+        '<div class="lock-desc">' + codeMsg + '</div>' +
+        '<div style="margin: 24px 0;">' +
+          '<input type="text" class="unlock-code-input" id="unlock-code" maxlength="6" placeholder="000000" oninput="onCodeInput(this)">' +
+        '</div>' +
+        '<button class="btn-primary" id="verify-code-btn" onclick="verifyUnlockCode()" disabled>Verify Code</button>' +
+        '<div style="margin-top: 16px;">' +
+          '<button class="btn-secondary" onclick="cancelUnlock()">Cancel</button>' +
+        '</div>';
+      // Focus the input
+      setTimeout(function() {
+        var inp = document.getElementById('unlock-code');
+        if (inp) inp.focus();
+      }, 100);
+      stopConsentPolling();
+      break;
+
+    case 'self_countdown':
+      var availAt = new Date(settings.selfUnlockAvailableAt).getTime();
+      el.innerHTML =
+        '<div class="lock-icon">⏰</div>' +
+        '<div class="lock-title">24-Hour Cooling Period</div>' +
+        '<div class="lock-desc">You requested an unlock. To prevent impulsive changes, there is a 24-hour waiting period.</div>' +
+        '<div class="countdown-display" id="countdown-timer">--:--:--</div>' +
+        '<div class="lock-desc">The unlock code will be sent to your email when the countdown reaches zero.</div>' +
+        '<button class="btn-secondary" onclick="cancelUnlock()">Cancel Request</button>';
+      // Start countdown
+      updateCountdown(availAt);
+      countdownInterval = setInterval(function() {
+        updateCountdown(availAt);
+      }, 1000);
+      stopConsentPolling();
+      break;
+
+    case 'temporarily_unlocked':
+      var unlockEnd = new Date(settings.temporaryUnlockUntil).getTime();
+      var totalMs = 5 * 60 * 1000; // 5 min unlock window
+      el.innerHTML =
+        '<div class="lock-icon">🔓</div>' +
+        '<div class="lock-title">Temporarily Unlocked</div>' +
+        '<div class="lock-desc">Settings are temporarily unlocked. Make your changes now.</div>' +
+        '<div class="countdown-display" id="unlock-countdown" style="color: #34d399;">--:--</div>' +
+        '<div class="unlock-timer-bar"><div class="unlock-timer-fill" id="unlock-bar"></div></div>' +
+        '<div class="lock-desc">Lock will re-engage when the timer runs out.</div>';
+      // Start unlock countdown
+      updateUnlockCountdown(unlockEnd, totalMs);
+      countdownInterval = setInterval(function() {
+        updateUnlockCountdown(unlockEnd, totalMs);
+      }, 1000);
+      stopConsentPolling();
+      break;
+
+    case 'declined':
+      el.innerHTML =
+        '<div class="lock-icon">❌</div>' +
+        '<div class="lock-title">Partner Declined</div>' +
+        '<div class="lock-desc">' + email + ' declined the accountability partnership.</div>' +
+        '<div class="lock-desc">You can try a different partner:</div>' +
+        '<div class="lock-input-row">' +
+          '<input class="lock-input" id="lock-partner-name" placeholder="Partner name (optional)">' +
+        '</div>' +
+        '<div class="lock-input-row">' +
+          '<input class="lock-input" id="lock-partner-email" placeholder="Partner email" type="email">' +
+        '</div>' +
+        '<div class="lock-mode-buttons">' +
+          '<button class="lock-mode-btn" onclick="selectLockMode(\'partner\', this)">' +
+            '<span class="lock-mode-icon">🔐</span>Partner Lock' +
+          '</button>' +
+          '<button class="lock-mode-btn" onclick="selectLockMode(\'self\', this)">' +
+            '<span class="lock-mode-icon">⏰</span>24-Hour Delay' +
+          '</button>' +
+          '<button class="lock-mode-btn active" onclick="selectLockMode(\'none\', this)">' +
+            '<span class="lock-mode-icon">🔓</span>Unlocked' +
+          '</button>' +
+        '</div>' +
+        '<button class="btn-primary" onclick="saveLockSettings()">Save Lock Settings</button>';
+      stopConsentPolling();
+      break;
+
+    case 'expired':
+      el.innerHTML =
+        '<div class="lock-icon">⚠️</div>' +
+        '<div class="lock-title">Invitation Expired</div>' +
+        '<div class="lock-desc">The invitation to ' + partnerDisplay + ' expired after 7 days.</div>' +
+        '<div style="display: flex; gap: 10px; justify-content: center;">' +
+          '<button class="btn-primary" onclick="resendInvite()">Resend Invitation</button>' +
+          '<button class="btn-secondary" onclick="changePartner()">Change Partner</button>' +
+        '</div>';
+      stopConsentPolling();
+      break;
+
+    default: // 'setup'
+      el.innerHTML =
+        '<div class="lock-icon">🔓</div>' +
+        '<div class="lock-title">Settings are unlocked</div>' +
+        '<div class="lock-desc">Anyone can change settings freely. Add an accountability partner to lock things down.</div>' +
+        '<div class="lock-input-row">' +
+          '<input class="lock-input" id="lock-partner-name" placeholder="Partner name (optional)" value="' + name + '">' +
+        '</div>' +
+        '<div class="lock-input-row">' +
+          '<input class="lock-input" id="lock-partner-email" placeholder="Partner email" type="email" value="' + email + '">' +
+        '</div>' +
+        '<div class="lock-mode-buttons">' +
+          '<button class="lock-mode-btn" onclick="selectLockMode(\'partner\', this)">' +
+            '<span class="lock-mode-icon">🔐</span>Partner Lock' +
+          '</button>' +
+          '<button class="lock-mode-btn" onclick="selectLockMode(\'self\', this)">' +
+            '<span class="lock-mode-icon">⏰</span>24-Hour Delay' +
+          '</button>' +
+          '<button class="lock-mode-btn active" onclick="selectLockMode(\'none\', this)">' +
+            '<span class="lock-mode-icon">🔓</span>Unlocked' +
+          '</button>' +
+        '</div>' +
+        '<button class="btn-primary" onclick="saveLockSettings()">Save Lock Settings</button>';
+      stopConsentPolling();
+  }
+}
+
+// ===== Countdown Helpers =====
+function updateCountdown(targetMs) {
+  var el = document.getElementById('countdown-timer');
+  if (!el) return;
+  var diff = targetMs - Date.now();
+  if (diff <= 0) {
+    el.textContent = '00:00:00';
+    // Countdown done - refresh state
+    settings.selfUnlockAvailableAt = null;
+    settings.unlockRequested = true;
+    renderLockState();
+    return;
+  }
+  var hours = Math.floor(diff / 3600000);
+  var mins = Math.floor((diff % 3600000) / 60000);
+  var secs = Math.floor((diff % 60000) / 1000);
+  el.textContent = pad(hours) + ':' + pad(mins) + ':' + pad(secs);
+}
+
+function updateUnlockCountdown(endMs, totalMs) {
+  var countdownEl = document.getElementById('unlock-countdown');
+  var barEl = document.getElementById('unlock-bar');
+  if (!countdownEl) return;
+  var diff = endMs - Date.now();
+  if (diff <= 0) {
+    countdownEl.textContent = '0:00';
+    if (barEl) barEl.style.width = '0%';
+    // Unlock window expired - go back to locked
+    settings.temporaryUnlockUntil = null;
+    renderLockState();
+    return;
+  }
+  var mins = Math.floor(diff / 60000);
+  var secs = Math.floor((diff % 60000) / 1000);
+  countdownEl.textContent = mins + ':' + pad(secs);
+  if (barEl) barEl.style.width = ((diff / totalMs) * 100) + '%';
+}
+
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+// ===== Unlock Code Input =====
+function onCodeInput(el) {
+  el.value = el.value.replace(/[^0-9]/g, '');
+  var btn = document.getElementById('verify-code-btn');
+  if (btn) btn.disabled = el.value.length < 6;
+}
+
+function verifyUnlockCode() {
+  var code = (document.getElementById('unlock-code') || {}).value || '';
+  if (code.length < 6) return;
+  sendMessage({ type: 'VERIFY_UNLOCK', code: code });
+  showToast('Verifying code...');
+}
+
+function cancelUnlock() {
+  settings.unlockRequested = false;
+  settings.selfUnlockAvailableAt = null;
+  renderLockState();
+}
+
+// ===== Lock Actions =====
+function saveLockSettings() {
+  var email = (document.getElementById('lock-partner-email') || {}).value || '';
+  var name = (document.getElementById('lock-partner-name') || {}).value || '';
+
+  if (selectedLockMode !== 'none' && !email) {
+    showToast('Partner email is required for lock mode', 'error');
+    return;
+  }
+
+  settings.partnerEmail = email;
+  settings.partnerName = name;
+
+  sendMessage({
+    type: 'SAVE_LOCK_SETTINGS',
+    lockMode: selectedLockMode,
+    partnerEmail: email,
+    partnerName: name
+  });
+
+  showToast('Saving lock settings...');
+}
+
+function enableLockMode(mode) {
+  sendMessage({
+    type: 'SAVE_LOCK_SETTINGS',
+    lockMode: mode,
+    partnerEmail: settings.partnerEmail,
+    partnerName: settings.partnerName
+  });
+  showToast('Enabling lock mode...');
+}
+
+function resendInvite() {
+  sendMessage({ type: 'RESEND_PARTNER_INVITE' });
+  showToast('Resending invitation...');
+}
+
+function changePartner() {
+  settings.partnerEmail = '';
+  settings.partnerName = '';
+  settings.consentStatus = 'none';
+  stopConsentPolling();
+  renderLockState();
+}
+
+function requestUnlock() {
+  sendMessage({ type: 'REQUEST_UNLOCK' });
+  showToast('Requesting unlock code...');
+}
+
+function confirmReset() {
+  if (confirm('Reset all settings and return to onboarding? This cannot be undone.')) {
+    sendMessage({ type: 'RESET_SETTINGS' });
+  }
+}
+
+// ===== Consent Polling =====
+var consentPollTimer = null;
+
+function startConsentPolling() {
+  if (consentPollTimer) return;
+  consentPollTimer = setInterval(function() {
+    sendMessage({ type: 'GET_PARTNER_STATUS' });
+  }, 10000);
+}
+
+function stopConsentPolling() {
+  if (consentPollTimer) {
+    clearInterval(consentPollTimer);
+    consentPollTimer = null;
+  }
+}
+
+// ===== Callbacks from Swift =====
+
+// Settings loaded
+window._settingsResult = function(data) {
+  if (data.lockMode !== undefined) settings.lockMode = data.lockMode;
+  if (data.partnerEmail !== undefined) settings.partnerEmail = data.partnerEmail || '';
+  if (data.partnerName !== undefined) settings.partnerName = data.partnerName || '';
+  if (data.consentStatus !== undefined) settings.consentStatus = data.consentStatus;
+  if (data.temporaryUnlockUntil !== undefined) settings.temporaryUnlockUntil = data.temporaryUnlockUntil;
+  if (data.selfUnlockAvailableAt !== undefined) settings.selfUnlockAvailableAt = data.selfUnlockAvailableAt;
+  if (data.deviceId !== undefined) settings.deviceId = data.deviceId;
+
+  populateSettingsUI(data);
+  renderLockState();
+};
+
+// Save settings result
+window._saveSettingsResult = function(data) {
+  if (data.success) {
+    showToast('Settings saved');
+  } else {
+    showToast(data.message || 'Failed to save settings', 'error');
+  }
+};
+
+// Lock settings saved
+window._lockSettingsResult = function(data) {
+  settings.lockMode = data.lockMode || 'none';
+  if (data.consentStatus) settings.consentStatus = data.consentStatus;
+  if (data.partnerEmail !== undefined) settings.partnerEmail = data.partnerEmail || '';
+  if (data.partnerName !== undefined) settings.partnerName = data.partnerName || '';
+
+  renderLockState();
+
+  if (data.success) {
+    showToast(data.message || 'Lock settings saved');
+  } else if (data.consentStatus === 'pending') {
+    showToast('Partner invitation sent! Waiting for acceptance.', 'warning');
+  } else {
+    showToast(data.message || 'Failed to set lock mode', 'error');
+  }
+};
+
+// Partner status (from polling)
+window._partnerStatusResult = function(data) {
+  if (!data.success) return;
+
+  var changed = false;
+  if (data.consentStatus && data.consentStatus !== settings.consentStatus) {
+    settings.consentStatus = data.consentStatus;
+    changed = true;
+  }
+  if (data.partnerEmail !== undefined && (data.partnerEmail || '') !== settings.partnerEmail) {
+    settings.partnerEmail = data.partnerEmail || '';
+    changed = true;
+  }
+  if (data.partnerName !== undefined && (data.partnerName || '') !== settings.partnerName) {
+    settings.partnerName = data.partnerName || '';
+    changed = true;
+  }
+
+  if (changed) {
+    renderLockState();
+  }
+};
+
+// Resend invite result
+window._resendInviteResult = function(data) {
+  if (data.success) {
+    showToast(data.message || 'Invitation resent!');
+  } else {
+    showToast(data.message || 'Failed to resend invitation', 'error');
+  }
+};
+
+// Unlock result
+window._unlockResult = function(data) {
+  if (data.success) {
+    showToast(data.message || 'Unlock code sent!');
+    // Transition to code entry or countdown state
+    if (settings.lockMode === 'self') {
+      settings.selfUnlockAvailableAt = data.availableAt || new Date(Date.now() + 24 * 3600000).toISOString();
+    } else {
+      settings.unlockRequested = true;
+    }
+    renderLockState();
+  } else {
+    showToast(data.message || 'Unlock request failed', 'error');
+    if (data.message && data.message.indexOf('not locked') !== -1) {
+      settings.lockMode = 'none';
+      renderLockState();
+    }
+  }
+};
+
+// Verify unlock result
+window._verifyUnlockResult = function(data) {
+  if (data.success) {
+    showToast('Settings unlocked for 5 minutes!');
+    settings.temporaryUnlockUntil = data.unlockUntil || new Date(Date.now() + 5 * 60000).toISOString();
+    settings.unlockRequested = false;
+    settings.selfUnlockAvailableAt = null;
+    renderLockState();
+  } else {
+    showToast(data.message || 'Invalid code', 'error');
+  }
+};
+
+// Dashboard data
 window._dashboardDataResult = function(data) {
   if (data.youtube) {
     document.getElementById('yt-minutes').textContent = data.youtube.minutesUsed || 0;
-    document.getElementById('yt-budget').textContent = `/ ${data.youtube.budget || 30} min budget`;
-    const pct = Math.min(100, ((data.youtube.minutesUsed || 0) / (data.youtube.budget || 30)) * 100);
+    document.getElementById('yt-budget').textContent = '/ ' + (data.youtube.budget || 30) + ' min budget';
+    var pct = Math.min(100, ((data.youtube.minutesUsed || 0) / (data.youtube.budget || 30)) * 100);
     document.getElementById('yt-bar').style.width = pct + '%';
   }
   if (data.instagram) {
     document.getElementById('ig-minutes').textContent = data.instagram.minutesUsed || 0;
-    document.getElementById('ig-budget').textContent = `/ ${data.instagram.budget || 30} min budget`;
-    const pct = Math.min(100, ((data.instagram.minutesUsed || 0) / (data.instagram.budget || 30)) * 100);
-    document.getElementById('ig-bar').style.width = pct + '%';
+    document.getElementById('ig-budget').textContent = '/ ' + (data.instagram.budget || 30) + ' min budget';
+    var pct2 = Math.min(100, ((data.instagram.minutesUsed || 0) / (data.instagram.budget || 30)) * 100);
+    document.getElementById('ig-bar').style.width = pct2 + '%';
   }
 };
 
-// Callback from Swift for browser status
+// Browser status
 window._extensionStatusResult = function(data) {
-  const card = document.getElementById('browser-card');
-  const empty = document.getElementById('browser-empty');
+  var card = document.getElementById('browser-card');
+  var empty = document.getElementById('browser-empty');
 
   if (!data.browsers || data.browsers.length === 0) {
-    empty.innerHTML = `
-      <div class="empty-state-icon">🌐</div>
-      <div class="empty-state-text">No Chromium browsers detected</div>
-    `;
+    if (empty) {
+      empty.innerHTML =
+        '<div class="empty-state-icon">🌐</div>' +
+        '<div class="empty-state-text">No Chromium browsers detected</div>';
+    }
     return;
   }
 
   if (empty) empty.remove();
 
-  const icons = {
+  var icons = {
     'chrome': '🌐', 'brave': '🛡️', 'arc': '🌈',
     'edge': '🔵', 'opera': '🔴', 'vivaldi': '🎵'
   };
 
-  card.innerHTML = data.browsers.map(b => {
-    const iconKey = Object.keys(icons).find(k => b.name.toLowerCase().includes(k));
-    const icon = icons[iconKey] || '🌐';
-    const isConnected = b.hasExtension && b.isEnabled;
+  card.innerHTML = data.browsers.map(function(b) {
+    var iconKey = Object.keys(icons).find(function(k) { return b.name.toLowerCase().indexOf(k) !== -1; });
+    var icon = icons[iconKey] || '🌐';
+    var isConnected = b.hasExtension && b.isEnabled;
 
-    return `
-      <div class="browser-row">
-        <span class="browser-icon">${icon}</span>
-        <span class="browser-name">${b.name}</span>
-        <span class="browser-status ${isConnected ? 'connected' : 'disconnected'}">
-          <span class="browser-status-dot ${isConnected ? 'connected' : 'disconnected'}"></span>
-          ${isConnected ? 'Connected' : (b.hasExtension ? 'Disabled' : 'No extension')}
-        </span>
-      </div>
-    `;
+    return '<div class="browser-row">' +
+      '<span class="browser-icon">' + icon + '</span>' +
+      '<span class="browser-name">' + b.name + '</span>' +
+      '<span class="browser-status ' + (isConnected ? 'connected' : 'disconnected') + '">' +
+        '<span class="browser-status-dot ' + (isConnected ? 'connected' : 'disconnected') + '"></span>' +
+        (isConnected ? 'Connected' : (b.hasExtension ? 'Disabled' : 'No extension')) +
+      '</span>' +
+    '</div>';
   }).join('');
 };
 
 // ===== Init =====
-refreshDashboard();
-setInterval(refreshDashboard, 5000);
+sendMessage({ type: 'GET_SETTINGS' });
+sendMessage({ type: 'GET_PARTNER_STATUS' });
+refresh();
+setInterval(refresh, 5000);
 </script>
 
 </body>

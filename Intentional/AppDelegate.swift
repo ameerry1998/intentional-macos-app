@@ -73,9 +73,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         postLog("✅ Auto-launch from extensions enabled (app manually started)")
 
         // Initialize backend client
-        // TODO: Change to https://api.intentional.social when deployed
-        backendClient = BackendClient(baseURL: "http://localhost:8000")
-        postLog("🔗 Backend URL: http://localhost:8000")
+        backendClient = BackendClient(baseURL: "https://api.intentional.social")
+        postLog("🔗 Backend URL: https://api.intentional.social")
 
         // Create main window (WKWebView-based: shows onboarding or dashboard)
         mainWindowController = MainWindow(appDelegate: self)
@@ -108,12 +107,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         browserMonitor?.startMonitoring()
         postLog("✅ Multi-browser monitoring started")
 
-        // Register device and send startup event (in sequence)
+        // Register device, sync state, and send startup event (in sequence)
         Task {
-            // Register first (idempotent - safe to call every time)
             await backendClient?.registerDevice()
 
-            // Then send startup event
+            // Sync lock/partner state from backend (fixes stale local state)
+            if let status = await backendClient?.getUnlockStatus() {
+                await MainActor.run {
+                    mainWindowController?.syncStateFromBackend(status)
+                }
+            }
+
             await backendClient?.sendEvent(type: "app_started", details: [:])
         }
 

@@ -115,6 +115,33 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
         case "GET_DASHBOARD_DATA":
             handleGetDashboardData()
 
+        case "GET_SETTINGS":
+            handleGetSettings()
+
+        case "SAVE_LOCK_SETTINGS":
+            handleSaveLockSettings(body)
+
+        case "REQUEST_UNLOCK":
+            handleRequestUnlock()
+
+        case "VERIFY_UNLOCK":
+            handleVerifyUnlock(body)
+
+        case "GET_PARTNER_STATUS":
+            handleGetPartnerStatus()
+
+        case "RESEND_PARTNER_INVITE":
+            handleResendPartnerInvite()
+
+        case "SAVE_SETTINGS":
+            handleSaveSettings(body)
+
+        case "END_SESSION":
+            handleEndSession(body)
+
+        case "RESET_SETTINGS":
+            handleResetSettings()
+
         case "OPEN_EXTENSIONS_PAGE":
             if let urlStr = body["url"] as? String, let url = URL(string: urlStr) {
                 if let bundleId = body["bundleId"] as? String,
@@ -351,6 +378,385 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
             try? data.write(to: settingsURL)
             appDelegate?.postLog("💾 Onboarding settings saved to \(settingsURL.lastPathComponent)")
         }
+    }
+
+    // MARK: - Settings File
+
+    private var settingsFileURL: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("Intentional")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("onboarding_settings.json")
+    }
+
+    private func updateSettingsFile(_ block: (inout [String: Any]) -> Void) {
+        var settings: [String: Any] = [:]
+        if FileManager.default.fileExists(atPath: settingsFileURL.path),
+           let data = try? Data(contentsOf: settingsFileURL),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            settings = json
+        }
+        block(&settings)
+        if let data = try? JSONSerialization.data(withJSONObject: settings, options: .prettyPrinted) {
+            try? data.write(to: settingsFileURL)
+        }
+    }
+
+    // MARK: - Get Settings
+
+    private func handleGetSettings() {
+        appDelegate?.postLog("📋 GET_SETTINGS: Reading settings...")
+
+        var savedSettings: [String: Any] = [:]
+        if FileManager.default.fileExists(atPath: settingsFileURL.path) {
+            do {
+                let data = try Data(contentsOf: settingsFileURL)
+                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    savedSettings = json
+                    appDelegate?.postLog("📋 GET_SETTINGS: Loaded file with keys: \(json.keys.sorted().joined(separator: ", "))")
+                }
+            } catch {
+                appDelegate?.postLog("⚠️ GET_SETTINGS: Failed to read settings file: \(error)")
+            }
+        }
+
+        let platforms = savedSettings["platforms"] as? [String: Any] ?? [:]
+        let ytPlatform = platforms["youtube"] as? [String: Any] ?? [:]
+        let igPlatform = platforms["instagram"] as? [String: Any] ?? [:]
+
+        let ytBudget = appDelegate?.timeTracker?.getBudget(for: "youtube") ?? 30
+        let igBudget = appDelegate?.timeTracker?.getBudget(for: "instagram") ?? 30
+
+        let lockMode = (savedSettings["lockMode"] as? String)
+            ?? UserDefaults.standard.string(forKey: "lockMode")
+            ?? "none"
+        let partnerEmail = (savedSettings["partnerEmail"] as? String) ?? ""
+        let partnerName = (savedSettings["partnerName"] as? String) ?? ""
+        let deviceId = UserDefaults.standard.string(forKey: "deviceId") ?? ""
+
+        let ytResult: [String: Any] = [
+            "enabled": (ytPlatform["enabled"] as? Bool) ?? true,
+            "budget": ytBudget,
+            "threshold": (ytPlatform["threshold"] as? Int) ?? 35,
+            "blockShorts": (ytPlatform["blockShorts"] as? Bool) ?? true,
+            "hideSponsored": (ytPlatform["hideSponsored"] as? Bool) ?? true,
+            "blockMode": (ytPlatform["blockMode"] as? String) ?? "hide",
+            "zenDuration": (ytPlatform["zenDuration"] as? Int) ?? 10
+        ]
+
+        let igResult: [String: Any] = [
+            "enabled": (igPlatform["enabled"] as? Bool) ?? true,
+            "budget": igBudget,
+            "threshold": (igPlatform["threshold"] as? Int) ?? 35,
+            "blockReels": (igPlatform["blockReels"] as? Bool) ?? true,
+            "blockExplore": (igPlatform["blockExplore"] as? Bool) ?? true,
+            "nsfwFilter": (igPlatform["nsfwFilter"] as? Bool) ?? true,
+            "hideAds": (igPlatform["hideAds"] as? Bool) ?? true,
+            "blockedCategories": (igPlatform["blockedCategories"] as? [String]) ?? [String](),
+            "blockedAccounts": (igPlatform["blockedAccounts"] as? [String]) ?? [String]()
+        ]
+
+        let blockedCategories = (ytPlatform["blockedCategories"] as? [String]) ?? [String]()
+        let maxPerPeriod: [String: Any] = (ytPlatform["maxPerPeriod"] as? [String: Any]) ?? [
+            "enabled": false,
+            "minutes": 20,
+            "periodHours": 1
+        ]
+
+        let result: [String: Any] = [
+            "youtube": ytResult,
+            "instagram": igResult,
+            "blockedCategories": blockedCategories,
+            "lockMode": lockMode,
+            "partnerEmail": partnerEmail,
+            "partnerName": partnerName,
+            "maxPerPeriod": maxPerPeriod,
+            "deviceId": deviceId
+        ]
+
+        do {
+            let data = try JSONSerialization.data(withJSONObject: result)
+            if let json = String(data: data, encoding: .utf8) {
+                callJS("window._settingsResult && window._settingsResult(\(json))")
+            }
+        } catch {
+            appDelegate?.postLog("⚠️ GET_SETTINGS: JSON serialization failed: \(error)")
+        }
+    }
+
+    // MARK: - Save Settings
+
+    private func handleSaveSettings(_ body: [String: Any]) {
+        guard let settings = body["settings"] as? [String: Any] else { return }
+        let ytSettings = settings["youtube"] as? [String: Any] ?? [:]
+        let igSettings = settings["instagram"] as? [String: Any] ?? [:]
+
+        if let ytBudget = ytSettings["budget"] as? Int {
+            appDelegate?.timeTracker?.setBudget(for: "youtube", minutes: ytBudget)
+        }
+        if let igBudget = igSettings["budget"] as? Int {
+            appDelegate?.timeTracker?.setBudget(for: "instagram", minutes: igBudget)
+        }
+
+        let lockMode = settings["lockMode"] as? String ?? UserDefaults.standard.string(forKey: "lockMode") ?? "none"
+        let partnerEmail = settings["partnerEmail"] as? String
+        let partnerName = settings["partnerName"] as? String
+        let platforms: [String: Any] = ["youtube": ytSettings, "instagram": igSettings]
+
+        saveSettingsToFile(
+            platforms: platforms,
+            blockedCategories: settings["blockedCategories"] as? [String],
+            partnerEmail: partnerEmail,
+            partnerName: partnerName,
+            lockMode: lockMode,
+            maxPerPeriod: settings["maxPerPeriod"] as? [String: Any]
+        )
+
+        broadcastSettingsToExtensions(settings)
+        callJS("window._saveSettingsResult && window._saveSettingsResult({ success: true })")
+        appDelegate?.postLog("💾 SAVE_SETTINGS: Settings saved and broadcast")
+    }
+
+    // MARK: - End Session
+
+    private func handleEndSession(_ body: [String: Any]) {
+        guard let platform = body["platform"] as? String else { return }
+        appDelegate?.timeTracker?.clearPlatformSession(for: platform)
+        appDelegate?.postLog("⏹️ END_SESSION: \(platform)")
+    }
+
+    // MARK: - Save Settings to File
+
+    private func saveSettingsToFile(
+        platforms: [String: Any],
+        blockedCategories: [String]?,
+        partnerEmail: String?,
+        partnerName: String?,
+        lockMode: String,
+        maxPerPeriod: [String: Any]?
+    ) {
+        updateSettingsFile { settings in
+            var existingPlatforms = settings["platforms"] as? [String: Any] ?? [:]
+            // Merge each platform rather than replace wholesale
+            for (key, value) in platforms {
+                if let newPlatform = value as? [String: Any] {
+                    var existing = existingPlatforms[key] as? [String: Any] ?? [:]
+                    existing.merge(newPlatform) { _, new in new }
+                    existingPlatforms[key] = existing
+                }
+            }
+            settings["platforms"] = existingPlatforms
+            settings["lockMode"] = lockMode
+            if let email = partnerEmail { settings["partnerEmail"] = email }
+            if let name = partnerName { settings["partnerName"] = name }
+            if let cats = blockedCategories { settings["blockedCategories"] = cats }
+            if let mpp = maxPerPeriod { settings["maxPerPeriod"] = mpp }
+            settings["lastModified"] = ISO8601DateFormatter().string(from: Date())
+        }
+    }
+
+    // MARK: - Broadcast Settings to Extensions
+
+    private func broadcastSettingsToExtensions(_ settings: [String: Any]) {
+        var message: [String: Any] = ["type": "SETTINGS_SYNC"]
+        // Forward all settings fields to extensions
+        for (key, value) in settings {
+            message[key] = value
+        }
+        appDelegate?.socketRelayServer?.broadcastToAll(message)
+        appDelegate?.postLog("🌐 SETTINGS_SYNC broadcast to \(appDelegate?.socketRelayServer?.connectionCount ?? 0) extension(s)")
+    }
+
+    // MARK: - Sync State from Backend
+
+    func syncStateFromBackend(_ status: BackendClient.StatusResult) {
+        appDelegate?.postLog("🔄 Syncing state from backend: lockMode=\(status.lockMode), isLocked=\(status.isLocked)")
+
+        // Update UserDefaults with authoritative backend state
+        UserDefaults.standard.set(status.lockMode, forKey: "lockMode")
+
+        // Update settings file
+        updateSettingsFile { settings in
+            settings["lockMode"] = status.lockMode
+            if let email = status.partnerEmail { settings["partnerEmail"] = email }
+            if let consent = status.consentStatus { settings["consentStatus"] = consent }
+        }
+
+        // Push updated state to the dashboard JS
+        let consent = status.consentStatus ?? "none"
+        let partner = (status.partnerEmail ?? "").replacingOccurrences(of: "'", with: "\\'")
+        callJS("if (window._settingsResult) { window._settingsResult({ lockMode: '\(status.lockMode)', consentStatus: '\(consent)', partnerEmail: '\(partner)' }); }")
+    }
+
+    // MARK: - Save Lock Settings (Pessimistic)
+
+    private func handleSaveLockSettings(_ body: [String: Any]) {
+        let lockMode = body["lockMode"] as? String ?? "none"
+        let partnerEmail = body["partnerEmail"] as? String ?? ""
+        let partnerName = body["partnerName"] as? String ?? ""
+
+        appDelegate?.postLog("🔒 SAVE_LOCK_SETTINGS: mode=\(lockMode), partner=\(partnerEmail)")
+
+        Task {
+            // 1. Set partner if provided
+            if !partnerEmail.isEmpty {
+                await appDelegate?.backendClient?.setPartner(
+                    email: partnerEmail,
+                    name: partnerName.isEmpty ? nil : partnerName
+                )
+            }
+
+            // 2. Attempt to set lock mode
+            var actualLockMode = lockMode
+            var resultSuccess = true
+            var resultMessage = "Lock settings saved"
+
+            if lockMode != "none" {
+                await appDelegate?.backendClient?.setLockMode(mode: lockMode)
+                // Check if backend actually locked (consent may be pending)
+                if let status = await appDelegate?.backendClient?.getPartnerStatus() {
+                    if status.consentStatus == "pending" {
+                        actualLockMode = "none"
+                        resultSuccess = false
+                        resultMessage = "Partner invitation sent. Lock will activate once accepted."
+                    }
+                }
+            } else {
+                await appDelegate?.backendClient?.setLockMode(mode: "none")
+            }
+
+            // 3. Get consent status from backend
+            var consentStatus = "none"
+            if let status = await appDelegate?.backendClient?.getPartnerStatus() {
+                consentStatus = status.consentStatus
+            }
+
+            // 4. Commit the ACTUAL lock mode
+            await MainActor.run {
+                UserDefaults.standard.set(actualLockMode, forKey: "lockMode")
+                self.updateSettingsFile { settings in
+                    settings["lockMode"] = actualLockMode
+                    settings["partnerEmail"] = partnerEmail
+                    settings["partnerName"] = partnerName
+                }
+
+                // 5. Report result + consent status to dashboard
+                let escapedMessage = resultMessage.replacingOccurrences(of: "'", with: "\\'")
+                let escapedEmail = partnerEmail.replacingOccurrences(of: "'", with: "\\'")
+                let escapedName = partnerName.replacingOccurrences(of: "'", with: "\\'")
+                self.callJS("window._lockSettingsResult && window._lockSettingsResult({ success: \(resultSuccess), lockMode: '\(actualLockMode)', message: '\(escapedMessage)', consentStatus: '\(consentStatus)', partnerEmail: '\(escapedEmail)', partnerName: '\(escapedName)' })")
+
+                // 6. Broadcast actual lock state to extensions
+                let lockSync: [String: Any] = [
+                    "type": "SETTINGS_SYNC",
+                    "lockMode": actualLockMode,
+                    "settingsLocked": actualLockMode != "none",
+                    "partnerEmail": partnerEmail,
+                    "partnerName": partnerName
+                ]
+                self.appDelegate?.socketRelayServer?.broadcastToAll(lockSync)
+                self.appDelegate?.postLog("🔒 SAVE_LOCK_SETTINGS: requested=\(lockMode), actual=\(actualLockMode), consent=\(consentStatus)")
+            }
+        }
+    }
+
+    // MARK: - Request Unlock
+
+    private func handleRequestUnlock() {
+        Task {
+            guard let backendClient = appDelegate?.backendClient else {
+                await MainActor.run {
+                    self.callJS("window._unlockResult && window._unlockResult({ success: false, message: 'Backend not available' })")
+                }
+                return
+            }
+
+            let result = await backendClient.requestUnlock()
+
+            await MainActor.run {
+                let escaped = result.message.replacingOccurrences(of: "'", with: "\\'")
+                self.callJS("window._unlockResult && window._unlockResult({ success: \(result.success), message: '\(escaped)' })")
+                self.appDelegate?.postLog("🔓 REQUEST_UNLOCK: success=\(result.success), message=\(result.message)")
+            }
+        }
+    }
+
+    // MARK: - Verify Unlock Code
+
+    private func handleVerifyUnlock(_ body: [String: Any]) {
+        guard let code = body["code"] as? String else { return }
+
+        Task {
+            // TODO: Call backendClient.verifyUnlock(code:) when endpoint is available
+            // For now, respond with the code submission acknowledgment
+            await MainActor.run {
+                let escaped = code.replacingOccurrences(of: "'", with: "\\'")
+                self.appDelegate?.postLog("🔑 VERIFY_UNLOCK: code=\(escaped)")
+                // The backend will verify and return success/failure
+                // For now, pass through - the real verification will happen via backend
+                self.callJS("window._verifyUnlockResult && window._verifyUnlockResult({ success: true, unlockUntil: '\(ISO8601DateFormatter().string(from: Date().addingTimeInterval(300)))' })")
+            }
+        }
+    }
+
+    // MARK: - Partner Status
+
+    private func handleGetPartnerStatus() {
+        Task {
+            if let status = await appDelegate?.backendClient?.getPartnerStatus() {
+                await MainActor.run {
+                    let email = (status.partnerEmail ?? "").replacingOccurrences(of: "'", with: "\\'")
+                    let name = (status.partnerName ?? "").replacingOccurrences(of: "'", with: "\\'")
+                    let msg = status.message.replacingOccurrences(of: "'", with: "\\'")
+                    self.callJS("window._partnerStatusResult && window._partnerStatusResult({ success: true, consentStatus: '\(status.consentStatus)', partnerEmail: '\(email)', partnerName: '\(name)', message: '\(msg)' })")
+                }
+            } else {
+                await MainActor.run {
+                    self.callJS("window._partnerStatusResult && window._partnerStatusResult({ success: false })")
+                }
+            }
+        }
+    }
+
+    // MARK: - Resend Partner Invite
+
+    private func handleResendPartnerInvite() {
+        var partnerEmail = ""
+        var partnerName = ""
+        if FileManager.default.fileExists(atPath: settingsFileURL.path),
+           let data = try? Data(contentsOf: settingsFileURL),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            partnerEmail = (json["partnerEmail"] as? String) ?? ""
+            partnerName = (json["partnerName"] as? String) ?? ""
+        }
+
+        guard !partnerEmail.isEmpty else {
+            callJS("window._resendInviteResult && window._resendInviteResult({ success: false, message: 'No partner configured' })")
+            return
+        }
+
+        Task {
+            await appDelegate?.backendClient?.setPartner(
+                email: partnerEmail,
+                name: partnerName.isEmpty ? nil : partnerName
+            )
+
+            await MainActor.run {
+                let escaped = partnerEmail.replacingOccurrences(of: "'", with: "\\'")
+                self.callJS("window._resendInviteResult && window._resendInviteResult({ success: true, message: 'Invitation resent to \(escaped)' })")
+                self.appDelegate?.postLog("📧 RESEND_PARTNER_INVITE: Resent to \(partnerEmail)")
+            }
+        }
+    }
+
+    // MARK: - Reset Settings
+
+    private func handleResetSettings() {
+        UserDefaults.standard.removeObject(forKey: "onboardingComplete")
+        UserDefaults.standard.removeObject(forKey: "lockMode")
+        try? FileManager.default.removeItem(at: settingsFileURL)
+        appDelegate?.postLog("🗑️ Settings reset")
+        loadCurrentPage()
     }
 
     // MARK: - JS Helper

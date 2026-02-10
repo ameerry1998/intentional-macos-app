@@ -17,7 +17,6 @@
 		A1000016000000000000003 /* WebsiteBlocker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000017000000000000003 /* WebsiteBlocker.swift */; };
 		A1000019000000000000004 /* blocked.html in Resources */ = {isa = PBXBuildFile; fileRef = A1000018000000000000004 /* blocked.html */; };
 		A1000020000000000000005 /* PermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000021000000000000005 /* PermissionManager.swift */; };
-		A1000024000000000000007 /* 13136082_3840_2160_60fps.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = A1000025000000000000007 /* 13136082_3840_2160_60fps.mp4 */; };
 		A1000031000000000000008 /* NativeMessagingHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000030000000000000008 /* NativeMessagingHost.swift */; };
 		A1000033000000000000009 /* NativeMessagingSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000032000000000000009 /* NativeMessagingSetup.swift */; };
 		A1000035000000000000010 /* TimeTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000034000000000000010 /* TimeTracker.swift */; };
@@ -27,6 +26,8 @@
 		A1000042000000000000014 /* onboarding.html in Resources */ = {isa = PBXBuildFile; fileRef = A1000043000000000000014 /* onboarding.html */; };
 		A1000044000000000000015 /* dashboard.html in Resources */ = {isa = PBXBuildFile; fileRef = A1000045000000000000015 /* dashboard.html */; };
 		A1000046000000000000016 /* LegacyMonitorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000047000000000000016 /* LegacyMonitorView.swift */; };
+		A1000022000000000000006 /* zen-nature.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = A1000023000000000000006 /* zen-nature.mp4 */; };
+		A1000024000000000000007 /* 13136082_3840_2160_60fps.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = A1000025000000000000007 /* 13136082_3840_2160_60fps.mp4 */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -42,8 +43,6 @@
 		A1000017000000000000003 /* WebsiteBlocker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebsiteBlocker.swift; sourceTree = "<group>"; };
 		A1000018000000000000004 /* blocked.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = blocked.html; sourceTree = "<group>"; };
 		A1000021000000000000005 /* PermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManager.swift; sourceTree = "<group>"; };
-		A1000023000000000000006 /* zen-nature.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "zen-nature.mp4"; sourceTree = "<group>"; };
-		A1000025000000000000007 /* 13136082_3840_2160_60fps.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "13136082_3840_2160_60fps.mp4"; sourceTree = "<group>"; };
 		A1000030000000000000008 /* NativeMessagingHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMessagingHost.swift; sourceTree = "<group>"; };
 		A1000032000000000000009 /* NativeMessagingSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMessagingSetup.swift; sourceTree = "<group>"; };
 		A1000034000000000000010 /* TimeTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeTracker.swift; sourceTree = "<group>"; };
@@ -53,6 +52,8 @@
 		A1000043000000000000014 /* onboarding.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = onboarding.html; sourceTree = "<group>"; };
 		A1000045000000000000015 /* dashboard.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = dashboard.html; sourceTree = "<group>"; };
 		A1000047000000000000016 /* LegacyMonitorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyMonitorView.swift; sourceTree = "<group>"; };
+		A1000023000000000000006 /* zen-nature.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "zen-nature.mp4"; sourceTree = "<group>"; };
+		A1000025000000000000007 /* 13136082_3840_2160_60fps.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "13136082_3840_2160_60fps.mp4"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
