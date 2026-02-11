@@ -173,14 +173,16 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
         let platforms = settings["platforms"] as? [String: Any] ?? [:]
         let ytSettings = platforms["youtube"] as? [String: Any] ?? [:]
         let igSettings = platforms["instagram"] as? [String: Any] ?? [:]
+        let fbSettings = platforms["facebook"] as? [String: Any] ?? [:]
 
         let ytBudget = ytSettings["budget"] as? Int ?? 30
         let igBudget = igSettings["budget"] as? Int ?? 30
+        let fbBudget = fbSettings["budget"] as? Int ?? 30
         let partnerEmail = settings["partnerEmail"] as? String
         let partnerName = settings["partnerName"] as? String
         let lockMode = settings["lockMode"] as? String ?? "none"
 
-        appDelegate?.postLog("📋 Saving onboarding: YT=\(ytBudget)min, IG=\(igBudget)min, lock=\(lockMode)")
+        appDelegate?.postLog("📋 Saving onboarding: YT=\(ytBudget)min, IG=\(igBudget)min, FB=\(fbBudget)min, lock=\(lockMode)")
 
         // 1. Save to UserDefaults
         UserDefaults.standard.set(true, forKey: "onboardingComplete")
@@ -197,8 +199,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
         // 3. Update TimeTracker budgets per platform
         appDelegate?.timeTracker?.setBudget(for: "youtube", minutes: ytBudget)
         appDelegate?.timeTracker?.setBudget(for: "instagram", minutes: igBudget)
+        appDelegate?.timeTracker?.setBudget(for: "facebook", minutes: fbBudget)
 
-        // 4. Make API calls and broadcast to extensions
+        // 4. Make API calls, sync consent status, and broadcast to extensions
         Task {
             if let email = partnerEmail, !email.isEmpty {
                 await appDelegate?.backendClient?.setPartner(email: email, name: partnerName)
@@ -207,7 +210,21 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
                 await appDelegate?.backendClient?.setLockMode(mode: lockMode)
             }
 
-            // 5. Broadcast ONBOARDING_SYNC to all connected extensions
+            // 5. Fetch consent status from backend and save to settings file
+            //    so the dashboard can pick it up immediately via GET_SETTINGS
+            var consentStatus = "none"
+            if let email = partnerEmail, !email.isEmpty {
+                if let partnerStatus = await appDelegate?.backendClient?.getPartnerStatus() {
+                    consentStatus = partnerStatus.consentStatus
+                    await MainActor.run {
+                        self.updateSettingsFile { settings in
+                            settings["consentStatus"] = consentStatus
+                        }
+                    }
+                }
+            }
+
+            // 6. Broadcast ONBOARDING_SYNC to all connected extensions
             await MainActor.run {
                 self.broadcastOnboardingToExtensions(
                     platforms: platforms,
@@ -217,7 +234,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
                 )
             }
 
-            // 6. Respond to JS with success
+            // 7. Respond to JS with success
             await MainActor.run {
                 self.callJS("window._onboardingSaveResult && window._onboardingSaveResult({ success: true })")
             }
@@ -284,8 +301,10 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
 
         let ytMinutes = tracker.getMinutesUsed(for: "youtube")
         let igMinutes = tracker.getMinutesUsed(for: "instagram")
+        let fbMinutes = tracker.getMinutesUsed(for: "facebook")
         let ytBudget = tracker.getBudget(for: "youtube")
         let igBudget = tracker.getBudget(for: "instagram")
+        let fbBudget = tracker.getBudget(for: "facebook")
 
         let result: [String: Any] = [
             "youtube": [
@@ -295,6 +314,10 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
             "instagram": [
                 "minutesUsed": igMinutes,
                 "budget": igBudget
+            ],
+            "facebook": [
+                "minutesUsed": fbMinutes,
+                "budget": fbBudget
             ]
         ]
 
@@ -314,6 +337,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
     ) {
         let ytSettings = platforms["youtube"] as? [String: Any] ?? [:]
         let igSettings = platforms["instagram"] as? [String: Any] ?? [:]
+        let fbSettings = platforms["facebook"] as? [String: Any] ?? [:]
 
         let message: [String: Any] = [
             "type": "ONBOARDING_SYNC",
@@ -342,6 +366,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
                 "blockReels": igSettings["blockReels"] ?? true,
                 "blockExplore": igSettings["blockExplore"] ?? true,
                 "nsfwFilter": igSettings["nsfwFilter"] ?? true
+            ],
+            "facebook": [
+                "onboardingComplete": true,
+                "enabled": fbSettings["enabled"] ?? true,
+                "blockWatch": fbSettings["blockWatch"] ?? true,
+                "blockReels": fbSettings["blockReels"] ?? true,
+                "blockMarketplace": fbSettings["blockMarketplace"] ?? false,
+                "hideAds": fbSettings["hideAds"] ?? true
             ]
         ]
 
@@ -423,9 +455,30 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
         let platforms = savedSettings["platforms"] as? [String: Any] ?? [:]
         let ytPlatform = platforms["youtube"] as? [String: Any] ?? [:]
         let igPlatform = platforms["instagram"] as? [String: Any] ?? [:]
+        let fbPlatform = platforms["facebook"] as? [String: Any] ?? [:]
 
-        let ytBudget = appDelegate?.timeTracker?.getBudget(for: "youtube") ?? 30
-        let igBudget = appDelegate?.timeTracker?.getBudget(for: "instagram") ?? 30
+        // Budget: prefer TimeTracker (source of truth at runtime), fallback to settings file
+        let ytBudget: Int = {
+            if let tt = appDelegate?.timeTracker {
+                let b = tt.getBudget(for: "youtube")
+                if b > 0 { return b }
+            }
+            return (ytPlatform["budget"] as? Int) ?? 30
+        }()
+        let igBudget: Int = {
+            if let tt = appDelegate?.timeTracker {
+                let b = tt.getBudget(for: "instagram")
+                if b > 0 { return b }
+            }
+            return (igPlatform["budget"] as? Int) ?? 30
+        }()
+        let fbBudget: Int = {
+            if let tt = appDelegate?.timeTracker {
+                let b = tt.getBudget(for: "facebook")
+                if b > 0 { return b }
+            }
+            return (fbPlatform["budget"] as? Int) ?? 30
+        }()
 
         let lockMode = (savedSettings["lockMode"] as? String)
             ?? UserDefaults.standard.string(forKey: "lockMode")
@@ -456,6 +509,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
             "blockedAccounts": (igPlatform["blockedAccounts"] as? [String]) ?? [String]()
         ]
 
+        let fbResult: [String: Any] = [
+            "enabled": (fbPlatform["enabled"] as? Bool) ?? true,
+            "budget": fbBudget,
+            "blockWatch": (fbPlatform["blockWatch"] as? Bool) ?? true,
+            "blockReels": (fbPlatform["blockReels"] as? Bool) ?? true,
+            "blockMarketplace": (fbPlatform["blockMarketplace"] as? Bool) ?? false,
+            "hideAds": (fbPlatform["hideAds"] as? Bool) ?? true
+        ]
+
         let blockedCategories = (ytPlatform["blockedCategories"] as? [String]) ?? [String]()
         let maxPerPeriod: [String: Any] = (ytPlatform["maxPerPeriod"] as? [String: Any]) ?? [
             "enabled": false,
@@ -463,16 +525,24 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
             "periodHours": 1
         ]
 
-        let result: [String: Any] = [
+        let consentStatus = (savedSettings["consentStatus"] as? String) ?? "none"
+        let temporaryUnlockUntil = savedSettings["temporaryUnlockUntil"] as? String
+        let selfUnlockAvailableAt = savedSettings["selfUnlockAvailableAt"] as? String
+
+        var result: [String: Any] = [
             "youtube": ytResult,
             "instagram": igResult,
+            "facebook": fbResult,
             "blockedCategories": blockedCategories,
             "lockMode": lockMode,
             "partnerEmail": partnerEmail,
             "partnerName": partnerName,
+            "consentStatus": consentStatus,
             "maxPerPeriod": maxPerPeriod,
             "deviceId": deviceId
         ]
+        if let tuu = temporaryUnlockUntil { result["temporaryUnlockUntil"] = tuu }
+        if let sua = selfUnlockAvailableAt { result["selfUnlockAvailableAt"] = sua }
 
         do {
             let data = try JSONSerialization.data(withJSONObject: result)
@@ -490,6 +560,73 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
         guard let settings = body["settings"] as? [String: Any] else { return }
         let ytSettings = settings["youtube"] as? [String: Any] ?? [:]
         let igSettings = settings["instagram"] as? [String: Any] ?? [:]
+        let fbSettings = settings["facebook"] as? [String: Any] ?? [:]
+
+        // Lock enforcement: reject weakening changes when locked
+        let currentLockMode = UserDefaults.standard.string(forKey: "lockMode") ?? "none"
+        if currentLockMode != "none" {
+            var isUnlocked = false
+            if let data = try? Data(contentsOf: settingsFileURL),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let unlockUntil = json["temporaryUnlockUntil"] as? String {
+                let formatter = ISO8601DateFormatter()
+                if let date = formatter.date(from: unlockUntil), date > Date() {
+                    isUnlocked = true
+                }
+            }
+
+            if !isUnlocked {
+                if let data = try? Data(contentsOf: settingsFileURL),
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    let platforms = json["platforms"] as? [String: Any] ?? [:]
+                    let curYT = platforms["youtube"] as? [String: Any] ?? [:]
+                    let curIG = platforms["instagram"] as? [String: Any] ?? [:]
+                    let curFB = platforms["facebook"] as? [String: Any] ?? [:]
+
+                    var violation: String? = nil
+
+                    // YouTube: can't disable, lower threshold, or disable shorts blocking
+                    if (ytSettings["enabled"] as? Bool) == false && (curYT["enabled"] as? Bool) != false {
+                        violation = "Cannot disable YouTube while settings are locked"
+                    }
+                    if violation == nil, let newT = ytSettings["threshold"] as? Int, let curT = curYT["threshold"] as? Int, newT < curT {
+                        violation = "Cannot lower YouTube threshold while settings are locked"
+                    }
+                    if violation == nil, (ytSettings["blockShorts"] as? Bool) == false && (curYT["blockShorts"] as? Bool) != false {
+                        violation = "Cannot disable Shorts blocking while settings are locked"
+                    }
+
+                    // Instagram: can't disable, lower threshold, or disable reels blocking
+                    if violation == nil, (igSettings["enabled"] as? Bool) == false && (curIG["enabled"] as? Bool) != false {
+                        violation = "Cannot disable Instagram while settings are locked"
+                    }
+                    if violation == nil, let newT = igSettings["threshold"] as? Int, let curT = curIG["threshold"] as? Int, newT < curT {
+                        violation = "Cannot lower Instagram threshold while settings are locked"
+                    }
+                    if violation == nil, (igSettings["blockReels"] as? Bool) == false && (curIG["blockReels"] as? Bool) != false {
+                        violation = "Cannot disable Reels blocking while settings are locked"
+                    }
+
+                    // Facebook: can't disable, or disable watch/reels blocking
+                    if violation == nil, (fbSettings["enabled"] as? Bool) == false && (curFB["enabled"] as? Bool) != false {
+                        violation = "Cannot disable Facebook while settings are locked"
+                    }
+                    if violation == nil, (fbSettings["blockWatch"] as? Bool) == false && (curFB["blockWatch"] as? Bool) != false {
+                        violation = "Cannot disable Watch blocking while settings are locked"
+                    }
+                    if violation == nil, (fbSettings["blockReels"] as? Bool) == false && (curFB["blockReels"] as? Bool) != false {
+                        violation = "Cannot disable Facebook Reels blocking while settings are locked"
+                    }
+
+                    if let v = violation {
+                        let escaped = v.replacingOccurrences(of: "'", with: "\\'")
+                        callJS("window._saveSettingsResult && window._saveSettingsResult({ success: false, message: '\(escaped)' })")
+                        appDelegate?.postLog("🔒 SAVE_SETTINGS: Rejected — \(v)")
+                        return
+                    }
+                }
+            }
+        }
 
         if let ytBudget = ytSettings["budget"] as? Int {
             appDelegate?.timeTracker?.setBudget(for: "youtube", minutes: ytBudget)
@@ -497,11 +634,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
         if let igBudget = igSettings["budget"] as? Int {
             appDelegate?.timeTracker?.setBudget(for: "instagram", minutes: igBudget)
         }
+        if let fbBudget = fbSettings["budget"] as? Int {
+            appDelegate?.timeTracker?.setBudget(for: "facebook", minutes: fbBudget)
+        }
 
         let lockMode = settings["lockMode"] as? String ?? UserDefaults.standard.string(forKey: "lockMode") ?? "none"
         let partnerEmail = settings["partnerEmail"] as? String
         let partnerName = settings["partnerName"] as? String
-        let platforms: [String: Any] = ["youtube": ytSettings, "instagram": igSettings]
+        let platforms: [String: Any] = ["youtube": ytSettings, "instagram": igSettings, "facebook": fbSettings]
 
         saveSettingsToFile(
             platforms: platforms,
@@ -631,13 +771,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
                 consentStatus = status.consentStatus
             }
 
-            // 4. Commit the ACTUAL lock mode
+            // 4. Commit the ACTUAL lock mode and consent status
             await MainActor.run {
                 UserDefaults.standard.set(actualLockMode, forKey: "lockMode")
                 self.updateSettingsFile { settings in
                     settings["lockMode"] = actualLockMode
                     settings["partnerEmail"] = partnerEmail
                     settings["partnerName"] = partnerName
+                    settings["consentStatus"] = consentStatus
                 }
 
                 // 5. Report result + consent status to dashboard
@@ -685,16 +826,19 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
 
     private func handleVerifyUnlock(_ body: [String: Any]) {
         guard let code = body["code"] as? String else { return }
+        let autoRelock = body["auto_relock"] as? Bool ?? false
 
         Task {
             // TODO: Call backendClient.verifyUnlock(code:) when endpoint is available
             // For now, respond with the code submission acknowledgment
             await MainActor.run {
                 let escaped = code.replacingOccurrences(of: "'", with: "\\'")
-                self.appDelegate?.postLog("🔑 VERIFY_UNLOCK: code=\(escaped)")
-                // The backend will verify and return success/failure
-                // For now, pass through - the real verification will happen via backend
-                self.callJS("window._verifyUnlockResult && window._verifyUnlockResult({ success: true, unlockUntil: '\(ISO8601DateFormatter().string(from: Date().addingTimeInterval(300)))' })")
+                self.appDelegate?.postLog("🔑 VERIFY_UNLOCK: code=\(escaped), auto_relock=\(autoRelock)")
+                if autoRelock {
+                    self.callJS("window._verifyUnlockResult && window._verifyUnlockResult({ success: true, auto_relock: true, unlockUntil: '\(ISO8601DateFormatter().string(from: Date().addingTimeInterval(300)))' })")
+                } else {
+                    self.callJS("window._verifyUnlockResult && window._verifyUnlockResult({ success: true, auto_relock: false })")
+                }
             }
         }
     }
@@ -705,6 +849,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
         Task {
             if let status = await appDelegate?.backendClient?.getPartnerStatus() {
                 await MainActor.run {
+                    // Persist consent status to settings file so it survives app restart
+                    self.updateSettingsFile { settings in
+                        let oldConsent = settings["consentStatus"] as? String ?? "none"
+                        if oldConsent != status.consentStatus {
+                            settings["consentStatus"] = status.consentStatus
+                            self.appDelegate?.postLog("📋 Consent status updated: \(oldConsent) → \(status.consentStatus)")
+                        }
+                    }
+
                     let email = (status.partnerEmail ?? "").replacingOccurrences(of: "'", with: "\\'")
                     let name = (status.partnerName ?? "").replacingOccurrences(of: "'", with: "\\'")
                     let msg = status.message.replacingOccurrences(of: "'", with: "\\'")
@@ -752,10 +905,39 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
     // MARK: - Reset Settings
 
     private func handleResetSettings() {
+        appDelegate?.postLog("🗑️ Starting full reset...")
+
+        // 1. Clear UserDefaults
         UserDefaults.standard.removeObject(forKey: "onboardingComplete")
         UserDefaults.standard.removeObject(forKey: "lockMode")
+
+        // 2. Clear settings file
         try? FileManager.default.removeItem(at: settingsFileURL)
-        appDelegate?.postLog("🗑️ Settings reset")
+
+        // 3. Clear TimeTracker data files
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("Intentional")
+        for filename in ["daily_usage.json", "time_settings.json", "platform_sessions.json"] {
+            let fileURL = dir.appendingPathComponent(filename)
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+
+        // 4. Call backend to clear lock mode + notify partner
+        Task {
+            await appDelegate?.backendClient?.setLockMode(mode: "none")
+            appDelegate?.postLog("🗑️ Backend lock mode cleared")
+        }
+
+        // 5. Broadcast reset to connected extensions
+        let resetMessage: [String: Any] = [
+            "type": "SETTINGS_RESET",
+            "lockMode": "none",
+            "settingsLocked": false
+        ]
+        appDelegate?.socketRelayServer?.broadcastToAll(resetMessage)
+        appDelegate?.postLog("🗑️ Reset broadcast to \(appDelegate?.socketRelayServer?.connectionCount ?? 0) extension(s)")
+
+        appDelegate?.postLog("🗑️ Full reset complete")
         loadCurrentPage()
     }
 

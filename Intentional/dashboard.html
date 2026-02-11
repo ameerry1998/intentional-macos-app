@@ -161,7 +161,7 @@ body {
 /* ===== Usage Cards ===== */
 .usage-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 16px;
   margin-bottom: 32px;
 }
@@ -204,6 +204,7 @@ body {
 
 .usage-minutes.youtube { color: #ef4444; }
 .usage-minutes.instagram { color: #e879f9; }
+.usage-minutes.facebook { color: #60a5fa; }
 
 .usage-unit {
   font-size: 16px;
@@ -231,6 +232,7 @@ body {
 
 .usage-bar-fill.youtube { background: #ef4444; }
 .usage-bar-fill.instagram { background: #e879f9; }
+.usage-bar-fill.facebook { background: #60a5fa; }
 
 /* ===== Settings Card ===== */
 .settings-card {
@@ -399,8 +401,9 @@ body {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.browser-icon { font-size: 20px; width: 28px; text-align: center; }
-.browser-name { flex: 1; font-size: 14px; font-weight: 500; }
+.browser-icon { font-size: 20px; width: 28px; height: 28px; text-align: center; flex-shrink: 0; border-radius: 6px; overflow: hidden; }
+.browser-icon img { width: 100%; height: 100%; object-fit: contain; }
+.browser-name { width: 110px; flex-shrink: 0; font-size: 14px; font-weight: 500; }
 
 .browser-status {
   font-size: 12px;
@@ -421,6 +424,53 @@ body {
 
 .browser-status-dot.connected { background: #34d399; }
 .browser-status-dot.disconnected { background: rgba(255, 255, 255, 0.2); }
+
+.browser-row.browser-connected {
+  background: rgba(52, 211, 153, 0.06);
+}
+
+.browser-ext-url {
+  flex: 1;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  font-family: "SF Mono", Menlo, monospace;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.browser-ext-url:hover {
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.browser-ext-url.copied {
+  color: #34d399;
+}
+
+.browser-install-btn {
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  background: #6366f1;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  font-family: inherit;
+}
+
+.browser-install-btn:hover {
+  background: #5558e6;
+  transform: translateY(-1px);
+}
 
 /* ===== Empty State ===== */
 .empty-state {
@@ -691,6 +741,26 @@ body {
   color: #000000;
 }
 
+/* ===== Locked Settings ===== */
+.setting-row.locked {
+  opacity: 0.4;
+  pointer-events: none;
+  position: relative;
+}
+
+.locked-banner {
+  padding: 12px 20px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 10px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
 /* ===== Scrollbar ===== */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -773,6 +843,21 @@ body {
         <div class="usage-budget" id="ig-budget">/ 30 min budget</div>
         <div class="usage-bar">
           <div class="usage-bar-fill instagram" id="ig-bar" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <div class="usage-card">
+        <div class="usage-card-header">
+          <span class="usage-card-icon">👤</span>
+          <span class="usage-card-platform">Facebook</span>
+        </div>
+        <div class="usage-card-time">
+          <span class="usage-minutes facebook" id="fb-minutes">0</span>
+          <span class="usage-unit">min</span>
+        </div>
+        <div class="usage-budget" id="fb-budget">/ 30 min budget</div>
+        <div class="usage-bar">
+          <div class="usage-bar-fill facebook" id="fb-bar" style="width: 0%"></div>
         </div>
       </div>
     </div>
@@ -1283,10 +1368,15 @@ function getLockState() {
   var consent = settings.consentStatus || 'none';
   var hasPartner = settings.partnerEmail && settings.partnerEmail !== '';
 
-  // Check temporary unlock first
+  // Check unlock state (permanent or temporary)
+  if (settings.settingsUnlocked) return 'unlocked';
   if (settings.temporaryUnlockUntil) {
     var unlockEnd = new Date(settings.temporaryUnlockUntil).getTime();
-    if (unlockEnd > Date.now()) return 'temporarily_unlocked';
+    if (unlockEnd > Date.now()) {
+      // Far-future sentinel (year 9000+) = permanently unlocked
+      if (new Date(settings.temporaryUnlockUntil).getFullYear() >= 9000) return 'unlocked';
+      return 'temporarily_unlocked';
+    }
   }
 
   // Check self-lock countdown
@@ -1422,6 +1512,15 @@ function renderLockState() {
       stopConsentPolling();
       break;
 
+    case 'unlocked':
+      el.innerHTML =
+        '<div class="lock-icon">🔓</div>' +
+        '<div class="lock-title">Settings Unlocked</div>' +
+        '<div class="lock-desc">Make your changes, then re-lock when you\'re done.</div>' +
+        '<button class="btn-primary" onclick="relockSettings()" style="margin-top: 16px;">Re-lock Settings</button>';
+      stopConsentPolling();
+      break;
+
     case 'temporarily_unlocked':
       var unlockEnd = new Date(settings.temporaryUnlockUntil).getTime();
       var totalMs = 5 * 60 * 1000; // 5 min unlock window
@@ -1504,6 +1603,57 @@ function renderLockState() {
         '<button class="btn-primary" onclick="saveLockSettings()">Save Lock Settings</button>';
       stopConsentPolling();
   }
+
+  // Enforce lock on platform settings pages
+  enforceLockMode();
+}
+
+// ===== Lock Enforcement on Settings Pages =====
+var LOCKED_INPUT_IDS = [
+  'yt-enabled', 'ig-enabled', 'fb-enabled',
+  'yt-threshold', 'ig-threshold',
+  'yt-block-shorts', 'ig-block-reels',
+  'fb-block-watch', 'fb-block-reels'
+];
+
+function isSettingsLocked() {
+  var state = getLockState();
+  return state === 'locked' || state === 'unlock_code_entry' || state === 'self_countdown';
+}
+
+function enforceLockMode() {
+  var locked = isSettingsLocked();
+
+  // Add/remove locked class on specific setting rows
+  LOCKED_INPUT_IDS.forEach(function(id) {
+    var input = document.getElementById(id);
+    if (!input) return;
+    var row = input.closest('.setting-row');
+    if (!row) return;
+    if (locked) {
+      row.classList.add('locked');
+    } else {
+      row.classList.remove('locked');
+    }
+  });
+
+  // Add/remove locked banners on platform pages
+  ['page-youtube', 'page-instagram', 'page-facebook'].forEach(function(pageId) {
+    var page = document.getElementById(pageId);
+    if (!page) return;
+    var existingBanner = page.querySelector('.locked-banner');
+    if (locked) {
+      if (!existingBanner) {
+        var banner = document.createElement('div');
+        banner.className = 'locked-banner';
+        banner.innerHTML = '<span>🔒</span> Settings are locked by your accountability partner. <a href="#" onclick="navigateTo(\'lock\'); return false;" style="color:#6366f1; text-decoration:underline;">Request unlock</a>';
+        var firstCard = page.querySelector('.settings-card');
+        if (firstCard) page.insertBefore(banner, firstCard);
+      }
+    } else {
+      if (existingBanner) existingBanner.remove();
+    }
+  });
 }
 
 // ===== Countdown Helpers =====
@@ -1566,6 +1716,14 @@ function cancelUnlock() {
   renderLockState();
 }
 
+function relockSettings() {
+  settings.settingsUnlocked = false;
+  settings.temporaryUnlockUntil = null;
+  sendMessage({ type: 'RELOCK_SETTINGS' });
+  showToast('Settings re-locked');
+  renderLockState();
+}
+
 // ===== Lock Actions =====
 function saveLockSettings() {
   var email = (document.getElementById('lock-partner-email') || {}).value || '';
@@ -1621,6 +1779,31 @@ function confirmReset() {
   if (confirm('Reset all settings and return to onboarding? This cannot be undone.')) {
     sendMessage({ type: 'RESET_SETTINGS' });
   }
+}
+
+function copyStoreUrl(el, url) {
+  navigator.clipboard.writeText(url).then(function() {
+    var original = el.textContent;
+    el.textContent = 'Copied!';
+    el.classList.add('copied');
+    setTimeout(function() {
+      el.textContent = original;
+      el.classList.remove('copied');
+    }, 1500);
+  });
+}
+
+function installExtension(browserName, bundleId) {
+  var name = decodeURIComponent(browserName).toLowerCase();
+  var storeUrl;
+  if (name.indexOf('firefox') !== -1 || name.indexOf('waterfox') !== -1 || name.indexOf('librewolf') !== -1 || name.indexOf('zen') !== -1 || name.indexOf('floorp') !== -1) {
+    storeUrl = 'https://addons.mozilla.org/en-US/firefox/search/?q=intentional';
+  } else if (name.indexOf('safari') !== -1 || name.indexOf('orion') !== -1) {
+    storeUrl = 'https://apps.apple.com/search/intentional';
+  } else {
+    storeUrl = 'https://chromewebstore.google.com/search/intentional';
+  }
+  sendMessage({ type: 'OPEN_EXTENSIONS_PAGE', url: storeUrl, bundleId: bundleId || null });
 }
 
 // ===== Consent Polling =====
@@ -1738,8 +1921,14 @@ window._unlockResult = function(data) {
 // Verify unlock result
 window._verifyUnlockResult = function(data) {
   if (data.success) {
-    showToast('Settings unlocked for 5 minutes!');
-    settings.temporaryUnlockUntil = data.unlockUntil || new Date(Date.now() + 5 * 60000).toISOString();
+    if (data.auto_relock === false) {
+      showToast('Settings unlocked!');
+      settings.settingsUnlocked = true;
+      settings.temporaryUnlockUntil = null;
+    } else {
+      showToast('Settings unlocked for 5 minutes!');
+      settings.temporaryUnlockUntil = data.unlockUntil || new Date(Date.now() + 5 * 60000).toISOString();
+    }
     settings.unlockRequested = false;
     settings.selfUnlockAvailableAt = null;
     renderLockState();
@@ -1762,6 +1951,12 @@ window._dashboardDataResult = function(data) {
     var pct2 = Math.min(100, ((data.instagram.minutesUsed || 0) / (data.instagram.budget || 30)) * 100);
     document.getElementById('ig-bar').style.width = pct2 + '%';
   }
+  if (data.facebook) {
+    document.getElementById('fb-minutes').textContent = data.facebook.minutesUsed || 0;
+    document.getElementById('fb-budget').textContent = '/ ' + (data.facebook.budget || 30) + ' min budget';
+    var pct3 = Math.min(100, ((data.facebook.minutesUsed || 0) / (data.facebook.budget || 30)) * 100);
+    document.getElementById('fb-bar').style.width = pct3 + '%';
+  }
 };
 
 // Browser status
@@ -1773,30 +1968,68 @@ window._extensionStatusResult = function(data) {
     if (empty) {
       empty.innerHTML =
         '<div class="empty-state-icon">🌐</div>' +
-        '<div class="empty-state-text">No Chromium browsers detected</div>';
+        '<div class="empty-state-text">No browsers detected</div>';
     }
     return;
   }
 
   if (empty) empty.remove();
 
-  var icons = {
-    'chrome': '🌐', 'brave': '🛡️', 'arc': '🌈',
-    'edge': '🔵', 'opera': '🔴', 'vivaldi': '🎵'
-  };
+  // Sort: connected first, then alphabetical
+  data.browsers.sort(function(a, b) {
+    var aConn = (a.hasExtension && a.isEnabled) ? 0 : 1;
+    var bConn = (b.hasExtension && b.isEnabled) ? 0 : 1;
+    if (aConn !== bConn) return aConn - bConn;
+    return a.name.localeCompare(b.name);
+  });
+
+  function getBrowserIcon(b) {
+    if (b.iconDataUrl) {
+      return '<span class="browser-icon"><img src="' + b.iconDataUrl + '" alt="' + escapeHtml(b.name) + '"></span>';
+    }
+    return '<span class="browser-icon" style="border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;background:#6B7280;">' + b.name.charAt(0).toUpperCase() + '</span>';
+  }
+
+  function getStoreUrl(name) {
+    var n = name.toLowerCase();
+    if (n.indexOf('firefox') !== -1 || n.indexOf('waterfox') !== -1 || n.indexOf('librewolf') !== -1 || n.indexOf('zen') !== -1 || n.indexOf('floorp') !== -1)
+      return 'addons.mozilla.org';
+    if (n.indexOf('safari') !== -1 || n.indexOf('orion') !== -1)
+      return 'apps.apple.com';
+    return 'chromewebstore.google.com';
+  }
+
+  function getFullStoreUrl(name) {
+    var n = name.toLowerCase();
+    if (n.indexOf('firefox') !== -1 || n.indexOf('waterfox') !== -1 || n.indexOf('librewolf') !== -1 || n.indexOf('zen') !== -1 || n.indexOf('floorp') !== -1)
+      return 'https://addons.mozilla.org/en-US/firefox/search/?q=intentional';
+    if (n.indexOf('safari') !== -1 || n.indexOf('orion') !== -1)
+      return 'https://apps.apple.com/search/intentional';
+    return 'https://chromewebstore.google.com/search/intentional';
+  }
 
   card.innerHTML = data.browsers.map(function(b) {
-    var iconKey = Object.keys(icons).find(function(k) { return b.name.toLowerCase().indexOf(k) !== -1; });
-    var icon = icons[iconKey] || '🌐';
+    var icon = getBrowserIcon(b);
     var isConnected = b.hasExtension && b.isEnabled;
+    var isDisabled = b.hasExtension && !b.isEnabled;
+    var rowClass = 'browser-row' + (isConnected ? ' browser-connected' : '');
+    var storeHint = getStoreUrl(b.name);
+    var fullUrl = getFullStoreUrl(b.name);
 
-    return '<div class="browser-row">' +
-      '<span class="browser-icon">' + icon + '</span>' +
-      '<span class="browser-name">' + b.name + '</span>' +
-      '<span class="browser-status ' + (isConnected ? 'connected' : 'disconnected') + '">' +
-        '<span class="browser-status-dot ' + (isConnected ? 'connected' : 'disconnected') + '"></span>' +
-        (isConnected ? 'Connected' : (b.hasExtension ? 'Disabled' : 'No extension')) +
-      '</span>' +
+    var statusHtml;
+    if (isConnected) {
+      statusHtml = '<span class="browser-status connected"><span class="browser-status-dot connected"></span>Connected</span>';
+    } else if (isDisabled) {
+      statusHtml = '<span class="browser-status" style="color: #f59e0b;">Disabled</span>';
+    } else {
+      statusHtml = '<button class="browser-install-btn" onclick="installExtension(\'' + encodeURIComponent(b.name) + '\', \'' + (b.bundleId || '') + '\')">Install</button>';
+    }
+
+    return '<div class="' + rowClass + '">' +
+      icon +
+      '<span class="browser-name">' + escapeHtml(b.name) + '</span>' +
+      '<span class="browser-ext-url" onclick="copyStoreUrl(this, \'' + fullUrl + '\')" title="Click to copy store URL">' + storeHint + '</span>' +
+      statusHtml +
     '</div>';
   }).join('');
 };

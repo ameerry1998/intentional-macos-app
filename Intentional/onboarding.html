@@ -1985,7 +1985,44 @@ document.querySelectorAll('.dot').forEach(dot => {
   });
 });
 
+// ===== Pre-fill from existing settings =====
+window._settingsResult = function(data) {
+  if (data.youtube) {
+    var yt = data.youtube;
+    if (yt.budget) platformSettings.youtube.budget = yt.budget;
+    if (yt.blockShorts !== undefined) platformSettings.youtube.blockShorts = yt.blockShorts;
+    if (yt.blockMode) platformSettings.youtube.blockMode = yt.blockMode;
+    if (yt.enabled !== undefined) platformSettings.youtube.enabled = yt.enabled;
+    // Update stepper display
+    var ytEl = document.getElementById('budget-youtube');
+    if (ytEl) ytEl.textContent = platformSettings.youtube.budget;
+  }
+  if (data.instagram) {
+    var ig = data.instagram;
+    if (ig.budget) platformSettings.instagram.budget = ig.budget;
+    if (ig.blockReels !== undefined) platformSettings.instagram.blockReels = ig.blockReels;
+    if (ig.blockExplore !== undefined) platformSettings.instagram.blockExplore = ig.blockExplore;
+    if (ig.nsfwFilter !== undefined) platformSettings.instagram.nsfwFilter = ig.nsfwFilter;
+    if (ig.enabled !== undefined) platformSettings.instagram.enabled = ig.enabled;
+    var igEl = document.getElementById('budget-instagram');
+    if (igEl) igEl.textContent = platformSettings.instagram.budget;
+  }
+  if (data.partnerEmail) {
+    document.getElementById('partner-email').value = data.partnerEmail;
+  }
+  if (data.partnerName) {
+    document.getElementById('partner-name').value = data.partnerName;
+  }
+  if (data.lockMode && data.lockMode !== 'none') {
+    selectedLockMode = data.lockMode;
+    document.querySelectorAll('.lock-option').forEach(function(o) { o.classList.remove('selected'); });
+    var lockOpt = document.getElementById('lock-' + data.lockMode);
+    if (lockOpt) lockOpt.classList.add('selected');
+  }
+};
+
 // ===== Init =====
+sendMessage({ type: 'GET_SETTINGS' });
 initPlatformToggles();
 initStepper('youtube');
 initStepper('instagram');

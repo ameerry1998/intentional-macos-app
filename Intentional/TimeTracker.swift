@@ -370,7 +370,7 @@ class TimeTracker {
     func getSessionSyncPayload() -> [String: Any] {
         var message: [String: Any] = ["type": "SESSION_SYNC"]
 
-        for platform in ["youtube", "instagram"] {
+        for platform in ["youtube", "instagram", "facebook"] {
             let session = getPlatformSession(for: platform)
             var platformData: [String: Any] = [
                 "active": session.active,
@@ -450,7 +450,7 @@ class TimeTracker {
     private func loadSettings() {
         guard FileManager.default.fileExists(atPath: settingsFileURL.path) else {
             // Default budgets
-            budgets = ["youtube": 30, "instagram": 30]
+            budgets = ["youtube": 30, "instagram": 30, "facebook": 30]
             return
         }
 
@@ -458,7 +458,7 @@ class TimeTracker {
             let data = try Data(contentsOf: settingsFileURL)
             budgets = try JSONDecoder().decode([String: Int].self, from: data)
         } catch {
-            budgets = ["youtube": 30, "instagram": 30]
+            budgets = ["youtube": 30, "instagram": 30, "facebook": 30]
         }
     }
 
