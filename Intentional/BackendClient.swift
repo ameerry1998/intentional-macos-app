@@ -115,6 +115,36 @@ class BackendClient {
         }
     }
 
+    /// Remove accountability partner via backend API (DELETE /partner)
+    func removePartner() async -> Bool {
+        let endpoint = "\(baseURL)/partner"
+
+        guard let url = URL(string: endpoint) else { return false }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                appDelegate?.postLog("✅ Partner removed via DELETE /partner")
+                return true
+            } else {
+                if let body = String(data: data, encoding: .utf8) {
+                    appDelegate?.postLog("⚠️ Partner removal failed: \(body)")
+                }
+                return false
+            }
+        } catch {
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            appDelegate?.postLog("❌ Partner removal error: \(error.localizedDescription)")
+            return false
+        }
+    }
+
     /// Debug access to base URL
     var baseURLForDebug: String { baseURL }
 
@@ -170,6 +200,8 @@ class BackendClient {
         let success: Bool
         let message: String
         let statusCode: Int
+        let mode: String?
+        let selfUnlockAvailableAt: String?
     }
 
     /// Request an unlock code from the backend
@@ -177,7 +209,7 @@ class BackendClient {
         let endpoint = "\(baseURL)/unlock/request"
 
         guard let url = URL(string: endpoint) else {
-            return UnlockResult(success: false, message: "Invalid URL", statusCode: 0)
+            return UnlockResult(success: false, message: "Invalid URL", statusCode: 0, mode: nil, selfUnlockAvailableAt: nil)
         }
 
         var request = URLRequest(url: url)
@@ -190,17 +222,90 @@ class BackendClient {
             let (data, response) = try await URLSession.shared.data(for: request)
 
             if let httpResponse = response as? HTTPURLResponse {
-                let msg = (parseJSON(data)?["message"] as? String) ?? errorMessage(from: data)
+                let json = parseJSON(data)
+                let msg = (json?["message"] as? String) ?? errorMessage(from: data)
+                let mode = json?["mode"] as? String
+                let sua = json?["self_unlock_available_at"] as? String
                 if isSuccess(httpResponse.statusCode) {
-                    return UnlockResult(success: true, message: msg, statusCode: httpResponse.statusCode)
+                    return UnlockResult(success: true, message: msg, statusCode: httpResponse.statusCode, mode: mode, selfUnlockAvailableAt: sua)
                 } else {
-                    return UnlockResult(success: false, message: msg, statusCode: httpResponse.statusCode)
+                    return UnlockResult(success: false, message: msg, statusCode: httpResponse.statusCode, mode: mode, selfUnlockAvailableAt: nil)
                 }
             }
         } catch {
-            return UnlockResult(success: false, message: error.localizedDescription, statusCode: 0)
+            return UnlockResult(success: false, message: error.localizedDescription, statusCode: 0, mode: nil, selfUnlockAvailableAt: nil)
         }
-        return UnlockResult(success: false, message: "Unknown error", statusCode: 0)
+        return UnlockResult(success: false, message: "Unknown error", statusCode: 0, mode: nil, selfUnlockAvailableAt: nil)
+    }
+
+    // MARK: - Verify Unlock Code
+
+    struct VerifyResult {
+        let success: Bool
+        let message: String
+        let autoRelock: Bool
+        let temporaryUnlockUntil: String?  // ISO8601 timestamp or nil for permanent
+        let statusCode: Int
+    }
+
+    /// Verify an unlock code with the backend
+    func verifyUnlock(code: String, autoRelock: Bool) async -> VerifyResult {
+        let endpoint = "\(baseURL)/unlock/verify"
+
+        guard let url = URL(string: endpoint) else {
+            return VerifyResult(success: false, message: "Invalid URL", autoRelock: autoRelock, temporaryUnlockUntil: nil, statusCode: 0)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        let body: [String: Any] = ["code": code, "auto_relock": autoRelock]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse,
+               let json = parseJSON(data) {
+                let msg = json["message"] as? String ?? errorMessage(from: data)
+                let success = json["success"] as? Bool ?? false
+                let tuu = json["temporary_unlock_until"] as? String
+                let ar = json["auto_relock"] as? Bool ?? autoRelock
+
+                return VerifyResult(
+                    success: success,
+                    message: msg,
+                    autoRelock: ar,
+                    temporaryUnlockUntil: tuu,
+                    statusCode: httpResponse.statusCode
+                )
+            }
+        } catch {
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            appDelegate?.postLog("❌ Verify unlock error: \(error.localizedDescription)")
+            return VerifyResult(success: false, message: error.localizedDescription, autoRelock: autoRelock, temporaryUnlockUntil: nil, statusCode: 0)
+        }
+        return VerifyResult(success: false, message: "Unknown error", autoRelock: autoRelock, temporaryUnlockUntil: nil, statusCode: 0)
+    }
+
+    // MARK: - Relock
+
+    /// Re-lock settings by re-applying the current lock mode (clears temporary_unlock_until on backend)
+    func relockSettings() async -> UnlockResult {
+        // Get current lock mode first
+        let currentMode = UserDefaults.standard.string(forKey: "lockMode") ?? "partner"
+
+        // PUT /lock with the same mode clears temporary_unlock_until
+        let result = await setLockMode(mode: currentMode)
+        return UnlockResult(
+            success: result.success,
+            message: result.success ? "Settings re-locked" : result.message,
+            statusCode: result.statusCode,
+            mode: currentMode,
+            selfUnlockAvailableAt: nil
+        )
     }
 
     // MARK: - Unlock Status
@@ -212,6 +317,10 @@ class BackendClient {
         let consentStatus: String?
         let isLocked: Bool
         let isTemporarilyUnlocked: Bool
+        let temporaryUnlockUntil: String?
+        let autoRelock: Bool
+        let hasPendingRequest: Bool
+        let selfUnlockAvailableAt: String?
     }
 
     /// Get current lock/unlock status from backend
@@ -235,7 +344,11 @@ class BackendClient {
                     partnerEmail: json["partner_email"] as? String,
                     consentStatus: json["consent_status"] as? String,
                     isLocked: json["is_locked"] as? Bool ?? false,
-                    isTemporarilyUnlocked: json["is_temporarily_unlocked"] as? Bool ?? false
+                    isTemporarilyUnlocked: json["is_temporarily_unlocked"] as? Bool ?? false,
+                    temporaryUnlockUntil: json["temporary_unlock_until"] as? String,
+                    autoRelock: json["auto_relock"] as? Bool ?? true,
+                    hasPendingRequest: json["has_pending_request"] as? Bool ?? false,
+                    selfUnlockAvailableAt: json["self_unlock_available_at"] as? String
                 )
             }
         } catch {

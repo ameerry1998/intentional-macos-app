@@ -29,6 +29,16 @@ class SocketRelayServer {
         return count
     }
 
+    /// Get bundle IDs of browsers that currently have active socket connections.
+    /// Used by BrowserMonitor to treat connected browsers as protected — a live socket
+    /// connection is definitive proof the extension is installed and running.
+    func getConnectedBrowserBundleIds() -> Set<String> {
+        connectionsLock.lock()
+        let ids = Set(activeConnections.values.compactMap { $0.detectedBrowserBundleId })
+        connectionsLock.unlock()
+        return ids
+    }
+
     let socketPath: String
 
     init(appDelegate: AppDelegate?) {
@@ -156,7 +166,7 @@ class SocketRelayServer {
             let connLabel = "relay-\(connectionCounter)"
 
             // Detect browser BEFORE dispatching to main queue (sysctl is safe off-main)
-            let detectedBrowser = self.detectBrowser(forSocketFd: clientFd)
+            let detectedBrowserInfo = self.detectBrowser(forSocketFd: clientFd)
 
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else {
@@ -164,24 +174,27 @@ class SocketRelayServer {
                     return
                 }
 
-                let browserLabel = detectedBrowser ?? "unknown browser"
+                let browserLabel = detectedBrowserInfo?.name ?? "unknown browser"
                 self.appDelegate?.postLog("🔌 Socket relay: New connection (\(connLabel), fd: \(clientFd), browser: \(browserLabel))")
-
-                // A new extension just connected — immediately re-scan to update protection status
-                // This eliminates the delay between enabling an extension and the app recognizing it
-                NativeMessagingSetup.shared.autoDiscoverExtensions()
-                self.appDelegate?.browserMonitor?.recheckBrowserProtection()
 
                 // Create a NativeMessagingHost for this socket connection
                 let handler = NativeMessagingHost(appDelegate: self.appDelegate, label: connLabel)
                 handler.timeTracker = self.appDelegate?.timeTracker
-                handler.detectedBrowser = detectedBrowser
+                handler.detectedBrowser = detectedBrowserInfo?.name
+                handler.detectedBrowserBundleId = detectedBrowserInfo?.bundleId
 
+                // Register handler BEFORE rechecking protection, so that
+                // getConnectedBrowserBundleIds() includes this new connection
                 self.connectionsLock.lock()
                 self.activeConnections[clientFd] = handler
                 self.connectionsLock.unlock()
 
                 handler.startWithFileDescriptor(clientFd)
+
+                // Now recheck protection status — this browser will be treated as
+                // protected because it has an active socket connection
+                NativeMessagingSetup.shared.autoDiscoverExtensions()
+                self.appDelegate?.browserMonitor?.recheckBrowserProtection()
 
                 // Monitor for disconnection in background
                 DispatchQueue.global(qos: .utility).async { [weak self, weak handler] in
@@ -194,6 +207,8 @@ class SocketRelayServer {
                     self?.connectionsLock.unlock()
                     DispatchQueue.main.async {
                         self?.appDelegate?.postLog("🔌 Socket relay: Disconnected (\(connLabel))")
+                        // Recheck protection — this browser may now be unprotected
+                        self?.appDelegate?.browserMonitor?.recheckBrowserProtection()
                     }
                 }
             }
@@ -204,8 +219,8 @@ class SocketRelayServer {
     ///
     /// Process tree: Browser → relay process → socket connection
     /// We use LOCAL_PEERPID to get the relay PID, then sysctl to get its parent PID (the browser),
-    /// then NSRunningApplication to get the human-readable app name.
-    private func detectBrowser(forSocketFd fd: Int32) -> String? {
+    /// then NSRunningApplication to get the human-readable app name and bundle ID.
+    private func detectBrowser(forSocketFd fd: Int32) -> (name: String, bundleId: String?)? {
         // Step 1: Get the PID of the relay process on the other end of the socket
         var peerPid: pid_t = 0
         var pidSize = socklen_t(MemoryLayout<pid_t>.size)
@@ -226,7 +241,7 @@ class SocketRelayServer {
         if let app = NSRunningApplication(processIdentifier: parentPid) {
             let name = app.localizedName ?? app.bundleIdentifier ?? "PID \(parentPid)"
             appDelegate?.postLog("🔍 Browser detected: \(name) (relay PID: \(peerPid), browser PID: \(parentPid))")
-            return name
+            return (name: name, bundleId: app.bundleIdentifier)
         }
 
         // Fallback: walk further up the tree (some browsers have helper processes in between)
@@ -234,7 +249,7 @@ class SocketRelayServer {
         if grandparentPid > 0, let app = NSRunningApplication(processIdentifier: grandparentPid) {
             let name = app.localizedName ?? app.bundleIdentifier ?? "PID \(grandparentPid)"
             appDelegate?.postLog("🔍 Browser detected (grandparent): \(name) (relay PID: \(peerPid), parent: \(parentPid), browser PID: \(grandparentPid))")
-            return name
+            return (name: name, bundleId: app.bundleIdentifier)
         }
 
         appDelegate?.postLog("Socket relay: Could not identify browser for relay PID \(peerPid) (parent: \(parentPid))")

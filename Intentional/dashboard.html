@@ -484,96 +484,129 @@ body {
 
 /* ===== Lock / Accountability ===== */
 .lock-container {
-  text-align: center;
-  padding: 40px 20px;
+  padding: 0;
 }
 
-.lock-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
+/* Lock mode radio selector */
+.lock-mode-option {
+  display: flex;
+  align-items: center;
+  padding: 14px 20px;
+  gap: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
 }
 
-.lock-title {
-  font-size: 22px;
-  font-weight: 700;
-  margin-bottom: 12px;
+.lock-mode-option + .lock-mode-option {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.lock-desc {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.5);
-  line-height: 1.6;
-  margin-bottom: 16px;
-  max-width: 400px;
-  margin-left: auto;
-  margin-right: auto;
+.lock-mode-option:hover {
+  background: rgba(255, 255, 255, 0.03);
 }
 
-.lock-input-row {
-  margin-bottom: 12px;
-  max-width: 360px;
-  margin-left: auto;
-  margin-right: auto;
+.lock-mode-option.selected {
+  background: rgba(99, 102, 241, 0.06);
 }
 
-.lock-input {
-  width: 100%;
-  padding: 12px 16px;
+.lock-mode-radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+  position: relative;
+  transition: border-color 0.15s;
+}
+
+.lock-mode-option.selected .lock-mode-radio {
+  border-color: #6366f1;
+}
+
+.lock-mode-option.selected .lock-mode-radio::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6366f1;
+}
+
+/* Status badges */
+.status-badge {
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-badge::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-badge.locked { color: #ef4444; }
+.status-badge.locked::before { background: #ef4444; }
+.status-badge.unlocked { color: #34d399; }
+.status-badge.unlocked::before { background: #34d399; }
+.status-badge.pending { color: #f59e0b; }
+.status-badge.pending::before { background: #f59e0b; }
+.status-badge.declined { color: #ef4444; }
+.status-badge.declined::before { background: #ef4444; }
+.status-badge.expired { color: #f59e0b; }
+.status-badge.expired::before { background: #f59e0b; }
+.status-badge.confirmed { color: #34d399; }
+.status-badge.confirmed::before { background: #34d399; }
+
+/* Setting input (inline in setting-row) */
+.setting-input {
+  flex: 1;
+  padding: 8px 12px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
+  border-radius: 8px;
   color: #ffffff;
   font-size: 14px;
   outline: none;
-  transition: border-color 0.2s;
+  font-family: inherit;
+  min-width: 0;
 }
 
-.lock-input:focus {
+.setting-input:focus {
   border-color: #6366f1;
 }
 
-.lock-input::placeholder {
+.setting-input::placeholder {
   color: rgba(255, 255, 255, 0.3);
 }
 
-.lock-mode-buttons {
+/* Full-width button rows */
+.lock-btn-row {
   display: flex;
   gap: 10px;
-  justify-content: center;
-  margin: 20px 0;
+  margin-top: 16px;
 }
 
-.lock-mode-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 16px 24px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  color: rgba(255, 255, 255, 0.6);
+.lock-btn-row .btn-primary,
+.lock-btn-row .btn-secondary,
+.lock-btn-row .btn-danger {
+  flex: 1;
+  text-align: center;
+  margin-top: 0;
+}
+
+/* Helper text between cards */
+.lock-helper-text {
   font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  min-width: 100px;
-}
-
-.lock-mode-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-}
-
-.lock-mode-btn.active {
-  background: rgba(99, 102, 241, 0.15);
-  border-color: #6366f1;
-  color: #ffffff;
-}
-
-.lock-mode-icon {
-  font-size: 24px;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 12px 4px;
+  line-height: 1.5;
 }
 
 /* Unlock code input */
@@ -1257,6 +1290,24 @@ function escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// ===== Button Loading States =====
+function setButtonLoading(btnId, loadingText) {
+  var btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn._originalText = btn.textContent;
+  btn.textContent = loadingText || 'Loading...';
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
+}
+
+function clearButtonLoading(btnId) {
+  var btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.textContent = btn._originalText || btn.textContent;
+  btn.disabled = false;
+  btn.style.opacity = '';
+}
+
 // ===== Setting Change Handler (debounced save) =====
 function onSettingChange() {
   clearTimeout(settingSaveTimer);
@@ -1388,23 +1439,32 @@ function getLockState() {
   // Check if we're waiting for unlock code entry
   if (mode !== 'none' && settings.unlockRequested) return 'unlock_code_entry';
 
-  if (mode !== 'none') return 'locked';
-  if (!hasPartner) return 'setup';
+  // Consent states take priority over "locked" — if partner hasn't confirmed yet,
+  // showing "locked" is wrong. Only show locked when consent is confirmed (or for self mode).
+  if (hasPartner && consent === 'pending') return 'pending';
+  if (hasPartner && consent === 'declined') return 'declined';
+  if (hasPartner && consent === 'expired') return 'expired';
 
-  if (consent === 'confirmed') return 'confirmed';
-  if (consent === 'pending') return 'pending';
-  if (consent === 'declined') return 'declined';
-  if (consent === 'expired') return 'expired';
+  // Now check actual lock state
+  if (mode !== 'none') return 'locked';
+
+  // Partner confirmed but no lock mode chosen yet
+  if (hasPartner && consent === 'confirmed') return 'confirmed';
 
   return 'setup';
 }
 
 var selectedLockMode = 'none';
 
-function selectLockMode(mode, btn) {
+function selectLockMode(mode) {
   selectedLockMode = mode;
-  document.querySelectorAll('.lock-mode-btn').forEach(function(b) { b.classList.remove('active'); });
-  btn.classList.add('active');
+  document.querySelectorAll('.lock-mode-option').forEach(function(opt) {
+    opt.classList.toggle('selected', opt.getAttribute('data-mode') === mode);
+  });
+  var partnerCard = document.getElementById('partner-fields-card');
+  if (partnerCard) {
+    partnerCard.style.display = (mode === 'none') ? 'none' : '';
+  }
 }
 
 var countdownInterval = null;
@@ -1425,12 +1485,20 @@ function renderLockState() {
   switch (state) {
     case 'pending':
       el.innerHTML =
-        '<div class="lock-icon">⏳</div>' +
-        '<div class="lock-title">Waiting for Partner</div>' +
-        '<div class="lock-desc">Invitation sent to ' + partnerDisplay + '</div>' +
-        '<div class="lock-desc">Your partner needs to accept the invitation email before lock mode can be activated.</div>' +
-        '<div style="display: flex; gap: 10px; justify-content: center;">' +
-          '<button class="btn-primary" onclick="resendInvite()">Resend Invitation</button>' +
+        '<div class="settings-card">' +
+          '<div class="settings-card-title">Partner Invitation</div>' +
+          '<div class="setting-row">' +
+            '<div class="setting-label">Status</div>' +
+            '<span class="status-badge pending">Pending</span>' +
+          '</div>' +
+          '<div class="setting-row">' +
+            '<div class="setting-label">Sent to</div>' +
+            '<span class="setting-value">' + partnerDisplay + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="lock-helper-text">Your partner needs to click the confirmation link in their email before lock mode can be activated.</div>' +
+        '<div class="lock-btn-row">' +
+          '<button class="btn-primary" id="resend-invite-btn" onclick="resendInvite()">Resend Invitation</button>' +
           '<button class="btn-secondary" onclick="changePartner()">Change Partner</button>' +
         '</div>';
       startConsentPolling();
@@ -1438,17 +1506,25 @@ function renderLockState() {
 
     case 'confirmed':
       el.innerHTML =
-        '<div class="lock-icon">✅</div>' +
-        '<div class="lock-title">Partner Confirmed!</div>' +
-        '<div class="lock-desc">' + partnerDisplay + ' accepted your invitation.</div>' +
-        '<div class="lock-desc">Choose a lock mode to protect your settings:</div>' +
-        '<div class="lock-mode-buttons">' +
-          '<button class="lock-mode-btn" onclick="enableLockMode(\'partner\')">' +
-            '<span class="lock-mode-icon">🔐</span>Partner Lock' +
-          '</button>' +
-          '<button class="lock-mode-btn" onclick="enableLockMode(\'self\')">' +
-            '<span class="lock-mode-icon">⏰</span>24-Hour Delay' +
-          '</button>' +
+        '<div class="settings-card">' +
+          '<div class="settings-card-title">Partner Status</div>' +
+          '<div class="setting-row">' +
+            '<div class="setting-label">Status</div>' +
+            '<span class="status-badge confirmed">Confirmed</span>' +
+          '</div>' +
+          '<div class="setting-row">' +
+            '<div class="setting-label">Partner</div>' +
+            '<span class="setting-value">' + partnerDisplay + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="lock-helper-text">Your partner is ready. Choose how to lock your settings:</div>' +
+        '<div class="lock-btn-row">' +
+          '<button class="btn-primary" id="enable-partner-btn" onclick="enableLockMode(\'partner\')">Enable Partner Lock</button>' +
+          '<button class="btn-secondary" id="enable-self-btn" onclick="enableLockMode(\'self\')">Enable 24-Hour Delay</button>' +
+        '</div>' +
+        '<div class="lock-btn-row" style="margin-top:8px;">' +
+          '<button class="btn-secondary" onclick="changePartner()">Change Partner</button>' +
+          '<button class="btn-danger" id="remove-partner-btn" onclick="removePartner()">Remove Partner</button>' +
         '</div>';
       stopConsentPolling();
       break;
@@ -1457,17 +1533,30 @@ function renderLockState() {
       var mode = settings.lockMode || 'partner';
       var modeLabel = mode === 'partner' ? 'Partner Lock' : '24-Hour Delay';
       el.innerHTML =
-        '<div class="lock-icon">🔐</div>' +
-        '<div class="lock-title">Settings Locked — ' + modeLabel + '</div>' +
-        '<div class="lock-desc">Partner: ' + partnerDisplay + '</div>' +
-        '<div class="lock-desc" style="text-align: left; max-width: 360px;">' +
-          'When locked, you cannot:<br>' +
-          '&bull; Disable platform filtering<br>' +
-          '&bull; Lower relevance thresholds<br>' +
-          '&bull; Turn off Shorts/Reels blocking<br>' +
-          '&bull; Remove blocked categories' +
+        '<div class="settings-card">' +
+          '<div class="settings-card-title">Lock Status</div>' +
+          '<div class="setting-row">' +
+            '<div class="setting-label">Status</div>' +
+            '<span class="status-badge locked">Locked</span>' +
+          '</div>' +
+          '<div class="setting-row">' +
+            '<div class="setting-label">Mode</div>' +
+            '<span class="setting-value">' + modeLabel + '</span>' +
+          '</div>' +
+          (partnerDisplay ?
+          '<div class="setting-row">' +
+            '<div class="setting-label">Partner</div>' +
+            '<span class="setting-value">' + partnerDisplay + '</span>' +
+          '</div>' : '') +
         '</div>' +
-        '<button class="btn-primary" onclick="requestUnlock()">Request Unlock Code</button>';
+        '<div class="settings-card">' +
+          '<div class="settings-card-title">Protected Settings</div>' +
+          '<div class="setting-row"><div class="setting-label">Platform toggles (YouTube, Instagram, Facebook)</div></div>' +
+          '<div class="setting-row"><div class="setting-label">Relevance thresholds</div></div>' +
+          '<div class="setting-row"><div class="setting-label">Content blocking (Shorts, Reels, Watch)</div></div>' +
+          '<div class="setting-row"><div class="setting-label">Blocked categories</div></div>' +
+        '</div>' +
+        '<button class="btn-primary" id="request-unlock-btn" onclick="requestUnlock()" style="width:100%;margin-top:16px;">Request Unlock Code</button>';
       stopConsentPolling();
       break;
 
@@ -1477,17 +1566,17 @@ function renderLockState() {
         ? 'A 6-digit code has been sent to your partner. Enter it below to temporarily unlock settings.'
         : 'Enter the 6-digit code you received to temporarily unlock settings.';
       el.innerHTML =
-        '<div class="lock-icon">🔑</div>' +
-        '<div class="lock-title">Enter Unlock Code</div>' +
-        '<div class="lock-desc">' + codeMsg + '</div>' +
-        '<div style="margin: 24px 0;">' +
-          '<input type="text" class="unlock-code-input" id="unlock-code" maxlength="6" placeholder="000000" oninput="onCodeInput(this)">' +
+        '<div class="settings-card">' +
+          '<div class="settings-card-title">Enter Unlock Code</div>' +
+          '<div style="padding:24px 20px;text-align:center;">' +
+            '<div class="lock-helper-text" style="padding:0;margin-bottom:20px;">' + codeMsg + '</div>' +
+            '<input type="text" class="unlock-code-input" id="unlock-code" maxlength="6" placeholder="000000" oninput="onCodeInput(this)">' +
+          '</div>' +
         '</div>' +
-        '<button class="btn-primary" id="verify-code-btn" onclick="verifyUnlockCode()" disabled>Verify Code</button>' +
-        '<div style="margin-top: 16px;">' +
+        '<div class="lock-btn-row">' +
+          '<button class="btn-primary" id="verify-code-btn" onclick="verifyUnlockCode()" disabled>Verify Code</button>' +
           '<button class="btn-secondary" onclick="cancelUnlock()">Cancel</button>' +
         '</div>';
-      // Focus the input
       setTimeout(function() {
         var inp = document.getElementById('unlock-code');
         if (inp) inp.focus();
@@ -1498,13 +1587,16 @@ function renderLockState() {
     case 'self_countdown':
       var availAt = new Date(settings.selfUnlockAvailableAt).getTime();
       el.innerHTML =
-        '<div class="lock-icon">⏰</div>' +
-        '<div class="lock-title">24-Hour Cooling Period</div>' +
-        '<div class="lock-desc">You requested an unlock. To prevent impulsive changes, there is a 24-hour waiting period.</div>' +
-        '<div class="countdown-display" id="countdown-timer">--:--:--</div>' +
-        '<div class="lock-desc">The unlock code will be sent to your email when the countdown reaches zero.</div>' +
-        '<button class="btn-secondary" onclick="cancelUnlock()">Cancel Request</button>';
-      // Start countdown
+        '<div class="settings-card">' +
+          '<div class="settings-card-title">Unlock Request</div>' +
+          '<div style="text-align:center;padding:24px 20px;">' +
+            '<div style="font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:8px;">Time remaining</div>' +
+            '<div class="countdown-display" id="countdown-timer" style="margin:12px 0;">--:--:--</div>' +
+            '<div class="unlock-timer-bar"><div class="unlock-timer-fill" id="countdown-bar" style="width:100%;background:#f59e0b;"></div></div>' +
+            '<div class="lock-helper-text" style="padding:0;margin-top:12px;">The unlock code will be sent to your email when the countdown reaches zero.</div>' +
+          '</div>' +
+        '</div>' +
+        '<button class="btn-secondary" onclick="cancelUnlock()" style="width:100%;margin-top:16px;">Cancel Request</button>';
       updateCountdown(availAt);
       countdownInterval = setInterval(function() {
         updateCountdown(availAt);
@@ -1514,24 +1606,40 @@ function renderLockState() {
 
     case 'unlocked':
       el.innerHTML =
-        '<div class="lock-icon">🔓</div>' +
-        '<div class="lock-title">Settings Unlocked</div>' +
-        '<div class="lock-desc">Make your changes, then re-lock when you\'re done.</div>' +
-        '<button class="btn-primary" onclick="relockSettings()" style="margin-top: 16px;">Re-lock Settings</button>';
+        '<div class="settings-card">' +
+          '<div class="settings-card-title">Lock Status</div>' +
+          '<div class="setting-row">' +
+            '<div class="setting-label">Status</div>' +
+            '<span class="status-badge unlocked">Unlocked</span>' +
+          '</div>' +
+          (partnerDisplay ?
+          '<div class="setting-row">' +
+            '<div class="setting-label">Partner</div>' +
+            '<span class="setting-value">' + partnerDisplay + '</span>' +
+          '</div>' : '') +
+        '</div>' +
+        '<div class="lock-helper-text">Settings are unlocked. Make your changes, then re-lock when done.</div>' +
+        '<button class="btn-primary" onclick="relockSettings()" style="width:100%;">Re-lock Settings</button>' +
+        '<div class="lock-btn-row" style="margin-top:8px;">' +
+          '<button class="btn-secondary" onclick="changePartner()">Change Partner</button>' +
+          '<button class="btn-danger" id="remove-partner-btn" onclick="removePartner()">Remove Partner</button>' +
+        '</div>';
       stopConsentPolling();
       break;
 
     case 'temporarily_unlocked':
       var unlockEnd = new Date(settings.temporaryUnlockUntil).getTime();
-      var totalMs = 5 * 60 * 1000; // 5 min unlock window
+      var totalMs = 5 * 60 * 1000;
       el.innerHTML =
-        '<div class="lock-icon">🔓</div>' +
-        '<div class="lock-title">Temporarily Unlocked</div>' +
-        '<div class="lock-desc">Settings are temporarily unlocked. Make your changes now.</div>' +
-        '<div class="countdown-display" id="unlock-countdown" style="color: #34d399;">--:--</div>' +
-        '<div class="unlock-timer-bar"><div class="unlock-timer-fill" id="unlock-bar"></div></div>' +
-        '<div class="lock-desc">Lock will re-engage when the timer runs out.</div>';
-      // Start unlock countdown
+        '<div class="settings-card">' +
+          '<div class="settings-card-title">Temporary Unlock</div>' +
+          '<div style="text-align:center;padding:24px 20px;">' +
+            '<div style="font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:8px;">Time remaining</div>' +
+            '<div class="countdown-display" id="unlock-countdown" style="color:#34d399;margin:12px 0;">--:--</div>' +
+            '<div class="unlock-timer-bar"><div class="unlock-timer-fill" id="unlock-bar"></div></div>' +
+            '<div class="lock-helper-text" style="padding:0;margin-top:12px;">Make your changes now. Lock re-engages when timer expires.</div>' +
+          '</div>' +
+        '</div>';
       updateUnlockCountdown(unlockEnd, totalMs);
       countdownInterval = setInterval(function() {
         updateUnlockCountdown(unlockEnd, totalMs);
@@ -1541,66 +1649,96 @@ function renderLockState() {
 
     case 'declined':
       el.innerHTML =
-        '<div class="lock-icon">❌</div>' +
-        '<div class="lock-title">Partner Declined</div>' +
-        '<div class="lock-desc">' + email + ' declined the accountability partnership.</div>' +
-        '<div class="lock-desc">You can try a different partner:</div>' +
-        '<div class="lock-input-row">' +
-          '<input class="lock-input" id="lock-partner-name" placeholder="Partner name (optional)">' +
+        '<div class="settings-card">' +
+          '<div class="settings-card-title">Partner Invitation</div>' +
+          '<div class="setting-row">' +
+            '<div class="setting-label">Status</div>' +
+            '<span class="status-badge declined">Declined</span>' +
+          '</div>' +
+          '<div class="setting-row">' +
+            '<div class="setting-label">Partner</div>' +
+            '<span class="setting-value">' + partnerDisplay + '</span>' +
+          '</div>' +
         '</div>' +
-        '<div class="lock-input-row">' +
-          '<input class="lock-input" id="lock-partner-email" placeholder="Partner email" type="email">' +
+        '<div class="lock-helper-text">' + (name || email) + ' declined the accountability request. You can try a different partner.</div>' +
+        '<div class="settings-card">' +
+          '<div class="settings-card-title">New Partner</div>' +
+          '<div class="setting-row">' +
+            '<div class="setting-label" style="min-width:50px;">Name</div>' +
+            '<input class="setting-input" id="lock-partner-name" placeholder="Optional">' +
+          '</div>' +
+          '<div class="setting-row">' +
+            '<div class="setting-label" style="min-width:50px;">Email</div>' +
+            '<input class="setting-input" id="lock-partner-email" placeholder="partner@email.com" type="email">' +
+          '</div>' +
         '</div>' +
-        '<div class="lock-mode-buttons">' +
-          '<button class="lock-mode-btn" onclick="selectLockMode(\'partner\', this)">' +
-            '<span class="lock-mode-icon">🔐</span>Partner Lock' +
-          '</button>' +
-          '<button class="lock-mode-btn" onclick="selectLockMode(\'self\', this)">' +
-            '<span class="lock-mode-icon">⏰</span>24-Hour Delay' +
-          '</button>' +
-          '<button class="lock-mode-btn active" onclick="selectLockMode(\'none\', this)">' +
-            '<span class="lock-mode-icon">🔓</span>Unlocked' +
-          '</button>' +
-        '</div>' +
-        '<button class="btn-primary" onclick="saveLockSettings()">Save Lock Settings</button>';
+        '<button class="btn-primary" id="save-lock-btn" onclick="saveLockSettings()" style="width:100%;margin-top:16px;">Save Lock Settings</button>';
       stopConsentPolling();
       break;
 
     case 'expired':
       el.innerHTML =
-        '<div class="lock-icon">⚠️</div>' +
-        '<div class="lock-title">Invitation Expired</div>' +
-        '<div class="lock-desc">The invitation to ' + partnerDisplay + ' expired after 7 days.</div>' +
-        '<div style="display: flex; gap: 10px; justify-content: center;">' +
-          '<button class="btn-primary" onclick="resendInvite()">Resend Invitation</button>' +
+        '<div class="settings-card">' +
+          '<div class="settings-card-title">Partner Invitation</div>' +
+          '<div class="setting-row">' +
+            '<div class="setting-label">Status</div>' +
+            '<span class="status-badge expired">Expired</span>' +
+          '</div>' +
+          '<div class="setting-row">' +
+            '<div class="setting-label">Sent to</div>' +
+            '<span class="setting-value">' + partnerDisplay + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="lock-helper-text">The invitation expired after 7 days without a response.</div>' +
+        '<div class="lock-btn-row">' +
+          '<button class="btn-primary" id="resend-invite-btn" onclick="resendInvite()">Resend Invitation</button>' +
           '<button class="btn-secondary" onclick="changePartner()">Change Partner</button>' +
         '</div>';
       stopConsentPolling();
       break;
 
     default: // 'setup'
+      var noneSelected = selectedLockMode === 'none' || !selectedLockMode ? ' selected' : '';
+      var partnerSelected = selectedLockMode === 'partner' ? ' selected' : '';
+      var selfSelected = selectedLockMode === 'self' ? ' selected' : '';
+      var showPartner = (selectedLockMode && selectedLockMode !== 'none') ? '' : ' style="display:none"';
       el.innerHTML =
-        '<div class="lock-icon">🔓</div>' +
-        '<div class="lock-title">Settings are unlocked</div>' +
-        '<div class="lock-desc">Anyone can change settings freely. Add an accountability partner to lock things down.</div>' +
-        '<div class="lock-input-row">' +
-          '<input class="lock-input" id="lock-partner-name" placeholder="Partner name (optional)" value="' + name + '">' +
+        '<div class="settings-card">' +
+          '<div class="settings-card-title">Lock Mode</div>' +
+          '<div class="lock-mode-option' + noneSelected + '" data-mode="none" onclick="selectLockMode(\'none\')">' +
+            '<div class="lock-mode-radio"></div>' +
+            '<div>' +
+              '<div class="setting-label">Unlocked</div>' +
+              '<div class="setting-desc">Anyone can change settings freely</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="lock-mode-option' + partnerSelected + '" data-mode="partner" onclick="selectLockMode(\'partner\')">' +
+            '<div class="lock-mode-radio"></div>' +
+            '<div>' +
+              '<div class="setting-label">Partner Lock</div>' +
+              '<div class="setting-desc">Partner receives unlock codes via email</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="lock-mode-option' + selfSelected + '" data-mode="self" onclick="selectLockMode(\'self\')">' +
+            '<div class="lock-mode-radio"></div>' +
+            '<div>' +
+              '<div class="setting-label">24-Hour Delay</div>' +
+              '<div class="setting-desc">24-hour cooling period before settings can change</div>' +
+            '</div>' +
+          '</div>' +
         '</div>' +
-        '<div class="lock-input-row">' +
-          '<input class="lock-input" id="lock-partner-email" placeholder="Partner email" type="email" value="' + email + '">' +
+        '<div class="settings-card" id="partner-fields-card"' + showPartner + '>' +
+          '<div class="settings-card-title">Accountability Partner</div>' +
+          '<div class="setting-row">' +
+            '<div class="setting-label" style="min-width:50px;">Name</div>' +
+            '<input class="setting-input" id="lock-partner-name" placeholder="Optional" value="' + name + '">' +
+          '</div>' +
+          '<div class="setting-row">' +
+            '<div class="setting-label" style="min-width:50px;">Email</div>' +
+            '<input class="setting-input" id="lock-partner-email" placeholder="partner@email.com" type="email" value="' + email + '">' +
+          '</div>' +
         '</div>' +
-        '<div class="lock-mode-buttons">' +
-          '<button class="lock-mode-btn" onclick="selectLockMode(\'partner\', this)">' +
-            '<span class="lock-mode-icon">🔐</span>Partner Lock' +
-          '</button>' +
-          '<button class="lock-mode-btn" onclick="selectLockMode(\'self\', this)">' +
-            '<span class="lock-mode-icon">⏰</span>24-Hour Delay' +
-          '</button>' +
-          '<button class="lock-mode-btn active" onclick="selectLockMode(\'none\', this)">' +
-            '<span class="lock-mode-icon">🔓</span>Unlocked' +
-          '</button>' +
-        '</div>' +
-        '<button class="btn-primary" onclick="saveLockSettings()">Save Lock Settings</button>';
+        '<button class="btn-primary" id="save-lock-btn" onclick="saveLockSettings()" style="width:100%;margin-top:16px;">Save Lock Settings</button>';
       stopConsentPolling();
   }
 
@@ -1673,6 +1811,12 @@ function updateCountdown(targetMs) {
   var mins = Math.floor((diff % 3600000) / 60000);
   var secs = Math.floor((diff % 60000) / 1000);
   el.textContent = pad(hours) + ':' + pad(mins) + ':' + pad(secs);
+  // Update progress bar
+  var bar = document.getElementById('countdown-bar');
+  if (bar) {
+    var totalMs = 24 * 3600000;
+    bar.style.width = Math.max(0, (diff / totalMs) * 100) + '%';
+  }
 }
 
 function updateUnlockCountdown(endMs, totalMs) {
@@ -1706,8 +1850,8 @@ function onCodeInput(el) {
 function verifyUnlockCode() {
   var code = (document.getElementById('unlock-code') || {}).value || '';
   if (code.length < 6) return;
+  setButtonLoading('verify-code-btn', 'Verifying...');
   sendMessage({ type: 'VERIFY_UNLOCK', code: code });
-  showToast('Verifying code...');
 }
 
 function cancelUnlock() {
@@ -1719,6 +1863,8 @@ function cancelUnlock() {
 function relockSettings() {
   settings.settingsUnlocked = false;
   settings.temporaryUnlockUntil = null;
+  settings.unlockRequested = false;
+  settings.selfUnlockAvailableAt = null;
   sendMessage({ type: 'RELOCK_SETTINGS' });
   showToast('Settings re-locked');
   renderLockState();
@@ -1734,6 +1880,7 @@ function saveLockSettings() {
     return;
   }
 
+  setButtonLoading('save-lock-btn', 'Saving...');
   settings.partnerEmail = email;
   settings.partnerName = name;
 
@@ -1743,36 +1890,48 @@ function saveLockSettings() {
     partnerEmail: email,
     partnerName: name
   });
-
-  showToast('Saving lock settings...');
 }
 
 function enableLockMode(mode) {
+  var btnId = mode === 'partner' ? 'enable-partner-btn' : 'enable-self-btn';
+  setButtonLoading(btnId, 'Enabling...');
   sendMessage({
     type: 'SAVE_LOCK_SETTINGS',
     lockMode: mode,
     partnerEmail: settings.partnerEmail,
     partnerName: settings.partnerName
   });
-  showToast('Enabling lock mode...');
+}
+
+function removePartner() {
+  if (!confirm('Remove your accountability partner? This will also disable the lock.')) return;
+  setButtonLoading('remove-partner-btn', 'Removing...');
+  sendMessage({ type: 'REMOVE_PARTNER' });
 }
 
 function resendInvite() {
+  setButtonLoading('resend-invite-btn', 'Sending...');
   sendMessage({ type: 'RESEND_PARTNER_INVITE' });
-  showToast('Resending invitation...');
 }
 
 function changePartner() {
   settings.partnerEmail = '';
   settings.partnerName = '';
   settings.consentStatus = 'none';
+  // Persist the clear to Swift so it survives app restart
+  sendMessage({
+    type: 'SAVE_LOCK_SETTINGS',
+    lockMode: settings.lockMode || 'none',
+    partnerEmail: '',
+    partnerName: ''
+  });
   stopConsentPolling();
   renderLockState();
 }
 
 function requestUnlock() {
+  setButtonLoading('request-unlock-btn', 'Requesting...');
   sendMessage({ type: 'REQUEST_UNLOCK' });
-  showToast('Requesting unlock code...');
 }
 
 function confirmReset() {
@@ -1850,6 +2009,7 @@ window._saveSettingsResult = function(data) {
 
 // Lock settings saved
 window._lockSettingsResult = function(data) {
+  clearButtonLoading('save-lock-btn');
   settings.lockMode = data.lockMode || 'none';
   if (data.consentStatus) settings.consentStatus = data.consentStatus;
   if (data.partnerEmail !== undefined) settings.partnerEmail = data.partnerEmail || '';
@@ -1889,8 +2049,27 @@ window._partnerStatusResult = function(data) {
   }
 };
 
+// Remove partner result
+window._removePartnerResult = function(data) {
+  if (data.success) {
+    settings.partnerEmail = '';
+    settings.partnerName = '';
+    settings.consentStatus = 'none';
+    settings.lockMode = 'none';
+    settings.temporaryUnlockUntil = null;
+    settings.selfUnlockAvailableAt = null;
+    settings.unlockRequested = false;
+    settings.settingsUnlocked = false;
+    showToast('Partner removed');
+  } else {
+    showToast('Failed to remove partner', 'error');
+  }
+  renderLockState();
+};
+
 // Resend invite result
 window._resendInviteResult = function(data) {
+  clearButtonLoading('resend-invite-btn');
   if (data.success) {
     showToast(data.message || 'Invitation resent!');
   } else {
@@ -1910,6 +2089,7 @@ window._unlockResult = function(data) {
     }
     renderLockState();
   } else {
+    clearButtonLoading('request-unlock-btn');
     showToast(data.message || 'Unlock request failed', 'error');
     if (data.message && data.message.indexOf('not locked') !== -1) {
       settings.lockMode = 'none';
@@ -1933,6 +2113,7 @@ window._verifyUnlockResult = function(data) {
     settings.selfUnlockAvailableAt = null;
     renderLockState();
   } else {
+    clearButtonLoading('verify-code-btn');
     showToast(data.message || 'Invalid code', 'error');
   }
 };

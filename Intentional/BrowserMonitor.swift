@@ -332,14 +332,17 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
     }
 
     /// Determine which browsers have the Intentional extension installed
-    /// Uses NativeMessagingSetup to check actual extension status
+    /// Uses NativeMessagingSetup file scan + active socket connections
     private func hasExtension(bundleId: String) -> Bool {
-        // Get browser statuses from NativeMessagingSetup
-        let browserStatuses = NativeMessagingSetup.shared.getBrowserStatus()
+        // An active socket relay connection is definitive proof
+        let connectedBundleIds = appDelegate?.socketRelayServer?.getConnectedBrowserBundleIds() ?? []
+        if connectedBundleIds.contains(bundleId) {
+            return true
+        }
 
-        // Find this browser in the status list
+        // Fall back to file-based scan
+        let browserStatuses = NativeMessagingSetup.shared.getBrowserStatus()
         if let status = browserStatuses.first(where: { $0.bundleId == bundleId }) {
-            // Browser has extension AND it's enabled
             return status.hasExtension && status.isEnabled
         }
 
@@ -349,10 +352,21 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
     private func checkForUnprotectedBrowsers(runningBrowsers: [String]) {
         let browserStatuses = NativeMessagingSetup.shared.getBrowserStatus()
 
+        // Get browsers with active socket relay connections — a live connection is
+        // definitive proof the extension is installed and running, even if the
+        // file-based scan hasn't detected it yet (e.g. right after install)
+        let connectedBundleIds = appDelegate?.socketRelayServer?.getConnectedBrowserBundleIds() ?? []
+
         let unprotectedBrowsers = runningBrowsers.filter { browserName in
             guard let bundleId = browsers.first(where: { $0.value.name == browserName })?.key else {
                 return true // Unknown browser, consider unprotected
             }
+
+            // If this browser has an active socket connection, it's protected
+            if connectedBundleIds.contains(bundleId) {
+                return false
+            }
+
             if let status = browserStatuses.first(where: { $0.bundleId == bundleId }) {
                 return !status.hasExtension || !status.isEnabled
             }

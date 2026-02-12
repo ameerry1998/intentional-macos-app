@@ -26,6 +26,10 @@ class NativeMessagingHost {
     /// When set, overrides the extension's self-reported browser name in heartbeat logs.
     var detectedBrowser: String?
 
+    /// OS-detected browser bundle ID (set by SocketRelayServer via process tree lookup).
+    /// Used by BrowserMonitor to treat browsers with active socket connections as protected.
+    var detectedBrowserBundleId: String?
+
     init(appDelegate: AppDelegate?, label: String = "stdin") {
         self.appDelegate = appDelegate
         self.connectionLabel = label
@@ -215,6 +219,8 @@ class NativeMessagingHost {
             // Send current state immediately so extension has authoritative numbers on connect
             sendStateSync()
             sendSessionSync()
+            // Push onboarding settings so fresh extensions skip onboarding
+            sendOnboardingSync()
 
         case "SESSION_START":
             // Extension starting a session — sets canonical PlatformSession
@@ -421,6 +427,66 @@ class NativeMessagingHost {
     private func sendSessionSync() {
         guard let tracker = timeTracker else { return }
         sendMessage(tracker.getSessionSyncPayload())
+    }
+
+    /// Push saved onboarding settings so fresh extensions skip onboarding.
+    /// Reads from ~/Library/Application Support/Intentional/onboarding_settings.json
+    private func sendOnboardingSync() {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let settingsURL = appSupport.appendingPathComponent("Intentional/onboarding_settings.json")
+
+        guard FileManager.default.fileExists(atPath: settingsURL.path),
+              let data = try? Data(contentsOf: settingsURL),
+              let settings = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              settings["completedAt"] != nil else {
+            // No onboarding data saved yet — nothing to push
+            return
+        }
+
+        let platforms = settings["platforms"] as? [String: Any] ?? [:]
+        let ytSettings = platforms["youtube"] as? [String: Any] ?? [:]
+        let igSettings = platforms["instagram"] as? [String: Any] ?? [:]
+        let fbSettings = platforms["facebook"] as? [String: Any] ?? [:]
+
+        let message: [String: Any] = [
+            "type": "ONBOARDING_SYNC",
+            "platforms": platforms,
+            "dailyBudgetMinutes": ytSettings["budget"] as? Int ?? 30,
+            "maxPerPeriod": ytSettings["maxPerPeriod"] ?? [
+                "enabled": false,
+                "minutes": 20,
+                "periodHours": 1
+            ],
+            "blockedCategories": ytSettings["blockedCategories"] ?? [],
+            "partnerEmail": settings["partnerEmail"] ?? NSNull(),
+            "partnerName": settings["partnerName"] ?? NSNull(),
+            "lockMode": settings["lockMode"] ?? "none",
+            "settingsLocked": (settings["lockMode"] as? String ?? "none") != "none",
+            "youtube": [
+                "onboardingComplete": true,
+                "enabled": ytSettings["enabled"] ?? true,
+                "blockShorts": ytSettings["blockShorts"] ?? true,
+                "blockMode": ytSettings["blockMode"] ?? "hide"
+            ],
+            "instagram": [
+                "onboardingComplete": true,
+                "enabled": igSettings["enabled"] ?? true,
+                "blockReels": igSettings["blockReels"] ?? true,
+                "blockExplore": igSettings["blockExplore"] ?? true,
+                "nsfwFilter": igSettings["nsfwFilter"] ?? true
+            ],
+            "facebook": [
+                "onboardingComplete": true,
+                "enabled": fbSettings["enabled"] ?? true,
+                "blockWatch": fbSettings["blockWatch"] ?? true,
+                "blockReels": fbSettings["blockReels"] ?? true,
+                "blockMarketplace": fbSettings["blockMarketplace"] ?? false,
+                "hideAds": fbSettings["hideAds"] ?? true
+            ]
+        ]
+
+        sendMessage(message)
+        appDelegate?.postLog("🌐 ONBOARDING_SYNC sent to extension on connect")
     }
 
     /// Push authoritative time tracking state to the extension via STATE_SYNC.

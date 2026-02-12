@@ -9,7 +9,7 @@
 import Cocoa
 import WebKit
 
-class MainWindow: NSWindowController, WKScriptMessageHandler {
+class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
     private var webView: WKWebView!
     weak var appDelegate: AppDelegate?
@@ -47,6 +47,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
 
         // Dark background to match the web UI
         webView.setValue(false, forKey: "drawsBackground")
+        webView.uiDelegate = self
 
         window.contentView = webView
         window.title = "Intentional"
@@ -93,6 +94,24 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    // MARK: - WKUIDelegate (JS alert/confirm dialogs)
+
+    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+        let alert = NSAlert()
+        alert.messageText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+        completionHandler()
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+        let alert = NSAlert()
+        alert.messageText = message
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        completionHandler(alert.runModal() == .alertFirstButtonReturn)
+    }
+
     // MARK: - WKScriptMessageHandler
 
     func userContentController(
@@ -129,6 +148,12 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
 
         case "GET_PARTNER_STATUS":
             handleGetPartnerStatus()
+
+        case "RELOCK_SETTINGS":
+            handleRelockSettings()
+
+        case "REMOVE_PARTNER":
+            handleRemovePartner()
 
         case "RESEND_PARTNER_INVITE":
             handleResendPartnerInvite()
@@ -528,6 +553,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
         let consentStatus = (savedSettings["consentStatus"] as? String) ?? "none"
         let temporaryUnlockUntil = savedSettings["temporaryUnlockUntil"] as? String
         let selfUnlockAvailableAt = savedSettings["selfUnlockAvailableAt"] as? String
+        let unlockRequested = savedSettings["unlockRequested"] as? Bool ?? false
+        let autoRelockEnabled = savedSettings["autoRelockEnabled"] as? Bool ?? true
 
         var result: [String: Any] = [
             "youtube": ytResult,
@@ -539,7 +566,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
             "partnerName": partnerName,
             "consentStatus": consentStatus,
             "maxPerPeriod": maxPerPeriod,
-            "deviceId": deviceId
+            "deviceId": deviceId,
+            "unlockRequested": unlockRequested,
+            "autoRelockEnabled": autoRelockEnabled
         ]
         if let tuu = temporaryUnlockUntil { result["temporaryUnlockUntil"] = tuu }
         if let sua = selfUnlockAvailableAt { result["selfUnlockAvailableAt"] = sua }
@@ -710,22 +739,58 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
     // MARK: - Sync State from Backend
 
     func syncStateFromBackend(_ status: BackendClient.StatusResult) {
-        appDelegate?.postLog("🔄 Syncing state from backend: lockMode=\(status.lockMode), isLocked=\(status.isLocked)")
+        appDelegate?.postLog("🔄 Syncing state from backend: lockMode=\(status.lockMode), isLocked=\(status.isLocked), isTemporarilyUnlocked=\(status.isTemporarilyUnlocked)")
 
         // Update UserDefaults with authoritative backend state
         UserDefaults.standard.set(status.lockMode, forKey: "lockMode")
 
-        // Update settings file
+        // Update settings file with all backend state
         updateSettingsFile { settings in
             settings["lockMode"] = status.lockMode
             if let email = status.partnerEmail { settings["partnerEmail"] = email }
             if let consent = status.consentStatus { settings["consentStatus"] = consent }
+
+            // Persist unlock state so it survives app restart
+            if let tuu = status.temporaryUnlockUntil {
+                settings["temporaryUnlockUntil"] = tuu
+            } else if !status.isTemporarilyUnlocked {
+                settings["temporaryUnlockUntil"] = nil
+            }
+            settings["autoRelockEnabled"] = status.autoRelock
+
+            if status.hasPendingRequest {
+                settings["unlockRequested"] = true
+                if let sua = status.selfUnlockAvailableAt {
+                    settings["selfUnlockAvailableAt"] = sua
+                }
+            } else {
+                settings["unlockRequested"] = false
+                settings["selfUnlockAvailableAt"] = nil
+            }
         }
 
         // Push updated state to the dashboard JS
         let consent = status.consentStatus ?? "none"
-        let partner = (status.partnerEmail ?? "").replacingOccurrences(of: "'", with: "\\'")
-        callJS("if (window._settingsResult) { window._settingsResult({ lockMode: '\(status.lockMode)', consentStatus: '\(consent)', partnerEmail: '\(partner)' }); }")
+        var jsFields = "lockMode: '\(status.lockMode)', consentStatus: '\(consent)'"
+        // Only include partnerEmail if backend returned a non-empty value (avoid overwriting local data)
+        if let pe = status.partnerEmail, !pe.isEmpty {
+            let escaped = pe.replacingOccurrences(of: "'", with: "\\'")
+            jsFields += ", partnerEmail: '\(escaped)'"
+        }
+        if let tuu = status.temporaryUnlockUntil {
+            let escapedTuu = tuu.replacingOccurrences(of: "'", with: "\\'")
+            jsFields += ", temporaryUnlockUntil: '\(escapedTuu)'"
+        }
+        if status.hasPendingRequest {
+            jsFields += ", unlockRequested: true"
+            if let sua = status.selfUnlockAvailableAt {
+                jsFields += ", selfUnlockAvailableAt: '\(sua)'"
+            }
+        } else {
+            jsFields += ", unlockRequested: false"
+        }
+        jsFields += ", autoRelockEnabled: \(status.autoRelock ? "true" : "false")"
+        callJS("if (window._settingsResult) { window._settingsResult({ \(jsFields) }); }")
     }
 
     // MARK: - Save Lock Settings (Pessimistic)
@@ -801,6 +866,52 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
         }
     }
 
+    // MARK: - Remove Partner
+
+    private func handleRemovePartner() {
+        appDelegate?.postLog("🔒 REMOVE_PARTNER: removing partner from backend")
+
+        Task {
+            // 1. Call DELETE /partner on backend
+            let removed = await appDelegate?.backendClient?.removePartner() ?? false
+
+            // 2. Reset lock mode to none on backend
+            if removed {
+                await appDelegate?.backendClient?.setLockMode(mode: "none")
+            }
+
+            await MainActor.run {
+                // 3. Clear all partner/lock state from settings file
+                self.updateSettingsFile { settings in
+                    settings["lockMode"] = "none"
+                    settings["partnerEmail"] = ""
+                    settings["partnerName"] = ""
+                    settings["consentStatus"] = "none"
+                    settings["temporaryUnlockUntil"] = nil
+                    settings["selfUnlockAvailableAt"] = nil
+                    settings["unlockRequested"] = false
+                    settings["settingsUnlocked"] = false
+                }
+                UserDefaults.standard.set("none", forKey: "lockMode")
+
+                // 4. Report result to dashboard
+                let success = removed ? "true" : "false"
+                self.callJS("window._removePartnerResult && window._removePartnerResult({ success: \(success) })")
+
+                // 5. Broadcast to extensions
+                let lockSync: [String: Any] = [
+                    "type": "SETTINGS_SYNC",
+                    "lockMode": "none",
+                    "settingsLocked": false,
+                    "partnerEmail": "",
+                    "partnerName": ""
+                ]
+                self.appDelegate?.socketRelayServer?.broadcastToAll(lockSync)
+                self.appDelegate?.postLog("🔒 REMOVE_PARTNER: done, removed=\(removed)")
+            }
+        }
+    }
+
     // MARK: - Request Unlock
 
     private func handleRequestUnlock() {
@@ -815,9 +926,28 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
             let result = await backendClient.requestUnlock()
 
             await MainActor.run {
+                self.appDelegate?.postLog("🔓 REQUEST_UNLOCK: success=\(result.success), mode=\(result.mode ?? "nil"), message=\(result.message)")
+
+                if result.success {
+                    // Persist unlock request state so it survives app restart
+                    self.updateSettingsFile { settings in
+                        settings["unlockRequested"] = true
+                        if let sua = result.selfUnlockAvailableAt {
+                            settings["selfUnlockAvailableAt"] = sua
+                        }
+                    }
+                }
+
+                // Build JS response
                 let escaped = result.message.replacingOccurrences(of: "'", with: "\\'")
-                self.callJS("window._unlockResult && window._unlockResult({ success: \(result.success), message: '\(escaped)' })")
-                self.appDelegate?.postLog("🔓 REQUEST_UNLOCK: success=\(result.success), message=\(result.message)")
+                var jsResponse = "success: \(result.success), message: '\(escaped)'"
+                if let mode = result.mode {
+                    jsResponse += ", mode: '\(mode)'"
+                }
+                if let sua = result.selfUnlockAvailableAt {
+                    jsResponse += ", selfUnlockAvailableAt: '\(sua)'"
+                }
+                self.callJS("window._unlockResult && window._unlockResult({ \(jsResponse) })")
             }
         }
     }
@@ -829,16 +959,58 @@ class MainWindow: NSWindowController, WKScriptMessageHandler {
         let autoRelock = body["auto_relock"] as? Bool ?? false
 
         Task {
-            // TODO: Call backendClient.verifyUnlock(code:) when endpoint is available
-            // For now, respond with the code submission acknowledgment
-            await MainActor.run {
-                let escaped = code.replacingOccurrences(of: "'", with: "\\'")
-                self.appDelegate?.postLog("🔑 VERIFY_UNLOCK: code=\(escaped), auto_relock=\(autoRelock)")
-                if autoRelock {
-                    self.callJS("window._verifyUnlockResult && window._verifyUnlockResult({ success: true, auto_relock: true, unlockUntil: '\(ISO8601DateFormatter().string(from: Date().addingTimeInterval(300)))' })")
-                } else {
-                    self.callJS("window._verifyUnlockResult && window._verifyUnlockResult({ success: true, auto_relock: false })")
+            guard let result = await appDelegate?.backendClient?.verifyUnlock(code: code, autoRelock: autoRelock) else {
+                await MainActor.run {
+                    self.callJS("window._verifyUnlockResult && window._verifyUnlockResult({ success: false, message: 'Could not reach server' })")
                 }
+                return
+            }
+
+            await MainActor.run {
+                self.appDelegate?.postLog("🔑 VERIFY_UNLOCK: success=\(result.success), auto_relock=\(result.autoRelock), message=\(result.message)")
+
+                if result.success {
+                    // Persist unlock state to settings file so it survives app restart
+                    self.updateSettingsFile { settings in
+                        if let tuu = result.temporaryUnlockUntil {
+                            settings["temporaryUnlockUntil"] = tuu
+                        } else {
+                            // Permanent unlock: use far-future sentinel
+                            let farFuture = ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: 253402300800)) // year 9999
+                            settings["temporaryUnlockUntil"] = farFuture
+                        }
+                        settings["autoRelockEnabled"] = result.autoRelock
+                        settings["selfUnlockAvailableAt"] = nil
+                    }
+
+                    // Build JS response
+                    if result.autoRelock, let tuu = result.temporaryUnlockUntil {
+                        self.callJS("window._verifyUnlockResult && window._verifyUnlockResult({ success: true, auto_relock: true, unlockUntil: '\(tuu)' })")
+                    } else {
+                        self.callJS("window._verifyUnlockResult && window._verifyUnlockResult({ success: true, auto_relock: false })")
+                    }
+                } else {
+                    let escaped = result.message.replacingOccurrences(of: "'", with: "\\'")
+                    self.callJS("window._verifyUnlockResult && window._verifyUnlockResult({ success: false, message: '\(escaped)' })")
+                }
+            }
+        }
+    }
+
+    // MARK: - Relock Settings
+
+    private func handleRelockSettings() {
+        Task {
+            // Call backend to clear temporary unlock
+            let result = await appDelegate?.backendClient?.relockSettings()
+            await MainActor.run {
+                // Clear all unlock state from settings file
+                self.updateSettingsFile { settings in
+                    settings["temporaryUnlockUntil"] = nil
+                    settings["selfUnlockAvailableAt"] = nil
+                    settings["unlockRequested"] = false
+                }
+                self.appDelegate?.postLog("🔒 RELOCK_SETTINGS: backend=\(result?.success ?? false)")
             }
         }
     }
