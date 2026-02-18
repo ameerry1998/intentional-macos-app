@@ -1040,14 +1040,8 @@ body {
   <div class="sidebar-item" data-page="lock" onclick="navigateTo('lock')">
     <span class="sidebar-item-icon">🔒</span> Accountability
   </div>
-  <div class="sidebar-item" data-page="browsers" onclick="navigateTo('browsers')">
-    <span class="sidebar-item-icon">🌐</span> Browsers
-  </div>
-  <div class="sidebar-item" data-page="advanced" onclick="navigateTo('advanced')">
-    <span class="sidebar-item-icon">⚙️</span> Advanced
-  </div>
-  <div class="sidebar-item" data-page="account" onclick="navigateTo('account')">
-    <span class="sidebar-item-icon">👤</span> Account
+  <div class="sidebar-item" data-page="settings" onclick="navigateTo('settings')">
+    <span class="sidebar-item-icon">⚙️</span> Settings
   </div>
 </div>
 
@@ -1503,21 +1497,83 @@ body {
     </div>
   </div>
 
-  <!-- Page: Browsers -->
-  <div class="page" id="page-browsers">
-    <div class="section-title">Browsers</div>
-    <div class="browser-card" id="browser-card">
-      <div class="empty-state" id="browser-empty">
-        <div class="empty-state-icon">🌐</div>
-        <div class="empty-state-text">Loading browser status...</div>
+  <!-- Page: Settings (Account + Browsers + Time Limits + Device + Reset & Delete) -->
+  <div class="page" id="page-settings">
+    <div class="section-title">Settings</div>
+
+    <!-- Account Card -->
+    <div class="settings-card">
+      <div class="settings-card-title">Account</div>
+
+      <!-- Account: Loading -->
+      <div id="account-loading">
+        <p style="color: rgba(255,255,255,0.5); text-align: center; padding: 12px 0;">Checking...</p>
+      </div>
+
+      <!-- Account: Logged Out -->
+      <div id="account-logged-out" style="display: none;">
+        <p class="setting-desc" style="margin-bottom: 12px;">
+          Sign in to sync settings across devices and recover after reinstall.
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 0 20px 8px;">
+          <div>
+            <div class="setting-label" style="padding: 0 0 4px;">Email</div>
+            <input type="email" id="auth-email" class="setting-input" placeholder="you@example.com" style="width: 100%;">
+          </div>
+          <button class="btn-primary" id="auth-send-btn" onclick="authSendCode()">Send verification code</button>
+          <p id="auth-login-error" class="setting-desc" style="color: #ef4444; display: none;"></p>
+        </div>
+      </div>
+
+      <!-- Account: Code Entry -->
+      <div id="account-code-entry" style="display: none;">
+        <p class="setting-desc" style="margin-bottom: 12px;">
+          We sent a 6-digit code to <strong id="auth-code-email" style="color: #fff;"></strong>
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 0 20px 8px;">
+          <div>
+            <div class="setting-label" style="padding: 0 0 4px;">Code</div>
+            <input type="text" id="auth-code" class="setting-input" placeholder="000000" maxlength="6" style="width: 100%; letter-spacing: 4px; font-size: 18px;">
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <button class="btn-primary" id="auth-verify-btn" onclick="authVerifyCode()">Verify</button>
+            <a href="#" style="color: rgba(255,255,255,0.5); font-size: 13px; text-decoration: none;" onclick="authBackToEmail(); return false;">← Back</a>
+          </div>
+          <p id="auth-verify-error" class="setting-desc" style="color: #ef4444; display: none;"></p>
+        </div>
+      </div>
+
+      <!-- Account: Signed In -->
+      <div id="account-signed-in" style="display: none;">
+        <div class="info-row">
+          <span class="info-label">Email</span>
+          <span class="info-value" id="account-email">-</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Member since</span>
+          <span class="info-value" id="account-since">-</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Devices</span>
+          <span class="info-value" id="account-devices">-</span>
+        </div>
+        <div style="padding: 12px 20px 8px;">
+          <button class="btn-secondary" onclick="authSignOut()">Sign out</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Page: Advanced -->
-  <div class="page" id="page-advanced">
-    <div class="section-title">Advanced Settings</div>
+    <!-- Browsers Card -->
+    <div class="settings-card" style="padding: 0; overflow: hidden;">
+      <div class="settings-card-title" style="padding: 16px 20px 12px;">Browsers</div>
+      <div class="browser-card" id="browser-card" style="border: none; border-radius: 0;">
+        <div class="empty-state" id="browser-empty" style="padding: 20px;">
+          <div class="empty-state-text" style="font-size: 13px;">Loading browser status...</div>
+        </div>
+      </div>
+    </div>
 
+    <!-- Time Limits Card -->
     <div class="settings-card">
       <div class="settings-card-title">Time Limits</div>
       <div class="setting-row">
@@ -1548,119 +1604,41 @@ body {
       </div>
     </div>
 
+    <!-- Device Card -->
     <div class="settings-card">
-      <div class="settings-card-title">Device Info</div>
+      <div class="settings-card-title">Device</div>
       <div class="info-row">
         <span class="info-label">Device ID</span>
         <span class="info-value" id="adv-device-id">-</span>
       </div>
       <div class="info-row">
-        <span class="info-label">Backend URL</span>
+        <span class="info-label">Backend</span>
         <span class="info-value">api.intentional.social</span>
       </div>
       <div class="info-row">
-        <span class="info-label">App Version</span>
+        <span class="info-label">Version</span>
         <span class="info-value">1.0</span>
       </div>
     </div>
 
+    <!-- Reset & Delete Card -->
     <div class="settings-card">
-      <div class="settings-card-title">Danger Zone</div>
+      <div class="settings-card-title">Reset & Delete</div>
       <div class="setting-row">
         <div>
           <div class="setting-label">Reset all settings</div>
-          <div class="setting-desc">Clear all settings and return to onboarding</div>
+          <div class="setting-desc">Clear settings and return to onboarding</div>
         </div>
         <button class="btn-danger" onclick="confirmReset()">Reset</button>
       </div>
-    </div>
-  </div>
-
-  <!-- Page: Account -->
-  <div class="page" id="page-account">
-    <div class="section-title">Account</div>
-
-    <!-- Loading -->
-    <div id="account-loading">
-      <div class="settings-card">
-        <p style="color: rgba(255,255,255,0.5); text-align: center; padding: 20px 0;">Checking account status...</p>
+      <div class="setting-row" id="delete-account-row" style="display: none;">
+        <div>
+          <div class="setting-label">Delete account</div>
+          <div class="setting-desc">Permanently removes your account. Confirmation email required.</div>
+        </div>
+        <button class="btn-danger" id="auth-delete-btn" onclick="authDeleteAccount()">Delete</button>
       </div>
-    </div>
-
-    <!-- Logged Out -->
-    <div id="account-logged-out" style="display: none;">
-      <div class="settings-card">
-        <div class="settings-card-title">Sign in</div>
-        <p class="setting-desc" style="margin-bottom: 16px;">
-          Sync settings across devices and recover your account after reinstall.
-        </p>
-        <div style="display: flex; flex-direction: column; gap: 12px; padding: 0 20px 8px;">
-          <div>
-            <div class="setting-label" style="padding: 0 0 4px;">Email</div>
-            <input type="email" id="auth-email" class="setting-input" placeholder="you@example.com" style="width: 100%;">
-          </div>
-          <button class="btn-primary" id="auth-send-btn" onclick="authSendCode()">Send verification code</button>
-          <p id="auth-login-error" class="setting-desc" style="color: #ef4444; display: none;"></p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Code Entry -->
-    <div id="account-code-entry" style="display: none;">
-      <div class="settings-card">
-        <div class="settings-card-title">Check your email</div>
-        <p class="setting-desc" style="margin-bottom: 16px;">
-          We sent a 6-digit code to <strong id="auth-code-email" style="color: #fff;"></strong>
-        </p>
-        <div style="display: flex; flex-direction: column; gap: 12px; padding: 0 20px 8px;">
-          <div>
-            <div class="setting-label" style="padding: 0 0 4px;">Code</div>
-            <input type="text" id="auth-code" class="setting-input" placeholder="000000" maxlength="6" style="width: 100%; letter-spacing: 4px; font-size: 18px;">
-          </div>
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <button class="btn-primary" id="auth-verify-btn" onclick="authVerifyCode()">Verify</button>
-            <a href="#" style="color: rgba(255,255,255,0.5); font-size: 13px; text-decoration: none;" onclick="authBackToEmail(); return false;">← Back</a>
-          </div>
-          <p id="auth-verify-error" class="setting-desc" style="color: #ef4444; display: none;"></p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Signed In -->
-    <div id="account-signed-in" style="display: none;">
-      <div class="settings-card">
-        <div class="settings-card-title" style="display: flex; justify-content: space-between; align-items: center;">
-          Signed in
-          <span style="color: #34d399; font-size: 14px;">✓</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Email</span>
-          <span class="info-value" id="account-email">-</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Member since</span>
-          <span class="info-value" id="account-since">-</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Devices</span>
-          <span class="info-value" id="account-devices">-</span>
-        </div>
-        <div style="padding: 16px 20px 8px;">
-          <button class="btn-secondary" onclick="authSignOut()">Sign out</button>
-        </div>
-      </div>
-
-      <div class="settings-card" style="margin-top: 16px;">
-        <div class="settings-card-title" style="color: #ef4444;">Danger Zone</div>
-        <div class="setting-row">
-          <div>
-            <div class="setting-label">Delete account</div>
-            <div class="setting-desc">Permanently removes your account. We'll send a confirmation email.</div>
-          </div>
-          <button class="btn-danger" id="auth-delete-btn" onclick="authDeleteAccount()">Delete</button>
-        </div>
-        <p id="auth-delete-msg" class="setting-desc" style="display: none; padding: 0 20px 12px;"></p>
-      </div>
+      <p id="auth-delete-msg" class="setting-desc" style="display: none; padding: 0 20px 12px;"></p>
     </div>
   </div>
 
@@ -1724,9 +1702,10 @@ function navigateTo(pageId) {
     stopConsentPolling();
   }
 
-  // Load account state when viewing account page
-  if (pageId === 'account') {
+  // Load account + browser status when viewing settings page
+  if (pageId === 'settings') {
     loadAccountPage();
+    sendMessage({ type: 'GET_EXTENSION_STATUS' });
   }
 }
 
@@ -2941,8 +2920,12 @@ window._authStateResult = function(data) {
     document.getElementById('account-since').textContent = formatAccountDate(data.createdAt);
     document.getElementById('account-devices').textContent = data.deviceCount + ' linked';
     showAccountState('signed-in');
+    var delRow = document.getElementById('delete-account-row');
+    if (delRow) delRow.style.display = '';
   } else {
     showAccountState('logged-out');
+    var delRow = document.getElementById('delete-account-row');
+    if (delRow) delRow.style.display = 'none';
   }
 };
 
