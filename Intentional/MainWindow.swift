@@ -181,6 +181,21 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "NAVIGATE_TO_DASHBOARD":
             loadPage("dashboard")
 
+        case "GET_AUTH_STATE":
+            handleGetAuthState()
+
+        case "AUTH_LOGIN":
+            handleAuthLogin(body)
+
+        case "AUTH_VERIFY":
+            handleAuthVerify(body)
+
+        case "AUTH_LOGOUT":
+            handleAuthLogout()
+
+        case "AUTH_DELETE":
+            handleAuthDelete()
+
         default:
             appDelegate?.postLog("⚠️ WKWebView: Unknown message type: \(type)")
         }
@@ -1193,6 +1208,107 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         appDelegate?.postLog("🗑️ Full reset complete")
         loadCurrentPage()
+    }
+
+    // MARK: - Auth
+
+    private func handleGetAuthState() {
+        guard let backendClient = appDelegate?.backendClient else {
+            callJS("window._authStateResult && window._authStateResult({ loggedIn: false })")
+            return
+        }
+
+        if !backendClient.isLoggedIn {
+            callJS("window._authStateResult && window._authStateResult({ loggedIn: false })")
+            return
+        }
+
+        Task {
+            let result = await backendClient.authMe()
+            await MainActor.run {
+                if result.success, let data = result.data {
+                    let email = (data["email"] as? String ?? "").replacingOccurrences(of: "'", with: "\\'")
+                    let accountId = data["account_id"] as? String ?? ""
+                    let createdAt = data["created_at"] as? String ?? ""
+                    let devices = data["devices"] as? [Any] ?? []
+                    self.callJS("window._authStateResult && window._authStateResult({ loggedIn: true, email: '\(email)', accountId: '\(accountId)', createdAt: '\(createdAt)', deviceCount: \(devices.count) })")
+                } else {
+                    self.callJS("window._authStateResult && window._authStateResult({ loggedIn: false })")
+                }
+            }
+        }
+    }
+
+    private func handleAuthLogin(_ body: [String: Any]) {
+        guard let email = body["email"] as? String else {
+            callJS("window._authLoginResult && window._authLoginResult({ success: false, message: 'Email required' })")
+            return
+        }
+
+        Task {
+            guard let result = await appDelegate?.backendClient?.authLogin(email: email) else {
+                await MainActor.run {
+                    self.callJS("window._authLoginResult && window._authLoginResult({ success: false, message: 'Backend not available' })")
+                }
+                return
+            }
+            await MainActor.run {
+                let escaped = result.message.replacingOccurrences(of: "'", with: "\\'")
+                self.callJS("window._authLoginResult && window._authLoginResult({ success: \(result.success), message: '\(escaped)' })")
+            }
+        }
+    }
+
+    private func handleAuthVerify(_ body: [String: Any]) {
+        guard let email = body["email"] as? String,
+              let code = body["code"] as? String else {
+            callJS("window._authVerifyResult && window._authVerifyResult({ success: false, message: 'Email and code required' })")
+            return
+        }
+
+        Task {
+            guard let result = await appDelegate?.backendClient?.authVerify(email: email, code: code) else {
+                await MainActor.run {
+                    self.callJS("window._authVerifyResult && window._authVerifyResult({ success: false, message: 'Backend not available' })")
+                }
+                return
+            }
+            await MainActor.run {
+                if result.success, let data = result.data {
+                    let email = (data["email"] as? String ?? "").replacingOccurrences(of: "'", with: "\\'")
+                    let accountId = data["account_id"] as? String ?? ""
+                    let isNew = data["is_new_account"] as? Bool ?? false
+                    self.callJS("window._authVerifyResult && window._authVerifyResult({ success: true, email: '\(email)', accountId: '\(accountId)', isNewAccount: \(isNew) })")
+                } else {
+                    let escaped = result.message.replacingOccurrences(of: "'", with: "\\'")
+                    self.callJS("window._authVerifyResult && window._authVerifyResult({ success: false, message: '\(escaped)' })")
+                }
+            }
+        }
+    }
+
+    private func handleAuthLogout() {
+        Task {
+            _ = await appDelegate?.backendClient?.authLogout()
+            await MainActor.run {
+                self.callJS("window._authLogoutResult && window._authLogoutResult({ success: true })")
+            }
+        }
+    }
+
+    private func handleAuthDelete() {
+        Task {
+            guard let result = await appDelegate?.backendClient?.authDelete() else {
+                await MainActor.run {
+                    self.callJS("window._authDeleteResult && window._authDeleteResult({ success: false, message: 'Backend not available' })")
+                }
+                return
+            }
+            await MainActor.run {
+                let escaped = result.message.replacingOccurrences(of: "'", with: "\\'")
+                self.callJS("window._authDeleteResult && window._authDeleteResult({ success: \(result.success), message: '\(escaped)' })")
+            }
+        }
     }
 
     // MARK: - JS Helper

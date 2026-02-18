@@ -7,6 +7,7 @@
 
 import Foundation
 import Cocoa
+import Security
 
 class BackendClient {
 
@@ -450,5 +451,264 @@ class BackendClient {
                 appDelegate.postLog("❌ Registration error: \(error.localizedDescription)")
             }
         }
+    }
+
+    // MARK: - Keychain Helpers
+
+    private static let keychainService = "com.intentional.auth"
+
+    private func keychainSet(_ value: String, forKey key: String) {
+        guard let data = value.data(using: .utf8) else { return }
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.keychainService,
+            kSecAttrAccount as String: key
+        ]
+        SecItemDelete(query as CFDictionary)
+        var addQuery = query
+        addQuery[kSecValueData as String] = data
+        SecItemAdd(addQuery as CFDictionary, nil)
+    }
+
+    private func keychainGet(_ key: String) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.keychainService,
+            kSecAttrAccount as String: key,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess, let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    private func keychainDelete(_ key: String) {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.keychainService,
+            kSecAttrAccount as String: key
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+
+    func clearAuthTokens() {
+        keychainDelete("access_token")
+        keychainDelete("refresh_token")
+        keychainDelete("account_id")
+        keychainDelete("email")
+    }
+
+    var isLoggedIn: Bool {
+        return keychainGet("access_token") != nil
+    }
+
+    var storedEmail: String? {
+        return keychainGet("email")
+    }
+
+    var storedAccountId: String? {
+        return keychainGet("account_id")
+    }
+
+    // MARK: - Auth API
+
+    struct AuthResult {
+        let success: Bool
+        let message: String
+        let data: [String: Any]?
+    }
+
+    /// POST /auth/login — send verification code
+    func authLogin(email: String) async -> AuthResult {
+        let endpoint = "\(baseURL)/auth/login"
+        guard let url = URL(string: endpoint) else {
+            return AuthResult(success: false, message: "Invalid URL", data: nil)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: ["email": email])
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse {
+                let json = parseJSON(data)
+                let msg = json?["message"] as? String ?? errorMessage(from: data)
+                return AuthResult(success: isSuccess(httpResponse.statusCode), message: msg, data: json)
+            }
+        } catch {
+            return AuthResult(success: false, message: error.localizedDescription, data: nil)
+        }
+        return AuthResult(success: false, message: "Unknown error", data: nil)
+    }
+
+    /// POST /auth/verify — verify code, get tokens, link device
+    func authVerify(email: String, code: String) async -> AuthResult {
+        let endpoint = "\(baseURL)/auth/verify"
+        guard let url = URL(string: endpoint) else {
+            return AuthResult(success: false, message: "Invalid URL", data: nil)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let payload: [String: Any] = ["email": email, "code": code, "device_id": deviceId]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse {
+                let json = parseJSON(data)
+
+                if isSuccess(httpResponse.statusCode), let json = json {
+                    if let t = json["access_token"] as? String { keychainSet(t, forKey: "access_token") }
+                    if let t = json["refresh_token"] as? String { keychainSet(t, forKey: "refresh_token") }
+                    if let v = json["account_id"] as? String { keychainSet(v, forKey: "account_id") }
+                    if let v = json["email"] as? String { keychainSet(v, forKey: "email") }
+
+                    let appDelegate = NSApplication.shared.delegate as? AppDelegate
+                    appDelegate?.postLog("✅ Auth: Signed in as \(json["email"] as? String ?? "unknown")")
+                    return AuthResult(success: true, message: "Signed in", data: json)
+                } else {
+                    let msg = json?["detail"] as? String ?? json?["message"] as? String ?? errorMessage(from: data)
+                    return AuthResult(success: false, message: msg, data: json)
+                }
+            }
+        } catch {
+            return AuthResult(success: false, message: error.localizedDescription, data: nil)
+        }
+        return AuthResult(success: false, message: "Unknown error", data: nil)
+    }
+
+    /// POST /auth/refresh — rotate tokens
+    func authRefresh() async -> Bool {
+        guard let refreshToken = keychainGet("refresh_token") else { return false }
+
+        let endpoint = "\(baseURL)/auth/refresh"
+        guard let url = URL(string: endpoint) else { return false }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: ["refresh_token": refreshToken])
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse, isSuccess(httpResponse.statusCode),
+               let json = parseJSON(data) {
+                if let t = json["access_token"] as? String { keychainSet(t, forKey: "access_token") }
+                if let t = json["refresh_token"] as? String { keychainSet(t, forKey: "refresh_token") }
+                return true
+            } else {
+                clearAuthTokens()
+                return false
+            }
+        } catch {
+            return false
+        }
+    }
+
+    /// POST /auth/logout — revoke token family
+    func authLogout() async -> AuthResult {
+        let refreshToken = keychainGet("refresh_token")
+
+        if let refreshToken = refreshToken {
+            let endpoint = "\(baseURL)/auth/logout"
+            if let url = URL(string: endpoint) {
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.httpBody = try? JSONSerialization.data(withJSONObject: ["refresh_token": refreshToken])
+                _ = try? await URLSession.shared.data(for: request)
+            }
+        }
+
+        clearAuthTokens()
+        let appDelegate = NSApplication.shared.delegate as? AppDelegate
+        appDelegate?.postLog("✅ Auth: Signed out")
+        return AuthResult(success: true, message: "Signed out", data: nil)
+    }
+
+    /// GET /auth/me — get account info (auto-refreshes on 401)
+    func authMe(retried: Bool = false) async -> AuthResult {
+        guard let accessToken = keychainGet("access_token") else {
+            return AuthResult(success: false, message: "Not signed in", data: nil)
+        }
+
+        let endpoint = "\(baseURL)/auth/me"
+        guard let url = URL(string: endpoint) else {
+            return AuthResult(success: false, message: "Invalid URL", data: nil)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 401 && !retried {
+                    let refreshed = await authRefresh()
+                    if refreshed {
+                        return await authMe(retried: true)
+                    } else {
+                        return AuthResult(success: false, message: "Session expired", data: nil)
+                    }
+                }
+
+                if isSuccess(httpResponse.statusCode), let json = parseJSON(data) {
+                    return AuthResult(success: true, message: "OK", data: json)
+                }
+            }
+        } catch {
+            return AuthResult(success: false, message: error.localizedDescription, data: nil)
+        }
+        return AuthResult(success: false, message: "Unknown error", data: nil)
+    }
+
+    /// POST /auth/delete — request account deletion (auto-refreshes on 401)
+    func authDelete(retried: Bool = false) async -> AuthResult {
+        guard let accessToken = keychainGet("access_token") else {
+            return AuthResult(success: false, message: "Not signed in", data: nil)
+        }
+
+        let endpoint = "\(baseURL)/auth/delete"
+        guard let url = URL(string: endpoint) else {
+            return AuthResult(success: false, message: "Invalid URL", data: nil)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 401 && !retried {
+                    let refreshed = await authRefresh()
+                    if refreshed {
+                        return await authDelete(retried: true)
+                    } else {
+                        return AuthResult(success: false, message: "Session expired", data: nil)
+                    }
+                }
+
+                let json = parseJSON(data)
+                let msg = json?["message"] as? String ?? errorMessage(from: data)
+                return AuthResult(success: isSuccess(httpResponse.statusCode), message: msg, data: json)
+            }
+        } catch {
+            return AuthResult(success: false, message: error.localizedDescription, data: nil)
+        }
+        return AuthResult(success: false, message: "Unknown error", data: nil)
     }
 }

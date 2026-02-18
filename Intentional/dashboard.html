@@ -1046,6 +1046,9 @@ body {
   <div class="sidebar-item" data-page="advanced" onclick="navigateTo('advanced')">
     <span class="sidebar-item-icon">⚙️</span> Advanced
   </div>
+  <div class="sidebar-item" data-page="account" onclick="navigateTo('account')">
+    <span class="sidebar-item-icon">👤</span> Account
+  </div>
 </div>
 
 <!-- Main -->
@@ -1573,6 +1576,94 @@ body {
     </div>
   </div>
 
+  <!-- Page: Account -->
+  <div class="page" id="page-account">
+    <div class="section-title">Account</div>
+
+    <!-- Loading -->
+    <div id="account-loading">
+      <div class="settings-card">
+        <p style="color: rgba(255,255,255,0.5); text-align: center; padding: 20px 0;">Checking account status...</p>
+      </div>
+    </div>
+
+    <!-- Logged Out -->
+    <div id="account-logged-out" style="display: none;">
+      <div class="settings-card">
+        <div class="settings-card-title">Sign in</div>
+        <p class="setting-desc" style="margin-bottom: 16px;">
+          Sync settings across devices and recover your account after reinstall.
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 0 20px 8px;">
+          <div>
+            <div class="setting-label" style="padding: 0 0 4px;">Email</div>
+            <input type="email" id="auth-email" class="setting-input" placeholder="you@example.com" style="width: 100%;">
+          </div>
+          <button class="btn-primary" id="auth-send-btn" onclick="authSendCode()">Send verification code</button>
+          <p id="auth-login-error" class="setting-desc" style="color: #ef4444; display: none;"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Code Entry -->
+    <div id="account-code-entry" style="display: none;">
+      <div class="settings-card">
+        <div class="settings-card-title">Check your email</div>
+        <p class="setting-desc" style="margin-bottom: 16px;">
+          We sent a 6-digit code to <strong id="auth-code-email" style="color: #fff;"></strong>
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 0 20px 8px;">
+          <div>
+            <div class="setting-label" style="padding: 0 0 4px;">Code</div>
+            <input type="text" id="auth-code" class="setting-input" placeholder="000000" maxlength="6" style="width: 100%; letter-spacing: 4px; font-size: 18px;">
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <button class="btn-primary" id="auth-verify-btn" onclick="authVerifyCode()">Verify</button>
+            <a href="#" style="color: rgba(255,255,255,0.5); font-size: 13px; text-decoration: none;" onclick="authBackToEmail(); return false;">← Back</a>
+          </div>
+          <p id="auth-verify-error" class="setting-desc" style="color: #ef4444; display: none;"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Signed In -->
+    <div id="account-signed-in" style="display: none;">
+      <div class="settings-card">
+        <div class="settings-card-title" style="display: flex; justify-content: space-between; align-items: center;">
+          Signed in
+          <span style="color: #34d399; font-size: 14px;">✓</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Email</span>
+          <span class="info-value" id="account-email">-</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Member since</span>
+          <span class="info-value" id="account-since">-</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Devices</span>
+          <span class="info-value" id="account-devices">-</span>
+        </div>
+        <div style="padding: 16px 20px 8px;">
+          <button class="btn-secondary" onclick="authSignOut()">Sign out</button>
+        </div>
+      </div>
+
+      <div class="settings-card" style="margin-top: 16px;">
+        <div class="settings-card-title" style="color: #ef4444;">Danger Zone</div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Delete account</div>
+            <div class="setting-desc">Permanently removes your account. We'll send a confirmation email.</div>
+          </div>
+          <button class="btn-danger" id="auth-delete-btn" onclick="authDeleteAccount()">Delete</button>
+        </div>
+        <p id="auth-delete-msg" class="setting-desc" style="display: none; padding: 0 20px 12px;"></p>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- Toast -->
@@ -1631,6 +1722,11 @@ function navigateTo(pageId) {
     startConsentPolling();
   } else {
     stopConsentPolling();
+  }
+
+  // Load account state when viewing account page
+  if (pageId === 'account') {
+    loadAccountPage();
   }
 }
 
@@ -2823,6 +2919,123 @@ window._extensionStatusResult = function(data) {
     '</div>';
   }).join('');
 };
+
+// ===== Account Auth =====
+var authPendingEmail = '';
+
+function showAccountState(state) {
+  document.getElementById('account-loading').style.display = state === 'loading' ? 'block' : 'none';
+  document.getElementById('account-logged-out').style.display = state === 'logged-out' ? 'block' : 'none';
+  document.getElementById('account-code-entry').style.display = state === 'code-entry' ? 'block' : 'none';
+  document.getElementById('account-signed-in').style.display = state === 'signed-in' ? 'block' : 'none';
+}
+
+function loadAccountPage() {
+  showAccountState('loading');
+  sendMessage({ type: 'GET_AUTH_STATE' });
+}
+
+window._authStateResult = function(data) {
+  if (data.loggedIn) {
+    document.getElementById('account-email').textContent = data.email;
+    document.getElementById('account-since').textContent = formatAccountDate(data.createdAt);
+    document.getElementById('account-devices').textContent = data.deviceCount + ' linked';
+    showAccountState('signed-in');
+  } else {
+    showAccountState('logged-out');
+  }
+};
+
+function authSendCode() {
+  var email = document.getElementById('auth-email').value.trim();
+  if (!email || email.indexOf('@') === -1) {
+    document.getElementById('auth-login-error').textContent = 'Please enter a valid email.';
+    document.getElementById('auth-login-error').style.display = 'block';
+    return;
+  }
+  document.getElementById('auth-login-error').style.display = 'none';
+  document.getElementById('auth-send-btn').disabled = true;
+  document.getElementById('auth-send-btn').textContent = 'Sending...';
+  authPendingEmail = email;
+  sendMessage({ type: 'AUTH_LOGIN', email: email });
+}
+
+window._authLoginResult = function(data) {
+  document.getElementById('auth-send-btn').disabled = false;
+  document.getElementById('auth-send-btn').textContent = 'Send verification code';
+  if (data.success) {
+    document.getElementById('auth-code-email').textContent = authPendingEmail;
+    document.getElementById('auth-code').value = '';
+    document.getElementById('auth-verify-error').style.display = 'none';
+    showAccountState('code-entry');
+  } else {
+    document.getElementById('auth-login-error').textContent = data.message;
+    document.getElementById('auth-login-error').style.display = 'block';
+  }
+};
+
+function authVerifyCode() {
+  var code = document.getElementById('auth-code').value.trim();
+  if (!code || code.length !== 6) {
+    document.getElementById('auth-verify-error').textContent = 'Please enter the 6-digit code.';
+    document.getElementById('auth-verify-error').style.display = 'block';
+    return;
+  }
+  document.getElementById('auth-verify-error').style.display = 'none';
+  document.getElementById('auth-verify-btn').disabled = true;
+  document.getElementById('auth-verify-btn').textContent = 'Verifying...';
+  sendMessage({ type: 'AUTH_VERIFY', email: authPendingEmail, code: code });
+}
+
+window._authVerifyResult = function(data) {
+  document.getElementById('auth-verify-btn').disabled = false;
+  document.getElementById('auth-verify-btn').textContent = 'Verify';
+  if (data.success) {
+    showToast('Signed in successfully');
+    loadAccountPage();
+  } else {
+    document.getElementById('auth-verify-error').textContent = data.message;
+    document.getElementById('auth-verify-error').style.display = 'block';
+  }
+};
+
+function authBackToEmail() {
+  document.getElementById('auth-verify-error').style.display = 'none';
+  showAccountState('logged-out');
+}
+
+function authSignOut() {
+  sendMessage({ type: 'AUTH_LOGOUT' });
+}
+
+window._authLogoutResult = function(data) {
+  showAccountState('logged-out');
+  showToast('Signed out');
+};
+
+function authDeleteAccount() {
+  if (!confirm('Are you sure? A confirmation email will be sent to finalize deletion.')) return;
+  document.getElementById('auth-delete-btn').disabled = true;
+  document.getElementById('auth-delete-btn').textContent = 'Sending...';
+  document.getElementById('auth-delete-msg').style.display = 'none';
+  sendMessage({ type: 'AUTH_DELETE' });
+}
+
+window._authDeleteResult = function(data) {
+  document.getElementById('auth-delete-btn').disabled = false;
+  document.getElementById('auth-delete-btn').textContent = 'Delete';
+  var msg = document.getElementById('auth-delete-msg');
+  msg.textContent = data.message;
+  msg.style.color = data.success ? '#34d399' : '#ef4444';
+  msg.style.display = 'block';
+};
+
+function formatAccountDate(isoString) {
+  if (!isoString) return '-';
+  var d = new Date(isoString);
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+}
 
 // ===== Init =====
 sendMessage({ type: 'GET_SETTINGS' });
