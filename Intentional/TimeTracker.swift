@@ -13,6 +13,11 @@ class TimeTracker {
     // Budget settings (synced from backend/settings)
     private var budgets: [String: Int] = [:] // platform -> minutes
 
+    // Free browse budgets and usage
+    private var freeBrowseBudgets: [String: Int] = [:] // platform -> minutes/day (0 = disabled)
+    private var freeBrowseUsage: [String: Double] = [:] // platform -> minutes used today
+    private var freeBrowseUsageDate: String? // date string for daily reset
+
     // Active sessions per browser
     private var activeSessions: [String: BrowserSession] = [:] // "platform:browser" -> session
 
@@ -40,6 +45,7 @@ class TimeTracker {
         var date: String // "YYYY-MM-DD"
         var minutesUsed: Double
         var videoMinutes: Double // Time when video was actually playing
+        var freeBrowseMinutes: Double // Time spent in free browse mode
         var lastUpdated: Date
 
         static func today() -> DailyUsage {
@@ -47,6 +53,7 @@ class TimeTracker {
                 date: Self.todayString(),
                 minutesUsed: 0,
                 videoMinutes: 0,
+                freeBrowseMinutes: 0,
                 lastUpdated: Date()
             )
         }
@@ -77,9 +84,10 @@ class TimeTracker {
         var startedAt: Double?       // Date.now() timestamp (ms since epoch)
         var endsAt: Double?          // Date.now() + duration, or nil for unlimited
         var durationMinutes: Int
+        var freeBrowse: Bool
 
         static func inactive() -> PlatformSession {
-            return PlatformSession(active: false, intent: nil, categories: nil, startedAt: nil, endsAt: nil, durationMinutes: 0)
+            return PlatformSession(active: false, intent: nil, categories: nil, startedAt: nil, endsAt: nil, durationMinutes: 0, freeBrowse: false)
         }
     }
 
@@ -265,6 +273,94 @@ class TimeTracker {
         return Int(usage.minutesUsed) >= budget
     }
 
+    // MARK: - Free Browse
+
+    /// Record free browse time for a platform
+    /// Uses same deduplication as recordUsageHeartbeat to prevent multi-tab inflation
+    func recordFreeBrowseTime(platform: String, minutes: Double) {
+        let key = platform.lowercased()
+        let now = Date()
+        ensureTodayEntry(for: key)
+        ensureFreeBrowseToday()
+
+        // DEDUPLICATION: Use lastHeartbeatTime to prevent multi-tab overcounting
+        // Same logic as recordUsageHeartbeat — clamp to actual elapsed time
+        let reportedSeconds = minutes * 60.0
+        let actualMinutes: Double
+        let freeBrowseKey = "fb_\(key)" // Separate dedup key for free browse
+        if let lastTime = lastHeartbeatTime[freeBrowseKey] {
+            let elapsed = now.timeIntervalSince(lastTime)
+            let clampedElapsed = max(0, min(elapsed, 60.0))
+            let actualSeconds = min(reportedSeconds, clampedElapsed)
+            actualMinutes = actualSeconds / 60.0
+
+            if actualMinutes < minutes {
+                appDelegate?.postLog("🌟 Free browse \(platform): +\(String(format: "%.1f", actualMinutes))m (reported \(String(format: "%.1f", minutes))m, clamped — \(Int(clampedElapsed))s since last)")
+            }
+        } else {
+            actualMinutes = minutes
+            appDelegate?.postLog("🌟 Free browse \(platform): +\(String(format: "%.1f", actualMinutes))m (first heartbeat)")
+        }
+
+        lastHeartbeatTime[freeBrowseKey] = now
+
+        dailyUsage[key]?.freeBrowseMinutes += actualMinutes
+        freeBrowseUsage[key] = (freeBrowseUsage[key] ?? 0) + actualMinutes
+
+        saveUsage()
+
+        if let usage = dailyUsage[key] {
+            appDelegate?.postLog("🌟 Free browse \(platform): \(Int(usage.freeBrowseMinutes)) min (budget: \(freeBrowseBudgets[key] ?? 0) min)")
+        }
+    }
+
+    /// Check if free browse budget is exceeded for a platform
+    func isFreeBrowseBudgetExceeded(for platform: String) -> Bool {
+        let key = platform.lowercased()
+        guard let budget = freeBrowseBudgets[key], budget > 0 else { return false }
+        let used = freeBrowseUsage[key] ?? 0
+        return used >= Double(budget)
+    }
+
+    /// Get free browse remaining minutes for a platform
+    func getFreeBrowseRemaining(for platform: String) -> (remaining: Double, budget: Int, used: Double) {
+        let key = platform.lowercased()
+        let budget = freeBrowseBudgets[key] ?? 0
+        ensureFreeBrowseToday()
+        let used = freeBrowseUsage[key] ?? 0
+        let remaining = max(0, Double(budget) - used)
+        return (remaining: remaining, budget: budget, used: used)
+    }
+
+    /// Set free browse budget for a platform
+    func setFreeBrowseBudget(for platform: String, minutes: Int) {
+        freeBrowseBudgets[platform.lowercased()] = minutes
+        saveSettings()
+    }
+
+    /// Get all free browse budgets
+    func getFreeBrowseBudgets() -> [String: Int] {
+        return freeBrowseBudgets
+    }
+
+    /// Get free browse usage for all platforms (for STATE_SYNC)
+    func getFreeBrowseUsage() -> [String: Any] {
+        ensureFreeBrowseToday()
+        var result: [String: Any] = ["date": freeBrowseUsageDate ?? DailyUsage.todayString()]
+        for platform in ["youtube", "instagram", "facebook"] {
+            result[platform] = freeBrowseUsage[platform] ?? 0
+        }
+        return result
+    }
+
+    private func ensureFreeBrowseToday() {
+        let today = DailyUsage.todayString()
+        if freeBrowseUsageDate != today {
+            freeBrowseUsage = [:]
+            freeBrowseUsageDate = today
+        }
+    }
+
     /// Get minutes used for a platform
     func getMinutesUsed(for platform: String) -> Int {
         return Int(dailyUsage[platform.lowercased()]?.minutesUsed ?? 0)
@@ -374,7 +470,8 @@ class TimeTracker {
             let session = getPlatformSession(for: platform)
             var platformData: [String: Any] = [
                 "active": session.active,
-                "durationMinutes": session.durationMinutes
+                "durationMinutes": session.durationMinutes,
+                "freeBrowse": session.freeBrowse
             ]
             // Use NSNull for nil values so JSON serialization includes them as null
             platformData["intent"] = session.intent ?? NSNull()
@@ -432,7 +529,17 @@ class TimeTracker {
                 }
             }
 
+            // Hydrate in-memory freeBrowseUsage from persisted dailyUsage
+            freeBrowseUsageDate = today
+            for (platform, usage) in dailyUsage where usage.date == today && usage.freeBrowseMinutes > 0 {
+                freeBrowseUsage[platform] = usage.freeBrowseMinutes
+            }
+
             appDelegate?.postLog("📂 Loaded usage data: \(dailyUsage.keys.joined(separator: ", "))")
+            if !freeBrowseUsage.isEmpty {
+                let fbSummary = freeBrowseUsage.map { "\($0.key): \(Int($0.value))m" }.joined(separator: ", ")
+                appDelegate?.postLog("📂 Restored free browse usage: \(fbSummary)")
+            }
         } catch {
             appDelegate?.postLog("⚠️ Failed to load usage: \(error)")
         }
@@ -456,7 +563,20 @@ class TimeTracker {
 
         do {
             let data = try Data(contentsOf: settingsFileURL)
-            budgets = try JSONDecoder().decode([String: Int].self, from: data)
+            // Try loading as combined settings first, fall back to legacy format
+            if let combined = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let b = combined["budgets"] as? [String: Int] {
+                    budgets = b
+                } else {
+                    // Legacy format: file is just budgets dict
+                    budgets = try JSONDecoder().decode([String: Int].self, from: data)
+                }
+                if let fb = combined["freeBrowseBudgets"] as? [String: Int] {
+                    freeBrowseBudgets = fb
+                }
+            } else {
+                budgets = try JSONDecoder().decode([String: Int].self, from: data)
+            }
         } catch {
             budgets = ["youtube": 30, "instagram": 30, "facebook": 30]
         }
@@ -464,7 +584,11 @@ class TimeTracker {
 
     private func saveSettings() {
         do {
-            let data = try JSONEncoder().encode(budgets)
+            let combined: [String: Any] = [
+                "budgets": budgets,
+                "freeBrowseBudgets": freeBrowseBudgets
+            ]
+            let data = try JSONSerialization.data(withJSONObject: combined)
             try data.write(to: settingsFileURL)
         } catch {
             appDelegate?.postLog("⚠️ Failed to save settings: \(error)")

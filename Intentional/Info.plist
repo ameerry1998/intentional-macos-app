@@ -28,5 +28,16 @@
 	<string>Intentional needs to monitor browser tabs to block distracting websites when you're not using the browser extension.</string>
 	<key>NSSystemExtensionUsageDescription</key>
 	<string>Intentional uses Screen Time to block distracting websites across all browsers for your accountability.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>social.intentional.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>intentional</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

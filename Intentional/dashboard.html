@@ -233,6 +233,57 @@ body {
 .usage-bar-fill.youtube { background: #ef4444; }
 .usage-bar-fill.instagram { background: #e879f9; }
 .usage-bar-fill.facebook { background: #60a5fa; }
+.usage-bar-fill.free-browse { background: #f59e0b; }
+
+.usage-session {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.usage-session-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #34d399;
+  animation: session-pulse 2s ease-in-out infinite;
+}
+
+@keyframes session-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.usage-session-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #34d399;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.usage-session-intent {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  font-style: italic;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  border-left: 2px solid rgba(52, 211, 153, 0.4);
+}
+
+.usage-card.has-session {
+  border-color: rgba(52, 211, 153, 0.2);
+}
+
+.usage-free-browse {
+  font-size: 11px;
+  color: rgba(245, 158, 11, 0.7);
+  margin-top: 6px;
+  display: none;
+}
 
 /* ===== Settings Card ===== */
 .settings-card {
@@ -586,6 +637,80 @@ body {
   color: rgba(255, 255, 255, 0.3);
 }
 
+/* Chip/Tag Input */
+.chip-container {
+  padding: 12px 20px 16px;
+}
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+  min-height: 24px;
+}
+.chip-list:empty::before {
+  content: attr(data-empty);
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 13px;
+  font-style: italic;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 20px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+}
+.chip-remove {
+  cursor: pointer;
+  opacity: 0.5;
+  font-size: 14px;
+  line-height: 1;
+  transition: opacity 0.15s;
+}
+.chip-remove:hover {
+  opacity: 1;
+}
+.chip-input-row {
+  display: flex;
+  gap: 8px;
+}
+.chip-input-row input {
+  flex: 1;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 13px;
+  outline: none;
+  font-family: inherit;
+}
+.chip-input-row input:focus {
+  border-color: #6366f1;
+}
+.chip-input-row input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+.chip-input-row button {
+  padding: 6px 14px;
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.chip-input-row button:hover {
+  background: rgba(99, 102, 241, 0.35);
+}
+
 /* Full-width button rows */
 .lock-btn-row {
   display: flex;
@@ -794,6 +919,95 @@ body {
   color: rgba(255, 255, 255, 0.6);
 }
 
+/* Lock-confirmable: OFF toggle that can be enabled with confirmation */
+.setting-row.lock-confirmable {
+  position: relative;
+}
+.setting-row.lock-confirmable::after {
+  content: '🔒';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  opacity: 0.35;
+}
+
+/* Lock Confirmation Modal */
+.lock-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(4px);
+}
+.lock-confirm-box {
+  background: #1e1e2e;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 28px 32px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+}
+.lock-confirm-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+.lock-confirm-box h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+  font-weight: 600;
+  color: #fff;
+}
+.lock-confirm-box p {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.5;
+}
+.lock-confirm-warning {
+  color: rgba(251, 191, 36, 0.8) !important;
+  font-size: 13px !important;
+  margin-top: 12px !important;
+  margin-bottom: 20px !important;
+}
+.lock-confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.lock-confirm-cancel {
+  padding: 8px 20px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.lock-confirm-cancel:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.lock-confirm-enable {
+  padding: 8px 20px;
+  background: rgba(99, 102, 241, 0.3);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+}
+.lock-confirm-enable:hover {
+  background: rgba(99, 102, 241, 0.45);
+}
+
 /* ===== Scrollbar ===== */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -849,10 +1063,14 @@ body {
   <div class="page active" id="page-usage">
     <div class="section-title">Today</div>
     <div class="usage-grid">
-      <div class="usage-card">
+      <div class="usage-card" id="yt-usage-card">
         <div class="usage-card-header">
           <span class="usage-card-icon">▶️</span>
           <span class="usage-card-platform">YouTube</span>
+        </div>
+        <div class="usage-session" id="yt-session" style="display: none;">
+          <div class="usage-session-dot"></div>
+          <span class="usage-session-label" id="yt-session-label">Active</span>
         </div>
         <div class="usage-card-time">
           <span class="usage-minutes youtube" id="yt-minutes">0</span>
@@ -862,12 +1080,23 @@ body {
         <div class="usage-bar">
           <div class="usage-bar-fill youtube" id="yt-bar" style="width: 0%"></div>
         </div>
+        <div class="usage-session-intent" id="yt-session-intent" style="display: none;"></div>
+        <div class="usage-free-browse" id="yt-free-browse">
+          Free browse: <span id="yt-fb-minutes">0</span> min used
+        </div>
+        <div class="usage-bar" id="yt-fb-bar-container" style="display: none;">
+          <div class="usage-bar-fill free-browse" id="yt-fb-bar" style="width: 0%"></div>
+        </div>
       </div>
 
-      <div class="usage-card">
+      <div class="usage-card" id="ig-usage-card">
         <div class="usage-card-header">
           <span class="usage-card-icon">📷</span>
           <span class="usage-card-platform">Instagram</span>
+        </div>
+        <div class="usage-session" id="ig-session" style="display: none;">
+          <div class="usage-session-dot"></div>
+          <span class="usage-session-label" id="ig-session-label">Active</span>
         </div>
         <div class="usage-card-time">
           <span class="usage-minutes instagram" id="ig-minutes">0</span>
@@ -877,12 +1106,23 @@ body {
         <div class="usage-bar">
           <div class="usage-bar-fill instagram" id="ig-bar" style="width: 0%"></div>
         </div>
+        <div class="usage-session-intent" id="ig-session-intent" style="display: none;"></div>
+        <div class="usage-free-browse" id="ig-free-browse">
+          Free browse: <span id="ig-fb-minutes">0</span> min used
+        </div>
+        <div class="usage-bar" id="ig-fb-bar-container" style="display: none;">
+          <div class="usage-bar-fill free-browse" id="ig-fb-bar" style="width: 0%"></div>
+        </div>
       </div>
 
-      <div class="usage-card">
+      <div class="usage-card" id="fb-usage-card">
         <div class="usage-card-header">
           <span class="usage-card-icon">👤</span>
           <span class="usage-card-platform">Facebook</span>
+        </div>
+        <div class="usage-session" id="fb-session" style="display: none;">
+          <div class="usage-session-dot"></div>
+          <span class="usage-session-label" id="fb-session-label">Active</span>
         </div>
         <div class="usage-card-time">
           <span class="usage-minutes facebook" id="fb-minutes">0</span>
@@ -891,6 +1131,13 @@ body {
         <div class="usage-budget" id="fb-budget">/ 30 min budget</div>
         <div class="usage-bar">
           <div class="usage-bar-fill facebook" id="fb-bar" style="width: 0%"></div>
+        </div>
+        <div class="usage-session-intent" id="fb-session-intent" style="display: none;"></div>
+        <div class="usage-free-browse" id="fb-free-browse">
+          Free browse: <span id="fb-fb-minutes">0</span> min used
+        </div>
+        <div class="usage-bar" id="fb-fb-bar-container" style="display: none;">
+          <div class="usage-bar-fill free-browse" id="fb-fb-bar" style="width: 0%"></div>
         </div>
       </div>
     </div>
@@ -918,6 +1165,14 @@ body {
           <div class="setting-desc">Maximum minutes per day</div>
         </div>
         <input type="number" class="setting-number" id="yt-budget-input" value="30" min="1" max="480" onchange="onSettingChange()">
+        <span class="setting-value">min</span>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Free browse budget</div>
+          <div class="setting-desc">Minutes for unfiltered browsing (0 = off)</div>
+        </div>
+        <input type="number" class="setting-number" id="yt-free-browse-input" value="0" min="0" max="480" onchange="onSettingChange()">
         <span class="setting-value">min</span>
       </div>
     </div>
@@ -979,6 +1234,17 @@ body {
         <span class="setting-value" id="yt-zen-val">10s</span>
       </div>
     </div>
+
+    <div class="settings-card">
+      <div class="settings-card-title">Your Intentions</div>
+      <div class="chip-container">
+        <div class="chip-list" id="yt-categories-list" data-empty="No intentions added — the extension will ask each session"></div>
+        <div class="chip-input-row">
+          <input type="text" id="yt-category-input" placeholder="e.g. AI, cooking, programming..." />
+          <button onclick="addChipItem('yt-categories', 'yt-category-input')">Add</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Page: Instagram Settings -->
@@ -1003,6 +1269,14 @@ body {
           <div class="setting-desc">Maximum minutes per day</div>
         </div>
         <input type="number" class="setting-number" id="ig-budget-input" value="30" min="1" max="480" onchange="onSettingChange()">
+        <span class="setting-value">min</span>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Free browse budget</div>
+          <div class="setting-desc">Minutes for unfiltered browsing (0 = off)</div>
+        </div>
+        <input type="number" class="setting-number" id="ig-free-browse-input" value="0" min="0" max="480" onchange="onSettingChange()">
         <span class="setting-value">min</span>
       </div>
     </div>
@@ -1062,6 +1336,28 @@ body {
         <span class="setting-value" id="ig-threshold-val">35%</span>
       </div>
     </div>
+
+    <div class="settings-card">
+      <div class="settings-card-title">Content to Avoid</div>
+      <div class="chip-container">
+        <div class="chip-list" id="ig-blocked-categories-list" data-empty="No categories added"></div>
+        <div class="chip-input-row">
+          <input type="text" id="ig-blocked-category-input" placeholder="e.g. gossip, fitness, politics..." />
+          <button onclick="addChipItem('ig-blocked-categories', 'ig-blocked-category-input')">Add</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <div class="settings-card-title">Blocked Accounts</div>
+      <div class="chip-container">
+        <div class="chip-list" id="ig-blocked-accounts-list" data-empty="No accounts blocked"></div>
+        <div class="chip-input-row">
+          <input type="text" id="ig-blocked-account-input" placeholder="Instagram username..." />
+          <button onclick="addChipItem('ig-blocked-accounts', 'ig-blocked-account-input')">Add</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Page: Facebook Settings -->
@@ -1086,6 +1382,14 @@ body {
           <div class="setting-desc">Maximum minutes per day</div>
         </div>
         <input type="number" class="setting-number" id="fb-budget-input" value="30" min="1" max="480" onchange="onSettingChange()">
+        <span class="setting-value">min</span>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Free browse budget</div>
+          <div class="setting-desc">Minutes for unfiltered browsing (0 = off)</div>
+        </div>
+        <input type="number" class="setting-number" id="fb-free-browse-input" value="0" min="0" max="480" onchange="onSettingChange()">
         <span class="setting-value">min</span>
       </div>
     </div>
@@ -1124,13 +1428,65 @@ body {
       </div>
       <div class="setting-row">
         <div>
-          <div class="setting-label">Hide sponsored posts</div>
-          <div class="setting-desc">Remove ads from feed</div>
+          <div class="setting-label">Block Gaming</div>
+          <div class="setting-desc">Block Facebook Gaming section</div>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="fb-hide-ads" checked onchange="onSettingChange()">
+          <input type="checkbox" id="fb-block-gaming" checked onchange="onSettingChange()">
           <span class="toggle-track"></span>
         </label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Block Stories</div>
+          <div class="setting-desc">Hide Stories from the top of your feed</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="fb-block-stories" onchange="onSettingChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <div class="settings-card-title">Feed Filtering</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Block sponsored posts</div>
+          <div class="setting-desc">Remove ads and sponsored content from feed</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="fb-block-sponsored" checked onchange="onSettingChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Block suggested content</div>
+          <div class="setting-desc">Remove "Suggested for you" and "People you may know"</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="fb-block-suggested" checked onchange="onSettingChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Friends-only mode</div>
+          <div class="setting-desc">Only show posts from friends in your feed</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="fb-friends-only" onchange="onSettingChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Scroll limit</div>
+          <div class="setting-desc">Posts before "Time to refocus" wall (0 = off)</div>
+        </div>
+        <input type="number" class="setting-number" id="fb-scroll-limit" value="50" min="0" max="500" onchange="onSettingChange()">
+        <span class="setting-value">posts</span>
       </div>
     </div>
   </div>
@@ -1308,8 +1664,82 @@ function clearButtonLoading(btnId) {
   btn.style.opacity = '';
 }
 
+// ===== Chip/Tag Management =====
+function renderChips(listId, items) {
+  var list = document.getElementById(listId + '-list');
+  if (!list) return;
+  list.innerHTML = '';
+  (items || []).forEach(function(item) {
+    var chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.innerHTML = item + ' <span class="chip-remove" onclick="removeChipItem(\'' + listId + '\', \'' + item.replace(/'/g, "\\'") + '\')">&times;</span>';
+    list.appendChild(chip);
+  });
+}
+
+function getChipItems(listId) {
+  var list = document.getElementById(listId + '-list');
+  if (!list) return [];
+  var chips = list.querySelectorAll('.chip');
+  var items = [];
+  chips.forEach(function(chip) {
+    // Get text content minus the × button
+    var text = chip.childNodes[0].textContent.trim();
+    if (text) items.push(text);
+  });
+  return items;
+}
+
+function addChipItem(listId, inputId) {
+  var input = document.getElementById(inputId);
+  if (!input) return;
+  var value = input.value.trim().toLowerCase();
+  if (!value) return;
+  var items = getChipItems(listId);
+  if (items.indexOf(value) === -1) {
+    items.push(value);
+    renderChips(listId, items);
+    onSettingChange();
+  }
+  input.value = '';
+  input.focus();
+}
+
+function removeChipItem(listId, value) {
+  var items = getChipItems(listId);
+  items = items.filter(function(i) { return i !== value; });
+  renderChips(listId, items);
+  onSettingChange();
+}
+
+// Wire Enter key for chip inputs
+document.addEventListener('DOMContentLoaded', function() {
+  ['yt-category-input', 'ig-blocked-category-input', 'ig-blocked-account-input'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          var listId = id.replace('-input', '').replace('-category', '-categories').replace('-account', '-accounts');
+          // Map input ID to list ID
+          if (id === 'yt-category-input') listId = 'yt-categories';
+          else if (id === 'ig-blocked-category-input') listId = 'ig-blocked-categories';
+          else if (id === 'ig-blocked-account-input') listId = 'ig-blocked-accounts';
+          addChipItem(listId, id);
+        }
+      });
+    }
+  });
+
+  // Set up lock interceptors on toggle checkboxes
+  setupLockInterceptors();
+});
+
 // ===== Setting Change Handler (debounced save) =====
+var _lockInterceptActive = false; // Set by lock interceptor to suppress normal save
+
 function onSettingChange() {
+  if (_lockInterceptActive) return; // Lock interceptor is handling this change
   clearTimeout(settingSaveTimer);
   settingSaveTimer = setTimeout(saveAllSettings, 800);
 }
@@ -1322,7 +1752,8 @@ function saveAllSettings() {
     blockShorts: document.getElementById('yt-block-shorts').checked,
     hideSponsored: document.getElementById('yt-hide-sponsored').checked,
     blockMode: document.getElementById('yt-block-mode').value,
-    zenDuration: parseInt(document.getElementById('yt-zen-duration').value) || 10
+    zenDuration: parseInt(document.getElementById('yt-zen-duration').value) || 10,
+    categories: getChipItems('yt-categories')
   };
 
   var igSettings = {
@@ -1332,7 +1763,9 @@ function saveAllSettings() {
     blockReels: document.getElementById('ig-block-reels').checked,
     blockExplore: document.getElementById('ig-block-explore').checked,
     nsfwFilter: document.getElementById('ig-nsfw-filter').checked,
-    hideAds: document.getElementById('ig-hide-ads').checked
+    hideAds: document.getElementById('ig-hide-ads').checked,
+    blockedCategories: getChipItems('ig-blocked-categories'),
+    blockedAccounts: getChipItems('ig-blocked-accounts')
   };
 
   var fbSettings = {
@@ -1341,13 +1774,24 @@ function saveAllSettings() {
     blockWatch: document.getElementById('fb-block-watch').checked,
     blockReels: document.getElementById('fb-block-reels').checked,
     blockMarketplace: document.getElementById('fb-block-marketplace').checked,
-    hideAds: document.getElementById('fb-hide-ads').checked
+    blockGaming: document.getElementById('fb-block-gaming').checked,
+    blockStories: document.getElementById('fb-block-stories').checked,
+    blockSponsored: document.getElementById('fb-block-sponsored').checked,
+    blockSuggested: document.getElementById('fb-block-suggested').checked,
+    scrollLimit: parseInt(document.getElementById('fb-scroll-limit').value) || 0,
+    friendsOnly: document.getElementById('fb-friends-only').checked
   };
 
   var maxPerPeriod = {
     enabled: document.getElementById('adv-period-enabled').checked,
     minutes: parseInt(document.getElementById('adv-period-minutes').value) || 20,
     periodHours: parseInt(document.getElementById('adv-period-hours').value) || 1
+  };
+
+  var freeBrowseBudgets = {
+    youtube: parseInt(document.getElementById('yt-free-browse-input').value) || 0,
+    instagram: parseInt(document.getElementById('ig-free-browse-input').value) || 0,
+    facebook: parseInt(document.getElementById('fb-free-browse-input').value) || 0
   };
 
   sendMessage({
@@ -1359,7 +1803,8 @@ function saveAllSettings() {
       lockMode: settings.lockMode,
       partnerEmail: settings.partnerEmail,
       partnerName: settings.partnerName,
-      maxPerPeriod: maxPerPeriod
+      maxPerPeriod: maxPerPeriod,
+      freeBrowseBudgets: freeBrowseBudgets
     }
   });
 }
@@ -1377,6 +1822,7 @@ function populateSettingsUI(data) {
     document.getElementById('yt-block-mode').value = yt.blockMode || 'hide';
     document.getElementById('yt-zen-duration').value = yt.zenDuration || 10;
     document.getElementById('yt-zen-val').textContent = (yt.zenDuration || 10) + 's';
+    renderChips('yt-categories', yt.categories || []);
   }
 
   if (data.instagram) {
@@ -1389,6 +1835,8 @@ function populateSettingsUI(data) {
     document.getElementById('ig-block-explore').checked = ig.blockExplore !== false;
     document.getElementById('ig-nsfw-filter').checked = ig.nsfwFilter !== false;
     document.getElementById('ig-hide-ads').checked = ig.hideAds !== false;
+    renderChips('ig-blocked-categories', ig.blockedCategories || []);
+    renderChips('ig-blocked-accounts', ig.blockedAccounts || []);
   }
 
   if (data.facebook) {
@@ -1398,7 +1846,12 @@ function populateSettingsUI(data) {
     document.getElementById('fb-block-watch').checked = fb.blockWatch !== false;
     document.getElementById('fb-block-reels').checked = fb.blockReels !== false;
     document.getElementById('fb-block-marketplace').checked = fb.blockMarketplace === true;
-    document.getElementById('fb-hide-ads').checked = fb.hideAds !== false;
+    document.getElementById('fb-block-gaming').checked = fb.blockGaming !== false;
+    document.getElementById('fb-block-stories').checked = fb.blockStories === true;
+    document.getElementById('fb-block-sponsored').checked = fb.blockSponsored !== false;
+    document.getElementById('fb-block-suggested').checked = fb.blockSuggested !== false;
+    document.getElementById('fb-scroll-limit').value = fb.scrollLimit !== undefined ? fb.scrollLimit : 50;
+    document.getElementById('fb-friends-only').checked = fb.friendsOnly === true;
   }
 
   if (data.maxPerPeriod) {
@@ -1406,6 +1859,13 @@ function populateSettingsUI(data) {
     document.getElementById('adv-period-enabled').checked = mpp.enabled === true;
     document.getElementById('adv-period-minutes').value = mpp.minutes || 20;
     document.getElementById('adv-period-hours').value = mpp.periodHours || 1;
+  }
+
+  if (data.freeBrowseBudgets) {
+    var fb = data.freeBrowseBudgets;
+    document.getElementById('yt-free-browse-input').value = fb.youtube || 0;
+    document.getElementById('ig-free-browse-input').value = fb.instagram || 0;
+    document.getElementById('fb-free-browse-input').value = fb.facebook || 0;
   }
 
   if (data.deviceId) {
@@ -1555,6 +2015,7 @@ function renderLockState() {
           '<div class="setting-row"><div class="setting-label">Relevance thresholds</div></div>' +
           '<div class="setting-row"><div class="setting-label">Content blocking (Shorts, Reels, Watch)</div></div>' +
           '<div class="setting-row"><div class="setting-label">Blocked categories</div></div>' +
+          '<div class="setting-row"><div class="setting-label">Free browse budgets</div></div>' +
         '</div>' +
         '<button class="btn-primary" id="request-unlock-btn" onclick="requestUnlock()" style="width:100%;margin-top:16px;">Request Unlock Code</button>';
       stopConsentPolling();
@@ -1751,8 +2212,28 @@ var LOCKED_INPUT_IDS = [
   'yt-enabled', 'ig-enabled', 'fb-enabled',
   'yt-threshold', 'ig-threshold',
   'yt-block-shorts', 'ig-block-reels',
-  'fb-block-watch', 'fb-block-reels'
+  'fb-block-watch', 'fb-block-reels', 'fb-block-marketplace',
+  'fb-block-gaming', 'fb-block-stories',
+  'fb-block-sponsored', 'fb-block-suggested', 'fb-friends-only',
+  'yt-free-browse-input', 'ig-free-browse-input', 'fb-free-browse-input'
 ];
+
+// Descriptions for the lock confirmation modal
+var LOCK_CONFIRM_INFO = {
+  'yt-enabled': { name: 'YouTube filtering', desc: 'YouTube videos will be filtered based on your stated intent.' },
+  'ig-enabled': { name: 'Instagram filtering', desc: 'Instagram content will be filtered based on your settings.' },
+  'fb-enabled': { name: 'Facebook filtering', desc: 'Facebook content will be filtered based on your settings.' },
+  'yt-block-shorts': { name: 'Block YouTube Shorts', desc: 'YouTube Shorts will be completely removed from your feed.' },
+  'ig-block-reels': { name: 'Block Instagram Reels', desc: 'Video posts and Reels will be removed from Instagram.' },
+  'fb-block-watch': { name: 'Block Facebook Watch', desc: 'The Facebook Watch video section will be blocked.' },
+  'fb-block-reels': { name: 'Block Facebook Reels', desc: 'Facebook Reels will be blocked.' },
+  'fb-block-marketplace': { name: 'Block Marketplace', desc: 'Facebook Marketplace will be blocked.' },
+  'fb-block-gaming': { name: 'Block Gaming', desc: 'The Facebook Gaming section will be blocked.' },
+  'fb-block-stories': { name: 'Block Stories', desc: 'Facebook Stories will be hidden from the top of your feed.' },
+  'fb-block-sponsored': { name: 'Block sponsored posts', desc: 'Sponsored posts and ads will be removed from your Facebook feed.' },
+  'fb-block-suggested': { name: 'Block suggested content', desc: '"Suggested for you" and "People you may know" content will be removed.' },
+  'fb-friends-only': { name: 'Friends-only mode', desc: 'Only posts from friends will appear in your feed.' }
+};
 
 function isSettingsLocked() {
   var state = getLockState();
@@ -1762,16 +2243,24 @@ function isSettingsLocked() {
 function enforceLockMode() {
   var locked = isSettingsLocked();
 
-  // Add/remove locked class on specific setting rows
   LOCKED_INPUT_IDS.forEach(function(id) {
     var input = document.getElementById(id);
     if (!input) return;
     var row = input.closest('.setting-row');
     if (!row) return;
+
     if (locked) {
-      row.classList.add('locked');
+      // Checkbox toggles: OFF ones are confirmable, ON ones are fully locked
+      if (input.type === 'checkbox' && !input.checked && LOCK_CONFIRM_INFO[id]) {
+        row.classList.remove('locked');
+        row.classList.add('lock-confirmable');
+      } else {
+        row.classList.add('locked');
+        row.classList.remove('lock-confirmable');
+      }
     } else {
       row.classList.remove('locked');
+      row.classList.remove('lock-confirmable');
     }
   });
 
@@ -1791,6 +2280,66 @@ function enforceLockMode() {
     } else {
       if (existingBanner) existingBanner.remove();
     }
+  });
+}
+
+// ===== Lock Confirmation Modal =====
+var _lockConfirmCallback = null;
+var _lockInterceptorsSetup = false;
+
+function showLockConfirm(inputId, callback) {
+  var info = LOCK_CONFIRM_INFO[inputId];
+  if (!info) { callback(false); return; }
+  document.getElementById('lock-confirm-title').textContent = 'Enable ' + info.name + '?';
+  document.getElementById('lock-confirm-desc').textContent = info.desc;
+  document.getElementById('lock-confirm-modal').style.display = 'flex';
+  _lockConfirmCallback = callback;
+}
+
+function closeLockConfirm(confirmed) {
+  document.getElementById('lock-confirm-modal').style.display = 'none';
+  if (_lockConfirmCallback) {
+    _lockConfirmCallback(confirmed);
+    _lockConfirmCallback = null;
+  }
+}
+
+function setupLockInterceptors() {
+  if (_lockInterceptorsSetup) return;
+  _lockInterceptorsSetup = true;
+
+  LOCKED_INPUT_IDS.forEach(function(id) {
+    var input = document.getElementById(id);
+    if (!input || input.type !== 'checkbox') return;
+
+    input.addEventListener('change', function() {
+      if (!isSettingsLocked()) return; // Not locked — let onSettingChange() handle it normally
+
+      // Suppress the inline onchange from triggering a save
+      _lockInterceptActive = true;
+      setTimeout(function() { _lockInterceptActive = false; }, 50);
+
+      if (input.checked) {
+        // Trying to turn ON while locked — revert and show confirmation
+        input.checked = false;
+        showLockConfirm(id, function(confirmed) {
+          if (confirmed) {
+            input.checked = true;
+            // Now it's ON while locked — apply full lock
+            var row = input.closest('.setting-row');
+            if (row) {
+              row.classList.add('locked');
+              row.classList.remove('lock-confirmable');
+            }
+            _lockInterceptActive = false;
+            onSettingChange(); // Trigger save now
+          }
+        });
+      } else {
+        // Trying to turn OFF while locked — block it
+        input.checked = true;
+      }
+    }, true); // Capture phase — fires before the inline onchange
   });
 }
 
@@ -2120,25 +2669,85 @@ window._verifyUnlockResult = function(data) {
 
 // Dashboard data
 window._dashboardDataResult = function(data) {
-  if (data.youtube) {
-    document.getElementById('yt-minutes').textContent = data.youtube.minutesUsed || 0;
-    document.getElementById('yt-budget').textContent = '/ ' + (data.youtube.budget || 30) + ' min budget';
-    var pct = Math.min(100, ((data.youtube.minutesUsed || 0) / (data.youtube.budget || 30)) * 100);
-    document.getElementById('yt-bar').style.width = pct + '%';
-  }
-  if (data.instagram) {
-    document.getElementById('ig-minutes').textContent = data.instagram.minutesUsed || 0;
-    document.getElementById('ig-budget').textContent = '/ ' + (data.instagram.budget || 30) + ' min budget';
-    var pct2 = Math.min(100, ((data.instagram.minutesUsed || 0) / (data.instagram.budget || 30)) * 100);
-    document.getElementById('ig-bar').style.width = pct2 + '%';
-  }
-  if (data.facebook) {
-    document.getElementById('fb-minutes').textContent = data.facebook.minutesUsed || 0;
-    document.getElementById('fb-budget').textContent = '/ ' + (data.facebook.budget || 30) + ' min budget';
-    var pct3 = Math.min(100, ((data.facebook.minutesUsed || 0) / (data.facebook.budget || 30)) * 100);
-    document.getElementById('fb-bar').style.width = pct3 + '%';
-  }
+  var platforms = [
+    { prefix: 'yt', key: 'youtube' },
+    { prefix: 'ig', key: 'instagram' },
+    { prefix: 'fb', key: 'facebook' }
+  ];
+  platforms.forEach(function(p) {
+    var d = data[p.key];
+    if (!d) return;
+
+    // Usage stats
+    document.getElementById(p.prefix + '-minutes').textContent = d.minutesUsed || 0;
+    document.getElementById(p.prefix + '-budget').textContent = '/ ' + (d.budget || 30) + ' min budget';
+    var pct = Math.min(100, ((d.minutesUsed || 0) / (d.budget || 30)) * 100);
+    document.getElementById(p.prefix + '-bar').style.width = pct + '%';
+    updateFreeBrowseDisplay(p.prefix, d);
+
+    // Active session indicator
+    var sessionEl = document.getElementById(p.prefix + '-session');
+    var sessionLabel = document.getElementById(p.prefix + '-session-label');
+    var intentEl = document.getElementById(p.prefix + '-session-intent');
+    var card = document.getElementById(p.prefix + '-usage-card');
+
+    if (d.session && d.session.active) {
+      card.classList.add('has-session');
+      sessionEl.style.display = 'flex';
+
+      if (d.session.freeBrowse) {
+        sessionLabel.textContent = 'Free Browse';
+        sessionLabel.style.color = '#f59e0b';
+        sessionEl.querySelector('.usage-session-dot').style.background = '#f59e0b';
+        intentEl.style.display = 'none';
+      } else {
+        sessionLabel.textContent = 'Active Session';
+        sessionLabel.style.color = '#34d399';
+        sessionEl.querySelector('.usage-session-dot').style.background = '#34d399';
+
+        if (d.session.intent) {
+          intentEl.textContent = '"' + d.session.intent + '"';
+          intentEl.style.display = 'block';
+        } else {
+          intentEl.style.display = 'none';
+        }
+      }
+
+      // Show time remaining if timed session
+      if (d.session.endsAt) {
+        var remaining = d.session.endsAt - Date.now();
+        if (remaining > 0) {
+          var mins = Math.ceil(remaining / 60000);
+          sessionLabel.textContent += ' · ' + mins + 'm left';
+        } else {
+          sessionLabel.textContent += ' · expired';
+        }
+      }
+    } else {
+      card.classList.remove('has-session');
+      sessionEl.style.display = 'none';
+      intentEl.style.display = 'none';
+    }
+  });
 };
+
+function updateFreeBrowseDisplay(prefix, platformData) {
+  var fbBudget = platformData.freeBrowseBudget || 0;
+  var fbUsed = Math.round(platformData.freeBrowseMinutesUsed || 0);
+  var label = document.getElementById(prefix + '-free-browse');
+  var barContainer = document.getElementById(prefix + '-fb-bar-container');
+  var bar = document.getElementById(prefix + '-fb-bar');
+  var minutes = document.getElementById(prefix + '-fb-minutes');
+  if (fbBudget > 0) {
+    if (label) { label.style.display = 'block'; }
+    if (barContainer) { barContainer.style.display = 'block'; }
+    if (minutes) { minutes.textContent = fbUsed; }
+    if (bar) { bar.style.width = Math.min(100, (fbUsed / fbBudget) * 100) + '%'; }
+  } else {
+    if (label) { label.style.display = 'none'; }
+    if (barContainer) { barContainer.style.display = 'none'; }
+  }
+}
 
 // Browser status
 window._extensionStatusResult = function(data) {
@@ -2221,6 +2830,20 @@ sendMessage({ type: 'GET_PARTNER_STATUS' });
 refresh();
 setInterval(refresh, 5000);
 </script>
+
+<!-- Lock Confirmation Modal -->
+<div id="lock-confirm-modal" class="lock-confirm-overlay" style="display:none">
+  <div class="lock-confirm-box">
+    <div class="lock-confirm-icon">🔒</div>
+    <h3 id="lock-confirm-title">Enable setting?</h3>
+    <p id="lock-confirm-desc">Description of the setting.</p>
+    <p class="lock-confirm-warning">This setting will stay enabled until your profile is unlocked.</p>
+    <div class="lock-confirm-actions">
+      <button class="lock-confirm-cancel" onclick="closeLockConfirm(false)">Cancel</button>
+      <button class="lock-confirm-enable" onclick="closeLockConfirm(true)">Enable</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>

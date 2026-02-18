@@ -19,6 +19,15 @@ class NativeMessagingSetup {
 
     static let shared = NativeMessagingSetup()
 
+    /// True after the first extension scan has completed.
+    /// BrowserMonitor checks this to avoid false "unprotected" decisions before scan data is available.
+    private(set) var hasCompletedInitialScan = false
+
+    /// Timestamp of when the initial scan completed.
+    /// BrowserMonitor uses this to allow a short post-scan grace period for socket connections
+    /// to establish (native messaging relay processes take 1-3s to connect after app launch).
+    private(set) var initialScanCompletedAt: Date?
+
     private let manifestName = "com.intentional.social.json"
     private let hostName = "com.intentional.social"
 
@@ -247,6 +256,12 @@ class NativeMessagingSetup {
                 log("[NativeMessagingSetup] 🆕 \(newlyDiscovered.count) newly discovered")
                 installManifestsIfNeeded()
             }
+        }
+
+        if !hasCompletedInitialScan {
+            hasCompletedInitialScan = true
+            initialScanCompletedAt = Date()
+            log("[NativeMessagingSetup] ✅ Initial extension scan complete")
         }
 
         return newlyDiscovered.count

@@ -219,6 +219,8 @@ class NativeMessagingHost {
             // Send current state immediately so extension has authoritative numbers on connect
             sendStateSync()
             sendSessionSync()
+            // Push full settings so a reloaded extension has the user's actual config
+            sendSettingsSync()
             // Push onboarding settings so fresh extensions skip onboarding
             sendOnboardingSync()
 
@@ -246,6 +248,12 @@ class NativeMessagingHost {
             // Extension querying current usage (for cross-browser sync)
             sendUsageResponse()
 
+        case "OPEN_DASHBOARD":
+            // Extension wants to foreground the Mac app and show the dashboard
+            DispatchQueue.main.async { [weak self] in
+                self?.appDelegate?.showMainWindow()
+            }
+
         default:
             appDelegate?.postLog("⚠️ Native Messaging: Unknown message type: \(type)")
         }
@@ -264,6 +272,7 @@ class NativeMessagingHost {
         let categories = message["categories"] as? [String]
         let durationMinutes = message["durationMinutes"] as? Int ?? 0
         let startedAt = message["startedAt"] as? Double ?? (Date().timeIntervalSince1970 * 1000)
+        let freeBrowse = message["freeBrowse"] as? Bool ?? false
 
         // Calculate endsAt from duration (0 = unlimited)
         let endsAt: Double? = durationMinutes > 0
@@ -281,10 +290,11 @@ class NativeMessagingHost {
             let session = TimeTracker.PlatformSession(
                 active: true,
                 intent: intent,
-                categories: categories,
+                categories: freeBrowse ? nil : categories,
                 startedAt: startedAt,
                 endsAt: endsAt,
-                durationMinutes: durationMinutes
+                durationMinutes: durationMinutes,
+                freeBrowse: freeBrowse
             )
             let wasSet = self.timeTracker?.setPlatformSession(for: platform, session: session) ?? false
 
@@ -360,24 +370,44 @@ class NativeMessagingHost {
         let reportedBrowser = message["browser"] as? String ?? "Unknown"
         let browser = detectedBrowser ?? reportedBrowser
         let timestamp = message["timestamp"] as? Double ?? Date().timeIntervalSince1970
+        let isFreeBrowse = message["freeBrowse"] as? Bool ?? false
 
         // Forward to TimeTracker (use OS-detected browser name if available)
+        // Additive model: free browse time has its own budget, does NOT count toward daily budget
         DispatchQueue.main.async { [weak self] in
-            self?.timeTracker?.recordUsageHeartbeat(
-                platform: platform,
-                browser: browser,
-                seconds: seconds,
-                timestamp: timestamp
-            )
+            if isFreeBrowse {
+                // Free browse: only record against free browse budget
+                let minutes = Double(seconds) / 60.0
+                self?.timeTracker?.recordFreeBrowseTime(platform: platform, minutes: minutes)
 
-            // Check if budget exceeded and notify extension
-            if let tracker = self?.timeTracker, tracker.isBudgetExceeded(for: platform) {
-                self?.sendMessage([
-                    "type": "BUDGET_EXCEEDED",
-                    "platform": platform,
-                    "minutesUsed": tracker.getMinutesUsed(for: platform),
-                    "budgetMinutes": tracker.getBudget(for: platform)
-                ])
+                // Check if free browse budget exceeded
+                if let tracker = self?.timeTracker, tracker.isFreeBrowseBudgetExceeded(for: platform) {
+                    let info = tracker.getFreeBrowseRemaining(for: platform)
+                    self?.sendMessage([
+                        "type": "FREE_BROWSE_EXCEEDED",
+                        "platform": platform,
+                        "minutesUsed": info.used,
+                        "budgetMinutes": info.budget
+                    ])
+                }
+            } else {
+                // Intentional session: record against daily budget
+                self?.timeTracker?.recordUsageHeartbeat(
+                    platform: platform,
+                    browser: browser,
+                    seconds: seconds,
+                    timestamp: timestamp
+                )
+
+                // Check if budget exceeded and notify extension
+                if let tracker = self?.timeTracker, tracker.isBudgetExceeded(for: platform) {
+                    self?.sendMessage([
+                        "type": "BUDGET_EXCEEDED",
+                        "platform": platform,
+                        "minutesUsed": tracker.getMinutesUsed(for: platform),
+                        "budgetMinutes": tracker.getBudget(for: platform)
+                    ])
+                }
             }
 
             // Push authoritative state back to this browser's extension
@@ -489,6 +519,86 @@ class NativeMessagingHost {
         appDelegate?.postLog("🌐 ONBOARDING_SYNC sent to extension on connect")
     }
 
+    /// Push full current settings to the extension via SETTINGS_SYNC.
+    /// Called on every connect so a freshly-reloaded extension gets the user's actual settings,
+    /// not just defaults. Reads from the same settings file the dashboard uses.
+    private func sendSettingsSync() {
+        guard let delegate = appDelegate else { return }
+        let settingsFileURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("Intentional/settings.json")
+
+        guard FileManager.default.fileExists(atPath: settingsFileURL.path),
+              let data = try? Data(contentsOf: settingsFileURL),
+              let settings = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            appDelegate?.postLog("⚠️ SETTINGS_SYNC: No settings file found, skipping")
+            return
+        }
+
+        let platforms = settings["platforms"] as? [String: Any] ?? [:]
+        let ytPlatform = platforms["youtube"] as? [String: Any] ?? [:]
+        let igPlatform = platforms["instagram"] as? [String: Any] ?? [:]
+        let fbPlatform = platforms["facebook"] as? [String: Any] ?? [:]
+
+        let lockMode = (settings["lockMode"] as? String)
+            ?? UserDefaults.standard.string(forKey: "lockMode")
+            ?? "none"
+
+        let ytSettings: [String: Any] = [
+            "enabled": (ytPlatform["enabled"] as? Bool) ?? true,
+            "onboardingComplete": true,
+            "threshold": (ytPlatform["threshold"] as? Int) ?? 35,
+            "blockShorts": (ytPlatform["blockShorts"] as? Bool) ?? true,
+            "hideSponsored": (ytPlatform["hideSponsored"] as? Bool) ?? true,
+            "blockMode": (ytPlatform["blockMode"] as? String) ?? "hide",
+            "zenDuration": (ytPlatform["zenDuration"] as? Int) ?? 10,
+            "categories": (ytPlatform["categories"] as? [String]) ?? [String]()
+        ]
+
+        let igSettings: [String: Any] = [
+            "enabled": (igPlatform["enabled"] as? Bool) ?? true,
+            "onboardingComplete": true,
+            "threshold": (igPlatform["threshold"] as? Int) ?? 35,
+            "blockReels": (igPlatform["blockReels"] as? Bool) ?? true,
+            "blockExplore": (igPlatform["blockExplore"] as? Bool) ?? true,
+            "nsfwFilter": (igPlatform["nsfwFilter"] as? Bool) ?? true,
+            "hideAds": (igPlatform["hideAds"] as? Bool) ?? true,
+            "blockedCategories": (igPlatform["blockedCategories"] as? [String]) ?? [String](),
+            "blockedAccounts": (igPlatform["blockedAccounts"] as? [String]) ?? [String]()
+        ]
+
+        let fbSettings: [String: Any] = [
+            "enabled": (fbPlatform["enabled"] as? Bool) ?? true,
+            "onboardingComplete": true,
+            "blockWatch": (fbPlatform["blockWatch"] as? Bool) ?? true,
+            "blockReels": (fbPlatform["blockReels"] as? Bool) ?? true,
+            "blockMarketplace": (fbPlatform["blockMarketplace"] as? Bool) ?? false,
+            "blockGaming": (fbPlatform["blockGaming"] as? Bool) ?? true,
+            "blockStories": (fbPlatform["blockStories"] as? Bool) ?? false,
+            "blockSponsored": (fbPlatform["blockSponsored"] as? Bool) ?? true,
+            "blockSuggested": (fbPlatform["blockSuggested"] as? Bool) ?? true,
+            "scrollLimit": (fbPlatform["scrollLimit"] as? Int) ?? 50,
+            "friendsOnly": (fbPlatform["friendsOnly"] as? Bool) ?? false
+        ]
+
+        let maxPerPeriod = (ytPlatform["maxPerPeriod"] as? [String: Any]) ?? [
+            "enabled": false,
+            "minutes": 20,
+            "periodHours": 1
+        ]
+
+        let message: [String: Any] = [
+            "type": "SETTINGS_SYNC",
+            "youtube": ytSettings,
+            "instagram": igSettings,
+            "facebook": fbSettings,
+            "lockMode": lockMode,
+            "maxPerPeriod": maxPerPeriod
+        ]
+
+        sendMessage(message)
+        appDelegate?.postLog("🌐 SETTINGS_SYNC sent to extension on connect")
+    }
+
     /// Push authoritative time tracking state to the extension via STATE_SYNC.
     /// Called after each heartbeat and on initial connect (PING), so the extension
     /// always has the app's numbers in chrome.storage.local.
@@ -504,19 +614,28 @@ class NativeMessagingHost {
         }
 
         var budgets: [String: Int] = [:]
-        for platform in ["youtube", "instagram"] {
+        for platform in ["youtube", "instagram", "facebook"] {
             budgets[platform] = tracker.getBudget(for: platform)
         }
 
-        let budgetExceeded = ["youtube", "instagram"].contains { platform in
+        let budgetExceeded = ["youtube", "instagram", "facebook"].contains { platform in
             tracker.isBudgetExceeded(for: platform)
+        }
+
+        // Free browse data
+        var freeBrowseExceeded: [String: Bool] = [:]
+        for platform in ["youtube", "instagram", "facebook"] {
+            freeBrowseExceeded[platform] = tracker.isFreeBrowseBudgetExceeded(for: platform)
         }
 
         sendMessage([
             "type": "STATE_SYNC",
             "dailyUsage": dailyUsage,
             "budgets": budgets,
-            "budgetExceeded": budgetExceeded
+            "budgetExceeded": budgetExceeded,
+            "freeBrowseUsage": tracker.getFreeBrowseUsage(),
+            "freeBrowseBudgets": tracker.getFreeBrowseBudgets(),
+            "freeBrowseExceeded": freeBrowseExceeded
         ])
     }
 }

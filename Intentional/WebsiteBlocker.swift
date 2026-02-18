@@ -26,7 +26,10 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         "m.youtube.com",
         "instagram.com",
         "www.instagram.com",
-        "m.instagram.com"
+        "m.instagram.com",
+        "facebook.com",
+        "www.facebook.com",
+        "m.facebook.com"
     ]
 
     // Custom blocking page URL (will be in app bundle)
@@ -44,7 +47,15 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     // Using domains instead of full URLs to handle redirects (e.g., m.youtube.com → youtube.com)
     private var recentlyBlockedDomains: Set<String> = []
     private var lastCacheClear = Date()
-    private let cacheDuration: TimeInterval = 10.0  // Clear cache every 10 seconds (longer to prevent redirect flashing)
+    private let cacheDuration: TimeInterval = 1.0  // Clear cache every 1 second
+
+    // Domains currently being blocked (AppleScript in-flight on the serial queue).
+    // Prevents queueing duplicate blocking scripts while one is already pending.
+    private var inFlightDomains: Set<String> = []
+
+    // Browsers that currently have a check script queued/running on the serial queue.
+    // Prevents flooding the queue when scripts take longer than the 0.5s timer interval.
+    private var checkInFlight: Set<String> = []
 
     // Serial queue for AppleScript execution - prevents concurrent scripts to same browser
     private let appleScriptQueue = DispatchQueue(label: "com.intentional.applescript", qos: .userInitiated)
@@ -192,6 +203,9 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         isBlocking = true
         appDelegate?.postLog("👁️ Tab monitoring started (checking every \(checkInterval)s)")
 
+        // Check tabs immediately — don't wait for the first timer tick
+        checkAllBrowserTabs()
+
         // Send event to backend
         Task {
             await backendClient.sendEvent(type: "blocking_method_changed", details: [
@@ -205,6 +219,8 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         monitorTimer?.invalidate()
         monitorTimer = nil
         isBlocking = false
+        inFlightDomains.removeAll()
+        checkInFlight.removeAll()
         appDelegate?.postLog("🛑 Tab monitoring stopped")
     }
 
@@ -283,6 +299,12 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     // Process URLs from a browser - handle blocking and bypass detection
     // Deduplicates by domain to avoid running multiple blocking scripts for the same domain
     private func processURLs(_ urls: [String], browserName: String, blockAction: (String) -> Void) {
+        // Bail out if this browser was removed from the active set while the
+        // AppleScript check was running on the background queue. Without this,
+        // already-queued scripts keep blocking tabs long after the browser was
+        // marked as protected.
+        guard activeBrowsers.contains(browserName) else { return }
+
         // Track which domains we've already queued for blocking in this batch
         var domainsToBlock: [String: String] = [:]  // domain -> first URL with that domain
 
@@ -295,12 +317,11 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
                 if let domain = getBaseDomain(from: url) {
                     trackBypassTime(domain: domain, browser: browserName, isOnBlockingPage: isOnBlockPage)
 
-                    // Queue for blocking if not on blocking page and not recently blocked
-                    // Only queue once per domain (the blocking script handles all tabs with that domain)
-                    if !isOnBlockPage && shouldBlock(url: url) && !wasRecentlyBlocked(url: url) {
+                    // Queue for blocking if not on blocking page, not recently blocked, and not already in-flight
+                    if !isOnBlockPage && shouldBlock(url: url) && !wasRecentlyBlocked(url: url) && !inFlightDomains.contains(domain) {
                         if domainsToBlock[domain] == nil {
                             domainsToBlock[domain] = url
-                            appDelegate?.postLog("🎯 \(browserName): Will block \(domain) (not on block page, should block, not cached)")
+                            appDelegate?.postLog("🎯 \(browserName): Will block \(domain) (not on block page, should block, not cached, not in-flight)")
                         }
                     }
                 }
@@ -310,6 +331,7 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         // Now execute blocking for each unique domain
         for (domain, url) in domainsToBlock {
             markAsBlocked(url: url)
+            inFlightDomains.insert(domain)
             let protectedList = getProtectedBrowsersList()
             appDelegate?.postLog("🚫 BLOCKING \(browserName): domain=\(domain), protectedBrowsers=[\(protectedList)]")
             blockAction(url)
@@ -457,57 +479,119 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
 
     // MARK: - Chrome Blocking
 
+    /// Two-tier Chrome blocking:
+    /// - Fast path: checks only the active tab of the front window (1 Apple Event, <1s)
+    /// - Slow path: scans ALL tabs across all windows (many Apple Events, can take 10+ seconds)
+    /// The fast path runs on every timer tick; the slow path only when not already in-flight.
     private func checkChromeTabs() {
+        checkChromeActiveTab()
+        checkChromeAllTabs()
+    }
+
+    /// Fast path: check just the active tab of the front window
+    private func checkChromeActiveTab() {
+        let protectedBrowsers = getProtectedBrowsersList()
+        let encodedBrowser = "Chrome".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Chrome"
+
+        // Build domain checks for the active tab
+        var domainChecks = ""
+        for domain in blockedDomains {
+            let encodedDomain = domain.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? domain
+            let blockURL = "\(blockPageURL)?blocked=\(encodedDomain)&browser=\(encodedBrowser)&protected=\(protectedBrowsers)"
+            domainChecks += """
+                        if tabURL contains "\(domain)" and tabURL does not contain "blocked.html" then
+                            set URL of active tab of front window to "\(blockURL)"
+                            return "BLOCKED:" & tabURL
+                        end if
+
+            """
+        }
+
         let script = """
         tell application "Google Chrome"
             if it is running then
-                set urlList to {}
-                repeat with w in windows
-                    repeat with t in tabs of w
-                        try
-                            set end of urlList to URL of t
-                        end try
-                    end repeat
-                end repeat
-                set AppleScript's text item delimiters to linefeed
-                set urlText to urlList as text
-                set AppleScript's text item delimiters to ""
-                return urlText
+                try
+                    set tabURL to URL of active tab of front window
+        \(domainChecks)
+                    return tabURL
+                end try
             end if
         end tell
         return ""
         """
 
-        executeScript(script, browserName: "Chrome") { [weak self] urls in
+        // Use a separate in-flight key so this doesn't conflict with full scan
+        executeScript(script, browserName: "Chrome-active") { [weak self] results in
             guard let self = self else { return }
-            self.processURLs(urls, browserName: "Chrome") { url in
-                self.blockChromeTab(url: url)
+            let result = results.joined()
+            if result.hasPrefix("BLOCKED:") {
+                let blockedURL = String(result.dropFirst("BLOCKED:".count))
+                let domain = self.getSafeDomain(from: blockedURL)
+                self.appDelegate?.postLog("🚫 Blocked (active tab): \(blockedURL) in Chrome")
+                self.showBlockedSiteNotification(site: domain, browser: "Chrome")
+                Task {
+                    await self.backendClient.sendEvent(type: "site_blocked", details: [
+                        "url": blockedURL, "browser": "Chrome", "method": "applescript_active_tab"
+                    ])
+                }
             }
         }
     }
 
-    private func blockChromeTab(url: String) {
-        let encodedURL = url.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let encodedBrowser = "Chrome".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Chrome"
+    /// Slow path: scan ALL tabs across all windows (catches background tabs)
+    private func checkChromeAllTabs() {
         let protectedBrowsers = getProtectedBrowsersList()
-        let blockURL = "\(blockPageURL)?blocked=\(encodedURL)&browser=\(encodedBrowser)&protected=\(protectedBrowsers)"
+        let encodedBrowser = "Chrome".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Chrome"
 
-        let blockScript = """
+        var domainChecks = ""
+        for domain in blockedDomains {
+            let encodedDomain = domain.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? domain
+            let blockURL = "\(blockPageURL)?blocked=\(encodedDomain)&browser=\(encodedBrowser)&protected=\(protectedBrowsers)"
+            domainChecks += """
+                            if tabURL contains "\(domain)" and tabURL does not contain "blocked.html" then
+                                set URL of t to "\(blockURL)"
+                                set end of blockedList to tabURL
+                            end if
+
+            """
+        }
+
+        let script = """
         tell application "Google Chrome"
-            repeat with w in windows
-                repeat with t in tabs of w
-                    try
-                        set tabURL to URL of t
-                        if tabURL contains "\(getSafeDomain(from: url))" and tabURL does not contain "blocked.html" then
-                            set URL of t to "\(blockURL)"
-                        end if
-                    end try
+            if it is running then
+                set blockedList to {}
+                repeat with w in windows
+                    repeat with t in tabs of w
+                        try
+                            set tabURL to URL of t
+        \(domainChecks)                    end try
+                    end repeat
                 end repeat
-            end repeat
+                set AppleScript's text item delimiters to linefeed
+                set resultText to (blockedList as text)
+                set AppleScript's text item delimiters to ""
+                return resultText
+            end if
         end tell
+        return ""
         """
 
-        executeBlockingScript(blockScript, browserName: "Chrome", blockedURL: url)
+        // This uses "Chrome" as the in-flight key — will be skipped if a full scan is already running
+        executeScript(script, browserName: "Chrome") { [weak self] results in
+            guard let self = self else { return }
+            let blocked = results.filter { !$0.isEmpty }
+
+            for url in blocked {
+                let domain = self.getSafeDomain(from: url)
+                self.appDelegate?.postLog("🚫 Blocked (all tabs): \(url) in Chrome")
+                self.showBlockedSiteNotification(site: domain, browser: "Chrome")
+                Task {
+                    await self.backendClient.sendEvent(type: "site_blocked", details: [
+                        "url": url, "browser": "Chrome", "method": "applescript"
+                    ])
+                }
+            }
+        }
     }
 
     // MARK: - Brave Blocking
@@ -912,9 +996,24 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func executeScript(_ script: String, browserName: String, completion: @escaping ([String]) -> Void) {
+        // Prevent queue flooding: skip if a check script is already queued/running for this key
+        guard !checkInFlight.contains(browserName) else { return }
+        checkInFlight.insert(browserName)
+
+        // Extract actual browser name for activeBrowsers check
+        // (e.g., "Chrome-active" → "Chrome")
+        let actualBrowser = browserName.components(separatedBy: "-").first ?? browserName
+
         // IMPORTANT: NSAppleScript is NOT thread-safe. Use serial queue to prevent crashes.
         appleScriptQueue.async { [weak self] in
             guard let self = self else { return }
+
+            defer {
+                DispatchQueue.main.async { self.checkInFlight.remove(browserName) }
+            }
+
+            // Bail if browser was removed from active set while queued
+            guard self.activeBrowsers.contains(actualBrowser) else { return }
 
             guard let appleScript = NSAppleScript(source: script) else {
                 DispatchQueue.main.async {
@@ -923,23 +1022,22 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
                 return
             }
 
+            let startTime = CFAbsoluteTimeGetCurrent()
             var error: NSDictionary?
             let output = appleScript.executeAndReturnError(&error)
+            let elapsed = CFAbsoluteTimeGetCurrent() - startTime
 
             if let errorDict = error {
                 let errorMsg = errorDict["NSAppleScriptErrorMessage"] as? String ?? "Unknown error"
                 let errorNum = errorDict["NSAppleScriptErrorNumber"] as? Int ?? 0
-
-                // Log Arc errors specifically since it's having issues
-                if browserName == "Arc" {
-                    DispatchQueue.main.async {
-                        self.appDelegate?.postLog("❌ Arc AppleScript error: \(errorMsg) (code: \(errorNum))")
-                        if errorMsg.contains("Connection is invalid") {
-                            self.appDelegate?.postLog("💡 Arc connection issue - check Automation permissions in System Settings")
-                        }
-                    }
+                DispatchQueue.main.async {
+                    self.appDelegate?.postLog("❌ \(browserName) AppleScript error (\(String(format: "%.1f", elapsed))s): \(errorMsg) (code: \(errorNum))")
                 }
                 return
+            }
+
+            DispatchQueue.main.async {
+                self.appDelegate?.postLog("⏱️ \(browserName) script took \(String(format: "%.1f", elapsed))s")
             }
 
             if let urlString = output.stringValue, !urlString.isEmpty {
@@ -956,6 +1054,19 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         // Use serial queue to prevent concurrent AppleScript execution
         appleScriptQueue.async { [weak self] in
             guard let self = self else { return }
+
+            // Clear in-flight tracking when done (on main queue where it's accessed)
+            defer {
+                let domain = self.getBaseDomain(from: blockedURL)
+                DispatchQueue.main.async {
+                    if let domain = domain {
+                        self.inFlightDomains.remove(domain)
+                    }
+                }
+            }
+
+            // Bail if browser was removed from active set while queued
+            guard self.activeBrowsers.contains(browserName) else { return }
 
             guard let appleScript = NSAppleScript(source: script) else {
                 DispatchQueue.main.async {
@@ -999,6 +1110,19 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         // Use serial queue to prevent concurrent AppleScript execution
         appleScriptQueue.async { [weak self] in
             guard let self = self else { return }
+
+            // Clear in-flight tracking when done
+            defer {
+                let domain = self.getBaseDomain(from: blockedURL)
+                DispatchQueue.main.async {
+                    if let domain = domain {
+                        self.inFlightDomains.remove(domain)
+                    }
+                }
+            }
+
+            // Bail if browser was removed from active set while queued
+            guard self.activeBrowsers.contains(browserName) else { return }
 
             DispatchQueue.main.async {
                 self.appDelegate?.postLog("⏳ \(browserName): Starting AppleScript execution...")

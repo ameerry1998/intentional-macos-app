@@ -232,7 +232,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 await appDelegate?.backendClient?.setPartner(email: email, name: partnerName)
             }
             if lockMode != "none" {
-                await appDelegate?.backendClient?.setLockMode(mode: lockMode)
+                _ = await appDelegate?.backendClient?.setLockMode(mode: lockMode)
             }
 
             // 5. Fetch consent status from backend and save to settings file
@@ -331,19 +331,35 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let igBudget = tracker.getBudget(for: "instagram")
         let fbBudget = tracker.getBudget(for: "facebook")
 
-        let result: [String: Any] = [
-            "youtube": [
-                "minutesUsed": ytMinutes,
-                "budget": ytBudget
-            ],
-            "instagram": [
-                "minutesUsed": igMinutes,
-                "budget": igBudget
-            ],
-            "facebook": [
-                "minutesUsed": fbMinutes,
-                "budget": fbBudget
+        let freeBrowseUsage = tracker.getFreeBrowseUsage()
+        let freeBrowseBudgets = tracker.getFreeBrowseBudgets()
+
+        // Build per-platform data including active session info
+        func platformData(platform: String, minutes: Int, budget: Int) -> [String: Any] {
+            let session = tracker.getPlatformSession(for: platform)
+            var data: [String: Any] = [
+                "minutesUsed": minutes,
+                "budget": budget,
+                "freeBrowseMinutesUsed": freeBrowseUsage[platform] ?? 0.0,
+                "freeBrowseBudget": freeBrowseBudgets[platform] ?? 0
             ]
+            if session.active {
+                var sessionData: [String: Any] = [
+                    "active": true,
+                    "freeBrowse": session.freeBrowse
+                ]
+                if let intent = session.intent { sessionData["intent"] = intent }
+                if let startedAt = session.startedAt { sessionData["startedAt"] = startedAt }
+                if let endsAt = session.endsAt { sessionData["endsAt"] = endsAt }
+                data["session"] = sessionData
+            }
+            return data
+        }
+
+        let result: [String: Any] = [
+            "youtube": platformData(platform: "youtube", minutes: ytMinutes, budget: ytBudget),
+            "instagram": platformData(platform: "instagram", minutes: igMinutes, budget: igBudget),
+            "facebook": platformData(platform: "facebook", minutes: fbMinutes, budget: fbBudget)
         ]
 
         if let data = try? JSONSerialization.data(withJSONObject: result),
@@ -364,43 +380,59 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let igSettings = platforms["instagram"] as? [String: Any] ?? [:]
         let fbSettings = platforms["facebook"] as? [String: Any] ?? [:]
 
-        let message: [String: Any] = [
+        // Build per-platform sub-dicts separately to help Swift type-checker
+        let ytSync: [String: Any] = [
+            "onboardingComplete": true,
+            "enabled": ytSettings["enabled"] ?? true,
+            "blockShorts": ytSettings["blockShorts"] ?? true,
+            "blockMode": ytSettings["blockMode"] ?? "hide"
+        ]
+        let igSync: [String: Any] = [
+            "onboardingComplete": true,
+            "enabled": igSettings["enabled"] ?? true,
+            "blockReels": igSettings["blockReels"] ?? true,
+            "blockExplore": igSettings["blockExplore"] ?? true,
+            "nsfwFilter": igSettings["nsfwFilter"] ?? true
+        ]
+        let fbSync: [String: Any] = [
+            "onboardingComplete": true,
+            "enabled": fbSettings["enabled"] ?? true,
+            "blockWatch": fbSettings["blockWatch"] ?? true,
+            "blockReels": fbSettings["blockReels"] ?? true,
+            "blockMarketplace": fbSettings["blockMarketplace"] ?? false,
+            "blockGaming": fbSettings["blockGaming"] ?? true,
+            "blockStories": fbSettings["blockStories"] ?? false,
+            "blockSponsored": fbSettings["blockSponsored"] ?? true,
+            "blockSuggested": fbSettings["blockSuggested"] ?? true,
+            "scrollLimit": fbSettings["scrollLimit"] ?? 50,
+            "friendsOnly": fbSettings["friendsOnly"] ?? false
+        ]
+        let mpp: [String: Any] = (ytSettings["maxPerPeriod"] as? [String: Any]) ?? [
+            "enabled": false, "minutes": 20, "periodHours": 1
+        ]
+
+        var message: [String: Any] = [
             "type": "ONBOARDING_SYNC",
             "platforms": platforms,
-            // Legacy flat fields for backward compatibility
-            "dailyBudgetMinutes": ytSettings["budget"] as? Int ?? 30,
-            "maxPerPeriod": ytSettings["maxPerPeriod"] ?? [
-                "enabled": false,
-                "minutes": 20,
-                "periodHours": 1
-            ],
-            "blockedCategories": ytSettings["blockedCategories"] ?? [],
+            "dailyBudgetMinutes": (ytSettings["budget"] as? Int) ?? 30,
+            "maxPerPeriod": mpp,
+            "blockedCategories": (ytSettings["categories"] as? [String]) ?? [String](),
             "partnerEmail": partnerEmail ?? NSNull(),
             "partnerName": partnerName ?? NSNull(),
             "lockMode": lockMode,
             "settingsLocked": lockMode != "none",
-            "youtube": [
-                "onboardingComplete": true,
-                "enabled": ytSettings["enabled"] ?? true,
-                "blockShorts": ytSettings["blockShorts"] ?? true,
-                "blockMode": ytSettings["blockMode"] ?? "hide"
-            ],
-            "instagram": [
-                "onboardingComplete": true,
-                "enabled": igSettings["enabled"] ?? true,
-                "blockReels": igSettings["blockReels"] ?? true,
-                "blockExplore": igSettings["blockExplore"] ?? true,
-                "nsfwFilter": igSettings["nsfwFilter"] ?? true
-            ],
-            "facebook": [
-                "onboardingComplete": true,
-                "enabled": fbSettings["enabled"] ?? true,
-                "blockWatch": fbSettings["blockWatch"] ?? true,
-                "blockReels": fbSettings["blockReels"] ?? true,
-                "blockMarketplace": fbSettings["blockMarketplace"] ?? false,
-                "hideAds": fbSettings["hideAds"] ?? true
-            ]
+            "youtube": ytSync,
+            "instagram": igSync,
+            "facebook": fbSync
         ]
+
+        // Include free browse budgets if set
+        if let tracker = appDelegate?.timeTracker {
+            let fbb = tracker.getFreeBrowseBudgets()
+            if !fbb.isEmpty {
+                message["freeBrowseBudgets"] = fbb
+            }
+        }
 
         appDelegate?.socketRelayServer?.broadcastToAll(message)
         appDelegate?.postLog("🌐 ONBOARDING_SYNC broadcast to \(appDelegate?.socketRelayServer?.connectionCount ?? 0) extension(s)")
@@ -512,6 +544,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let partnerName = (savedSettings["partnerName"] as? String) ?? ""
         let deviceId = UserDefaults.standard.string(forKey: "deviceId") ?? ""
 
+        let ytCategories = (ytPlatform["categories"] as? [String]) ?? [String]()
+
         let ytResult: [String: Any] = [
             "enabled": (ytPlatform["enabled"] as? Bool) ?? true,
             "budget": ytBudget,
@@ -519,7 +553,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             "blockShorts": (ytPlatform["blockShorts"] as? Bool) ?? true,
             "hideSponsored": (ytPlatform["hideSponsored"] as? Bool) ?? true,
             "blockMode": (ytPlatform["blockMode"] as? String) ?? "hide",
-            "zenDuration": (ytPlatform["zenDuration"] as? Int) ?? 10
+            "zenDuration": (ytPlatform["zenDuration"] as? Int) ?? 10,
+            "categories": ytCategories
         ]
 
         let igResult: [String: Any] = [
@@ -540,10 +575,16 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             "blockWatch": (fbPlatform["blockWatch"] as? Bool) ?? true,
             "blockReels": (fbPlatform["blockReels"] as? Bool) ?? true,
             "blockMarketplace": (fbPlatform["blockMarketplace"] as? Bool) ?? false,
-            "hideAds": (fbPlatform["hideAds"] as? Bool) ?? true
+            "blockGaming": (fbPlatform["blockGaming"] as? Bool) ?? true,
+            "blockStories": (fbPlatform["blockStories"] as? Bool) ?? false,
+            "blockSponsored": (fbPlatform["blockSponsored"] as? Bool) ?? true,
+            "blockSuggested": (fbPlatform["blockSuggested"] as? Bool) ?? true,
+            "scrollLimit": (fbPlatform["scrollLimit"] as? Int) ?? 50,
+            "friendsOnly": (fbPlatform["friendsOnly"] as? Bool) ?? false
         ]
 
-        let blockedCategories = (ytPlatform["blockedCategories"] as? [String]) ?? [String]()
+        // Legacy: top-level blockedCategories (kept for backward compat, now also in youtube.categories)
+        let blockedCategories = ytCategories
         let maxPerPeriod: [String: Any] = (ytPlatform["maxPerPeriod"] as? [String: Any]) ?? [
             "enabled": false,
             "minutes": 20,
@@ -555,6 +596,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let selfUnlockAvailableAt = savedSettings["selfUnlockAvailableAt"] as? String
         let unlockRequested = savedSettings["unlockRequested"] as? Bool ?? false
         let autoRelockEnabled = savedSettings["autoRelockEnabled"] as? Bool ?? true
+
+        // Free browse budgets: prefer TimeTracker (runtime), fallback to settings file
+        var freeBrowseBudgetsResult: [String: Int] = [:]
+        if let tt = appDelegate?.timeTracker {
+            freeBrowseBudgetsResult = tt.getFreeBrowseBudgets()
+        }
+        if freeBrowseBudgetsResult.isEmpty {
+            freeBrowseBudgetsResult = (savedSettings["freeBrowseBudgets"] as? [String: Int]) ?? [:]
+        }
 
         var result: [String: Any] = [
             "youtube": ytResult,
@@ -568,7 +618,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             "maxPerPeriod": maxPerPeriod,
             "deviceId": deviceId,
             "unlockRequested": unlockRequested,
-            "autoRelockEnabled": autoRelockEnabled
+            "autoRelockEnabled": autoRelockEnabled,
+            "freeBrowseBudgets": freeBrowseBudgetsResult
         ]
         if let tuu = temporaryUnlockUntil { result["temporaryUnlockUntil"] = tuu }
         if let sua = selfUnlockAvailableAt { result["selfUnlockAvailableAt"] = sua }
@@ -636,7 +687,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                         violation = "Cannot disable Reels blocking while settings are locked"
                     }
 
-                    // Facebook: can't disable, or disable watch/reels blocking
+                    // Facebook: can't disable, or disable any blocking features
                     if violation == nil, (fbSettings["enabled"] as? Bool) == false && (curFB["enabled"] as? Bool) != false {
                         violation = "Cannot disable Facebook while settings are locked"
                     }
@@ -645,6 +696,27 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                     }
                     if violation == nil, (fbSettings["blockReels"] as? Bool) == false && (curFB["blockReels"] as? Bool) != false {
                         violation = "Cannot disable Facebook Reels blocking while settings are locked"
+                    }
+                    if violation == nil, (fbSettings["blockGaming"] as? Bool) == false && (curFB["blockGaming"] as? Bool) != false {
+                        violation = "Cannot disable Gaming blocking while settings are locked"
+                    }
+                    if violation == nil, (fbSettings["blockSponsored"] as? Bool) == false && (curFB["blockSponsored"] as? Bool) != false {
+                        violation = "Cannot disable Sponsored blocking while settings are locked"
+                    }
+                    if violation == nil, (fbSettings["blockSuggested"] as? Bool) == false && (curFB["blockSuggested"] as? Bool) != false {
+                        violation = "Cannot disable Suggested content blocking while settings are locked"
+                    }
+
+                    // Free browse budgets: can't INCREASE when locked
+                    if violation == nil, let newFBB = settings["freeBrowseBudgets"] as? [String: Int] {
+                        let curFBB = appDelegate?.timeTracker?.getFreeBrowseBudgets() ?? [:]
+                        for (platform, newBudget) in newFBB {
+                            let curBudget = curFBB[platform] ?? 0
+                            if newBudget > curBudget {
+                                violation = "Cannot increase \(platform) free browse budget while settings are locked"
+                                break
+                            }
+                        }
                     }
 
                     if let v = violation {
@@ -667,6 +739,13 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             appDelegate?.timeTracker?.setBudget(for: "facebook", minutes: fbBudget)
         }
 
+        // Free browse budgets
+        if let freeBrowseBudgets = settings["freeBrowseBudgets"] as? [String: Int] {
+            for (platform, minutes) in freeBrowseBudgets {
+                appDelegate?.timeTracker?.setFreeBrowseBudget(for: platform, minutes: minutes)
+            }
+        }
+
         let lockMode = settings["lockMode"] as? String ?? UserDefaults.standard.string(forKey: "lockMode") ?? "none"
         let partnerEmail = settings["partnerEmail"] as? String
         let partnerName = settings["partnerName"] as? String
@@ -678,7 +757,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             partnerEmail: partnerEmail,
             partnerName: partnerName,
             lockMode: lockMode,
-            maxPerPeriod: settings["maxPerPeriod"] as? [String: Any]
+            maxPerPeriod: settings["maxPerPeriod"] as? [String: Any],
+            freeBrowseBudgets: settings["freeBrowseBudgets"] as? [String: Int]
         )
 
         broadcastSettingsToExtensions(settings)
@@ -702,7 +782,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         partnerEmail: String?,
         partnerName: String?,
         lockMode: String,
-        maxPerPeriod: [String: Any]?
+        maxPerPeriod: [String: Any]?,
+        freeBrowseBudgets: [String: Int]? = nil
     ) {
         updateSettingsFile { settings in
             var existingPlatforms = settings["platforms"] as? [String: Any] ?? [:]
@@ -720,6 +801,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             if let name = partnerName { settings["partnerName"] = name }
             if let cats = blockedCategories { settings["blockedCategories"] = cats }
             if let mpp = maxPerPeriod { settings["maxPerPeriod"] = mpp }
+            if let fbb = freeBrowseBudgets { settings["freeBrowseBudgets"] = fbb }
             settings["lastModified"] = ISO8601DateFormatter().string(from: Date())
         }
     }

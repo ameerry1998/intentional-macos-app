@@ -309,6 +309,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    // MARK: - URL Scheme Handler (intentional://)
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            guard url.scheme == "intentional" else { continue }
+            let action = url.host ?? url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            postLog("🔗 URL scheme opened: \(url.absoluteString) (action: \(action))")
+
+            switch action {
+            case "open", "dashboard", "":
+                showMainWindow()
+            default:
+                postLog("🔗 Unknown URL action: \(action), showing main window")
+                showMainWindow()
+            }
+        }
+    }
+
     @objc func showDebugMonitor() {
         mainWindowController?.showDebugMonitor()
     }

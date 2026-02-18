@@ -200,15 +200,27 @@ class SocketRelayServer {
                 DispatchQueue.global(qos: .utility).async { [weak self, weak handler] in
                     // Wait until handler stops running (readLoop exits on disconnect)
                     while handler?.isActive == true {
-                        Thread.sleep(forTimeInterval: 1.0)
+                        Thread.sleep(forTimeInterval: 0.5)
                     }
                     self?.connectionsLock.lock()
                     self?.activeConnections.removeValue(forKey: clientFd)
                     self?.connectionsLock.unlock()
                     DispatchQueue.main.async {
                         self?.appDelegate?.postLog("🔌 Socket relay: Disconnected (\(connLabel))")
-                        // Recheck protection — this browser may now be unprotected
+                        // Refresh file-based extension status (may detect disable_reasons change)
+                        NativeMessagingSetup.shared.autoDiscoverExtensions()
+                        // Recheck protection
                         self?.appDelegate?.browserMonitor?.recheckBrowserProtection()
+
+                        // Schedule a delayed rescan to catch disk-write delays.
+                        // When an extension is disabled, Chrome may not flush
+                        // disable_reasons to Preferences immediately. This second
+                        // rescan catches that within ~5 seconds instead of waiting
+                        // for the 60-second periodic rescan.
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                            NativeMessagingSetup.shared.autoDiscoverExtensions()
+                            self?.appDelegate?.browserMonitor?.recheckBrowserProtection()
+                        }
                     }
                 }
             }
