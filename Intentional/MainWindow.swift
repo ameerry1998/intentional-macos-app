@@ -196,6 +196,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "AUTH_DELETE":
             handleAuthDelete()
 
+        case "GET_USAGE_HISTORY":
+            handleGetUsageHistory()
+
         default:
             appDelegate?.postLog("⚠️ WKWebView: Unknown message type: \(type)")
         }
@@ -240,6 +243,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         appDelegate?.timeTracker?.setBudget(for: "youtube", minutes: ytBudget)
         appDelegate?.timeTracker?.setBudget(for: "instagram", minutes: igBudget)
         appDelegate?.timeTracker?.setBudget(for: "facebook", minutes: fbBudget)
+
+        // Push time settings to backend (if logged in)
+        appDelegate?.timeTracker?.pushSettingsToBackend()
 
         // 4. Make API calls, sync consent status, and broadcast to extensions
         Task {
@@ -779,6 +785,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         broadcastSettingsToExtensions(settings)
         callJS("window._saveSettingsResult && window._saveSettingsResult({ success: true })")
         appDelegate?.postLog("💾 SAVE_SETTINGS: Settings saved and broadcast")
+
+        // Push time settings to backend (if logged in)
+        appDelegate?.timeTracker?.pushSettingsToBackend()
     }
 
     // MARK: - End Session
@@ -959,6 +968,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 ]
                 self.appDelegate?.socketRelayServer?.broadcastToAll(lockSync)
                 self.appDelegate?.postLog("🔒 SAVE_LOCK_SETTINGS: requested=\(lockMode), actual=\(actualLockMode), consent=\(consentStatus)")
+
+                // Push settings to backend (if logged in)
+                self.appDelegate?.timeTracker?.pushSettingsToBackend()
             }
         }
     }
@@ -1273,6 +1285,11 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 }
                 return
             }
+            // Pull settings from backend on successful login
+            if result.success {
+                self.appDelegate?.timeTracker?.pullSettingsFromBackend()
+            }
+
             await MainActor.run {
                 if result.success, let data = result.data {
                     let email = (data["email"] as? String ?? "").replacingOccurrences(of: "'", with: "\\'")
@@ -1307,6 +1324,27 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             await MainActor.run {
                 let escaped = result.message.replacingOccurrences(of: "'", with: "\\'")
                 self.callJS("window._authDeleteResult && window._authDeleteResult({ success: \(result.success), message: '\(escaped)' })")
+            }
+        }
+    }
+
+    // MARK: - Usage History
+
+    private func handleGetUsageHistory() {
+        Task {
+            guard let result = await appDelegate?.backendClient?.getUsageHistory(days: 7) else {
+                await MainActor.run {
+                    self.callJS("window._usageHistoryResult && window._usageHistoryResult({ success: false })")
+                }
+                return
+            }
+            await MainActor.run {
+                if let data = try? JSONSerialization.data(withJSONObject: result),
+                   let json = String(data: data, encoding: .utf8) {
+                    self.callJS("window._usageHistoryResult && window._usageHistoryResult(\(json))")
+                } else {
+                    self.callJS("window._usageHistoryResult && window._usageHistoryResult({ success: false })")
+                }
             }
         }
     }

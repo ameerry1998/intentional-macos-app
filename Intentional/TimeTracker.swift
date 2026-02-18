@@ -46,6 +46,7 @@ class TimeTracker {
         var minutesUsed: Double
         var videoMinutes: Double // Time when video was actually playing
         var freeBrowseMinutes: Double // Time spent in free browse mode
+        var sessionCount: Int // Number of sessions started today
         var lastUpdated: Date
 
         static func today() -> DailyUsage {
@@ -54,6 +55,7 @@ class TimeTracker {
                 minutesUsed: 0,
                 videoMinutes: 0,
                 freeBrowseMinutes: 0,
+                sessionCount: 0,
                 lastUpdated: Date()
             )
         }
@@ -238,6 +240,11 @@ class TimeTracker {
             videoSeconds: 0
         )
 
+        // Increment daily session count
+        let platformKey = platform.lowercased()
+        ensureTodayEntry(for: platformKey)
+        dailyUsage[platformKey]?.sessionCount += 1
+
         appDelegate?.postLog("🎬 Session started: \(platform) on \(browser) (intent: \(intent ?? "none"))")
     }
 
@@ -249,15 +256,22 @@ class TimeTracker {
             let duration = Int(Date().timeIntervalSince(session.startTime))
             appDelegate?.postLog("🛑 Session ended: \(platform) on \(browser) (duration: \(duration)s)")
 
-            // Send session summary to backend
+            // Get platform session for free_browse and planned duration
+            let platformSession = getPlatformSession(for: platform)
+
+            // Record structured session to backend
             Task {
-                await backendClient?.sendEvent(type: "session_ended", details: [
-                    "platform": platform,
-                    "browser": browser,
-                    "duration_seconds": duration,
-                    "video_seconds": session.videoSeconds,
-                    "intent": session.intent ?? ""
-                ])
+                await backendClient?.recordSession(
+                    platform: platform,
+                    browser: browser,
+                    intent: session.intent,
+                    freeBrowse: platformSession.freeBrowse,
+                    startedAt: session.startTime,
+                    endedAt: Date(),
+                    durationSeconds: duration,
+                    plannedDurationSeconds: platformSession.durationMinutes > 0 ? platformSession.durationMinutes * 60 : nil,
+                    videoSeconds: session.videoSeconds
+                )
             }
         }
 
@@ -661,16 +675,68 @@ class TimeTracker {
     private func syncToBackend() {
         guard !dailyUsage.isEmpty else { return }
 
+        // Don't overwrite backend data with zeros on fresh install
+        let hasAnyUsage = dailyUsage.values.contains { $0.minutesUsed > 0 || $0.sessionCount > 0 }
+        guard hasAnyUsage else { return }
+
         Task { [weak self] in
             guard let self = self else { return }
 
-            var details: [String: Any] = [:]
+            var platforms: [[String: Any]] = []
             for (platform, usage) in self.dailyUsage {
-                details["\(platform)_minutes"] = Int(usage.minutesUsed)
-                details["\(platform)_video_minutes"] = Int(usage.videoMinutes)
+                platforms.append([
+                    "platform": platform,
+                    "date": usage.date,
+                    "minutes_used": usage.minutesUsed,
+                    "video_minutes": usage.videoMinutes,
+                    "free_browse_minutes": usage.freeBrowseMinutes,
+                    "session_count": usage.sessionCount
+                ])
             }
 
-            await self.backendClient?.sendEvent(type: "time_sync", details: details)
+            await self.backendClient?.syncUsage(platforms: platforms)
+        }
+    }
+
+    /// Push current time settings to backend (requires auth)
+    func pushSettingsToBackend() {
+        guard backendClient?.isLoggedIn == true else { return }
+
+        let settings: [String: Any] = [
+            "budgets": budgets,
+            "freeBrowseBudgets": freeBrowseBudgets
+        ]
+
+        Task { [weak self] in
+            await self?.backendClient?.syncSettings(settings: settings)
+        }
+    }
+
+    /// Pull settings from backend and apply (requires auth)
+    func pullSettingsFromBackend() {
+        guard backendClient?.isLoggedIn == true else { return }
+
+        Task { [weak self] in
+            guard let self = self else { return }
+            guard let result = await self.backendClient?.getSettings() else { return }
+            guard !result.isEmpty else { return }
+
+            // Mutate on main thread — TimeTracker properties are accessed from main
+            DispatchQueue.main.async {
+                if let b = result["budgets"] as? [String: Int] {
+                    for (platform, minutes) in b {
+                        self.budgets[platform] = minutes
+                    }
+                }
+                if let fb = result["freeBrowseBudgets"] as? [String: Int] {
+                    for (platform, minutes) in fb {
+                        self.freeBrowseBudgets[platform] = minutes
+                    }
+                }
+
+                self.saveSettings()
+                self.appDelegate?.postLog("📥 Settings restored from backend")
+            }
         }
     }
 

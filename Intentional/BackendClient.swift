@@ -453,6 +453,182 @@ class BackendClient {
         }
     }
 
+    // MARK: - Sessions
+
+    /// POST /sessions — record a completed browsing session
+    func recordSession(
+        platform: String,
+        browser: String,
+        intent: String?,
+        freeBrowse: Bool,
+        startedAt: Date,
+        endedAt: Date,
+        durationSeconds: Int,
+        plannedDurationSeconds: Int?,
+        videoSeconds: Int
+    ) async {
+        let endpoint = "\(baseURL)/sessions"
+        guard let url = URL(string: endpoint) else { return }
+
+        let formatter = ISO8601DateFormatter()
+        var payload: [String: Any] = [
+            "platform": platform,
+            "browser": browser,
+            "free_browse": freeBrowse,
+            "started_at": formatter.string(from: startedAt),
+            "ended_at": formatter.string(from: endedAt),
+            "duration_seconds": durationSeconds,
+            "video_seconds": videoSeconds
+        ]
+        if let intent = intent { payload["intent"] = intent }
+        if let planned = plannedDurationSeconds { payload["planned_duration_seconds"] = planned }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse {
+                let appDelegate = NSApplication.shared.delegate as? AppDelegate
+                if isSuccess(httpResponse.statusCode) {
+                    appDelegate?.postLog("📊 Session recorded: \(platform) (\(durationSeconds)s)")
+                } else {
+                    appDelegate?.postLog("⚠️ Session record failed: \(httpResponse.statusCode)")
+                    if let body = String(data: data, encoding: .utf8) {
+                        appDelegate?.postLog("   Response: \(body)")
+                    }
+                }
+            }
+        } catch {
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            appDelegate?.postLog("❌ Session record error: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Usage Sync
+
+    /// POST /usage/sync — upsert daily usage data (called every 60s by TimeTracker)
+    func syncUsage(platforms: [[String: Any]]) async {
+        let endpoint = "\(baseURL)/usage/sync"
+        guard let url = URL(string: endpoint) else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        let payload: [String: Any] = ["platforms": platforms]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse, !isSuccess(httpResponse.statusCode) {
+                let appDelegate = NSApplication.shared.delegate as? AppDelegate
+                appDelegate?.postLog("⚠️ Usage sync failed: \(httpResponse.statusCode)")
+                if let body = String(data: data, encoding: .utf8) {
+                    appDelegate?.postLog("   Response: \(body)")
+                }
+            }
+        } catch {
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            appDelegate?.postLog("❌ Usage sync error: \(error.localizedDescription)")
+        }
+    }
+
+    /// GET /usage/history — fetch daily usage history
+    func getUsageHistory(days: Int = 7) async -> [String: Any]? {
+        let endpoint = "\(baseURL)/usage/history?days=\(days)"
+        guard let url = URL(string: endpoint) else { return nil }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if let httpResponse = response as? HTTPURLResponse, isSuccess(httpResponse.statusCode) {
+                return parseJSON(data)
+            }
+        } catch {
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            appDelegate?.postLog("⚠️ Usage history fetch error: \(error.localizedDescription)")
+        }
+        return nil
+    }
+
+    // MARK: - Settings Sync
+
+    /// PUT /settings/sync — save settings to backend (requires JWT auth)
+    func syncSettings(settings: [String: Any]) async {
+        guard let accessToken = keychainGet("access_token") else { return }
+
+        let endpoint = "\(baseURL)/settings/sync"
+        guard let url = URL(string: endpoint) else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+        let payload: [String: Any] = ["settings": settings]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (_, response) = try await URLSession.shared.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 401 {
+                    let refreshed = await authRefresh()
+                    if refreshed { await syncSettings(settings: settings) }
+                    return
+                }
+                if isSuccess(httpResponse.statusCode) {
+                    let appDelegate = NSApplication.shared.delegate as? AppDelegate
+                    appDelegate?.postLog("☁️ Settings synced to backend")
+                }
+            }
+        } catch {
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            appDelegate?.postLog("❌ Settings sync error: \(error.localizedDescription)")
+        }
+    }
+
+    /// GET /settings/sync — retrieve settings from backend (requires JWT auth)
+    func getSettings() async -> [String: Any]? {
+        guard let accessToken = keychainGet("access_token") else { return nil }
+
+        let endpoint = "\(baseURL)/settings/sync"
+        guard let url = URL(string: endpoint) else { return nil }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 401 {
+                    let refreshed = await authRefresh()
+                    if refreshed { return await getSettings() }
+                    return nil
+                }
+                if isSuccess(httpResponse.statusCode), let json = parseJSON(data) {
+                    return json["settings"] as? [String: Any]
+                }
+            }
+        } catch {
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            appDelegate?.postLog("⚠️ Settings fetch error: \(error.localizedDescription)")
+        }
+        return nil
+    }
+
     // MARK: - Keychain Helpers
 
     private static let keychainService = "com.intentional.auth"

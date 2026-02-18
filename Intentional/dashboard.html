@@ -1012,6 +1012,57 @@ body {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 3px; }
+
+/* ===== Weekly Usage Chart ===== */
+.weekly-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 140px;
+  padding: 12px 0;
+}
+.weekly-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+.weekly-bar-value {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  min-height: 16px;
+}
+.weekly-bar-track {
+  flex: 1;
+  width: 100%;
+  max-width: 32px;
+  background: var(--card);
+  border-radius: 4px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+.weekly-bar-fill {
+  width: 100%;
+  background: linear-gradient(to top, #6366f1, #818cf8);
+  border-radius: 4px;
+  min-height: 2px;
+  transition: height 0.3s ease;
+}
+.weekly-bar-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+.weekly-bar-today .weekly-bar-fill {
+  background: linear-gradient(to top, #6366f1, #a78bfa);
+}
+.weekly-bar-today .weekly-bar-label {
+  color: var(--text-primary);
+  font-weight: 600;
+}
 </style>
 </head>
 <body>
@@ -1137,6 +1188,11 @@ body {
           <div class="usage-bar-fill free-browse" id="fb-fb-bar" style="width: 0%"></div>
         </div>
       </div>
+    </div>
+
+    <div class="section-title" style="margin-top: 24px;">This Week</div>
+    <div id="weekly-usage">
+      <div style="color: var(--text-secondary); font-size: 13px; padding: 16px 0;">Loading history...</div>
     </div>
   </div>
 
@@ -1707,12 +1763,22 @@ function navigateTo(pageId) {
     loadAccountPage();
     sendMessage({ type: 'GET_EXTENSION_STATUS' });
   }
+
+  // Load weekly usage history when viewing usage page
+  if (pageId === 'usage') {
+    sendMessage({ type: 'GET_USAGE_HISTORY' });
+  }
 }
 
 // ===== Refresh Data =====
 function refresh() {
   sendMessage({ type: 'GET_DASHBOARD_DATA' });
   sendMessage({ type: 'GET_EXTENSION_STATUS' });
+  // Load weekly history if on usage page
+  var usagePage = document.getElementById('page-usage');
+  if (usagePage && usagePage.classList.contains('active')) {
+    sendMessage({ type: 'GET_USAGE_HISTORY' });
+  }
 }
 
 // ===== HTML Escape =====
@@ -2908,6 +2974,53 @@ function showAccountState(state) {
   document.getElementById('account-code-entry').style.display = state === 'code-entry' ? 'block' : 'none';
   document.getElementById('account-signed-in').style.display = state === 'signed-in' ? 'block' : 'none';
 }
+
+// ===== Weekly Usage History =====
+window._usageHistoryResult = function(data) {
+  var container = document.getElementById('weekly-usage');
+  if (!container) return;
+
+  if (!data || !data.success || !data.data || data.data.length === 0) {
+    container.innerHTML = '<div style="color: var(--text-secondary); font-size: 13px; padding: 16px 0;">No history yet. Check back tomorrow.</div>';
+    return;
+  }
+
+  // Aggregate by date across platforms
+  var byDate = {};
+  data.data.forEach(function(row) {
+    if (!byDate[row.date]) byDate[row.date] = 0;
+    byDate[row.date] += row.minutes_used || 0;
+  });
+
+  // Get last 7 days (fill in missing dates with 0)
+  var dates = [];
+  var today = new Date();
+  for (var i = 6; i >= 0; i--) {
+    var d = new Date(today);
+    d.setDate(d.getDate() - i);
+    var key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    dates.push(key);
+  }
+
+  var todayKey = dates[dates.length - 1];
+  var maxMin = 1; // Minimum 1 to avoid division by zero
+  dates.forEach(function(d) { maxMin = Math.max(maxMin, byDate[d] || 0); });
+
+  var html = '<div class="weekly-bars">';
+  dates.forEach(function(date) {
+    var mins = Math.round(byDate[date] || 0);
+    var pct = (mins / maxMin * 100);
+    var dayLabel = new Date(date + 'T12:00:00').toLocaleDateString('en', { weekday: 'short' });
+    var isToday = date === todayKey;
+    html += '<div class="weekly-bar-col' + (isToday ? ' weekly-bar-today' : '') + '">';
+    html += '  <div class="weekly-bar-value">' + (mins > 0 ? mins + 'm' : '') + '</div>';
+    html += '  <div class="weekly-bar-track"><div class="weekly-bar-fill" style="height:' + pct + '%"></div></div>';
+    html += '  <div class="weekly-bar-label">' + dayLabel + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+};
 
 function loadAccountPage() {
   showAccountState('loading');
