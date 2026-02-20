@@ -7,6 +7,7 @@
 
 import Cocoa
 import Foundation
+import ServiceManagement
 
 class AppDelegate: NSObject, NSApplicationDelegate {
 
@@ -37,6 +38,98 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var extensionRescanTimer: Timer?
     private let heartbeatInterval: TimeInterval = 120.0  // 2 minutes
     private let appStartTime = Date()
+
+    // MARK: - Strict Mode (Tamper-Resistant Persistence)
+
+    /// Path to the strict mode flag file.
+    /// Watchdog checks this to decide whether to relaunch.
+    func strictModeFlagPath() -> String {
+        let appSupport = NSHomeDirectory() + "/Library/Application Support/Intentional"
+        try? FileManager.default.createDirectory(atPath: appSupport, withIntermediateDirectories: true)
+        return appSupport + "/strict-mode"
+    }
+
+    /// Block Cmd+Q when accountability lock is active.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let lockMode = UserDefaults.standard.string(forKey: "lockMode") ?? "none"
+
+        if lockMode == "none" {
+            return .terminateNow
+        }
+
+        // Locked — show dialog, block quit
+        postLog("🔒 Quit blocked — lock mode is '\(lockMode)'")
+        let alert = NSAlert()
+        alert.messageText = "Intentional is Locked"
+        alert.informativeText = "This app is in accountability mode. To quit, unlock it first through your accountability partner."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Keep Running")
+        alert.runModal()
+
+        return .terminateCancel
+    }
+
+    /// Enable/disable strict mode based on lock mode.
+    /// Called on launch and whenever lock mode changes.
+    func updateStrictMode(lockMode: String) {
+        let strictEnabled = (lockMode == "partner" || lockMode == "self")
+        postLog("🔒 updateStrictMode: lockMode=\(lockMode), strict=\(strictEnabled)")
+
+        // 1. Login item: auto-start on login
+        if #available(macOS 13.0, *) {
+            if strictEnabled {
+                do {
+                    try SMAppService.mainApp.register()
+                    postLog("✅ Login item registered (auto-start on login)")
+                } catch {
+                    postLog("⚠️ Failed to register login item: \(error)")
+                }
+            } else {
+                do {
+                    try SMAppService.mainApp.unregister()
+                    postLog("✅ Login item unregistered")
+                } catch {
+                    // Not registered — that's fine
+                }
+            }
+        }
+
+        // 2. Strict mode flag file (for watchdog + SIGTERM handler)
+        let flagPath = strictModeFlagPath()
+        if strictEnabled {
+            FileManager.default.createFile(atPath: flagPath, contents: "1".data(using: .utf8))
+            postLog("✅ Strict mode flag written: \(flagPath)")
+        } else {
+            try? FileManager.default.removeItem(atPath: flagPath)
+            postLog("✅ Strict mode flag removed")
+        }
+
+        // 3. Watchdog LaunchAgent
+        updateWatchdog(enabled: strictEnabled)
+    }
+
+    /// Register/unregister the watchdog LaunchAgent that relaunches the app if force-quit.
+    private func updateWatchdog(enabled: Bool) {
+        if #available(macOS 13.0, *) {
+            let agent = SMAppService.agent(plistName: "com.intentional.watchdog.plist")
+            if enabled {
+                do {
+                    try agent.register()
+                    postLog("✅ Watchdog agent registered")
+                } catch {
+                    postLog("⚠️ Failed to register watchdog: \(error)")
+                }
+            } else {
+                agent.unregister { [weak self] error in
+                    if let error = error {
+                        self?.postLog("⚠️ Failed to unregister watchdog: \(error)")
+                    } else {
+                        self?.postLog("✅ Watchdog agent unregistered")
+                    }
+                }
+            }
+        }
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // DIAGNOSTIC: Log every launch attempt to persistent file
@@ -120,6 +213,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             await backendClient?.sendEvent(type: "app_started", details: [:])
         }
+
+        // Initialize strict mode based on current lock setting
+        let currentLockMode = UserDefaults.standard.string(forKey: "lockMode") ?? "none"
+        updateStrictMode(lockMode: currentLockMode)
 
         // Notify UI
         postEventNotification(type: "app_started")

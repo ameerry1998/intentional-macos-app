@@ -129,13 +129,50 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #34d399;
+  background: rgba(255, 255, 255, 0.2);
+  transition: background 0.3s;
 }
+.status-dot.active { background: #34d399; }
+.status-dot.inactive { background: rgba(255, 255, 255, 0.2); }
 
 .status-text {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.5);
+  transition: color 0.3s;
 }
+
+.save-btn {
+  width: 100%;
+  padding: 12px;
+  margin-top: 20px;
+  margin-bottom: 20px;
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+}
+.save-btn:hover { background: #5558e6; }
+.save-btn.saved {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+  cursor: default;
+}
+
+.save-indicator {
+  font-size: 12px;
+  color: rgba(52, 211, 153, 0.8);
+  opacity: 0;
+  transition: opacity 0.3s;
+  position: fixed;
+  top: 12px;
+  right: 24px;
+  z-index: 100;
+}
+.save-indicator.visible { opacity: 1; }
 
 /* ===== Pages ===== */
 .page {
@@ -1063,6 +1100,50 @@ body {
   color: var(--text-primary);
   font-weight: 600;
 }
+.journal-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.journal-entry:last-child { border-bottom: none; }
+.journal-time {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  min-width: 60px;
+  font-variant-numeric: tabular-nums;
+}
+.journal-platform {
+  font-size: 14px;
+  min-width: 20px;
+  text-align: center;
+}
+.journal-intent {
+  flex: 1;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+}
+.journal-intent.free-browse {
+  color: #f59e0b;
+  font-style: italic;
+}
+.journal-duration {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: right;
+  min-width: 60px;
+}
+.journal-over {
+  font-size: 11px;
+  color: #ef4444;
+}
+.journal-empty {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 13px;
+  padding: 24px 0;
+  text-align: center;
+}
 </style>
 </head>
 <body>
@@ -1096,14 +1177,16 @@ body {
   </div>
 </div>
 
+<div class="save-indicator" id="save-indicator">Saved</div>
+
 <!-- Main -->
 <div class="main">
 
   <!-- Header -->
   <div class="header">
     <div class="header-right">
-      <span class="status-dot"></span>
-      <span class="status-text">Monitoring active</span>
+      <span class="status-dot" id="monitoring-dot"></span>
+      <span class="status-text" id="monitoring-text">Monitoring active</span>
     </div>
   </div>
 
@@ -1193,6 +1276,11 @@ body {
     <div class="section-title" style="margin-top: 24px;">This Week</div>
     <div id="weekly-usage">
       <div style="color: var(--text-secondary); font-size: 13px; padding: 16px 0;">Loading history...</div>
+    </div>
+
+    <div class="section-title" style="margin-top: 24px;">Today's Sessions</div>
+    <div id="journal-entries">
+      <div class="journal-empty">No sessions yet today</div>
     </div>
   </div>
 
@@ -1298,6 +1386,7 @@ body {
         </div>
       </div>
     </div>
+    <button class="save-btn" id="yt-save-btn" onclick="saveSettingsBtn(this)">Save</button>
   </div>
 
   <!-- Page: Instagram Settings -->
@@ -1411,6 +1500,7 @@ body {
         </div>
       </div>
     </div>
+    <button class="save-btn" id="ig-save-btn" onclick="saveSettingsBtn(this)">Save</button>
   </div>
 
   <!-- Page: Facebook Settings -->
@@ -1542,6 +1632,7 @@ body {
         <span class="setting-value">posts</span>
       </div>
     </div>
+    <button class="save-btn" id="fb-save-btn" onclick="saveSettingsBtn(this)">Save</button>
   </div>
 
   <!-- Page: Accountability / Lock -->
@@ -1764,9 +1855,10 @@ function navigateTo(pageId) {
     sendMessage({ type: 'GET_EXTENSION_STATUS' });
   }
 
-  // Load weekly usage history when viewing usage page
+  // Load weekly usage history and journal when viewing usage page
   if (pageId === 'usage') {
     sendMessage({ type: 'GET_USAGE_HISTORY' });
+    sendMessage({ type: 'GET_JOURNAL' });
   }
 }
 
@@ -1774,10 +1866,11 @@ function navigateTo(pageId) {
 function refresh() {
   sendMessage({ type: 'GET_DASHBOARD_DATA' });
   sendMessage({ type: 'GET_EXTENSION_STATUS' });
-  // Load weekly history if on usage page
+  // Load weekly history and journal if on usage page
   var usagePage = document.getElementById('page-usage');
   if (usagePage && usagePage.classList.contains('active')) {
     sendMessage({ type: 'GET_USAGE_HISTORY' });
+    sendMessage({ type: 'GET_JOURNAL' });
   }
 }
 
@@ -1883,6 +1976,19 @@ function onSettingChange() {
   if (_lockInterceptActive) return; // Lock interceptor is handling this change
   clearTimeout(settingSaveTimer);
   settingSaveTimer = setTimeout(saveAllSettings, 800);
+  // Reset save buttons to "Save" when settings change
+  document.querySelectorAll('.save-btn').forEach(function(btn) {
+    btn.textContent = 'Save';
+    btn.classList.remove('saved');
+  });
+}
+
+function saveSettingsBtn(btn) {
+  clearTimeout(settingSaveTimer);
+  btn.textContent = 'Saving...';
+  btn.disabled = true;
+  saveAllSettings();
+  // The _saveSettingsResult callback will update the button
 }
 
 function saveAllSettings() {
@@ -2035,10 +2141,12 @@ function getLockState() {
   if (mode === 'self' && settings.selfUnlockAvailableAt) {
     var availAt = new Date(settings.selfUnlockAvailableAt).getTime();
     if (availAt > Date.now()) return 'self_countdown';
+    // Timer expired but hasn't been verified yet — auto-verify will handle this
+    // Don't fall through to unlock_code_entry (self-mode has no code)
   }
 
-  // Check if we're waiting for unlock code entry
-  if (mode !== 'none' && settings.unlockRequested) return 'unlock_code_entry';
+  // Check if we're waiting for unlock code entry (partner mode only)
+  if (mode === 'partner' && settings.unlockRequested) return 'unlock_code_entry';
 
   // Consent states take priority over "locked" — if partner hasn't confirmed yet,
   // showing "locked" is wrong. Only show locked when consent is confirmed (or for self mode).
@@ -2195,7 +2303,7 @@ function renderLockState() {
             '<div style="font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:8px;">Time remaining</div>' +
             '<div class="countdown-display" id="countdown-timer" style="margin:12px 0;">--:--:--</div>' +
             '<div class="unlock-timer-bar"><div class="unlock-timer-fill" id="countdown-bar" style="width:100%;background:#f59e0b;"></div></div>' +
-            '<div class="lock-helper-text" style="padding:0;margin-top:12px;">The unlock code will be sent to your email when the countdown reaches zero.</div>' +
+            '<div class="lock-helper-text" style="padding:0;margin-top:12px;">Settings will unlock automatically when the timer reaches zero.</div>' +
           '</div>' +
         '</div>' +
         '<button class="btn-secondary" onclick="cancelUnlock()" style="width:100%;margin-top:16px;">Cancel Request</button>';
@@ -2356,8 +2464,16 @@ var LOCKED_INPUT_IDS = [
   'fb-block-watch', 'fb-block-reels', 'fb-block-marketplace',
   'fb-block-gaming', 'fb-block-stories',
   'fb-block-sponsored', 'fb-block-suggested', 'fb-friends-only',
+  'yt-block-mode', 'yt-hide-sponsored', 'yt-zen-duration',
+  'adv-period-enabled', 'adv-period-minutes', 'adv-period-hours'
+];
+
+// Budget inputs: can DECREASE with confirmation, cannot INCREASE
+var LOCKED_BUDGET_IDS = [
+  'yt-budget-input', 'ig-budget-input', 'fb-budget-input',
   'yt-free-browse-input', 'ig-free-browse-input', 'fb-free-browse-input'
 ];
+var _lockedBudgetOriginals = {}; // Store original values when settings load
 
 // Descriptions for the lock confirmation modal
 var LOCK_CONFIRM_INFO = {
@@ -2373,7 +2489,13 @@ var LOCK_CONFIRM_INFO = {
   'fb-block-stories': { name: 'Block Stories', desc: 'Facebook Stories will be hidden from the top of your feed.' },
   'fb-block-sponsored': { name: 'Block sponsored posts', desc: 'Sponsored posts and ads will be removed from your Facebook feed.' },
   'fb-block-suggested': { name: 'Block suggested content', desc: '"Suggested for you" and "People you may know" content will be removed.' },
-  'fb-friends-only': { name: 'Friends-only mode', desc: 'Only posts from friends will appear in your feed.' }
+  'fb-friends-only': { name: 'Friends-only mode', desc: 'Only posts from friends will appear in your feed.' },
+  'yt-budget-input': { name: 'YouTube daily budget', desc: 'You won\'t be able to increase it back while locked.' },
+  'ig-budget-input': { name: 'Instagram daily budget', desc: 'You won\'t be able to increase it back while locked.' },
+  'fb-budget-input': { name: 'Facebook daily budget', desc: 'You won\'t be able to increase it back while locked.' },
+  'yt-free-browse-input': { name: 'YouTube free browse budget', desc: 'You won\'t be able to increase it back while locked.' },
+  'ig-free-browse-input': { name: 'Instagram free browse budget', desc: 'You won\'t be able to increase it back while locked.' },
+  'fb-free-browse-input': { name: 'Facebook free browse budget', desc: 'You won\'t be able to increase it back while locked.' }
 };
 
 function isSettingsLocked() {
@@ -2384,6 +2506,7 @@ function isSettingsLocked() {
 function enforceLockMode() {
   var locked = isSettingsLocked();
 
+  // Fully locked inputs (pointer-events: none)
   LOCKED_INPUT_IDS.forEach(function(id) {
     var input = document.getElementById(id);
     if (!input) return;
@@ -2399,6 +2522,24 @@ function enforceLockMode() {
         row.classList.add('locked');
         row.classList.remove('lock-confirmable');
       }
+    } else {
+      row.classList.remove('locked');
+      row.classList.remove('lock-confirmable');
+    }
+  });
+
+  // Budget inputs: can decrease with confirmation, cannot increase
+  LOCKED_BUDGET_IDS.forEach(function(id) {
+    var input = document.getElementById(id);
+    if (!input) return;
+    var row = input.closest('.setting-row');
+    if (!row) return;
+
+    if (locked) {
+      row.classList.add('lock-confirmable');
+      row.classList.remove('locked');
+      // Store current value as the locked original
+      _lockedBudgetOriginals[id] = parseInt(input.value) || 0;
     } else {
       row.classList.remove('locked');
       row.classList.remove('lock-confirmable');
@@ -2433,6 +2574,7 @@ function showLockConfirm(inputId, callback) {
   if (!info) { callback(false); return; }
   document.getElementById('lock-confirm-title').textContent = 'Enable ' + info.name + '?';
   document.getElementById('lock-confirm-desc').textContent = info.desc;
+  document.getElementById('lock-confirm-warning').textContent = 'This change cannot be reversed while settings are locked.';
   document.getElementById('lock-confirm-modal').style.display = 'flex';
   _lockConfirmCallback = callback;
 }
@@ -2449,38 +2591,75 @@ function setupLockInterceptors() {
   if (_lockInterceptorsSetup) return;
   _lockInterceptorsSetup = true;
 
+  // Checkbox interceptors (existing)
   LOCKED_INPUT_IDS.forEach(function(id) {
     var input = document.getElementById(id);
     if (!input || input.type !== 'checkbox') return;
 
     input.addEventListener('change', function() {
-      if (!isSettingsLocked()) return; // Not locked — let onSettingChange() handle it normally
+      if (!isSettingsLocked()) return;
 
-      // Suppress the inline onchange from triggering a save
       _lockInterceptActive = true;
       setTimeout(function() { _lockInterceptActive = false; }, 50);
 
       if (input.checked) {
-        // Trying to turn ON while locked — revert and show confirmation
         input.checked = false;
         showLockConfirm(id, function(confirmed) {
           if (confirmed) {
             input.checked = true;
-            // Now it's ON while locked — apply full lock
             var row = input.closest('.setting-row');
             if (row) {
               row.classList.add('locked');
               row.classList.remove('lock-confirmable');
             }
             _lockInterceptActive = false;
-            onSettingChange(); // Trigger save now
+            onSettingChange();
           }
         });
       } else {
-        // Trying to turn OFF while locked — block it
         input.checked = true;
       }
-    }, true); // Capture phase — fires before the inline onchange
+    }, true);
+  });
+
+  // Budget input interceptors: allow decrease with confirmation, block increase
+  LOCKED_BUDGET_IDS.forEach(function(id) {
+    var input = document.getElementById(id);
+    if (!input) return;
+
+    input.addEventListener('change', function() {
+      if (!isSettingsLocked()) return;
+
+      _lockInterceptActive = true;
+      setTimeout(function() { _lockInterceptActive = false; }, 50);
+
+      var newVal = parseInt(input.value) || 0;
+      var origVal = _lockedBudgetOriginals[id] || 0;
+
+      if (newVal > origVal) {
+        // Trying to INCREASE — block it
+        input.value = origVal;
+        showToast('Cannot increase budget while settings are locked');
+      } else if (newVal < origVal) {
+        // Trying to DECREASE — confirm first
+        input.value = origVal; // Revert until confirmed
+        var info = LOCK_CONFIRM_INFO[id];
+        var label = info ? info.name : 'budget';
+        document.getElementById('lock-confirm-title').textContent = 'Decrease ' + label + '?';
+        document.getElementById('lock-confirm-desc').textContent = 'Reduce from ' + origVal + ' min to ' + newVal + ' min. ' + (info ? info.desc : '');
+        document.getElementById('lock-confirm-warning').textContent = 'This change cannot be reversed while settings are locked.';
+        document.getElementById('lock-confirm-modal').style.display = 'flex';
+        _lockConfirmCallback = function(confirmed) {
+          if (confirmed) {
+            input.value = newVal;
+            _lockedBudgetOriginals[id] = newVal; // Update the floor
+            _lockInterceptActive = false;
+            onSettingChange();
+          }
+        };
+      }
+      // If equal, do nothing
+    }, true);
   });
 }
 
@@ -2491,10 +2670,10 @@ function updateCountdown(targetMs) {
   var diff = targetMs - Date.now();
   if (diff <= 0) {
     el.textContent = '00:00:00';
-    // Countdown done - refresh state
-    settings.selfUnlockAvailableAt = null;
-    settings.unlockRequested = true;
-    renderLockState();
+    // Countdown done - auto-unlock (no code needed for self-mode)
+    if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+    el.textContent = 'Unlocking...';
+    sendMessage({ type: 'VERIFY_UNLOCK', code: '', auto_relock: false });
     return;
   }
   var hours = Math.floor(diff / 3600000);
@@ -2689,10 +2868,30 @@ window._settingsResult = function(data) {
 };
 
 // Save settings result
+var _saveIndicatorTimeout = null;
 window._saveSettingsResult = function(data) {
   if (data.success) {
-    showToast('Settings saved');
+    // Update save buttons
+    document.querySelectorAll('.save-btn').forEach(function(btn) {
+      btn.textContent = 'Saved';
+      btn.classList.add('saved');
+      btn.disabled = false;
+    });
+    // Show top-right indicator
+    var indicator = document.getElementById('save-indicator');
+    if (indicator) {
+      indicator.textContent = 'Saved';
+      indicator.style.color = 'rgba(52, 211, 153, 0.8)';
+      indicator.classList.add('visible');
+      clearTimeout(_saveIndicatorTimeout);
+      _saveIndicatorTimeout = setTimeout(function() { indicator.classList.remove('visible'); }, 1500);
+    }
   } else {
+    document.querySelectorAll('.save-btn').forEach(function(btn) {
+      btn.textContent = 'Save';
+      btn.classList.remove('saved');
+      btn.disabled = false;
+    });
     showToast(data.message || 'Failed to save settings', 'error');
   }
 };
@@ -2770,12 +2969,13 @@ window._resendInviteResult = function(data) {
 // Unlock result
 window._unlockResult = function(data) {
   if (data.success) {
-    showToast(data.message || 'Unlock code sent!');
     // Transition to code entry or countdown state
     if (settings.lockMode === 'self') {
       settings.selfUnlockAvailableAt = data.availableAt || new Date(Date.now() + 24 * 3600000).toISOString();
+      showToast(data.message || 'Unlock countdown started');
     } else {
       settings.unlockRequested = true;
+      showToast(data.message || 'Unlock code sent to your partner');
     }
     renderLockState();
   } else {
@@ -2879,7 +3079,7 @@ function updateFreeBrowseDisplay(prefix, platformData) {
   var barContainer = document.getElementById(prefix + '-fb-bar-container');
   var bar = document.getElementById(prefix + '-fb-bar');
   var minutes = document.getElementById(prefix + '-fb-minutes');
-  if (fbBudget > 0) {
+  if (fbBudget > 0 && fbUsed > 0) {
     if (label) { label.style.display = 'block'; }
     if (barContainer) { barContainer.style.display = 'block'; }
     if (minutes) { minutes.textContent = fbUsed; }
@@ -2894,6 +3094,26 @@ function updateFreeBrowseDisplay(prefix, platformData) {
 window._extensionStatusResult = function(data) {
   var card = document.getElementById('browser-card');
   var empty = document.getElementById('browser-empty');
+
+  // Update monitoring indicator in header
+  var dot = document.getElementById('monitoring-dot');
+  var text = document.getElementById('monitoring-text');
+  if (data.browsers && data.browsers.length > 0) {
+    var connectedBrowsers = data.browsers.filter(function(b) { return b.hasExtension && b.isEnabled; });
+    if (connectedBrowsers.length > 0) {
+      if (dot) dot.className = 'status-dot active';
+      if (text) {
+        var names = connectedBrowsers.map(function(b) { return b.name; });
+        text.textContent = names.length === 1 ? names[0] + ' connected' : names.length + ' browsers connected';
+      }
+    } else {
+      if (dot) dot.className = 'status-dot inactive';
+      if (text) text.textContent = 'No extension connected';
+    }
+  } else {
+    if (dot) dot.className = 'status-dot inactive';
+    if (text) text.textContent = 'No browsers detected';
+  }
 
   if (!data.browsers || data.browsers.length === 0) {
     if (empty) {
@@ -3022,6 +3242,43 @@ window._usageHistoryResult = function(data) {
   container.innerHTML = html;
 };
 
+window._journalResult = function(data) {
+  var container = document.getElementById('journal-entries');
+  if (!container) return;
+
+  if (!data || !data.success || !data.sessions || data.sessions.length === 0) {
+    container.innerHTML = '<div class="journal-empty">No sessions yet today</div>';
+    return;
+  }
+
+  var platformIcons = { youtube: '\u25b6\ufe0f', instagram: '\ud83d\udcf7', facebook: '\ud83d\udc64' };
+  var html = '';
+
+  data.sessions.forEach(function(s) {
+    var startDate = new Date(s.started_at);
+    var time = startDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    var icon = platformIcons[s.platform] || '\ud83c\udf10';
+    var mins = Math.round(s.duration_seconds / 60);
+    var intentText = s.free_browse ? 'Free Browse' : (s.intent || 'No intent set');
+    var intentClass = s.free_browse ? 'journal-intent free-browse' : 'journal-intent';
+
+    var durationHtml = mins + ' min';
+    if (s.planned_duration_seconds && s.duration_seconds > s.planned_duration_seconds) {
+      var planned = Math.round(s.planned_duration_seconds / 60);
+      durationHtml += ' <span class="journal-over">(planned: ' + planned + 'm)</span>';
+    }
+
+    html += '<div class="journal-entry">';
+    html += '<span class="journal-time">' + time + '</span>';
+    html += '<span class="journal-platform">' + icon + '</span>';
+    html += '<span class="' + intentClass + '">' + intentText + '</span>';
+    html += '<span class="journal-duration">' + durationHtml + '</span>';
+    html += '</div>';
+  });
+
+  container.innerHTML = html;
+};
+
 function loadAccountPage() {
   showAccountState('loading');
   sendMessage({ type: 'GET_AUTH_STATE' });
@@ -3146,10 +3403,10 @@ setInterval(refresh, 5000);
     <div class="lock-confirm-icon">🔒</div>
     <h3 id="lock-confirm-title">Enable setting?</h3>
     <p id="lock-confirm-desc">Description of the setting.</p>
-    <p class="lock-confirm-warning">This setting will stay enabled until your profile is unlocked.</p>
+    <p class="lock-confirm-warning" id="lock-confirm-warning">This setting will stay enabled until your profile is unlocked.</p>
     <div class="lock-confirm-actions">
       <button class="lock-confirm-cancel" onclick="closeLockConfirm(false)">Cancel</button>
-      <button class="lock-confirm-enable" onclick="closeLockConfirm(true)">Enable</button>
+      <button class="lock-confirm-enable" onclick="closeLockConfirm(true)" id="lock-confirm-btn">Confirm</button>
     </div>
   </div>
 </div>

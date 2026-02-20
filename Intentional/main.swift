@@ -71,11 +71,25 @@ signal(SIGTERM, SIG_IGN) // Disable default SIGTERM so GCD source can handle it
 let sigtermSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .global(qos: .userInteractive))
 sigtermSource.setEventHandler {
     if isPrimaryProcess {
-        // Primary app being force-terminated (Xcode Stop / Force Quit)
-        // Block extension relays from relaunching for 30 seconds
-        FileManager.default.createFile(atPath: noRelaunchMarkerPath, contents: "1".data(using: .utf8))
+        // Check if strict mode is active — if so, do NOT write the no-relaunch marker.
+        // This lets the watchdog LaunchAgent relaunch the app after force-quit.
+        let strictFlagPath = NSHomeDirectory() + "/Library/Application Support/Intentional/strict-mode"
+        let strictMode = FileManager.default.fileExists(atPath: strictFlagPath)
+
+        // Detect Xcode debug launches — Xcode sets this env var when running from IDE.
+        // During development we always want the app to stay dead after Xcode stops it.
+        let isXcodeLaunch = ProcessInfo.processInfo.environment["__XCODE_BUILT_PRODUCTS_DIR_PATHS"] != nil
+
+        if !strictMode || isXcodeLaunch {
+            // Normal mode (or Xcode dev): block relaunch for 30 seconds
+            FileManager.default.createFile(atPath: noRelaunchMarkerPath, contents: "1".data(using: .utf8))
+            appendLog("SIGTERM [PRIMARY] - No-relaunch marker written (strict=\(strictMode), xcode=\(isXcodeLaunch))")
+        } else {
+            appendLog("SIGTERM [PRIMARY] - Strict mode ON, skipping no-relaunch marker (watchdog will relaunch)")
+        }
+
+        // Always remove lock file so the relaunched instance can become primary
         try? FileManager.default.removeItem(atPath: lockFilePath)
-        appendLog("SIGTERM [PRIMARY] - No-relaunch marker written, lock file removed")
         _exit(0)
     } else {
         // Relay process — just exit quietly

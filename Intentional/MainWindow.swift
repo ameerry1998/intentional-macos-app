@@ -199,6 +199,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "GET_USAGE_HISTORY":
             handleGetUsageHistory()
 
+        case "GET_JOURNAL":
+            handleGetJournal()
+
         default:
             appDelegate?.postLog("⚠️ WKWebView: Unknown message type: \(type)")
         }
@@ -728,6 +731,21 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                         violation = "Cannot disable Suggested content blocking while settings are locked"
                     }
 
+                    // Daily budgets: can't INCREASE when locked
+                    if violation == nil {
+                        let curBudgets = appDelegate?.timeTracker?.getBudgets() ?? [:]
+                        let budgetChecks: [(String, [String: Any])] = [("youtube", ytSettings), ("instagram", igSettings), ("facebook", fbSettings)]
+                        for (platform, platformSettings) in budgetChecks {
+                            if let newBudget = platformSettings["budget"] as? Int {
+                                let curBudget = curBudgets[platform] ?? 480
+                                if newBudget > curBudget {
+                                    violation = "Cannot increase \(platform) daily budget while settings are locked"
+                                    break
+                                }
+                            }
+                        }
+                    }
+
                     // Free browse budgets: can't INCREASE when locked
                     if violation == nil, let newFBB = settings["freeBrowseBudgets"] as? [String: Int] {
                         let curFBB = appDelegate?.timeTracker?.getFreeBrowseBudgets() ?? [:]
@@ -971,6 +989,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
                 // Push settings to backend (if logged in)
                 self.appDelegate?.timeTracker?.pushSettingsToBackend()
+
+                // 7. Update strict mode (login item, watchdog, flag file)
+                self.appDelegate?.updateStrictMode(lockMode: actualLockMode)
             }
         }
     }
@@ -1017,6 +1038,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 ]
                 self.appDelegate?.socketRelayServer?.broadcastToAll(lockSync)
                 self.appDelegate?.postLog("🔒 REMOVE_PARTNER: done, removed=\(removed)")
+
+                // Disable strict mode (login item, watchdog, flag)
+                self.appDelegate?.updateStrictMode(lockMode: "none")
             }
         }
     }
@@ -1064,7 +1088,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     // MARK: - Verify Unlock Code
 
     private func handleVerifyUnlock(_ body: [String: Any]) {
-        guard let code = body["code"] as? String else { return }
+        let code = body["code"] as? String ?? ""
         let autoRelock = body["auto_relock"] as? Bool ?? false
 
         Task {
@@ -1344,6 +1368,27 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                     self.callJS("window._usageHistoryResult && window._usageHistoryResult(\(json))")
                 } else {
                     self.callJS("window._usageHistoryResult && window._usageHistoryResult({ success: false })")
+                }
+            }
+        }
+    }
+
+    // MARK: - Session Journal
+
+    private func handleGetJournal() {
+        Task {
+            guard let result = await appDelegate?.backendClient?.getJournal() else {
+                await MainActor.run {
+                    self.callJS("window._journalResult && window._journalResult({ success: false })")
+                }
+                return
+            }
+            await MainActor.run {
+                if let data = try? JSONSerialization.data(withJSONObject: result),
+                   let json = String(data: data, encoding: .utf8) {
+                    self.callJS("window._journalResult && window._journalResult(\(json))")
+                } else {
+                    self.callJS("window._journalResult && window._journalResult({ success: false })")
                 }
             }
         }

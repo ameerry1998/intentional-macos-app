@@ -262,7 +262,8 @@ class BackendClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
 
-        let body: [String: Any] = ["code": code, "auto_relock": autoRelock]
+        var body: [String: Any] = ["auto_relock": autoRelock]
+        if !code.isEmpty { body["code"] = code }
 
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -557,6 +558,28 @@ class BackendClient {
         } catch {
             let appDelegate = NSApplication.shared.delegate as? AppDelegate
             appDelegate?.postLog("⚠️ Usage history fetch error: \(error.localizedDescription)")
+        }
+        return nil
+    }
+
+    /// GET /sessions/journal — fetch session journal for a date
+    func getJournal(date: String? = nil) async -> [String: Any]? {
+        var endpoint = "\(baseURL)/sessions/journal"
+        if let date = date { endpoint += "?date=\(date)" }
+        guard let url = URL(string: endpoint) else { return nil }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if let httpResponse = response as? HTTPURLResponse, isSuccess(httpResponse.statusCode) {
+                return parseJSON(data)
+            }
+        } catch {
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            appDelegate?.postLog("⚠️ Journal fetch error: \(error.localizedDescription)")
         }
         return nil
     }

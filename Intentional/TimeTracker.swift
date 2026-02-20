@@ -352,6 +352,11 @@ class TimeTracker {
         saveSettings()
     }
 
+    /// Get all daily budgets
+    func getBudgets() -> [String: Int] {
+        return budgets
+    }
+
     /// Get all free browse budgets
     func getFreeBrowseBudgets() -> [String: Int] {
         return freeBrowseBudgets
