@@ -101,18 +101,35 @@ sigtermSource.resume()
 // === SINGLE-INSTANCE CHECK (for manually-launched duplicates only) ===
 // Extension-launched processes skip this — they go straight to the relay block below.
 if !launchedViaExtension {
+    let isXcodeLaunch = ProcessInfo.processInfo.environment["__XCODE_BUILT_PRODUCTS_DIR_PATHS"] != nil
+
     if fileManager.fileExists(atPath: lockFilePath) {
         if let existingPIDStr = try? String(contentsOfFile: lockFilePath, encoding: .utf8),
            let existingPID = Int32(existingPIDStr.trimmingCharacters(in: .whitespacesAndNewlines)) {
 
             if kill(existingPID, 0) == 0 {
-                // Another instance is running — activate its window and exit
-                appendLog("DUPLICATE DETECTED - Existing PID: \(existingPID) is alive, activating window")
-                let runningApps = NSWorkspace.shared.runningApplications
-                if let existing = runningApps.first(where: { $0.processIdentifier == existingPID }) {
-                    existing.activate(options: .activateIgnoringOtherApps)
+                if isXcodeLaunch {
+                    // Xcode debug launch: terminate the existing (watchdog-launched) process
+                    // so the debugger can attach to this new instance instead.
+                    appendLog("XCODE LAUNCH - Terminating existing PID \(existingPID) to allow debug session")
+                    kill(existingPID, SIGTERM)
+                    // Wait briefly for the old process to exit and release the lock
+                    for _ in 0..<20 {
+                        usleep(100_000) // 100ms
+                        if kill(existingPID, 0) != 0 { break }
+                    }
+                    try? fileManager.removeItem(atPath: lockFilePath)
+                    // Remove no-relaunch marker the old process may have written
+                    try? fileManager.removeItem(atPath: noRelaunchMarkerPath)
+                } else {
+                    // Normal duplicate launch — activate existing window and exit
+                    appendLog("DUPLICATE DETECTED - Existing PID: \(existingPID) is alive, activating window")
+                    let runningApps = NSWorkspace.shared.runningApplications
+                    if let existing = runningApps.first(where: { $0.processIdentifier == existingPID }) {
+                        existing.activate(options: .activateIgnoringOtherApps)
+                    }
+                    exit(0)
                 }
-                exit(0)
             } else {
                 appendLog("STALE LOCK FILE - PID \(existingPID) is dead, removing lock")
                 try? fileManager.removeItem(atPath: lockFilePath)

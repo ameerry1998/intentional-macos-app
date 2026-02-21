@@ -10,6 +10,8 @@ class NativeMessagingHost {
 
     weak var appDelegate: AppDelegate?
     weak var timeTracker: TimeTracker?
+    weak var scheduleManager: ScheduleManager?
+    weak var relevanceScorer: RelevanceScorer?
 
     private var inputHandle: FileHandle?
     private var outputHandle: FileHandle?
@@ -223,6 +225,8 @@ class NativeMessagingHost {
             sendSettingsSync()
             // Push onboarding settings so fresh extensions skip onboarding
             sendOnboardingSync()
+            // Push focus schedule state so extension knows current block
+            sendScheduleSync()
 
         case "SESSION_START":
             // Extension starting a session — sets canonical PlatformSession
@@ -252,6 +256,42 @@ class NativeMessagingHost {
             // Extension wants to foreground the Mac app and show the dashboard
             DispatchQueue.main.async { [weak self] in
                 self?.appDelegate?.showMainWindow()
+            }
+
+        case "SCORE_RELEVANCE":
+            // Extension asking to score a page title against current work block
+            handleScoreRelevance(message)
+
+        case "GET_SCHEDULE":
+            // Extension requesting current schedule state
+            sendScheduleSync()
+
+        case "SET_SCHEDULE":
+            // Extension/dashboard sending today's schedule
+            handleSetSchedule(message)
+
+        case "ADD_BLOCK":
+            // Quick-add a block (e.g., "Quick: free block" from extension blocking screen)
+            handleAddBlock(message)
+
+        case "SNOOZE_PLAN":
+            // Snooze the morning planning prompt
+            handleSnoozePlan()
+
+        case "SET_FOCUS_ENABLED":
+            // Enable/disable the Daily Focus Plan feature
+            handleSetFocusEnabled(message)
+
+        case "SET_PROFILE":
+            // Set user profile text
+            handleSetProfile(message)
+
+        case "FOCUS_OVERLAY_ACTION":
+            // Extension reporting user action on progressive focus overlay
+            let action = message["action"] as? String ?? ""
+            let reason = message["reason"] as? String
+            DispatchQueue.main.async { [weak self] in
+                self?.appDelegate?.focusMonitor?.handleOverlayAction(action: action, reason: reason)
             }
 
         default:
@@ -637,5 +677,187 @@ class NativeMessagingHost {
             "freeBrowseBudgets": tracker.getFreeBrowseBudgets(),
             "freeBrowseExceeded": freeBrowseExceeded
         ])
+    }
+
+    // MARK: - Focus Schedule Handlers
+
+    /// Push current schedule state to this browser's extension via SCHEDULE_SYNC.
+    /// Called on PING (initial connect) and whenever the schedule changes.
+    private func sendScheduleSync() {
+        guard let manager = scheduleManager else { return }
+        sendMessage(manager.getScheduleSyncPayload())
+    }
+
+    /// Handle SCORE_RELEVANCE from extension: score a page title against current intention.
+    /// Responds with RELEVANCE_RESULT containing the scoring outcome.
+    private func handleScoreRelevance(_ message: [String: Any]) {
+        guard let pageTitle = message["pageTitle"] as? String else {
+            sendMessage(["type": "RELEVANCE_RESULT", "error": "Missing pageTitle"])
+            return
+        }
+
+        let requestId = message["requestId"] as? String
+        let currentState = scheduleManager?.currentTimeState.rawValue ?? "nil"
+        let currentBlock = scheduleManager?.currentBlock?.title ?? "none"
+        appDelegate?.postLog("🧠 [Debug] SCORE_RELEVANCE received: \"\(pageTitle)\", scheduleState=\(currentState), block=\(currentBlock)")
+
+        // Get current block context from ScheduleManager
+        guard let manager = scheduleManager,
+              manager.currentTimeState == .workBlock,
+              let block = manager.currentBlock else {
+            // Not in a work block — no scoring needed
+            appDelegate?.postLog("🧠 [Debug] Not in work block — returning relevant=true")
+            var response: [String: Any] = [
+                "type": "RELEVANCE_RESULT",
+                "relevant": true,
+                "confidence": 0,
+                "reason": "Not in a work block"
+            ]
+            if let id = requestId { response["requestId"] = id }
+            sendMessage(response)
+            return
+        }
+
+        guard let scorer = relevanceScorer else {
+            var response: [String: Any] = [
+                "type": "RELEVANCE_RESULT",
+                "relevant": true,
+                "confidence": 0,
+                "reason": "Scorer not available"
+            ]
+            if let id = requestId { response["requestId"] = id }
+            sendMessage(response)
+            return
+        }
+
+        let hostname = message["hostname"] as? String
+
+        // Score asynchronously — Foundation Models call can take ~500-1000ms
+        Task {
+            let result = await scorer.scoreRelevance(
+                pageTitle: pageTitle,
+                intention: block.title,
+                profile: manager.profile,
+                dailyPlan: manager.todaySchedule?.dailyPlan ?? ""
+            )
+
+            var response: [String: Any] = [
+                "type": "RELEVANCE_RESULT",
+                "relevant": result.relevant,
+                "confidence": result.confidence,
+                "reason": result.reason,
+                "pageTitle": pageTitle,
+                "intention": block.title
+            ]
+            if let id = requestId { response["requestId"] = id }
+            self.sendMessage(response)
+
+            // Notify FocusMonitor so it can manage linger timers for browser tabs
+            DispatchQueue.main.async {
+                self.appDelegate?.focusMonitor?.reportBrowserTabScored(
+                    relevant: result.relevant,
+                    confidence: result.confidence,
+                    pageTitle: pageTitle,
+                    hostname: hostname
+                )
+            }
+        }
+    }
+
+    /// Handle SET_SCHEDULE from extension/dashboard: set today's full schedule.
+    private func handleSetSchedule(_ message: [String: Any]) {
+        guard let blocksData = message["blocks"] as? [[String: Any]] else {
+            sendMessage(["type": "SCHEDULE_RESULT", "success": false, "error": "Missing blocks"])
+            return
+        }
+
+        let goals = message["goals"] as? [String] ?? []
+        let dailyPlan = message["dailyPlan"] as? String ?? ""
+
+        // Parse blocks from JSON
+        let blocks = blocksData.compactMap { dict -> ScheduleManager.FocusBlock? in
+            guard let title = dict["title"] as? String,
+                  let startHour = dict["startHour"] as? Int,
+                  let startMinute = dict["startMinute"] as? Int,
+                  let endHour = dict["endHour"] as? Int,
+                  let endMinute = dict["endMinute"] as? Int else { return nil }
+            return ScheduleManager.FocusBlock(
+                id: dict["id"] as? String ?? UUID().uuidString,
+                title: title,
+                description: dict["description"] as? String ?? "",
+                startHour: startHour,
+                startMinute: startMinute,
+                endHour: endHour,
+                endMinute: endMinute,
+                isFree: dict["isFree"] as? Bool ?? false
+            )
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.scheduleManager?.setTodaySchedule(goals: goals, dailyPlan: dailyPlan, blocks: blocks)
+            self?.sendMessage(["type": "SCHEDULE_RESULT", "success": true])
+        }
+    }
+
+    /// Handle ADD_BLOCK: quick-add a single block (e.g., free block from blocking screen).
+    private func handleAddBlock(_ message: [String: Any]) {
+        guard let title = message["title"] as? String,
+              let startHour = message["startHour"] as? Int,
+              let endHour = message["endHour"] as? Int else {
+            sendMessage(["type": "SCHEDULE_RESULT", "success": false, "error": "Missing block fields"])
+            return
+        }
+
+        let block = ScheduleManager.FocusBlock(
+            id: message["id"] as? String ?? UUID().uuidString,
+            title: title,
+            description: message["description"] as? String ?? "",
+            startHour: startHour,
+            startMinute: message["startMinute"] as? Int ?? 0,
+            endHour: endHour,
+            endMinute: message["endMinute"] as? Int ?? 0,
+            isFree: message["isFree"] as? Bool ?? false
+        )
+
+        DispatchQueue.main.async { [weak self] in
+            self?.scheduleManager?.addBlock(block)
+            self?.sendMessage(["type": "SCHEDULE_RESULT", "success": true])
+            // Broadcast updated schedule to all browsers
+            self?.appDelegate?.socketRelayServer?.broadcastScheduleSync()
+        }
+    }
+
+    /// Handle SNOOZE_PLAN: snooze the morning planning prompt.
+    private func handleSnoozePlan() {
+        DispatchQueue.main.async { [weak self] in
+            let accepted = self?.scheduleManager?.snooze() ?? false
+            self?.sendMessage([
+                "type": "SNOOZE_RESULT",
+                "success": accepted,
+                "snoozeCount": self?.scheduleManager?.snoozeCount ?? 0,
+                "maxSnoozes": ScheduleManager.maxSnoozes
+            ])
+            // Broadcast updated state
+            self?.appDelegate?.socketRelayServer?.broadcastScheduleSync()
+        }
+    }
+
+    /// Handle SET_FOCUS_ENABLED: toggle the Daily Focus Plan feature.
+    private func handleSetFocusEnabled(_ message: [String: Any]) {
+        guard let enabled = message["enabled"] as? Bool else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.scheduleManager?.setEnabled(enabled)
+            self?.sendScheduleSync()
+            self?.appDelegate?.socketRelayServer?.broadcastScheduleSync()
+        }
+    }
+
+    /// Handle SET_PROFILE: set the user's profile text.
+    private func handleSetProfile(_ message: [String: Any]) {
+        guard let text = message["profile"] as? String else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.scheduleManager?.setProfile(text)
+            self?.sendMessage(["type": "PROFILE_RESULT", "success": true])
+        }
     }
 }

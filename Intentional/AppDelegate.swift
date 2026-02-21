@@ -28,6 +28,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var nativeMessagingHost: NativeMessagingHost?
     var timeTracker: TimeTracker?
 
+    // Daily Focus Plan (V2)
+    var scheduleManager: ScheduleManager?
+    var relevanceScorer: RelevanceScorer?
+    var focusMonitor: FocusMonitor?
+    var nudgeController: NudgeWindowController?
+
     // Native app heartbeat timer (Phase 2: Tamper Detection)
     var heartbeatTimer: Timer?
 
@@ -238,12 +244,39 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.socketRelayServer?.broadcastSessionSync()
         }
 
+        // Initialize Daily Focus Plan (V2: schedule engine + relevance scoring)
+        scheduleManager = ScheduleManager(appDelegate: self)
+        relevanceScorer = RelevanceScorer(appDelegate: self)
+
+        // Initialize focus monitor and nudge window (V2: desktop app monitoring)
+        nudgeController = NudgeWindowController(appDelegate: self)
+        let focusOverlayController = FocusOverlayWindowController(appDelegate: self)
+        focusMonitor = FocusMonitor(appDelegate: self)
+        focusMonitor?.scheduleManager = scheduleManager
+        focusMonitor?.relevanceScorer = relevanceScorer
+        focusMonitor?.nudgeController = nudgeController
+        focusMonitor?.overlayController = focusOverlayController
+        focusMonitor?.start()
+        postLog("👁️ FocusMonitor + NudgeWindowController + FocusOverlayWindow initialized")
+
+        // Wire schedule block changes: when the active block changes,
+        // clear the relevance cache, reset focus monitor, and broadcast SCHEDULE_SYNC
+        scheduleManager?.onBlockChanged = { [weak self] block, state in
+            self?.postLog("📋 Block changed → \(state.rawValue)" + (block != nil ? " (\(block!.title))" : ""))
+            self?.relevanceScorer?.clearCache()
+            self?.focusMonitor?.onBlockChanged()
+            self?.socketRelayServer?.broadcastScheduleSync()
+            self?.mainWindowController?.pushScheduleUpdate()
+        }
+
         // All extension connections come through the socket relay server.
         // Chrome-launched processes are thin relays (in main.swift) that forward
         // stdin/stdout ↔ socket. The primary app never reads from stdin.
         // nativeMessagingHost is kept as a template for SocketRelayServer's per-connection handlers.
         nativeMessagingHost = NativeMessagingHost(appDelegate: self)
         nativeMessagingHost?.timeTracker = timeTracker
+        nativeMessagingHost?.scheduleManager = scheduleManager
+        nativeMessagingHost?.relevanceScorer = relevanceScorer
         postLog("🔌 Primary app — all extension connections via socket relay")
 
         // Start socket relay server for Native Messaging
@@ -340,6 +373,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         extensionRescanTimer?.invalidate()
         extensionRescanTimer = nil
 
+        // Stop focus monitor
+        focusMonitor?.stop()
+
         // Stop socket relay server and Native Messaging host
         socketRelayServer?.stop()
         nativeMessagingHost?.stop()
@@ -404,6 +440,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func showMainWindow() {
         mainWindowController?.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// Show main window and navigate to a specific dashboard page (e.g., "focus").
+    func showDashboardPage(_ pageId: String) {
+        showMainWindow()
+        // Small delay to ensure the webview is ready after showing
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.mainWindowController?.navigateToPage(pageId)
+        }
     }
 
     // MARK: - URL Scheme Handler (intentional://)

@@ -144,6 +144,36 @@ class SocketRelayServer {
         appDelegate?.postLog("🌐 SESSION_SYNC broadcast to \(activeConnections.count) connection(s)")
     }
 
+    /// Broadcast SCHEDULE_SYNC to all connected browsers.
+    /// Called when schedule state changes in ScheduleManager (via onBlockChanged callback).
+    func broadcastScheduleSync() {
+        guard let manager = appDelegate?.scheduleManager else { return }
+        let message = manager.getScheduleSyncPayload()
+        broadcastToAll(message)
+
+        appDelegate?.postLog("📋 SCHEDULE_SYNC broadcast to \(activeConnections.count) connection(s)")
+    }
+
+    /// Broadcast SHOW_FOCUS_OVERLAY to all connected browsers.
+    /// The extension's background.js forwards this to the active tab only.
+    func broadcastFocusOverlay(intention: String, reason: String, enforcement: String, isRevisit: Bool, focusDurationMinutes: Int) {
+        let message: [String: Any] = [
+            "type": "SHOW_FOCUS_OVERLAY",
+            "intention": intention,
+            "reason": reason,
+            "enforcement": enforcement,
+            "isRevisit": isRevisit,
+            "focusDurationMinutes": focusDurationMinutes
+        ]
+        broadcastToAll(message)
+        appDelegate?.postLog("🌑 SHOW_FOCUS_OVERLAY broadcast to \(activeConnections.count) connection(s)")
+    }
+
+    /// Broadcast HIDE_FOCUS_OVERLAY to all connected browsers.
+    func broadcastHideFocusOverlay() {
+        broadcastToAll(["type": "HIDE_FOCUS_OVERLAY"])
+    }
+
     private func acceptLoop() {
         while isListening {
             var clientAddr = sockaddr_un()
@@ -180,6 +210,8 @@ class SocketRelayServer {
                 // Create a NativeMessagingHost for this socket connection
                 let handler = NativeMessagingHost(appDelegate: self.appDelegate, label: connLabel)
                 handler.timeTracker = self.appDelegate?.timeTracker
+                handler.scheduleManager = self.appDelegate?.scheduleManager
+                handler.relevanceScorer = self.appDelegate?.relevanceScorer
                 handler.detectedBrowser = detectedBrowserInfo?.name
                 handler.detectedBrowserBundleId = detectedBrowserInfo?.bundleId
 

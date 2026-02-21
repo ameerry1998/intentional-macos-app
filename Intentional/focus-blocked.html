@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stay Focused - Intentional</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+            background: #0a0a0c;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Subtle radial glow to mimic depth behind the card */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(ellipse at 50% 40%, rgba(99, 102, 241, 0.04) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        .card {
+            background: rgba(15, 15, 20, 0.85);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 460px;
+            width: 90%;
+            position: relative;
+            animation: fadeIn 0.3s ease-out;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+            text-align: center;
+        }
+
+        /* Focus duration badge */
+        .focus-badge {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.35);
+            margin-bottom: 20px;
+        }
+
+        .subtitle {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 6px;
+        }
+
+        .intention {
+            font-size: 22px;
+            color: rgba(255, 255, 255, 0.95);
+            font-weight: 700;
+            margin-bottom: 16px;
+            line-height: 1.3;
+        }
+
+        .off-task {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .off-task-page {
+            color: rgba(255, 255, 255, 0.65);
+        }
+
+        /* Primary action: Back to work */
+        .primary-button {
+            display: inline-block;
+            padding: 13px 28px;
+            border-radius: 12px;
+            border: none;
+            font-size: 15px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: opacity 0.15s, transform 0.1s;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            margin-bottom: 12px;
+        }
+
+        .primary-button:hover {
+            opacity: 0.9;
+        }
+
+        .primary-button:active {
+            transform: scale(0.98);
+        }
+
+        /* Secondary actions */
+        .secondary-link {
+            display: block;
+            background: none;
+            border: none;
+            font-size: 13px;
+            font-family: inherit;
+            color: rgba(255, 255, 255, 0.35);
+            cursor: pointer;
+            padding: 4px 0;
+            transition: color 0.15s;
+        }
+
+        .secondary-link:hover {
+            color: rgba(255, 255, 255, 0.55);
+        }
+
+        /* Bypass form (hidden by default) */
+        .bypass-form {
+            display: none;
+            margin-top: 4px;
+        }
+
+        .bypass-form.visible {
+            display: block;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        .justification-input {
+            width: 100%;
+            max-width: 340px;
+            margin: 0 auto;
+            display: block;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: rgba(255, 255, 255, 0.95);
+            font-size: 13px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.15s;
+            resize: none;
+            height: 44px;
+        }
+
+        .justification-input::placeholder {
+            color: rgba(255, 255, 255, 0.25);
+        }
+
+        .justification-input:focus {
+            border-color: rgba(99, 102, 241, 0.5);
+        }
+
+        .char-hint {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.2);
+            text-align: center;
+            margin-top: 4px;
+            margin-bottom: 8px;
+            height: 14px;
+        }
+
+        .grant-button {
+            display: inline-block;
+            padding: 9px 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 13px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: opacity 0.15s;
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .grant-button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .grant-button:not(:disabled):hover {
+            opacity: 0.8;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="focus-badge" id="focusBadge"></div>
+
+        <div class="subtitle">You're working on</div>
+        <div class="intention" id="intention">Loading...</div>
+
+        <div class="off-task" id="offTask"></div>
+
+        <button class="primary-button" onclick="backToWork()">Back to work</button>
+
+        <button class="secondary-link" id="snoozeBtn" onclick="snooze()">Snooze 5 min</button>
+        <button class="secondary-link" id="needPageBtn" onclick="showBypassForm()">I need this page...</button>
+
+        <div class="bypass-form" id="bypassForm">
+            <textarea
+                class="justification-input"
+                id="justification"
+                placeholder="Why do you need this? (min 10 characters)"
+                maxlength="200"
+            ></textarea>
+            <div class="char-hint" id="charHint"></div>
+            <button class="grant-button" id="grantBtn" disabled onclick="grantFiveMinutes()">
+                Continue for 5 min
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const MIN_CHARS = 10;
+        let originalURL = null;
+        let backURL = null;
+
+        function getQueryParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                intention: params.get('intention') || 'your task',
+                page: params.get('page') || '',
+                hostname: params.get('hostname') || '',
+                url: params.get('url') || null,
+                focusDuration: parseInt(params.get('focusDuration') || '0', 10),
+                backURL: params.get('backURL') || null
+            };
+        }
+
+        function updateCharHint() {
+            const input = document.getElementById('justification');
+            const hint = document.getElementById('charHint');
+            const btn = document.getElementById('grantBtn');
+            const len = input.value.trim().length;
+            const remaining = MIN_CHARS - len;
+
+            if (len === 0) {
+                hint.textContent = '';
+            } else if (remaining > 0) {
+                hint.textContent = remaining + ' more character' + (remaining === 1 ? '' : 's') + ' needed';
+            } else {
+                hint.textContent = '';
+            }
+
+            btn.disabled = remaining > 0;
+        }
+
+        function backToWork() {
+            const url = backURL || 'https://www.google.com';
+            window.location.replace(url);
+        }
+
+        function snooze() {
+            if (!originalURL) {
+                window.history.back();
+                return;
+            }
+            window.location.replace(originalURL);
+        }
+
+        function showBypassForm() {
+            document.getElementById('needPageBtn').style.display = 'none';
+            document.getElementById('bypassForm').classList.add('visible');
+            setTimeout(function() {
+                document.getElementById('justification').focus();
+            }, 100);
+        }
+
+        function grantFiveMinutes() {
+            if (!originalURL) {
+                window.history.back();
+                return;
+            }
+            window.location.replace(originalURL);
+        }
+
+        function init() {
+            const params = getQueryParams();
+            originalURL = params.url;
+            backURL = params.backURL;
+
+            document.getElementById('intention').textContent = params.intention;
+
+            // Focus duration badge
+            if (params.focusDuration > 0) {
+                document.getElementById('focusBadge').textContent =
+                    'FOCUSED FOR ' + params.focusDuration + ' MIN';
+            }
+
+            // Off-task context
+            if (params.page || params.hostname) {
+                const pageDisplay = params.page.length > 60
+                    ? params.page.substring(0, 60) + '...'
+                    : params.page;
+                const hostDisplay = params.hostname
+                    ? ' (' + params.hostname + ')'
+                    : '';
+                document.getElementById('offTask').innerHTML =
+                    'You were on <span class="off-task-page">' + pageDisplay + '</span>' + hostDisplay;
+            }
+
+            const input = document.getElementById('justification');
+            input.addEventListener('input', updateCharHint);
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!document.getElementById('grantBtn').disabled) {
+                        grantFiveMinutes();
+                    }
+                }
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>

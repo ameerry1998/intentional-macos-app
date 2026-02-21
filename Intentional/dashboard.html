@@ -1144,6 +1144,525 @@ body {
   padding: 24px 0;
   text-align: center;
 }
+
+/* ===== Focus Plan ===== */
+.focus-top-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.focus-score-compact {
+  width: 140px;
+  text-align: center;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 20px 12px;
+}
+.focus-score-compact .focus-score-ring {
+  width: 80px; height: 80px;
+  margin: 0 auto 8px;
+}
+.focus-score-compact .focus-score-ring svg {
+  width: 80px; height: 80px;
+}
+.focus-score-compact .focus-score-value {
+  font-size: 22px;
+}
+.focus-score-compact .focus-score-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-top: 4px;
+}
+.today-split-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.today-split-row > * {
+  flex: 1;
+  min-width: 0;
+}
+.focus-goals-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 16px 20px;
+}
+.focus-goals-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+.focus-profile-inline {
+  background: rgba(99, 102, 241, 0.06);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.focus-profile-inline .setting-desc { margin-bottom: 10px; }
+.focus-save-bar {
+  position: sticky;
+  bottom: 0;
+  padding: 12px 0;
+  background: linear-gradient(transparent, #0a0a0a 40%);
+  text-align: center;
+}
+
+.focus-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.focus-textarea:focus { border-color: #6366f1; }
+.focus-textarea::placeholder { color: rgba(255, 255, 255, 0.25); }
+
+.focus-goal-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.focus-goal-number {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.15);
+  color: #6366f1;
+  font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.focus-goal-input {
+  flex: 1;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: #ffffff;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+}
+.focus-goal-input:focus { border-color: #6366f1; }
+.focus-goal-input::placeholder { color: rgba(255, 255, 255, 0.25); }
+
+.btn-icon {
+  width: 32px; height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-icon:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+
+.btn-small {
+  padding: 6px 14px;
+  font-size: 12px; font-weight: 600;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 8px;
+  background: rgba(99, 102, 241, 0.1);
+  color: #a5b4fc;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-small:hover { background: rgba(99, 102, 241, 0.2); }
+
+.btn-small-free {
+  border-color: rgba(52, 211, 153, 0.3);
+  background: rgba(52, 211, 153, 0.1);
+  color: #6ee7b7;
+}
+.btn-small-free:hover { background: rgba(52, 211, 153, 0.2); }
+
+/* ===== Distraction Budget ===== */
+.distraction-budget {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 16px 20px;
+}
+.distraction-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+}
+.distraction-row + .distraction-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.distraction-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+}
+.distraction-platform {
+  font-size: 13px;
+  font-weight: 600;
+  width: 70px;
+  flex-shrink: 0;
+}
+.distraction-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.distraction-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+.distraction-bar-fill.youtube { background: #ef4444; }
+.distraction-bar-fill.instagram { background: #e879f9; }
+.distraction-bar-fill.facebook { background: #60a5fa; }
+.distraction-usage {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  min-width: 80px;
+  text-align: right;
+}
+.distraction-session {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+.distraction-session-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34d399;
+  animation: session-pulse 2s ease-in-out infinite;
+}
+.distraction-session-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* ===== Collapsible Sections ===== */
+.collapsible-section {
+  margin-bottom: 8px;
+}
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  transition: background 0.15s;
+  user-select: none;
+}
+.collapsible-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
+}
+.collapsible-arrow {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+  transition: transform 0.2s;
+  display: inline-block;
+}
+.collapsible-arrow.expanded {
+  transform: rotate(90deg);
+}
+.collapsible-body {
+  padding: 12px 0 0;
+}
+
+/* ===== Focus Score Bottom Row ===== */
+.focus-bottom-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+/* Calendar */
+.calendar-container {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+  max-height: 420px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+.calendar-grid {
+  position: relative;
+  height: 1008px; /* 24 hours * 42px */
+}
+.calendar-hour-row {
+  position: absolute;
+  left: 0; right: 0;
+  height: 42px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  display: flex;
+}
+.calendar-hour-label {
+  width: 56px;
+  padding: 4px 8px 0 0;
+  text-align: right;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.25);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.calendar-hour-track {
+  flex: 1;
+  position: relative;
+  cursor: pointer;
+}
+.calendar-hour-track::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    -45deg, transparent, transparent 4px,
+    rgba(255, 255, 255, 0.015) 4px, rgba(255, 255, 255, 0.015) 8px
+  );
+  pointer-events: none;
+}
+
+.calendar-block {
+  position: absolute;
+  left: 60px; right: 8px;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  z-index: 2;
+  transition: box-shadow 0.15s;
+  overflow: hidden;
+}
+.calendar-block:hover { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2); }
+.calendar-block.work {
+  background: rgba(99, 102, 241, 0.2);
+  border-left: 3px solid #6366f1;
+}
+.calendar-block.free {
+  background: rgba(52, 211, 153, 0.12);
+  border-left: 3px solid #34d399;
+}
+.calendar-block-title {
+  font-size: 12px; font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.calendar-block-time {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 2px;
+}
+.calendar-block-badge {
+  position: absolute;
+  top: 6px; right: 8px;
+  font-size: 9px; font-weight: 700;
+  color: #34d399;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.calendar-block-resize {
+  position: absolute;
+  left: 0; right: 0;
+  height: 6px;
+  cursor: ns-resize;
+  z-index: 3;
+}
+.calendar-block-resize.top { top: 0; }
+.calendar-block-resize.bottom { bottom: 0; }
+.calendar-block.dragging {
+  opacity: 0.85;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  z-index: 10;
+  cursor: grabbing;
+}
+
+.calendar-now-line {
+  position: absolute;
+  left: 56px; right: 0;
+  height: 2px;
+  background: #ef4444;
+  z-index: 5;
+  pointer-events: none;
+}
+.calendar-now-line::before {
+  content: '';
+  position: absolute;
+  left: -4px; top: -3px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+}
+
+/* Block Editor Popover */
+.block-editor {
+  position: fixed;
+  background: #1a1a2e;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 16px;
+  z-index: 100;
+  width: 280px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+.block-editor-row { margin-bottom: 12px; }
+.block-editor-row label {
+  display: block;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 4px;
+}
+.block-editor-input {
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+}
+.block-editor-input:focus { border-color: #6366f1; }
+.block-editor-time-row {
+  display: flex; gap: 8px; align-items: center;
+}
+.block-editor-time-input { width: 100px; text-align: center; }
+.block-editor-check {
+  display: flex !important; align-items: center; gap: 8px;
+  cursor: pointer; color: rgba(255, 255, 255, 0.6) !important;
+}
+.block-editor-check input[type="checkbox"] {
+  width: 16px; height: 16px; accent-color: #34d399;
+}
+.block-editor-actions {
+  display: flex; gap: 8px; margin-top: 16px;
+}
+.block-editor-delete {
+  color: #ef4444 !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  background: rgba(239, 68, 68, 0.1) !important;
+}
+.block-editor-delete:hover {
+  background: rgba(239, 68, 68, 0.2) !important;
+}
+
+/* Focus Score */
+.focus-score-hero {
+  text-align: center;
+  padding: 24px 0 32px;
+}
+.focus-score-ring {
+  position: relative;
+  width: 120px; height: 120px;
+  margin: 0 auto 12px;
+}
+.focus-score-ring svg {
+  transform: rotate(-90deg);
+  width: 120px; height: 120px;
+}
+.score-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 8;
+}
+.score-fill {
+  fill: none;
+  stroke: #6366f1;
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-dasharray: 339.292;
+  stroke-dashoffset: 339.292;
+  transition: stroke-dashoffset 1s ease-out;
+}
+.focus-score-value {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 32px; font-weight: 700;
+}
+.focus-score-label {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.focus-plan-summary {
+  background: rgba(99, 102, 241, 0.06);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 16px;
+}
+.focus-plan-status {
+  font-size: 14px; font-weight: 600;
+  color: #34d399;
+  margin-bottom: 8px;
+}
+.focus-plan-goals {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.6;
+}
+
+/* Relevance Log */
+.relevance-entry {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 13px;
+}
+.relevance-entry:last-child { border-bottom: none; }
+.relevance-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.relevance-dot.relevant { background: #34d399; }
+.relevance-dot.irrelevant { background: #ef4444; }
+.relevance-time { font-size: 11px; color: rgba(255, 255, 255, 0.3); min-width: 55px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.relevance-title { color: rgba(255, 255, 255, 0.8); font-weight: 500; }
+.relevance-reason { color: rgba(255, 255, 255, 0.4); font-size: 12px; margin-top: 2px; }
+.relevance-action { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 2px; }
+.relevance-action.nudged { color: #f59e0b; }
+.relevance-action.blocked { color: #ef4444; }
+.copy-assessments-btn {
+  background: none; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;
+  color: rgba(255,255,255,0.35); font-size: 11px; padding: 2px 8px; cursor: pointer;
+  margin-left: auto; transition: color 0.15s, border-color 0.15s;
+}
+.copy-assessments-btn:hover { color: rgba(255,255,255,0.6); border-color: rgba(255,255,255,0.2); }
+
+.focus-calendar-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.focus-calendar-header-left {
+  display: flex; align-items: center; gap: 12px;
+}
+.focus-calendar-header-right {
+  display: flex; gap: 8px;
+}
 </style>
 </head>
 <body>
@@ -1154,8 +1673,8 @@ body {
     <div class="logo-ring">🎯</div>
     <span class="sidebar-title">Intentional</span>
   </div>
-  <div class="sidebar-item active" data-page="usage" onclick="navigateTo('usage')">
-    <span class="sidebar-item-icon">📊</span> Usage
+  <div class="sidebar-item active" data-page="today" onclick="navigateTo('today')">
+    <span class="sidebar-item-icon">📋</span> Today
   </div>
   <div class="sidebar-divider"></div>
   <div class="sidebar-label">Platforms</div>
@@ -1191,97 +1710,164 @@ body {
   </div>
 
   <!-- Page: Usage -->
-  <div class="page active" id="page-usage">
-    <div class="section-title">Today</div>
-    <div class="usage-grid">
-      <div class="usage-card" id="yt-usage-card">
-        <div class="usage-card-header">
-          <span class="usage-card-icon">▶️</span>
-          <span class="usage-card-platform">YouTube</span>
+  <div class="page active" id="page-today">
+
+    <!-- A. Schedule -->
+    <div class="focus-calendar-header">
+      <div class="focus-calendar-header-left">
+        <div class="section-title" style="margin-bottom: 0;">Schedule</div>
+      </div>
+      <div class="focus-calendar-header-right">
+        <button class="btn-small" onclick="addFocusBlock(false)">+ Work block</button>
+        <button class="btn-small btn-small-free" onclick="addFocusBlock(true)">+ Free block</button>
+      </div>
+    </div>
+    <div class="calendar-container" id="calendar-container"></div>
+    <div class="focus-save-bar">
+      <button class="save-btn" id="focus-save-schedule-btn" onclick="saveAndStartDay()" style="display:none;">Save changes</button>
+    </div>
+
+    <!-- B. Goals + Distraction Budget side by side -->
+    <div class="today-split-row">
+      <div class="focus-goals-card">
+        <div class="focus-goals-title">Today's Goals</div>
+        <div class="focus-goal-row">
+          <span class="focus-goal-number">1</span>
+          <input type="text" id="focus-goal-1" class="focus-goal-input" placeholder="Most important task...">
         </div>
-        <div class="usage-session" id="yt-session" style="display: none;">
-          <div class="usage-session-dot"></div>
-          <span class="usage-session-label" id="yt-session-label">Active</span>
+        <div class="focus-goal-row">
+          <span class="focus-goal-number">2</span>
+          <input type="text" id="focus-goal-2" class="focus-goal-input" placeholder="Second priority...">
         </div>
-        <div class="usage-card-time">
-          <span class="usage-minutes youtube" id="yt-minutes">0</span>
-          <span class="usage-unit">min</span>
-        </div>
-        <div class="usage-budget" id="yt-budget">/ 30 min budget</div>
-        <div class="usage-bar">
-          <div class="usage-bar-fill youtube" id="yt-bar" style="width: 0%"></div>
-        </div>
-        <div class="usage-session-intent" id="yt-session-intent" style="display: none;"></div>
-        <div class="usage-free-browse" id="yt-free-browse">
-          Free browse: <span id="yt-fb-minutes">0</span> min used
-        </div>
-        <div class="usage-bar" id="yt-fb-bar-container" style="display: none;">
-          <div class="usage-bar-fill free-browse" id="yt-fb-bar" style="width: 0%"></div>
+        <div class="focus-goal-row">
+          <span class="focus-goal-number">3</span>
+          <input type="text" id="focus-goal-3" class="focus-goal-input" placeholder="Third priority...">
         </div>
       </div>
 
-      <div class="usage-card" id="ig-usage-card">
-        <div class="usage-card-header">
-          <span class="usage-card-icon">📷</span>
-          <span class="usage-card-platform">Instagram</span>
+      <div class="distraction-budget">
+        <div class="focus-goals-title">Distraction Budget</div>
+        <div class="distraction-row" id="yt-distraction-row">
+          <span class="distraction-icon">▶️</span>
+          <span class="distraction-platform">YouTube</span>
+          <div class="distraction-bar"><div class="distraction-bar-fill youtube" id="yt-bar" style="width: 0%"></div></div>
+          <span class="distraction-usage" id="yt-usage-text">0 / 30 min</span>
+          <div class="distraction-session" id="yt-session" style="display: none;">
+            <div class="distraction-session-dot"></div>
+            <span class="distraction-session-label" id="yt-session-label"></span>
+          </div>
         </div>
-        <div class="usage-session" id="ig-session" style="display: none;">
-          <div class="usage-session-dot"></div>
-          <span class="usage-session-label" id="ig-session-label">Active</span>
+        <div class="distraction-row" id="ig-distraction-row">
+          <span class="distraction-icon">📷</span>
+          <span class="distraction-platform">Instagram</span>
+          <div class="distraction-bar"><div class="distraction-bar-fill instagram" id="ig-bar" style="width: 0%"></div></div>
+          <span class="distraction-usage" id="ig-usage-text">0 / 30 min</span>
+          <div class="distraction-session" id="ig-session" style="display: none;">
+            <div class="distraction-session-dot"></div>
+            <span class="distraction-session-label" id="ig-session-label"></span>
+          </div>
         </div>
-        <div class="usage-card-time">
-          <span class="usage-minutes instagram" id="ig-minutes">0</span>
-          <span class="usage-unit">min</span>
-        </div>
-        <div class="usage-budget" id="ig-budget">/ 30 min budget</div>
-        <div class="usage-bar">
-          <div class="usage-bar-fill instagram" id="ig-bar" style="width: 0%"></div>
-        </div>
-        <div class="usage-session-intent" id="ig-session-intent" style="display: none;"></div>
-        <div class="usage-free-browse" id="ig-free-browse">
-          Free browse: <span id="ig-fb-minutes">0</span> min used
-        </div>
-        <div class="usage-bar" id="ig-fb-bar-container" style="display: none;">
-          <div class="usage-bar-fill free-browse" id="ig-fb-bar" style="width: 0%"></div>
-        </div>
-      </div>
-
-      <div class="usage-card" id="fb-usage-card">
-        <div class="usage-card-header">
-          <span class="usage-card-icon">👤</span>
-          <span class="usage-card-platform">Facebook</span>
-        </div>
-        <div class="usage-session" id="fb-session" style="display: none;">
-          <div class="usage-session-dot"></div>
-          <span class="usage-session-label" id="fb-session-label">Active</span>
-        </div>
-        <div class="usage-card-time">
-          <span class="usage-minutes facebook" id="fb-minutes">0</span>
-          <span class="usage-unit">min</span>
-        </div>
-        <div class="usage-budget" id="fb-budget">/ 30 min budget</div>
-        <div class="usage-bar">
-          <div class="usage-bar-fill facebook" id="fb-bar" style="width: 0%"></div>
-        </div>
-        <div class="usage-session-intent" id="fb-session-intent" style="display: none;"></div>
-        <div class="usage-free-browse" id="fb-free-browse">
-          Free browse: <span id="fb-fb-minutes">0</span> min used
-        </div>
-        <div class="usage-bar" id="fb-fb-bar-container" style="display: none;">
-          <div class="usage-bar-fill free-browse" id="fb-fb-bar" style="width: 0%"></div>
+        <div class="distraction-row" id="fb-distraction-row">
+          <span class="distraction-icon">👤</span>
+          <span class="distraction-platform">Facebook</span>
+          <div class="distraction-bar"><div class="distraction-bar-fill facebook" id="fb-bar" style="width: 0%"></div></div>
+          <span class="distraction-usage" id="fb-usage-text">0 / 30 min</span>
+          <div class="distraction-session" id="fb-session" style="display: none;">
+            <div class="distraction-session-dot"></div>
+            <span class="distraction-session-label" id="fb-session-label"></span>
+          </div>
         </div>
       </div>
     </div>
 
+    <!-- Profile setup (inline, shown when no profile exists) -->
+    <div id="focus-profile-inline" class="focus-profile-inline" style="display:none;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:8px;">Tell us about yourself</div>
+      <div class="setting-desc">This helps us judge which tabs and apps are relevant to your work.</div>
+      <div class="setting-desc" style="margin-bottom:4px;color:rgba(255,255,255,0.3);font-size:11px;">
+        What's your job or role? What do you do each day?
+      </div>
+      <textarea id="focus-profile" class="focus-textarea" rows="3"
+        placeholder="e.g. I'm a software engineer building a React app. Most of my day is coding, reviewing PRs, and reading docs..."></textarea>
+      <button class="btn-small" style="margin-top:10px;" onclick="saveProfileInline()">Save profile</button>
+    </div>
+
+    <!-- D. This Week -->
     <div class="section-title" style="margin-top: 24px;">This Week</div>
     <div id="weekly-usage">
       <div style="color: var(--text-secondary); font-size: 13px; padding: 16px 0;">Loading history...</div>
     </div>
 
-    <div class="section-title" style="margin-top: 24px;">Today's Sessions</div>
-    <div id="journal-entries">
-      <div class="journal-empty">No sessions yet today</div>
+    <!-- E. Focus Score + Time Breakdown -->
+    <div class="focus-bottom-row" style="margin-top: 24px;">
+      <div class="focus-score-compact">
+        <div class="focus-score-ring" style="position:relative;">
+          <svg viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="54" class="score-bg"/>
+            <circle cx="60" cy="60" r="54" class="score-fill" id="score-fill-circle"/>
+          </svg>
+          <div class="focus-score-value" id="focus-score-value" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:22px;font-weight:700;">--</div>
+        </div>
+        <div class="focus-score-label">Today's Focus</div>
+      </div>
+      <div class="settings-card" id="focus-time-breakdown" style="flex:1;margin-bottom:0;">
+        <div class="settings-card-title">Time Breakdown</div>
+        <div class="setting-row">
+          <div class="setting-label">Focused</div>
+          <span class="setting-value" id="score-focused-time">--</span>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">Off-task</div>
+          <span class="setting-value" id="score-offtask-time">--</span>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">Breaks</div>
+          <span class="setting-value" id="score-break-time">--</span>
+        </div>
+      </div>
     </div>
+
+    <!-- F. Collapsible Detail Sections -->
+    <div style="margin-top: 24px;">
+      <div class="collapsible-section">
+        <div class="collapsible-header" onclick="toggleCollapsible('sessions')">
+          <span class="collapsible-arrow" id="arrow-sessions">▸</span>
+          <span>Today's Sessions</span>
+        </div>
+        <div class="collapsible-body" id="body-sessions" style="display:none;">
+          <div id="journal-entries">
+            <div class="journal-empty">No sessions yet today</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="collapsible-section">
+        <div class="collapsible-header" onclick="toggleCollapsible('assessments')">
+          <span class="collapsible-arrow" id="arrow-assessments">▸</span>
+          <span>AI Assessments</span>
+          <button class="copy-assessments-btn" onclick="event.stopPropagation(); sendMessage({type:'EXPORT_RELEVANCE_LOG'});" title="Open persistent log file">Open Log File</button>
+          <button class="copy-assessments-btn" id="copyAssessmentsBtn" onclick="event.stopPropagation(); copyAssessments();">Copy</button>
+        </div>
+        <div class="collapsible-body" id="body-assessments" style="display:none;">
+          <div id="relevance-log" style="max-height:300px;overflow-y:auto;">
+            <div class="setting-row"><div class="setting-desc">No assessments yet</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="collapsible-section">
+        <div class="collapsible-header" onclick="toggleCollapsible('blocks')">
+          <span class="collapsible-arrow" id="arrow-blocks">▸</span>
+          <span>Per-Block Details</span>
+        </div>
+        <div class="collapsible-body" id="body-blocks" style="display:none;">
+          <div id="score-block-breakdown">
+            <div class="setting-row"><div class="setting-desc">No blocks completed yet</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Page: YouTube Settings -->
@@ -1720,6 +2306,48 @@ body {
       </div>
     </div>
 
+    <!-- Focus Plan Card -->
+    <div class="settings-card">
+      <div class="settings-card-title">Focus Plan</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Enable Daily Focus Plan</div>
+          <div class="setting-desc">Structure your day with time blocks and get nudges when you drift off-task</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="focus-enabled" onchange="onFocusEnabledChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Block irrelevant tabs</div>
+          <div class="setting-desc">Redirect off-task browser tabs during work blocks</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="focus-enforcement" checked onchange="onFocusEnforcementChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">AI Model</div>
+          <div class="setting-desc">Model used for relevance scoring</div>
+        </div>
+        <select class="setting-select" id="ai-model-select" onchange="onAIModelChange()">
+          <option value="apple">Apple (3B, fast)</option>
+          <option value="qwen">Qwen3 4B (slower, smarter)</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Focus Profile</div>
+          <div class="setting-desc">Describes your work so we can judge relevance</div>
+        </div>
+        <button class="btn-small" onclick="navigateTo('today')" style="white-space:nowrap;">Edit profile</button>
+      </div>
+    </div>
+
     <!-- Time Limits Card -->
     <div class="settings-card">
       <div class="settings-card-title">Time Limits</div>
@@ -1855,10 +2483,32 @@ function navigateTo(pageId) {
     sendMessage({ type: 'GET_EXTENSION_STATUS' });
   }
 
-  // Load weekly usage history and journal when viewing usage page
-  if (pageId === 'usage') {
+  // Load all data when viewing Today page
+  if (pageId === 'today') {
     sendMessage({ type: 'GET_USAGE_HISTORY' });
     sendMessage({ type: 'GET_JOURNAL' });
+    loadFocusState();
+    sendMessage({ type: 'GET_RELEVANCE_LOG' });
+    relevanceLogTimer = setInterval(function() {
+      sendMessage({ type: 'GET_RELEVANCE_LOG' });
+    }, 5000);
+  } else {
+    if (calendarNowTimer) { clearInterval(calendarNowTimer); calendarNowTimer = null; }
+    if (relevanceLogTimer) { clearInterval(relevanceLogTimer); relevanceLogTimer = null; }
+  }
+}
+
+// ===== Collapsible Sections =====
+function toggleCollapsible(id) {
+  var body = document.getElementById('body-' + id);
+  var arrow = document.getElementById('arrow-' + id);
+  if (!body || !arrow) return;
+  if (body.style.display === 'none') {
+    body.style.display = 'block';
+    arrow.classList.add('expanded');
+  } else {
+    body.style.display = 'none';
+    arrow.classList.remove('expanded');
   }
 }
 
@@ -1866,9 +2516,9 @@ function navigateTo(pageId) {
 function refresh() {
   sendMessage({ type: 'GET_DASHBOARD_DATA' });
   sendMessage({ type: 'GET_EXTENSION_STATUS' });
-  // Load weekly history and journal if on usage page
-  var usagePage = document.getElementById('page-usage');
-  if (usagePage && usagePage.classList.contains('active')) {
+  // Load weekly history and journal if on Today page
+  var todayPage = document.getElementById('page-today');
+  if (todayPage && todayPage.classList.contains('active')) {
     sendMessage({ type: 'GET_USAGE_HISTORY' });
     sendMessage({ type: 'GET_JOURNAL' });
   }
@@ -3019,55 +3669,52 @@ window._dashboardDataResult = function(data) {
     var d = data[p.key];
     if (!d) return;
 
-    // Usage stats
-    document.getElementById(p.prefix + '-minutes').textContent = d.minutesUsed || 0;
-    document.getElementById(p.prefix + '-budget').textContent = '/ ' + (d.budget || 30) + ' min budget';
-    var pct = Math.min(100, ((d.minutesUsed || 0) / (d.budget || 30)) * 100);
-    document.getElementById(p.prefix + '-bar').style.width = pct + '%';
+    // Usage stats — compact distraction row
+    var used = d.minutesUsed || 0;
+    var budget = d.budget || 30;
+    var pct = Math.min(100, (used / budget) * 100);
+    var barEl = document.getElementById(p.prefix + '-bar');
+    if (barEl) barEl.style.width = pct + '%';
+    var usageText = document.getElementById(p.prefix + '-usage-text');
+    if (usageText) usageText.textContent = used + ' / ' + budget + ' min';
     updateFreeBrowseDisplay(p.prefix, d);
 
     // Active session indicator
     var sessionEl = document.getElementById(p.prefix + '-session');
     var sessionLabel = document.getElementById(p.prefix + '-session-label');
-    var intentEl = document.getElementById(p.prefix + '-session-intent');
-    var card = document.getElementById(p.prefix + '-usage-card');
+    var row = document.getElementById(p.prefix + '-distraction-row');
 
     if (d.session && d.session.active) {
-      card.classList.add('has-session');
-      sessionEl.style.display = 'flex';
+      if (row) row.style.borderColor = 'rgba(52, 211, 153, 0.15)';
+      if (sessionEl) sessionEl.style.display = 'inline-flex';
 
       if (d.session.freeBrowse) {
-        sessionLabel.textContent = 'Free Browse';
-        sessionLabel.style.color = '#f59e0b';
-        sessionEl.querySelector('.usage-session-dot').style.background = '#f59e0b';
-        intentEl.style.display = 'none';
-      } else {
-        sessionLabel.textContent = 'Active Session';
-        sessionLabel.style.color = '#34d399';
-        sessionEl.querySelector('.usage-session-dot').style.background = '#34d399';
-
-        if (d.session.intent) {
-          intentEl.textContent = '"' + d.session.intent + '"';
-          intentEl.style.display = 'block';
-        } else {
-          intentEl.style.display = 'none';
+        if (sessionLabel) {
+          sessionLabel.textContent = 'Free';
+          sessionLabel.style.color = '#f59e0b';
         }
+        var dot = sessionEl ? sessionEl.querySelector('.distraction-session-dot') : null;
+        if (dot) dot.style.background = '#f59e0b';
+      } else {
+        if (sessionLabel) {
+          sessionLabel.textContent = 'Active';
+          sessionLabel.style.color = '#34d399';
+        }
+        var dot = sessionEl ? sessionEl.querySelector('.distraction-session-dot') : null;
+        if (dot) dot.style.background = '#34d399';
       }
 
       // Show time remaining if timed session
-      if (d.session.endsAt) {
+      if (d.session.endsAt && sessionLabel) {
         var remaining = d.session.endsAt - Date.now();
         if (remaining > 0) {
           var mins = Math.ceil(remaining / 60000);
-          sessionLabel.textContent += ' · ' + mins + 'm left';
-        } else {
-          sessionLabel.textContent += ' · expired';
+          sessionLabel.textContent += ' ' + mins + 'm';
         }
       }
     } else {
-      card.classList.remove('has-session');
-      sessionEl.style.display = 'none';
-      intentEl.style.display = 'none';
+      if (row) row.style.borderColor = '';
+      if (sessionEl) sessionEl.style.display = 'none';
     }
   });
 };
@@ -3075,18 +3722,11 @@ window._dashboardDataResult = function(data) {
 function updateFreeBrowseDisplay(prefix, platformData) {
   var fbBudget = platformData.freeBrowseBudget || 0;
   var fbUsed = Math.round(platformData.freeBrowseMinutesUsed || 0);
-  var label = document.getElementById(prefix + '-free-browse');
-  var barContainer = document.getElementById(prefix + '-fb-bar-container');
-  var bar = document.getElementById(prefix + '-fb-bar');
-  var minutes = document.getElementById(prefix + '-fb-minutes');
-  if (fbBudget > 0 && fbUsed > 0) {
-    if (label) { label.style.display = 'block'; }
-    if (barContainer) { barContainer.style.display = 'block'; }
-    if (minutes) { minutes.textContent = fbUsed; }
-    if (bar) { bar.style.width = Math.min(100, (fbUsed / fbBudget) * 100) + '%'; }
-  } else {
-    if (label) { label.style.display = 'none'; }
-    if (barContainer) { barContainer.style.display = 'none'; }
+  var usageText = document.getElementById(prefix + '-usage-text');
+  if (usageText && fbBudget > 0 && fbUsed > 0) {
+    var used = platformData.minutesUsed || 0;
+    var budget = platformData.budget || 30;
+    usageText.textContent = used + ' / ' + budget + ' min (fb: ' + fbUsed + ')';
   }
 }
 
@@ -3390,10 +4030,790 @@ function formatAccountDate(isoString) {
   return months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
 }
 
+// ===== Focus Plan =====
+var focusState = {
+  enabled: false,
+  profile: '',
+  goals: ['', '', ''],
+  dailyPlan: '',
+  blocks: [],
+  hasPlan: false,
+  editingBlockId: null
+};
+
+var CALENDAR_START_HOUR = 0;
+var CALENDAR_END_HOUR = 24;
+var CALENDAR_HOUR_HEIGHT = 42;
+var calendarDragState = null;
+var calendarNowTimer = null;
+
+var focusDirty = false; // tracks unsaved block changes
+var goalSaveTimer = null;
+
+function loadFocusState() {
+  sendMessage({ type: 'GET_SCHEDULE_STATE' });
+}
+
+window._scheduleStateResult = function(data) {
+  focusState.enabled = data.enabled || false;
+  focusState.hasPlan = data.hasPlan || false;
+  focusState.enforcement = data.focusEnforcement || 'block';
+  if (data.profile !== undefined) focusState.profile = data.profile;
+  if (data.goals) focusState.goals = data.goals;
+  if (data.dailyPlan !== undefined) focusState.dailyPlan = data.dailyPlan;
+  if (data.blocks) focusState.blocks = data.blocks;
+  focusDirty = false;
+  renderFocusPage();
+  renderCalendar();
+  loadFocusScore();
+
+  // Sync enforcement toggle in Settings
+  var enfToggle = document.getElementById('focus-enforcement');
+  if (enfToggle) enfToggle.checked = focusState.enforcement === 'block';
+
+  // Sync AI model dropdown in Settings
+  var modelSelect = document.getElementById('ai-model-select');
+  if (modelSelect && data.aiModel) modelSelect.value = data.aiModel;
+};
+
+window._focusEnabledResult = function(data) {
+  if (data.success) showToast(data.enabled ? 'Focus plan enabled' : 'Focus plan disabled');
+};
+
+window._focusEnforcementResult = function(data) {
+  if (data.success) showToast(data.mode === 'block' ? 'Tab blocking enabled' : 'Nudge-only mode');
+};
+
+function onFocusEnforcementChange() {
+  var checked = document.getElementById('focus-enforcement').checked;
+  sendMessage({ type: 'SET_FOCUS_ENFORCEMENT', mode: checked ? 'block' : 'nudge' });
+}
+
+function onAIModelChange() {
+  var model = document.getElementById('ai-model-select').value;
+  sendMessage({ type: 'SET_AI_MODEL', model: model });
+}
+
+window._aiModelResult = function(data) {
+  if (data.success) showToast(data.model === 'qwen' ? 'Using Qwen3 4B (MLX)' : 'Using Apple Foundation Models');
+};
+
+window._profileResult = function(data) {
+  if (data.success) showToast('Profile saved');
+};
+
+window._scheduleResult = function(data) {
+  var btn = document.getElementById('focus-save-schedule-btn');
+  if (btn) { btn.textContent = 'Save changes'; btn.disabled = false; btn.style.display = 'none'; }
+  if (data.success) {
+    focusState.hasPlan = true;
+    focusDirty = false;
+    showToast('Schedule saved!');
+  } else {
+    showToast('Failed to save schedule', 'error');
+  }
+};
+
+function onFocusEnabledChange() {
+  var enabled = document.getElementById('focus-enabled').checked;
+  focusState.enabled = enabled;
+  sendMessage({ type: 'SET_FOCUS_ENABLED', enabled: enabled });
+}
+
+function saveProfileInline() {
+  var profileText = (document.getElementById('focus-profile').value || '').trim();
+  if (!profileText) return;
+  focusState.profile = profileText;
+  sendMessage({ type: 'SET_PROFILE', profile: profileText });
+  var el = document.getElementById('focus-profile-inline');
+  if (el) el.style.display = 'none';
+}
+
+function renderFocusPage() {
+  // Toggle in settings
+  var toggle = document.getElementById('focus-enabled');
+  if (toggle) toggle.checked = focusState.enabled;
+
+  // Profile inline card
+  var profileEl = document.getElementById('focus-profile-inline');
+  var hasProfile = focusState.profile && focusState.profile.trim().length > 0;
+  if (profileEl) {
+    profileEl.style.display = (focusState.enabled && !hasProfile) ? '' : 'none';
+    var profileInput = document.getElementById('focus-profile');
+    if (profileInput) profileInput.value = focusState.profile || '';
+  }
+
+  // Populate goal inputs
+  for (var i = 0; i < 3; i++) {
+    var el = document.getElementById('focus-goal-' + (i + 1));
+    if (el && !el._focusGoalListening) {
+      el.value = (focusState.goals && focusState.goals[i]) || '';
+      el.addEventListener('blur', onGoalBlur);
+      el._focusGoalListening = true;
+    } else if (el) {
+      el.value = (focusState.goals && focusState.goals[i]) || '';
+    }
+  }
+
+  // Save button visibility
+  var saveBtn = document.getElementById('focus-save-schedule-btn');
+  if (saveBtn) saveBtn.style.display = focusDirty ? '' : 'none';
+}
+
+function onGoalBlur() {
+  clearTimeout(goalSaveTimer);
+  goalSaveTimer = setTimeout(saveGoals, 500);
+}
+
+function saveGoals() {
+  var newGoals = [
+    (document.getElementById('focus-goal-1').value || '').trim(),
+    (document.getElementById('focus-goal-2').value || '').trim(),
+    (document.getElementById('focus-goal-3').value || '').trim()
+  ];
+  // Only save if changed
+  var changed = newGoals.some(function(g, i) { return g !== (focusState.goals[i] || ''); });
+  if (!changed) return;
+  focusState.goals = newGoals;
+
+  // Auto-generate blocks if first time setting goals and no blocks yet
+  if (focusState.blocks.length === 0 && newGoals.some(function(g) { return g; })) {
+    autoGenerateBlocks();
+    renderCalendarBlocks();
+    markFocusDirty();
+  }
+
+  sendMessage({
+    type: 'SET_SCHEDULE',
+    blocks: focusState.blocks,
+    goals: focusState.goals.filter(function(g) { return g; }),
+    dailyPlan: focusState.dailyPlan
+  });
+}
+
+function markFocusDirty() {
+  focusDirty = true;
+  var saveBtn = document.getElementById('focus-save-schedule-btn');
+  if (saveBtn) saveBtn.style.display = '';
+}
+
+function autoGenerateBlocks() {
+  var startMin = 9 * 60;
+  var lunchStart = 12 * 60;
+  var lunchEnd = 13 * 60;
+  var lunchInserted = false;
+  var activeGoals = focusState.goals.filter(function(g) { return g; });
+
+  activeGoals.forEach(function(goal) {
+    // Insert lunch break before this goal if it would overlap noon
+    if (!lunchInserted && startMin + 90 > lunchStart && startMin < lunchEnd) {
+      focusState.blocks.push({
+        id: generateFocusUUID(), title: 'Lunch',
+        startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
+        endHour: Math.floor((startMin + 60) / 60), endMinute: (startMin + 60) % 60,
+        isFree: true
+      });
+      startMin = startMin + 60 + 15;
+      lunchInserted = true;
+    }
+    var endMin = startMin + 90;
+    focusState.blocks.push({
+      id: generateFocusUUID(), title: goal,
+      startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
+      endHour: Math.floor(endMin / 60), endMinute: endMin % 60,
+      isFree: false
+    });
+    startMin = endMin + 15;
+  });
+
+  // Add lunch at end if it wasn't inserted mid-schedule
+  if (!lunchInserted && activeGoals.length > 0) {
+    focusState.blocks.push({
+      id: generateFocusUUID(), title: 'Lunch',
+      startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
+      endHour: Math.floor((startMin + 60) / 60), endMinute: (startMin + 60) % 60,
+      isFree: true
+    });
+  }
+}
+
+function generateFocusUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+// ---- Calendar Rendering ----
+
+function renderCalendar() {
+  var container = document.getElementById('calendar-container');
+  if (!container) return;
+
+  var html = '<div class="calendar-grid" id="calendar-grid">';
+  for (var h = CALENDAR_START_HOUR; h < CALENDAR_END_HOUR; h++) {
+    var top = (h - CALENDAR_START_HOUR) * CALENDAR_HOUR_HEIGHT;
+    html += '<div class="calendar-hour-row" style="top:' + top + 'px;">' +
+      '<div class="calendar-hour-label">' + formatHourLabel(h) + '</div>' +
+      '<div class="calendar-hour-track" data-hour="' + h + '" onclick="onCalendarHourClick(event,' + h + ')"></div>' +
+      '</div>';
+  }
+  html += '</div>';
+  container.innerHTML = html;
+
+  renderCalendarBlocks();
+  renderNowLine();
+  scrollCalendarToTime();
+
+  if (calendarNowTimer) clearInterval(calendarNowTimer);
+  calendarNowTimer = setInterval(renderNowLine, 60000);
+}
+
+function renderCalendarBlocks() {
+  var grid = document.getElementById('calendar-grid');
+  if (!grid) return;
+  grid.querySelectorAll('.calendar-block').forEach(function(el) { el.remove(); });
+
+  focusState.blocks.forEach(function(block) {
+    var startMin = block.startHour * 60 + block.startMinute;
+    var endMin = block.endHour * 60 + block.endMinute;
+    var dur = endMin - startMin;
+    var top = ((startMin - CALENDAR_START_HOUR * 60) / 60) * CALENDAR_HOUR_HEIGHT;
+    var height = (dur / 60) * CALENDAR_HOUR_HEIGHT;
+
+    var el = document.createElement('div');
+    el.className = 'calendar-block ' + (block.isFree ? 'free' : 'work');
+    el.dataset.blockId = block.id;
+    el.style.top = top + 'px';
+    el.style.height = Math.max(height, 24) + 'px';
+
+    var timeStr = formatFocusTime(block.startHour, block.startMinute) + ' \u2013 ' +
+                  formatFocusTime(block.endHour, block.endMinute);
+    el.innerHTML = '<div class="calendar-block-title">' + escapeHtml(block.title || 'Untitled') + '</div>' +
+      (height >= 40 ? '<div class="calendar-block-time">' + timeStr + '</div>' : '') +
+      (block.isFree ? '<div class="calendar-block-badge">free</div>' : '') +
+      '<div class="calendar-block-resize top"></div>' +
+      '<div class="calendar-block-resize bottom"></div>';
+
+    el.addEventListener('click', function(e) {
+      if (!e.target.classList.contains('calendar-block-resize') && !blockDragState) openBlockEditor(block.id, e);
+    });
+    el.addEventListener('mousedown', function(e) {
+      if (e.target.classList.contains('calendar-block-resize')) return;
+      startBlockDrag(block.id, e);
+    });
+    el.querySelector('.calendar-block-resize.top').addEventListener('mousedown', function(e) {
+      e.stopPropagation(); startBlockResize(block.id, 'top', e);
+    });
+    el.querySelector('.calendar-block-resize.bottom').addEventListener('mousedown', function(e) {
+      e.stopPropagation(); startBlockResize(block.id, 'bottom', e);
+    });
+
+    grid.appendChild(el);
+  });
+}
+
+function renderNowLine() {
+  var grid = document.getElementById('calendar-grid');
+  if (!grid) return;
+  var existing = grid.querySelector('.calendar-now-line');
+  if (existing) existing.remove();
+
+  var now = new Date();
+  var minuteOfDay = now.getHours() * 60 + now.getMinutes();
+  var calStart = CALENDAR_START_HOUR * 60;
+  var calEnd = CALENDAR_END_HOUR * 60;
+  if (minuteOfDay >= calStart && minuteOfDay < calEnd) {
+    var top = ((minuteOfDay - calStart) / 60) * CALENDAR_HOUR_HEIGHT;
+    var line = document.createElement('div');
+    line.className = 'calendar-now-line';
+    line.style.top = top + 'px';
+    grid.appendChild(line);
+  }
+}
+
+function scrollCalendarToTime() {
+  var container = document.getElementById('calendar-container');
+  if (!container) return;
+  var now = new Date();
+  var targetHour = Math.max(now.getHours() - 1, 0);
+  container.scrollTop = Math.max(0, (targetHour - CALENDAR_START_HOUR) * CALENDAR_HOUR_HEIGHT);
+}
+
+// ---- Calendar Interactions ----
+
+function onCalendarHourClick(event, hour) {
+  if (event.target.closest('.calendar-block')) return;
+  var track = event.currentTarget;
+  var rect = track.getBoundingClientRect();
+  var yOffset = event.clientY - rect.top;
+  var minuteInHour = Math.round((yOffset / CALENDAR_HOUR_HEIGHT) * 60 / 15) * 15;
+  var startMin = hour * 60 + minuteInHour;
+  var endMin = Math.min(startMin + 60, CALENDAR_END_HOUR * 60);
+  if (endMin - startMin < 15) return;
+  if (hasBlockOverlap(startMin, endMin, null)) return;
+
+  var newBlock = {
+    id: generateFocusUUID(), title: '',
+    startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
+    endHour: Math.floor(endMin / 60), endMinute: endMin % 60,
+    isFree: false
+  };
+  focusState.blocks.push(newBlock);
+  markFocusDirty();
+  renderCalendarBlocks();
+  openBlockEditor(newBlock.id, event);
+}
+
+function hasBlockOverlap(startMin, endMin, excludeId) {
+  return focusState.blocks.some(function(b) {
+    if (b.id === excludeId) return false;
+    var bStart = b.startHour * 60 + b.startMinute;
+    var bEnd = b.endHour * 60 + b.endMinute;
+    return startMin < bEnd && endMin > bStart;
+  });
+}
+
+function addFocusBlock(isFree) {
+  var now = new Date();
+  var currentMin = now.getHours() * 60 + now.getMinutes();
+  var startMin = Math.ceil(currentMin / 15) * 15;
+  var endMin = startMin + 60;
+
+  // Find next available slot
+  for (var attempt = 0; attempt < 48; attempt++) {
+    if (!hasBlockOverlap(startMin, endMin, null)) break;
+    startMin += 15;
+    endMin = Math.min(startMin + 60, CALENDAR_END_HOUR * 60);
+  }
+
+  if (startMin >= CALENDAR_END_HOUR * 60 || endMin - startMin < 15) {
+    showToast('No available time slots', 'error');
+    return;
+  }
+
+  var newBlock = {
+    id: generateFocusUUID(),
+    title: isFree ? 'Break' : '',
+    description: '',
+    startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
+    endHour: Math.floor(endMin / 60), endMinute: endMin % 60,
+    isFree: isFree
+  };
+  focusState.blocks.push(newBlock);
+  markFocusDirty();
+  renderCalendarBlocks();
+  if (!isFree) openBlockEditor(newBlock.id, { clientY: 300, clientX: 500 });
+}
+
+// ---- Block Editor Popover ----
+
+function openBlockEditor(blockId, event) {
+  closeBlockEditor();
+  var block = focusState.blocks.find(function(b) { return b.id === blockId; });
+  if (!block) return;
+  focusState.editingBlockId = blockId;
+
+  var editor = document.createElement('div');
+  editor.className = 'block-editor';
+  editor.id = 'block-editor';
+  editor.innerHTML =
+    '<div class="block-editor-row">' +
+    '<label>Title</label>' +
+    '<input class="block-editor-input" id="editor-title" value="' + escapeHtml(block.title) + '" placeholder="What are you working on?">' +
+    '</div>' +
+    '<div class="block-editor-row">' +
+    '<label>Description <span style="color:rgba(255,255,255,0.25);font-weight:normal;">(helps AI understand your task)</span></label>' +
+    '<textarea class="block-editor-input" id="editor-desc" rows="2" placeholder="e.g. Watching coding tutorials on React" style="resize:vertical;min-height:36px;">' + escapeHtml(block.description || '') + '</textarea>' +
+    '</div>' +
+    '<div class="block-editor-row">' +
+    '<label>Time</label>' +
+    '<div class="block-editor-time-row">' +
+    '<input type="time" class="block-editor-input block-editor-time-input" id="editor-start" value="' + padFocusTime(block.startHour, block.startMinute) + '">' +
+    '<span style="color:rgba(255,255,255,0.3);">to</span>' +
+    '<input type="time" class="block-editor-input block-editor-time-input" id="editor-end" value="' + padFocusTime(block.endHour, block.endMinute) + '">' +
+    '</div></div>' +
+    '<div class="block-editor-row">' +
+    '<label class="block-editor-check"><input type="checkbox" id="editor-free" ' + (block.isFree ? 'checked' : '') + '> Free time (no scoring)</label>' +
+    '</div>' +
+    '<div class="block-editor-actions">' +
+    '<button class="btn-small" onclick="saveBlockEdit()">Done</button>' +
+    '<button class="btn-small block-editor-delete" onclick="deleteFocusBlock(\'' + blockId + '\')">Delete</button>' +
+    '</div>';
+
+  document.body.appendChild(editor);
+
+  var calRect = document.getElementById('calendar-container').getBoundingClientRect();
+  editor.style.top = Math.min(event.clientY || 300, window.innerHeight - 300) + 'px';
+  editor.style.left = Math.min(calRect.right + 8, window.innerWidth - 300) + 'px';
+
+  document.getElementById('editor-title').focus();
+  setTimeout(function() {
+    document.addEventListener('mousedown', closeBlockEditorOutside);
+  }, 50);
+}
+
+function closeBlockEditorOutside(e) {
+  var editor = document.getElementById('block-editor');
+  if (editor && !editor.contains(e.target) && !e.target.closest('.calendar-block')) saveBlockEdit();
+}
+
+function closeBlockEditor() {
+  var editor = document.getElementById('block-editor');
+  if (editor) editor.remove();
+  focusState.editingBlockId = null;
+  document.removeEventListener('mousedown', closeBlockEditorOutside);
+}
+
+function saveBlockEdit() {
+  var blockId = focusState.editingBlockId;
+  if (!blockId) { closeBlockEditor(); return; }
+  var block = focusState.blocks.find(function(b) { return b.id === blockId; });
+  if (!block) { closeBlockEditor(); return; }
+
+  var titleEl = document.getElementById('editor-title');
+  var descEl = document.getElementById('editor-desc');
+  var startEl = document.getElementById('editor-start');
+  var endEl = document.getElementById('editor-end');
+  var freeEl = document.getElementById('editor-free');
+
+  if (titleEl) block.title = titleEl.value.trim() || 'Untitled';
+  if (descEl) block.description = descEl.value.trim();
+  if (startEl && startEl.value) {
+    var sp = startEl.value.split(':');
+    var newStartHour = parseInt(sp[0]) || 0;
+    var newStartMinute = parseInt(sp[1]) || 0;
+    var newStartMin = newStartHour * 60 + newStartMinute;
+
+    var newEndHour = block.endHour, newEndMinute = block.endMinute;
+    if (endEl && endEl.value) {
+      var ep = endEl.value.split(':');
+      newEndHour = parseInt(ep[0]) || 0;
+      newEndMinute = parseInt(ep[1]) || 0;
+    }
+    var newEndMin = newEndHour * 60 + newEndMinute;
+
+    if (newEndMin > newStartMin) {
+      block.startHour = newStartHour;
+      block.startMinute = newStartMinute;
+      block.endHour = newEndHour;
+      block.endMinute = newEndMinute;
+    }
+  } else if (endEl && endEl.value) {
+    var ep = endEl.value.split(':');
+    var newEnd = (parseInt(ep[0]) || 0) * 60 + (parseInt(ep[1]) || 0);
+    var curStart = block.startHour * 60 + block.startMinute;
+    if (newEnd > curStart) {
+      block.endHour = parseInt(ep[0]) || 0;
+      block.endMinute = parseInt(ep[1]) || 0;
+    }
+  }
+  if (freeEl) block.isFree = freeEl.checked;
+
+  closeBlockEditor();
+  markFocusDirty();
+  renderCalendarBlocks();
+}
+
+function deleteFocusBlock(blockId) {
+  focusState.blocks = focusState.blocks.filter(function(b) { return b.id !== blockId; });
+  closeBlockEditor();
+  markFocusDirty();
+  renderCalendarBlocks();
+}
+
+// ---- Block Resize ----
+
+function startBlockResize(blockId, edge, event) {
+  event.preventDefault();
+  var block = focusState.blocks.find(function(b) { return b.id === blockId; });
+  if (!block) return;
+
+  var container = document.getElementById('calendar-container');
+  calendarDragState = { blockId: blockId, edge: edge, containerScrollTop: container.scrollTop };
+
+  document.addEventListener('mousemove', onBlockResizeMove);
+  document.addEventListener('mouseup', onBlockResizeEnd);
+}
+
+function onBlockResizeMove(event) {
+  if (!calendarDragState) return;
+  var block = focusState.blocks.find(function(b) { return b.id === calendarDragState.blockId; });
+  if (!block) return;
+
+  var container = document.getElementById('calendar-container');
+  var grid = document.getElementById('calendar-grid');
+  var gridRect = grid.getBoundingClientRect();
+  var y = event.clientY - gridRect.top + container.scrollTop;
+
+  var minutes = CALENDAR_START_HOUR * 60 + (y / CALENDAR_HOUR_HEIGHT) * 60;
+  minutes = Math.round(minutes / 15) * 15;
+  minutes = Math.max(CALENDAR_START_HOUR * 60, Math.min(CALENDAR_END_HOUR * 60, minutes));
+
+  if (calendarDragState.edge === 'top') {
+    var endMin = block.endHour * 60 + block.endMinute;
+    if (minutes < endMin - 15 && !hasBlockOverlap(minutes, endMin, block.id)) {
+      block.startHour = Math.floor(minutes / 60);
+      block.startMinute = minutes % 60;
+    }
+  } else {
+    var startMin = block.startHour * 60 + block.startMinute;
+    if (minutes > startMin + 15 && !hasBlockOverlap(startMin, minutes, block.id)) {
+      block.endHour = Math.floor(minutes / 60);
+      block.endMinute = minutes % 60;
+    }
+  }
+  renderCalendarBlocks();
+}
+
+function onBlockResizeEnd() {
+  calendarDragState = null;
+  markFocusDirty();
+  document.removeEventListener('mousemove', onBlockResizeMove);
+  document.removeEventListener('mouseup', onBlockResizeEnd);
+}
+
+// ---- Block Drag (move) ----
+
+var blockDragState = null; // { blockId, offsetMin, durationMin, didMove }
+
+function startBlockDrag(blockId, event) {
+  event.preventDefault();
+  var block = focusState.blocks.find(function(b) { return b.id === blockId; });
+  if (!block) return;
+
+  var container = document.getElementById('calendar-container');
+  var grid = document.getElementById('calendar-grid');
+  var gridRect = grid.getBoundingClientRect();
+  var y = event.clientY - gridRect.top + container.scrollTop;
+  var mouseMin = CALENDAR_START_HOUR * 60 + (y / CALENDAR_HOUR_HEIGHT) * 60;
+  var blockStartMin = block.startHour * 60 + block.startMinute;
+  var blockEndMin = block.endHour * 60 + block.endMinute;
+
+  blockDragState = {
+    blockId: blockId,
+    offsetMin: mouseMin - blockStartMin,
+    durationMin: blockEndMin - blockStartMin,
+    didMove: false
+  };
+
+  var el = document.querySelector('[data-block-id="' + blockId + '"]');
+  if (el) el.classList.add('dragging');
+
+  document.addEventListener('mousemove', onBlockDragMove);
+  document.addEventListener('mouseup', onBlockDragEnd);
+}
+
+function onBlockDragMove(event) {
+  if (!blockDragState) return;
+  var block = focusState.blocks.find(function(b) { return b.id === blockDragState.blockId; });
+  if (!block) return;
+
+  var container = document.getElementById('calendar-container');
+  var grid = document.getElementById('calendar-grid');
+  var gridRect = grid.getBoundingClientRect();
+  var y = event.clientY - gridRect.top + container.scrollTop;
+  var mouseMin = CALENDAR_START_HOUR * 60 + (y / CALENDAR_HOUR_HEIGHT) * 60;
+
+  var newStartMin = mouseMin - blockDragState.offsetMin;
+  newStartMin = Math.round(newStartMin / 15) * 15;
+  var newEndMin = newStartMin + blockDragState.durationMin;
+
+  // Clamp to calendar bounds
+  if (newStartMin < CALENDAR_START_HOUR * 60) {
+    newStartMin = CALENDAR_START_HOUR * 60;
+    newEndMin = newStartMin + blockDragState.durationMin;
+  }
+  if (newEndMin > CALENDAR_END_HOUR * 60) {
+    newEndMin = CALENDAR_END_HOUR * 60;
+    newStartMin = newEndMin - blockDragState.durationMin;
+  }
+
+  // Check overlap
+  if (hasBlockOverlap(newStartMin, newEndMin, block.id)) return;
+
+  block.startHour = Math.floor(newStartMin / 60);
+  block.startMinute = newStartMin % 60;
+  block.endHour = Math.floor(newEndMin / 60);
+  block.endMinute = newEndMin % 60;
+  blockDragState.didMove = true;
+
+  renderCalendarBlocks();
+  // Re-add dragging class after re-render
+  var el = document.querySelector('[data-block-id="' + block.id + '"]');
+  if (el) el.classList.add('dragging');
+}
+
+function onBlockDragEnd() {
+  if (blockDragState && blockDragState.didMove) {
+    markFocusDirty();
+  }
+  blockDragState = null;
+  document.querySelectorAll('.calendar-block.dragging').forEach(function(el) { el.classList.remove('dragging'); });
+  document.removeEventListener('mousemove', onBlockDragMove);
+  document.removeEventListener('mouseup', onBlockDragEnd);
+}
+
+// ---- Save Schedule ----
+
+function saveAndStartDay() {
+  var btn = document.getElementById('focus-save-schedule-btn');
+  if (btn) { btn.textContent = 'Saving...'; btn.disabled = true; }
+
+  // Collect latest goals from inputs
+  focusState.goals = [
+    (document.getElementById('focus-goal-1').value || '').trim(),
+    (document.getElementById('focus-goal-2').value || '').trim(),
+    (document.getElementById('focus-goal-3').value || '').trim()
+  ];
+
+  focusState.blocks.sort(function(a, b) {
+    return (a.startHour * 60 + a.startMinute) - (b.startHour * 60 + b.startMinute);
+  });
+
+  sendMessage({
+    type: 'SET_SCHEDULE',
+    blocks: focusState.blocks,
+    goals: focusState.goals.filter(function(g) { return g; }),
+    dailyPlan: focusState.dailyPlan
+  });
+}
+
+// ---- Focus Score ----
+
+function loadFocusScore() {
+  sendMessage({ type: 'GET_FOCUS_SCORE' });
+}
+
+window._focusScoreResult = function(data) {
+  var score = data.score || 0;
+  var valueEl = document.getElementById('focus-score-value');
+  if (valueEl) valueEl.textContent = score + '%';
+
+  var circle = document.getElementById('score-fill-circle');
+  if (circle) {
+    var circumference = 339.292;
+    circle.style.strokeDashoffset = circumference * (1 - score / 100);
+  }
+
+  var el;
+  el = document.getElementById('score-focused-time');
+  if (el) el.textContent = formatFocusDuration(data.focusedMinutes || 0);
+  el = document.getElementById('score-offtask-time');
+  if (el) el.textContent = formatFocusDuration(data.offTaskMinutes || 0);
+  el = document.getElementById('score-break-time');
+  if (el) el.textContent = formatFocusDuration(data.breakMinutes || 0);
+
+  var breakdown = document.getElementById('score-block-breakdown');
+  if (breakdown) {
+    var bhtml = '';
+    (data.blocks || []).forEach(function(b) {
+      var s = b.score || 0;
+      var color = s >= 80 ? '#34d399' : s >= 50 ? '#f59e0b' : '#ef4444';
+      bhtml += '<div class="setting-row">' +
+        '<div style="flex:1;">' +
+        '<div class="setting-label">' + (b.isFree ? '\u2600 ' : '') + escapeHtml(b.title) + '</div>' +
+        '<div class="setting-desc">' + formatFocusTime(b.startHour, b.startMinute) + ' \u2013 ' + formatFocusTime(b.endHour, b.endMinute) +
+        (b.isFree ? ' (free)' : '') + '</div>' +
+        '</div>' +
+        (b.isFree ? '' : '<div style="width:80px;display:flex;align-items:center;gap:8px;">' +
+        '<div style="flex:1;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;">' +
+        '<div style="height:100%;width:' + s + '%;background:' + color + ';border-radius:2px;"></div></div>' +
+        '<span style="font-size:12px;color:rgba(255,255,255,0.5);">' + s + '%</span></div>') +
+        '</div>';
+    });
+    breakdown.innerHTML = bhtml || '<div class="setting-row"><div class="setting-desc">No blocks completed yet</div></div>';
+  }
+};
+
+// ---- Relevance Log ----
+
+var relevanceLogTimer = null;
+
+window._relevanceLogResult = function(entries) {
+  var container = document.getElementById('relevance-log');
+  if (!container) return;
+  if (!entries || !entries.length) {
+    container.innerHTML = '<div class="setting-row"><div class="setting-desc">No assessments yet</div></div>';
+    return;
+  }
+  var html = '';
+  entries.slice().reverse().forEach(function(e) {
+    var time = new Date(e.timestamp);
+    var timeStr = time.getHours() + ':' + String(time.getMinutes()).padStart(2, '0') + ':' + String(time.getSeconds()).padStart(2, '0');
+    var dotClass = e.relevant ? 'relevant' : 'irrelevant';
+    var actionHtml = '';
+    if (e.action === 'nudge') actionHtml = '<div class="relevance-action nudged">nudged</div>';
+    else if (e.action === 'blocked') actionHtml = '<div class="relevance-action blocked">blocked</div>';
+    html += '<div class="relevance-entry">' +
+      '<div class="relevance-dot ' + dotClass + '"></div>' +
+      '<div class="relevance-time">' + timeStr + '</div>' +
+      '<div style="flex:1;">' +
+      '<div class="relevance-title">' + escapeHtml(e.title) + '</div>' +
+      '<div class="relevance-reason">' + escapeHtml(e.reason) + '</div>' +
+      actionHtml +
+      '</div></div>';
+  });
+  container.innerHTML = html;
+};
+
+var _lastRelevanceEntries = null;
+var _origRelevanceLogResult = window._relevanceLogResult;
+window._relevanceLogResult = function(entries) {
+  _lastRelevanceEntries = entries;
+  _origRelevanceLogResult(entries);
+};
+
+function copyAssessments() {
+  var entries = _lastRelevanceEntries;
+  if (!entries || !entries.length) return;
+  var lines = entries.slice().reverse().map(function(e) {
+    var time = new Date(e.timestamp);
+    var timeStr = time.getHours() + ':' + String(time.getMinutes()).padStart(2, '0') + ':' + String(time.getSeconds()).padStart(2, '0');
+    var dot = e.relevant ? 'RELEVANT' : 'IRRELEVANT';
+    var action = e.action === 'blocked' ? ' [BLOCKED]' : (e.action === 'nudge' ? ' [NUDGED]' : '');
+    return timeStr + '  ' + dot + '  ' + e.title + action + (e.reason ? '\n    ' + e.reason : '');
+  });
+  var text = lines.join('\n');
+  navigator.clipboard.writeText(text).then(function() {
+    var btn = document.getElementById('copyAssessmentsBtn');
+    btn.textContent = 'Copied!';
+    setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+  });
+}
+
+// ---- Focus Helpers ----
+
+function formatHourLabel(h) {
+  if (h === 0) return '12 AM';
+  if (h === 12) return '12 PM';
+  return (h > 12 ? h - 12 : h) + (h < 12 ? ' AM' : ' PM');
+}
+
+function formatFocusTime(h, m) {
+  var period = h >= 12 ? 'PM' : 'AM';
+  var dh = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+  return dh + ':' + String(m).padStart(2, '0') + ' ' + period;
+}
+
+function padFocusTime(h, m) {
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+}
+
+function formatFocusDuration(minutes) {
+  if (minutes < 60) return minutes + 'm';
+  return Math.floor(minutes / 60) + 'h ' + (minutes % 60) + 'm';
+}
+
 // ===== Init =====
 sendMessage({ type: 'GET_SETTINGS' });
 sendMessage({ type: 'GET_PARTNER_STATUS' });
 refresh();
+loadFocusState();
+sendMessage({ type: 'GET_RELEVANCE_LOG' });
+relevanceLogTimer = setInterval(function() {
+  sendMessage({ type: 'GET_RELEVANCE_LOG' });
+}, 5000);
 setInterval(refresh, 5000);
 </script>
 

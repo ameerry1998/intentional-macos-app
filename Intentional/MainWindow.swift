@@ -19,6 +19,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
     /// Cache browser icons so we don't re-extract every poll cycle
     private var iconCache: [String: String] = [:]
+    private let iconCacheLock = NSLock()
 
     convenience init(appDelegate: AppDelegate) {
         // Create window
@@ -82,6 +83,26 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         // allowingReadAccessTo the parent directory so HTML can load sibling resources
         webView.loadFileURL(htmlURL, allowingReadAccessTo: htmlURL.deletingLastPathComponent())
         appDelegate?.postLog("🌐 Loaded \(name).html in WKWebView")
+    }
+
+    /// Push the current schedule state to the dashboard (refreshes calendar + focus page).
+    func pushScheduleUpdate() {
+        guard let manager = appDelegate?.scheduleManager else { return }
+        var state = manager.getScheduleSyncPayload()
+        state.removeValue(forKey: "type")
+        if let data = try? JSONSerialization.data(withJSONObject: state),
+           let json = String(data: data, encoding: .utf8) {
+            callJS("window._scheduleStateResult && window._scheduleStateResult(\(json))")
+        }
+    }
+
+    /// Navigate the dashboard to a specific page (e.g., "today", "settings", "youtube").
+    func navigateToPage(_ pageId: String) {
+        webView.evaluateJavaScript("navigateTo('\(pageId)')") { _, error in
+            if let error = error {
+                self.appDelegate?.postLog("⚠️ navigateToPage('\(pageId)') error: \(error)")
+            }
+        }
     }
 
     // MARK: - Debug Monitor
@@ -202,6 +223,33 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "GET_JOURNAL":
             handleGetJournal()
 
+        case "GET_SCHEDULE_STATE":
+            handleGetScheduleState()
+
+        case "SET_FOCUS_ENABLED":
+            handleSetFocusEnabled(body)
+
+        case "SET_PROFILE":
+            handleSetProfileFromDashboard(body)
+
+        case "SET_SCHEDULE":
+            handleSetScheduleFromDashboard(body)
+
+        case "GET_FOCUS_SCORE":
+            handleGetFocusScore()
+
+        case "GET_RELEVANCE_LOG":
+            handleGetRelevanceLog()
+
+        case "EXPORT_RELEVANCE_LOG":
+            handleExportRelevanceLog()
+
+        case "SET_FOCUS_ENFORCEMENT":
+            handleSetFocusEnforcement(body)
+
+        case "SET_AI_MODEL":
+            handleSetAIModel(body)
+
         default:
             appDelegate?.postLog("⚠️ WKWebView: Unknown message type: \(type)")
         }
@@ -313,7 +361,10 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                     entry["extensionId"] = extId
                 }
                 // Use cached icon or extract once
-                if let cached = self.iconCache[browser.bundleId] {
+                self.iconCacheLock.lock()
+                let cached = self.iconCache[browser.bundleId]
+                self.iconCacheLock.unlock()
+                if let cached = cached {
                     entry["iconDataUrl"] = cached
                 } else if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: browser.bundleId) {
                     let icon = NSWorkspace.shared.icon(forFile: appURL.path)
@@ -322,7 +373,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                        let bitmap = NSBitmapImageRep(data: tiffData),
                        let pngData = bitmap.representation(using: .png, properties: [:]) {
                         let dataUrl = "data:image/png;base64,\(pngData.base64EncodedString())"
+                        self.iconCacheLock.lock()
                         self.iconCache[browser.bundleId] = dataUrl
+                        self.iconCacheLock.unlock()
                         entry["iconDataUrl"] = dataUrl
                     }
                 }
@@ -1391,6 +1444,181 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                     self.callJS("window._journalResult && window._journalResult({ success: false })")
                 }
             }
+        }
+    }
+
+    // MARK: - Focus Schedule (Dashboard Handlers)
+
+    private func handleGetScheduleState() {
+        guard let manager = appDelegate?.scheduleManager else {
+            callJS("window._scheduleStateResult && window._scheduleStateResult({ enabled: false })")
+            return
+        }
+
+        // Use getScheduleSyncPayload() to include the full blocks array for the calendar view
+        var state = manager.getScheduleSyncPayload()
+        state.removeValue(forKey: "type") // Don't send the "SCHEDULE_SYNC" type to dashboard
+        if let data = try? JSONSerialization.data(withJSONObject: state),
+           let json = String(data: data, encoding: .utf8) {
+            callJS("window._scheduleStateResult && window._scheduleStateResult(\(json))")
+        }
+    }
+
+    private func handleSetFocusEnabled(_ body: [String: Any]) {
+        guard let enabled = body["enabled"] as? Bool else { return }
+        appDelegate?.scheduleManager?.setEnabled(enabled)
+        appDelegate?.socketRelayServer?.broadcastScheduleSync()
+        callJS("window._focusEnabledResult && window._focusEnabledResult({ success: true, enabled: \(enabled) })")
+    }
+
+    private func handleSetProfileFromDashboard(_ body: [String: Any]) {
+        guard let text = body["profile"] as? String else { return }
+        appDelegate?.scheduleManager?.setProfile(text)
+        callJS("window._profileResult && window._profileResult({ success: true })")
+    }
+
+    private func handleSetScheduleFromDashboard(_ body: [String: Any]) {
+        guard let blocksData = body["blocks"] as? [[String: Any]] else {
+            callJS("window._scheduleResult && window._scheduleResult({ success: false })")
+            return
+        }
+
+        let goals = body["goals"] as? [String] ?? []
+        let dailyPlan = body["dailyPlan"] as? String ?? ""
+
+        let blocks = blocksData.compactMap { dict -> ScheduleManager.FocusBlock? in
+            guard let title = dict["title"] as? String,
+                  let startHour = dict["startHour"] as? Int,
+                  let startMinute = dict["startMinute"] as? Int,
+                  let endHour = dict["endHour"] as? Int,
+                  let endMinute = dict["endMinute"] as? Int else { return nil }
+            return ScheduleManager.FocusBlock(
+                id: dict["id"] as? String ?? UUID().uuidString,
+                title: title,
+                description: dict["description"] as? String ?? "",
+                startHour: startHour,
+                startMinute: startMinute,
+                endHour: endHour,
+                endMinute: endMinute,
+                isFree: dict["isFree"] as? Bool ?? false
+            )
+        }
+
+        appDelegate?.scheduleManager?.setTodaySchedule(goals: goals, dailyPlan: dailyPlan, blocks: blocks)
+        appDelegate?.socketRelayServer?.broadcastScheduleSync()
+        callJS("window._scheduleResult && window._scheduleResult({ success: true })")
+    }
+
+    // MARK: - Focus Score
+
+    private func handleGetFocusScore() {
+        guard let manager = appDelegate?.scheduleManager,
+              let schedule = manager.todaySchedule else {
+            callJS("window._focusScoreResult && window._focusScoreResult({ score: 0, blocks: [] })")
+            return
+        }
+
+        let now = Date()
+        let calendar = Calendar.current
+        let currentMinute = calendar.component(.hour, from: now) * 60 + calendar.component(.minute, from: now)
+
+        var totalWorkMinutes = 0
+        var completedWorkMinutes = 0
+        var breakMinutes = 0
+
+        var blocksData: [[String: Any]] = []
+        for block in schedule.blocks {
+            let duration = block.endMinutes - block.startMinutes
+
+            if block.isFree {
+                if block.endMinutes <= currentMinute {
+                    breakMinutes += duration
+                } else if block.startMinutes < currentMinute {
+                    breakMinutes += currentMinute - block.startMinutes
+                }
+            } else {
+                totalWorkMinutes += duration
+                if block.endMinutes <= currentMinute {
+                    completedWorkMinutes += duration
+                } else if block.startMinutes < currentMinute {
+                    completedWorkMinutes += currentMinute - block.startMinutes
+                }
+            }
+
+            blocksData.append([
+                "title": block.title,
+                "startHour": block.startHour,
+                "startMinute": block.startMinute,
+                "endHour": block.endHour,
+                "endMinute": block.endMinute,
+                "isFree": block.isFree,
+                "score": block.isFree ? 0 : (block.endMinutes <= currentMinute ? 85 : 0)
+            ])
+        }
+
+        // V1 placeholder: score = completed work minutes / total work minutes
+        let score = totalWorkMinutes > 0 ? min(100, (completedWorkMinutes * 100) / totalWorkMinutes) : 0
+
+        let result: [String: Any] = [
+            "score": score,
+            "focusedMinutes": completedWorkMinutes,
+            "offTaskMinutes": 0,
+            "breakMinutes": breakMinutes,
+            "blocks": blocksData
+        ]
+
+        if let data = try? JSONSerialization.data(withJSONObject: result),
+           let json = String(data: data, encoding: .utf8) {
+            callJS("window._focusScoreResult && window._focusScoreResult(\(json))")
+        }
+    }
+
+    // MARK: - Relevance Log
+
+    private func handleGetRelevanceLog() {
+        guard let monitor = appDelegate?.focusMonitor else {
+            callJS("window._relevanceLogResult && window._relevanceLogResult([])")
+            return
+        }
+
+        let entries: [[String: Any]] = monitor.relevanceLog.suffix(30).map { entry in
+            [
+                "timestamp": entry.timestamp.timeIntervalSince1970 * 1000,
+                "title": entry.title,
+                "intention": entry.intention,
+                "relevant": entry.relevant,
+                "confidence": entry.confidence,
+                "reason": entry.reason,
+                "action": entry.action
+            ]
+        }
+
+        if let data = try? JSONSerialization.data(withJSONObject: entries),
+           let json = String(data: data, encoding: .utf8) {
+            callJS("window._relevanceLogResult && window._relevanceLogResult(\(json))")
+        }
+    }
+
+    private func handleExportRelevanceLog() {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("Intentional")
+        let file = dir.appendingPathComponent("relevance_log.jsonl")
+        if FileManager.default.fileExists(atPath: file.path) {
+            NSWorkspace.shared.activateFileViewerSelecting([file])
+        }
+        callJS("window._exportLogResult && window._exportLogResult({ success: true })")
+    }
+
+    private func handleSetFocusEnforcement(_ body: [String: Any]) {
+        guard let mode = body["mode"] as? String else { return }
+        appDelegate?.scheduleManager?.setFocusEnforcement(mode)
+        callJS("window._focusEnforcementResult && window._focusEnforcementResult({ success: true, mode: '\(mode)' })")
+    }
+
+    private func handleSetAIModel(_ body: [String: Any]) {
+        if let model = body["model"] as? String, ["apple", "qwen"].contains(model) {
+            appDelegate?.scheduleManager?.setAIModel(model)
+            callJS("window._aiModelResult && window._aiModelResult({ success: true, model: '\(model)' })")
         }
     }
 
