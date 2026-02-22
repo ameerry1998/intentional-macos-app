@@ -1291,74 +1291,12 @@ body {
 }
 .btn-small-free:hover { background: rgba(52, 211, 153, 0.2); }
 
-/* ===== Distraction Budget ===== */
-.distraction-budget {
+/* ===== Earned Browse Widget ===== */
+.earned-browse-widget {
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  padding: 16px 20px;
-}
-.distraction-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 0;
-}
-.distraction-row + .distraction-row {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-.distraction-icon {
-  font-size: 16px;
-  flex-shrink: 0;
-  width: 20px;
-  text-align: center;
-}
-.distraction-platform {
-  font-size: 13px;
-  font-weight: 600;
-  width: 70px;
-  flex-shrink: 0;
-}
-.distraction-bar {
-  flex: 1;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.distraction-bar-fill {
-  height: 100%;
-  border-radius: 3px;
-  transition: width 0.5s ease;
-}
-.distraction-bar-fill.youtube { background: #ef4444; }
-.distraction-bar-fill.instagram { background: #e879f9; }
-.distraction-bar-fill.facebook { background: #60a5fa; }
-.distraction-usage {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
-  white-space: nowrap;
-  min-width: 80px;
-  text-align: right;
-}
-.distraction-session {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: 8px;
-}
-.distraction-session-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #34d399;
-  animation: session-pulse 2s ease-in-out infinite;
-}
-.distraction-session-label {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 16px;
 }
 
 /* ===== Collapsible Sections ===== */
@@ -1496,11 +1434,90 @@ body {
 }
 .calendar-block-resize.top { top: 0; }
 .calendar-block-resize.bottom { bottom: 0; }
+.calendar-block-ring {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 42px; height: 42px;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.calendar-block-ring-pending {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 42px; height: 42px;
+  pointer-events: none;
+  opacity: 0.4;
+}
+.calendar-block-ring svg {
+  transform: rotate(-90deg);
+  width: 42px; height: 42px;
+}
+.calendar-block-ring .ring-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 3;
+}
+.calendar-block-ring .ring-fill {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 100.53;
+  stroke-dashoffset: 100.53;
+  transition: stroke-dashoffset 0.8s ease-out;
+}
+.calendar-block-ring .ring-text {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 10px; font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+}
+.calendar-block-ring .ring-earned {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 9px;
+  font-weight: 600;
+  color: #34d399;
+  white-space: nowrap;
+  margin-right: 4px;
+}
+.calendar-block-score-badge {
+  position: absolute;
+  right: 8px; top: 6px;
+  font-size: 9px; font-weight: 700;
+  color: rgba(255, 255, 255, 0.6);
+  pointer-events: auto;
+  cursor: pointer;
+}
 .calendar-block.dragging {
   opacity: 0.85;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   z-index: 10;
   cursor: grabbing;
+}
+.calendar-block.past {
+  opacity: 0.5;
+  cursor: default;
+}
+.calendar-block.past .calendar-block-resize {
+  display: none;
+}
+.calendar-block.past:hover {
+  filter: none;
+  box-shadow: none;
+}
+.calendar-block.active {
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.12);
+}
+.calendar-block.active .calendar-block-resize.top {
+  display: none;
 }
 
 .calendar-now-line {
@@ -1573,6 +1590,108 @@ body {
   background: rgba(239, 68, 68, 0.2) !important;
 }
 
+/* Block Assessment Popover */
+.block-assessment-popover {
+  position: fixed;
+  background: #1a1a2e;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  z-index: 100;
+  width: 320px;
+  max-height: 440px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.ba-header {
+  padding: 12px 14px 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ba-header-title { flex: 1; font-size: 13px; font-weight: 600; }
+.ba-header-score { font-size: 13px; font-weight: 700; }
+.ba-header-close {
+  width: 20px; height: 20px; border-radius: 6px; border: none;
+  background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.5);
+  font-size: 12px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.ba-header-close:hover { background: rgba(255, 255, 255, 0.15); }
+.ba-summary {
+  padding: 0 14px 10px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+.ba-seg-bar {
+  display: flex; height: 6px; border-radius: 3px; overflow: hidden;
+  margin: 0 14px 8px; background: rgba(255, 255, 255, 0.06);
+}
+.ba-seg-piece {
+  height: 100%; transition: width 0.4s ease-out; min-width: 2px;
+}
+.ba-seg-piece.relevant { background: #34d399; }
+.ba-seg-piece.irrelevant { background: #ef4444; }
+.ba-seg-piece + .ba-seg-piece { border-left: 1px solid rgba(0, 0, 0, 0.3); }
+.ba-body {
+  flex: 1; overflow-y: auto; padding: 4px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.ba-empty {
+  padding: 24px 14px; text-align: center;
+  font-size: 12px; color: rgba(255, 255, 255, 0.3);
+}
+.ba-info-btn {
+  width: 18px; height: 18px; border-radius: 50%; border: none;
+  background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.3);
+  font-size: 11px; cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.ba-info-btn:hover { background: rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.6); }
+.ba-info-btn.open { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
+.ba-reason {
+  font-size: 11px; color: rgba(255, 255, 255, 0.4);
+  padding: 4px 0 2px; line-height: 1.4;
+  display: none;
+}
+.ba-reason.visible { display: block; }
+.ba-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
+.ba-dot.relevant { background: #34d399; }
+.ba-dot.irrelevant { background: #ef4444; }
+.ba-row {
+  padding: 8px 14px;
+}
+.ba-row + .ba-row { border-top: 1px solid rgba(255, 255, 255, 0.04); }
+.ba-row-top {
+  display: flex; align-items: center; gap: 8px;
+}
+.ba-row-name {
+  flex: 1; min-width: 0; font-size: 12px; color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ba-row-pct {
+  font-size: 11px; color: rgba(255, 255, 255, 0.3);
+  font-variant-numeric: tabular-nums; flex-shrink: 0;
+  min-width: 28px; text-align: right;
+}
+.ba-row-time {
+  font-size: 11px; font-weight: 600; color: rgba(255, 255, 255, 0.5);
+  font-variant-numeric: tabular-nums; flex-shrink: 0;
+}
+.ba-row-track {
+  height: 3px; border-radius: 1.5px; background: rgba(255, 255, 255, 0.06);
+  margin-top: 6px; overflow: hidden;
+}
+.ba-row-fill {
+  height: 100%; border-radius: 1.5px;
+  transition: width 0.4s ease-out;
+}
+.ba-row-fill.relevant { background: #34d399; }
+.ba-row-fill.irrelevant { background: #ef4444; }
 /* Focus Score */
 .focus-score-hero {
   text-align: center;
@@ -1745,38 +1864,40 @@ body {
         </div>
       </div>
 
-      <div class="distraction-budget">
-        <div class="focus-goals-title">Distraction Budget</div>
-        <div class="distraction-row" id="yt-distraction-row">
-          <span class="distraction-icon">▶️</span>
-          <span class="distraction-platform">YouTube</span>
-          <div class="distraction-bar"><div class="distraction-bar-fill youtube" id="yt-bar" style="width: 0%"></div></div>
-          <span class="distraction-usage" id="yt-usage-text">0 / 30 min</span>
-          <div class="distraction-session" id="yt-session" style="display: none;">
-            <div class="distraction-session-dot"></div>
-            <span class="distraction-session-label" id="yt-session-label"></span>
-          </div>
+    </div>
+
+    <!-- Earned Browse (always visible — the single budget system) -->
+    <div class="earned-browse-widget" id="earned-browse-widget" style="margin-top: 16px;">
+      <div class="focus-goals-title">Earned Browse</div>
+      <div style="display: flex; gap: 16px; margin-top: 8px;">
+        <div style="flex: 1; text-align: center;">
+          <div style="font-size: 24px; font-weight: 700; color: #34d399;" id="earned-available">0</div>
+          <div style="font-size: 11px; color: rgba(255,255,255,0.5);" id="earned-available-label">min available</div>
         </div>
-        <div class="distraction-row" id="ig-distraction-row">
-          <span class="distraction-icon">📷</span>
-          <span class="distraction-platform">Instagram</span>
-          <div class="distraction-bar"><div class="distraction-bar-fill instagram" id="ig-bar" style="width: 0%"></div></div>
-          <span class="distraction-usage" id="ig-usage-text">0 / 30 min</span>
-          <div class="distraction-session" id="ig-session" style="display: none;">
-            <div class="distraction-session-dot"></div>
-            <span class="distraction-session-label" id="ig-session-label"></span>
-          </div>
+        <div style="flex: 1; text-align: center;">
+          <div style="font-size: 24px; font-weight: 700; color: #60a5fa;" id="earned-earned">0</div>
+          <div style="font-size: 11px; color: rgba(255,255,255,0.5);">min earned</div>
         </div>
-        <div class="distraction-row" id="fb-distraction-row">
-          <span class="distraction-icon">👤</span>
-          <span class="distraction-platform">Facebook</span>
-          <div class="distraction-bar"><div class="distraction-bar-fill facebook" id="fb-bar" style="width: 0%"></div></div>
-          <span class="distraction-usage" id="fb-usage-text">0 / 30 min</span>
-          <div class="distraction-session" id="fb-session" style="display: none;">
-            <div class="distraction-session-dot"></div>
-            <span class="distraction-session-label" id="fb-session-label"></span>
-          </div>
+        <div style="flex: 1; text-align: center;">
+          <div style="font-size: 24px; font-weight: 700; color: #f87171;" id="earned-used">0</div>
+          <div style="font-size: 11px; color: rgba(255,255,255,0.5);">min used</div>
         </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+        <div style="flex: 1; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+          <div id="earned-bar-used" style="height: 100%; background: #f87171; border-radius: 3px; transition: width 0.3s;" ></div>
+        </div>
+      </div>
+      <!-- Per-platform usage breakdown -->
+      <div id="earned-platform-usage" style="display: flex; gap: 16px; margin-top: 10px; font-size: 11px; color: rgba(255,255,255,0.4);">
+        <span id="earned-yt-usage"></span>
+        <span id="earned-ig-usage"></span>
+        <span id="earned-fb-usage"></span>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: rgba(255,255,255,0.4);">
+        <span id="earned-cost-indicator"></span>
+        <span id="earned-deep-work" style="display: none;">Deep work active</span>
+        <span id="earned-visits"></span>
       </div>
     </div>
 
@@ -1886,22 +2007,6 @@ body {
           <span class="toggle-track"></span>
         </label>
       </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Daily budget</div>
-          <div class="setting-desc">Maximum minutes per day</div>
-        </div>
-        <input type="number" class="setting-number" id="yt-budget-input" value="30" min="1" max="480" onchange="onSettingChange()">
-        <span class="setting-value">min</span>
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Free browse budget</div>
-          <div class="setting-desc">Minutes for unfiltered browsing (0 = off)</div>
-        </div>
-        <input type="number" class="setting-number" id="yt-free-browse-input" value="0" min="0" max="480" onchange="onSettingChange()">
-        <span class="setting-value">min</span>
-      </div>
     </div>
 
     <div class="settings-card">
@@ -1990,22 +2095,6 @@ body {
           <input type="checkbox" id="ig-enabled" checked onchange="onSettingChange()">
           <span class="toggle-track"></span>
         </label>
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Daily budget</div>
-          <div class="setting-desc">Maximum minutes per day</div>
-        </div>
-        <input type="number" class="setting-number" id="ig-budget-input" value="30" min="1" max="480" onchange="onSettingChange()">
-        <span class="setting-value">min</span>
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Free browse budget</div>
-          <div class="setting-desc">Minutes for unfiltered browsing (0 = off)</div>
-        </div>
-        <input type="number" class="setting-number" id="ig-free-browse-input" value="0" min="0" max="480" onchange="onSettingChange()">
-        <span class="setting-value">min</span>
       </div>
     </div>
 
@@ -2104,22 +2193,6 @@ body {
           <input type="checkbox" id="fb-enabled" checked onchange="onSettingChange()">
           <span class="toggle-track"></span>
         </label>
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Daily budget</div>
-          <div class="setting-desc">Maximum minutes per day</div>
-        </div>
-        <input type="number" class="setting-number" id="fb-budget-input" value="30" min="1" max="480" onchange="onSettingChange()">
-        <span class="setting-value">min</span>
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Free browse budget</div>
-          <div class="setting-desc">Minutes for unfiltered browsing (0 = off)</div>
-        </div>
-        <input type="number" class="setting-number" id="fb-free-browse-input" value="0" min="0" max="480" onchange="onSettingChange()">
-        <span class="setting-value">min</span>
       </div>
     </div>
 
@@ -2644,7 +2717,6 @@ function saveSettingsBtn(btn) {
 function saveAllSettings() {
   var ytSettings = {
     enabled: document.getElementById('yt-enabled').checked,
-    budget: parseInt(document.getElementById('yt-budget-input').value) || 30,
     threshold: parseInt(document.getElementById('yt-threshold').value) || 35,
     blockShorts: document.getElementById('yt-block-shorts').checked,
     hideSponsored: document.getElementById('yt-hide-sponsored').checked,
@@ -2655,7 +2727,6 @@ function saveAllSettings() {
 
   var igSettings = {
     enabled: document.getElementById('ig-enabled').checked,
-    budget: parseInt(document.getElementById('ig-budget-input').value) || 30,
     threshold: parseInt(document.getElementById('ig-threshold').value) || 35,
     blockReels: document.getElementById('ig-block-reels').checked,
     blockExplore: document.getElementById('ig-block-explore').checked,
@@ -2667,7 +2738,6 @@ function saveAllSettings() {
 
   var fbSettings = {
     enabled: document.getElementById('fb-enabled').checked,
-    budget: parseInt(document.getElementById('fb-budget-input').value) || 30,
     blockWatch: document.getElementById('fb-block-watch').checked,
     blockReels: document.getElementById('fb-block-reels').checked,
     blockMarketplace: document.getElementById('fb-block-marketplace').checked,
@@ -2685,12 +2755,6 @@ function saveAllSettings() {
     periodHours: parseInt(document.getElementById('adv-period-hours').value) || 1
   };
 
-  var freeBrowseBudgets = {
-    youtube: parseInt(document.getElementById('yt-free-browse-input').value) || 0,
-    instagram: parseInt(document.getElementById('ig-free-browse-input').value) || 0,
-    facebook: parseInt(document.getElementById('fb-free-browse-input').value) || 0
-  };
-
   sendMessage({
     type: 'SAVE_SETTINGS',
     settings: {
@@ -2700,8 +2764,7 @@ function saveAllSettings() {
       lockMode: settings.lockMode,
       partnerEmail: settings.partnerEmail,
       partnerName: settings.partnerName,
-      maxPerPeriod: maxPerPeriod,
-      freeBrowseBudgets: freeBrowseBudgets
+      maxPerPeriod: maxPerPeriod
     }
   });
 }
@@ -2711,7 +2774,6 @@ function populateSettingsUI(data) {
   if (data.youtube) {
     var yt = data.youtube;
     document.getElementById('yt-enabled').checked = yt.enabled !== false;
-    document.getElementById('yt-budget-input').value = yt.budget || 30;
     document.getElementById('yt-threshold').value = yt.threshold || 35;
     document.getElementById('yt-threshold-val').textContent = (yt.threshold || 35) + '%';
     document.getElementById('yt-block-shorts').checked = yt.blockShorts !== false;
@@ -2725,7 +2787,6 @@ function populateSettingsUI(data) {
   if (data.instagram) {
     var ig = data.instagram;
     document.getElementById('ig-enabled').checked = ig.enabled !== false;
-    document.getElementById('ig-budget-input').value = ig.budget || 30;
     document.getElementById('ig-threshold').value = ig.threshold || 35;
     document.getElementById('ig-threshold-val').textContent = (ig.threshold || 35) + '%';
     document.getElementById('ig-block-reels').checked = ig.blockReels !== false;
@@ -2739,7 +2800,6 @@ function populateSettingsUI(data) {
   if (data.facebook) {
     var fb = data.facebook;
     document.getElementById('fb-enabled').checked = fb.enabled !== false;
-    document.getElementById('fb-budget-input').value = fb.budget || 30;
     document.getElementById('fb-block-watch').checked = fb.blockWatch !== false;
     document.getElementById('fb-block-reels').checked = fb.blockReels !== false;
     document.getElementById('fb-block-marketplace').checked = fb.blockMarketplace === true;
@@ -2756,13 +2816,6 @@ function populateSettingsUI(data) {
     document.getElementById('adv-period-enabled').checked = mpp.enabled === true;
     document.getElementById('adv-period-minutes').value = mpp.minutes || 20;
     document.getElementById('adv-period-hours').value = mpp.periodHours || 1;
-  }
-
-  if (data.freeBrowseBudgets) {
-    var fb = data.freeBrowseBudgets;
-    document.getElementById('yt-free-browse-input').value = fb.youtube || 0;
-    document.getElementById('ig-free-browse-input').value = fb.instagram || 0;
-    document.getElementById('fb-free-browse-input').value = fb.facebook || 0;
   }
 
   if (data.deviceId) {
@@ -3118,13 +3171,6 @@ var LOCKED_INPUT_IDS = [
   'adv-period-enabled', 'adv-period-minutes', 'adv-period-hours'
 ];
 
-// Budget inputs: can DECREASE with confirmation, cannot INCREASE
-var LOCKED_BUDGET_IDS = [
-  'yt-budget-input', 'ig-budget-input', 'fb-budget-input',
-  'yt-free-browse-input', 'ig-free-browse-input', 'fb-free-browse-input'
-];
-var _lockedBudgetOriginals = {}; // Store original values when settings load
-
 // Descriptions for the lock confirmation modal
 var LOCK_CONFIRM_INFO = {
   'yt-enabled': { name: 'YouTube filtering', desc: 'YouTube videos will be filtered based on your stated intent.' },
@@ -3139,13 +3185,7 @@ var LOCK_CONFIRM_INFO = {
   'fb-block-stories': { name: 'Block Stories', desc: 'Facebook Stories will be hidden from the top of your feed.' },
   'fb-block-sponsored': { name: 'Block sponsored posts', desc: 'Sponsored posts and ads will be removed from your Facebook feed.' },
   'fb-block-suggested': { name: 'Block suggested content', desc: '"Suggested for you" and "People you may know" content will be removed.' },
-  'fb-friends-only': { name: 'Friends-only mode', desc: 'Only posts from friends will appear in your feed.' },
-  'yt-budget-input': { name: 'YouTube daily budget', desc: 'You won\'t be able to increase it back while locked.' },
-  'ig-budget-input': { name: 'Instagram daily budget', desc: 'You won\'t be able to increase it back while locked.' },
-  'fb-budget-input': { name: 'Facebook daily budget', desc: 'You won\'t be able to increase it back while locked.' },
-  'yt-free-browse-input': { name: 'YouTube free browse budget', desc: 'You won\'t be able to increase it back while locked.' },
-  'ig-free-browse-input': { name: 'Instagram free browse budget', desc: 'You won\'t be able to increase it back while locked.' },
-  'fb-free-browse-input': { name: 'Facebook free browse budget', desc: 'You won\'t be able to increase it back while locked.' }
+  'fb-friends-only': { name: 'Friends-only mode', desc: 'Only posts from friends will appear in your feed.' }
 };
 
 function isSettingsLocked() {
@@ -3172,24 +3212,6 @@ function enforceLockMode() {
         row.classList.add('locked');
         row.classList.remove('lock-confirmable');
       }
-    } else {
-      row.classList.remove('locked');
-      row.classList.remove('lock-confirmable');
-    }
-  });
-
-  // Budget inputs: can decrease with confirmation, cannot increase
-  LOCKED_BUDGET_IDS.forEach(function(id) {
-    var input = document.getElementById(id);
-    if (!input) return;
-    var row = input.closest('.setting-row');
-    if (!row) return;
-
-    if (locked) {
-      row.classList.add('lock-confirmable');
-      row.classList.remove('locked');
-      // Store current value as the locked original
-      _lockedBudgetOriginals[id] = parseInt(input.value) || 0;
     } else {
       row.classList.remove('locked');
       row.classList.remove('lock-confirmable');
@@ -3272,45 +3294,6 @@ function setupLockInterceptors() {
     }, true);
   });
 
-  // Budget input interceptors: allow decrease with confirmation, block increase
-  LOCKED_BUDGET_IDS.forEach(function(id) {
-    var input = document.getElementById(id);
-    if (!input) return;
-
-    input.addEventListener('change', function() {
-      if (!isSettingsLocked()) return;
-
-      _lockInterceptActive = true;
-      setTimeout(function() { _lockInterceptActive = false; }, 50);
-
-      var newVal = parseInt(input.value) || 0;
-      var origVal = _lockedBudgetOriginals[id] || 0;
-
-      if (newVal > origVal) {
-        // Trying to INCREASE — block it
-        input.value = origVal;
-        showToast('Cannot increase budget while settings are locked');
-      } else if (newVal < origVal) {
-        // Trying to DECREASE — confirm first
-        input.value = origVal; // Revert until confirmed
-        var info = LOCK_CONFIRM_INFO[id];
-        var label = info ? info.name : 'budget';
-        document.getElementById('lock-confirm-title').textContent = 'Decrease ' + label + '?';
-        document.getElementById('lock-confirm-desc').textContent = 'Reduce from ' + origVal + ' min to ' + newVal + ' min. ' + (info ? info.desc : '');
-        document.getElementById('lock-confirm-warning').textContent = 'This change cannot be reversed while settings are locked.';
-        document.getElementById('lock-confirm-modal').style.display = 'flex';
-        _lockConfirmCallback = function(confirmed) {
-          if (confirmed) {
-            input.value = newVal;
-            _lockedBudgetOriginals[id] = newVal; // Update the floor
-            _lockInterceptActive = false;
-            onSettingChange();
-          }
-        };
-      }
-      // If equal, do nothing
-    }, true);
-  });
 }
 
 // ===== Countdown Helpers =====
@@ -3660,75 +3643,27 @@ window._verifyUnlockResult = function(data) {
 
 // Dashboard data
 window._dashboardDataResult = function(data) {
+  // Per-platform usage breakdown in earned browse widget
   var platforms = [
-    { prefix: 'yt', key: 'youtube' },
-    { prefix: 'ig', key: 'instagram' },
-    { prefix: 'fb', key: 'facebook' }
+    { prefix: 'yt', key: 'youtube', label: 'YT' },
+    { prefix: 'ig', key: 'instagram', label: 'IG' },
+    { prefix: 'fb', key: 'facebook', label: 'FB' }
   ];
   platforms.forEach(function(p) {
     var d = data[p.key];
     if (!d) return;
-
-    // Usage stats — compact distraction row
     var used = d.minutesUsed || 0;
-    var budget = d.budget || 30;
-    var pct = Math.min(100, (used / budget) * 100);
-    var barEl = document.getElementById(p.prefix + '-bar');
-    if (barEl) barEl.style.width = pct + '%';
-    var usageText = document.getElementById(p.prefix + '-usage-text');
-    if (usageText) usageText.textContent = used + ' / ' + budget + ' min';
-    updateFreeBrowseDisplay(p.prefix, d);
-
-    // Active session indicator
-    var sessionEl = document.getElementById(p.prefix + '-session');
-    var sessionLabel = document.getElementById(p.prefix + '-session-label');
-    var row = document.getElementById(p.prefix + '-distraction-row');
-
-    if (d.session && d.session.active) {
-      if (row) row.style.borderColor = 'rgba(52, 211, 153, 0.15)';
-      if (sessionEl) sessionEl.style.display = 'inline-flex';
-
-      if (d.session.freeBrowse) {
-        if (sessionLabel) {
-          sessionLabel.textContent = 'Free';
-          sessionLabel.style.color = '#f59e0b';
-        }
-        var dot = sessionEl ? sessionEl.querySelector('.distraction-session-dot') : null;
-        if (dot) dot.style.background = '#f59e0b';
-      } else {
-        if (sessionLabel) {
-          sessionLabel.textContent = 'Active';
-          sessionLabel.style.color = '#34d399';
-        }
-        var dot = sessionEl ? sessionEl.querySelector('.distraction-session-dot') : null;
-        if (dot) dot.style.background = '#34d399';
-      }
-
-      // Show time remaining if timed session
-      if (d.session.endsAt && sessionLabel) {
-        var remaining = d.session.endsAt - Date.now();
-        if (remaining > 0) {
-          var mins = Math.ceil(remaining / 60000);
-          sessionLabel.textContent += ' ' + mins + 'm';
-        }
-      }
-    } else {
-      if (row) row.style.borderColor = '';
-      if (sessionEl) sessionEl.style.display = 'none';
+    var el = document.getElementById('earned-' + p.prefix + '-usage');
+    if (el) {
+      el.textContent = used > 0 ? (p.label + ': ' + used + ' min') : '';
     }
   });
-};
 
-function updateFreeBrowseDisplay(prefix, platformData) {
-  var fbBudget = platformData.freeBrowseBudget || 0;
-  var fbUsed = Math.round(platformData.freeBrowseMinutesUsed || 0);
-  var usageText = document.getElementById(prefix + '-usage-text');
-  if (usageText && fbBudget > 0 && fbUsed > 0) {
-    var used = platformData.minutesUsed || 0;
-    var budget = platformData.budget || 30;
-    usageText.textContent = used + ' / ' + budget + ' min (fb: ' + fbUsed + ')';
+  // Update earned browse state from dashboard data
+  if (data.earnedBrowse) {
+    window._earnedStatusResult(data.earnedBrowse);
   }
-}
+};
 
 // Browser status
 window._extensionStatusResult = function(data) {
@@ -4041,6 +3976,7 @@ var focusState = {
   editingBlockId: null
 };
 
+var blockFocusData = {};  // { blockId: { focusScore, earnedMinutes, ... } }
 var CALENDAR_START_HOUR = 0;
 var CALENDAR_END_HOUR = 24;
 var CALENDAR_HOUR_HEIGHT = 42;
@@ -4066,6 +4002,7 @@ window._scheduleStateResult = function(data) {
   renderFocusPage();
   renderCalendar();
   loadFocusScore();
+  loadEarnedStatus();
 
   // Sync enforcement toggle in Settings
   var enfToggle = document.getElementById('focus-enforcement');
@@ -4269,6 +4206,25 @@ function renderCalendar() {
   calendarNowTimer = setInterval(renderNowLine, 60000);
 }
 
+function isBlockPast(block) {
+  var now = new Date();
+  var minuteOfDay = now.getHours() * 60 + now.getMinutes();
+  var blockEnd = block.endHour * 60 + block.endMinute;
+  return blockEnd <= minuteOfDay;
+}
+
+function isBlockActive(block) {
+  var now = new Date();
+  var minuteOfDay = now.getHours() * 60 + now.getMinutes();
+  var blockStart = block.startHour * 60 + block.startMinute;
+  var blockEnd = block.endHour * 60 + block.endMinute;
+  return minuteOfDay >= blockStart && minuteOfDay < blockEnd;
+}
+
+function isBlockFuture(block) {
+  return !isBlockPast(block) && !isBlockActive(block);
+}
+
 function renderCalendarBlocks() {
   var grid = document.getElementById('calendar-grid');
   if (!grid) return;
@@ -4286,6 +4242,12 @@ function renderCalendarBlocks() {
     el.dataset.blockId = block.id;
     el.style.top = top + 'px';
     el.style.height = Math.max(height, 24) + 'px';
+
+    if (isBlockPast(block)) {
+      el.classList.add('past');
+    } else if (isBlockActive(block)) {
+      el.classList.add('active');
+    }
 
     var timeStr = formatFocusTime(block.startHour, block.startMinute) + ' \u2013 ' +
                   formatFocusTime(block.endHour, block.endMinute);
@@ -4311,7 +4273,209 @@ function renderCalendarBlocks() {
 
     grid.appendChild(el);
   });
+  updateBlockRings();
 }
+
+function updateBlockRings() {
+  document.querySelectorAll('.calendar-block.work').forEach(function(el) {
+    var blockId = el.dataset.blockId;
+    var data = blockFocusData[blockId];
+    var block = focusState.blocks.find(function(b) { return b.id === blockId; });
+    if (!data || data.totalTicks === 0) {
+      var existing = el.querySelector('.calendar-block-ring, .calendar-block-score-badge, .calendar-block-ring-pending');
+      if (existing) existing.remove();
+      // Show placeholder spinner for active blocks waiting for first tick
+      if (block && isBlockActive(block)) {
+        var height = parseFloat(el.style.height);
+        if (height >= 30) {
+          var pending = document.createElement('div');
+          pending.className = 'calendar-block-ring-pending';
+          pending.innerHTML = '<svg viewBox="0 0 42 42"><circle cx="21" cy="21" r="16" class="ring-bg"/></svg>' +
+            '<div class="ring-text" style="color:rgba(255,255,255,0.3)">\u00b7\u00b7\u00b7</div>';
+          el.appendChild(pending);
+        }
+      }
+      return;
+    }
+
+    var score = data.focusScore || 0;
+    var earned = data.earnedMinutes || 0;
+    var color = score >= 80 ? '#34d399' : score >= 50 ? '#f59e0b' : '#ef4444';
+    var height = parseFloat(el.style.height);
+
+    el.querySelectorAll('.calendar-block-ring, .calendar-block-score-badge, .calendar-block-ring-pending').forEach(function(x) { x.remove(); });
+
+    var circumference = 100.53;
+    var offset = circumference * (1 - score / 100);
+    var ring = document.createElement('div');
+    ring.className = 'calendar-block-ring';
+    ring.innerHTML = '<svg viewBox="0 0 42 42">' +
+      '<circle cx="21" cy="21" r="16" class="ring-bg"/>' +
+      '<circle cx="21" cy="21" r="16" class="ring-fill" style="stroke:' + color + ';stroke-dashoffset:' + offset + '"/>' +
+      '</svg>' +
+      '<div class="ring-text" style="color:' + color + '">' + score + '%</div>' +
+      (earned >= 0.1 ? '<div class="ring-earned">+' + earned.toFixed(1) + 'm</div>' : '');
+    ring.addEventListener('click', (function(bid) { return function(e) { e.stopPropagation(); openBlockAssessments(bid, e); }; })(blockId));
+    el.appendChild(ring);
+  });
+}
+
+// ---- Block Assessment Popover ----
+
+var activeBlockPopover = null;
+
+function aggregateAssessments(entries) {
+  var map = {};
+  entries.forEach(function(e) {
+    var key = e.title || 'Unknown';
+    if (!map[key]) {
+      map[key] = { title: key, ticks: 0, reason: e.reason || '', confidence: e.confidence || 0, _rel: 0, _irrel: 0 };
+    }
+    map[key].ticks++;
+    if (e.reason) map[key].reason = e.reason;
+    if (e.relevant) map[key]._rel++; else map[key]._irrel++;
+  });
+  var groups = Object.values(map);
+  groups.forEach(function(g) {
+    g.relevant = g._rel >= g._irrel;
+    g.seconds = g.ticks * 10;
+    delete g._rel; delete g._irrel;
+  });
+  groups.sort(function(a, b) { return b.ticks - a.ticks; });
+  var totalTicks = groups.reduce(function(s, g) { return s + g.ticks; }, 0);
+  groups.forEach(function(g) { g.pct = totalTicks > 0 ? Math.round(g.ticks / totalTicks * 100) : 0; });
+  return { groups: groups, totalTicks: totalTicks };
+}
+
+function formatDuration(seconds) {
+  if (seconds < 60) return seconds + 's';
+  var m = Math.floor(seconds / 60);
+  var s = seconds % 60;
+  return s > 0 ? m + 'm ' + s + 's' : m + 'm';
+}
+
+function openBlockAssessments(blockId, event) {
+  closeBlockAssessments();
+
+  var block = focusState.blocks.find(function(b) { return b.id === blockId; });
+  if (!block) return;
+
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  var startTime = today.getTime() + (block.startHour * 60 + block.startMinute) * 60000;
+  var endTime = today.getTime() + (block.endHour * 60 + block.endMinute) * 60000;
+
+  var popover = document.createElement('div');
+  popover.className = 'block-assessment-popover';
+  popover.id = 'block-assessment-popover';
+
+  var stats = blockFocusData[blockId];
+  var score = stats ? stats.focusScore : 0;
+  var color = score >= 80 ? '#34d399' : score >= 50 ? '#f59e0b' : '#ef4444';
+
+  popover.innerHTML =
+    '<div class="ba-header">' +
+      '<div class="ba-header-title">' + escapeHtml(block.title || 'Untitled') + '</div>' +
+      '<div class="ba-header-score" style="color:' + color + '">' + score + '%</div>' +
+      '<button class="ba-header-close" onclick="closeBlockAssessments()">\u2715</button>' +
+    '</div>' +
+    '<div class="ba-summary" id="ba-summary">Loading...</div>' +
+    '<div class="ba-seg-bar" id="ba-seg-bar"></div>' +
+    '<div class="ba-body" id="ba-body">' +
+      '<div class="ba-empty">Loading assessments...</div>' +
+    '</div>';
+
+  document.body.appendChild(popover);
+
+  var calGrid = document.getElementById('calendar-grid');
+  var calRect = calGrid ? calGrid.getBoundingClientRect() : { right: 400 };
+  var popLeft = Math.min(calRect.right + 12, window.innerWidth - 340);
+  var popTop = Math.min(event.clientY - 60, window.innerHeight - 460);
+  popover.style.left = popLeft + 'px';
+  popover.style.top = Math.max(60, popTop) + 'px';
+
+  activeBlockPopover = popover;
+
+  setTimeout(function() {
+    document.addEventListener('mousedown', closeBlockAssessmentsOutside);
+  }, 10);
+
+  sendMessage({ type: 'GET_BLOCK_ASSESSMENTS', blockId: blockId, startTime: startTime, endTime: endTime });
+}
+
+function closeBlockAssessments() {
+  var el = document.getElementById('block-assessment-popover');
+  if (el) el.remove();
+  activeBlockPopover = null;
+  document.removeEventListener('mousedown', closeBlockAssessmentsOutside);
+}
+
+function closeBlockAssessmentsOutside(e) {
+  var popover = document.getElementById('block-assessment-popover');
+  if (popover && !popover.contains(e.target)) {
+    closeBlockAssessments();
+  }
+}
+
+function toggleBaReason(id) {
+  var el = document.getElementById(id);
+  var btn = document.getElementById(id + '-btn');
+  if (!el) return;
+  el.classList.toggle('visible');
+  if (btn) btn.classList.toggle('open');
+}
+
+window._blockAssessmentsResult = function(entries) {
+  var body = document.getElementById('ba-body');
+  var summary = document.getElementById('ba-summary');
+  var segBar = document.getElementById('ba-seg-bar');
+  if (!body) return;
+
+  if (!entries || !entries.length) {
+    body.innerHTML = '<div class="ba-empty">No assessments recorded for this block</div>';
+    if (summary) summary.textContent = 'No data yet';
+    if (segBar) segBar.style.display = 'none';
+    return;
+  }
+
+  var data = aggregateAssessments(entries);
+
+  var relCount = data.groups.filter(function(g) { return g.relevant; }).length;
+  var irrelCount = data.groups.length - relCount;
+  var totalTime = formatDuration(data.totalTicks * 10);
+  if (summary) {
+    summary.textContent = data.groups.length + ' apps \u00b7 ' + relCount + ' relevant \u00b7 ' + irrelCount + ' irrelevant \u00b7 ' + totalTime + ' tracked';
+  }
+
+  // Stacked segment bar (green/red only)
+  if (segBar) {
+    var segHtml = '';
+    data.groups.forEach(function(g) {
+      var cls = g.relevant ? 'relevant' : 'irrelevant';
+      segHtml += '<div class="ba-seg-piece ' + cls + '" style="width:' + g.pct + '%"></div>';
+    });
+    segBar.innerHTML = segHtml;
+  }
+
+  // App rows with bars and percentages
+  var html = '';
+  data.groups.forEach(function(g, i) {
+    var cls = g.relevant ? 'relevant' : 'irrelevant';
+    var rid = 'ba-reason-' + i;
+    html += '<div class="ba-row">' +
+      '<div class="ba-row-top">' +
+        '<div class="ba-dot ' + cls + '"></div>' +
+        '<div class="ba-row-name">' + escapeHtml(g.title) + '</div>' +
+        '<div class="ba-row-pct">' + g.pct + '%</div>' +
+        '<div class="ba-row-time">' + formatDuration(g.seconds) + '</div>' +
+        (g.reason ? '<button class="ba-info-btn" id="' + rid + '-btn" onclick="toggleBaReason(\'' + rid + '\')" title="AI reasoning">\u2139</button>' : '') +
+      '</div>' +
+      '<div class="ba-row-track"><div class="ba-row-fill ' + cls + '" style="width:' + g.pct + '%"></div></div>' +
+      (g.reason ? '<div class="ba-reason" id="' + rid + '">' + escapeHtml(g.reason) + '</div>' : '') +
+    '</div>';
+  });
+  body.innerHTML = html;
+};
 
 function renderNowLine() {
   var grid = document.getElementById('calendar-grid');
@@ -4330,6 +4494,30 @@ function renderNowLine() {
     line.style.top = top + 'px';
     grid.appendChild(line);
   }
+
+  // Update block past/active classes in real-time
+  updateBlockTemporalClasses();
+}
+
+function updateBlockTemporalClasses() {
+  focusState.blocks.forEach(function(block) {
+    var el = document.querySelector('[data-block-id="' + block.id + '"]');
+    if (!el) return;
+    var wasPast = el.classList.contains('past');
+    var wasActive = el.classList.contains('active');
+    var nowPast = isBlockPast(block);
+    var nowActive = isBlockActive(block);
+
+    if (nowPast && !wasPast) {
+      el.classList.remove('active');
+      el.classList.add('past');
+    } else if (nowActive && !wasActive) {
+      el.classList.remove('past');
+      el.classList.add('active');
+    } else if (!nowPast && !nowActive) {
+      el.classList.remove('past', 'active');
+    }
+  });
 }
 
 function scrollCalendarToTime() {
@@ -4443,6 +4631,22 @@ function openBlockEditor(blockId, event) {
 
   document.body.appendChild(editor);
 
+  // Disable inputs for past/active blocks
+  var past = isBlockPast(block);
+  var active = isBlockActive(block);
+  if (past) {
+    document.getElementById('editor-start').disabled = true;
+    document.getElementById('editor-end').disabled = true;
+    document.getElementById('editor-free').disabled = true;
+    var delBtn = editor.querySelector('.block-editor-delete');
+    if (delBtn) delBtn.style.display = 'none';
+  } else if (active) {
+    document.getElementById('editor-start').disabled = true;
+    document.getElementById('editor-free').disabled = true;
+    var delBtn = editor.querySelector('.block-editor-delete');
+    if (delBtn) delBtn.style.display = 'none';
+  }
+
   var calRect = document.getElementById('calendar-container').getBoundingClientRect();
   editor.style.top = Math.min(event.clientY || 300, window.innerHeight - 300) + 'px';
   editor.style.left = Math.min(calRect.right + 8, window.innerWidth - 300) + 'px';
@@ -4479,36 +4683,54 @@ function saveBlockEdit() {
 
   if (titleEl) block.title = titleEl.value.trim() || 'Untitled';
   if (descEl) block.description = descEl.value.trim();
-  if (startEl && startEl.value) {
+
+  // Parse proposed start/end times
+  var newStartHour = block.startHour, newStartMinute = block.startMinute;
+  var newEndHour = block.endHour, newEndMinute = block.endMinute;
+
+  if (startEl && startEl.value && !startEl.disabled) {
     var sp = startEl.value.split(':');
-    var newStartHour = parseInt(sp[0]) || 0;
-    var newStartMinute = parseInt(sp[1]) || 0;
-    var newStartMin = newStartHour * 60 + newStartMinute;
-
-    var newEndHour = block.endHour, newEndMinute = block.endMinute;
-    if (endEl && endEl.value) {
-      var ep = endEl.value.split(':');
-      newEndHour = parseInt(ep[0]) || 0;
-      newEndMinute = parseInt(ep[1]) || 0;
-    }
-    var newEndMin = newEndHour * 60 + newEndMinute;
-
-    if (newEndMin > newStartMin) {
-      block.startHour = newStartHour;
-      block.startMinute = newStartMinute;
-      block.endHour = newEndHour;
-      block.endMinute = newEndMinute;
-    }
-  } else if (endEl && endEl.value) {
-    var ep = endEl.value.split(':');
-    var newEnd = (parseInt(ep[0]) || 0) * 60 + (parseInt(ep[1]) || 0);
-    var curStart = block.startHour * 60 + block.startMinute;
-    if (newEnd > curStart) {
-      block.endHour = parseInt(ep[0]) || 0;
-      block.endMinute = parseInt(ep[1]) || 0;
-    }
+    newStartHour = parseInt(sp[0]) || 0;
+    newStartMinute = parseInt(sp[1]) || 0;
   }
-  if (freeEl) block.isFree = freeEl.checked;
+  if (endEl && endEl.value && !endEl.disabled) {
+    var ep = endEl.value.split(':');
+    newEndHour = parseInt(ep[0]) || 0;
+    newEndMinute = parseInt(ep[1]) || 0;
+  }
+
+  var newStartMin = newStartHour * 60 + newStartMinute;
+  var newEndMin = newEndHour * 60 + newEndMinute;
+
+  // Validate end > start
+  if (newEndMin <= newStartMin) {
+    showToast('End time must be after start time', 'error');
+    return;
+  }
+
+  // Enforce 15-minute minimum duration
+  if (newEndMin - newStartMin < 15) {
+    showToast('Block must be at least 15 minutes', 'error');
+    return;
+  }
+
+  // Check for overlap with other blocks
+  var timeChanged = newStartHour !== block.startHour || newStartMinute !== block.startMinute ||
+                    newEndHour !== block.endHour || newEndMinute !== block.endMinute;
+  if (timeChanged && hasBlockOverlap(newStartMin, newEndMin, blockId)) {
+    showToast('Overlaps with another block', 'error');
+    return;
+  }
+
+  // Apply time changes
+  if (timeChanged) {
+    block.startHour = newStartHour;
+    block.startMinute = newStartMinute;
+    block.endHour = newEndHour;
+    block.endMinute = newEndMinute;
+  }
+
+  if (freeEl && !freeEl.disabled) block.isFree = freeEl.checked;
 
   closeBlockEditor();
   markFocusDirty();
@@ -4516,6 +4738,8 @@ function saveBlockEdit() {
 }
 
 function deleteFocusBlock(blockId) {
+  var block = focusState.blocks.find(function(b) { return b.id === blockId; });
+  if (block && (isBlockPast(block) || isBlockActive(block))) return;
   focusState.blocks = focusState.blocks.filter(function(b) { return b.id !== blockId; });
   closeBlockEditor();
   markFocusDirty();
@@ -4528,6 +4752,8 @@ function startBlockResize(blockId, edge, event) {
   event.preventDefault();
   var block = focusState.blocks.find(function(b) { return b.id === blockId; });
   if (!block) return;
+  if (isBlockPast(block)) return;
+  if (isBlockActive(block) && edge === 'top') return;
 
   var container = document.getElementById('calendar-container');
   calendarDragState = { blockId: blockId, edge: edge, containerScrollTop: container.scrollTop };
@@ -4581,6 +4807,7 @@ function startBlockDrag(blockId, event) {
   event.preventDefault();
   var block = focusState.blocks.find(function(b) { return b.id === blockId; });
   if (!block) return;
+  if (isBlockPast(block) || isBlockActive(block)) return;
 
   var container = document.getElementById('calendar-container');
   var grid = document.getElementById('calendar-grid');
@@ -4723,6 +4950,80 @@ window._focusScoreResult = function(data) {
         '</div>';
     });
     breakdown.innerHTML = bhtml || '<div class="setting-row"><div class="setting-desc">No blocks completed yet</div></div>';
+  }
+};
+
+// ---- Earned Browse ----
+
+function loadEarnedStatus() {
+  sendMessage({ type: 'GET_EARNED_STATUS' });
+}
+
+window._earnedStatusResult = function(data) {
+  var widget = document.getElementById('earned-browse-widget');
+  if (!widget) return;
+
+  var earned = data.earnedMinutes || 0;
+  var used = data.usedMinutes || 0;
+  var available = Math.max(0, data.availableMinutes || 0);
+  var effectiveTime = data.effectiveBrowseTime != null ? Math.max(0, data.effectiveBrowseTime) : available;
+
+  var availEl = document.getElementById('earned-available');
+  var earnedEl = document.getElementById('earned-earned');
+  var usedEl = document.getElementById('earned-used');
+  var availLabel = document.getElementById('earned-available-label');
+  if (availEl) {
+    // Show effective browse time (accounts for cost multiplier)
+    availEl.textContent = Math.round(effectiveTime);
+    availEl.style.color = data.poolExhausted ? '#ef4444' : '#34d399';
+  }
+  if (availLabel) {
+    availLabel.textContent = data.isWorkBlock && data.costMultiplier > 1
+      ? 'min available (' + Math.round(available) + ' at ' + data.costMultiplier + 'x)'
+      : 'min available';
+  }
+  if (earnedEl) earnedEl.textContent = Math.round(earned);
+  if (usedEl) usedEl.textContent = Math.round(used);
+
+  // Progress bar: used / earned
+  var barEl = document.getElementById('earned-bar-used');
+  if (barEl && earned > 0) {
+    var pct = Math.min(100, (used / earned) * 100);
+    barEl.style.width = pct + '%';
+    barEl.style.background = pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : '#34d399';
+  } else if (barEl) {
+    barEl.style.width = '0%';
+  }
+
+  // Cost multiplier indicator
+  var costEl = document.getElementById('earned-cost-indicator');
+  if (costEl) {
+    if (data.isWorkBlock && data.costMultiplier > 1) {
+      costEl.textContent = data.costMultiplier + 'x cost active';
+      costEl.style.color = '#f59e0b';
+    } else {
+      costEl.textContent = '';
+    }
+  }
+
+  // Deep work indicator
+  var deepEl = document.getElementById('earned-deep-work');
+  if (deepEl) deepEl.style.display = data.isDeepWork ? '' : 'none';
+
+  // Visit count
+  var visitsEl = document.getElementById('earned-visits');
+  if (visitsEl) {
+    visitsEl.textContent = data.visitCount > 0
+      ? data.visitCount + ' visit' + (data.visitCount > 1 ? 's' : '') + ' this block'
+      : '';
+  }
+
+  // Store block focus data for calendar ring rendering
+  if (data.blockFocusStats) {
+    data.blockFocusStats.forEach(function(b) {
+      blockFocusData[b.blockId] = b;
+    });
+    updateBlockRings();
   }
 };
 

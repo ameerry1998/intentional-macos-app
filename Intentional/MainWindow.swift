@@ -250,6 +250,12 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "SET_AI_MODEL":
             handleSetAIModel(body)
 
+        case "GET_EARNED_STATUS":
+            handleGetEarnedStatus()
+
+        case "GET_BLOCK_ASSESSMENTS":
+            handleGetBlockAssessments(body)
+
         default:
             appDelegate?.postLog("⚠️ WKWebView: Unknown message type: \(type)")
         }
@@ -269,14 +275,11 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let igSettings = platforms["instagram"] as? [String: Any] ?? [:]
         let fbSettings = platforms["facebook"] as? [String: Any] ?? [:]
 
-        let ytBudget = ytSettings["budget"] as? Int ?? 30
-        let igBudget = igSettings["budget"] as? Int ?? 30
-        let fbBudget = fbSettings["budget"] as? Int ?? 30
         let partnerEmail = settings["partnerEmail"] as? String
         let partnerName = settings["partnerName"] as? String
         let lockMode = settings["lockMode"] as? String ?? "none"
 
-        appDelegate?.postLog("📋 Saving onboarding: YT=\(ytBudget)min, IG=\(igBudget)min, FB=\(fbBudget)min, lock=\(lockMode)")
+        appDelegate?.postLog("📋 Saving onboarding: lock=\(lockMode)")
 
         // 1. Save to UserDefaults
         UserDefaults.standard.set(true, forKey: "onboardingComplete")
@@ -290,15 +293,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             lockMode: lockMode
         )
 
-        // 3. Update TimeTracker budgets per platform
-        appDelegate?.timeTracker?.setBudget(for: "youtube", minutes: ytBudget)
-        appDelegate?.timeTracker?.setBudget(for: "instagram", minutes: igBudget)
-        appDelegate?.timeTracker?.setBudget(for: "facebook", minutes: fbBudget)
-
-        // Push time settings to backend (if logged in)
-        appDelegate?.timeTracker?.pushSettingsToBackend()
-
-        // 4. Make API calls, sync consent status, and broadcast to extensions
+        // 3. Make API calls, sync consent status, and broadcast to extensions
         Task {
             if let email = partnerEmail, !email.isEmpty {
                 await appDelegate?.backendClient?.setPartner(email: email, name: partnerName)
@@ -404,21 +399,12 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let ytMinutes = tracker.getMinutesUsed(for: "youtube")
         let igMinutes = tracker.getMinutesUsed(for: "instagram")
         let fbMinutes = tracker.getMinutesUsed(for: "facebook")
-        let ytBudget = tracker.getBudget(for: "youtube")
-        let igBudget = tracker.getBudget(for: "instagram")
-        let fbBudget = tracker.getBudget(for: "facebook")
-
-        let freeBrowseUsage = tracker.getFreeBrowseUsage()
-        let freeBrowseBudgets = tracker.getFreeBrowseBudgets()
 
         // Build per-platform data including active session info
-        func platformData(platform: String, minutes: Int, budget: Int) -> [String: Any] {
+        func platformData(platform: String, minutes: Int) -> [String: Any] {
             let session = tracker.getPlatformSession(for: platform)
             var data: [String: Any] = [
-                "minutesUsed": minutes,
-                "budget": budget,
-                "freeBrowseMinutesUsed": freeBrowseUsage[platform] ?? 0.0,
-                "freeBrowseBudget": freeBrowseBudgets[platform] ?? 0
+                "minutesUsed": minutes
             ]
             if session.active {
                 var sessionData: [String: Any] = [
@@ -433,10 +419,23 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             return data
         }
 
+        // Earned browse state
+        var earnedBrowse: [String: Any] = [:]
+        if let mgr = appDelegate?.earnedBrowseManager {
+            mgr.ensureToday()
+            earnedBrowse = [
+                "earnedMinutes": mgr.earnedMinutes,
+                "usedMinutes": mgr.usedMinutes,
+                "availableMinutes": mgr.availableMinutes,
+                "poolExhausted": mgr.isPoolExhausted
+            ]
+        }
+
         let result: [String: Any] = [
-            "youtube": platformData(platform: "youtube", minutes: ytMinutes, budget: ytBudget),
-            "instagram": platformData(platform: "instagram", minutes: igMinutes, budget: igBudget),
-            "facebook": platformData(platform: "facebook", minutes: fbMinutes, budget: fbBudget)
+            "youtube": platformData(platform: "youtube", minutes: ytMinutes),
+            "instagram": platformData(platform: "instagram", minutes: igMinutes),
+            "facebook": platformData(platform: "facebook", minutes: fbMinutes),
+            "earnedBrowse": earnedBrowse
         ]
 
         if let data = try? JSONSerialization.data(withJSONObject: result),
@@ -488,10 +487,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             "enabled": false, "minutes": 20, "periodHours": 1
         ]
 
-        var message: [String: Any] = [
+        let message: [String: Any] = [
             "type": "ONBOARDING_SYNC",
             "platforms": platforms,
-            "dailyBudgetMinutes": (ytSettings["budget"] as? Int) ?? 30,
             "maxPerPeriod": mpp,
             "blockedCategories": (ytSettings["categories"] as? [String]) ?? [String](),
             "partnerEmail": partnerEmail ?? NSNull(),
@@ -502,14 +500,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             "instagram": igSync,
             "facebook": fbSync
         ]
-
-        // Include free browse budgets if set
-        if let tracker = appDelegate?.timeTracker {
-            let fbb = tracker.getFreeBrowseBudgets()
-            if !fbb.isEmpty {
-                message["freeBrowseBudgets"] = fbb
-            }
-        }
 
         appDelegate?.socketRelayServer?.broadcastToAll(message)
         appDelegate?.postLog("🌐 ONBOARDING_SYNC broadcast to \(appDelegate?.socketRelayServer?.connectionCount ?? 0) extension(s)")
@@ -591,29 +581,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let igPlatform = platforms["instagram"] as? [String: Any] ?? [:]
         let fbPlatform = platforms["facebook"] as? [String: Any] ?? [:]
 
-        // Budget: prefer TimeTracker (source of truth at runtime), fallback to settings file
-        let ytBudget: Int = {
-            if let tt = appDelegate?.timeTracker {
-                let b = tt.getBudget(for: "youtube")
-                if b > 0 { return b }
-            }
-            return (ytPlatform["budget"] as? Int) ?? 30
-        }()
-        let igBudget: Int = {
-            if let tt = appDelegate?.timeTracker {
-                let b = tt.getBudget(for: "instagram")
-                if b > 0 { return b }
-            }
-            return (igPlatform["budget"] as? Int) ?? 30
-        }()
-        let fbBudget: Int = {
-            if let tt = appDelegate?.timeTracker {
-                let b = tt.getBudget(for: "facebook")
-                if b > 0 { return b }
-            }
-            return (fbPlatform["budget"] as? Int) ?? 30
-        }()
-
         let lockMode = (savedSettings["lockMode"] as? String)
             ?? UserDefaults.standard.string(forKey: "lockMode")
             ?? "none"
@@ -625,7 +592,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         let ytResult: [String: Any] = [
             "enabled": (ytPlatform["enabled"] as? Bool) ?? true,
-            "budget": ytBudget,
             "threshold": (ytPlatform["threshold"] as? Int) ?? 35,
             "blockShorts": (ytPlatform["blockShorts"] as? Bool) ?? true,
             "hideSponsored": (ytPlatform["hideSponsored"] as? Bool) ?? true,
@@ -636,7 +602,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         let igResult: [String: Any] = [
             "enabled": (igPlatform["enabled"] as? Bool) ?? true,
-            "budget": igBudget,
             "threshold": (igPlatform["threshold"] as? Int) ?? 35,
             "blockReels": (igPlatform["blockReels"] as? Bool) ?? true,
             "blockExplore": (igPlatform["blockExplore"] as? Bool) ?? true,
@@ -648,7 +613,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         let fbResult: [String: Any] = [
             "enabled": (fbPlatform["enabled"] as? Bool) ?? true,
-            "budget": fbBudget,
             "blockWatch": (fbPlatform["blockWatch"] as? Bool) ?? true,
             "blockReels": (fbPlatform["blockReels"] as? Bool) ?? true,
             "blockMarketplace": (fbPlatform["blockMarketplace"] as? Bool) ?? false,
@@ -674,15 +638,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let unlockRequested = savedSettings["unlockRequested"] as? Bool ?? false
         let autoRelockEnabled = savedSettings["autoRelockEnabled"] as? Bool ?? true
 
-        // Free browse budgets: prefer TimeTracker (runtime), fallback to settings file
-        var freeBrowseBudgetsResult: [String: Int] = [:]
-        if let tt = appDelegate?.timeTracker {
-            freeBrowseBudgetsResult = tt.getFreeBrowseBudgets()
-        }
-        if freeBrowseBudgetsResult.isEmpty {
-            freeBrowseBudgetsResult = (savedSettings["freeBrowseBudgets"] as? [String: Int]) ?? [:]
-        }
-
         var result: [String: Any] = [
             "youtube": ytResult,
             "instagram": igResult,
@@ -695,8 +650,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             "maxPerPeriod": maxPerPeriod,
             "deviceId": deviceId,
             "unlockRequested": unlockRequested,
-            "autoRelockEnabled": autoRelockEnabled,
-            "freeBrowseBudgets": freeBrowseBudgetsResult
+            "autoRelockEnabled": autoRelockEnabled
         ]
         if let tuu = temporaryUnlockUntil { result["temporaryUnlockUntil"] = tuu }
         if let sua = selfUnlockAvailableAt { result["selfUnlockAvailableAt"] = sua }
@@ -784,33 +738,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                         violation = "Cannot disable Suggested content blocking while settings are locked"
                     }
 
-                    // Daily budgets: can't INCREASE when locked
-                    if violation == nil {
-                        let curBudgets = appDelegate?.timeTracker?.getBudgets() ?? [:]
-                        let budgetChecks: [(String, [String: Any])] = [("youtube", ytSettings), ("instagram", igSettings), ("facebook", fbSettings)]
-                        for (platform, platformSettings) in budgetChecks {
-                            if let newBudget = platformSettings["budget"] as? Int {
-                                let curBudget = curBudgets[platform] ?? 480
-                                if newBudget > curBudget {
-                                    violation = "Cannot increase \(platform) daily budget while settings are locked"
-                                    break
-                                }
-                            }
-                        }
-                    }
-
-                    // Free browse budgets: can't INCREASE when locked
-                    if violation == nil, let newFBB = settings["freeBrowseBudgets"] as? [String: Int] {
-                        let curFBB = appDelegate?.timeTracker?.getFreeBrowseBudgets() ?? [:]
-                        for (platform, newBudget) in newFBB {
-                            let curBudget = curFBB[platform] ?? 0
-                            if newBudget > curBudget {
-                                violation = "Cannot increase \(platform) free browse budget while settings are locked"
-                                break
-                            }
-                        }
-                    }
-
                     if let v = violation {
                         let escaped = v.replacingOccurrences(of: "'", with: "\\'")
                         callJS("window._saveSettingsResult && window._saveSettingsResult({ success: false, message: '\(escaped)' })")
@@ -818,23 +745,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                         return
                     }
                 }
-            }
-        }
-
-        if let ytBudget = ytSettings["budget"] as? Int {
-            appDelegate?.timeTracker?.setBudget(for: "youtube", minutes: ytBudget)
-        }
-        if let igBudget = igSettings["budget"] as? Int {
-            appDelegate?.timeTracker?.setBudget(for: "instagram", minutes: igBudget)
-        }
-        if let fbBudget = fbSettings["budget"] as? Int {
-            appDelegate?.timeTracker?.setBudget(for: "facebook", minutes: fbBudget)
-        }
-
-        // Free browse budgets
-        if let freeBrowseBudgets = settings["freeBrowseBudgets"] as? [String: Int] {
-            for (platform, minutes) in freeBrowseBudgets {
-                appDelegate?.timeTracker?.setFreeBrowseBudget(for: platform, minutes: minutes)
             }
         }
 
@@ -849,16 +759,12 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             partnerEmail: partnerEmail,
             partnerName: partnerName,
             lockMode: lockMode,
-            maxPerPeriod: settings["maxPerPeriod"] as? [String: Any],
-            freeBrowseBudgets: settings["freeBrowseBudgets"] as? [String: Int]
+            maxPerPeriod: settings["maxPerPeriod"] as? [String: Any]
         )
 
         broadcastSettingsToExtensions(settings)
         callJS("window._saveSettingsResult && window._saveSettingsResult({ success: true })")
         appDelegate?.postLog("💾 SAVE_SETTINGS: Settings saved and broadcast")
-
-        // Push time settings to backend (if logged in)
-        appDelegate?.timeTracker?.pushSettingsToBackend()
     }
 
     // MARK: - End Session
@@ -877,8 +783,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         partnerEmail: String?,
         partnerName: String?,
         lockMode: String,
-        maxPerPeriod: [String: Any]?,
-        freeBrowseBudgets: [String: Int]? = nil
+        maxPerPeriod: [String: Any]?
     ) {
         updateSettingsFile { settings in
             var existingPlatforms = settings["platforms"] as? [String: Any] ?? [:]
@@ -896,7 +801,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             if let name = partnerName { settings["partnerName"] = name }
             if let cats = blockedCategories { settings["blockedCategories"] = cats }
             if let mpp = maxPerPeriod { settings["maxPerPeriod"] = mpp }
-            if let fbb = freeBrowseBudgets { settings["freeBrowseBudgets"] = fbb }
             settings["lastModified"] = ISO8601DateFormatter().string(from: Date())
         }
     }
@@ -1039,9 +943,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 ]
                 self.appDelegate?.socketRelayServer?.broadcastToAll(lockSync)
                 self.appDelegate?.postLog("🔒 SAVE_LOCK_SETTINGS: requested=\(lockMode), actual=\(actualLockMode), consent=\(consentStatus)")
-
-                // Push settings to backend (if logged in)
-                self.appDelegate?.timeTracker?.pushSettingsToBackend()
 
                 // 7. Update strict mode (login item, watchdog, flag file)
                 self.appDelegate?.updateStrictMode(lockMode: actualLockMode)
@@ -1362,11 +1263,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 }
                 return
             }
-            // Pull settings from backend on successful login
-            if result.success {
-                self.appDelegate?.timeTracker?.pullSettingsFromBackend()
-            }
-
             await MainActor.run {
                 if result.success, let data = result.data {
                     let email = (data["email"] as? String ?? "").replacingOccurrences(of: "'", with: "\\'")
@@ -1609,6 +1505,45 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         callJS("window._exportLogResult && window._exportLogResult({ success: true })")
     }
 
+    private func handleGetBlockAssessments(_ body: [String: Any]) {
+        let startMs = body["startTime"] as? Double ?? 0
+        let endMs = body["endTime"] as? Double ?? 0
+        let startDate = Date(timeIntervalSince1970: startMs / 1000)
+        let endDate = Date(timeIntervalSince1970: endMs / 1000)
+
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("Intentional")
+        let file = dir.appendingPathComponent("relevance_log.jsonl")
+
+        var entries: [[String: Any]] = []
+        let formatter = ISO8601DateFormatter()
+
+        if let contents = try? String(contentsOf: file, encoding: .utf8) {
+            for line in contents.components(separatedBy: "\n") where !line.isEmpty {
+                guard let data = line.data(using: .utf8),
+                      let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let tsStr = obj["timestamp"] as? String,
+                      let ts = formatter.date(from: tsStr) else { continue }
+                if ts >= startDate && ts <= endDate {
+                    entries.append([
+                        "timestamp": ts.timeIntervalSince1970 * 1000,
+                        "title": obj["title"] ?? "",
+                        "intention": obj["intention"] ?? "",
+                        "relevant": obj["relevant"] ?? false,
+                        "confidence": obj["confidence"] ?? 0,
+                        "reason": obj["reason"] ?? "",
+                        "action": obj["action"] ?? "none"
+                    ])
+                }
+            }
+        }
+
+        if let data = try? JSONSerialization.data(withJSONObject: entries),
+           let json = String(data: data, encoding: .utf8) {
+            callJS("window._blockAssessmentsResult && window._blockAssessmentsResult(\(json))")
+        }
+    }
+
     private func handleSetFocusEnforcement(_ body: [String: Any]) {
         guard let mode = body["mode"] as? String else { return }
         appDelegate?.scheduleManager?.setFocusEnforcement(mode)
@@ -1620,6 +1555,51 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             appDelegate?.scheduleManager?.setAIModel(model)
             callJS("window._aiModelResult && window._aiModelResult({ success: true, model: '\(model)' })")
         }
+    }
+
+    // MARK: - Earned Browse Status
+
+    private func handleGetEarnedStatus() {
+        guard let mgr = appDelegate?.earnedBrowseManager else { return }
+        let isWorkBlock = (appDelegate?.scheduleManager?.currentTimeState == .workBlock) == true
+        let costMultiplier = isWorkBlock ? mgr.workBlockCost : mgr.freeBlockCost
+        let effectiveBrowseTime = costMultiplier > 0 ? mgr.availableMinutes / costMultiplier : mgr.availableMinutes
+
+        // Build per-block focus stats array
+        var blockStats: [[String: Any]] = []
+        for (_, stats) in mgr.blockFocusStats {
+            blockStats.append([
+                "blockId": stats.blockId,
+                "blockTitle": stats.blockTitle,
+                "focusScore": stats.focusScore,
+                "earnedMinutes": stats.earnedMinutes,
+                "relevantTicks": stats.relevantTicks,
+                "totalTicks": stats.totalTicks
+            ])
+        }
+
+        let data: [String: Any] = [
+            "earnedMinutes": mgr.earnedMinutes,
+            "usedMinutes": mgr.usedMinutes,
+            "availableMinutes": mgr.availableMinutes,
+            "effectiveBrowseTime": effectiveBrowseTime,
+            "isWorkBlock": isWorkBlock,
+            "costMultiplier": costMultiplier,
+            "poolExhausted": mgr.isPoolExhausted,
+            "isDeepWork": mgr.isDeepWork,
+            "visitCount": mgr.visitCount,
+            "currentDelay": mgr.currentDelay,
+            "blockFocusStats": blockStats
+        ]
+        if let json = try? JSONSerialization.data(withJSONObject: data),
+           let str = String(data: json, encoding: .utf8) {
+            callJS("window._earnedStatusResult && window._earnedStatusResult(\(str))")
+        }
+    }
+
+    /// Push earned browse status to the dashboard (called by AppDelegate when pool changes).
+    func pushEarnedUpdate() {
+        handleGetEarnedStatus()
     }
 
     // MARK: - JS Helper

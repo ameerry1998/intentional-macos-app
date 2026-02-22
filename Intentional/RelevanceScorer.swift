@@ -65,6 +65,13 @@ class RelevanceScorer {
     NOT relevant: entertainment, news, social media, videos, or content that requires \
     creative interpretation to connect to the task. If you have to construct a chain of \
     reasoning to justify relevance, it is NOT relevant.
+    CRITICAL: Judge the ACTUAL page content shown in the title, not the platform's POTENTIAL. \
+    A generic homepage like "YouTube", "Reddit", or "Twitter" is NOT relevant just because \
+    the platform COULD be used for the task. The title must show specific content related to \
+    the task. "YouTube" alone is NOT relevant to "Studying for chemistry exam" — but \
+    "Organic Chemistry Lecture - YouTube" IS relevant. \
+    Similarly, "Reddit" is NOT relevant to "Learning Python" — but \
+    "r/learnpython - How to use decorators" IS relevant.
     The task title is what the user EXPLICITLY chose to work on right now. \
     If the activity clearly matches what the block title literally describes, it IS relevant. \
     For example, if the block is "watching YouTube" then YouTube videos are relevant. \
@@ -335,7 +342,7 @@ class RelevanceScorer {
         // Try to extract JSON object from the response
         guard let jsonStart = text.firstIndex(of: "{"),
               let jsonEnd = text[jsonStart...].lastIndex(of: "}") else {
-            return Result(relevant: true, confidence: 0, reason: "MLX response parse error: no JSON found")
+            return Result(relevant: false, confidence: 0, reason: "Could not assess - AI model error")
         }
 
         let jsonString = String(text[jsonStart...jsonEnd])
@@ -343,10 +350,66 @@ class RelevanceScorer {
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let relevant = json["relevant"] as? Bool,
               let reason = json["reason"] as? String else {
-            return Result(relevant: true, confidence: 0, reason: "MLX response parse error")
+            return Result(relevant: false, confidence: 0, reason: "Could not assess - AI model error")
         }
 
         let confidence = json["confidence"] as? Int ?? 0
         return Result(relevant: relevant, confidence: confidence, reason: reason)
+    }
+
+    // MARK: - Justification Assessment
+
+    /// Assess whether a user's justification for visiting social media is work-related.
+    /// Used by EarnedBrowseManager to determine 1x vs 2x cost multiplier.
+    func assessJustification(text: String, intention: String, intentionDescription: String = "") async -> (approved: Bool, reason: String) {
+        let userMessage = """
+        The user is working on: "\(intention)"\(intentionDescription.isEmpty ? "" : " — \(intentionDescription)")
+        They want to visit social media and gave this reason: "\(text)"
+
+        Is this reason DIRECTLY related to their work task?
+        Only approve if the social media visit would genuinely help with the specific task.
+        Do NOT approve vague reasons like "I need a break" or "checking something".
+
+        Respond with JSON: {"approved": true/false, "reason": "one sentence explanation"}
+        """
+
+        // Try MLX model first if configured
+        let aiModel = appDelegate?.scheduleManager?.aiModel ?? "apple"
+        if aiModel == "qwen" && mlxModelLoaded, let session = mlxSession {
+            do {
+                let response = try await session.respond(to: userMessage)
+                if let jsonStart = response.firstIndex(of: "{"),
+                   let jsonEnd = response[jsonStart...].lastIndex(of: "}") {
+                    let jsonString = String(response[jsonStart...jsonEnd])
+                    if let data = jsonString.data(using: .utf8),
+                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let approved = json["approved"] as? Bool,
+                       let reason = json["reason"] as? String {
+                        appDelegate?.postLog("🧠 Justification assessed (MLX): approved=\(approved), reason=\(reason)")
+                        return (approved: approved, reason: reason)
+                    }
+                }
+            } catch {
+                appDelegate?.postLog("⚠️ MLX justification assessment error: \(error)")
+            }
+        }
+
+        // Try Apple Foundation Models
+        #if canImport(FoundationModels)
+        if #available(macOS 26.0, *) {
+            do {
+                let response = try await session.respond(to: userMessage, generating: RelevanceOutput.self)
+                let approved = response.content.relevant
+                let reason = response.content.reason
+                appDelegate?.postLog("🧠 Justification assessed (Apple FM): approved=\(approved), reason=\(reason)")
+                return (approved: approved, reason: reason)
+            } catch {
+                appDelegate?.postLog("⚠️ Foundation Models justification error: \(error)")
+            }
+        }
+        #endif
+
+        // Fallback: deny by default (conservative)
+        return (approved: false, reason: "Scoring unavailable — defaulting to standard rate")
     }
 }

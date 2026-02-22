@@ -34,6 +34,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var focusMonitor: FocusMonitor?
     var nudgeController: NudgeWindowController?
 
+    // Earn Your Browse budget system
+    var earnedBrowseManager: EarnedBrowseManager?
+
     // Native app heartbeat timer (Phase 2: Tamper Detection)
     var heartbeatTimer: Timer?
 
@@ -244,6 +247,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.socketRelayServer?.broadcastSessionSync()
         }
 
+        // Initialize Earn Your Browse budget system
+        earnedBrowseManager = EarnedBrowseManager(appDelegate: self)
+        earnedBrowseManager?.load()
+        postLog("💰 EarnedBrowseManager initialized")
+
+        // Wire TimeTracker callback: deduct social media time from earned pool
+        timeTracker?.onSocialMediaTimeRecorded = { [weak self] platform, minutes, isFreeBrowse in
+            guard let mgr = self?.earnedBrowseManager else { return }
+            let isWorkBlock = (self?.scheduleManager?.currentTimeState == .workBlock) == true
+            let remaining = mgr.recordSocialMediaTime(
+                minutes: minutes, isWorkBlock: isWorkBlock, isJustified: false
+            )
+            self?.socketRelayServer?.broadcastEarnedMinutesUpdate(mgr)
+            self?.mainWindowController?.pushEarnedUpdate()
+            self?.postLog("💰 Social media time: -\(String(format: "%.1f", minutes))m, remaining: \(String(format: "%.1f", remaining))m")
+        }
+
         // Initialize Daily Focus Plan (V2: schedule engine + relevance scoring)
         scheduleManager = ScheduleManager(appDelegate: self)
         relevanceScorer = RelevanceScorer(appDelegate: self)
@@ -264,9 +284,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         scheduleManager?.onBlockChanged = { [weak self] block, state in
             self?.postLog("📋 Block changed → \(state.rawValue)" + (block != nil ? " (\(block!.title))" : ""))
             self?.relevanceScorer?.clearCache()
+            // Set activeBlockId BEFORE focusMonitor re-evaluates (which may call recordWorkTick)
+            self?.earnedBrowseManager?.onBlockChanged(blockId: block?.id, blockTitle: block?.title)
             self?.focusMonitor?.onBlockChanged()
             self?.socketRelayServer?.broadcastScheduleSync()
             self?.mainWindowController?.pushScheduleUpdate()
+        }
+
+        // ScheduleManager.init() already called recalculateState(), but the callback
+        // wasn't wired yet, so activeBlockId was never set. Sync it now in case the
+        // app started during a work block.
+        if let block = scheduleManager?.currentBlock {
+            earnedBrowseManager?.onBlockChanged(blockId: block.id, blockTitle: block.title)
         }
 
         // All extension connections come through the socket relay server.
@@ -277,6 +306,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         nativeMessagingHost?.timeTracker = timeTracker
         nativeMessagingHost?.scheduleManager = scheduleManager
         nativeMessagingHost?.relevanceScorer = relevanceScorer
+        nativeMessagingHost?.earnedBrowseManager = earnedBrowseManager
         postLog("🔌 Primary app — all extension connections via socket relay")
 
         // Start socket relay server for Native Messaging
@@ -382,6 +412,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Force sync time tracking data
         timeTracker?.forceSync()
+
+        // Save earned browse state
+        earnedBrowseManager?.save()
 
         // Send shutdown event before quitting (synchronously to ensure it's sent)
         let semaphore = DispatchSemaphore(value: 0)

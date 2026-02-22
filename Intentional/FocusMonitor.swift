@@ -28,6 +28,20 @@ class FocusMonitor {
     var nudgeController: NudgeWindowController?
     var overlayController: FocusOverlayWindowController?
 
+    // MARK: - Social Media Hostnames (extension handles enforcement)
+
+    /// Social media hostnames where the Chrome extension handles enforcement
+    private static let socialMediaHostnames: Set<String> = [
+        "youtube.com", "www.youtube.com", "m.youtube.com",
+        "instagram.com", "www.instagram.com",
+        "facebook.com", "www.facebook.com", "m.facebook.com"
+    ]
+
+    /// Check if a hostname is a social media site handled by the extension
+    private func isSocialMedia(_ hostname: String) -> Bool {
+        Self.socialMediaHostnames.contains(hostname.lowercased())
+    }
+
     // MARK: - Known Browser Bundle IDs + AppleScript Names
 
     /// Browsers we can read tab titles from via AppleScript.
@@ -313,6 +327,8 @@ class FocusMonitor {
 
     // Browser tab polling
     private var browserPollTimer: Timer?
+    // Work tick timer for always-allowed non-browser apps (Xcode, Terminal, etc.)
+    private var workTickTimer: Timer?
     private var lastScoredTitle: String?
     private var lastScoredURL: String?
 
@@ -346,6 +362,7 @@ class FocusMonitor {
         cancelGracePeriod()
         stopLingerTimer()
         stopBrowserPolling()
+        stopWorkTickTimer()
         nudgeController?.dismiss()
         overlayController?.dismiss()
         appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
@@ -366,6 +383,7 @@ class FocusMonitor {
         cancelGracePeriod()
         stopLingerTimer()
         stopBrowserPolling()
+        stopWorkTickTimer()
         nudgeController?.dismiss()
         overlayController?.dismiss()
         appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
@@ -428,6 +446,9 @@ class FocusMonitor {
         let bundleId = app.bundleIdentifier ?? "no-bundle-id"
         let currentState = scheduleManager?.currentTimeState.rawValue ?? "nil"
         let currentBlock = scheduleManager?.currentBlock?.title ?? "none"
+
+        // Stop work tick timer from previous app (will restart if new app is also always-allowed)
+        stopWorkTickTimer()
 
         appDelegate?.postLog("👁️ evaluateApp: \(appName) (\(bundleId)), state=\(currentState), block=\(currentBlock)")
 
@@ -521,17 +542,45 @@ class FocusMonitor {
 
         // Apple system apps: auto-allow com.apple.* unless it's an entertainment app
         if bid.hasPrefix("com.apple.") && !Self.appleEntertainmentBundleIds.contains(bid) {
-            appDelegate?.postLog("👁️ EXIT: Apple system app \(appName) — always allowed")
+            appDelegate?.postLog("👁️ EXIT: Apple system app \(appName) — always allowed, earning work ticks")
             handleRelevantContent()
             stopBrowserPolling()
+            // Log assessment so always-allowed apps appear in the assessment popover
+            logAssessment(
+                title: appName,
+                intention: scheduleManager?.currentBlock?.title ?? "",
+                relevant: true,
+                confidence: 100,
+                reason: "Always-allowed app",
+                action: "none"
+            )
+            // Record initial tick + start continuous work tick timer
+            appDelegate?.earnedBrowseManager?.recordWorkTick(seconds: Self.browserPollInterval)
+            appDelegate?.earnedBrowseManager?.recordAssessment(relevant: true)
+            appDelegate?.earnedBrowseManager?.updateLastActiveApp(name: appName, timestamp: Date())
+            startWorkTickTimer(appName: appName)
             return
         }
 
         // Always-allowed apps: never block system utilities, terminals, password managers, etc.
         if Self.alwaysAllowedBundleIds.contains(bid) {
-            appDelegate?.postLog("👁️ EXIT: \(appName) is always-allowed — skipping scoring")
+            appDelegate?.postLog("👁️ EXIT: \(appName) is always-allowed — earning work ticks")
             handleRelevantContent()
             stopBrowserPolling()
+            // Log assessment so always-allowed apps appear in the assessment popover
+            logAssessment(
+                title: appName,
+                intention: scheduleManager?.currentBlock?.title ?? "",
+                relevant: true,
+                confidence: 100,
+                reason: "Always-allowed app",
+                action: "none"
+            )
+            // Record initial tick + start continuous work tick timer
+            appDelegate?.earnedBrowseManager?.recordWorkTick(seconds: Self.browserPollInterval)
+            appDelegate?.earnedBrowseManager?.recordAssessment(relevant: true)
+            appDelegate?.earnedBrowseManager?.updateLastActiveApp(name: appName, timestamp: Date())
+            startWorkTickTimer(appName: appName)
             return
         }
 
@@ -573,8 +622,20 @@ class FocusMonitor {
                 if result.relevant {
                     self.appDelegate?.postLog("👁️ App is relevant: \(appName)")
                     self.handleRelevantContent()
+                    // Record work tick for earned browse and update last active app
+                    if self.scheduleManager?.currentTimeState == .workBlock {
+                        self.appDelegate?.earnedBrowseManager?.recordWorkTick(seconds: Self.browserPollInterval)
+                        self.appDelegate?.earnedBrowseManager?.recordAssessment(relevant: true)
+                        self.appDelegate?.earnedBrowseManager?.updateLastActiveApp(
+                            name: appName, timestamp: Date()
+                        )
+                    }
                 } else {
                     self.appDelegate?.postLog("👁️ App is NOT relevant: \(appName) — \(result.reason)")
+                    // Record irrelevant assessment for deep work tracking
+                    if self.scheduleManager?.currentTimeState == .workBlock {
+                        self.appDelegate?.earnedBrowseManager?.recordAssessment(relevant: false)
+                    }
                     self.handleIrrelevantContent(targetKey: bid, displayName: appName)
                 }
             }
@@ -666,8 +727,17 @@ class FocusMonitor {
                     )
                     self.appDelegate?.postLog("👁️ Tab is relevant: \"\(info.title)\"")
                     self.handleRelevantContent()
+                    // Record work tick for earned browse (only during work blocks)
+                    if self.scheduleManager?.currentTimeState == .workBlock {
+                        self.appDelegate?.earnedBrowseManager?.recordWorkTick(seconds: Self.browserPollInterval)
+                        self.appDelegate?.earnedBrowseManager?.recordAssessment(relevant: true)
+                    }
                 } else {
                     self.lastScoreWasIrrelevant = true
+                    // Record irrelevant assessment for deep work tracking
+                    if self.scheduleManager?.currentTimeState == .workBlock {
+                        self.appDelegate?.earnedBrowseManager?.recordAssessment(relevant: false)
+                    }
                     // Action will be determined by handleIrrelevantContent; log after
                     self.appDelegate?.postLog("👁️ Tab is NOT relevant: \"\(info.title)\" — \(result.reason)")
                     self.handleIrrelevantContent(targetKey: info.hostname, displayName: info.title, confidence: result.confidence, reason: result.reason)
@@ -741,6 +811,35 @@ class FocusMonitor {
     private func stopBrowserPolling() {
         browserPollTimer?.invalidate()
         browserPollTimer = nil
+    }
+
+    /// Start a repeating timer that records work ticks for always-allowed non-browser apps.
+    private func startWorkTickTimer(appName: String) {
+        stopWorkTickTimer()
+        workTickTimer = Timer.scheduledTimer(withTimeInterval: Self.browserPollInterval, repeats: true) { [weak self] _ in
+            guard let self = self,
+                  self.scheduleManager?.currentTimeState == .workBlock else {
+                self?.stopWorkTickTimer()
+                return
+            }
+            // Log assessment on each tick so always-allowed apps accumulate time in the assessment popover
+            self.logAssessment(
+                title: appName,
+                intention: self.scheduleManager?.currentBlock?.title ?? "",
+                relevant: true,
+                confidence: 100,
+                reason: "Always-allowed app",
+                action: "none"
+            )
+            self.appDelegate?.earnedBrowseManager?.recordWorkTick(seconds: Self.browserPollInterval)
+            self.appDelegate?.earnedBrowseManager?.recordAssessment(relevant: true)
+            self.appDelegate?.earnedBrowseManager?.updateLastActiveApp(name: appName, timestamp: Date())
+        }
+    }
+
+    private func stopWorkTickTimer() {
+        workTickTimer?.invalidate()
+        workTickTimer = nil
     }
 
     private func pollActiveTab(bundleId: String) {
@@ -862,6 +961,18 @@ class FocusMonitor {
         let isWorkBlock = scheduleManager?.currentTimeState == .workBlock
 
         if isBrowser && isWorkBlock {
+            // Phase 2 complete: extension handles social media enforcement with earned browse UI.
+            // Skip FocusMonitor overlay for social media in extension-connected browsers.
+            if isSocialMedia(targetKey) {
+                if let bundleId = currentAppBundleId {
+                    let connectedBrowsers = appDelegate?.socketRelayServer?.getConnectedBrowserBundleIds() ?? []
+                    if connectedBrowsers.contains(bundleId) {
+                        appDelegate?.postLog("👁️ Social media (\(targetKey)) in extension-connected browser — letting extension handle enforcement")
+                        return
+                    }
+                }
+            }
+
             // ── Cumulative irrelevance tracking (browser work blocks) ──
             let now = Date()
 
