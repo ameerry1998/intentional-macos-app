@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		343A70ED2F4713C200030ED8 /* com.intentional.watchdog.plist in Resources */ = {isa = PBXBuildFile; fileRef = 343A70EC2F4713C100030ED8 /* com.intentional.watchdog.plist */; };
 		343A70EF2F47140400030ED8 /* com.intentional.watchdog.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 343A70EC2F4713C100030ED8 /* com.intentional.watchdog.plist */; };
+		343A70F32F4AA13800030ED8 /* EarnedBrowseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 343A70F22F4AA13800030ED8 /* EarnedBrowseManager.swift */; };
 		A1000001000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000001 /* AppDelegate.swift */; };
 		A1000003000000000000001 /* SleepWakeMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000004000000000000001 /* SleepWakeMonitor.swift */; };
 		A1000005000000000000001 /* ProcessMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000006000000000000001 /* ProcessMonitor.swift */; };
@@ -18,7 +19,6 @@
 		A1000014000000000000002 /* BrowserMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000015000000000000002 /* BrowserMonitor.swift */; };
 		A1000016000000000000003 /* WebsiteBlocker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000017000000000000003 /* WebsiteBlocker.swift */; };
 		A1000019000000000000004 /* blocked.html in Resources */ = {isa = PBXBuildFile; fileRef = A1000018000000000000004 /* blocked.html */; };
-		A100F0C0000000000000001 /* focus-blocked.html in Resources */ = {isa = PBXBuildFile; fileRef = A100F0C1000000000000001 /* focus-blocked.html */; };
 		A1000020000000000000005 /* PermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000021000000000000005 /* PermissionManager.swift */; };
 		A1000022000000000000006 /* zen-nature.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = A1000023000000000000006 /* zen-nature.mp4 */; };
 		A1000024000000000000007 /* 13136082_3840_2160_60fps.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = A1000025000000000000007 /* 13136082_3840_2160_60fps.mp4 */; };
@@ -36,6 +36,10 @@
 		A1000052000000000000019 /* FocusMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000053000000000000019 /* FocusMonitor.swift */; };
 		A1000054000000000000020 /* NudgeWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000055000000000000020 /* NudgeWindowController.swift */; };
 		A1000056000000000000021 /* FocusOverlayWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000057000000000000021 /* FocusOverlayWindow.swift */; };
+		A1000058000000000000022 /* InterventionOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000059000000000000022 /* InterventionOverlayController.swift */; };
+		A1000060000000000000023 /* GrayscaleOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000061000000000000023 /* GrayscaleOverlayController.swift */; };
+		A1000062000000000000024 /* DeepWorkTimerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000063000000000000024 /* DeepWorkTimerController.swift */; };
+		A100F0C0000000000000001 /* focus-blocked.html in Resources */ = {isa = PBXBuildFile; fileRef = A100F0C1000000000000001 /* focus-blocked.html */; };
 		A2000001000000000000001 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = A2000003000000000000001 /* MLXLLM */; };
 		A2000002000000000000001 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = A2000004000000000000001 /* MLXLMCommon */; };
 /* End PBXBuildFile section */
@@ -55,6 +59,7 @@
 
 /* Begin PBXFileReference section */
 		343A70EC2F4713C100030ED8 /* com.intentional.watchdog.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.intentional.watchdog.plist; sourceTree = "<group>"; };
+		343A70F22F4AA13800030ED8 /* EarnedBrowseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EarnedBrowseManager.swift; sourceTree = "<group>"; };
 		A1000000000000000000001 /* Intentional.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Intentional.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000002000000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A1000004000000000000001 /* SleepWakeMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepWakeMonitor.swift; sourceTree = "<group>"; };
@@ -66,7 +71,6 @@
 		A1000015000000000000002 /* BrowserMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserMonitor.swift; sourceTree = "<group>"; };
 		A1000017000000000000003 /* WebsiteBlocker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebsiteBlocker.swift; sourceTree = "<group>"; };
 		A1000018000000000000004 /* blocked.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = blocked.html; sourceTree = "<group>"; };
-		A100F0C1000000000000001 /* focus-blocked.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "focus-blocked.html"; sourceTree = "<group>"; };
 		A1000021000000000000005 /* PermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManager.swift; sourceTree = "<group>"; };
 		A1000023000000000000006 /* zen-nature.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "zen-nature.mp4"; sourceTree = "<group>"; };
 		A1000025000000000000007 /* 13136082_3840_2160_60fps.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = 13136082_3840_2160_60fps.mp4; sourceTree = "<group>"; };
@@ -84,6 +88,10 @@
 		A1000053000000000000019 /* FocusMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusMonitor.swift; sourceTree = "<group>"; };
 		A1000055000000000000020 /* NudgeWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NudgeWindowController.swift; sourceTree = "<group>"; };
 		A1000057000000000000021 /* FocusOverlayWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusOverlayWindow.swift; sourceTree = "<group>"; };
+		A1000059000000000000022 /* InterventionOverlayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterventionOverlayController.swift; sourceTree = "<group>"; };
+		A1000061000000000000023 /* GrayscaleOverlayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrayscaleOverlayController.swift; sourceTree = "<group>"; };
+		A1000063000000000000024 /* DeepWorkTimerController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepWorkTimerController.swift; sourceTree = "<group>"; };
+		A100F0C1000000000000001 /* focus-blocked.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "focus-blocked.html"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -125,12 +133,16 @@
 				A1000030000000000000008 /* NativeMessagingHost.swift */,
 				A1000032000000000000009 /* NativeMessagingSetup.swift */,
 				A1000034000000000000010 /* TimeTracker.swift */,
+				343A70F22F4AA13800030ED8 /* EarnedBrowseManager.swift */,
 				A1000041000000000000013 /* SocketRelayServer.swift */,
 				A1000049000000000000017 /* ScheduleManager.swift */,
 				A1000051000000000000018 /* RelevanceScorer.swift */,
 				A1000053000000000000019 /* FocusMonitor.swift */,
 				A1000055000000000000020 /* NudgeWindowController.swift */,
 				A1000057000000000000021 /* FocusOverlayWindow.swift */,
+				A1000059000000000000022 /* InterventionOverlayController.swift */,
+				A1000061000000000000023 /* GrayscaleOverlayController.swift */,
+				A1000063000000000000024 /* DeepWorkTimerController.swift */,
 				A1000047000000000000016 /* LegacyMonitorView.swift */,
 				A1000018000000000000004 /* blocked.html */,
 				A100F0C1000000000000001 /* focus-blocked.html */,
@@ -244,6 +256,7 @@
 				A1000038000000000000012 /* BrowserDiscovery.swift in Sources */,
 				A1000016000000000000003 /* WebsiteBlocker.swift in Sources */,
 				A1000020000000000000005 /* PermissionManager.swift in Sources */,
+				343A70F32F4AA13800030ED8 /* EarnedBrowseManager.swift in Sources */,
 				A1000007000000000000001 /* BackendClient.swift in Sources */,
 				A1000031000000000000008 /* NativeMessagingHost.swift in Sources */,
 				A1000033000000000000009 /* NativeMessagingSetup.swift in Sources */,
@@ -254,6 +267,9 @@
 				A1000052000000000000019 /* FocusMonitor.swift in Sources */,
 				A1000054000000000000020 /* NudgeWindowController.swift in Sources */,
 				A1000056000000000000021 /* FocusOverlayWindow.swift in Sources */,
+				A1000058000000000000022 /* InterventionOverlayController.swift in Sources */,
+				A1000060000000000000023 /* GrayscaleOverlayController.swift in Sources */,
+				A1000062000000000000024 /* DeepWorkTimerController.swift in Sources */,
 				A1000046000000000000016 /* LegacyMonitorView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -465,8 +481,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ml-explore/mlx-swift-lm";
 			requirement = {
-				kind = branch;
 				branch = main;
+				kind = branch;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

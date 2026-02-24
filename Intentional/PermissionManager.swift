@@ -16,6 +16,7 @@ class PermissionManager: NSObject {
 
     // Permission status
     struct PermissionStatus {
+        var accessibility: Bool = false
         var notifications: Bool = false
         var appleEvents: [String: Bool] = [:] // bundleID -> granted
     }
@@ -43,6 +44,12 @@ class PermissionManager: NSObject {
         // Check immediately
         checkAllPermissions()
 
+        // Prompt for Accessibility if not granted (needed for AppleScript + grayscale)
+        if !AXIsProcessTrusted() {
+            appDelegate?.postLog("⚠️ Accessibility permission not granted — prompting user")
+            requestAccessibilityPermission()
+        }
+
         // Check every 30 seconds
         permissionCheckTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
             self?.checkAllPermissions()
@@ -68,6 +75,7 @@ class PermissionManager: NSObject {
     // MARK: - Permission Checking
 
     func checkAllPermissions() {
+        checkAccessibilityPermission()
         checkNotificationPermissions()
         checkAppleEventsPermissions()
 
@@ -82,6 +90,26 @@ class PermissionManager: NSObject {
             object: nil,
             userInfo: ["missing": missing]
         )
+    }
+
+    private func checkAccessibilityPermission() {
+        let trusted = AXIsProcessTrusted()
+        let changed = status.accessibility != trusted
+        status.accessibility = trusted
+
+        if changed {
+            if trusted {
+                appDelegate?.postLog("✅ Accessibility permission granted")
+            } else {
+                appDelegate?.postLog("⚠️ Accessibility permission missing — grayscale and AppleScript will not work")
+            }
+        }
+    }
+
+    /// Prompt the user to grant Accessibility permission. Opens System Settings with the prompt.
+    func requestAccessibilityPermission() {
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
+        AXIsProcessTrustedWithOptions(options)
     }
 
     private func checkNotificationPermissions() {
@@ -186,6 +214,10 @@ class PermissionManager: NSObject {
 
     func getMissingPermissions() -> [String] {
         var missing: [String] = []
+
+        if !status.accessibility {
+            missing.append("Accessibility")
+        }
 
         if !status.notifications {
             missing.append("Notifications")
