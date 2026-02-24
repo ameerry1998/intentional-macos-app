@@ -239,90 +239,6 @@ body {
   background: rgba(255, 255, 255, 0.35);
 }
 
-/* ===== Budget Stepper ===== */
-.budget-selector {
-  margin: 24px 0;
-}
-
-.budget-stepper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 24px;
-}
-
-.stepper-btn {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 26px;
-  font-weight: 400;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  font-family: inherit;
-  backdrop-filter: blur(8px);
-}
-
-.stepper-btn:hover {
-  background: rgba(99, 102, 241, 0.25);
-  color: #ffffff;
-  transform: scale(1.08);
-}
-
-.stepper-btn:active {
-  transform: scale(0.92);
-  background: rgba(99, 102, 241, 0.35);
-}
-
-.budget-display {
-  text-align: center;
-  min-width: 120px;
-}
-
-.budget-value {
-  font-size: 56px;
-  font-weight: 700;
-  color: #6366f1;
-  line-height: 1;
-}
-
-.budget-unit {
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.5);
-  display: block;
-  margin-top: 4px;
-}
-
-/* Config panel overrides for stepper */
-.config-panel .budget-selector {
-  margin: 12px 0;
-}
-
-.config-panel .budget-stepper {
-  gap: 16px;
-}
-
-.config-panel .stepper-btn {
-  width: 40px;
-  height: 40px;
-  font-size: 20px;
-}
-
-.config-panel .budget-value {
-  font-size: 42px;
-}
-
-.config-panel .budget-display {
-  min-width: 100px;
-}
-
 /* ===== Period Limit ===== */
 .period-limit {
   margin-top: 0;
@@ -1164,24 +1080,10 @@ body {
     <!-- YouTube Config Panel -->
     <div class="config-panel" id="youtube-config">
 
-      <!-- Step 1: Budget & Controls -->
+      <!-- Step 1: Controls -->
       <div class="config-step active" id="youtube-step-1">
         <button class="config-back-btn" type="button" onclick="closeConfigPanel()">&lsaquo; Back to platforms</button>
         <h2 class="config-title">&#9654;&#65039; YouTube</h2>
-
-        <div class="config-section">
-          <div class="config-section-label">Daily Budget</div>
-          <div class="budget-selector">
-            <div class="budget-stepper">
-              <button class="stepper-btn" id="youtube-budget-down" type="button">&minus;</button>
-              <div class="budget-display">
-                <span class="budget-value" id="youtube-budget-value">30</span>
-                <span class="budget-unit">min / day</span>
-              </div>
-              <button class="stepper-btn" id="youtube-budget-up" type="button">+</button>
-            </div>
-          </div>
-        </div>
 
         <div class="config-section">
           <div class="config-section-label">Session Limit</div>
@@ -1259,20 +1161,6 @@ body {
       <div class="config-step active" id="instagram-step-1">
         <button class="config-back-btn" type="button" onclick="closeConfigPanel()">&lsaquo; Back to platforms</button>
         <h2 class="config-title">📷 Instagram</h2>
-
-        <div class="config-section">
-          <div class="config-section-label">Daily Budget</div>
-          <div class="budget-selector">
-            <div class="budget-stepper">
-              <button class="stepper-btn" id="instagram-budget-down" type="button">&minus;</button>
-              <div class="budget-display">
-                <span class="budget-value" id="instagram-budget-value">30</span>
-                <span class="budget-unit">min / day</span>
-              </div>
-              <button class="stepper-btn" id="instagram-budget-up" type="button">+</button>
-            </div>
-          </div>
-        </div>
 
         <div class="config-section">
           <label class="toggle-row">
@@ -1415,7 +1303,6 @@ const maxConfigSteps = { youtube: 2, instagram: 1 };
 const platformSettings = {
   youtube: {
     enabled: true,
-    budget: 30,
     maxPerPeriod: { enabled: false, minutes: 20, periodHours: 1 },
     blockedCategories: [],
     blockShorts: true,
@@ -1423,7 +1310,6 @@ const platformSettings = {
   },
   instagram: {
     enabled: true,
-    budget: 30,
     blockReels: true,
     blockExplore: true,
     nsfwFilter: true
@@ -1685,11 +1571,11 @@ function updatePlatformSummaries() {
   if (!yt.enabled) {
     ytSummary.textContent = 'Disabled';
   } else {
-    const parts = [`${yt.budget} min/day`];
+    const parts = [];
     if (yt.blockShorts) parts.push('Shorts blocked');
     if (yt.blockedCategories.length > 0) parts.push(`${yt.blockedCategories.length} danger zones`);
     if (yt.blockMode === 'blur') parts.push('blur mode');
-    ytSummary.textContent = parts.join(' \u00b7 ');
+    ytSummary.textContent = parts.length > 0 ? parts.join(' \u00b7 ') : 'Default settings';
   }
 
   // Instagram
@@ -1698,11 +1584,11 @@ function updatePlatformSummaries() {
   if (!ig.enabled) {
     igSummary.textContent = 'Disabled';
   } else {
-    const parts = [`${ig.budget} min/day`];
+    const parts = [];
     if (ig.blockReels) parts.push('Reels blocked');
     if (ig.blockExplore) parts.push('Explore blocked');
     if (ig.nsfwFilter) parts.push('NSFW filter');
-    igSummary.textContent = parts.join(' \u00b7 ');
+    igSummary.textContent = parts.length > 0 ? parts.join(' \u00b7 ') : 'Default settings';
   }
 }
 
@@ -1723,29 +1609,6 @@ function initPlatformToggles() {
   // Configure button click handlers
   document.getElementById('youtube-config-btn').addEventListener('click', () => openConfigPanel('youtube'));
   document.getElementById('instagram-config-btn').addEventListener('click', () => openConfigPanel('instagram'));
-}
-
-// -- Budget Steppers --
-function initStepper(platform) {
-  const upBtn = document.getElementById(`${platform}-budget-up`);
-  const downBtn = document.getElementById(`${platform}-budget-down`);
-  const valueEl = document.getElementById(`${platform}-budget-value`);
-
-  upBtn.addEventListener('click', () => {
-    const s = platformSettings[platform];
-    if (s.budget < 480) {
-      s.budget += (s.budget < 60) ? 5 : 10;
-      valueEl.textContent = s.budget;
-    }
-  });
-
-  downBtn.addEventListener('click', () => {
-    const s = platformSettings[platform];
-    if (s.budget > 5) {
-      s.budget -= (s.budget <= 60) ? 5 : 10;
-      valueEl.textContent = s.budget;
-    }
-  });
 }
 
 // -- YouTube: Period Limit --
@@ -1918,7 +1781,6 @@ function saveOnboarding() {
     platforms: {
       youtube: {
         enabled: platformSettings.youtube.enabled,
-        budget: platformSettings.youtube.budget,
         maxPerPeriod: { ...platformSettings.youtube.maxPerPeriod },
         blockedCategories: [...platformSettings.youtube.blockedCategories],
         blockShorts: platformSettings.youtube.blockShorts,
@@ -1926,14 +1788,11 @@ function saveOnboarding() {
       },
       instagram: {
         enabled: platformSettings.instagram.enabled,
-        budget: platformSettings.instagram.budget,
         blockReels: platformSettings.instagram.blockReels,
         blockExplore: platformSettings.instagram.blockExplore,
         nsfwFilter: platformSettings.instagram.nsfwFilter
       }
     },
-    // Legacy flat fields for backward compatibility
-    dailyBudgetMinutes: platformSettings.youtube.budget,
     maxPerPeriod: { ...platformSettings.youtube.maxPerPeriod },
     blockedCategories: [...platformSettings.youtube.blockedCategories],
     partnerEmail: document.getElementById('partner-email').value.trim() || null,
@@ -1989,23 +1848,16 @@ document.querySelectorAll('.dot').forEach(dot => {
 window._settingsResult = function(data) {
   if (data.youtube) {
     var yt = data.youtube;
-    if (yt.budget) platformSettings.youtube.budget = yt.budget;
     if (yt.blockShorts !== undefined) platformSettings.youtube.blockShorts = yt.blockShorts;
     if (yt.blockMode) platformSettings.youtube.blockMode = yt.blockMode;
     if (yt.enabled !== undefined) platformSettings.youtube.enabled = yt.enabled;
-    // Update stepper display
-    var ytEl = document.getElementById('budget-youtube');
-    if (ytEl) ytEl.textContent = platformSettings.youtube.budget;
   }
   if (data.instagram) {
     var ig = data.instagram;
-    if (ig.budget) platformSettings.instagram.budget = ig.budget;
     if (ig.blockReels !== undefined) platformSettings.instagram.blockReels = ig.blockReels;
     if (ig.blockExplore !== undefined) platformSettings.instagram.blockExplore = ig.blockExplore;
     if (ig.nsfwFilter !== undefined) platformSettings.instagram.nsfwFilter = ig.nsfwFilter;
     if (ig.enabled !== undefined) platformSettings.instagram.enabled = ig.enabled;
-    var igEl = document.getElementById('budget-instagram');
-    if (igEl) igEl.textContent = platformSettings.instagram.budget;
   }
   if (data.partnerEmail) {
     document.getElementById('partner-email').value = data.partnerEmail;
@@ -2024,8 +1876,6 @@ window._settingsResult = function(data) {
 // ===== Init =====
 sendMessage({ type: 'GET_SETTINGS' });
 initPlatformToggles();
-initStepper('youtube');
-initStepper('instagram');
 initYoutubePeriodLimit();
 initYoutubeDangerZones();
 initYoutubeToggles();

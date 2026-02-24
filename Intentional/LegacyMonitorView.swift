@@ -377,8 +377,8 @@ struct MonitorTabView: View {
 
     @State private var youtubeMinutes: Int = 0
     @State private var instagramMinutes: Int = 0
-    @State private var youtubeBudget: Int = 0
-    @State private var instagramBudget: Int = 0
+    @State private var youtubeBudget: Int = 0  // Legacy: no longer enforced
+    @State private var instagramBudget: Int = 0  // Legacy: no longer enforced
     @State private var activeSessions: [TimeTracker.BrowserSession] = []
 
     var body: some View {
@@ -570,8 +570,8 @@ struct MonitorTabView: View {
 
         youtubeMinutes = timeTracker.getMinutesUsed(for: "youtube")
         instagramMinutes = timeTracker.getMinutesUsed(for: "instagram")
-        youtubeBudget = timeTracker.getBudget(for: "youtube")
-        instagramBudget = timeTracker.getBudget(for: "instagram")
+        youtubeBudget = 0
+        instagramBudget = 0
         activeSessions = timeTracker.getActiveSessions()
     }
 }

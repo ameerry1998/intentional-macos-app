@@ -9,6 +9,12 @@ class ScheduleManager {
 
     // MARK: - Data Types
 
+    enum BlockType: String, Codable {
+        case deepWork = "deepWork"
+        case focusHours = "focusHours"
+        case freeTime = "freeTime"
+    }
+
     struct FocusBlock: Codable, Equatable {
         let id: String       // UUID string
         var title: String
@@ -17,7 +23,58 @@ class ScheduleManager {
         var startMinute: Int // 0-59
         var endHour: Int     // 0-23
         var endMinute: Int   // 0-59
-        var isFree: Bool
+        var blockType: BlockType
+
+        /// Backwards compat
+        var isFree: Bool { blockType == .freeTime }
+
+        // Custom coding to migrate legacy `isFree` → `blockType`
+        enum CodingKeys: String, CodingKey {
+            case id, title, description, startHour, startMinute, endHour, endMinute, blockType, isFree
+        }
+
+        init(id: String, title: String, description: String, startHour: Int, startMinute: Int,
+             endHour: Int, endMinute: Int, blockType: BlockType) {
+            self.id = id
+            self.title = title
+            self.description = description
+            self.startHour = startHour
+            self.startMinute = startMinute
+            self.endHour = endHour
+            self.endMinute = endMinute
+            self.blockType = blockType
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(String.self, forKey: .id)
+            title = try container.decode(String.self, forKey: .title)
+            description = try container.decode(String.self, forKey: .description)
+            startHour = try container.decode(Int.self, forKey: .startHour)
+            startMinute = try container.decode(Int.self, forKey: .startMinute)
+            endHour = try container.decode(Int.self, forKey: .endHour)
+            endMinute = try container.decode(Int.self, forKey: .endMinute)
+            // Migration: try blockType first, fall back to isFree
+            if let bt = try? container.decode(BlockType.self, forKey: .blockType) {
+                blockType = bt
+            } else if let free = try? container.decode(Bool.self, forKey: .isFree) {
+                blockType = free ? .freeTime : .focusHours
+            } else {
+                blockType = .focusHours
+            }
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(id, forKey: .id)
+            try container.encode(title, forKey: .title)
+            try container.encode(description, forKey: .description)
+            try container.encode(startHour, forKey: .startHour)
+            try container.encode(startMinute, forKey: .startMinute)
+            try container.encode(endHour, forKey: .endHour)
+            try container.encode(endMinute, forKey: .endMinute)
+            try container.encode(blockType, forKey: .blockType)
+        }
 
         /// Start time as minutes from midnight
         var startMinutes: Int { startHour * 60 + startMinute }
@@ -42,12 +99,16 @@ class ScheduleManager {
     }
 
     enum TimeState: String {
-        case workBlock = "work"
-        case freeBlock = "free"
+        case deepWork = "deep_work"
+        case focusHours = "focus_hours"
+        case freeTime = "free"
         case unplanned = "unplanned"
         case snoozed = "snoozed"
         case noPlan = "no_plan"
         case disabled = "disabled"
+
+        /// Whether this is a monitored work state (deep work or focus hours)
+        var isWork: Bool { self == .deepWork || self == .focusHours }
     }
 
     // MARK: - State
@@ -308,7 +369,11 @@ class ScheduleManager {
 
         if let block = schedule.blocks.first(where: { $0.contains(minuteOfDay: minuteOfDay) }) {
             currentBlock = block
-            currentTimeState = block.isFree ? .freeBlock : .workBlock
+            switch block.blockType {
+            case .deepWork: currentTimeState = .deepWork
+            case .focusHours: currentTimeState = .focusHours
+            case .freeTime: currentTimeState = .freeTime
+            }
         } else {
             currentBlock = nil
             currentTimeState = .unplanned
@@ -420,7 +485,8 @@ class ScheduleManager {
             "startMinute": block.startMinute,
             "endHour": block.endHour,
             "endMinute": block.endMinute,
-            "isFree": block.isFree
+            "blockType": block.blockType.rawValue,
+            "isFree": block.isFree  // backwards compat for extension
         ]
     }
 

@@ -26,30 +26,19 @@ class EarnedBrowseManager {
 
     // MARK: - Earning Rates (min browsing earned per min worked)
 
-    /// Standard rate: 5 min work → 1 min browse
+    /// Standard rate: 5 min work → 1 min browse (Focus Hours)
     private let standardRate: Double = 0.2
-    /// Deep work bonus: ~3.33 min work → 1 min browse (1.5x standard)
+    /// Deep work rate: ~3.33 min work → 1 min browse (Deep Work blocks — immediate, no warmup)
     private let deepWorkRate: Double = 0.3
 
-    // MARK: - Cost Multipliers
+    // MARK: - Cost Multipliers (by block type)
 
-    /// Cost multiplier during work blocks (no justification)
-    let workBlockCost: Double = 2.0
-    /// Cost multiplier during free blocks
-    let freeBlockCost: Double = 1.0
-    /// Cost multiplier when user provides valid work-related justification
-    let justifiedCost: Double = 1.0
-
-    // MARK: - Delay Escalation (per work block, resets on block change)
-
-    /// Current delay in seconds before social media access
-    private(set) var currentDelay: Int = 30
-    /// Escalation steps
-    private let delaySteps = [30, 60, 120, 300]
-    /// Current index into delaySteps
-    private var delayIndex: Int = 0
-    /// Number of social media visits this work block
-    private(set) var visitCount: Int = 0
+    /// Deep Work: browsing is blocked entirely (should never be charged, but 0 prevents earning deduction)
+    let deepWorkCost: Double = 0.0
+    /// Focus Hours: browsing costs 2x from pool
+    let focusHoursCost: Double = 2.0
+    /// Free Time: browsing costs 1x from pool
+    let freeTimeCost: Double = 1.0
 
     // MARK: - Deep Work Detection
 
@@ -64,10 +53,6 @@ class EarnedBrowseManager {
 
     /// Minutes added per partner extra time request
     var partnerExtraTimeAmount: Double = 30
-    /// Maximum partner extra time requests per day
-    var maxDailyPartnerRequests: Int = 2
-    /// Number of partner extra time requests today
-    private(set) var dailyRequestCount: Int = 0
 
     // MARK: - Welcome Credit
 
@@ -88,6 +73,7 @@ class EarnedBrowseManager {
         var relevantTicks: Int = 0
         var totalTicks: Int = 0
         var earnedMinutes: Double = 0
+        var nudgeCount: Int = 0
         /// Focus score: percentage of ticks that were relevant (0-100)
         var focusScore: Int { totalTicks > 0 ? Int(round(Double(relevantTicks) / Double(totalTicks) * 100)) : 0 }
     }
@@ -122,10 +108,11 @@ class EarnedBrowseManager {
     // MARK: - Work Tick (called by FocusMonitor on each relevant scoring tick)
 
     /// Record a work tick. Called by FocusMonitor on each relevant scoring tick (~10s).
-    /// Adds time × rate to earnedMinutes. Uses deepWorkRate if isDeepWork.
+    /// Adds time × rate to earnedMinutes. Uses deepWorkRate if in deep work block or sustained deep work.
     func recordWorkTick(seconds: Double) {
         ensureToday()
-        let rate = isDeepWork ? deepWorkRate : standardRate
+        let blockType = appDelegate?.scheduleManager?.currentBlock?.blockType ?? .focusHours
+        let rate = (blockType == .deepWork || isDeepWork) ? deepWorkRate : standardRate
         let earned = (seconds / 60.0) * rate
         earnedMinutes += earned
 
@@ -145,54 +132,27 @@ class EarnedBrowseManager {
     // MARK: - Social Media Time (called by TimeTracker callback)
 
     /// Record social media time usage. Called by TimeTracker.onSocialMediaTimeRecorded.
-    /// Deducts minutes × costMultiplier from pool.
+    /// Deducts minutes × costMultiplier from pool based on block type.
     /// Returns remaining available minutes after deduction.
     @discardableResult
-    func recordSocialMediaTime(minutes: Double, isWorkBlock: Bool, isJustified: Bool) -> Double {
+    func recordSocialMediaTime(minutes: Double, blockType: ScheduleManager.BlockType) -> Double {
         ensureToday()
         let multiplier: Double
-        if isWorkBlock {
-            multiplier = isJustified ? justifiedCost : workBlockCost
-        } else {
-            multiplier = freeBlockCost
+        switch blockType {
+        case .deepWork: multiplier = deepWorkCost
+        case .focusHours: multiplier = focusHoursCost
+        case .freeTime: multiplier = freeTimeCost
         }
         usedMinutes += minutes * multiplier
         save()
         return availableMinutes
     }
 
-    // MARK: - Justification Assessment
-
-    /// Assess whether a user's justification for visiting social media is work-related.
-    /// Delegates to RelevanceScorer.assessJustification().
-    func assessJustification(text: String, intention: String) async -> (approved: Bool, reason: String) {
-        guard let scorer = appDelegate?.relevanceScorer else {
-            return (approved: false, reason: "Scorer not available")
-        }
-        return await scorer.assessJustification(text: text, intention: intention)
-    }
-
-    // MARK: - Visit Tracking & Delay Escalation
-
-    /// Record a social media visit during a work block.
-    /// Increments visitCount and advances delay escalation.
-    func recordVisit() {
-        visitCount += 1
-        if delayIndex < delaySteps.count - 1 {
-            delayIndex += 1
-        }
-        currentDelay = delaySteps[delayIndex]
-    }
-
     // MARK: - Block Change
 
     /// Called when the active focus block changes.
-    /// Resets delay, visitCount, and deep work window.
-    /// Does NOT reset earned/used pool (those are daily).
+    /// Resets deep work window. Does NOT reset earned/used pool (those are daily).
     func onBlockChanged(blockId: String? = nil, blockTitle: String? = nil) {
-        delayIndex = 0
-        currentDelay = delaySteps[0]
-        visitCount = 0
         assessmentWindow.removeAll()
         isDeepWork = false
 
@@ -204,7 +164,7 @@ class EarnedBrowseManager {
             }
         }
 
-        appDelegate?.postLog("💰 EarnedBrowseManager: block changed → \(blockTitle ?? "none") — delay reset to \(currentDelay)s")
+        appDelegate?.postLog("💰 EarnedBrowseManager: block changed → \(blockTitle ?? "none")")
     }
 
     // MARK: - Deep Work Assessment
@@ -240,6 +200,14 @@ class EarnedBrowseManager {
         }
     }
 
+    /// Record a nudge/intervention event for the current block.
+    func recordNudge() {
+        guard let blockId = activeBlockId, var stats = blockFocusStats[blockId] else { return }
+        stats.nudgeCount += 1
+        blockFocusStats[blockId] = stats
+        save()
+    }
+
     // MARK: - Daily Reset
 
     /// Ensure state is for today. Resets pool on new day with welcome credit.
@@ -252,7 +220,6 @@ class EarnedBrowseManager {
         currentDate = today
         earnedMinutes = welcomeCredit
         usedMinutes = 0
-        dailyRequestCount = 0
         assessmentWindow.removeAll()
         isDeepWork = false
         blockFocusStats.removeAll()
@@ -266,15 +233,12 @@ class EarnedBrowseManager {
 
     // MARK: - Partner Extra Time
 
-    /// Request partner extra time. Returns true if granted.
-    func requestPartnerExtraTime() -> Bool {
+    /// Grant minutes after backend code verification succeeds.
+    func grantPartnerExtraTime(minutes: Double) {
         ensureToday()
-        guard dailyRequestCount < maxDailyPartnerRequests else { return false }
-        dailyRequestCount += 1
-        earnedMinutes += partnerExtraTimeAmount
+        earnedMinutes += minutes
         save()
-        appDelegate?.postLog("💰 Partner extra time granted: +\(partnerExtraTimeAmount) min (request \(dailyRequestCount)/\(maxDailyPartnerRequests))")
-        return true
+        appDelegate?.postLog("💰 Partner extra time granted: +\(minutes) min")
     }
 
     // MARK: - Last Active App
@@ -290,26 +254,29 @@ class EarnedBrowseManager {
     /// Build the state dictionary matching WORK_BLOCK_STATE / EARNED_MINUTES_UPDATE message format.
     func getWorkBlockState(intention: String) -> [String: Any] {
         ensureToday()
-        let isWorkBlock = (appDelegate?.scheduleManager?.currentTimeState == .workBlock) == true
-        let costMultiplier = isWorkBlock ? workBlockCost : freeBlockCost
+        let blockType = appDelegate?.scheduleManager?.currentBlock?.blockType ?? .freeTime
+        let timeState = appDelegate?.scheduleManager?.currentTimeState
+        let costMultiplier: Double
+        switch blockType {
+        case .deepWork: costMultiplier = deepWorkCost
+        case .focusHours: costMultiplier = focusHoursCost
+        case .freeTime: costMultiplier = freeTimeCost
+        }
         let effectiveBrowseTime = costMultiplier > 0 ? availableMinutes / costMultiplier : availableMinutes
 
         return [
             "type": "WORK_BLOCK_STATE",
-            "isWorkBlock": isWorkBlock,
+            "blockType": blockType.rawValue,
+            "isWorkBlock": timeState?.isWork ?? false,  // backwards compat
             "earnedMinutes": earnedMinutes,
             "usedMinutes": usedMinutes,
             "availableMinutes": availableMinutes,
             "effectiveBrowseTime": effectiveBrowseTime,
             "costMultiplier": costMultiplier,
             "poolExhausted": isPoolExhausted,
-            "currentDelay": currentDelay,
-            "visitCount": visitCount,
-            "isDeepWork": isDeepWork,
+            "isDeepWork": blockType == .deepWork || isDeepWork,
             "intention": intention,
-            "lastActiveApp": lastActiveApp,
-            "dailyRequestCount": dailyRequestCount,
-            "maxDailyRequests": maxDailyPartnerRequests
+            "lastActiveApp": lastActiveApp
         ]
     }
 
@@ -324,7 +291,8 @@ class EarnedBrowseManager {
                 "blockTitle": stats.blockTitle,
                 "relevantTicks": stats.relevantTicks,
                 "totalTicks": stats.totalTicks,
-                "earnedMinutes": stats.earnedMinutes
+                "earnedMinutes": stats.earnedMinutes,
+                "nudgeCount": stats.nudgeCount
             ])
         }
 
@@ -332,9 +300,6 @@ class EarnedBrowseManager {
             "currentDate": currentDate,
             "earnedMinutes": earnedMinutes,
             "usedMinutes": usedMinutes,
-            "dailyRequestCount": dailyRequestCount,
-            "delayIndex": delayIndex,
-            "visitCount": visitCount,
             "blockFocusStats": blockStatsArray
         ]
 
@@ -367,10 +332,6 @@ class EarnedBrowseManager {
                 currentDate = savedDate
                 earnedMinutes = state["earnedMinutes"] as? Double ?? welcomeCredit
                 usedMinutes = state["usedMinutes"] as? Double ?? 0
-                dailyRequestCount = state["dailyRequestCount"] as? Int ?? 0
-                delayIndex = state["delayIndex"] as? Int ?? 0
-                visitCount = state["visitCount"] as? Int ?? 0
-                currentDelay = delayIndex < delaySteps.count ? delaySteps[delayIndex] : delaySteps.last!
 
                 // Restore per-block focus stats
                 if let statsArray = state["blockFocusStats"] as? [[String: Any]] {
@@ -382,6 +343,7 @@ class EarnedBrowseManager {
                         stats.relevantTicks = entry["relevantTicks"] as? Int ?? 0
                         stats.totalTicks = entry["totalTicks"] as? Int ?? 0
                         stats.earnedMinutes = entry["earnedMinutes"] as? Double ?? 0
+                        stats.nudgeCount = entry["nudgeCount"] as? Int ?? 0
                         blockFocusStats[blockId] = stats
                     }
                 }
