@@ -253,6 +253,12 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "GET_EARNED_STATUS":
             handleGetEarnedStatus()
 
+        case "REQUEST_EXTRA_TIME":
+            handleRequestExtraTime(body)
+
+        case "VERIFY_EXTRA_TIME_CODE":
+            handleVerifyExtraTimeCode(body)
+
         case "GET_BLOCK_ASSESSMENTS":
             handleGetBlockAssessments(body)
 
@@ -423,11 +429,21 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         var earnedBrowse: [String: Any] = [:]
         if let mgr = appDelegate?.earnedBrowseManager {
             mgr.ensureToday()
+            var savedSettings: [String: Any] = [:]
+            if FileManager.default.fileExists(atPath: settingsFileURL.path),
+               let fileData = try? Data(contentsOf: settingsFileURL),
+               let json = try? JSONSerialization.jsonObject(with: fileData) as? [String: Any] {
+                savedSettings = json
+            }
+            let partnerEmail = (savedSettings["partnerEmail"] as? String) ?? ""
+            let partnerName = (savedSettings["partnerName"] as? String) ?? ""
             earnedBrowse = [
                 "earnedMinutes": mgr.earnedMinutes,
                 "usedMinutes": mgr.usedMinutes,
                 "availableMinutes": mgr.availableMinutes,
-                "poolExhausted": mgr.isPoolExhausted
+                "poolExhausted": mgr.isPoolExhausted,
+                "hasPartner": !partnerEmail.isEmpty,
+                "partnerName": partnerName.isEmpty ? "your partner" : partnerName
             ]
         }
 
@@ -1388,6 +1404,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                   let startMinute = dict["startMinute"] as? Int,
                   let endHour = dict["endHour"] as? Int,
                   let endMinute = dict["endMinute"] as? Int else { return nil }
+            let blockType: ScheduleManager.BlockType
+            if let bt = dict["blockType"] as? String, let parsed = ScheduleManager.BlockType(rawValue: bt) {
+                blockType = parsed
+            } else if dict["isFree"] as? Bool == true {
+                blockType = .freeTime
+            } else {
+                blockType = .focusHours
+            }
             return ScheduleManager.FocusBlock(
                 id: dict["id"] as? String ?? UUID().uuidString,
                 title: title,
@@ -1396,7 +1420,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 startMinute: startMinute,
                 endHour: endHour,
                 endMinute: endMinute,
-                isFree: dict["isFree"] as? Bool ?? false
+                blockType: blockType
             )
         }
 
@@ -1417,10 +1441,13 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let now = Date()
         let calendar = Calendar.current
         let currentMinute = calendar.component(.hour, from: now) * 60 + calendar.component(.minute, from: now)
+        let focusStats = appDelegate?.earnedBrowseManager?.blockFocusStats ?? [:]
 
         var totalWorkMinutes = 0
         var completedWorkMinutes = 0
         var breakMinutes = 0
+        var totalFocusScore = 0
+        var scoredBlockCount = 0
 
         var blocksData: [[String: Any]] = []
         for block in schedule.blocks {
@@ -1441,24 +1468,50 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 }
             }
 
+            // Use real focus score from EarnedBrowseManager if available
+            let blockScore: Int
+            if let stats = focusStats[block.id], stats.totalTicks > 0 {
+                blockScore = stats.focusScore
+                totalFocusScore += blockScore
+                scoredBlockCount += 1
+            } else {
+                blockScore = 0
+            }
+
             blocksData.append([
                 "title": block.title,
                 "startHour": block.startHour,
                 "startMinute": block.startMinute,
                 "endHour": block.endHour,
                 "endMinute": block.endMinute,
+                "blockType": block.blockType.rawValue,
                 "isFree": block.isFree,
-                "score": block.isFree ? 0 : (block.endMinutes <= currentMinute ? 85 : 0)
+                "score": block.isFree ? 0 : blockScore
             ])
         }
 
-        // V1 placeholder: score = completed work minutes / total work minutes
-        let score = totalWorkMinutes > 0 ? min(100, (completedWorkMinutes * 100) / totalWorkMinutes) : 0
+        // Focus score: average of per-block scores, or time-based fallback
+        let score: Int
+        if scoredBlockCount > 0 {
+            score = totalFocusScore / scoredBlockCount
+        } else {
+            score = totalWorkMinutes > 0 ? min(100, (completedWorkMinutes * 100) / totalWorkMinutes) : 0
+        }
+
+        // Compute off-task minutes from focus stats (each tick ≈ 10s)
+        var offTaskTicks = 0
+        var focusedTicks = 0
+        for (_, stats) in focusStats {
+            offTaskTicks += stats.totalTicks - stats.relevantTicks
+            focusedTicks += stats.relevantTicks
+        }
+        let offTaskMinutes = (offTaskTicks * 10) / 60
+        let focusedMinutes = (focusedTicks * 10) / 60
 
         let result: [String: Any] = [
             "score": score,
-            "focusedMinutes": completedWorkMinutes,
-            "offTaskMinutes": 0,
+            "focusedMinutes": focusedMinutes > 0 ? focusedMinutes : completedWorkMinutes,
+            "offTaskMinutes": offTaskMinutes,
             "breakMinutes": breakMinutes,
             "blocks": blocksData
         ]
@@ -1478,15 +1531,18 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         }
 
         let entries: [[String: Any]] = monitor.relevanceLog.suffix(30).map { entry in
-            [
+            var dict: [String: Any] = [
                 "timestamp": entry.timestamp.timeIntervalSince1970 * 1000,
                 "title": entry.title,
+                "appName": entry.appName,
                 "intention": entry.intention,
                 "relevant": entry.relevant,
                 "confidence": entry.confidence,
                 "reason": entry.reason,
                 "action": entry.action
             ]
+            if entry.isEvent { dict["isEvent"] = true }
+            return dict
         }
 
         if let data = try? JSONSerialization.data(withJSONObject: entries),
@@ -1525,15 +1581,24 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                       let tsStr = obj["timestamp"] as? String,
                       let ts = formatter.date(from: tsStr) else { continue }
                 if ts >= startDate && ts <= endDate {
-                    entries.append([
+                    var entry: [String: Any] = [
                         "timestamp": ts.timeIntervalSince1970 * 1000,
                         "title": obj["title"] ?? "",
+                        "appName": obj["appName"] ?? obj["title"] ?? "",
+                        "hostname": obj["hostname"] ?? "",
                         "intention": obj["intention"] ?? "",
                         "relevant": obj["relevant"] ?? false,
                         "confidence": obj["confidence"] ?? 0,
                         "reason": obj["reason"] ?? "",
                         "action": obj["action"] ?? "none"
-                    ])
+                    ]
+                    if let neutral = obj["neutral"] as? Bool, neutral {
+                        entry["neutral"] = true
+                    }
+                    if let isEvent = obj["isEvent"] as? Bool, isEvent {
+                        entry["isEvent"] = true
+                    }
+                    entries.append(entry)
                 }
             }
         }
@@ -1561,8 +1626,13 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
     private func handleGetEarnedStatus() {
         guard let mgr = appDelegate?.earnedBrowseManager else { return }
-        let isWorkBlock = (appDelegate?.scheduleManager?.currentTimeState == .workBlock) == true
-        let costMultiplier = isWorkBlock ? mgr.workBlockCost : mgr.freeBlockCost
+        let blockType = appDelegate?.scheduleManager?.currentBlock?.blockType ?? .freeTime
+        let costMultiplier: Double
+        switch blockType {
+        case .deepWork: costMultiplier = mgr.deepWorkCost
+        case .focusHours: costMultiplier = mgr.focusHoursCost
+        case .freeTime: costMultiplier = mgr.freeTimeCost
+        }
         let effectiveBrowseTime = costMultiplier > 0 ? mgr.availableMinutes / costMultiplier : mgr.availableMinutes
 
         // Build per-block focus stats array
@@ -1574,26 +1644,97 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 "focusScore": stats.focusScore,
                 "earnedMinutes": stats.earnedMinutes,
                 "relevantTicks": stats.relevantTicks,
-                "totalTicks": stats.totalTicks
+                "totalTicks": stats.totalTicks,
+                "nudgeCount": stats.nudgeCount
             ])
         }
+
+        // Partner info for extra time flow (read from settings file, same as handleGetSettings)
+        var savedSettings: [String: Any] = [:]
+        if FileManager.default.fileExists(atPath: settingsFileURL.path),
+           let fileData = try? Data(contentsOf: settingsFileURL),
+           let json = try? JSONSerialization.jsonObject(with: fileData) as? [String: Any] {
+            savedSettings = json
+        }
+        let partnerEmail = (savedSettings["partnerEmail"] as? String) ?? ""
+        let partnerName = (savedSettings["partnerName"] as? String) ?? ""
+        let hasPartner = !partnerEmail.isEmpty
 
         let data: [String: Any] = [
             "earnedMinutes": mgr.earnedMinutes,
             "usedMinutes": mgr.usedMinutes,
             "availableMinutes": mgr.availableMinutes,
             "effectiveBrowseTime": effectiveBrowseTime,
-            "isWorkBlock": isWorkBlock,
+            "blockType": blockType.rawValue,
+            "isWorkBlock": blockType != .freeTime,
             "costMultiplier": costMultiplier,
             "poolExhausted": mgr.isPoolExhausted,
-            "isDeepWork": mgr.isDeepWork,
-            "visitCount": mgr.visitCount,
-            "currentDelay": mgr.currentDelay,
-            "blockFocusStats": blockStats
+            "isDeepWork": blockType == .deepWork || mgr.isDeepWork,
+            "blockFocusStats": blockStats,
+            "hasPartner": hasPartner,
+            "partnerName": partnerName.isEmpty ? "your partner" : partnerName
         ]
         if let json = try? JSONSerialization.data(withJSONObject: data),
            let str = String(data: json, encoding: .utf8) {
             callJS("window._earnedStatusResult && window._earnedStatusResult(\(str))")
+        }
+    }
+
+    // MARK: - Extra Time (Dashboard)
+
+    private func handleRequestExtraTime(_ body: [String: Any]) {
+        guard let mgr = appDelegate?.earnedBrowseManager else {
+            callJS("window._extraTimeRequestResult && window._extraTimeRequestResult({success:false, message:'Earned browse manager not available'})")
+            return
+        }
+        let minutes = body["minutes"] as? Int ?? Int(mgr.partnerExtraTimeAmount)
+
+        guard let backendClient = appDelegate?.backendClient else {
+            callJS("window._extraTimeRequestResult && window._extraTimeRequestResult({success:false, message:'Backend client not available'})")
+            return
+        }
+
+        Task {
+            let result = await backendClient.requestExtraTime(minutes: minutes)
+            await MainActor.run {
+                let escapedMsg = (result.message).replacingOccurrences(of: "'", with: "\\'")
+                let escapedName = (result.partnerName ?? "").replacingOccurrences(of: "'", with: "\\'")
+                self.callJS("window._extraTimeRequestResult && window._extraTimeRequestResult({success:\(result.success), requestId:'\(result.requestId ?? "")', partnerName:'\(escapedName)', message:'\(escapedMsg)'})")
+            }
+            self.appDelegate?.postLog("💰 Dashboard extra time request: \(minutes) min → \(result.success ? "sent" : result.message)")
+        }
+    }
+
+    private func handleVerifyExtraTimeCode(_ body: [String: Any]) {
+        guard let code = body["code"] as? String,
+              let requestId = body["requestId"] as? String ?? body["request_id"] as? String else {
+            callJS("window._extraTimeVerifyResult && window._extraTimeVerifyResult({success:false, message:'Missing code or requestId'})")
+            return
+        }
+
+        guard let mgr = appDelegate?.earnedBrowseManager else {
+            callJS("window._extraTimeVerifyResult && window._extraTimeVerifyResult({success:false, message:'Earned browse manager not available'})")
+            return
+        }
+
+        guard let backendClient = appDelegate?.backendClient else {
+            callJS("window._extraTimeVerifyResult && window._extraTimeVerifyResult({success:false, message:'Backend client not available'})")
+            return
+        }
+
+        Task {
+            let result = await backendClient.verifyExtraTime(code: code, requestId: requestId)
+            await MainActor.run {
+                if result.success {
+                    mgr.grantPartnerExtraTime(minutes: Double(result.addedMinutes))
+                    self.callJS("window._extraTimeVerifyResult && window._extraTimeVerifyResult({success:true, addedMinutes:\(result.addedMinutes), message:'Extra time added'})")
+                    self.appDelegate?.socketRelayServer?.broadcastEarnedMinutesUpdate(mgr)
+                } else {
+                    let escapedMsg = result.message.replacingOccurrences(of: "'", with: "\\'")
+                    self.callJS("window._extraTimeVerifyResult && window._extraTimeVerifyResult({success:false, message:'\(escapedMsg)'})")
+                }
+            }
+            self.appDelegate?.postLog("💰 Dashboard extra time verify: code=\(code.prefix(2))*** → \(result.success ? "+\(result.addedMinutes) min" : result.message)")
         }
     }
 

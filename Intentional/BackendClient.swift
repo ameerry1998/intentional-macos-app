@@ -292,6 +292,93 @@ class BackendClient {
         return VerifyResult(success: false, message: "Unknown error", autoRelock: autoRelock, temporaryUnlockUntil: nil, statusCode: 0)
     }
 
+    // MARK: - Extra Time
+
+    struct ExtraTimeRequestResult {
+        let success: Bool
+        let message: String
+        let requestId: String?
+        let partnerName: String?
+        let statusCode: Int
+    }
+
+    /// Request extra browse time via accountability partner
+    func requestExtraTime(minutes: Int) async -> ExtraTimeRequestResult {
+        let endpoint = "\(baseURL)/extra-time/request"
+
+        guard let url = URL(string: endpoint) else {
+            return ExtraTimeRequestResult(success: false, message: "Invalid URL", requestId: nil, partnerName: nil, statusCode: 0)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: ["minutes": minutes])
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse {
+                let json = parseJSON(data)
+                let msg = (json?["message"] as? String) ?? errorMessage(from: data)
+                let requestId = json?["request_id"] as? String
+                let partnerName = json?["partner_name"] as? String
+                if isSuccess(httpResponse.statusCode) {
+                    return ExtraTimeRequestResult(success: true, message: msg, requestId: requestId, partnerName: partnerName, statusCode: httpResponse.statusCode)
+                } else {
+                    return ExtraTimeRequestResult(success: false, message: msg, requestId: nil, partnerName: partnerName, statusCode: httpResponse.statusCode)
+                }
+            }
+        } catch {
+            return ExtraTimeRequestResult(success: false, message: error.localizedDescription, requestId: nil, partnerName: nil, statusCode: 0)
+        }
+        return ExtraTimeRequestResult(success: false, message: "Unknown error", requestId: nil, partnerName: nil, statusCode: 0)
+    }
+
+    struct ExtraTimeVerifyResult {
+        let success: Bool
+        let message: String
+        let addedMinutes: Int
+        let statusCode: Int
+    }
+
+    /// Verify an extra time code with the backend
+    func verifyExtraTime(code: String, requestId: String) async -> ExtraTimeVerifyResult {
+        let endpoint = "\(baseURL)/extra-time/verify"
+
+        guard let url = URL(string: endpoint) else {
+            return ExtraTimeVerifyResult(success: false, message: "Invalid URL", addedMinutes: 0, statusCode: 0)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: ["code": code, "request_id": requestId])
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse {
+                let json = parseJSON(data)
+                let msg = (json?["message"] as? String) ?? errorMessage(from: data)
+                let success = json?["success"] as? Bool ?? false
+                let addedMinutes = json?["added_minutes"] as? Int ?? 0
+                if isSuccess(httpResponse.statusCode) && success {
+                    return ExtraTimeVerifyResult(success: true, message: msg, addedMinutes: addedMinutes, statusCode: httpResponse.statusCode)
+                } else {
+                    return ExtraTimeVerifyResult(success: false, message: msg, addedMinutes: 0, statusCode: httpResponse.statusCode)
+                }
+            }
+        } catch {
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            appDelegate?.postLog("❌ Verify extra time error: \(error.localizedDescription)")
+            return ExtraTimeVerifyResult(success: false, message: error.localizedDescription, addedMinutes: 0, statusCode: 0)
+        }
+        return ExtraTimeVerifyResult(success: false, message: "Unknown error", addedMinutes: 0, statusCode: 0)
+    }
+
     // MARK: - Relock
 
     /// Re-lock settings by re-applying the current lock mode (clears temporary_unlock_until on backend)

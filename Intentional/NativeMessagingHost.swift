@@ -12,6 +12,7 @@ class NativeMessagingHost {
     weak var timeTracker: TimeTracker?
     weak var scheduleManager: ScheduleManager?
     weak var relevanceScorer: RelevanceScorer?
+    weak var earnedBrowseManager: EarnedBrowseManager?
 
     private var inputHandle: FileHandle?
     private var outputHandle: FileHandle?
@@ -294,6 +295,24 @@ class NativeMessagingHost {
                 self?.appDelegate?.focusMonitor?.handleOverlayAction(action: action, reason: reason)
             }
 
+        // MARK: - Earn Your Browse Messages
+
+        case "GET_WORK_BLOCK_STATE":
+            // Extension requesting current work block + earned browse state
+            handleGetWorkBlockState()
+
+        case "SOCIAL_MEDIA_SESSION_END":
+            // Extension reporting user left social media
+            handleSocialMediaSessionEnd(message)
+
+        case "REQUEST_EXTRA_TIME":
+            // Extension requesting partner extra time
+            handleRequestExtraTime(message)
+
+        case "VERIFY_EXTRA_TIME_CODE":
+            // Extension verifying partner extra time code
+            handleVerifyExtraTimeCode(message)
+
         default:
             appDelegate?.postLog("⚠️ Native Messaging: Unknown message type: \(type)")
         }
@@ -386,14 +405,10 @@ class NativeMessagingHost {
         sendMessage([
             "type": "STATUS",
             "youtube": [
-                "minutesUsed": tracker.getMinutesUsed(for: "youtube"),
-                "budgetMinutes": tracker.getBudget(for: "youtube"),
-                "isExceeded": tracker.isBudgetExceeded(for: "youtube")
+                "minutesUsed": tracker.getMinutesUsed(for: "youtube")
             ],
             "instagram": [
-                "minutesUsed": tracker.getMinutesUsed(for: "instagram"),
-                "budgetMinutes": tracker.getBudget(for: "instagram"),
-                "isExceeded": tracker.isBudgetExceeded(for: "instagram")
+                "minutesUsed": tracker.getMinutesUsed(for: "instagram")
             ],
             "timestamp": Date().timeIntervalSince1970
         ])
@@ -413,41 +428,25 @@ class NativeMessagingHost {
         let isFreeBrowse = message["freeBrowse"] as? Bool ?? false
 
         // Forward to TimeTracker (use OS-detected browser name if available)
-        // Additive model: free browse time has its own budget, does NOT count toward daily budget
+        // All social media time is tracked uniformly — earned browse pool is the single gate
         DispatchQueue.main.async { [weak self] in
-            if isFreeBrowse {
-                // Free browse: only record against free browse budget
-                let minutes = Double(seconds) / 60.0
-                self?.timeTracker?.recordFreeBrowseTime(platform: platform, minutes: minutes)
+            // Record usage (both free browse and intentional sessions go through same path)
+            self?.timeTracker?.recordUsageHeartbeat(
+                platform: platform,
+                browser: browser,
+                seconds: seconds,
+                timestamp: timestamp
+            )
 
-                // Check if free browse budget exceeded
-                if let tracker = self?.timeTracker, tracker.isFreeBrowseBudgetExceeded(for: platform) {
-                    let info = tracker.getFreeBrowseRemaining(for: platform)
-                    self?.sendMessage([
-                        "type": "FREE_BROWSE_EXCEEDED",
-                        "platform": platform,
-                        "minutesUsed": info.used,
-                        "budgetMinutes": info.budget
-                    ])
-                }
-            } else {
-                // Intentional session: record against daily budget
-                self?.timeTracker?.recordUsageHeartbeat(
-                    platform: platform,
-                    browser: browser,
-                    seconds: seconds,
-                    timestamp: timestamp
-                )
-
-                // Check if budget exceeded and notify extension
-                if let tracker = self?.timeTracker, tracker.isBudgetExceeded(for: platform) {
-                    self?.sendMessage([
-                        "type": "BUDGET_EXCEEDED",
-                        "platform": platform,
-                        "minutesUsed": tracker.getMinutesUsed(for: platform),
-                        "budgetMinutes": tracker.getBudget(for: platform)
-                    ])
-                }
+            // Check if earned browse pool is exhausted
+            if let mgr = self?.earnedBrowseManager, mgr.isPoolExhausted {
+                self?.sendMessage([
+                    "type": "POOL_EXHAUSTED",
+                    "earnedMinutes": mgr.earnedMinutes,
+                    "usedMinutes": mgr.usedMinutes,
+                    "availableMinutes": 0
+                ])
+                self?.appDelegate?.socketRelayServer?.broadcastPoolExhausted(mgr)
             }
 
             // Push authoritative state back to this browser's extension
@@ -521,7 +520,6 @@ class NativeMessagingHost {
         let message: [String: Any] = [
             "type": "ONBOARDING_SYNC",
             "platforms": platforms,
-            "dailyBudgetMinutes": ytSettings["budget"] as? Int ?? 30,
             "maxPerPeriod": ytSettings["maxPerPeriod"] ?? [
                 "enabled": false,
                 "minutes": 20,
@@ -653,29 +651,34 @@ class NativeMessagingHost {
             ]
         }
 
-        var budgets: [String: Int] = [:]
-        for platform in ["youtube", "instagram", "facebook"] {
-            budgets[platform] = tracker.getBudget(for: platform)
-        }
-
-        let budgetExceeded = ["youtube", "instagram", "facebook"].contains { platform in
-            tracker.isBudgetExceeded(for: platform)
-        }
-
-        // Free browse data
-        var freeBrowseExceeded: [String: Bool] = [:]
-        for platform in ["youtube", "instagram", "facebook"] {
-            freeBrowseExceeded[platform] = tracker.isFreeBrowseBudgetExceeded(for: platform)
+        // Build earned browse state
+        var earnedBrowse: [String: Any] = [:]
+        if let mgr = earnedBrowseManager {
+            mgr.ensureToday()
+            let blockType = appDelegate?.scheduleManager?.currentBlock?.blockType ?? ScheduleManager.BlockType.freeTime
+            let costMultiplier: Double
+            switch blockType {
+            case .deepWork: costMultiplier = mgr.deepWorkCost
+            case .focusHours: costMultiplier = mgr.focusHoursCost
+            case .freeTime: costMultiplier = mgr.freeTimeCost
+            }
+            let effectiveBrowseTime = costMultiplier > 0 ? mgr.availableMinutes / costMultiplier : mgr.availableMinutes
+            earnedBrowse = [
+                "earnedMinutes": mgr.earnedMinutes,
+                "usedMinutes": mgr.usedMinutes,
+                "availableMinutes": mgr.availableMinutes,
+                "blockType": blockType.rawValue,
+                "isWorkBlock": blockType != .freeTime,
+                "costMultiplier": costMultiplier,
+                "effectiveBrowseTime": effectiveBrowseTime,
+                "poolExhausted": mgr.isPoolExhausted
+            ]
         }
 
         sendMessage([
             "type": "STATE_SYNC",
             "dailyUsage": dailyUsage,
-            "budgets": budgets,
-            "budgetExceeded": budgetExceeded,
-            "freeBrowseUsage": tracker.getFreeBrowseUsage(),
-            "freeBrowseBudgets": tracker.getFreeBrowseBudgets(),
-            "freeBrowseExceeded": freeBrowseExceeded
+            "earnedBrowse": earnedBrowse
         ])
     }
 
@@ -703,7 +706,7 @@ class NativeMessagingHost {
 
         // Get current block context from ScheduleManager
         guard let manager = scheduleManager,
-              manager.currentTimeState == .workBlock,
+              manager.currentTimeState.isWork,
               let block = manager.currentBlock else {
             // Not in a work block — no scoring needed
             appDelegate?.postLog("🧠 [Debug] Not in work block — returning relevant=true")
@@ -781,6 +784,14 @@ class NativeMessagingHost {
                   let startMinute = dict["startMinute"] as? Int,
                   let endHour = dict["endHour"] as? Int,
                   let endMinute = dict["endMinute"] as? Int else { return nil }
+            let blockType: ScheduleManager.BlockType
+            if let bt = dict["blockType"] as? String, let parsed = ScheduleManager.BlockType(rawValue: bt) {
+                blockType = parsed
+            } else if dict["isFree"] as? Bool == true {
+                blockType = .freeTime
+            } else {
+                blockType = .focusHours
+            }
             return ScheduleManager.FocusBlock(
                 id: dict["id"] as? String ?? UUID().uuidString,
                 title: title,
@@ -789,7 +800,7 @@ class NativeMessagingHost {
                 startMinute: startMinute,
                 endHour: endHour,
                 endMinute: endMinute,
-                isFree: dict["isFree"] as? Bool ?? false
+                blockType: blockType
             )
         }
 
@@ -808,6 +819,14 @@ class NativeMessagingHost {
             return
         }
 
+        let blockType: ScheduleManager.BlockType
+        if let bt = message["blockType"] as? String, let parsed = ScheduleManager.BlockType(rawValue: bt) {
+            blockType = parsed
+        } else if message["isFree"] as? Bool == true {
+            blockType = .freeTime
+        } else {
+            blockType = .focusHours
+        }
         let block = ScheduleManager.FocusBlock(
             id: message["id"] as? String ?? UUID().uuidString,
             title: title,
@@ -816,7 +835,7 @@ class NativeMessagingHost {
             startMinute: message["startMinute"] as? Int ?? 0,
             endHour: endHour,
             endMinute: message["endMinute"] as? Int ?? 0,
-            isFree: message["isFree"] as? Bool ?? false
+            blockType: blockType
         )
 
         DispatchQueue.main.async { [weak self] in
@@ -858,6 +877,94 @@ class NativeMessagingHost {
         DispatchQueue.main.async { [weak self] in
             self?.scheduleManager?.setProfile(text)
             self?.sendMessage(["type": "PROFILE_RESULT", "success": true])
+        }
+    }
+
+    // MARK: - Earn Your Browse Handlers
+
+    /// Send current work block + earned browse state to the extension.
+    private func handleGetWorkBlockState() {
+        guard let mgr = earnedBrowseManager else { return }
+        let intention = scheduleManager?.currentBlock?.title ?? ""
+        let state = mgr.getWorkBlockState(intention: intention)
+        sendMessage(state)
+    }
+
+    /// Assess justification for visiting social media during a work block.
+    /// Social media session ended (time deduction happens via heartbeat callback).
+    private func handleSocialMediaSessionEnd(_ message: [String: Any]) {
+        appDelegate?.postLog("💰 Social media session ended")
+    }
+
+    /// Handle partner extra time request — sends code to partner via backend.
+    private func handleRequestExtraTime(_ message: [String: Any]) {
+        guard let mgr = earnedBrowseManager else { return }
+        let minutes = message["minutes"] as? Int ?? Int(mgr.partnerExtraTimeAmount)
+
+        guard let backendClient = appDelegate?.backendClient else {
+            sendMessage([
+                "type": "EXTRA_TIME_REQUEST_RESULT",
+                "success": false,
+                "message": "Backend client not available"
+            ])
+            return
+        }
+
+        Task {
+            let result = await backendClient.requestExtraTime(minutes: minutes)
+            await MainActor.run {
+                self.sendMessage([
+                    "type": "EXTRA_TIME_REQUEST_RESULT",
+                    "success": result.success,
+                    "message": result.message,
+                    "requestId": result.requestId ?? "",
+                    "partnerName": result.partnerName ?? ""
+                ])
+            }
+            self.appDelegate?.postLog("💰 Extra time request: \(minutes) min → \(result.success ? "sent" : result.message)")
+        }
+    }
+
+    /// Handle partner extra time code verification — verifies code with backend and grants time.
+    private func handleVerifyExtraTimeCode(_ message: [String: Any]) {
+        guard let code = message["code"] as? String,
+              let requestId = (message["requestId"] as? String) ?? (message["request_id"] as? String) else {
+            sendMessage(["type": "EXTRA_TIME_VERIFY_RESULT", "success": false, "message": "Missing code or requestId"])
+            return
+        }
+
+        guard let mgr = earnedBrowseManager else {
+            sendMessage(["type": "EXTRA_TIME_VERIFY_RESULT", "success": false, "message": "Earned browse manager not available"])
+            return
+        }
+
+        guard let backendClient = appDelegate?.backendClient else {
+            sendMessage(["type": "EXTRA_TIME_VERIFY_RESULT", "success": false, "message": "Backend client not available"])
+            return
+        }
+
+        Task {
+            let result = await backendClient.verifyExtraTime(code: code, requestId: requestId)
+            await MainActor.run {
+                if result.success {
+                    mgr.grantPartnerExtraTime(minutes: Double(result.addedMinutes))
+                    self.sendMessage([
+                        "type": "EXTRA_TIME_VERIFY_RESULT",
+                        "success": true,
+                        "addedMinutes": result.addedMinutes,
+                        "availableMinutes": mgr.availableMinutes,
+                        "message": "Extra time added"
+                    ])
+                    self.appDelegate?.socketRelayServer?.broadcastEarnedMinutesUpdate(mgr)
+                } else {
+                    self.sendMessage([
+                        "type": "EXTRA_TIME_VERIFY_RESULT",
+                        "success": false,
+                        "message": result.message
+                    ])
+                }
+            }
+            self.appDelegate?.postLog("💰 Extra time verify: code=\(code.prefix(2))*** → \(result.success ? "+\(result.addedMinutes) min" : result.message)")
         }
     }
 }

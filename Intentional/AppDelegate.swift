@@ -169,6 +169,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         postLog("✅ Intentional app launched")
 
+        // Safety net: restore color in case previous instance was killed with grayscale active
+        GrayscaleOverlayController.forceRestoreSaturation()
+
         // Re-enable auto-launch from extensions (user manually started the app)
         // This allows extension relays to launch the app via NSWorkspace
         UserDefaults.standard.set(true, forKey: "allowAutoLaunchFromExtension")
@@ -255,9 +258,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Wire TimeTracker callback: deduct social media time from earned pool
         timeTracker?.onSocialMediaTimeRecorded = { [weak self] platform, minutes, isFreeBrowse in
             guard let mgr = self?.earnedBrowseManager else { return }
-            let isWorkBlock = (self?.scheduleManager?.currentTimeState == .workBlock) == true
+            let blockType = self?.scheduleManager?.currentBlock?.blockType ?? .freeTime
             let remaining = mgr.recordSocialMediaTime(
-                minutes: minutes, isWorkBlock: isWorkBlock, isJustified: false
+                minutes: minutes, blockType: blockType
             )
             self?.socketRelayServer?.broadcastEarnedMinutesUpdate(mgr)
             self?.mainWindowController?.pushEarnedUpdate()
@@ -276,8 +279,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         focusMonitor?.relevanceScorer = relevanceScorer
         focusMonitor?.nudgeController = nudgeController
         focusMonitor?.overlayController = focusOverlayController
+        let interventionController = InterventionOverlayController(appDelegate: self)
+        focusMonitor?.interventionController = interventionController
         focusMonitor?.start()
-        postLog("👁️ FocusMonitor + NudgeWindowController + FocusOverlayWindow initialized")
+        postLog("👁️ FocusMonitor + NudgeWindowController + FocusOverlayWindow + InterventionOverlay initialized")
 
         // Wire schedule block changes: when the active block changes,
         // clear the relevance cache, reset focus monitor, and broadcast SCHEDULE_SYNC

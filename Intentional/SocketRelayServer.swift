@@ -174,6 +174,28 @@ class SocketRelayServer {
         broadcastToAll(["type": "HIDE_FOCUS_OVERLAY"])
     }
 
+    /// Broadcast POOL_EXHAUSTED to all connected browsers.
+    /// Called when the earned browse pool hits zero.
+    func broadcastPoolExhausted(_ manager: EarnedBrowseManager) {
+        broadcastToAll([
+            "type": "POOL_EXHAUSTED",
+            "earnedMinutes": manager.earnedMinutes,
+            "usedMinutes": manager.usedMinutes,
+            "availableMinutes": 0
+        ])
+        appDelegate?.postLog("💰 POOL_EXHAUSTED broadcast to \(connectionCount) connection(s)")
+    }
+
+    /// Broadcast EARNED_MINUTES_UPDATE to all connected browsers.
+    /// Called whenever earned pool changes (work ticks, social media time, extra time).
+    func broadcastEarnedMinutesUpdate(_ manager: EarnedBrowseManager) {
+        let intention = appDelegate?.scheduleManager?.currentBlock?.title ?? ""
+        var update = manager.getWorkBlockState(intention: intention)
+        update["type"] = "EARNED_MINUTES_UPDATE"
+        broadcastToAll(update)
+        appDelegate?.postLog("💰 EARNED_MINUTES_UPDATE broadcast to \(connectionCount) connection(s)")
+    }
+
     private func acceptLoop() {
         while isListening {
             var clientAddr = sockaddr_un()
@@ -214,6 +236,7 @@ class SocketRelayServer {
                 handler.relevanceScorer = self.appDelegate?.relevanceScorer
                 handler.detectedBrowser = detectedBrowserInfo?.name
                 handler.detectedBrowserBundleId = detectedBrowserInfo?.bundleId
+                handler.earnedBrowseManager = self.appDelegate?.earnedBrowseManager
 
                 // Register handler BEFORE rechecking protection, so that
                 // getConnectedBrowserBundleIds() includes this new connection
