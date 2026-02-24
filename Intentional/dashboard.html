@@ -195,6 +195,125 @@ body {
   margin-bottom: 16px;
 }
 
+.platform-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 28px 0 12px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+/* Collapsible platform settings */
+.platform-settings-group {
+  overflow: hidden;
+  max-height: 2000px;
+  opacity: 1;
+  transition: max-height 0.35s ease, opacity 0.25s ease, margin 0.35s ease;
+}
+.platform-settings-group.collapsed {
+  max-height: 0;
+  opacity: 0;
+  margin: 0;
+  pointer-events: none;
+}
+
+/* Distracting sites list */
+.distracting-sites-list {
+  padding: 4px 20px 12px;
+}
+.distracting-site {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+}
+.distracting-site + .distracting-site {
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.distracting-site-icon {
+  font-size: 18px;
+  width: 28px;
+  text-align: center;
+}
+.distracting-site-domain {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+}
+.distracting-site-badge {
+  font-size: 11px;
+  color: rgba(99,102,241,0.8);
+  background: rgba(99,102,241,0.1);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+.distracting-site-badge.custom {
+  color: rgba(245,158,11,0.9);
+  background: rgba(245,158,11,0.1);
+}
+.distracting-site-remove {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.3);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+.distracting-site-remove:hover {
+  color: #ef4444;
+  background: rgba(239,68,68,0.1);
+}
+.distracting-site.pinned .distracting-site-remove { display: none; }
+.distracting-sites-add {
+  display: flex;
+  gap: 8px;
+  padding: 8px 20px 14px;
+}
+.distracting-sites-add input {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.distracting-sites-add input:focus {
+  border-color: rgba(99,102,241,0.5);
+}
+.distracting-sites-add input::placeholder {
+  color: rgba(255,255,255,0.3);
+}
+.distracting-sites-add button {
+  background: rgba(99,102,241,0.15);
+  border: 1px solid rgba(99,102,241,0.3);
+  color: rgba(99,102,241,0.9);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.distracting-sites-add button:hover {
+  background: rgba(99,102,241,0.25);
+}
+.distracting-sites-hint {
+  font-size: 12px;
+  color: rgba(255,255,255,0.35);
+  padding: 0 20px 14px;
+  font-style: italic;
+}
+
 /* ===== Usage Cards ===== */
 .usage-grid {
   display: grid;
@@ -1284,6 +1403,13 @@ body {
 }
 .btn-small:hover { background: rgba(99, 102, 241, 0.2); }
 
+.btn-small-deep {
+  border-color: rgba(220, 38, 38, 0.3);
+  background: rgba(220, 38, 38, 0.1);
+  color: #f87171;
+}
+.btn-small-deep:hover { background: rgba(220, 38, 38, 0.2); }
+
 .btn-small-free {
   border-color: rgba(52, 211, 153, 0.3);
   background: rgba(52, 211, 153, 0.1);
@@ -1297,6 +1423,116 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
   padding: 16px;
+}
+
+/* --- Extra Time Request Flow --- */
+.earned-extra-time-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 11px;
+  font-family: inherit;
+  color: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  transition: color 0.15s ease;
+  white-space: nowrap;
+}
+.earned-extra-time-link:hover {
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: underline;
+}
+.earned-extra-time-flow {
+  margin-top: 10px;
+}
+.extra-time-pills {
+  display: flex;
+  gap: 8px;
+}
+.extra-time-pill {
+  flex: 1;
+  padding: 8px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+.extra-time-pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+.extra-time-pill.selected {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: #6366f1;
+  color: #fff;
+}
+.extra-time-action-btn {
+  flex: 1;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: #6366f1;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+.extra-time-action-btn:hover { background: #4f46e5; }
+.extra-time-action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.extra-time-cancel-btn {
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.4);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+.extra-time-cancel-btn:hover {
+  color: rgba(255, 255, 255, 0.6);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+.extra-time-code-grid {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+.extra-time-code-cell {
+  width: 36px;
+  height: 40px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  outline: none;
+  caret-color: #6366f1;
+  transition: border-color 0.15s ease;
+  font-family: inherit;
+}
+.extra-time-code-cell:focus {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.08);
+}
+.extra-time-error {
+  font-size: 11px;
+  color: #ef4444;
+  margin-top: 6px;
 }
 
 /* ===== Collapsible Sections ===== */
@@ -1399,11 +1635,15 @@ body {
   overflow: hidden;
 }
 .calendar-block:hover { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2); }
-.calendar-block.work {
+.calendar-block.deep-work {
+  background: rgba(220, 38, 38, 0.2);
+  border-left: 3px solid #dc2626;
+}
+.calendar-block.focus-hours {
   background: rgba(99, 102, 241, 0.2);
   border-left: 3px solid #6366f1;
 }
-.calendar-block.free {
+.calendar-block.free-time {
   background: rgba(52, 211, 153, 0.12);
   border-left: 3px solid #34d399;
 }
@@ -1421,10 +1661,11 @@ body {
   position: absolute;
   top: 6px; right: 8px;
   font-size: 9px; font-weight: 700;
-  color: #34d399;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+.calendar-block-badge.badge-free { color: #34d399; }
+.calendar-block-badge.badge-deep { color: #f87171; }
 .calendar-block-resize {
   position: absolute;
   left: 0; right: 0;
@@ -1486,6 +1727,19 @@ body {
   color: #34d399;
   white-space: nowrap;
   margin-right: 4px;
+}
+.calendar-block-nudge-badge {
+  position: absolute;
+  top: -4px; right: -4px;
+  background: #f59e0b;
+  color: #000;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 8px;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
 }
 .calendar-block-score-badge {
   position: absolute;
@@ -1571,12 +1825,22 @@ body {
   display: flex; gap: 8px; align-items: center;
 }
 .block-editor-time-input { width: 100px; text-align: center; }
-.block-editor-check {
-  display: flex !important; align-items: center; gap: 8px;
-  cursor: pointer; color: rgba(255, 255, 255, 0.6) !important;
+.block-type-selector {
+  display: flex; gap: 2px; background: rgba(255,255,255,0.06); border-radius: 8px; padding: 2px;
 }
-.block-editor-check input[type="checkbox"] {
-  width: 16px; height: 16px; accent-color: #34d399;
+.block-type-btn {
+  flex: 1; padding: 6px 8px; border: none; border-radius: 6px; cursor: pointer;
+  font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); background: transparent;
+  transition: all 0.15s;
+}
+.block-type-btn.selected {
+  color: #fff; background: rgba(99,102,241,0.4);
+}
+.block-type-btn.selected.type-deep {
+  background: rgba(220,38,38,0.35);
+}
+.block-type-btn.selected.type-free {
+  background: rgba(52,211,153,0.3);
 }
 .block-editor-actions {
   display: flex; gap: 8px; margin-top: 16px;
@@ -1624,20 +1888,6 @@ body {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.4);
 }
-.ba-seg-bar {
-  display: flex; height: 6px; border-radius: 3px; overflow: hidden;
-  margin: 0 14px 8px; background: rgba(255, 255, 255, 0.06);
-}
-.ba-seg-piece {
-  height: 100%; transition: width 0.4s ease-out; min-width: 2px;
-}
-.ba-seg-piece.relevant { background: #34d399; }
-.ba-seg-piece.irrelevant { background: #ef4444; }
-.ba-seg-piece + .ba-seg-piece { border-left: 1px solid rgba(0, 0, 0, 0.3); }
-.ba-body {
-  flex: 1; overflow-y: auto; padding: 4px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
 .ba-empty {
   padding: 24px 14px; text-align: center;
   font-size: 12px; color: rgba(255, 255, 255, 0.3);
@@ -1662,36 +1912,119 @@ body {
 }
 .ba-dot.relevant { background: #34d399; }
 .ba-dot.irrelevant { background: #ef4444; }
-.ba-row {
-  padding: 8px 14px;
+.ba-dot.neutral { background: #6b7280; }
+/* Timeline view container */
+.ba-timeline-content {
+  flex: 1; overflow-y: auto;
 }
-.ba-row + .ba-row { border-top: 1px solid rgba(255, 255, 255, 0.04); }
-.ba-row-top {
+/* Timeline view */
+.ba-timeline-seg {
+  height: 100%; min-width: 2px; position: relative; cursor: pointer;
+  transition: filter 0.15s;
+}
+.ba-timeline-seg:hover { filter: brightness(1.3); }
+.ba-timeline-seg.relevant { background: #34d399; }
+.ba-timeline-seg.irrelevant { background: #ef4444; }
+.ba-timeline-seg.neutral { background: #6b7280; }
+.ba-timeline-seg + .ba-timeline-seg { border-left: 1px solid rgba(0,0,0,0.25); }
+.ba-timeline-seg.highlight { filter: brightness(1.3); }
+.ba-timeline-seg.dimmed { opacity: 0.3; }
+.ba-timeline-axis {
+  display: flex; justify-content: space-between;
+  margin: 0 14px 10px; font-size: 10px; color: rgba(255,255,255,0.3);
+  font-variant-numeric: tabular-nums;
+}
+.ba-timeline-legend { padding: 4px 0; }
+.ba-timeline-legend-row {
   display: flex; align-items: center; gap: 8px;
+  padding: 6px 14px; cursor: pointer; transition: background 0.15s;
 }
-.ba-row-name {
-  flex: 1; min-width: 0; font-size: 12px; color: rgba(255, 255, 255, 0.85);
+.ba-timeline-legend-row:hover { background: rgba(255,255,255,0.04); }
+.ba-timeline-legend-row + .ba-timeline-legend-row { border-top: 1px solid rgba(255,255,255,0.04); }
+.ba-timeline-legend-name {
+  flex: 1; min-width: 0; font-size: 12px; color: rgba(255,255,255,0.85);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.ba-row-pct {
-  font-size: 11px; color: rgba(255, 255, 255, 0.3);
+.ba-timeline-legend-time {
+  font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5);
+  font-variant-numeric: tabular-nums; flex-shrink: 0;
+}
+.ba-timeline-legend-pct {
+  font-size: 11px; color: rgba(255,255,255,0.3);
   font-variant-numeric: tabular-nums; flex-shrink: 0;
   min-width: 28px; text-align: right;
 }
-.ba-row-time {
-  font-size: 11px; font-weight: 600; color: rgba(255, 255, 255, 0.5);
+/* Magnifying loupe */
+.ba-timeline-bar-wrap { position: relative; margin: 0 14px 4px; }
+.ba-timeline-bar {
+  display: flex; height: 20px; border-radius: 6px; overflow: hidden;
+  background: rgba(255,255,255,0.06); position: relative;
+  margin: 0; /* margin now on wrapper */
+}
+.ba-loupe {
+  position: fixed; width: 120px;
+  border-radius: 8px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: #1a1a2e;
+  pointer-events: none; display: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  z-index: 200;
+}
+.ba-loupe-label {
+  font-size: 10px; color: rgba(255,255,255,0.7);
+  padding: 3px 6px; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: rgba(0,0,0,0.3);
+}
+.ba-loupe-inner {
+  display: flex; height: 36px; position: relative;
+}
+.ba-loupe-seg {
+  height: 100%; min-width: 1px;
+}
+.ba-loupe-seg.relevant { background: #34d399; }
+.ba-loupe-seg.irrelevant { background: #ef4444; }
+.ba-loupe-seg.neutral { background: #6b7280; }
+.ba-loupe-seg + .ba-loupe-seg { border-left: 1px solid rgba(0,0,0,0.2); }
+.ba-loupe-line {
+  position: fixed; width: 1px;
+  background: rgba(255,255,255,0.35); pointer-events: none;
+  display: none; z-index: 200;
+}
+/* Detail strip */
+.ba-detail-strip {
+  margin: 6px 14px 0; background: rgba(255,255,255,0.04);
+  border-radius: 6px; overflow: hidden;
+  max-height: 0; transition: max-height 0.3s ease, padding 0.3s ease;
+  font-size: 11px; color: rgba(255,255,255,0.6); line-height: 1.5;
+  padding: 0 10px;
+}
+.ba-detail-strip.open { max-height: 200px; padding: 8px 10px; }
+.ba-detail-item { display: flex; gap: 6px; align-items: baseline; }
+.ba-detail-time {
+  color: rgba(255,255,255,0.3); font-size: 10px;
   font-variant-numeric: tabular-nums; flex-shrink: 0;
 }
-.ba-row-track {
-  height: 3px; border-radius: 1.5px; background: rgba(255, 255, 255, 0.06);
-  margin-top: 6px; overflow: hidden;
+.ba-detail-dot {
+  width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; margin-top: 4px;
 }
-.ba-row-fill {
-  height: 100%; border-radius: 1.5px;
-  transition: width 0.4s ease-out;
+.ba-detail-dot.relevant { background: #34d399; }
+.ba-detail-dot.irrelevant { background: #ef4444; }
+.ba-detail-dot.neutral { background: #6b7280; }
+.ba-detail-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Tooltip */
+.ba-tooltip {
+  position: fixed; z-index: 200;
+  background: #0f0f1a; border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px; padding: 8px 10px;
+  font-size: 11px; color: rgba(255,255,255,0.85);
+  pointer-events: none; max-width: 240px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  line-height: 1.4;
 }
-.ba-row-fill.relevant { background: #34d399; }
-.ba-row-fill.irrelevant { background: #ef4444; }
+.ba-tooltip-title { font-weight: 600; margin-bottom: 2px; }
+.ba-tooltip-time { color: rgba(255,255,255,0.4); font-size: 10px; }
+.ba-tooltip-pages { color: rgba(255,255,255,0.35); font-size: 10px; margin-top: 4px; }
 /* Focus Score */
 .focus-score-hero {
   text-align: center;
@@ -1795,18 +2128,9 @@ body {
   <div class="sidebar-item active" data-page="today" onclick="navigateTo('today')">
     <span class="sidebar-item-icon">📋</span> Today
   </div>
-  <div class="sidebar-divider"></div>
-  <div class="sidebar-label">Platforms</div>
-  <div class="sidebar-item" data-page="youtube" onclick="navigateTo('youtube')">
-    <span class="sidebar-item-icon">▶️</span> YouTube
+  <div class="sidebar-item" data-page="distractions" onclick="navigateTo('distractions')">
+    <span class="sidebar-item-icon">🚫</span> Distractions
   </div>
-  <div class="sidebar-item" data-page="instagram" onclick="navigateTo('instagram')">
-    <span class="sidebar-item-icon">📷</span> Instagram
-  </div>
-  <div class="sidebar-item" data-page="facebook" onclick="navigateTo('facebook')">
-    <span class="sidebar-item-icon">👤</span> Facebook
-  </div>
-  <div class="sidebar-divider"></div>
   <div class="sidebar-item" data-page="lock" onclick="navigateTo('lock')">
     <span class="sidebar-item-icon">🔒</span> Accountability
   </div>
@@ -1837,8 +2161,9 @@ body {
         <div class="section-title" style="margin-bottom: 0;">Schedule</div>
       </div>
       <div class="focus-calendar-header-right">
-        <button class="btn-small" onclick="addFocusBlock(false)">+ Work block</button>
-        <button class="btn-small btn-small-free" onclick="addFocusBlock(true)">+ Free block</button>
+        <button class="btn-small btn-small-deep" onclick="addFocusBlock('deepWork')">+ Deep Work</button>
+        <button class="btn-small" onclick="addFocusBlock('focusHours')">+ Focus Hours</button>
+        <button class="btn-small btn-small-free" onclick="addFocusBlock('freeTime')">+ Free Time</button>
       </div>
     </div>
     <div class="calendar-container" id="calendar-container"></div>
@@ -1889,16 +2214,56 @@ body {
         </div>
       </div>
       <!-- Per-platform usage breakdown -->
-      <div id="earned-platform-usage" style="display: flex; gap: 16px; margin-top: 10px; font-size: 11px; color: rgba(255,255,255,0.4);">
+      <div id="earned-platform-usage" style="display: flex; align-items: center; gap: 16px; margin-top: 10px; font-size: 11px; color: rgba(255,255,255,0.4);">
         <span id="earned-yt-usage"></span>
         <span id="earned-ig-usage"></span>
         <span id="earned-fb-usage"></span>
+        <span id="earned-extra-time-section" style="display: none; margin-left: auto;"><button id="earned-extra-time-btn" class="earned-extra-time-link">Request Extra Time</button></span>
       </div>
       <div style="display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: rgba(255,255,255,0.4);">
         <span id="earned-cost-indicator"></span>
         <span id="earned-deep-work" style="display: none;">Deep work active</span>
         <span id="earned-visits"></span>
       </div>
+      <!-- Extra Time Flow (expandable, shown when user clicks request link) -->
+      <div id="earned-extra-time-flow" class="earned-extra-time-flow" style="display: none;">
+          <!-- Step 1: Select amount + send -->
+          <div id="extra-time-step-amount" style="display: none;">
+            <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 8px;">How much extra time?</div>
+            <div class="extra-time-pills">
+              <button class="extra-time-pill" data-minutes="15">15 min</button>
+              <button class="extra-time-pill" data-minutes="30">30 min</button>
+              <button class="extra-time-pill" data-minutes="60">60 min</button>
+            </div>
+            <div id="extra-time-send-error" class="extra-time-error" style="display: none;"></div>
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+              <button id="extra-time-send" class="extra-time-action-btn" disabled>Send Request</button>
+              <button class="extra-time-cancel-btn" data-action="cancel">Cancel</button>
+            </div>
+            <div id="extra-time-remaining" style="font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 6px;"></div>
+          </div>
+          <!-- Step 3: Enter code -->
+          <div id="extra-time-step-code" style="display: none;">
+            <div id="extra-time-code-msg" style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 8px;"></div>
+            <div class="extra-time-code-grid">
+              <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="0">
+              <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="1">
+              <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="2">
+              <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="3">
+              <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="4">
+              <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="5">
+            </div>
+            <div id="extra-time-code-error" class="extra-time-error" style="display: none;"></div>
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+              <button id="extra-time-verify" class="extra-time-action-btn" disabled>Verify</button>
+              <button class="extra-time-cancel-btn" data-action="cancel">Cancel</button>
+            </div>
+          </div>
+          <!-- Step 4: Success -->
+          <div id="extra-time-step-success" style="display: none;">
+            <div id="extra-time-success-msg" style="font-size: 13px; font-weight: 600; color: #34d399;"></div>
+          </div>
+        </div>
     </div>
 
     <!-- Profile setup (inline, shown when no profile exists) -->
@@ -1991,307 +2356,300 @@ body {
 
   </div>
 
-  <!-- Page: YouTube Settings -->
-  <div class="page" id="page-youtube">
-    <div class="section-title">YouTube Settings</div>
+  <!-- Page: Distractions -->
+  <div class="page" id="page-distractions">
+    <div class="section-title">Distractions</div>
+
+    <!-- ===== Distracting Websites ===== -->
+    <div class="settings-card">
+      <div class="settings-card-title">Distracting Websites</div>
+      <div class="setting-desc" style="padding: 2px 20px 8px;">These sites are gated by your earned browse pool. When your time runs out, they're blocked.</div>
+      <div class="distracting-sites-list" id="distracting-sites-list"></div>
+      <div class="distracting-sites-add" id="distracting-sites-add">
+        <input type="text" id="distracting-site-input" placeholder="e.g. reddit.com, twitter.com">
+        <button type="button" onclick="addDistractingSite()">Add</button>
+      </div>
+    </div>
+
+    <!-- ===== Content Filtering ===== -->
+    <div class="platform-section-title" style="margin-top: 36px;">Content Filtering</div>
+
+    <!-- ===== YouTube ===== -->
+    <div class="platform-section-title">YouTube</div>
 
     <div class="settings-card">
-      <div class="settings-card-title">General</div>
       <div class="setting-row">
         <div>
           <div class="setting-label">Enable YouTube filtering</div>
-          <div class="setting-desc">Filter content based on your stated intent</div>
+          <div class="setting-desc">AI checks video titles against your intent</div>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="yt-enabled" checked onchange="onSettingChange()">
+          <input type="checkbox" id="yt-enabled" checked onchange="onSettingChange(); togglePlatformSettings('yt')">
           <span class="toggle-track"></span>
         </label>
       </div>
     </div>
 
-    <div class="settings-card">
-      <div class="settings-card-title">Filtering</div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Relevance threshold</div>
-          <div class="setting-desc">Higher = stricter filtering</div>
+    <div class="platform-settings-group" id="yt-settings-group">
+      <div class="settings-card">
+        <div class="settings-card-title">Filtering</div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Relevance threshold</div>
+            <div class="setting-desc">Higher = stricter filtering</div>
+          </div>
+          <input type="range" class="setting-range" id="yt-threshold" min="1" max="100" value="35" oninput="document.getElementById('yt-threshold-val').textContent = this.value + '%'; onSettingChange()">
+          <span class="setting-value" id="yt-threshold-val">35%</span>
         </div>
-        <input type="range" class="setting-range" id="yt-threshold" min="1" max="100" value="35" oninput="document.getElementById('yt-threshold-val').textContent = this.value + '%'; onSettingChange()">
-        <span class="setting-value" id="yt-threshold-val">35%</span>
       </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Block mode</div>
-          <div class="setting-desc">How to handle irrelevant videos</div>
+
+      <div class="settings-card">
+        <div class="settings-card-title">Content Blocking</div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Block Shorts</div>
+            <div class="setting-desc">Remove YouTube Shorts from feed</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="yt-block-shorts" checked onchange="onSettingChange()">
+            <span class="toggle-track"></span>
+          </label>
         </div>
-        <select class="setting-select" id="yt-block-mode" onchange="onSettingChange()">
-          <option value="hide">Hide</option>
-          <option value="blur">Blur</option>
-        </select>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Hide sponsored content</div>
+            <div class="setting-desc">Remove ads and sponsored videos</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="yt-hide-sponsored" checked onchange="onSettingChange()">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <div class="settings-card-title">Your Intentions</div>
+        <div class="chip-container">
+          <div class="chip-list" id="yt-categories-list" data-empty="No intentions added — the extension will ask each session"></div>
+          <div class="chip-input-row">
+            <input type="text" id="yt-category-input" placeholder="e.g. AI, cooking, programming..." />
+            <button onclick="addChipItem('yt-categories', 'yt-category-input')">Add</button>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="settings-card">
-      <div class="settings-card-title">Content Blocking</div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Block Shorts</div>
-          <div class="setting-desc">Remove YouTube Shorts from feed</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="yt-block-shorts" checked onchange="onSettingChange()">
-          <span class="toggle-track"></span>
-        </label>
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Hide sponsored content</div>
-          <div class="setting-desc">Remove ads and sponsored videos</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="yt-hide-sponsored" checked onchange="onSettingChange()">
-          <span class="toggle-track"></span>
-        </label>
-      </div>
-    </div>
+    <!-- ===== Instagram ===== -->
+    <div class="platform-section-title">Instagram</div>
 
     <div class="settings-card">
-      <div class="settings-card-title">Zen Loading Screen</div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Zen duration</div>
-          <div class="setting-desc">Calming transition before browsing</div>
-        </div>
-        <input type="range" class="setting-range" id="yt-zen-duration" min="5" max="20" value="10" oninput="document.getElementById('yt-zen-val').textContent = this.value + 's'; onSettingChange()">
-        <span class="setting-value" id="yt-zen-val">10s</span>
-      </div>
-    </div>
-
-    <div class="settings-card">
-      <div class="settings-card-title">Your Intentions</div>
-      <div class="chip-container">
-        <div class="chip-list" id="yt-categories-list" data-empty="No intentions added — the extension will ask each session"></div>
-        <div class="chip-input-row">
-          <input type="text" id="yt-category-input" placeholder="e.g. AI, cooking, programming..." />
-          <button onclick="addChipItem('yt-categories', 'yt-category-input')">Add</button>
-        </div>
-      </div>
-    </div>
-    <button class="save-btn" id="yt-save-btn" onclick="saveSettingsBtn(this)">Save</button>
-  </div>
-
-  <!-- Page: Instagram Settings -->
-  <div class="page" id="page-instagram">
-    <div class="section-title">Instagram Settings</div>
-
-    <div class="settings-card">
-      <div class="settings-card-title">General</div>
       <div class="setting-row">
         <div>
           <div class="setting-label">Enable Instagram filtering</div>
-          <div class="setting-desc">Filter content on Instagram</div>
+          <div class="setting-desc">AI checks images against your intent</div>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="ig-enabled" checked onchange="onSettingChange()">
+          <input type="checkbox" id="ig-enabled" checked onchange="onSettingChange(); togglePlatformSettings('ig')">
           <span class="toggle-track"></span>
         </label>
       </div>
     </div>
 
-    <div class="settings-card">
-      <div class="settings-card-title">Content Blocking</div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Block Reels</div>
-          <div class="setting-desc">Remove video posts from feed and block /reels/</div>
+    <div class="platform-settings-group" id="ig-settings-group">
+      <div class="settings-card">
+        <div class="settings-card-title">Content Blocking</div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Block Reels</div>
+            <div class="setting-desc">Remove video posts from feed and block /reels/</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="ig-block-reels" checked onchange="onSettingChange()">
+            <span class="toggle-track"></span>
+          </label>
         </div>
-        <label class="toggle">
-          <input type="checkbox" id="ig-block-reels" checked onchange="onSettingChange()">
-          <span class="toggle-track"></span>
-        </label>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Block Explore page</div>
+            <div class="setting-desc">Block access to /explore/</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="ig-block-explore" checked onchange="onSettingChange()">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">NSFW filter</div>
+            <div class="setting-desc">Block adult content using image classification</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="ig-nsfw-filter" checked onchange="onSettingChange()">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Hide sponsored posts</div>
+            <div class="setting-desc">Remove ads from feed</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="ig-hide-ads" checked onchange="onSettingChange()">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
       </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Block Explore page</div>
-          <div class="setting-desc">Block access to /explore/</div>
+
+      <div class="settings-card">
+        <div class="settings-card-title">Filtering</div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Relevance threshold</div>
+            <div class="setting-desc">Higher = stricter filtering</div>
+          </div>
+          <input type="range" class="setting-range" id="ig-threshold" min="1" max="100" value="35" oninput="document.getElementById('ig-threshold-val').textContent = this.value + '%'; onSettingChange()">
+          <span class="setting-value" id="ig-threshold-val">35%</span>
         </div>
-        <label class="toggle">
-          <input type="checkbox" id="ig-block-explore" checked onchange="onSettingChange()">
-          <span class="toggle-track"></span>
-        </label>
       </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">NSFW filter</div>
-          <div class="setting-desc">Block adult content using image classification</div>
+
+      <div class="settings-card">
+        <div class="settings-card-title">Content to Avoid</div>
+        <div class="chip-container">
+          <div class="chip-list" id="ig-blocked-categories-list" data-empty="No categories added"></div>
+          <div class="chip-input-row">
+            <input type="text" id="ig-blocked-category-input" placeholder="e.g. gossip, fitness, politics..." />
+            <button onclick="addChipItem('ig-blocked-categories', 'ig-blocked-category-input')">Add</button>
+          </div>
         </div>
-        <label class="toggle">
-          <input type="checkbox" id="ig-nsfw-filter" checked onchange="onSettingChange()">
-          <span class="toggle-track"></span>
-        </label>
       </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Hide sponsored posts</div>
-          <div class="setting-desc">Remove ads from feed</div>
+
+      <div class="settings-card">
+        <div class="settings-card-title">Blocked Accounts</div>
+        <div class="chip-container">
+          <div class="chip-list" id="ig-blocked-accounts-list" data-empty="No accounts blocked"></div>
+          <div class="chip-input-row">
+            <input type="text" id="ig-blocked-account-input" placeholder="Instagram username..." />
+            <button onclick="addChipItem('ig-blocked-accounts', 'ig-blocked-account-input')">Add</button>
+          </div>
         </div>
-        <label class="toggle">
-          <input type="checkbox" id="ig-hide-ads" checked onchange="onSettingChange()">
-          <span class="toggle-track"></span>
-        </label>
       </div>
     </div>
 
-    <div class="settings-card">
-      <div class="settings-card-title">Filtering</div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Relevance threshold</div>
-          <div class="setting-desc">Higher = stricter filtering</div>
-        </div>
-        <input type="range" class="setting-range" id="ig-threshold" min="1" max="100" value="35" oninput="document.getElementById('ig-threshold-val').textContent = this.value + '%'; onSettingChange()">
-        <span class="setting-value" id="ig-threshold-val">35%</span>
-      </div>
-    </div>
+    <!-- ===== Facebook ===== -->
+    <div class="platform-section-title">Facebook</div>
 
     <div class="settings-card">
-      <div class="settings-card-title">Content to Avoid</div>
-      <div class="chip-container">
-        <div class="chip-list" id="ig-blocked-categories-list" data-empty="No categories added"></div>
-        <div class="chip-input-row">
-          <input type="text" id="ig-blocked-category-input" placeholder="e.g. gossip, fitness, politics..." />
-          <button onclick="addChipItem('ig-blocked-categories', 'ig-blocked-category-input')">Add</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="settings-card">
-      <div class="settings-card-title">Blocked Accounts</div>
-      <div class="chip-container">
-        <div class="chip-list" id="ig-blocked-accounts-list" data-empty="No accounts blocked"></div>
-        <div class="chip-input-row">
-          <input type="text" id="ig-blocked-account-input" placeholder="Instagram username..." />
-          <button onclick="addChipItem('ig-blocked-accounts', 'ig-blocked-account-input')">Add</button>
-        </div>
-      </div>
-    </div>
-    <button class="save-btn" id="ig-save-btn" onclick="saveSettingsBtn(this)">Save</button>
-  </div>
-
-  <!-- Page: Facebook Settings -->
-  <div class="page" id="page-facebook">
-    <div class="section-title">Facebook Settings</div>
-
-    <div class="settings-card">
-      <div class="settings-card-title">General</div>
       <div class="setting-row">
         <div>
           <div class="setting-label">Enable Facebook filtering</div>
-          <div class="setting-desc">Filter content on Facebook</div>
+          <div class="setting-desc">Route guards and feed filtering</div>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="fb-enabled" checked onchange="onSettingChange()">
+          <input type="checkbox" id="fb-enabled" checked onchange="onSettingChange(); togglePlatformSettings('fb')">
           <span class="toggle-track"></span>
         </label>
       </div>
     </div>
 
-    <div class="settings-card">
-      <div class="settings-card-title">Content Blocking</div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Block Watch videos</div>
-          <div class="setting-desc">Block access to Facebook Watch</div>
+    <div class="platform-settings-group" id="fb-settings-group">
+      <div class="settings-card">
+        <div class="settings-card-title">Content Blocking</div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Block Watch videos</div>
+            <div class="setting-desc">Block access to Facebook Watch</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="fb-block-watch" checked onchange="onSettingChange()">
+            <span class="toggle-track"></span>
+          </label>
         </div>
-        <label class="toggle">
-          <input type="checkbox" id="fb-block-watch" checked onchange="onSettingChange()">
-          <span class="toggle-track"></span>
-        </label>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Block Reels</div>
+            <div class="setting-desc">Block Facebook Reels</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="fb-block-reels" checked onchange="onSettingChange()">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Block Marketplace</div>
+            <div class="setting-desc">Block Facebook Marketplace</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="fb-block-marketplace" onchange="onSettingChange()">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Block Gaming</div>
+            <div class="setting-desc">Block Facebook Gaming section</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="fb-block-gaming" checked onchange="onSettingChange()">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Block Stories</div>
+            <div class="setting-desc">Hide Stories from the top of your feed</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="fb-block-stories" onchange="onSettingChange()">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
       </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Block Reels</div>
-          <div class="setting-desc">Block Facebook Reels</div>
+
+      <div class="settings-card">
+        <div class="settings-card-title">Feed Filtering</div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Block sponsored posts</div>
+            <div class="setting-desc">Remove ads and sponsored content from feed</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="fb-block-sponsored" checked onchange="onSettingChange()">
+            <span class="toggle-track"></span>
+          </label>
         </div>
-        <label class="toggle">
-          <input type="checkbox" id="fb-block-reels" checked onchange="onSettingChange()">
-          <span class="toggle-track"></span>
-        </label>
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Block Marketplace</div>
-          <div class="setting-desc">Block Facebook Marketplace</div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Block suggested content</div>
+            <div class="setting-desc">Remove "Suggested for you" and "People you may know"</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="fb-block-suggested" checked onchange="onSettingChange()">
+            <span class="toggle-track"></span>
+          </label>
         </div>
-        <label class="toggle">
-          <input type="checkbox" id="fb-block-marketplace" onchange="onSettingChange()">
-          <span class="toggle-track"></span>
-        </label>
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Block Gaming</div>
-          <div class="setting-desc">Block Facebook Gaming section</div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Friends-only mode</div>
+            <div class="setting-desc">Only show posts from friends in your feed</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="fb-friends-only" onchange="onSettingChange()">
+            <span class="toggle-track"></span>
+          </label>
         </div>
-        <label class="toggle">
-          <input type="checkbox" id="fb-block-gaming" checked onchange="onSettingChange()">
-          <span class="toggle-track"></span>
-        </label>
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Block Stories</div>
-          <div class="setting-desc">Hide Stories from the top of your feed</div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Scroll limit</div>
+            <div class="setting-desc">Posts before "Time to refocus" wall (0 = off)</div>
+          </div>
+          <input type="number" class="setting-number" id="fb-scroll-limit" value="50" min="0" max="500" onchange="onSettingChange()">
+          <span class="setting-value">posts</span>
         </div>
-        <label class="toggle">
-          <input type="checkbox" id="fb-block-stories" onchange="onSettingChange()">
-          <span class="toggle-track"></span>
-        </label>
       </div>
     </div>
 
-    <div class="settings-card">
-      <div class="settings-card-title">Feed Filtering</div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Block sponsored posts</div>
-          <div class="setting-desc">Remove ads and sponsored content from feed</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="fb-block-sponsored" checked onchange="onSettingChange()">
-          <span class="toggle-track"></span>
-        </label>
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Block suggested content</div>
-          <div class="setting-desc">Remove "Suggested for you" and "People you may know"</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="fb-block-suggested" checked onchange="onSettingChange()">
-          <span class="toggle-track"></span>
-        </label>
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Friends-only mode</div>
-          <div class="setting-desc">Only show posts from friends in your feed</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="fb-friends-only" onchange="onSettingChange()">
-          <span class="toggle-track"></span>
-        </label>
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Scroll limit</div>
-          <div class="setting-desc">Posts before "Time to refocus" wall (0 = off)</div>
-        </div>
-        <input type="number" class="setting-number" id="fb-scroll-limit" value="50" min="0" max="500" onchange="onSettingChange()">
-        <span class="setting-value">posts</span>
-      </div>
-    </div>
-    <button class="save-btn" id="fb-save-btn" onclick="saveSettingsBtn(this)">Save</button>
+    <button class="save-btn" id="distractions-save-btn" onclick="saveSettingsBtn(this)">Save</button>
   </div>
 
   <!-- Page: Accountability / Lock -->
@@ -2690,7 +3048,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Set up lock interceptors on toggle checkboxes
   setupLockInterceptors();
+
+  // Initialize extra time request flow
+  initExtraTimeFlow();
 });
+
+// ===== Platform Settings Collapse =====
+function togglePlatformSettings(platform) {
+  var toggle = document.getElementById(platform + '-enabled');
+  var group = document.getElementById(platform + '-settings-group');
+  if (!toggle || !group) return;
+  if (toggle.checked) {
+    group.classList.remove('collapsed');
+  } else {
+    group.classList.add('collapsed');
+  }
+}
+
+function syncAllPlatformCollapses() {
+  ['yt', 'ig', 'fb'].forEach(togglePlatformSettings);
+}
 
 // ===== Setting Change Handler (debounced save) =====
 var _lockInterceptActive = false; // Set by lock interceptor to suppress normal save
@@ -2720,8 +3097,8 @@ function saveAllSettings() {
     threshold: parseInt(document.getElementById('yt-threshold').value) || 35,
     blockShorts: document.getElementById('yt-block-shorts').checked,
     hideSponsored: document.getElementById('yt-hide-sponsored').checked,
-    blockMode: document.getElementById('yt-block-mode').value,
-    zenDuration: parseInt(document.getElementById('yt-zen-duration').value) || 10,
+    blockMode: 'hide',
+    zenDuration: 10,
     categories: getChipItems('yt-categories')
   };
 
@@ -2778,9 +3155,6 @@ function populateSettingsUI(data) {
     document.getElementById('yt-threshold-val').textContent = (yt.threshold || 35) + '%';
     document.getElementById('yt-block-shorts').checked = yt.blockShorts !== false;
     document.getElementById('yt-hide-sponsored').checked = yt.hideSponsored !== false;
-    document.getElementById('yt-block-mode').value = yt.blockMode || 'hide';
-    document.getElementById('yt-zen-duration').value = yt.zenDuration || 10;
-    document.getElementById('yt-zen-val').textContent = (yt.zenDuration || 10) + 's';
     renderChips('yt-categories', yt.categories || []);
   }
 
@@ -2821,6 +3195,9 @@ function populateSettingsUI(data) {
   if (data.deviceId) {
     document.getElementById('adv-device-id').textContent = data.deviceId;
   }
+
+  // Sync platform collapse states after populating checkboxes
+  syncAllPlatformCollapses();
 }
 
 // ===== Lock State Machine =====
@@ -3167,7 +3544,7 @@ var LOCKED_INPUT_IDS = [
   'fb-block-watch', 'fb-block-reels', 'fb-block-marketplace',
   'fb-block-gaming', 'fb-block-stories',
   'fb-block-sponsored', 'fb-block-suggested', 'fb-friends-only',
-  'yt-block-mode', 'yt-hide-sponsored', 'yt-zen-duration',
+  'yt-hide-sponsored',
   'adv-period-enabled', 'adv-period-minutes', 'adv-period-hours'
 ];
 
@@ -3219,7 +3596,7 @@ function enforceLockMode() {
   });
 
   // Add/remove locked banners on platform pages
-  ['page-youtube', 'page-instagram', 'page-facebook'].forEach(function(pageId) {
+  ['page-distractions'].forEach(function(pageId) {
     var page = document.getElementById(pageId);
     if (!page) return;
     var existingBanner = page.querySelector('.locked-banner');
@@ -4148,7 +4525,7 @@ function autoGenerateBlocks() {
         id: generateFocusUUID(), title: 'Lunch',
         startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
         endHour: Math.floor((startMin + 60) / 60), endMinute: (startMin + 60) % 60,
-        isFree: true
+        blockType: 'freeTime', isFree: true
       });
       startMin = startMin + 60 + 15;
       lunchInserted = true;
@@ -4158,7 +4535,7 @@ function autoGenerateBlocks() {
       id: generateFocusUUID(), title: goal,
       startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
       endHour: Math.floor(endMin / 60), endMinute: endMin % 60,
-      isFree: false
+      blockType: 'focusHours', isFree: false
     });
     startMin = endMin + 15;
   });
@@ -4169,7 +4546,7 @@ function autoGenerateBlocks() {
       id: generateFocusUUID(), title: 'Lunch',
       startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
       endHour: Math.floor((startMin + 60) / 60), endMinute: (startMin + 60) % 60,
-      isFree: true
+      blockType: 'freeTime', isFree: true
     });
   }
 }
@@ -4238,7 +4615,9 @@ function renderCalendarBlocks() {
     var height = (dur / 60) * CALENDAR_HOUR_HEIGHT;
 
     var el = document.createElement('div');
-    el.className = 'calendar-block ' + (block.isFree ? 'free' : 'work');
+    var bt = block.blockType || (block.isFree ? 'freeTime' : 'focusHours');
+    var blockClass = bt === 'deepWork' ? 'deep-work' : bt === 'freeTime' ? 'free-time' : 'focus-hours';
+    el.className = 'calendar-block ' + blockClass;
     el.dataset.blockId = block.id;
     el.style.top = top + 'px';
     el.style.height = Math.max(height, 24) + 'px';
@@ -4253,7 +4632,7 @@ function renderCalendarBlocks() {
                   formatFocusTime(block.endHour, block.endMinute);
     el.innerHTML = '<div class="calendar-block-title">' + escapeHtml(block.title || 'Untitled') + '</div>' +
       (height >= 40 ? '<div class="calendar-block-time">' + timeStr + '</div>' : '') +
-      (block.isFree ? '<div class="calendar-block-badge">free</div>' : '') +
+      (bt === 'freeTime' ? '<div class="calendar-block-badge badge-free">free</div>' : '') +
       '<div class="calendar-block-resize top"></div>' +
       '<div class="calendar-block-resize bottom"></div>';
 
@@ -4277,7 +4656,7 @@ function renderCalendarBlocks() {
 }
 
 function updateBlockRings() {
-  document.querySelectorAll('.calendar-block.work').forEach(function(el) {
+  document.querySelectorAll('.calendar-block.deep-work, .calendar-block.focus-hours').forEach(function(el) {
     var blockId = el.dataset.blockId;
     var data = blockFocusData[blockId];
     var block = focusState.blocks.find(function(b) { return b.id === blockId; });
@@ -4300,6 +4679,7 @@ function updateBlockRings() {
 
     var score = data.focusScore || 0;
     var earned = data.earnedMinutes || 0;
+    var nudges = data.nudgeCount || 0;
     var color = score >= 80 ? '#34d399' : score >= 50 ? '#f59e0b' : '#ef4444';
     var height = parseFloat(el.style.height);
 
@@ -4315,6 +4695,9 @@ function updateBlockRings() {
       '</svg>' +
       '<div class="ring-text" style="color:' + color + '">' + score + '%</div>' +
       (earned >= 0.1 ? '<div class="ring-earned">+' + earned.toFixed(1) + 'm</div>' : '');
+    if (nudges > 0) {
+      ring.innerHTML += '<div class="calendar-block-nudge-badge">\u26a0' + nudges + '</div>';
+    }
     ring.addEventListener('click', (function(bid) { return function(e) { e.stopPropagation(); openBlockAssessments(bid, e); }; })(blockId));
     el.appendChild(ring);
   });
@@ -4324,22 +4707,51 @@ function updateBlockRings() {
 
 var activeBlockPopover = null;
 
+var KNOWN_BROWSERS = ['Google Chrome', 'Google Chrome Canary', 'Safari',
+    'Microsoft Edge', 'Brave Browser', 'Arc', 'Firefox', 'Opera', 'Vivaldi'];
+
 function aggregateAssessments(entries) {
   var map = {};
+  // First pass: count enforcement events per key
+  var eventCounts = {};
   entries.forEach(function(e) {
-    var key = e.title || 'Unknown';
+    if (e.isEvent) {
+      var isBrowser = KNOWN_BROWSERS.indexOf(e.appName) !== -1;
+      var key = (isBrowser && e.title && e.title !== e.appName) ? e.title : (e.appName || e.title || 'Unknown');
+      if (!eventCounts[key]) eventCounts[key] = { nudge: 0, blocked: 0 };
+      if (e.action === 'nudge') eventCounts[key].nudge++;
+      else if (e.action === 'blocked') eventCounts[key].blocked++;
+      return; // Skip events from time tick counting
+    }
+    var isBrowser = KNOWN_BROWSERS.indexOf(e.appName) !== -1;
+    var key = (isBrowser && e.title && e.title !== e.appName) ? e.title : (e.appName || e.title || 'Unknown');
     if (!map[key]) {
-      map[key] = { title: key, ticks: 0, reason: e.reason || '', confidence: e.confidence || 0, _rel: 0, _irrel: 0 };
+      map[key] = { title: key, appName: isBrowser ? e.appName : '', ticks: 0, reason: e.reason || '', confidence: e.confidence || 0, _rel: 0, _irrel: 0, _neutral: 0, nudgeCount: 0, blockCount: 0 };
     }
     map[key].ticks++;
     if (e.reason) map[key].reason = e.reason;
-    if (e.relevant) map[key]._rel++; else map[key]._irrel++;
+    if (e.neutral) { map[key]._neutral++; }
+    else if (e.relevant) { map[key]._rel++; }
+    else { map[key]._irrel++; }
+  });
+  // Merge event counts into groups
+  Object.keys(eventCounts).forEach(function(key) {
+    if (map[key]) {
+      map[key].nudgeCount += eventCounts[key].nudge;
+      map[key].blockCount += eventCounts[key].blocked;
+    }
   });
   var groups = Object.values(map);
   groups.forEach(function(g) {
-    g.relevant = g._rel >= g._irrel;
+    // Neutral if majority of ticks are neutral
+    if (g._neutral > g._rel && g._neutral > g._irrel) {
+      g.state = 'neutral';
+    } else {
+      g.state = g._rel >= g._irrel ? 'relevant' : 'irrelevant';
+    }
+    g.relevant = g.state === 'relevant';
     g.seconds = g.ticks * 10;
-    delete g._rel; delete g._irrel;
+    delete g._rel; delete g._irrel; delete g._neutral;
   });
   groups.sort(function(a, b) { return b.ticks - a.ticks; });
   var totalTicks = groups.reduce(function(s, g) { return s + g.ticks; }, 0);
@@ -4380,12 +4792,15 @@ function openBlockAssessments(blockId, event) {
       '<button class="ba-header-close" onclick="closeBlockAssessments()">\u2715</button>' +
     '</div>' +
     '<div class="ba-summary" id="ba-summary">Loading...</div>' +
-    '<div class="ba-seg-bar" id="ba-seg-bar"></div>' +
-    '<div class="ba-body" id="ba-body">' +
+    '<div class="ba-timeline-content" id="ba-view-timeline">' +
       '<div class="ba-empty">Loading assessments...</div>' +
     '</div>';
 
   document.body.appendChild(popover);
+
+  // Store block times for timeline rendering
+  popover._blockStartTime = startTime;
+  popover._blockEndTime = endTime;
 
   var calGrid = document.getElementById('calendar-grid');
   var calRect = calGrid ? calGrid.getBoundingClientRect() : { right: 400 };
@@ -4405,7 +4820,10 @@ function openBlockAssessments(blockId, event) {
 
 function closeBlockAssessments() {
   var el = document.getElementById('block-assessment-popover');
-  if (el) el.remove();
+  if (el) {
+    if (el._loupeEls) el._loupeEls.forEach(function(e) { e.remove(); });
+    el.remove();
+  }
   activeBlockPopover = null;
   document.removeEventListener('mousedown', closeBlockAssessmentsOutside);
 }
@@ -4425,56 +4843,354 @@ function toggleBaReason(id) {
   if (btn) btn.classList.toggle('open');
 }
 
+function buildChronologicalSegments(entries) {
+  // Filter out events, sort by timestamp
+  var ticks = entries.filter(function(e) { return !e.isEvent; });
+  ticks.sort(function(a, b) { return a.timestamp - b.timestamp; });
+  if (!ticks.length) return [];
+
+  var segments = [];
+  var cur = null;
+
+  ticks.forEach(function(e) {
+    var isBrowser = KNOWN_BROWSERS.indexOf(e.appName) !== -1;
+    var key = (isBrowser && e.hostname) ? e.hostname : (e.appName || e.title || 'Unknown');
+
+    if (!cur || cur.key !== key) {
+      // Close previous segment
+      if (cur) {
+        cur.endMs = e.timestamp;
+        cur.durationMs = cur.endMs - cur.startMs;
+        segments.push(cur);
+      }
+      cur = {
+        key: key,
+        appName: e.appName || '',
+        hostname: (isBrowser && e.hostname) ? e.hostname : '',
+        startMs: e.timestamp,
+        endMs: e.timestamp + 10000, // default 10s tick
+        durationMs: 10000,
+        titles: [],
+        _rel: 0, _irrel: 0, _neutral: 0
+      };
+    } else {
+      cur.endMs = e.timestamp + 10000;
+      cur.durationMs = cur.endMs - cur.startMs;
+    }
+
+    // Collect unique titles
+    if (e.title && cur.titles.indexOf(e.title) === -1 && e.title !== e.appName) {
+      cur.titles.push(e.title);
+    }
+    if (e.neutral) cur._neutral++;
+    else if (e.relevant) cur._rel++;
+    else cur._irrel++;
+  });
+
+  // Push last segment
+  if (cur) {
+    segments.push(cur);
+  }
+
+  // Determine state for each segment
+  segments.forEach(function(s) {
+    if (s._neutral > s._rel && s._neutral > s._irrel) {
+      s.state = 'neutral';
+    } else {
+      s.state = s._rel >= s._irrel ? 'relevant' : 'irrelevant';
+    }
+    delete s._rel; delete s._irrel; delete s._neutral;
+  });
+
+  // Merge segments shorter than 30s into their neighbor
+  var MIN_DURATION_MS = 30000;
+  var merged = [];
+  segments.forEach(function(s) {
+    if (merged.length && s.durationMs < MIN_DURATION_MS) {
+      // Absorb into previous segment
+      var prev = merged[merged.length - 1];
+      prev.endMs = s.endMs;
+      prev.durationMs = prev.endMs - prev.startMs;
+      s.titles.forEach(function(t) {
+        if (prev.titles.indexOf(t) === -1) prev.titles.push(t);
+      });
+    } else if (s.durationMs < MIN_DURATION_MS && !merged.length) {
+      // First segment and it's short — still push it, next segment will absorb or it stays
+      merged.push(s);
+    } else {
+      // Check if previous was short and should merge forward into this one
+      if (merged.length && merged[merged.length - 1].durationMs < MIN_DURATION_MS) {
+        var prev = merged[merged.length - 1];
+        s.startMs = prev.startMs;
+        s.durationMs = s.endMs - s.startMs;
+        prev.titles.forEach(function(t) {
+          if (s.titles.indexOf(t) === -1) s.titles.push(t);
+        });
+        merged[merged.length - 1] = s;
+      } else {
+        merged.push(s);
+      }
+    }
+  });
+
+  return merged;
+}
+
+function formatTimeShort(ms) {
+  var d = new Date(ms);
+  var h = d.getHours();
+  var m = d.getMinutes();
+  var ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return h + ':' + (m < 10 ? '0' : '') + m + ' ' + ampm;
+}
+
+function renderTimelineView(entries, segments, blockStartMs, blockEndMs) {
+  var view = document.getElementById('ba-view-timeline');
+  if (!view) return;
+  if (!segments.length) {
+    view.innerHTML = '<div class="ba-empty">No timeline data</div>';
+    return;
+  }
+
+  var totalDurationMs = blockEndMs - blockStartMs;
+  if (totalDurationMs <= 0) totalDurationMs = segments[segments.length - 1].endMs - segments[0].startMs;
+  var midMs = blockStartMs + totalDurationMs / 2;
+
+  // Build bar segments HTML
+  var barHtml = '';
+  segments.forEach(function(s, i) {
+    var pct = Math.max(0.5, (s.durationMs / totalDurationMs) * 100);
+    barHtml += '<div class="ba-timeline-seg ' + s.state + '" data-seg-idx="' + i + '" style="width:' + pct + '%"></div>';
+  });
+
+  // Build loupe inner (4x magnified copy of the bar)
+  var loupeInnerHtml = '';
+  segments.forEach(function(s) {
+    var pct = Math.max(0.5, (s.durationMs / totalDurationMs) * 100);
+    loupeInnerHtml += '<div class="ba-loupe-seg ' + s.state + '" style="width:' + pct + '%"></div>';
+  });
+
+  // Build axis
+  var axisHtml = '<div class="ba-timeline-axis">' +
+    '<span>' + formatTimeShort(blockStartMs) + '</span>' +
+    '<span>' + formatTimeShort(midMs) + '</span>' +
+    '<span>' + formatTimeShort(blockEndMs) + '</span>' +
+  '</div>';
+
+  // Build legend: aggregate by key, sorted by total time
+  // Also pull reason + nudge/block counts from raw entries
+  var legendMap = {};
+  segments.forEach(function(s) {
+    if (!legendMap[s.key]) {
+      legendMap[s.key] = { key: s.key, appName: s.appName, hostname: s.hostname, totalMs: 0, state: s.state, reason: '', nudgeCount: 0, blockCount: 0, _rel: 0, _irrel: 0, _neutral: 0 };
+    }
+    legendMap[s.key].totalMs += s.durationMs;
+    if (s.state === 'relevant') legendMap[s.key]._rel++;
+    else if (s.state === 'irrelevant') legendMap[s.key]._irrel++;
+    else legendMap[s.key]._neutral++;
+  });
+  entries.forEach(function(e) {
+    var isBrowser = KNOWN_BROWSERS.indexOf(e.appName) !== -1;
+    var key = (isBrowser && e.hostname) ? e.hostname : (e.appName || e.title || 'Unknown');
+    if (!legendMap[key]) return;
+    if (e.isEvent) {
+      if (e.action === 'nudge') legendMap[key].nudgeCount++;
+      else if (e.action === 'blocked') legendMap[key].blockCount++;
+    } else if (e.reason && e.reason !== 'unchanged tab' && e.reason !== 'unchanged tab (irrelevant)' && e.reason !== 'Always-allowed app' && e.reason !== 'Neutral app') {
+      legendMap[key].reason = e.reason;
+    }
+  });
+  var legendItems = Object.values(legendMap);
+  legendItems.forEach(function(l) {
+    if (l._neutral > l._rel && l._neutral > l._irrel) l.state = 'neutral';
+    else l.state = l._rel >= l._irrel ? 'relevant' : 'irrelevant';
+    delete l._rel; delete l._irrel; delete l._neutral;
+  });
+  legendItems.sort(function(a, b) { return b.totalMs - a.totalMs; });
+  var totalSegMs = legendItems.reduce(function(s, l) { return s + l.totalMs; }, 0);
+
+  var legendHtml = '<div class="ba-timeline-legend">';
+  legendItems.forEach(function(l, i) {
+    var pct = totalSegMs > 0 ? Math.round(l.totalMs / totalSegMs * 100) : 0;
+    var displayName = l.hostname || l.key;
+    var rid = 'ba-tl-reason-' + i;
+    legendHtml += '<div class="ba-timeline-legend-row" data-legend-key="' + escapeHtml(l.key) + '">' +
+      '<div class="ba-dot ' + l.state + '"></div>' +
+      '<div class="ba-timeline-legend-name">' + escapeHtml(displayName) + '</div>' +
+      '<div class="ba-timeline-legend-time">' + formatDuration(Math.round(l.totalMs / 1000)) + '</div>' +
+      '<div class="ba-timeline-legend-pct">' + pct + '%</div>' +
+      (l.reason ? '<button class="ba-info-btn" id="' + rid + '-btn" onclick="toggleBaReason(\'' + rid + '\')" title="AI reasoning">\u2139</button>' : '') +
+    '</div>' +
+    (l.reason ? '<div class="ba-reason" id="' + rid + '" style="padding:0 14px 4px 29px">' + escapeHtml(l.reason) + '</div>' : '');
+  });
+  legendHtml += '</div>';
+
+  // Assemble: bar wrapper (bar only) + detail strip + axis + legend
+  view.innerHTML =
+    '<div class="ba-timeline-bar-wrap" id="ba-timeline-bar-wrap">' +
+      '<div class="ba-timeline-bar" id="ba-timeline-bar">' + barHtml + '</div>' +
+    '</div>' +
+    '<div class="ba-detail-strip" id="ba-detail-strip"></div>' +
+    axisHtml + legendHtml;
+
+  var bar = document.getElementById('ba-timeline-bar');
+  var detailStrip = document.getElementById('ba-detail-strip');
+  var activeDetailIdx = -1;
+
+  // Create loupe as fixed-position element on body (escapes overflow clipping)
+  var loupe = document.createElement('div');
+  loupe.className = 'ba-loupe';
+  loupe.style.display = 'none';
+  loupe.innerHTML = '<div class="ba-loupe-inner" id="ba-loupe-inner">' + loupeInnerHtml + '</div>' +
+    '<div class="ba-loupe-label" id="ba-loupe-label"></div>';
+  document.body.appendChild(loupe);
+  var loupeInner = loupe.querySelector('.ba-loupe-inner');
+  var loupeLabel = loupe.querySelector('.ba-loupe-label');
+
+  var loupeLine = document.createElement('div');
+  loupeLine.className = 'ba-loupe-line';
+  loupeLine.style.display = 'none';
+  document.body.appendChild(loupeLine);
+
+  // Store refs for cleanup on popover close
+  var popover = document.getElementById('block-assessment-popover');
+  if (popover) {
+    popover._loupeEls = [loupe, loupeLine];
+  }
+
+  // Set loupe inner width to 4x the bar width for magnification
+  var zoom = 4;
+  loupeInner.style.width = (zoom * 100) + '%';
+
+  // Magnifying loupe on hover — positioned below the bar
+  bar.addEventListener('mousemove', function(ev) {
+    var rect = bar.getBoundingClientRect();
+    var x = ev.clientX - rect.left;
+    var pct = x / rect.width;
+
+    loupe.style.display = 'block';
+    loupeLine.style.display = 'block';
+
+    var loupeW = 120;
+    var loupeScreenLeft = Math.max(rect.left, Math.min(ev.clientX - loupeW / 2, rect.right - loupeW));
+    loupe.style.left = loupeScreenLeft + 'px';
+    loupe.style.top = (rect.bottom + 4) + 'px';
+
+    loupeLine.style.left = ev.clientX + 'px';
+    loupeLine.style.top = rect.bottom + 'px';
+    loupeLine.style.height = '4px';
+
+    // Scroll inner content to center on cursor position
+    var innerWidth = loupeInner.offsetWidth;
+    var offset = -(pct * innerWidth - loupeW / 2);
+    loupeInner.style.transform = 'translateX(' + offset + 'px)';
+
+    // Show name of hovered segment
+    var seg = ev.target.closest('.ba-timeline-seg');
+    if (seg) {
+      var idx = parseInt(seg.getAttribute('data-seg-idx'));
+      var s = segments[idx];
+      if (s) {
+        var name = s.hostname || s.key;
+        var durSec = Math.round(s.durationMs / 1000);
+        loupeLabel.textContent = name + ' \u00b7 ' + formatDuration(durSec);
+      }
+    } else {
+      loupeLabel.textContent = '';
+    }
+  });
+  bar.addEventListener('mouseleave', function() {
+    loupe.style.display = 'none';
+    loupeLine.style.display = 'none';
+  });
+
+  // Click segment to expand detail strip
+  bar.addEventListener('click', function(ev) {
+    var seg = ev.target.closest('.ba-timeline-seg');
+    if (!seg) return;
+    var idx = parseInt(seg.getAttribute('data-seg-idx'));
+    if (isNaN(idx)) return;
+
+    // Toggle off if clicking same segment
+    if (activeDetailIdx === idx) {
+      detailStrip.classList.remove('open');
+      activeDetailIdx = -1;
+      return;
+    }
+    activeDetailIdx = idx;
+
+    // Show context: previous, clicked, and next segments
+    var range = [];
+    for (var i = Math.max(0, idx - 1); i <= Math.min(segments.length - 1, idx + 2); i++) {
+      range.push({ seg: segments[i], isFocused: i === idx });
+    }
+
+    var html = range.map(function(r) {
+      var s = r.seg;
+      var displayName = s.hostname || s.key;
+      var titleStr = s.titles.length ? ' \u2014 ' + escapeHtml(s.titles[0]) : '';
+      return '<div class="ba-detail-item" style="' + (r.isFocused ? 'color:rgba(255,255,255,0.9);font-weight:500' : '') + '">' +
+        '<span class="ba-detail-time">' + formatTimeShort(s.startMs) + '</span>' +
+        '<div class="ba-detail-dot ' + s.state + '"></div>' +
+        '<span class="ba-detail-name">' + escapeHtml(displayName) + titleStr + ' (' + formatDuration(Math.round(s.durationMs / 1000)) + ')</span>' +
+      '</div>';
+    }).join('');
+
+    detailStrip.innerHTML = html;
+    detailStrip.classList.add('open');
+  });
+
+  // Legend row hover: highlight matching segments in bar
+  view.querySelectorAll('.ba-timeline-legend-row').forEach(function(row) {
+    var legendKey = row.getAttribute('data-legend-key');
+    row.addEventListener('mouseenter', function() {
+      bar.querySelectorAll('.ba-timeline-seg').forEach(function(seg) {
+        var idx = parseInt(seg.getAttribute('data-seg-idx'));
+        if (segments[idx] && segments[idx].key === legendKey) {
+          seg.classList.add('highlight');
+        } else {
+          seg.classList.add('dimmed');
+        }
+      });
+    });
+    row.addEventListener('mouseleave', function() {
+      bar.querySelectorAll('.ba-timeline-seg').forEach(function(seg) {
+        seg.classList.remove('highlight', 'dimmed');
+      });
+    });
+  });
+}
+
 window._blockAssessmentsResult = function(entries) {
-  var body = document.getElementById('ba-body');
+  var timelineView = document.getElementById('ba-view-timeline');
   var summary = document.getElementById('ba-summary');
-  var segBar = document.getElementById('ba-seg-bar');
-  if (!body) return;
+  if (!timelineView) return;
 
   if (!entries || !entries.length) {
-    body.innerHTML = '<div class="ba-empty">No assessments recorded for this block</div>';
+    timelineView.innerHTML = '<div class="ba-empty">No assessments recorded for this block</div>';
     if (summary) summary.textContent = 'No data yet';
-    if (segBar) segBar.style.display = 'none';
     return;
   }
 
   var data = aggregateAssessments(entries);
 
-  var relCount = data.groups.filter(function(g) { return g.relevant; }).length;
-  var irrelCount = data.groups.length - relCount;
+  var relCount = data.groups.filter(function(g) { return g.state === 'relevant'; }).length;
+  var irrelCount = data.groups.filter(function(g) { return g.state === 'irrelevant'; }).length;
+  var neutralCount = data.groups.filter(function(g) { return g.state === 'neutral'; }).length;
   var totalTime = formatDuration(data.totalTicks * 10);
   if (summary) {
-    summary.textContent = data.groups.length + ' apps \u00b7 ' + relCount + ' relevant \u00b7 ' + irrelCount + ' irrelevant \u00b7 ' + totalTime + ' tracked';
+    var parts = data.groups.length + ' apps \u00b7 ' + relCount + ' relevant \u00b7 ' + irrelCount + ' irrelevant';
+    if (neutralCount > 0) parts += ' \u00b7 ' + neutralCount + ' neutral';
+    parts += ' \u00b7 ' + totalTime + ' tracked';
+    summary.textContent = parts;
   }
 
-  // Stacked segment bar (green/red only)
-  if (segBar) {
-    var segHtml = '';
-    data.groups.forEach(function(g) {
-      var cls = g.relevant ? 'relevant' : 'irrelevant';
-      segHtml += '<div class="ba-seg-piece ' + cls + '" style="width:' + g.pct + '%"></div>';
-    });
-    segBar.innerHTML = segHtml;
-  }
-
-  // App rows with bars and percentages
-  var html = '';
-  data.groups.forEach(function(g, i) {
-    var cls = g.relevant ? 'relevant' : 'irrelevant';
-    var rid = 'ba-reason-' + i;
-    html += '<div class="ba-row">' +
-      '<div class="ba-row-top">' +
-        '<div class="ba-dot ' + cls + '"></div>' +
-        '<div class="ba-row-name">' + escapeHtml(g.title) + '</div>' +
-        '<div class="ba-row-pct">' + g.pct + '%</div>' +
-        '<div class="ba-row-time">' + formatDuration(g.seconds) + '</div>' +
-        (g.reason ? '<button class="ba-info-btn" id="' + rid + '-btn" onclick="toggleBaReason(\'' + rid + '\')" title="AI reasoning">\u2139</button>' : '') +
-      '</div>' +
-      '<div class="ba-row-track"><div class="ba-row-fill ' + cls + '" style="width:' + g.pct + '%"></div></div>' +
-      (g.reason ? '<div class="ba-reason" id="' + rid + '">' + escapeHtml(g.reason) + '</div>' : '') +
-    '</div>';
-  });
-  body.innerHTML = html;
+  var popover = document.getElementById('block-assessment-popover');
+  var blockStartMs = popover ? popover._blockStartTime : entries[0].timestamp;
+  var blockEndMs = popover ? popover._blockEndTime : entries[entries.length - 1].timestamp;
+  var segments = buildChronologicalSegments(entries);
+  renderTimelineView(entries, segments, blockStartMs, blockEndMs);
 };
 
 function renderNowLine() {
@@ -4545,7 +5261,7 @@ function onCalendarHourClick(event, hour) {
     id: generateFocusUUID(), title: '',
     startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
     endHour: Math.floor(endMin / 60), endMinute: endMin % 60,
-    isFree: false
+    blockType: 'focusHours'
   };
   focusState.blocks.push(newBlock);
   markFocusDirty();
@@ -4562,7 +5278,8 @@ function hasBlockOverlap(startMin, endMin, excludeId) {
   });
 }
 
-function addFocusBlock(isFree) {
+function addFocusBlock(blockType) {
+  blockType = blockType || 'focusHours';
   var now = new Date();
   var currentMin = now.getHours() * 60 + now.getMinutes();
   var startMin = Math.ceil(currentMin / 15) * 15;
@@ -4580,18 +5297,20 @@ function addFocusBlock(isFree) {
     return;
   }
 
+  var defaultTitle = blockType === 'freeTime' ? 'Break' : '';
   var newBlock = {
     id: generateFocusUUID(),
-    title: isFree ? 'Break' : '',
+    title: defaultTitle,
     description: '',
     startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
     endHour: Math.floor(endMin / 60), endMinute: endMin % 60,
-    isFree: isFree
+    blockType: blockType,
+    isFree: blockType === 'freeTime'
   };
   focusState.blocks.push(newBlock);
   markFocusDirty();
   renderCalendarBlocks();
-  if (!isFree) openBlockEditor(newBlock.id, { clientY: 300, clientX: 500 });
+  if (blockType !== 'freeTime') openBlockEditor(newBlock.id, { clientY: 300, clientX: 500 });
 }
 
 // ---- Block Editor Popover ----
@@ -4601,6 +5320,8 @@ function openBlockEditor(blockId, event) {
   var block = focusState.blocks.find(function(b) { return b.id === blockId; });
   if (!block) return;
   focusState.editingBlockId = blockId;
+
+  var editorBlockType = block.blockType || (block.isFree ? 'freeTime' : 'focusHours');
 
   var editor = document.createElement('div');
   editor.className = 'block-editor';
@@ -4622,7 +5343,12 @@ function openBlockEditor(blockId, event) {
     '<input type="time" class="block-editor-input block-editor-time-input" id="editor-end" value="' + padFocusTime(block.endHour, block.endMinute) + '">' +
     '</div></div>' +
     '<div class="block-editor-row">' +
-    '<label class="block-editor-check"><input type="checkbox" id="editor-free" ' + (block.isFree ? 'checked' : '') + '> Free time (no scoring)</label>' +
+    '<label style="color:rgba(255,255,255,0.5);font-size:12px;margin-bottom:4px;">Block Type</label>' +
+    '<div class="block-type-selector" id="editor-block-type">' +
+    '<button class="block-type-btn' + (editorBlockType === 'deepWork' ? ' selected type-deep' : '') + '" data-type="deepWork" onclick="selectBlockType(this)">Deep Work</button>' +
+    '<button class="block-type-btn' + (editorBlockType === 'focusHours' ? ' selected' : '') + '" data-type="focusHours" onclick="selectBlockType(this)">Focus Hours</button>' +
+    '<button class="block-type-btn' + (editorBlockType === 'freeTime' ? ' selected type-free' : '') + '" data-type="freeTime" onclick="selectBlockType(this)">Free Time</button>' +
+    '</div>' +
     '</div>' +
     '<div class="block-editor-actions">' +
     '<button class="btn-small" onclick="saveBlockEdit()">Done</button>' +
@@ -4637,12 +5363,12 @@ function openBlockEditor(blockId, event) {
   if (past) {
     document.getElementById('editor-start').disabled = true;
     document.getElementById('editor-end').disabled = true;
-    document.getElementById('editor-free').disabled = true;
+    document.querySelectorAll('#editor-block-type .block-type-btn').forEach(function(b) { b.disabled = true; b.style.pointerEvents = 'none'; });
     var delBtn = editor.querySelector('.block-editor-delete');
     if (delBtn) delBtn.style.display = 'none';
   } else if (active) {
     document.getElementById('editor-start').disabled = true;
-    document.getElementById('editor-free').disabled = true;
+    document.querySelectorAll('#editor-block-type .block-type-btn').forEach(function(b) { b.disabled = true; b.style.pointerEvents = 'none'; });
     var delBtn = editor.querySelector('.block-editor-delete');
     if (delBtn) delBtn.style.display = 'none';
   }
@@ -4679,7 +5405,6 @@ function saveBlockEdit() {
   var descEl = document.getElementById('editor-desc');
   var startEl = document.getElementById('editor-start');
   var endEl = document.getElementById('editor-end');
-  var freeEl = document.getElementById('editor-free');
 
   if (titleEl) block.title = titleEl.value.trim() || 'Untitled';
   if (descEl) block.description = descEl.value.trim();
@@ -4730,11 +5455,26 @@ function saveBlockEdit() {
     block.endMinute = newEndMinute;
   }
 
-  if (freeEl && !freeEl.disabled) block.isFree = freeEl.checked;
+  // Read block type from segmented control
+  var selectedBtn = document.querySelector('#editor-block-type .block-type-btn.selected');
+  if (selectedBtn && !selectedBtn.disabled) {
+    block.blockType = selectedBtn.dataset.type;
+    block.isFree = block.blockType === 'freeTime';
+  }
 
   closeBlockEditor();
   markFocusDirty();
   renderCalendarBlocks();
+}
+
+function selectBlockType(btn) {
+  var container = btn.closest('.block-type-selector');
+  container.querySelectorAll('.block-type-btn').forEach(function(b) {
+    b.classList.remove('selected', 'type-free', 'type-deep');
+  });
+  btn.classList.add('selected');
+  if (btn.dataset.type === 'freeTime') btn.classList.add('type-free');
+  if (btn.dataset.type === 'deepWork') btn.classList.add('type-deep');
 }
 
 function deleteFocusBlock(blockId) {
@@ -4939,11 +5679,11 @@ window._focusScoreResult = function(data) {
       var color = s >= 80 ? '#34d399' : s >= 50 ? '#f59e0b' : '#ef4444';
       bhtml += '<div class="setting-row">' +
         '<div style="flex:1;">' +
-        '<div class="setting-label">' + (b.isFree ? '\u2600 ' : '') + escapeHtml(b.title) + '</div>' +
+        '<div class="setting-label">' + (b.blockType === 'freeTime' ? '\u2600 ' : b.blockType === 'deepWork' ? '\uD83D\uDD12 ' : '') + escapeHtml(b.title) + '</div>' +
         '<div class="setting-desc">' + formatFocusTime(b.startHour, b.startMinute) + ' \u2013 ' + formatFocusTime(b.endHour, b.endMinute) +
-        (b.isFree ? ' (free)' : '') + '</div>' +
+        (b.blockType === 'freeTime' ? ' (free)' : b.blockType === 'deepWork' ? ' (deep work)' : '') + '</div>' +
         '</div>' +
-        (b.isFree ? '' : '<div style="width:80px;display:flex;align-items:center;gap:8px;">' +
+        (b.blockType === 'freeTime' ? '' : '<div style="width:80px;display:flex;align-items:center;gap:8px;">' +
         '<div style="flex:1;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;">' +
         '<div style="height:100%;width:' + s + '%;background:' + color + ';border-radius:2px;"></div></div>' +
         '<span style="font-size:12px;color:rgba(255,255,255,0.5);">' + s + '%</span></div>') +
@@ -5025,6 +5765,209 @@ window._earnedStatusResult = function(data) {
     });
     updateBlockRings();
   }
+
+  // Extra time link: always show inline, disable when no partner
+  var extraSection = document.getElementById('earned-extra-time-section');
+  if (extraSection) {
+    extraSection.style.display = '';
+    var extraBtn = document.getElementById('earned-extra-time-btn');
+    extraSection.dataset.hasPartner = data.hasPartner ? '1' : '0';
+    extraSection.dataset.partnerName = data.partnerName || 'your partner';
+    if (extraBtn) {
+      extraBtn.textContent = 'Request Extra Time';
+      if (data.hasPartner) {
+        extraBtn.disabled = false;
+        extraBtn.style.opacity = '';
+        extraBtn.style.cursor = '';
+      } else {
+        extraBtn.disabled = false;
+        extraBtn.style.opacity = '0.5';
+        extraBtn.style.cursor = 'pointer';
+      }
+    }
+  }
+};
+
+// ---- Extra Time Request Flow ----
+
+var extraTimeState = { step: null, selectedMinutes: null, requestId: null, partnerName: '' };
+
+function initExtraTimeFlow() {
+  var btn = document.getElementById('earned-extra-time-btn');
+  if (!btn) return;
+
+  btn.addEventListener('click', function() {
+    var section = document.getElementById('earned-extra-time-section');
+    var hasPartner = section && section.dataset.hasPartner === '1';
+    if (!hasPartner) {
+      // Briefly show message, then revert
+      var origText = btn.textContent;
+      btn.textContent = 'Only available with an accountability partner';
+      btn.style.opacity = '1';
+      btn.style.color = 'rgba(255, 140, 140, 0.8)';
+      setTimeout(function() {
+        btn.textContent = origText;
+        btn.style.opacity = '0.5';
+        btn.style.color = '';
+      }, 3000);
+      return;
+    }
+    if (btn.disabled) return;
+    extraTimeState.partnerName = (section && section.dataset.partnerName) || 'your partner';
+    showExtraTimeStep('amount');
+  });
+
+  // Amount pills → enable Send Request
+  document.querySelectorAll('.extra-time-pill').forEach(function(pill) {
+    pill.addEventListener('click', function() {
+      document.querySelectorAll('.extra-time-pill').forEach(function(p) { p.classList.remove('selected'); });
+      pill.classList.add('selected');
+      extraTimeState.selectedMinutes = parseInt(pill.dataset.minutes, 10);
+      var sendBtn = document.getElementById('extra-time-send');
+      if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send Request'; }
+      var err = document.getElementById('extra-time-send-error');
+      if (err) { err.style.display = 'none'; }
+    });
+  });
+
+  // Send request (directly from amount step)
+  var sendBtn = document.getElementById('extra-time-send');
+  if (sendBtn) sendBtn.addEventListener('click', function() {
+    if (!extraTimeState.selectedMinutes) return;
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Sending...';
+    sendMessage({ type: 'REQUEST_EXTRA_TIME', minutes: extraTimeState.selectedMinutes });
+  });
+
+  // Code cell input handling
+  var cells = document.querySelectorAll('.extra-time-code-cell');
+  var verifyBtn = document.getElementById('extra-time-verify');
+  cells.forEach(function(cell, idx) {
+    cell.addEventListener('input', function(e) {
+      var val = e.target.value.replace(/[^0-9]/g, '');
+      e.target.value = val.slice(0, 1);
+      if (val && idx < cells.length - 1) cells[idx + 1].focus();
+      checkCodeComplete();
+    });
+    cell.addEventListener('keydown', function(e) {
+      if (e.key === 'Backspace' && !e.target.value && idx > 0) cells[idx - 1].focus();
+    });
+    cell.addEventListener('paste', function(e) {
+      e.preventDefault();
+      var pasted = (e.clipboardData.getData('text') || '').replace(/[^0-9]/g, '').slice(0, 6);
+      for (var i = 0; i < pasted.length && i + idx < cells.length; i++) cells[i + idx].value = pasted[i];
+      cells[Math.min(idx + pasted.length, cells.length - 1)].focus();
+      checkCodeComplete();
+    });
+  });
+
+  function checkCodeComplete() {
+    var code = getCodeValue();
+    if (verifyBtn) verifyBtn.disabled = code.length !== 6;
+  }
+
+  function getCodeValue() {
+    var code = '';
+    cells.forEach(function(c) { code += c.value; });
+    return code;
+  }
+
+  // Verify
+  if (verifyBtn) verifyBtn.addEventListener('click', function() {
+    var code = getCodeValue();
+    if (code.length !== 6) return;
+    verifyBtn.disabled = true;
+    verifyBtn.textContent = 'Verifying...';
+    sendMessage({ type: 'VERIFY_EXTRA_TIME_CODE', code: code, requestId: extraTimeState.requestId });
+  });
+
+  // Cancel buttons
+  document.querySelectorAll('.extra-time-cancel-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() { resetExtraTimeFlow(); });
+  });
+}
+
+function showExtraTimeStep(step) {
+  extraTimeState.step = step;
+  var flow = document.getElementById('earned-extra-time-flow');
+  var section = document.getElementById('earned-extra-time-section');
+  if (flow) flow.style.display = '';
+  if (section) section.style.display = 'none';
+
+  ['amount', 'code', 'success'].forEach(function(s) {
+    var el = document.getElementById('extra-time-step-' + s);
+    if (el) el.style.display = s === step ? '' : 'none';
+  });
+
+  if (step === 'amount') {
+    extraTimeState.selectedMinutes = null;
+    document.querySelectorAll('.extra-time-pill').forEach(function(p) { p.classList.remove('selected'); });
+    var sendBtn = document.getElementById('extra-time-send');
+    if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = 'Send Request'; }
+    var err = document.getElementById('extra-time-send-error');
+    if (err) { err.style.display = 'none'; }
+  }
+  if (step === 'code') {
+    var cells = document.querySelectorAll('.extra-time-code-cell');
+    cells.forEach(function(c) { c.value = ''; });
+    var verifyBtn = document.getElementById('extra-time-verify');
+    if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.textContent = 'Verify'; }
+    var err = document.getElementById('extra-time-code-error');
+    if (err) { err.style.display = 'none'; err.textContent = ''; }
+    if (cells[0]) setTimeout(function() { cells[0].focus(); }, 50);
+    var codeMsg = document.getElementById('extra-time-code-msg');
+    if (codeMsg) codeMsg.textContent = 'Ask ' + extraTimeState.partnerName + ' for the 6-digit code we just emailed them.';
+  }
+}
+
+function resetExtraTimeFlow() {
+  extraTimeState.step = null;
+  extraTimeState.selectedMinutes = null;
+  extraTimeState.requestId = null;
+  var flow = document.getElementById('earned-extra-time-flow');
+  var section = document.getElementById('earned-extra-time-section');
+  if (flow) flow.style.display = 'none';
+  if (section) section.style.display = '';
+  var btn = document.getElementById('earned-extra-time-btn');
+  if (btn) {
+    btn.textContent = 'Request Extra Time';
+    btn.disabled = false;
+    btn.style.opacity = (section && section.dataset.hasPartner === '1') ? '' : '0.5';
+  }
+}
+
+// Callbacks from Swift
+window._extraTimeRequestResult = function(data) {
+  var sendBtn = document.getElementById('extra-time-send');
+  if (data.success) {
+    extraTimeState.requestId = data.requestId;
+    extraTimeState.partnerName = data.partnerName || extraTimeState.partnerName;
+    showExtraTimeStep('code');
+  } else {
+    if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send Request'; }
+    var err = document.getElementById('extra-time-send-error');
+    if (err) { err.textContent = data.message || 'Could not send request.'; err.style.display = ''; }
+  }
+};
+
+window._extraTimeVerifyResult = function(data) {
+  if (data.success) {
+    var msg = document.getElementById('extra-time-success-msg');
+    if (msg) msg.textContent = (data.addedMinutes || extraTimeState.selectedMinutes) + ' Minutes Added!';
+    showExtraTimeStep('success');
+    setTimeout(function() {
+      resetExtraTimeFlow();
+      loadEarnedStatus();
+    }, 2000);
+  } else {
+    var verifyBtn = document.getElementById('extra-time-verify');
+    if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.textContent = 'Verify'; }
+    var cells = document.querySelectorAll('.extra-time-code-cell');
+    cells.forEach(function(c) { c.value = ''; });
+    if (cells[0]) cells[0].focus();
+    var err = document.getElementById('extra-time-code-error');
+    if (err) { err.textContent = data.message || 'Invalid code. Please try again.'; err.style.display = ''; }
+  }
 };
 
 // ---- Relevance Log ----
@@ -5046,6 +5989,8 @@ window._relevanceLogResult = function(entries) {
     var actionHtml = '';
     if (e.action === 'nudge') actionHtml = '<div class="relevance-action nudged">nudged</div>';
     else if (e.action === 'blocked') actionHtml = '<div class="relevance-action blocked">blocked</div>';
+    else if (e.action === 'grayscale_on') actionHtml = '<div class="relevance-action blocked">grayscale on</div>';
+    else if (e.action === 'grayscale_off') actionHtml = '<div class="relevance-action">grayscale off</div>';
     html += '<div class="relevance-entry">' +
       '<div class="relevance-dot ' + dotClass + '"></div>' +
       '<div class="relevance-time">' + timeStr + '</div>' +
@@ -5072,7 +6017,7 @@ function copyAssessments() {
     var time = new Date(e.timestamp);
     var timeStr = time.getHours() + ':' + String(time.getMinutes()).padStart(2, '0') + ':' + String(time.getSeconds()).padStart(2, '0');
     var dot = e.relevant ? 'RELEVANT' : 'IRRELEVANT';
-    var action = e.action === 'blocked' ? ' [BLOCKED]' : (e.action === 'nudge' ? ' [NUDGED]' : '');
+    var action = e.action === 'blocked' ? ' [BLOCKED]' : (e.action === 'nudge' ? ' [NUDGED]' : (e.action === 'grayscale_on' ? ' [GRAYSCALE ON]' : (e.action === 'grayscale_off' ? ' [GRAYSCALE OFF]' : '')));
     return timeStr + '  ' + dot + '  ' + e.title + action + (e.reason ? '\n    ' + e.reason : '');
   });
   var text = lines.join('\n');
