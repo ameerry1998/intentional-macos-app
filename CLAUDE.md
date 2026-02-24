@@ -2,6 +2,8 @@
 
 Intentional is a macOS native app that serves as the centralized orchestrator for the Intentional ecosystem. It handles time tracking across all browsers, daily focus scheduling with AI relevance scoring, earned browse budgets, focus enforcement via progressive overlays, and accountability via partner locking. Works with a companion Chrome extension for in-browser content filtering.
 
+**Architecture Principle: Logic Lives Here.** All enforcement logic, overlays, timers, and behavioral features belong in this macOS app — NOT in the Chrome extension. The extension's role is limited to in-browser content filtering (ML checks), session UI (intent prompt, session bar), and platform-specific DOM manipulation. Everything else (focus enforcement, blocking overlays, tab redirects, timer widgets, grayscale effects, relevance scoring, earned browse tracking) goes here. The app has OS-level capabilities (AppleScript, NSWindow overlays, process monitoring) that the extension cannot replicate, and centralizing logic here avoids duplication and ensures cross-browser consistency.
+
 ## Project Structure
 
 ```
@@ -13,8 +15,10 @@ intentional-macos-app/
     ScheduleManager.swift       # Daily schedule, time blocks, TimeState machine
     EarnedBrowseManager.swift   # Earned browse pool, block focus stats, deep work detection
     FocusMonitor.swift          # Desktop app monitoring, browser tab polling, overlay triggers
-    FocusOverlayWindow.swift    # Progressive darkening overlay (native NSWindow)
+    FocusOverlayWindow.swift    # Full-screen blocking overlay (native NSWindow)
     NudgeWindowController.swift # Nudge-mode notification overlay
+    GrayscaleOverlayController.swift  # Full-screen desaturation overlay (Deep Work)
+    DeepWorkTimerController.swift     # Floating pill timer widget (Deep Work)
     RelevanceScorer.swift       # AI scoring (Apple Foundation Models + MLX Qwen3-4B)
     SocketRelayServer.swift     # Unix socket server for extension communication
     NativeMessagingHost.swift   # Chrome native messaging protocol (4-byte length + JSON)
@@ -236,16 +240,35 @@ effectiveBrowseTime // Available minutes / costMultiplier
 1. **Non-browser apps**: Detected via `NSWorkspace.didActivateApplicationNotification`, scored by app name
 2. **Browser tabs**: Read via AppleScript (title + URL), polled every 10s while browser is frontmost
 
-### Tiered Enforcement
-| Tier | Trigger | Behavior |
-|------|---------|----------|
-| First encounter | Irrelevant content detected | Progressive overlay: starts subtle, darkens over 30s |
-| Revisit | Same site already warned | Overlay starts at 60% immediately |
-| Block mode | `focusEnforcement: "block"` | Overlay reaches 95% and stays (unreadable) |
-| Nudge mode | `focusEnforcement: "nudge"` | Overlay reaches 70%, holds briefly, fades out |
+### Deep Work Enforcement (Aggressive)
+| Real Time | Cumulative | Event |
+|-----------|-----------|-------|
+| ~3-5s | 10s | AI scores tab → **Nudge** + timer dot turns red |
+| ~10s | 10s | **Auto-redirect** to last relevant URL + brief nudge + **grayscale starts** (30s fade) |
+| revisit | — | **Instant redirect** (0s grace) |
+| ~295s | 300s | **Intervention overlay** (60s mandatory game, escalating 90s/120s) |
+| return | — | Grayscale snaps back over 2s, timer dot turns indigo |
+
+Native apps: 5s grace → blocking overlay + grayscale starts.
+Justification: "This is relevant" accepted → 3 min suppression only (no permanent whitelist), grayscale pauses.
+
+**Floating timer widget**: Pill-shaped widget in top-right corner during Deep Work. Shows `[dot] intention text [MM:SS]`. Dot: indigo=focused, red=distracted. Draggable. Auto-dismisses when block ends.
+
+**Darkening overlay**: Full-screen click-through overlay (`.floating` level, `ignoresMouseEvents = true`). Progressive black overlay: alpha 0.0→0.45 over 30s (0.5s steps). Snap-back: 2s to clear. Creates a drained/muted visual effect.
+
+### Focus Hours Enforcement (Gentle)
+| Real Time | Cumulative | Event |
+|-----------|-----------|-------|
+| ~3-5s | 10s | **Level 1 nudge #1** (auto-dismiss 8s) |
+| ~65s | 70s | **Level 1 nudge #2** + **grayscale starts** (30s fade) |
+| ~125s | 130s | **Level 1 nudge #3** |
+| ~185s | 190s | **Level 1 nudge #4** |
+| ~235s | 240s | **Red warning nudge** ("intervention in 60s") |
+| ~295s | 300s | **Intervention overlay** (60s mandatory game, escalating 90s/120s) |
+| return | — | Grayscale snaps back over 2s |
 
 ### Irrelevance Threshold
-Cumulative: 60 seconds of irrelevant content within a 180-second rolling window triggers blocking.
+Cumulative: 300 seconds of cumulative distraction triggers escalation (both Deep Work and Focus Hours). Distraction counter decays when user returns to relevant content.
 
 ### Social Media Delegation
 Social media sites (YouTube, Instagram, Facebook) are skipped by FocusMonitor — the Chrome extension handles enforcement for those.
