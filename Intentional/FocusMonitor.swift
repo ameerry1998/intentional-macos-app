@@ -1,19 +1,27 @@
 import Cocoa
 import Foundation
 
-/// Monitors the frontmost application and manages focus enforcement via progressive overlays.
+/// Monitors the frontmost application and manages focus enforcement.
 ///
-/// When irrelevant content is detected during a work block, shows a progressive overlay
-/// that gradually darkens the page/screen, making the content unreadable over 30 seconds.
+/// All enforcement is driven by a single `cumulativeDistractionSeconds` counter.
+/// On each 10s poll, the counter increments if content is irrelevant; on relevant content,
+/// it decays by 5s per poll. All actions are threshold-driven — no separate timers.
 ///
-/// Tiered enforcement:
-/// 1. **First encounter** → progressive overlay (starts subtle, darkens over 30s)
-/// 2. **Revisit** (same site already warned) → overlay starts at 60% immediately
-/// 3. **Block mode**: overlay reaches 95% and stays (page unreadable)
-/// 4. **Nudge mode**: overlay reaches 70%, holds briefly, then fades out
+/// **Deep Work** — strict enforcement:
+///   - 10s cumulative: nudge + timer dot red
+///   - 20s cumulative: auto-redirect to last relevant URL + grayscale
+///   - 20s+ (revisit): instant redirect if site already redirected this block
+///   - 300s cumulative: intervention overlay (60s/90s/120s escalating)
 ///
-/// Overlay is a native NSWindow (FocusOverlayWindowController) that covers the screen.
-/// Works for all apps — browsers and non-browsers — without requiring a browser extension.
+/// **Focus Hours** — gentle reminders:
+///   - 10s: level 1 nudge (auto-dismiss 8s)
+///   - 30s: grayscale starts (30s fade)
+///   - 70s/130s/190s: level 1 nudge repeats (+60s interval)
+///   - 240s: red warning nudge ("intervention in 60s")
+///   - 300s: intervention overlay (60s, escalating every +300s)
+///   - Between interventions: level 2 persistent nudges on each poll
+///
+/// **Free Time** — no enforcement (handled before this class is invoked)
 ///
 /// Two input paths:
 /// 1. **Non-browser apps**: Detected via NSWorkspace.didActivateApplicationNotification,
@@ -27,6 +35,9 @@ class FocusMonitor {
     weak var relevanceScorer: RelevanceScorer?
     var nudgeController: NudgeWindowController?
     var overlayController: FocusOverlayWindowController?
+    var interventionController: InterventionOverlayController?
+    var grayscaleController: GrayscaleOverlayController?
+    var deepWorkTimerController: DeepWorkTimerController?
 
     // MARK: - Social Media Hostnames (extension handles enforcement)
 
@@ -195,39 +206,86 @@ class FocusMonitor {
         "com.apple.AppStore",
     ]
 
+    /// Neutral apps: neither earn browse time nor count as distracting.
+    /// These represent system states where the user isn't actively working or browsing.
+    private static let neutralBundleIds: Set<String> = [
+        "com.apple.loginwindow",
+        "com.apple.ScreenSaver.Engine",
+        "com.apple.systempreferences",           // System Preferences (pre-Ventura)
+        "com.apple.systemsettings",              // System Settings (Ventura+)
+        "com.apple.KeyboardSetupAssistant",
+        "com.apple.SecurityAgent",
+        "com.apple.UserNotificationCenter",
+        "com.apple.installer",
+        "com.apple.SoftwareUpdate",
+        "com.apple.ActivityMonitor",
+        "com.apple.DiskUtility",
+        "com.apple.MigrationUtility",
+        "com.apple.SetupAssistant",
+    ]
+
+    /// Check if a bundle ID is a neutral activity (no earning, no penalty).
+    private func isNeutralApp(_ bundleId: String) -> Bool {
+        Self.neutralBundleIds.contains(bundleId)
+    }
+
     // MARK: - Constants
 
-    /// Seconds before blocking after first nudge (only used for first encounter in "block" mode)
-    static let lingerDurationSeconds: TimeInterval = 30.0
-    /// Suppression duration when user clicks "5 more min"
-    static let suppressionSeconds: TimeInterval = 300.0
     /// How often to re-check the active browser tab (seconds)
     static let browserPollInterval: TimeInterval = 10.0
-    /// Rolling window for cumulative irrelevance tracking (seconds)
-    static let irrelevanceWindowSeconds: TimeInterval = 180.0
-    /// Cumulative irrelevance threshold before blocking (seconds)
-    static let irrelevanceThresholdSeconds: TimeInterval = 60.0
+    /// Decay ratio: for every second of relevant work, reduce distraction counter by this fraction
+    static let distractionDecayRatio: TimeInterval = 0.5
+    /// Suppression duration after user justifies content (seconds)
+    static let suppressionSeconds: TimeInterval = 300.0
+    /// Linger duration for fallback unplanned/noPlan blocking (seconds)
+    static let lingerDurationSeconds: TimeInterval = 30.0
     /// Maximum relevance log entries to keep in memory
     static let maxLogEntries = 50
+
+    // MARK: - Threshold Tables (unified distraction counter)
+
+    // ── Focus Hours thresholds ──
+    /// First nudge threshold (seconds of cumulative distraction)
+    static let focusNudgeThreshold: TimeInterval = 10.0
+    /// Grayscale start threshold
+    static let focusGrayscaleThreshold: TimeInterval = 30.0
+    /// Interval between repeating level 1 nudges (after first nudge)
+    static let focusNudgeRepeatInterval: TimeInterval = 60.0
+    /// Warning nudge threshold — red warning before intervention
+    static let focusWarningThreshold: TimeInterval = 240.0
+    /// Intervention threshold (and re-intervention interval)
+    static let focusInterventionThreshold: TimeInterval = 300.0
+
+    // ── Deep Work thresholds ──
+    /// First nudge + timer dot red
+    static let deepWorkNudgeThreshold: TimeInterval = 10.0
+    /// Auto-redirect to last relevant URL + grayscale starts
+    static let deepWorkRedirectThreshold: TimeInterval = 20.0
+    /// Intervention overlay threshold
+    static let deepWorkInterventionThreshold: TimeInterval = 300.0
 
     // MARK: - Relevance Log
 
     struct RelevanceEntry {
         let timestamp: Date
         let title: String        // page title or app name
+        let appName: String      // always the app name (e.g. "Google Chrome")
+        let hostname: String     // domain for browser tabs (e.g. "github.com"), empty for non-browser apps
         let intention: String    // current block intention
         let relevant: Bool
         let confidence: Int
         let reason: String
         let action: String       // "none", "nudge", "blocked"
+        let neutral: Bool        // true for neutral apps (loginwindow, etc.)
+        let isEvent: Bool        // true for enforcement events (nudge/block) — not time ticks
     }
 
     private(set) var relevanceLog: [RelevanceEntry] = []
 
-    private func logAssessment(title: String, intention: String, relevant: Bool, confidence: Int, reason: String, action: String) {
+    private func logAssessment(title: String, appName: String = "", hostname: String = "", intention: String, relevant: Bool, confidence: Int, reason: String, action: String, neutral: Bool = false, isEvent: Bool = false) {
         let entry = RelevanceEntry(
-            timestamp: Date(), title: title, intention: intention,
-            relevant: relevant, confidence: confidence, reason: reason, action: action
+            timestamp: Date(), title: title, appName: appName.isEmpty ? title : appName, hostname: hostname, intention: intention,
+            relevant: relevant, confidence: confidence, reason: reason, action: action, neutral: neutral, isEvent: isEvent
         )
         relevanceLog.append(entry)
         if relevanceLog.count > Self.maxLogEntries {
@@ -243,9 +301,11 @@ class FocusMonitor {
         let file = dir.appendingPathComponent("relevance_log.jsonl")
 
         let aiModel = appDelegate?.scheduleManager?.aiModel ?? "apple"
-        let dict: [String: Any] = [
+        var dict: [String: Any] = [
             "timestamp": ISO8601DateFormatter().string(from: entry.timestamp),
             "title": entry.title,
+            "appName": entry.appName,
+            "hostname": entry.hostname,
             "intention": entry.intention,
             "relevant": entry.relevant,
             "confidence": entry.confidence,
@@ -253,6 +313,8 @@ class FocusMonitor {
             "action": entry.action,
             "model": aiModel
         ]
+        if entry.neutral { dict["neutral"] = true }
+        if entry.isEvent { dict["isEvent"] = true }
 
         if let data = try? JSONSerialization.data(withJSONObject: dict),
            var line = String(data: data, encoding: .utf8) {
@@ -293,17 +355,38 @@ class FocusMonitor {
     private var tabIsOnBlockingPage = false
     private var blockedOriginalURL: String?
 
-    // Cumulative irrelevance tracking: timestamps of poll ticks where browser content was irrelevant
-    private var irrelevanceSamples: [Date] = []
+    // Cumulative distraction counter (seconds). Increases when on irrelevant content,
+    // decays when user returns to relevant content. Resets on block change.
+    private var cumulativeDistractionSeconds: TimeInterval = 0
     /// Whether the last browser tab score was irrelevant (for sampling unchanged tabs)
     private var lastScoreWasIrrelevant = false
 
-    // Snooze tracking: targets that used their one free snooze this block
-    private var snoozedTargets: Set<String> = []
+    // Nudge escalation state (all threshold-driven off cumulativeDistractionSeconds)
+    /// Whether a nudge has been shown for the current irrelevant content
+    private var nudgeShownForCurrentContent = false
+    /// Cumulative distraction seconds at which the last nudge was shown (for repeat interval)
+    private var lastNudgeShownAtDistraction: TimeInterval = 0
+    /// Content approved by user justification during this block (targetKey set)
+    private var sessionOverrides: Set<String> = []
+    /// How many interventions have been triggered during this distraction run (for escalating duration)
+    private var interventionCount: Int = 0
+    /// Cumulative distraction seconds at which the last intervention was triggered
+    private var lastInterventionAtDistraction: TimeInterval = 0
+    /// Whether the Deep Work auto-redirect has fired for the current distraction run
+    private var deepWorkRedirectFired = false
+    /// Whether grayscale has been triggered at least once this block (instant re-trigger on revisit)
+    private var grayscaleTriggeredThisBlock = false
+
+    // Deep Work aggressive enforcement
+    /// Sites that have been auto-redirected during this Deep Work block (instant redirect on revisit)
+    private var deepWorkRedirectedSites: Set<String> = []
+    /// Deep Work native app grace: shorter than normal (5s instead of 30s)
+    static let deepWorkNativeGraceSeconds: TimeInterval = 5.0
+    /// Deep Work justification suppression: shorter (3 min instead of 5 min)
+    static let deepWorkSuppressionSeconds: TimeInterval = 180.0
 
     // Global noPlan snooze: suppresses ALL noPlan/unplanned overlays (not per-target)
     private var noPlanSnoozeUntil: Date?
-    private var noPlanSnoozed: Bool = false
 
     /// Grace duration for first encounter during a work block
     static let graceDurationSeconds: TimeInterval = 30.0
@@ -318,17 +401,26 @@ class FocusMonitor {
         let displayName: String
         let intention: String
         let reason: String
-        let enforcement: String
         let isRevisit: Bool
         let focusDurationMinutes: Int
         let isNoPlan: Bool
         let confidence: Int
     }
 
+    /// The display name of the current frontmost app (resolves browser bundle IDs to names like "Google Chrome").
+    private var currentAppName: String {
+        if let bundleId = currentAppBundleId, Self.browserBundleIds.contains(bundleId) {
+            return Self.browserAppNames[bundleId] ?? currentApp?.localizedName ?? "Browser"
+        }
+        return currentApp?.localizedName ?? "unknown"
+    }
+
     // Browser tab polling
     private var browserPollTimer: Timer?
     // Work tick timer for always-allowed non-browser apps (Xcode, Terminal, etc.)
     private var workTickTimer: Timer?
+    // Neutral tick timer for screen lock, Intentional app, etc. (logs grey entries)
+    private var neutralTickTimer: Timer?
     private var lastScoredTitle: String?
     private var lastScoredURL: String?
 
@@ -337,6 +429,17 @@ class FocusMonitor {
 
     // Serial queue for AppleScript execution (not thread-safe)
     private let appleScriptQueue = DispatchQueue(label: "com.intentional.focusmonitor.applescript", qos: .userInitiated)
+
+    // MARK: - Logging
+
+    /// Debug logging — only printed when verbose mode is on (default: off).
+    /// Use for app-switch routing, exit reasons, score details, timer ticks.
+    private static var verboseLogging = false
+
+    private func debugLog(_ message: String) {
+        guard Self.verboseLogging else { return }
+        appDelegate?.postLog(message)
+    }
 
     // MARK: - Init
 
@@ -353,6 +456,9 @@ class FocusMonitor {
             object: nil
         )
 
+        grayscaleController = GrayscaleOverlayController()
+        deepWorkTimerController = DeepWorkTimerController()
+
         appDelegate?.postLog("👁️ FocusMonitor started — watching frontmost app")
     }
 
@@ -363,8 +469,11 @@ class FocusMonitor {
         stopLingerTimer()
         stopBrowserPolling()
         stopWorkTickTimer()
+        stopNeutralTickTimer()
         nudgeController?.dismiss()
         overlayController?.dismiss()
+        grayscaleController?.dismiss()
+        deepWorkTimerController?.dismiss()
         appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
         appDelegate?.postLog("👁️ FocusMonitor stopped")
     }
@@ -377,13 +486,12 @@ class FocusMonitor {
         appDelegate?.postLog("👁️ onBlockChanged() — resetting all state, will re-evaluate current app")
         warnedTargets.removeAll()
         suppressedUntil.removeAll()
-        snoozedTargets.removeAll()
         noPlanSnoozeUntil = nil
-        noPlanSnoozed = false
         cancelGracePeriod()
         stopLingerTimer()
         stopBrowserPolling()
         stopWorkTickTimer()
+        stopNeutralTickTimer()
         nudgeController?.dismiss()
         overlayController?.dismiss()
         appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
@@ -395,8 +503,31 @@ class FocusMonitor {
         lastRelevantTabURL = nil
         tabIsOnBlockingPage = false
         blockedOriginalURL = nil
-        irrelevanceSamples.removeAll()
+        cumulativeDistractionSeconds = 0
         lastScoreWasIrrelevant = false
+        nudgeShownForCurrentContent = false
+        lastNudgeShownAtDistraction = 0
+        sessionOverrides.removeAll()
+        interventionCount = 0
+        lastInterventionAtDistraction = 0
+        deepWorkRedirectFired = false
+        grayscaleTriggeredThisBlock = false
+        interventionController?.dismiss()
+        deepWorkRedirectedSites.removeAll()
+
+        // Grayscale: reconcile — after resetting flags above, reconciler will restore color
+        reconcileGrayscale()
+
+        // Deep Work timer: show if entering a Deep Work block, dismiss otherwise
+        if let block = scheduleManager?.currentBlock, block.blockType == .deepWork {
+            let calendar = Calendar.current
+            let now = Date()
+            let endOfBlock = calendar.date(bySettingHour: block.endHour, minute: block.endMinute, second: 0, of: now) ?? now
+            deepWorkTimerController?.show(intention: block.title, endsAt: endOfBlock)
+            deepWorkTimerController?.update(isDistracted: false)
+        } else {
+            deepWorkTimerController?.dismiss()
+        }
 
         // Re-evaluate current frontmost app against the new block
         if let app = currentApp {
@@ -447,25 +578,32 @@ class FocusMonitor {
         let currentState = scheduleManager?.currentTimeState.rawValue ?? "nil"
         let currentBlock = scheduleManager?.currentBlock?.title ?? "none"
 
-        // Stop work tick timer from previous app (will restart if new app is also always-allowed)
+        // Stop tick timers from previous app (will restart if new app needs them)
         stopWorkTickTimer()
+        stopNeutralTickTimer()
 
-        appDelegate?.postLog("👁️ evaluateApp: \(appName) (\(bundleId)), state=\(currentState), block=\(currentBlock)")
+        debugLog("👁️ evaluateApp: \(appName) (\(bundleId)), state=\(currentState), block=\(currentBlock)")
+
+        // Skip reconciliation for browsers — handled below with proper state
+        // (prevents grayscale turning OFF briefly before async scoring re-enables it)
+        if !Self.browserBundleIds.contains(bundleId) {
+            reconcileGrayscale()
+        }
 
         guard let manager = scheduleManager else {
-            appDelegate?.postLog("👁️ EXIT: no scheduleManager — treating as relevant")
+            debugLog("👁️ EXIT: no scheduleManager — treating as relevant")
             handleRelevantContent()
             stopBrowserPolling()
             return
         }
 
         let state = manager.currentTimeState
-        appDelegate?.postLog("👁️ State check: enabled=\(manager.isEnabled), state=\(state.rawValue), hasPlan=\(manager.todaySchedule != nil), blocks=\(manager.todaySchedule?.blocks.count ?? 0)")
+        debugLog("👁️ State check: enabled=\(manager.isEnabled), state=\(state.rawValue), hasPlan=\(manager.todaySchedule != nil), blocks=\(manager.todaySchedule?.blocks.count ?? 0)")
 
         // States where browsing is allowed freely
-        // disabled = feature off, freeBlock = scheduled break, snoozed = user chose to delay
-        if state == .disabled || state == .freeBlock || state == .snoozed {
-            appDelegate?.postLog("👁️ EXIT: state=\(state.rawValue) — browsing allowed freely")
+        // disabled = feature off, freeTime = scheduled break, snoozed = user chose to delay
+        if state == .disabled || state == .freeTime || state == .snoozed {
+            debugLog("👁️ EXIT: state=\(state.rawValue) — browsing allowed freely")
             handleRelevantContent()
             stopBrowserPolling()
             return
@@ -473,22 +611,38 @@ class FocusMonitor {
 
         guard let bid = app.bundleIdentifier else { return }
 
+        // Neutral apps: log as neutral (gray in popover) but don't earn or penalize
+        if isNeutralApp(bid) {
+            debugLog("👁️ EXIT: neutral app \(appName) — no earning, no penalty")
+            stopBrowserPolling()
+            stopWorkTickTimer()
+            logAssessment(
+                title: appName,
+                intention: scheduleManager?.currentBlock?.title ?? "",
+                relevant: true, confidence: 0, reason: "Neutral app", action: "none", neutral: true
+            )
+            startNeutralTickTimer(appName: appName)
+            return
+        }
+
         // Our own app — two cases:
         // 1. Overlay is showing → user clicked the overlay (which activates our app).
         //    Do NOT dismiss it — let the buttons inside the overlay handle the interaction.
         // 2. Overlay is NOT showing → user switched to the Intentional dashboard.
         //    Allow freely, but preserve grace timer.
         if bid == "com.intentional.app" || bid == Bundle.main.bundleIdentifier {
-            if overlayController?.isShowing == true {
-                appDelegate?.postLog("👁️ EXIT: own app activated by overlay click — keeping overlay")
+            if overlayController?.isShowing == true || interventionController?.isShowing == true {
+                debugLog("👁️ EXIT: own app activated by overlay click — keeping overlay")
                 return
             }
-            appDelegate?.postLog("👁️ EXIT: own app — allowing (grace timer preserved)")
+            debugLog("👁️ EXIT: own app — allowing (grace timer preserved)")
             stopLingerTimer()
             isCurrentlyIrrelevant = false
             nudgeController?.dismiss()
             appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
             stopBrowserPolling()
+            stopWorkTickTimer()
+            startNeutralTickTimer(appName: "Intentional")
             return
         }
 
@@ -496,19 +650,19 @@ class FocusMonitor {
         if state == .unplanned || state == .noPlan {
             // Check global noPlan snooze (applies to ALL apps, not per-target)
             if let until = noPlanSnoozeUntil, Date() < until {
-                appDelegate?.postLog("👁️ EXIT: \(state.rawValue) — globally snoozed until \(until)")
+                debugLog("👁️ EXIT: \(state.rawValue) — globally snoozed until \(until)")
                 stopBrowserPolling()
                 return
             }
             // Check per-target suppression (from "5 more min")
             if let until = suppressedUntil[bid], Date() < until {
-                appDelegate?.postLog("👁️ EXIT: \(state.rawValue) but suppressed until \(until)")
+                debugLog("👁️ EXIT: \(state.rawValue) but suppressed until \(until)")
                 stopBrowserPolling()
                 return
             }
             // If already showing overlay for this target, skip
             if isCurrentlyIrrelevant && currentTargetKey == bid {
-                appDelegate?.postLog("👁️ EXIT: \(state.rawValue) — overlay already showing for \(bid)")
+                debugLog("👁️ EXIT: \(state.rawValue) — overlay already showing for \(bid)")
                 stopBrowserPolling()
                 return
             }
@@ -517,32 +671,30 @@ class FocusMonitor {
             let reason = state == .noPlan
                 ? "Set up your daily plan to start browsing."
                 : "This time isn't scheduled — add a block or take a break."
-            let enforcement = scheduleManager?.focusEnforcement ?? "block"
 
             let pending = PendingOverlayInfo(
                 targetKey: bid,
                 displayName: appName,
                 intention: intention,
                 reason: reason,
-                enforcement: enforcement,
                 isRevisit: warnedTargets.contains(bid),
                 focusDurationMinutes: 0,
                 isNoPlan: true,
                 confidence: 0
             )
 
-            appDelegate?.postLog("👁️ \(state.rawValue) — starting grace period on \(appName)")
+            debugLog("👁️ \(state.rawValue) — starting grace period on \(appName)")
             startGracePeriod(pending: pending)
             stopBrowserPolling()
             return
         }
 
-        // WORK BLOCK: score content for relevance
-        guard state == .workBlock else { return }
+        // WORK STATE (deep work or focus hours): score content for relevance
+        guard state.isWork else { return }
 
         // Apple system apps: auto-allow com.apple.* unless it's an entertainment app
         if bid.hasPrefix("com.apple.") && !Self.appleEntertainmentBundleIds.contains(bid) {
-            appDelegate?.postLog("👁️ EXIT: Apple system app \(appName) — always allowed, earning work ticks")
+            debugLog("👁️ EXIT: Apple system app \(appName) — always allowed")
             handleRelevantContent()
             stopBrowserPolling()
             // Log assessment so always-allowed apps appear in the assessment popover
@@ -554,9 +706,7 @@ class FocusMonitor {
                 reason: "Always-allowed app",
                 action: "none"
             )
-            // Record initial tick + start continuous work tick timer
-            appDelegate?.earnedBrowseManager?.recordWorkTick(seconds: Self.browserPollInterval)
-            appDelegate?.earnedBrowseManager?.recordAssessment(relevant: true)
+            // Let the work tick timer handle all earning (no initial tick to avoid double-counting on app switch)
             appDelegate?.earnedBrowseManager?.updateLastActiveApp(name: appName, timestamp: Date())
             startWorkTickTimer(appName: appName)
             return
@@ -564,7 +714,7 @@ class FocusMonitor {
 
         // Always-allowed apps: never block system utilities, terminals, password managers, etc.
         if Self.alwaysAllowedBundleIds.contains(bid) {
-            appDelegate?.postLog("👁️ EXIT: \(appName) is always-allowed — earning work ticks")
+            debugLog("👁️ EXIT: \(appName) is always-allowed")
             handleRelevantContent()
             stopBrowserPolling()
             // Log assessment so always-allowed apps appear in the assessment popover
@@ -576,9 +726,7 @@ class FocusMonitor {
                 reason: "Always-allowed app",
                 action: "none"
             )
-            // Record initial tick + start continuous work tick timer
-            appDelegate?.earnedBrowseManager?.recordWorkTick(seconds: Self.browserPollInterval)
-            appDelegate?.earnedBrowseManager?.recordAssessment(relevant: true)
+            // Let the work tick timer handle all earning (no initial tick to avoid double-counting on app switch)
             appDelegate?.earnedBrowseManager?.updateLastActiveApp(name: appName, timestamp: Date())
             startWorkTickTimer(appName: appName)
             return
@@ -586,7 +734,21 @@ class FocusMonitor {
 
         // If it's a browser, read tab title via AppleScript and start polling
         if Self.browserBundleIds.contains(bid) {
-            appDelegate?.postLog("👁️ Browser detected (\(bid)) — reading tab via AppleScript")
+            debugLog("👁️ Browser detected (\(bid)) — reading tab via AppleScript")
+
+            // If grayscale was triggered this block, maintain it when returning to browser.
+            // Assume content is irrelevant until AI scoring proves otherwise (prevents flicker).
+            if grayscaleTriggeredThisBlock && scheduleManager?.currentTimeState.isWork == true {
+                isCurrentlyIrrelevant = true
+                if !(grayscaleController?.isActive ?? false) {
+                    grayscaleController?.startDesaturation()
+                    appDelegate?.postLog("🌫️ Browser activated: grayscale maintained (pending AI score)")
+                    logAssessment(title: "Grayscale", appName: appName, intention: scheduleManager?.currentBlock?.title ?? "",
+                                 relevant: false, confidence: 0, reason: "Browser activated — maintaining grayscale pending AI score",
+                                 action: "grayscale_on", isEvent: true)
+                }
+            }
+
             lastScoredTitle = nil
             lastScoredURL = nil
             lastScoreWasIrrelevant = false
@@ -597,7 +759,7 @@ class FocusMonitor {
 
         // Non-browser app: stop browser polling and score the app name
         stopBrowserPolling()
-        appDelegate?.postLog("👁️ App switched to: \(appName) (\(bid))")
+        debugLog("👁️ App switched to: \(appName) (\(bid))")
 
         // Score app name asynchronously
         Task {
@@ -614,26 +776,32 @@ class FocusMonitor {
             )
 
             await MainActor.run {
+                // Stale check: app may no longer be frontmost (scoring is async)
+                guard self.currentAppBundleId == bid else {
+                    self.appDelegate?.postLog("👁️ Scoring completed but \(appName) no longer frontmost — ignoring")
+                    return
+                }
+
                 self.logAssessment(
                     title: appName, intention: block.title,
                     relevant: result.relevant, confidence: result.confidence,
                     reason: result.reason, action: "none"
                 )
                 if result.relevant {
-                    self.appDelegate?.postLog("👁️ App is relevant: \(appName)")
+                    self.debugLog("👁️ App is relevant: \(appName)")
                     self.handleRelevantContent()
-                    // Record work tick for earned browse and update last active app
-                    if self.scheduleManager?.currentTimeState == .workBlock {
-                        self.appDelegate?.earnedBrowseManager?.recordWorkTick(seconds: Self.browserPollInterval)
-                        self.appDelegate?.earnedBrowseManager?.recordAssessment(relevant: true)
+                    // Let the work tick timer handle earning (no initial tick to avoid double-counting)
+                    if self.scheduleManager?.currentTimeState.isWork == true {
                         self.appDelegate?.earnedBrowseManager?.updateLastActiveApp(
                             name: appName, timestamp: Date()
                         )
+                        // Start continuous work tick timer so earning + decay continues
+                        self.startWorkTickTimer(appName: appName)
                     }
                 } else {
                     self.appDelegate?.postLog("👁️ App is NOT relevant: \(appName) — \(result.reason)")
                     // Record irrelevant assessment for deep work tracking
-                    if self.scheduleManager?.currentTimeState == .workBlock {
+                    if self.scheduleManager?.currentTimeState.isWork == true {
                         self.appDelegate?.earnedBrowseManager?.recordAssessment(relevant: false)
                     }
                     self.handleIrrelevantContent(targetKey: bid, displayName: appName)
@@ -647,14 +815,22 @@ class FocusMonitor {
     /// Read the active tab title and URL via AppleScript, then score for relevance.
     private func readAndScoreActiveTab(bundleId: String) {
         guard let manager = scheduleManager,
-              manager.currentTimeState == .workBlock,
+              manager.currentTimeState.isWork,
               let block = manager.currentBlock,
               let scorer = relevanceScorer else { return }
 
         let tabInfo = readActiveTabInfo(for: bundleId)
 
         guard let info = tabInfo else {
-            appDelegate?.postLog("👁️ Could not read tab info for \(bundleId)")
+            debugLog("👁️ Could not read tab info for \(bundleId)")
+            // Still log assessment so browser time is tracked even when AppleScript fails
+            let browserName = Self.browserAppNames[bundleId] ?? "Browser"
+            logAssessment(
+                title: browserName, appName: browserName,
+                intention: scheduleManager?.currentBlock?.title ?? "",
+                relevant: true, confidence: 0, reason: "Unable to read tab", action: "none",
+                neutral: true
+            )
             return
         }
 
@@ -663,7 +839,7 @@ class FocusMonitor {
             if !info.url.contains("focus-blocked.html") {
                 tabIsOnBlockingPage = false
                 blockedOriginalURL = nil
-                irrelevanceSamples.removeAll()
+                cumulativeDistractionSeconds = 0
                 if info.hostname == currentTargetKey {
                     // Justified return → 5-min suppression + whitelist in scorer
                     suppressedUntil[currentTargetKey] = Date().addingTimeInterval(Self.suppressionSeconds)
@@ -673,13 +849,13 @@ class FocusMonitor {
                     isCurrentlyIrrelevant = false
                     lastScoredTitle = nil
                     lastScoredURL = nil
-                    appDelegate?.postLog("👁️ Justified return to \(currentTargetKey) — whitelisted + 5-min suppression set")
+                    debugLog("👁️ Justified return to \(currentTargetKey) — whitelisted + 5-min suppression set")
                 } else {
                     // Left to different site or about:blank → clear state
                     isCurrentlyIrrelevant = false
                     lastScoredTitle = nil
                     lastScoredURL = nil
-                    appDelegate?.postLog("👁️ Left blocking page to \(info.hostname) — state cleared")
+                    debugLog("👁️ Left blocking page to \(info.hostname) — state cleared")
                 }
                 return
             } else {
@@ -688,11 +864,30 @@ class FocusMonitor {
             }
         }
 
-        // Skip if tab hasn't changed since last score
-        // But still record a cumulative sample if the tab is irrelevant
+        // Skip re-scoring if tab hasn't changed since last score.
+        // Still record work ticks (relevant) or cumulative samples (irrelevant).
         if info.title == lastScoredTitle && info.url == lastScoredURL {
             if lastScoreWasIrrelevant {
+                // Log assessment so the popover time tracking is accurate for irrelevant tabs too
+                let browserName = Self.browserAppNames[bundleId] ?? "Browser"
+                logAssessment(
+                    title: info.title, appName: browserName, hostname: info.hostname, intention: scheduleManager?.currentBlock?.title ?? "",
+                    relevant: false, confidence: 0, reason: "unchanged tab (irrelevant)", action: "none"
+                )
+                if scheduleManager?.currentTimeState.isWork == true {
+                    appDelegate?.earnedBrowseManager?.recordAssessment(relevant: false)
+                }
                 handleIrrelevantContent(targetKey: info.hostname, displayName: info.title)
+            } else if scheduleManager?.currentTimeState.isWork == true {
+                // Tab is still relevant — record ongoing work tick + assessment
+                appDelegate?.earnedBrowseManager?.recordWorkTick(seconds: Self.browserPollInterval)
+                appDelegate?.earnedBrowseManager?.recordAssessment(relevant: true)
+                // Log assessment so the popover time tracking is accurate
+                let browserName = Self.browserAppNames[bundleId] ?? "Browser"
+                logAssessment(
+                    title: info.title, appName: browserName, hostname: info.hostname, intention: scheduleManager?.currentBlock?.title ?? "",
+                    relevant: true, confidence: 100, reason: "unchanged tab", action: "none"
+                )
             }
             return
         }
@@ -705,7 +900,7 @@ class FocusMonitor {
             return
         }
 
-        appDelegate?.postLog("👁️ Scoring tab: \"\(info.title)\" (\(info.hostname))")
+        debugLog("👁️ Scoring tab: \"\(info.title)\" (\(info.hostname))")
 
         // Score asynchronously
         Task {
@@ -718,27 +913,35 @@ class FocusMonitor {
             )
 
             await MainActor.run {
+                // Stale check: browser may no longer be frontmost (scoring is async)
+                guard self.currentAppBundleId == bundleId else {
+                    self.appDelegate?.postLog("👁️ Scoring completed but \(bundleId) no longer frontmost — ignoring")
+                    return
+                }
+
                 if result.relevant {
                     self.lastScoreWasIrrelevant = false
+                    let browserName = Self.browserAppNames[bundleId] ?? "Browser"
                     self.logAssessment(
-                        title: info.title, intention: block.title,
+                        title: info.title, appName: browserName, hostname: info.hostname, intention: block.title,
                         relevant: true, confidence: result.confidence,
                         reason: result.reason, action: "none"
                     )
-                    self.appDelegate?.postLog("👁️ Tab is relevant: \"\(info.title)\"")
+                    self.debugLog("👁️ Tab is relevant: \"\(info.title)\"")
                     self.handleRelevantContent()
-                    // Record work tick for earned browse (only during work blocks)
-                    if self.scheduleManager?.currentTimeState == .workBlock {
-                        self.appDelegate?.earnedBrowseManager?.recordWorkTick(seconds: Self.browserPollInterval)
-                        self.appDelegate?.earnedBrowseManager?.recordAssessment(relevant: true)
-                    }
+                    // No initial tick here — browser poll timer handles ongoing earning
                 } else {
                     self.lastScoreWasIrrelevant = true
-                    // Record irrelevant assessment for deep work tracking
-                    if self.scheduleManager?.currentTimeState == .workBlock {
+                    let browserName = Self.browserAppNames[bundleId] ?? "Browser"
+                    self.logAssessment(
+                        title: info.title, appName: browserName, hostname: info.hostname, intention: block.title,
+                        relevant: false, confidence: result.confidence,
+                        reason: result.reason, action: "none"
+                    )
+                    // Record irrelevant assessment for earned browse tracking
+                    if self.scheduleManager?.currentTimeState.isWork == true {
                         self.appDelegate?.earnedBrowseManager?.recordAssessment(relevant: false)
                     }
-                    // Action will be determined by handleIrrelevantContent; log after
                     self.appDelegate?.postLog("👁️ Tab is NOT relevant: \"\(info.title)\" — \(result.reason)")
                     self.handleIrrelevantContent(targetKey: info.hostname, displayName: info.title, confidence: result.confidence, reason: result.reason)
                 }
@@ -818,7 +1021,7 @@ class FocusMonitor {
         stopWorkTickTimer()
         workTickTimer = Timer.scheduledTimer(withTimeInterval: Self.browserPollInterval, repeats: true) { [weak self] _ in
             guard let self = self,
-                  self.scheduleManager?.currentTimeState == .workBlock else {
+                  self.scheduleManager?.currentTimeState.isWork == true else {
                 self?.stopWorkTickTimer()
                 return
             }
@@ -834,6 +1037,11 @@ class FocusMonitor {
             self.appDelegate?.earnedBrowseManager?.recordWorkTick(seconds: Self.browserPollInterval)
             self.appDelegate?.earnedBrowseManager?.recordAssessment(relevant: true)
             self.appDelegate?.earnedBrowseManager?.updateLastActiveApp(name: appName, timestamp: Date())
+            // Decay distraction counter while on relevant/always-allowed app
+            if self.cumulativeDistractionSeconds > 0 {
+                let decay = Self.browserPollInterval * Self.distractionDecayRatio
+                self.cumulativeDistractionSeconds = max(0, self.cumulativeDistractionSeconds - decay)
+            }
         }
     }
 
@@ -842,14 +1050,34 @@ class FocusMonitor {
         workTickTimer = nil
     }
 
+    /// Start a repeating timer that logs neutral ticks (grey in popover) for screen lock, Intentional app, etc.
+    /// Neutral time: no earning, no penalty, no distraction decay — cumulative distraction stays frozen.
+    private func startNeutralTickTimer(appName: String) {
+        stopNeutralTickTimer()
+        neutralTickTimer = Timer.scheduledTimer(withTimeInterval: Self.browserPollInterval, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            self.logAssessment(
+                title: appName,
+                intention: self.scheduleManager?.currentBlock?.title ?? "",
+                relevant: true, confidence: 0, reason: "Neutral app", action: "none", neutral: true
+            )
+        }
+    }
+
+    private func stopNeutralTickTimer() {
+        neutralTickTimer?.invalidate()
+        neutralTickTimer = nil
+    }
+
     private func pollActiveTab(bundleId: String) {
         guard currentAppBundleId == bundleId,
               let manager = scheduleManager,
-              manager.currentTimeState == .workBlock else {
+              manager.currentTimeState.isWork else {
             stopBrowserPolling()
             return
         }
 
+        reconcileGrayscale()
         readAndScoreActiveTab(bundleId: bundleId)
     }
 
@@ -884,9 +1112,17 @@ class FocusMonitor {
             fullURL += "&backURL=\(encodedBack)"
         }
 
+        // Log enforcement event for popover visibility
+        logAssessment(
+            title: pageTitle, appName: appName, hostname: hostname,
+            intention: intention, relevant: false, confidence: 0,
+            reason: "Tab redirected to block page",
+            action: "blocked", isEvent: true
+        )
+
         // First check if already on the blocked page
         if let info = readActiveTabInfo(for: bundleId), info.url.contains("focus-blocked.html") {
-            appDelegate?.postLog("👁️ Already on focus-blocked page, skipping redirect")
+            debugLog("👁️ Already on focus-blocked page, skipping redirect")
             return
         }
 
@@ -913,20 +1149,45 @@ class FocusMonitor {
             DispatchQueue.main.async {
                 if let errorDict = error {
                     let msg = errorDict["NSAppleScriptErrorMessage"] as? String ?? "Unknown"
-                    self?.appDelegate?.postLog("👁️ Failed to redirect tab: \(msg)")
+                    self?.debugLog("👁️ Failed to redirect tab: \(msg)")
                 } else {
                     self?.tabIsOnBlockingPage = true
                     self?.blockedOriginalURL = originalURL
-                    self?.appDelegate?.postLog("👁️ Redirected tab to focus-blocked page")
+                    self?.debugLog("👁️ Redirected tab to focus-blocked page")
                 }
             }
+        }
+    }
+
+    // MARK: - Grayscale Reconciliation
+
+    /// Reconciliation check: ensure grayscale matches current state.
+    /// Called on every poll tick and on app-switch evaluation.
+    /// Grayscale should be ON only when ALL of these are true:
+    ///   1. We're in a work block (deep work or focus hours)
+    ///   2. grayscaleTriggeredThisBlock is true (we already decided to trigger it)
+    ///   3. The user is currently on irrelevant content (isCurrentlyIrrelevant)
+    /// If any condition is false and grayscale is active, restore color.
+    private func reconcileGrayscale() {
+        guard grayscaleController?.isActive == true else { return }
+
+        let inWorkBlock = scheduleManager?.currentTimeState.isWork == true
+        let shouldBeGray = inWorkBlock && grayscaleTriggeredThisBlock && isCurrentlyIrrelevant
+
+        if !shouldBeGray {
+            grayscaleController?.restoreSaturation()
+            appDelegate?.postLog("🌫️ Reconciler: grayscale OFF (work=\(inWorkBlock), triggered=\(grayscaleTriggeredThisBlock), irrelevant=\(isCurrentlyIrrelevant))")
+            logAssessment(title: currentTarget.isEmpty ? currentAppName : currentTarget, appName: currentAppName,
+                         intention: scheduleManager?.currentBlock?.title ?? "",
+                         relevant: true, confidence: 0, reason: "Content now relevant — grayscale removed",
+                         action: "grayscale_off", isEvent: true)
         }
     }
 
     // MARK: - Relevance Handling
 
     private func handleRelevantContent() {
-        appDelegate?.postLog("👁️ handleRelevantContent() — dismissing overlays, cancelling grace")
+        debugLog("👁️ handleRelevantContent — dismissing overlays")
         cancelGracePeriod()
         stopLingerTimer()
         isCurrentlyIrrelevant = false
@@ -935,6 +1196,30 @@ class FocusMonitor {
         nudgeController?.dismiss()
         overlayController?.dismiss()
         appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
+
+        // Restore grayscale whenever user is on relevant content (any app, any tab)
+        reconcileGrayscale()
+        deepWorkTimerController?.update(isDistracted: false)
+
+        // Decay cumulative distraction counter when back on relevant content
+        // (counter persists — thresholds already crossed stay crossed)
+        if cumulativeDistractionSeconds > 0 {
+            let decay = Self.browserPollInterval * Self.distractionDecayRatio
+            cumulativeDistractionSeconds = max(0, cumulativeDistractionSeconds - decay)
+            appDelegate?.postLog("👁️ Distraction decay: now \(Int(cumulativeDistractionSeconds))s")
+
+            // Reset one-shot flags when counter decays below their thresholds
+            if cumulativeDistractionSeconds < Self.deepWorkRedirectThreshold {
+                deepWorkRedirectFired = false
+            }
+        }
+
+        // Reset per-content nudge tracking (but NOT interventionCount or lastInterventionAtDistraction —
+        // those are cumulative and persist until block change or counter reaches 0)
+        nudgeShownForCurrentContent = false
+
+        // Dismiss active intervention if showing
+        interventionController?.dismiss()
 
         // Track last relevant browser tab for smart "Back to work"
         if let bundleId = currentAppBundleId,
@@ -945,75 +1230,75 @@ class FocusMonitor {
         }
     }
 
-    /// Tiered enforcement for irrelevant content.
-    /// Browser tabs during work blocks use cumulative irrelevance tracking (rolling window).
-    /// Native apps and noPlan/unplanned use grace periods before showing native overlay.
+    /// Block-type-aware enforcement for irrelevant content.
+    ///
+    /// **Deep Work** (browsers): nudge → 30s → overlay → 5 min cumulative → tab redirect
+    /// **Deep Work** (native apps): grace period → overlay
+    /// **Focus Hours** (browsers): level 1 nudge (auto-dismiss 8s) → 5 min → level 2 nudge (persistent, reappears 90s)
+    /// **Focus Hours** (native apps): grace period → nudge (not overlay)
     private func handleIrrelevantContent(targetKey: String, displayName: String, confidence: Int = 0, reason: String = "") {
-        // Check suppression ("5 more min" or snooze)
+        // Check suppression
         if let until = suppressedUntil[targetKey], Date() < until { return }
 
-        // If already showing overlay for this same target, don't re-trigger
-        if isCurrentlyIrrelevant && currentTargetKey == targetKey {
-            return
-        }
+        // Content approved via justification — skip enforcement
+        if sessionOverrides.contains(targetKey) { return }
 
         let isBrowser = currentAppBundleId.map { Self.browserBundleIds.contains($0) } ?? false
-        let isWorkBlock = scheduleManager?.currentTimeState == .workBlock
+        guard let timeState = scheduleManager?.currentTimeState, timeState.isWork else { return }
+        let blockType = scheduleManager?.currentBlock?.blockType ?? .focusHours
 
-        if isBrowser && isWorkBlock {
-            // Phase 2 complete: extension handles social media enforcement with earned browse UI.
-            // Skip FocusMonitor overlay for social media in extension-connected browsers.
-            if isSocialMedia(targetKey) {
-                if let bundleId = currentAppBundleId {
-                    let connectedBrowsers = appDelegate?.socketRelayServer?.getConnectedBrowserBundleIds() ?? []
-                    if connectedBrowsers.contains(bundleId) {
-                        appDelegate?.postLog("👁️ Social media (\(targetKey)) in extension-connected browser — letting extension handle enforcement")
-                        return
-                    }
-                }
+        // Increment cumulative distraction counter (always — even for extension-handled sites)
+        cumulativeDistractionSeconds += Self.browserPollInterval
+
+        // Check if extension handles nudge/redirect enforcement for this site
+        let extensionHandled: Bool = {
+            guard isBrowser, isSocialMedia(targetKey), let bundleId = currentAppBundleId else { return false }
+            let connectedBrowsers = appDelegate?.socketRelayServer?.getConnectedBrowserBundleIds() ?? []
+            return connectedBrowsers.contains(bundleId)
+        }()
+
+        appDelegate?.postLog("👁️ Distraction: \(Int(cumulativeDistractionSeconds))s [\(blockType.rawValue)]\(extensionHandled ? " (ext handles nudges)" : "")")
+
+        // Grayscale + deep work timer apply regardless of who handles nudges
+        if isBrowser && extensionHandled {
+            // Grayscale: instant if already triggered this block, otherwise at threshold
+            let shouldGrayscale = grayscaleTriggeredThisBlock
+                || cumulativeDistractionSeconds >= Self.focusGrayscaleThreshold
+            if shouldGrayscale && !(grayscaleController?.isActive ?? false) {
+                grayscaleController?.startDesaturation()
+                grayscaleTriggeredThisBlock = true
+                appDelegate?.postLog("🌫️ Grayscale started at \(Int(cumulativeDistractionSeconds))s distraction (extension-handled site)")
+                logAssessment(title: currentTarget, appName: currentAppName, intention: scheduleManager?.currentBlock?.title ?? "",
+                             relevant: false, confidence: 0, reason: "Grayscale at \(Int(cumulativeDistractionSeconds))s distraction (extension-handled)",
+                             action: "grayscale_on", isEvent: true)
             }
-
-            // ── Cumulative irrelevance tracking (browser work blocks) ──
-            let now = Date()
-
-            // Deduplicate: at most one sample per ~half poll interval
-            if irrelevanceSamples.last.map({ now.timeIntervalSince($0) >= Self.browserPollInterval / 2 }) ?? true {
-                irrelevanceSamples.append(now)
+            // Deep Work: timer dot red
+            if blockType == .deepWork {
+                deepWorkTimerController?.update(isDistracted: true)
             }
+            return // Extension handles nudges/redirects for social media
+        }
 
-            // Prune samples outside window
-            let windowStart = now.addingTimeInterval(-Self.irrelevanceWindowSeconds)
-            irrelevanceSamples.removeAll { $0 < windowStart }
+        let intention = scheduleManager?.currentBlock?.title ?? ""
 
-            let cumulativeSeconds = TimeInterval(irrelevanceSamples.count) * Self.browserPollInterval
-            appDelegate?.postLog("👁️ Cumulative irrelevance: \(Int(cumulativeSeconds))s / \(Int(Self.irrelevanceThresholdSeconds))s")
-
-            if cumulativeSeconds >= Self.irrelevanceThresholdSeconds {
-                // Threshold met → block
-                warnedTargets.insert(targetKey)
-                logAssessment(title: displayName, intention: scheduleManager?.currentBlock?.title ?? "",
-                             relevant: false, confidence: confidence, reason: reason, action: "blocked")
-
-                var originalURL: String? = nil
-                if let bundleId = currentAppBundleId, let info = readActiveTabInfo(for: bundleId) {
-                    originalURL = info.url
-                    if info.url.contains("focus-blocked.html") { return }
-                }
-
-                let intention = scheduleManager?.currentBlock?.title ?? ""
-                blockActiveTab(intention: intention, pageTitle: displayName,
-                              hostname: targetKey, originalURL: originalURL)
-
-                currentTarget = displayName
-                currentTargetKey = targetKey
-                isCurrentlyIrrelevant = true
-                irrelevanceSamples.removeAll()  // Reset for after suppression
+        if isBrowser {
+            // ── Browser enforcement (differentiated by block type) ──
+            switch blockType {
+            case .deepWork:
+                handleDeepWorkBrowserIrrelevance(targetKey: targetKey, displayName: displayName,
+                                                  intention: intention, confidence: confidence, reason: reason)
+            case .focusHours:
+                handleFocusHoursBrowserIrrelevance(targetKey: targetKey, displayName: displayName,
+                                                    intention: intention, confidence: confidence, reason: reason)
+            case .freeTime:
+                break // Should never reach here — freeTime is filtered out earlier
             }
         } else {
-            // ── Grace period for native apps and noPlan/unplanned (unchanged) ──
-            let enforcement = scheduleManager?.focusEnforcement ?? "block"
+            // ── Native app enforcement ──
+            // If already showing overlay/nudge for this same target, don't re-trigger
+            if isCurrentlyIrrelevant && currentTargetKey == targetKey { return }
+
             let alreadyWarned = warnedTargets.contains(targetKey)
-            let intention = scheduleManager?.currentBlock?.title ?? ""
             let focusDuration = computeFocusDurationMinutes()
 
             let pending = PendingOverlayInfo(
@@ -1021,7 +1306,6 @@ class FocusMonitor {
                 displayName: displayName,
                 intention: intention,
                 reason: reason,
-                enforcement: enforcement,
                 isRevisit: alreadyWarned,
                 focusDurationMinutes: focusDuration,
                 isNoPlan: false,
@@ -1032,15 +1316,409 @@ class FocusMonitor {
         }
     }
 
+    // MARK: - Deep Work Browser Enforcement
+
+    /// Deep Work aggressive browser enforcement (all threshold-driven):
+    /// - 10s cumulative: nudge + timer dot red
+    /// - 20s cumulative: auto-redirect to last relevant URL + grayscale starts
+    /// - 20s+ (revisit): instant redirect if site already redirected this block
+    /// - 300s cumulative: intervention overlay (escalating 60s/90s/120s)
+    private func handleDeepWorkBrowserIrrelevance(targetKey: String, displayName: String,
+                                                   intention: String, confidence: Int, reason: String) {
+        // Timer dot → red immediately
+        deepWorkTimerController?.update(isDistracted: true)
+
+        // Site was already redirected during this block → instant redirect
+        if deepWorkRedirectedSites.contains(targetKey) {
+            appDelegate?.postLog("👁️ Deep Work: instant redirect (revisit) for \(targetKey)")
+            navigateToRelevant()
+            return
+        }
+
+        // Track current target
+        if currentTargetKey != targetKey {
+            nudgeShownForCurrentContent = false
+            currentTarget = displayName
+            currentTargetKey = targetKey
+        }
+
+        // Check thresholds in descending order (highest priority first)
+
+        // 300s+: Intervention overlay (and re-trigger every 300s)
+        if cumulativeDistractionSeconds >= Self.deepWorkInterventionThreshold
+            && (cumulativeDistractionSeconds - lastInterventionAtDistraction >= Self.deepWorkInterventionThreshold)
+            && interventionEnabled {
+            lastInterventionAtDistraction = cumulativeDistractionSeconds
+            interventionCount += 1
+            nudgeController?.dismiss()
+            let duration = min(60 + ((interventionCount - 1) * 30), 120)
+            showInterventionOverlay(intention: intention, displayName: displayName, duration: duration)
+            return
+        }
+
+        // 20s: Auto-redirect + grayscale
+        if cumulativeDistractionSeconds >= Self.deepWorkRedirectThreshold && !deepWorkRedirectFired {
+            deepWorkRedirectFired = true
+            deepWorkAutoRedirect()
+            return
+        }
+
+        // 10s: First nudge
+        if cumulativeDistractionSeconds >= Self.deepWorkNudgeThreshold && !nudgeShownForCurrentContent {
+            nudgeShownForCurrentContent = true
+            showNudgeForContent(intention: intention, displayName: displayName, escalated: false)
+        }
+    }
+
+    /// Deep Work: cumulative threshold reached → auto-redirect tab to last relevant URL + start grayscale.
+    private func deepWorkAutoRedirect() {
+        guard scheduleManager?.currentBlock?.blockType == .deepWork else { return }
+
+        nudgeController?.dismiss()
+
+        let intention = scheduleManager?.currentBlock?.title ?? ""
+        let targetKey = currentTargetKey
+
+        // Add to redirected set for instant redirect on revisit
+        deepWorkRedirectedSites.insert(targetKey)
+
+        // Start grayscale at the second notification (the redirect)
+        if !(grayscaleController?.isActive ?? false) {
+            grayscaleController?.startDesaturation()
+            grayscaleTriggeredThisBlock = true
+            appDelegate?.postLog("🌫️ Deep Work: grayscale started on redirect")
+            logAssessment(title: currentTarget, appName: currentAppName, intention: scheduleManager?.currentBlock?.title ?? "",
+                         relevant: false, confidence: 0, reason: "Deep Work auto-redirect grayscale",
+                         action: "grayscale_on", isEvent: true)
+        }
+
+        appDelegate?.postLog("👁️ Deep Work: auto-redirect at \(Int(cumulativeDistractionSeconds))s cumulative — \(currentTarget)")
+
+        // Navigate to last relevant URL
+        navigateToRelevant()
+
+        // Show brief auto-dismissing nudge confirming the redirect
+        setupNudgeCallbacks()
+        nudgeController?.showNudge(
+            intention: intention,
+            appOrPage: "Not related to \"\(intention)\"",
+            escalated: false
+        )
+        // Auto-dismiss the nudge after 5s (shorter than normal 8s)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
+            self?.nudgeController?.dismiss()
+        }
+
+        // Log enforcement event
+        let browserName = currentAppBundleId.flatMap { Self.browserAppNames[$0] } ?? ""
+        logAssessment(
+            title: currentTarget, appName: browserName.isEmpty ? currentTarget : browserName,
+            intention: intention, relevant: false, confidence: 0,
+            reason: "Deep Work auto-redirect",
+            action: "blocked", isEvent: true
+        )
+    }
+
+    /// Navigate the active browser tab to the last relevant URL (or google.com as fallback).
+    private func navigateToRelevant() {
+        guard let bundleId = currentAppBundleId, Self.browserBundleIds.contains(bundleId) else { return }
+        let url = lastRelevantTabURL ?? "https://www.google.com"
+        navigateActiveTab(to: url, bundleId: bundleId)
+        tabIsOnBlockingPage = false
+        isCurrentlyIrrelevant = false
+    }
+
+    /// Redirect browser tab to focus-blocked.html (Deep Work only, after sustained distraction)
+    private func redirectBrowserTab(targetKey: String, displayName: String, intention: String) {
+        var originalURL: String? = nil
+        if let bundleId = currentAppBundleId, let info = readActiveTabInfo(for: bundleId) {
+            originalURL = info.url
+            if info.url.contains("focus-blocked.html") { return }
+        }
+
+        blockActiveTab(intention: intention, pageTitle: displayName,
+                      hostname: targetKey, originalURL: originalURL)
+
+        cumulativeDistractionSeconds = 0  // Reset after redirect
+        appDelegate?.postLog("👁️ Deep work: redirected tab to focus-blocked page")
+    }
+
+    // MARK: - Focus Hours Browser Enforcement
+
+    /// Focus Hours browser enforcement — all threshold-driven off cumulativeDistractionSeconds:
+    /// 10s: Level 1 nudge #1 (auto-dismiss 8s)
+    /// 30s: Grayscale starts (30s fade to dark)
+    /// 70s: Level 1 nudge #2 (+60s from first)
+    /// 130s: Level 1 nudge #3
+    /// 190s: Level 1 nudge #4
+    /// 240s: Warning nudge (red, "intervention in 60s")
+    /// 300s: Intervention overlay (60s mandatory, escalating)
+    /// 600s: Re-intervention (90s mandatory)
+    /// 900s: Re-intervention (120s mandatory, capped)
+    /// Between interventions: Level 2 persistent nudges (re-show on each poll if dismissed)
+    private func handleFocusHoursBrowserIrrelevance(targetKey: String, displayName: String,
+                                                     intention: String, confidence: Int, reason: String) {
+        // Track current target
+        currentTarget = displayName
+        currentTargetKey = targetKey
+
+        // ── Grayscale: instant if already triggered this block, otherwise at 30s ──
+        let shouldGrayscale = grayscaleTriggeredThisBlock
+            || cumulativeDistractionSeconds >= Self.focusGrayscaleThreshold
+        if shouldGrayscale && !(grayscaleController?.isActive ?? false) {
+            grayscaleController?.startDesaturation()
+            grayscaleTriggeredThisBlock = true
+            appDelegate?.postLog("🌫️ Focus Hours: grayscale at \(Int(cumulativeDistractionSeconds))s\(grayscaleTriggeredThisBlock ? " (re-trigger)" : "")")
+            logAssessment(title: displayName, appName: currentAppName, intention: intention,
+                         relevant: false, confidence: 0, reason: "Focus Hours grayscale at \(Int(cumulativeDistractionSeconds))s",
+                         action: "grayscale_on", isEvent: true)
+        }
+
+        // ── Check thresholds in descending order ──
+
+        // 300s+: Intervention overlay (re-trigger every 300s)
+        if cumulativeDistractionSeconds >= Self.focusInterventionThreshold
+            && (cumulativeDistractionSeconds - lastInterventionAtDistraction >= Self.focusInterventionThreshold)
+            && interventionEnabled {
+            lastInterventionAtDistraction = cumulativeDistractionSeconds
+            interventionCount += 1
+            nudgeController?.dismiss()
+            let duration = min(60 + ((interventionCount - 1) * 30), 120)
+            showInterventionOverlay(intention: intention, displayName: displayName, duration: duration)
+            return
+        }
+
+        // Past intervention threshold but between re-triggers: Level 2 persistent nudges
+        if cumulativeDistractionSeconds >= Self.focusInterventionThreshold {
+            // Show level 2 nudge if not already showing one (and intervention isn't showing)
+            if !(nudgeController?.isShowing ?? false) && !(interventionController?.isShowing ?? false) {
+                let distractionMinutes = Int(cumulativeDistractionSeconds / 60)
+                showNudgeForContent(intention: intention, displayName: displayName,
+                                   escalated: true, distractionMinutes: distractionMinutes)
+            }
+            return
+        }
+
+        // 240s: Warning nudge (red, "intervention in 60s")
+        if cumulativeDistractionSeconds >= Self.focusWarningThreshold
+            && interventionEnabled
+            && lastNudgeShownAtDistraction < Self.focusWarningThreshold {
+            lastNudgeShownAtDistraction = cumulativeDistractionSeconds
+            showNudgeForContent(intention: intention, displayName: displayName,
+                               escalated: true, distractionMinutes: Int(cumulativeDistractionSeconds / 60),
+                               warning: true)
+            return
+        }
+
+        // 10s+: Level 1 nudges — first at 10s, then every +60s (70, 130, 190)
+        if cumulativeDistractionSeconds >= Self.focusNudgeThreshold
+            && cumulativeDistractionSeconds < Self.focusWarningThreshold {
+            let shouldShow = !nudgeShownForCurrentContent ||
+                (cumulativeDistractionSeconds - lastNudgeShownAtDistraction >= Self.focusNudgeRepeatInterval)
+            if shouldShow {
+                nudgeShownForCurrentContent = true
+                lastNudgeShownAtDistraction = cumulativeDistractionSeconds
+                showNudgeForContent(intention: intention, displayName: displayName, escalated: false)
+            }
+        }
+    }
+
+    // MARK: - Intervention Overlay
+
+    /// Whether focus interventions are enabled (default: true).
+    private var interventionEnabled: Bool {
+        return UserDefaults.standard.object(forKey: "focusInterventionEnabled") as? Bool ?? true
+    }
+
+    /// Show the full-screen intervention overlay with a random game.
+    /// Duration escalates: 60s (1st), 90s (2nd), 120s (3rd+).
+    private func showInterventionOverlay(intention: String, displayName: String, duration: Int = 60) {
+        let distractionMinutes = Int(cumulativeDistractionSeconds / 60)
+        // Compute focus score from current block stats
+        let focusScore: Int = {
+            guard let blockId = appDelegate?.earnedBrowseManager?.activeBlockId,
+                  let stats = appDelegate?.earnedBrowseManager?.blockFocusStats[blockId] else { return 0 }
+            return stats.focusScore
+        }()
+        interventionController?.onComplete = { [weak self] in
+            self?.appDelegate?.postLog("🧩 Intervention completed (count: \(self?.interventionCount ?? 0))")
+            // Level 2 nudges will resume on next poll via threshold check
+        }
+        interventionController?.showIntervention(
+            intention: intention, displayName: displayName,
+            distractionMinutes: distractionMinutes,
+            duration: duration, focusScore: focusScore
+        )
+        // Log enforcement event
+        let browserName = currentAppBundleId.flatMap { Self.browserAppNames[$0] } ?? ""
+        logAssessment(
+            title: displayName, appName: browserName.isEmpty ? displayName : browserName,
+            intention: intention, relevant: false, confidence: 0,
+            reason: "Focus intervention (\(distractionMinutes) min off-task)",
+            action: "intervention", isEvent: true
+        )
+    }
+
+    // MARK: - Nudge Display Helper
+
+    /// Show a nudge card with the appropriate callbacks wired up.
+    private func showNudgeForContent(intention: String, displayName: String,
+                                     escalated: Bool = false, distractionMinutes: Int = 0,
+                                     warning: Bool = false) {
+        setupNudgeCallbacks()
+        nudgeController?.showNudge(
+            intention: intention,
+            appOrPage: displayName,
+            escalated: escalated,
+            distractionMinutes: distractionMinutes,
+            warning: warning
+        )
+        appDelegate?.earnedBrowseManager?.recordNudge()
+        // Log enforcement event for popover visibility
+        let browserName = currentAppBundleId.flatMap { Self.browserAppNames[$0] } ?? ""
+        let reason: String
+        if warning {
+            reason = "Warning nudge (intervention in 60s)"
+        } else if escalated {
+            reason = "Level 2 nudge (persistent)"
+        } else {
+            reason = "Level 1 nudge"
+        }
+        logAssessment(
+            title: displayName, appName: browserName.isEmpty ? displayName : browserName,
+            intention: intention, relevant: false, confidence: 0,
+            reason: reason,
+            action: "nudge", isEvent: true
+        )
+    }
+
+    /// Wire up nudge button callbacks (idempotent — safe to call multiple times).
+    private func setupNudgeCallbacks() {
+        nudgeController?.onGotIt = { [weak self] in
+            self?.appDelegate?.postLog("💬 Nudge: 'Got it'")
+            // Don't clear isCurrentlyIrrelevant — user acknowledged but content is still irrelevant
+        }
+        nudgeController?.onThisIsRelevant = { [weak self] justification in
+            self?.handleJustification(text: justification)
+        }
+    }
+
+    // MARK: - Justification Re-evaluation
+
+    /// Handle "This is relevant" justification from nudge.
+    /// Re-runs AI relevance check with the user's explanation as additional context.
+    /// If accepted: marks content as relevant for this session.
+    /// If rejected: escalates enforcement (Deep Work → overlay, Focus Hours → persistent nudge).
+    private func handleJustification(text: String) {
+        guard let scorer = relevanceScorer,
+              let block = scheduleManager?.currentBlock,
+              let manager = scheduleManager else {
+            appDelegate?.postLog("💬 Justification: no scorer/block — rejecting")
+            escalateAfterRejectedJustification()
+            return
+        }
+
+        let targetKey = currentTargetKey
+        let displayName = currentTarget
+        let blockType = block.blockType
+
+        appDelegate?.postLog("💬 Justification submitted: \"\(text)\" for \"\(displayName)\"")
+
+        Task {
+            // Re-run relevance check with justification as additional context
+            let enrichedDescription = "\(block.description)\nUser explains why this is relevant: \(text)"
+            let result = await scorer.scoreRelevance(
+                pageTitle: displayName,
+                intention: block.title,
+                intentionDescription: enrichedDescription,
+                profile: manager.profile,
+                dailyPlan: manager.todaySchedule?.dailyPlan ?? ""
+            )
+
+            await MainActor.run {
+                if result.relevant {
+                    // AI accepted
+                    if blockType == .deepWork {
+                        // Deep Work: shorter 3-min suppression, NO permanent whitelist
+                        self.suppressedUntil[targetKey] = Date().addingTimeInterval(Self.deepWorkSuppressionSeconds)
+                        // Pause grayscale during suppression
+                        self.grayscaleController?.restoreSaturation()
+                        self.deepWorkTimerController?.update(isDistracted: false)
+                        self.appDelegate?.postLog("💬 Deep Work justification ACCEPTED for \"\(displayName)\" — 3 min suppression (no whitelist)")
+                        self.logAssessment(title: displayName, appName: self.currentAppName, intention: block.title,
+                                          relevant: true, confidence: 0, reason: "Justification accepted — grayscale paused",
+                                          action: "grayscale_off", isEvent: true)
+                    } else {
+                        // Focus Hours: permanent session override + scorer whitelist
+                        self.sessionOverrides.insert(targetKey)
+                        scorer.approvePageTitle(displayName, for: block.title)
+                    }
+                    self.handleRelevantContent()
+                    // Record work tick since the content is now considered relevant
+                    self.appDelegate?.earnedBrowseManager?.recordWorkTick(seconds: Self.browserPollInterval)
+                    self.appDelegate?.earnedBrowseManager?.recordAssessment(relevant: true)
+                    self.logAssessment(
+                        title: displayName, appName: self.currentAppName, intention: block.title,
+                        relevant: true, confidence: result.confidence,
+                        reason: "User justified: \(text)", action: "none"
+                    )
+                    self.appDelegate?.postLog("💬 Justification ACCEPTED for \"\(displayName)\"")
+                } else {
+                    // AI rejected: escalate
+                    self.logAssessment(
+                        title: displayName, appName: self.currentAppName, intention: block.title,
+                        relevant: false, confidence: result.confidence,
+                        reason: "Justification rejected: \(text)", action: blockType == .deepWork ? "blocked" : "nudge"
+                    )
+                    self.appDelegate?.postLog("💬 Justification REJECTED for \"\(displayName)\" — \(result.reason)")
+                    self.escalateAfterRejectedJustification()
+                }
+            }
+        }
+    }
+
+    /// Escalate enforcement after a rejected justification.
+    /// Deep Work: show full blocking overlay.
+    /// Focus Hours: show persistent level 2 nudge.
+    private func escalateAfterRejectedJustification() {
+        let blockType = scheduleManager?.currentBlock?.blockType ?? .focusHours
+        let intention = scheduleManager?.currentBlock?.title ?? ""
+
+        switch blockType {
+        case .deepWork:
+            // Show full blocking overlay immediately
+            nudgeController?.dismiss()
+            let focusDuration = computeFocusDurationMinutes()
+            showOverlay(
+                intention: intention,
+                reason: "Content not related to your deep work focus.",
+                focusDurationMinutes: focusDuration,
+                isNoPlan: false,
+                displayName: currentTarget
+            )
+            warnedTargets.insert(currentTargetKey)
+            isCurrentlyIrrelevant = true
+
+        case .focusHours:
+            // Show persistent level 2 nudge (will re-show on next poll via threshold check)
+            let distractionMinutes = Int(cumulativeDistractionSeconds / 60)
+            showNudgeForContent(intention: intention, displayName: currentTarget,
+                               escalated: true, distractionMinutes: max(1, distractionMinutes))
+
+        case .freeTime:
+            break
+        }
+    }
+
     // MARK: - Overlay Display
 
-    /// Show a progressive native overlay (NSWindow) that covers the screen.
-    /// Works for all apps — browsers and non-browsers — without requiring a browser extension.
-    private func showOverlay(intention: String, reason: String, enforcement: String,
-                             isRevisit: Bool, focusDurationMinutes: Int,
-                             isNoPlan: Bool = false, canSnooze5Min: Bool = true,
+    /// Show a blocking native overlay (NSWindow) that covers the screen.
+    /// Used for Deep Work blocks (after nudge timeout) and noPlan/unplanned time.
+    private func showOverlay(intention: String, reason: String,
+                             focusDurationMinutes: Int,
+                             isNoPlan: Bool = false,
                              displayName: String? = nil) {
-        appDelegate?.postLog("🌑 showOverlay called: intention=\"\(intention)\", enforcement=\(enforcement), isRevisit=\(isRevisit), isNoPlan=\(isNoPlan), displayName=\(displayName ?? "nil")")
+        appDelegate?.postLog("🌑 showOverlay called: intention=\"\(intention)\", isNoPlan=\(isNoPlan), displayName=\(displayName ?? "nil")")
         overlayController?.onBackToWork = { [weak self] in
             if isNoPlan {
                 self?.handleOpenIntentional()
@@ -1048,14 +1726,8 @@ class FocusMonitor {
                 self?.handleOverlayAction(action: "back_to_work", reason: nil)
             }
         }
-        overlayController?.onFiveMoreMinutes = { [weak self] reason in
-            self?.handleOverlayAction(action: "five_more_min", reason: reason)
-        }
         overlayController?.onSnooze = { [weak self] in
             self?.handleSnooze()
-        }
-        overlayController?.onSnooze5Min = { [weak self] in
-            self?.handleSnooze5Min()
         }
         overlayController?.onStartQuickBlock = { [weak self] (title: String, duration: Int, isFree: Bool) in
             self?.handleStartQuickBlock(title: title, durationMinutes: duration, isFree: isFree)
@@ -1074,17 +1746,25 @@ class FocusMonitor {
         }
         let minutesUntilNext: Int? = nextBlock.map { $0.startMinutes - ScheduleManager.currentMinuteOfDay() }
 
+        // Log enforcement event for popover visibility
+        let browserName = currentAppBundleId.flatMap { Self.browserAppNames[$0] } ?? ""
+        let overlayDisplayName = displayName ?? currentTarget
+        logAssessment(
+            title: overlayDisplayName, appName: browserName.isEmpty ? overlayDisplayName : browserName,
+            intention: intention, relevant: false, confidence: 0,
+            reason: isNoPlan ? "Blocking overlay (no plan)" : "Blocking overlay",
+            action: "blocked", isEvent: true
+        )
+
         let canSnooze30 = (scheduleManager?.snoozeCount == 0) && isNoPlan
+        appDelegate?.earnedBrowseManager?.recordNudge()
         DispatchQueue.main.async { [weak self] in
             self?.overlayController?.showOverlay(
                 intention: intention,
                 reason: reason,
-                enforcement: enforcement,
-                isRevisit: isRevisit,
                 focusDurationMinutes: focusDurationMinutes,
                 isNoPlan: isNoPlan,
                 canSnooze: canSnooze30,
-                canSnooze5Min: canSnooze5Min,
                 nextBlockTitle: nextBlockTitle,
                 nextBlockTime: nextBlockTime,
                 minutesUntilNextBlock: minutesUntilNext,
@@ -1121,6 +1801,8 @@ class FocusMonitor {
         let endHour = calendar.component(.hour, from: endDate)
         let endMinute = calendar.component(.minute, from: endDate)
 
+        let blockType: ScheduleManager.BlockType = isFree ? .freeTime : .focusHours
+
         let block = ScheduleManager.FocusBlock(
             id: UUID().uuidString,
             title: title,
@@ -1129,13 +1811,13 @@ class FocusMonitor {
             startMinute: startMinute,
             endHour: endHour,
             endMinute: endMinute,
-            isFree: isFree
+            blockType: blockType
         )
 
         scheduleManager?.addBlock(block)
         overlayController?.dismiss()
         isCurrentlyIrrelevant = false
-        appDelegate?.postLog("💬 Quick block created: \"\(title)\" (\(durationMinutes) min, free: \(isFree))")
+        appDelegate?.postLog("💬 Quick block created: \"\(title)\" (\(durationMinutes) min, type: \(blockType.rawValue))")
     }
 
     /// Handle "Snooze for 30 min" — snooze via ScheduleManager and dismiss overlay.
@@ -1155,7 +1837,7 @@ class FocusMonitor {
     private func startGracePeriod(pending: PendingOverlayInfo) {
         // Already in grace for this exact target — let it run
         if pendingOverlay?.targetKey == pending.targetKey && graceTimer != nil {
-            appDelegate?.postLog("⏳ Grace already running for \(pending.targetKey) — letting it continue")
+            debugLog("⏳ Grace already running for \(pending.targetKey) — letting it continue")
             return
         }
 
@@ -1163,13 +1845,22 @@ class FocusMonitor {
         cancelGracePeriod()
 
         let duration: TimeInterval
+        let isDeepWork = scheduleManager?.currentBlock?.blockType == .deepWork
         if pending.isNoPlan {
             // Unplanned/noPlan: short grace — prompt to plan quickly
             duration = Self.unplannedGraceDurationSeconds
+        } else if isDeepWork {
+            // Deep Work native app: short 5s grace (aggressive enforcement)
+            duration = Self.deepWorkNativeGraceSeconds
         } else if pending.isRevisit {
             duration = Self.revisitGraceDurationSeconds
         } else {
             duration = Self.graceDurationSeconds
+        }
+
+        // Deep Work native apps: mark timer as distracted during grace
+        if isDeepWork {
+            deepWorkTimerController?.update(isDistracted: true)
         }
 
         pendingOverlay = pending
@@ -1177,43 +1868,49 @@ class FocusMonitor {
             self?.graceTimerFired()
         }
 
-        appDelegate?.postLog("⏳ Grace period started: \(Int(duration))s for \(pending.displayName) (revisit: \(pending.isRevisit))")
+        debugLog("⏳ Grace period started: \(Int(duration))s for \(pending.displayName) (revisit: \(pending.isRevisit))")
     }
 
-    /// Grace timer fired — show native overlay.
+    /// Grace timer fired — show overlay (Deep Work / noPlan) or nudge (Focus Hours).
     /// Only fires for native apps and noPlan/unplanned (browser work blocks use cumulative tracking).
     private func graceTimerFired() {
         guard let pending = pendingOverlay else { return }
 
-        appDelegate?.postLog("⏳ Grace expired for \(pending.displayName)")
+        debugLog("⏳ Grace expired for \(pending.displayName)")
 
         // Mark as warned (for revisit tracking)
         if !pending.isRevisit {
             warnedTargets.insert(pending.targetKey)
         }
 
-        // Log assessment
-        logAssessment(
-            title: pending.displayName,
-            intention: pending.intention,
-            relevant: false,
-            confidence: pending.confidence,
-            reason: pending.reason,
-            action: pending.enforcement == "block" ? (pending.isRevisit ? "blocked" : "overlay") : "nudge"
-        )
+        let blockType = scheduleManager?.currentBlock?.blockType ?? .focusHours
 
-        // Always show native overlay (grace only used for native apps + noPlan)
-        let canSnooze5Min = pending.isNoPlan ? !noPlanSnoozed : !snoozedTargets.contains(pending.targetKey)
-        showOverlay(
-            intention: pending.intention,
-            reason: pending.reason,
-            enforcement: pending.enforcement,
-            isRevisit: pending.isRevisit,
-            focusDurationMinutes: pending.focusDurationMinutes,
-            isNoPlan: pending.isNoPlan,
-            canSnooze5Min: canSnooze5Min,
-            displayName: pending.displayName
-        )
+        // noPlan/unplanned always get overlay (regardless of block type)
+        if pending.isNoPlan {
+            logAssessment(title: pending.displayName, appName: currentAppName, intention: pending.intention,
+                         relevant: false, confidence: pending.confidence, reason: pending.reason, action: "overlay")
+            showOverlay(intention: pending.intention, reason: pending.reason,
+                       focusDurationMinutes: pending.focusDurationMinutes, isNoPlan: true, displayName: pending.displayName)
+        } else if blockType == .deepWork {
+            // Deep Work native app: show full blocking overlay + start grayscale
+            if !(grayscaleController?.isActive ?? false) {
+                grayscaleController?.startDesaturation()
+                grayscaleTriggeredThisBlock = true
+                appDelegate?.postLog("🌫️ Deep Work: grayscale started on native app overlay")
+                logAssessment(title: pending.displayName, appName: currentAppName, intention: pending.intention,
+                             relevant: false, confidence: 0, reason: "Deep Work native app overlay grayscale",
+                             action: "grayscale_on", isEvent: true)
+            }
+            logAssessment(title: pending.displayName, appName: currentAppName, intention: pending.intention,
+                         relevant: false, confidence: pending.confidence, reason: pending.reason, action: "blocked")
+            showOverlay(intention: pending.intention, reason: pending.reason,
+                       focusDurationMinutes: pending.focusDurationMinutes, isNoPlan: false, displayName: pending.displayName)
+        } else {
+            // Focus Hours native app: show nudge instead of overlay
+            logAssessment(title: pending.displayName, appName: currentAppName, intention: pending.intention,
+                         relevant: false, confidence: pending.confidence, reason: pending.reason, action: "nudge")
+            showNudgeForContent(intention: pending.intention, displayName: pending.displayName, escalated: false)
+        }
 
         // Update state
         currentTarget = pending.displayName
@@ -1229,49 +1926,11 @@ class FocusMonitor {
     /// Cancel any active grace period.
     private func cancelGracePeriod() {
         if pendingOverlay != nil {
-            appDelegate?.postLog("⏳ Grace cancelled")
+            debugLog("⏳ Grace cancelled")
         }
         graceTimer?.invalidate()
         graceTimer = nil
         pendingOverlay = nil
-    }
-
-    // MARK: - Snooze (5 min, no reason required)
-
-    /// Handle the simple "Snooze 5 min" action — suppresses target for 5 min with no reason needed.
-    /// For noPlan/unplanned overlays, uses a global snooze (applies to ALL apps).
-    /// For work block overlays, uses per-target suppression. Limited to 1 use per target per block.
-    private func handleSnooze5Min() {
-        let targetKey = currentTargetKey
-        snoozedTargets.insert(targetKey)
-
-        if currentOverlayIsNoPlan {
-            // Global snooze: suppress ALL noPlan overlays for 5 minutes
-            noPlanSnoozeUntil = Date().addingTimeInterval(Self.suppressionSeconds)
-            noPlanSnoozed = true
-        } else {
-            // Per-target suppression for work block overlays
-            suppressedUntil[targetKey] = Date().addingTimeInterval(Self.suppressionSeconds)
-        }
-
-        // Dismiss all overlays
-        overlayController?.dismiss()
-        nudgeController?.dismiss()
-        appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
-
-        stopLingerTimer()
-        isCurrentlyIrrelevant = false
-
-        // Re-check after suppression expires
-        Timer.scheduledTimer(withTimeInterval: Self.suppressionSeconds, repeats: false) { [weak self] _ in
-            guard let self = self else { return }
-            self.lastScoredTitle = nil
-            self.lastScoredURL = nil
-            self.noPlanSnoozeUntil = nil
-            self.appDelegate?.postLog("👁️ Snooze expired for \(targetKey)")
-        }
-
-        appDelegate?.postLog("💬 'Snooze 5 min' — \(currentOverlayIsNoPlan ? "global noPlan snooze" : "target: \(currentTarget)")")
     }
 
     // MARK: - Linger Timer (kept as fallback for unplanned/noPlan blocking)
@@ -1293,7 +1952,7 @@ class FocusMonitor {
         // Fallback: used for unplanned/noPlan states where extension overlay isn't available
         guard isCurrentlyIrrelevant,
               let manager = scheduleManager,
-              manager.currentTimeState == .workBlock || manager.currentTimeState == .unplanned || manager.currentTimeState == .noPlan,
+              manager.currentTimeState.isWork || manager.currentTimeState == .unplanned || manager.currentTimeState == .noPlan,
               let bundleId = currentAppBundleId,
               Self.browserBundleIds.contains(bundleId) else { return }
 
@@ -1310,13 +1969,11 @@ class FocusMonitor {
 
     // MARK: - Overlay User Actions (called by NativeMessagingHost or native overlay)
 
-    /// Handle user action from the progressive overlay (browser or native).
+    /// Handle user action from the blocking overlay (browser or native).
     func handleOverlayAction(action: String, reason: String?) {
         switch action {
         case "back_to_work":
             handleBackToWork()
-        case "five_more_min":
-            handleFiveMoreMinutesWithReason(reason: reason ?? "")
         default:
             break
         }
@@ -1337,36 +1994,6 @@ class FocusMonitor {
         stopLingerTimer()
         isCurrentlyIrrelevant = false
         appDelegate?.postLog("💬 'Back to work' — navigating to \(lastRelevantTabURL ?? "google.com")")
-    }
-
-    private func handleFiveMoreMinutesWithReason(reason: String) {
-        let targetKey = currentTargetKey
-        suppressedUntil[targetKey] = Date().addingTimeInterval(Self.suppressionSeconds)
-
-        // Whitelist so it's never re-blocked for this block
-        // Use lastScoredTitle for browser tabs, currentTarget for native apps
-        let titleToApprove = lastScoredTitle ?? (currentTarget.isEmpty ? nil : currentTarget)
-        if let title = titleToApprove, let block = scheduleManager?.currentBlock {
-            relevanceScorer?.approvePageTitle(title, for: block.title)
-        }
-
-        // Dismiss all overlays
-        overlayController?.dismiss()
-        nudgeController?.dismiss()
-        appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
-
-        stopLingerTimer()
-        isCurrentlyIrrelevant = false
-
-        // After suppression expires, re-check if still on irrelevant content
-        Timer.scheduledTimer(withTimeInterval: Self.suppressionSeconds, repeats: false) { [weak self] _ in
-            guard let self = self else { return }
-            self.lastScoredTitle = nil
-            self.lastScoredURL = nil
-            self.appDelegate?.postLog("👁️ Suppression expired for \(targetKey)")
-        }
-
-        appDelegate?.postLog("💬 '5 more min' for \(currentTarget) — reason: \(reason)")
     }
 
     // MARK: - Navigation Helpers
@@ -1396,7 +2023,7 @@ class FocusMonitor {
             appleScript.executeAndReturnError(&error)
             if let errorDict = error {
                 let msg = errorDict["NSAppleScriptErrorMessage"] as? String ?? "Unknown"
-                self?.appDelegate?.postLog("👁️ Failed to navigate tab: \(msg)")
+                self?.debugLog("👁️ Failed to navigate tab: \(msg)")
             }
         }
     }
