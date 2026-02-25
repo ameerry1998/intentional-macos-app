@@ -2,13 +2,13 @@ import Foundation
 
 /// Manages the "Earn Your Browse" budget system.
 ///
-/// Focused work earns social media browsing time. During work blocks, social media
-/// costs 2x by default; if the user provides a work-related justification, cost drops
-/// to 1x as a reward. Free blocks cost 1x.
+/// Focused work earns social media browsing time. Cost multipliers vary by block type:
+/// - Deep Work (0x): ALL browsing blocked
+/// - Focus Hours (2x): ALL browsing costs 2x from pool
+/// - Free Time (1x): ALL browsing costs 1x; setting an intent earns +10 min bonus (once per block)
 ///
-/// This is the "accountant" — manages the earned pool, cost multipliers, delay
-/// escalation, and partner extra time. Does NOT handle heartbeat dedup (TimeTracker
-/// owns that).
+/// This is the "accountant" — manages the earned pool, cost multipliers, intent bonus,
+/// and partner extra time. Does NOT handle heartbeat dedup (TimeTracker owns that).
 class EarnedBrowseManager {
 
     weak var appDelegate: AppDelegate?
@@ -58,6 +58,13 @@ class EarnedBrowseManager {
 
     /// Minutes granted on first launch of the day
     private let welcomeCredit: Double = 5.0
+
+    // MARK: - Intent Bonus (Free Time incentive)
+
+    /// Minutes granted as bonus when user sets an intent during Free Time
+    private let intentBonusAmount: Double = 10.0
+    /// Block IDs where intent bonus has already been granted today
+    private(set) var intentBonusGrantedBlockIds: Set<String> = []
 
     // MARK: - Day Tracking
 
@@ -224,6 +231,7 @@ class EarnedBrowseManager {
         isDeepWork = false
         blockFocusStats.removeAll()
         activeBlockId = nil
+        intentBonusGrantedBlockIds.removeAll()
 
         if hadPreviousDate {
             appDelegate?.postLog("💰 New day — pool reset. Welcome credit: \(welcomeCredit) min")
@@ -239,6 +247,30 @@ class EarnedBrowseManager {
         earnedMinutes += minutes
         save()
         appDelegate?.postLog("💰 Partner extra time granted: +\(minutes) min")
+    }
+
+    // MARK: - Intent Bonus
+
+    /// Grant the intent bonus for a specific block. Returns true if bonus was granted.
+    /// Only grants once per block ID per day. Requires a non-nil block ID.
+    @discardableResult
+    func grantIntentBonus(blockId: String?) -> Bool {
+        guard let blockId = blockId else { return false }
+        ensureToday()
+        guard !intentBonusGrantedBlockIds.contains(blockId) else { return false }
+        intentBonusGrantedBlockIds.insert(blockId)
+        earnedMinutes += intentBonusAmount
+        save()
+        appDelegate?.postLog("💰 Intent bonus granted: +\(intentBonusAmount) min (block: \(blockId))")
+        return true
+    }
+
+    /// Whether the intent bonus is available for the current block.
+    /// True only during Free Time blocks where the bonus hasn't been claimed yet.
+    var intentBonusAvailable: Bool {
+        guard let blockId = appDelegate?.scheduleManager?.currentBlock?.id else { return false }
+        let blockType = appDelegate?.scheduleManager?.currentBlock?.blockType ?? .freeTime
+        return blockType == .freeTime && !intentBonusGrantedBlockIds.contains(blockId)
     }
 
     // MARK: - Last Active App
@@ -276,7 +308,9 @@ class EarnedBrowseManager {
             "poolExhausted": isPoolExhausted,
             "isDeepWork": blockType == .deepWork || isDeepWork,
             "intention": intention,
-            "lastActiveApp": lastActiveApp
+            "lastActiveApp": lastActiveApp,
+            "intentBonusAvailable": intentBonusAvailable,
+            "intentBonusAmount": intentBonusAmount
         ]
     }
 
@@ -300,7 +334,8 @@ class EarnedBrowseManager {
             "currentDate": currentDate,
             "earnedMinutes": earnedMinutes,
             "usedMinutes": usedMinutes,
-            "blockFocusStats": blockStatsArray
+            "blockFocusStats": blockStatsArray,
+            "intentBonusGrantedBlockIds": Array(intentBonusGrantedBlockIds)
         ]
 
         do {
@@ -332,6 +367,11 @@ class EarnedBrowseManager {
                 currentDate = savedDate
                 earnedMinutes = state["earnedMinutes"] as? Double ?? welcomeCredit
                 usedMinutes = state["usedMinutes"] as? Double ?? 0
+
+                // Restore intent bonus granted block IDs
+                if let bonusIds = state["intentBonusGrantedBlockIds"] as? [String] {
+                    intentBonusGrantedBlockIds = Set(bonusIds)
+                }
 
                 // Restore per-block focus stats
                 if let statsArray = state["blockFocusStats"] as? [[String: Any]] {

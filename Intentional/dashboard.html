@@ -3046,12 +3046,124 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
+  // Wire Enter key for distracting site input
+  var dsInput = document.getElementById('distracting-site-input');
+  if (dsInput) {
+    dsInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); addDistractingSite(); }
+    });
+  }
+
   // Set up lock interceptors on toggle checkboxes
   setupLockInterceptors();
 
   // Initialize extra time request flow
   initExtraTimeFlow();
 });
+
+// ===== Distracting Sites Management =====
+var PINNED_SITES = [
+  { domain: 'youtube.com', icon: '▶️', badge: 'Filtering' },
+  { domain: 'instagram.com', icon: '📷', badge: 'Filtering' },
+  { domain: 'facebook.com', icon: '👤', badge: 'Filtering' }
+];
+var customDistractingSites = [];
+
+function renderDistractingSites() {
+  var list = document.getElementById('distracting-sites-list');
+  if (!list) return;
+  list.innerHTML = '';
+  var locked = typeof isSettingsLocked === 'function' && isSettingsLocked();
+  PINNED_SITES.forEach(function(site) {
+    var div = document.createElement('div');
+    div.className = 'distracting-site pinned';
+
+    var icon = document.createElement('span');
+    icon.className = 'distracting-site-icon';
+    icon.textContent = site.icon;
+    div.appendChild(icon);
+
+    var domainEl = document.createElement('span');
+    domainEl.className = 'distracting-site-domain';
+    domainEl.textContent = site.domain;
+    div.appendChild(domainEl);
+
+    var badge = document.createElement('span');
+    badge.className = 'distracting-site-badge';
+    badge.textContent = site.badge;
+    div.appendChild(badge);
+
+    list.appendChild(div);
+  });
+  customDistractingSites.forEach(function(domain) {
+    var div = document.createElement('div');
+    div.className = 'distracting-site custom';
+
+    var icon = document.createElement('span');
+    icon.className = 'distracting-site-icon';
+    icon.textContent = '🌐';
+    div.appendChild(icon);
+
+    var domainEl = document.createElement('span');
+    domainEl.className = 'distracting-site-domain';
+    domainEl.textContent = domain;
+    div.appendChild(domainEl);
+
+    var badge = document.createElement('span');
+    badge.className = 'distracting-site-badge custom';
+    badge.textContent = 'Tracking';
+    div.appendChild(badge);
+
+    if (!locked) {
+      var removeBtn = document.createElement('button');
+      removeBtn.className = 'distracting-site-remove';
+      removeBtn.title = 'Remove';
+      removeBtn.textContent = '×';
+      removeBtn.addEventListener('click', function() { removeDistractingSite(domain); });
+      div.appendChild(removeBtn);
+    }
+
+    list.appendChild(div);
+  });
+}
+
+function normalizeDomain(input) {
+  if (!input) return null;
+  var s = input.trim().toLowerCase();
+  // Strip protocol
+  s = s.replace(/^https?:\/\//, '');
+  // Strip www.
+  s = s.replace(/^www\./, '');
+  // Strip path, query, hash, port
+  s = s.split('/')[0].split('?')[0].split('#')[0].split(':')[0];
+  // Must contain a dot
+  if (s.indexOf('.') === -1) return null;
+  if (s.length < 3) return null;
+  return s;
+}
+
+function addDistractingSite() {
+  var input = document.getElementById('distracting-site-input');
+  if (!input) return;
+  var domain = normalizeDomain(input.value);
+  if (!domain) { input.value = ''; return; }
+  // Check against pinned sites
+  var isPinned = PINNED_SITES.some(function(s) { return s.domain === domain; });
+  if (isPinned) { input.value = ''; return; }
+  // Check duplicates
+  if (customDistractingSites.indexOf(domain) !== -1) { input.value = ''; return; }
+  customDistractingSites.push(domain);
+  renderDistractingSites();
+  input.value = '';
+  input.focus();
+  onSettingChange();
+}
+
+function removeDistractingSite(domain) {
+  customDistractingSites = customDistractingSites.filter(function(d) { return d !== domain; });
+  renderDistractingSites();
+  onSettingChange();
+}
 
 // ===== Platform Settings Collapse =====
 function togglePlatformSettings(platform) {
@@ -3141,7 +3253,8 @@ function saveAllSettings() {
       lockMode: settings.lockMode,
       partnerEmail: settings.partnerEmail,
       partnerName: settings.partnerName,
-      maxPerPeriod: maxPerPeriod
+      maxPerPeriod: maxPerPeriod,
+      distractingSites: customDistractingSites
     }
   });
 }
@@ -3195,6 +3308,10 @@ function populateSettingsUI(data) {
   if (data.deviceId) {
     document.getElementById('adv-device-id').textContent = data.deviceId;
   }
+
+  // Load custom distracting sites
+  customDistractingSites = data.distractingSites || [];
+  renderDistractingSites();
 
   // Sync platform collapse states after populating checkboxes
   syncAllPlatformCollapses();
@@ -5792,6 +5909,18 @@ window._earnedStatusResult = function(data) {
 
 var extraTimeState = { step: null, selectedMinutes: null, requestId: null, partnerName: '' };
 
+function updateExtraTimeRemaining(verifiedToday, remainingToday) {
+  var el = document.getElementById('extra-time-remaining');
+  if (!el) return;
+  if (remainingToday <= 0) {
+    el.textContent = 'Maximum 2 completed requests per day (limit reached)';
+    el.style.color = 'rgba(239, 68, 68, 0.7)';
+  } else {
+    el.textContent = remainingToday + ' of 2 extra time requests remaining today';
+    el.style.color = 'rgba(255, 255, 255, 0.35)';
+  }
+}
+
 function initExtraTimeFlow() {
   var btn = document.getElementById('earned-extra-time-btn');
   if (!btn) return;
@@ -5939,6 +6068,10 @@ function resetExtraTimeFlow() {
 // Callbacks from Swift
 window._extraTimeRequestResult = function(data) {
   var sendBtn = document.getElementById('extra-time-send');
+  // Update remaining count if provided
+  if (data.remainingToday != null) {
+    updateExtraTimeRemaining(data.verifiedToday || 0, data.remainingToday);
+  }
   if (data.success) {
     extraTimeState.requestId = data.requestId;
     extraTimeState.partnerName = data.partnerName || extraTimeState.partnerName;
@@ -5951,6 +6084,10 @@ window._extraTimeRequestResult = function(data) {
 };
 
 window._extraTimeVerifyResult = function(data) {
+  // Update remaining count if provided
+  if (data.remainingToday != null) {
+    updateExtraTimeRemaining(data.verifiedToday || 0, data.remainingToday);
+  }
   if (data.success) {
     var msg = document.getElementById('extra-time-success-msg');
     if (msg) msg.textContent = (data.addedMinutes || extraTimeState.selectedMinutes) + ' Minutes Added!';

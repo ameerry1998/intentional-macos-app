@@ -518,8 +518,8 @@ class FocusMonitor {
         // Grayscale: reconcile — after resetting flags above, reconciler will restore color
         reconcileGrayscale()
 
-        // Deep Work timer: show if entering a Deep Work block, dismiss otherwise
-        if let block = scheduleManager?.currentBlock, block.blockType == .deepWork {
+        // Floating timer: show for all focus schedule blocks (Deep Work, Focus Hours, Free Time)
+        if let block = scheduleManager?.currentBlock {
             let calendar = Calendar.current
             let now = Date()
             let endOfBlock = calendar.date(bySettingHour: block.endHour, minute: block.endMinute, second: 0, of: now) ?? now

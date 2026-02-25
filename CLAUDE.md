@@ -1,5 +1,26 @@
 # Intentional macOS App - Development Guide
 
+## Parallel Development (Worktree Workflow)
+
+This repo uses git worktrees for parallel feature development. Multiple Claude Code agents may be working on different features simultaneously in separate worktrees.
+
+**How it works:**
+- `main` branch has the latest stable code
+- Each feature gets its own worktree + branch under `.claude/worktrees/` or a sibling directory
+- Each agent works in its own worktree — no file conflicts during development
+- Features merge to main one at a time; the second feature rebases onto the updated main
+
+**If you are in a worktree:**
+- Run `git log --oneline main..HEAD` to see what other branches have been merged since you branched
+- Before finishing, rebase onto main: `git fetch && git rebase main`
+- Your worktree only has the macOS app. The companion Chrome extension may also have a parallel worktree — coordinate changes at the message boundary (NativeMessagingHost.swift ↔ background.js)
+
+**Cross-repo coordination:** Features often span both the macOS app and extension. When adding/changing messages between them, document the message format in your commit message so the other agent (working on the other repo's worktree) can match it.
+
+**Active worktrees:** Run `git worktree list` to see all active worktrees and their branches.
+
+---
+
 Intentional is a macOS native app that serves as the centralized orchestrator for the Intentional ecosystem. It handles time tracking across all browsers, daily focus scheduling with AI relevance scoring, earned browse budgets, focus enforcement via progressive overlays, and accountability via partner locking. Works with a companion Chrome extension for in-browser content filtering.
 
 **Architecture Principle: Logic Lives Here.** All enforcement logic, overlays, timers, and behavioral features belong in this macOS app — NOT in the Chrome extension. The extension's role is limited to in-browser content filtering (ML checks), session UI (intent prompt, session bar), and platform-specific DOM manipulation. Everything else (focus enforcement, blocking overlays, tab redirects, timer widgets, grayscale effects, relevance scoring, earned browse tracking) goes here. The app has OS-level capabilities (AppleScript, NSWindow overlays, process monitoring) that the extension cannot replicate, and centralizing logic here avoids duplication and ensures cross-browser consistency.
@@ -205,11 +226,19 @@ struct FocusBlock: Codable {
 
 ### Cost Multipliers
 
-| Context | Multiplier | Effect |
-|---------|-----------|--------|
-| Work block (no justification) | 2x | 1 min social = 2 min deducted |
-| Work block (justified) | 1x | 1 min social = 1 min deducted |
-| Free block | 1x | 1 min social = 1 min deducted |
+| Block Type | Multiplier | Effect |
+|------------|-----------|--------|
+| Deep Work | 0x | Social media blocked entirely — macOS app aggressively enforces (redirect at 20s), extension rejects sessions |
+| Focus Hours | 2x | ALL browsing costs 2x from pool (intent and free browse alike) |
+| Free Time | 1x | ALL browsing costs 1x. Setting an intent earns +10 min bonus (once per block) |
+
+### Intent Bonus (Free Time Incentive)
+- During Free Time blocks, starting a session with an intent (not free browse) grants +10 min to the earned pool
+- One bonus per block, tracked by `intentBonusGrantedBlockIds` (set of block IDs)
+- Granted in `NativeMessagingHost.handleSessionStart()` when `!freeBrowse && blockType == .freeTime`
+- `intentBonusAvailable` computed property: true when current block is Free Time and bonus hasn't been claimed
+- Broadcast to extension via `EARNED_MINUTES_UPDATE` after granting; fields: `intentBonusAvailable`, `intentBonusAmount`
+- Reset daily in `ensureToday()`, persisted in `earned_browse.json`
 
 ### Delay Escalation (per work block, resets on block change)
 Steps: 30s → 60s → 120s → 300s. Increases with each social media visit during a work block.
@@ -226,12 +255,14 @@ struct BlockFocusStats {
 
 ### Pool State (synced to extension)
 ```swift
-earnedMinutes       // Total earned today
-usedMinutes         // Total consumed today
-availableMinutes    // earnedMinutes - usedMinutes
-isPoolExhausted     // availableMinutes <= 0
-costMultiplier      // Current cost (1x or 2x)
-effectiveBrowseTime // Available minutes / costMultiplier
+earnedMinutes          // Total earned today
+usedMinutes            // Total consumed today
+availableMinutes       // earnedMinutes - usedMinutes
+isPoolExhausted        // availableMinutes <= 0
+costMultiplier         // 0x deep work, 2x focus hours, 1x free time
+effectiveBrowseTime    // Available minutes / costMultiplier
+intentBonusAvailable   // True if +10 min bonus available for current block
+intentBonusAmount      // Bonus amount (10.0)
 ```
 
 ## Focus Enforcement (FocusMonitor)
@@ -252,7 +283,7 @@ effectiveBrowseTime // Available minutes / costMultiplier
 Native apps: 5s grace → blocking overlay + grayscale starts.
 Justification: "This is relevant" accepted → 3 min suppression only (no permanent whitelist), grayscale pauses.
 
-**Floating timer widget**: Pill-shaped widget in top-right corner during Deep Work. Shows `[dot] intention text [MM:SS]`. Dot: indigo=focused, red=distracted. Draggable. Auto-dismisses when block ends.
+**Floating timer widget**: Pill-shaped widget in top-right corner during all focus schedule blocks (Deep Work, Focus Hours, Free Time). Shows `[dot] block title [MM:SS]`. Dot: indigo=focused, red=distracted. Draggable. Auto-dismisses when block ends.
 
 **Darkening overlay**: Full-screen click-through overlay (`.floating` level, `ignoresMouseEvents = true`). Progressive black overlay: alpha 0.0→0.45 over 30s (0.5s steps). Snap-back: 2s to clear. Creates a drained/muted visual effect.
 

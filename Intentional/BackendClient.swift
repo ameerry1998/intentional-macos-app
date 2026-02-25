@@ -300,6 +300,8 @@ class BackendClient {
         let requestId: String?
         let partnerName: String?
         let statusCode: Int
+        let verifiedToday: Int
+        let remainingToday: Int
     }
 
     /// Request extra browse time via accountability partner
@@ -307,7 +309,7 @@ class BackendClient {
         let endpoint = "\(baseURL)/extra-time/request"
 
         guard let url = URL(string: endpoint) else {
-            return ExtraTimeRequestResult(success: false, message: "Invalid URL", requestId: nil, partnerName: nil, statusCode: 0)
+            return ExtraTimeRequestResult(success: false, message: "Invalid URL", requestId: nil, partnerName: nil, statusCode: 0, verifiedToday: 0, remainingToday: 2)
         }
 
         var request = URLRequest(url: url)
@@ -324,16 +326,18 @@ class BackendClient {
                 let msg = (json?["message"] as? String) ?? errorMessage(from: data)
                 let requestId = json?["request_id"] as? String
                 let partnerName = json?["partner_name"] as? String
+                let verifiedToday = json?["verified_today"] as? Int ?? 0
+                let remainingToday = json?["remaining_today"] as? Int ?? 2
                 if isSuccess(httpResponse.statusCode) {
-                    return ExtraTimeRequestResult(success: true, message: msg, requestId: requestId, partnerName: partnerName, statusCode: httpResponse.statusCode)
+                    return ExtraTimeRequestResult(success: true, message: msg, requestId: requestId, partnerName: partnerName, statusCode: httpResponse.statusCode, verifiedToday: verifiedToday, remainingToday: remainingToday)
                 } else {
-                    return ExtraTimeRequestResult(success: false, message: msg, requestId: nil, partnerName: partnerName, statusCode: httpResponse.statusCode)
+                    return ExtraTimeRequestResult(success: false, message: msg, requestId: nil, partnerName: partnerName, statusCode: httpResponse.statusCode, verifiedToday: verifiedToday, remainingToday: remainingToday)
                 }
             }
         } catch {
-            return ExtraTimeRequestResult(success: false, message: error.localizedDescription, requestId: nil, partnerName: nil, statusCode: 0)
+            return ExtraTimeRequestResult(success: false, message: error.localizedDescription, requestId: nil, partnerName: nil, statusCode: 0, verifiedToday: 0, remainingToday: 2)
         }
-        return ExtraTimeRequestResult(success: false, message: "Unknown error", requestId: nil, partnerName: nil, statusCode: 0)
+        return ExtraTimeRequestResult(success: false, message: "Unknown error", requestId: nil, partnerName: nil, statusCode: 0, verifiedToday: 0, remainingToday: 2)
     }
 
     struct ExtraTimeVerifyResult {
@@ -341,6 +345,8 @@ class BackendClient {
         let message: String
         let addedMinutes: Int
         let statusCode: Int
+        let verifiedToday: Int
+        let remainingToday: Int
     }
 
     /// Verify an extra time code with the backend
@@ -348,7 +354,7 @@ class BackendClient {
         let endpoint = "\(baseURL)/extra-time/verify"
 
         guard let url = URL(string: endpoint) else {
-            return ExtraTimeVerifyResult(success: false, message: "Invalid URL", addedMinutes: 0, statusCode: 0)
+            return ExtraTimeVerifyResult(success: false, message: "Invalid URL", addedMinutes: 0, statusCode: 0, verifiedToday: 0, remainingToday: 2)
         }
 
         var request = URLRequest(url: url)
@@ -365,18 +371,20 @@ class BackendClient {
                 let msg = (json?["message"] as? String) ?? errorMessage(from: data)
                 let success = json?["success"] as? Bool ?? false
                 let addedMinutes = json?["added_minutes"] as? Int ?? 0
+                let verifiedToday = json?["verified_today"] as? Int ?? 0
+                let remainingToday = json?["remaining_today"] as? Int ?? 2
                 if isSuccess(httpResponse.statusCode) && success {
-                    return ExtraTimeVerifyResult(success: true, message: msg, addedMinutes: addedMinutes, statusCode: httpResponse.statusCode)
+                    return ExtraTimeVerifyResult(success: true, message: msg, addedMinutes: addedMinutes, statusCode: httpResponse.statusCode, verifiedToday: verifiedToday, remainingToday: remainingToday)
                 } else {
-                    return ExtraTimeVerifyResult(success: false, message: msg, addedMinutes: 0, statusCode: httpResponse.statusCode)
+                    return ExtraTimeVerifyResult(success: false, message: msg, addedMinutes: 0, statusCode: httpResponse.statusCode, verifiedToday: verifiedToday, remainingToday: remainingToday)
                 }
             }
         } catch {
             let appDelegate = NSApplication.shared.delegate as? AppDelegate
             appDelegate?.postLog("❌ Verify extra time error: \(error.localizedDescription)")
-            return ExtraTimeVerifyResult(success: false, message: error.localizedDescription, addedMinutes: 0, statusCode: 0)
+            return ExtraTimeVerifyResult(success: false, message: error.localizedDescription, addedMinutes: 0, statusCode: 0, verifiedToday: 0, remainingToday: 2)
         }
-        return ExtraTimeVerifyResult(success: false, message: "Unknown error", addedMinutes: 0, statusCode: 0)
+        return ExtraTimeVerifyResult(success: false, message: "Unknown error", addedMinutes: 0, statusCode: 0, verifiedToday: 0, remainingToday: 2)
     }
 
     // MARK: - Relock

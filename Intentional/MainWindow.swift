@@ -668,6 +668,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             "unlockRequested": unlockRequested,
             "autoRelockEnabled": autoRelockEnabled
         ]
+        result["distractingSites"] = (savedSettings["distractingSites"] as? [String]) ?? [String]()
         if let tuu = temporaryUnlockUntil { result["temporaryUnlockUntil"] = tuu }
         if let sua = selfUnlockAvailableAt { result["selfUnlockAvailableAt"] = sua }
 
@@ -754,6 +755,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                         violation = "Cannot disable Suggested content blocking while settings are locked"
                     }
 
+                    // Distracting sites: can't remove sites while locked (adding is OK)
+                    if violation == nil, let newSites = settings["distractingSites"] as? [String] {
+                        let currentSites = (json["distractingSites"] as? [String]) ?? []
+                        let removedSites = currentSites.filter { !newSites.contains($0) }
+                        if !removedSites.isEmpty {
+                            violation = "Cannot remove distracting sites while settings are locked"
+                        }
+                    }
+
                     if let v = violation {
                         let escaped = v.replacingOccurrences(of: "'", with: "\\'")
                         callJS("window._saveSettingsResult && window._saveSettingsResult({ success: false, message: '\(escaped)' })")
@@ -767,6 +777,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let lockMode = settings["lockMode"] as? String ?? UserDefaults.standard.string(forKey: "lockMode") ?? "none"
         let partnerEmail = settings["partnerEmail"] as? String
         let partnerName = settings["partnerName"] as? String
+        let distractingSites = settings["distractingSites"] as? [String]
         let platforms: [String: Any] = ["youtube": ytSettings, "instagram": igSettings, "facebook": fbSettings]
 
         saveSettingsToFile(
@@ -775,8 +786,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             partnerEmail: partnerEmail,
             partnerName: partnerName,
             lockMode: lockMode,
-            maxPerPeriod: settings["maxPerPeriod"] as? [String: Any]
+            maxPerPeriod: settings["maxPerPeriod"] as? [String: Any],
+            distractingSites: distractingSites
         )
+
+        // Update WebsiteBlocker with new distracting sites
+        if let sites = distractingSites {
+            appDelegate?.websiteBlocker?.updateDistractingSites(sites)
+        }
 
         broadcastSettingsToExtensions(settings)
         callJS("window._saveSettingsResult && window._saveSettingsResult({ success: true })")
@@ -799,7 +816,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         partnerEmail: String?,
         partnerName: String?,
         lockMode: String,
-        maxPerPeriod: [String: Any]?
+        maxPerPeriod: [String: Any]?,
+        distractingSites: [String]? = nil
     ) {
         updateSettingsFile { settings in
             var existingPlatforms = settings["platforms"] as? [String: Any] ?? [:]
@@ -817,6 +835,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             if let name = partnerName { settings["partnerName"] = name }
             if let cats = blockedCategories { settings["blockedCategories"] = cats }
             if let mpp = maxPerPeriod { settings["maxPerPeriod"] = mpp }
+            if let ds = distractingSites { settings["distractingSites"] = ds }
             settings["lastModified"] = ISO8601DateFormatter().string(from: Date())
         }
     }
@@ -1684,22 +1703,27 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
     private func handleRequestExtraTime(_ body: [String: Any]) {
         guard let mgr = appDelegate?.earnedBrowseManager else {
-            callJS("window._extraTimeRequestResult && window._extraTimeRequestResult({success:false, message:'Earned browse manager not available'})")
+            callJSCallback("_extraTimeRequestResult", data: ["success": false, "message": "Earned browse manager not available"])
             return
         }
         let minutes = body["minutes"] as? Int ?? Int(mgr.partnerExtraTimeAmount)
 
         guard let backendClient = appDelegate?.backendClient else {
-            callJS("window._extraTimeRequestResult && window._extraTimeRequestResult({success:false, message:'Backend client not available'})")
+            callJSCallback("_extraTimeRequestResult", data: ["success": false, "message": "Backend client not available"])
             return
         }
 
         Task {
             let result = await backendClient.requestExtraTime(minutes: minutes)
             await MainActor.run {
-                let escapedMsg = (result.message).replacingOccurrences(of: "'", with: "\\'")
-                let escapedName = (result.partnerName ?? "").replacingOccurrences(of: "'", with: "\\'")
-                self.callJS("window._extraTimeRequestResult && window._extraTimeRequestResult({success:\(result.success), requestId:'\(result.requestId ?? "")', partnerName:'\(escapedName)', message:'\(escapedMsg)'})")
+                self.callJSCallback("_extraTimeRequestResult", data: [
+                    "success": result.success,
+                    "requestId": result.requestId ?? "",
+                    "partnerName": result.partnerName ?? "",
+                    "message": result.message,
+                    "verifiedToday": result.verifiedToday,
+                    "remainingToday": result.remainingToday
+                ])
             }
             self.appDelegate?.postLog("💰 Dashboard extra time request: \(minutes) min → \(result.success ? "sent" : result.message)")
         }
@@ -1708,17 +1732,17 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     private func handleVerifyExtraTimeCode(_ body: [String: Any]) {
         guard let code = body["code"] as? String,
               let requestId = body["requestId"] as? String ?? body["request_id"] as? String else {
-            callJS("window._extraTimeVerifyResult && window._extraTimeVerifyResult({success:false, message:'Missing code or requestId'})")
+            callJSCallback("_extraTimeVerifyResult", data: ["success": false, "message": "Missing code or requestId"])
             return
         }
 
         guard let mgr = appDelegate?.earnedBrowseManager else {
-            callJS("window._extraTimeVerifyResult && window._extraTimeVerifyResult({success:false, message:'Earned browse manager not available'})")
+            callJSCallback("_extraTimeVerifyResult", data: ["success": false, "message": "Earned browse manager not available"])
             return
         }
 
         guard let backendClient = appDelegate?.backendClient else {
-            callJS("window._extraTimeVerifyResult && window._extraTimeVerifyResult({success:false, message:'Backend client not available'})")
+            callJSCallback("_extraTimeVerifyResult", data: ["success": false, "message": "Backend client not available"])
             return
         }
 
@@ -1727,11 +1751,21 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             await MainActor.run {
                 if result.success {
                     mgr.grantPartnerExtraTime(minutes: Double(result.addedMinutes))
-                    self.callJS("window._extraTimeVerifyResult && window._extraTimeVerifyResult({success:true, addedMinutes:\(result.addedMinutes), message:'Extra time added'})")
+                    self.callJSCallback("_extraTimeVerifyResult", data: [
+                        "success": true,
+                        "addedMinutes": result.addedMinutes,
+                        "message": "Extra time added",
+                        "verifiedToday": result.verifiedToday,
+                        "remainingToday": result.remainingToday
+                    ])
                     self.appDelegate?.socketRelayServer?.broadcastEarnedMinutesUpdate(mgr)
                 } else {
-                    let escapedMsg = result.message.replacingOccurrences(of: "'", with: "\\'")
-                    self.callJS("window._extraTimeVerifyResult && window._extraTimeVerifyResult({success:false, message:'\(escapedMsg)'})")
+                    self.callJSCallback("_extraTimeVerifyResult", data: [
+                        "success": false,
+                        "message": result.message,
+                        "verifiedToday": result.verifiedToday,
+                        "remainingToday": result.remainingToday
+                    ])
                 }
             }
             self.appDelegate?.postLog("💰 Dashboard extra time verify: code=\(code.prefix(2))*** → \(result.success ? "+\(result.addedMinutes) min" : result.message)")
@@ -1743,7 +1777,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         handleGetEarnedStatus()
     }
 
-    // MARK: - JS Helper
+    // MARK: - JS Helpers
 
     private func callJS(_ script: String) {
         DispatchQueue.main.async {
@@ -1753,5 +1787,16 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 }
             }
         }
+    }
+
+    /// Safely invoke a window callback with JSON-serialized data.
+    /// Uses JSONSerialization to avoid string interpolation issues with special characters.
+    private func callJSCallback(_ callbackName: String, data: [String: Any]) {
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: data),
+              let jsonStr = String(data: jsonData, encoding: .utf8) else {
+            appDelegate?.postLog("⚠️ callJSCallback: Failed to serialize data for \(callbackName)")
+            return
+        }
+        callJS("window.\(callbackName) && window.\(callbackName)(\(jsonStr))")
     }
 }

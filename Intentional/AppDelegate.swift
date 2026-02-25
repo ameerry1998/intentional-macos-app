@@ -203,6 +203,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Start website blocker (ScreenTime + AppleEvents fallback)
         websiteBlocker = WebsiteBlocker(backendClient: backendClient!, appDelegate: self)
+        // Load custom distracting sites from settings
+        if let supportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            let settingsURL = supportDir.appendingPathComponent("Intentional/settings.json")
+            if let data = try? Data(contentsOf: settingsURL),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let sites = json["distractingSites"] as? [String], !sites.isEmpty {
+                websiteBlocker?.updateDistractingSites(sites)
+            }
+        }
         websiteBlocker?.startBlocking()
         postLog("✅ Website blocking initialized")
 

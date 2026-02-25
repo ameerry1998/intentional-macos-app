@@ -80,7 +80,7 @@ class TimeTracker {
         var categories: [String]?
         var startedAt: Double?       // Date.now() timestamp (ms since epoch)
         var endsAt: Double?          // Date.now() + duration, or nil for unlimited
-        var durationMinutes: Int
+        var durationMinutes: Double
         var freeBrowse: Bool
 
         static func inactive() -> PlatformSession {
@@ -265,7 +265,7 @@ class TimeTracker {
                     startedAt: session.startTime,
                     endedAt: Date(),
                     durationSeconds: duration,
-                    plannedDurationSeconds: platformSession.durationMinutes > 0 ? platformSession.durationMinutes * 60 : nil,
+                    plannedDurationSeconds: platformSession.durationMinutes > 0 ? Int(platformSession.durationMinutes * 60) : nil,
                     videoSeconds: session.videoSeconds
                 )
             }
@@ -387,7 +387,7 @@ class TimeTracker {
     }
 
     /// Update an existing platform session (e.g. extend timer)
-    func updatePlatformSession(for platform: String, endsAt: Double?, durationMinutes: Int?) {
+    func updatePlatformSession(for platform: String, endsAt: Double?, durationMinutes: Double?) {
         let key = platform.lowercased()
         guard platformSessions[key]?.active == true else { return }
 

@@ -19,8 +19,8 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     private var monitorTimer: Timer?
     private let checkInterval: TimeInterval = 0.5  // Check every 0.5 seconds for faster blocking
 
-    // Blocked domains
-    private let blockedDomains = [
+    // Core domains (always blocked when pool exhausted)
+    private let coreDomains = [
         "youtube.com",
         "www.youtube.com",
         "m.youtube.com",
@@ -31,6 +31,9 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         "www.facebook.com",
         "m.facebook.com"
     ]
+
+    // Dynamic blocked domains (core + custom distracting sites)
+    private var blockedDomains: [String]
 
     // Custom blocking page URL (will be in app bundle)
     private var blockPageURL: String {
@@ -77,8 +80,24 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     init(backendClient: BackendClient, appDelegate: AppDelegate) {
         self.backendClient = backendClient
         self.appDelegate = appDelegate
+        self.blockedDomains = coreDomains
         super.init()
         setupNotifications()
+    }
+
+    /// Update blocked domains with custom distracting sites (in addition to core domains)
+    func updateDistractingSites(_ sites: [String]) {
+        var allDomains = coreDomains
+        for site in sites {
+            let base = site.lowercased()
+            if !allDomains.contains(base) {
+                allDomains.append(base)
+                allDomains.append("www." + base)
+                allDomains.append("m." + base)
+            }
+        }
+        blockedDomains = allDomains
+        appDelegate?.postLog("🌐 WebsiteBlocker: Updated domains (\(allDomains.count) total, \(sites.count) custom)")
     }
 
     // MARK: - Notifications Setup

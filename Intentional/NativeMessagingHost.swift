@@ -329,13 +329,13 @@ class NativeMessagingHost {
         let browser = detectedBrowser ?? reportedBrowser
         let intent = message["intent"] as? String
         let categories = message["categories"] as? [String]
-        let durationMinutes = message["durationMinutes"] as? Int ?? 0
+        let durationMinutes = (message["durationMinutes"] as? Double) ?? Double(message["durationMinutes"] as? Int ?? 0)
         let startedAt = message["startedAt"] as? Double ?? (Date().timeIntervalSince1970 * 1000)
         let freeBrowse = message["freeBrowse"] as? Bool ?? false
 
         // Calculate endsAt from duration (0 = unlimited)
         let endsAt: Double? = durationMinutes > 0
-            ? startedAt + Double(durationMinutes * 60 * 1000)
+            ? startedAt + (durationMinutes * 60 * 1000)
             : nil
 
         DispatchQueue.main.async { [weak self] in
@@ -363,6 +363,18 @@ class NativeMessagingHost {
                 self.sendSessionSync()
             }
             // If wasSet == true, onSessionChanged fires → SocketRelayServer broadcasts to ALL
+
+            // Grant intent bonus during Free Time if user set an intent (not free browse)
+            if !freeBrowse,
+               let mgr = self.earnedBrowseManager,
+               let currentBlock = self.scheduleManager?.currentBlock,
+               currentBlock.blockType == .freeTime {
+                let granted = mgr.grantIntentBonus(blockId: currentBlock.id)
+                if granted {
+                    self.appDelegate?.socketRelayServer?.broadcastEarnedMinutesUpdate(mgr)
+                    self.appDelegate?.mainWindowController?.pushEarnedUpdate()
+                }
+            }
         }
     }
 
@@ -387,7 +399,7 @@ class NativeMessagingHost {
         guard let platform = message["platform"] as? String else { return }
 
         let endsAt = message["endsAt"] as? Double
-        let durationMinutes = message["durationMinutes"] as? Int
+        let durationMinutes = (message["durationMinutes"] as? Double) ?? (message["durationMinutes"] as? Int).map(Double.init)
 
         DispatchQueue.main.async { [weak self] in
             self?.timeTracker?.updatePlatformSession(
@@ -624,13 +636,16 @@ class NativeMessagingHost {
             "periodHours": 1
         ]
 
+        let distractingSites = (settings["distractingSites"] as? [String]) ?? [String]()
+
         let message: [String: Any] = [
             "type": "SETTINGS_SYNC",
             "youtube": ytSettings,
             "instagram": igSettings,
             "facebook": fbSettings,
             "lockMode": lockMode,
-            "maxPerPeriod": maxPerPeriod
+            "maxPerPeriod": maxPerPeriod,
+            "distractingSites": distractingSites
         ]
 
         sendMessage(message)
@@ -671,7 +686,9 @@ class NativeMessagingHost {
                 "isWorkBlock": blockType != .freeTime,
                 "costMultiplier": costMultiplier,
                 "effectiveBrowseTime": effectiveBrowseTime,
-                "poolExhausted": mgr.isPoolExhausted
+                "poolExhausted": mgr.isPoolExhausted,
+                "intentBonusAvailable": mgr.intentBonusAvailable,
+                "intentBonusAmount": 10.0
             ]
         }
 
@@ -918,7 +935,9 @@ class NativeMessagingHost {
                     "success": result.success,
                     "message": result.message,
                     "requestId": result.requestId ?? "",
-                    "partnerName": result.partnerName ?? ""
+                    "partnerName": result.partnerName ?? "",
+                    "verifiedToday": result.verifiedToday,
+                    "remainingToday": result.remainingToday
                 ])
             }
             self.appDelegate?.postLog("💰 Extra time request: \(minutes) min → \(result.success ? "sent" : result.message)")
@@ -953,14 +972,18 @@ class NativeMessagingHost {
                         "success": true,
                         "addedMinutes": result.addedMinutes,
                         "availableMinutes": mgr.availableMinutes,
-                        "message": "Extra time added"
+                        "message": "Extra time added",
+                        "verifiedToday": result.verifiedToday,
+                        "remainingToday": result.remainingToday
                     ])
                     self.appDelegate?.socketRelayServer?.broadcastEarnedMinutesUpdate(mgr)
                 } else {
                     self.sendMessage([
                         "type": "EXTRA_TIME_VERIFY_RESULT",
                         "success": false,
-                        "message": result.message
+                        "message": result.message,
+                        "verifiedToday": result.verifiedToday,
+                        "remainingToday": result.remainingToday
                     ])
                 }
             }
