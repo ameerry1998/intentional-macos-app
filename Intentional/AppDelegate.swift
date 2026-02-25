@@ -310,6 +310,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // app started during a work block.
         if let block = scheduleManager?.currentBlock {
             earnedBrowseManager?.onBlockChanged(blockId: block.id, blockTitle: block.title)
+            // Also sync focusMonitor so the floating timer shows immediately on startup mid-block
+            focusMonitor?.onBlockChanged()
         }
 
         // All extension connections come through the socket relay server.

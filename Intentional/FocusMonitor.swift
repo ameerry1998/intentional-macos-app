@@ -1462,6 +1462,9 @@ class FocusMonitor {
         currentTarget = displayName
         currentTargetKey = targetKey
 
+        // Update floating timer distraction dot (red) for focus hours too
+        deepWorkTimerController?.update(isDistracted: true)
+
         // ── Grayscale: instant if already triggered this block, otherwise at 30s ──
         let shouldGrayscale = grayscaleTriggeredThisBlock
             || cumulativeDistractionSeconds >= Self.focusGrayscaleThreshold
