@@ -39,6 +39,9 @@ class FocusMonitor {
     var grayscaleController: GrayscaleOverlayController?
     var deepWorkTimerController: DeepWorkTimerController?
 
+    /// User-configured distracting apps: always treated as irrelevant during work blocks
+    var distractingAppBundleIds: Set<String> = []
+
     // MARK: - Social Media Hostnames (extension handles enforcement)
 
     /// Social media hostnames where the Chrome extension handles enforcement
@@ -525,6 +528,7 @@ class FocusMonitor {
             let endOfBlock = calendar.date(bySettingHour: block.endHour, minute: block.endMinute, second: 0, of: now) ?? now
             deepWorkTimerController?.show(intention: block.title, endsAt: endOfBlock)
             deepWorkTimerController?.update(isDistracted: false)
+            pushFocusStatsToTimer()
         } else {
             deepWorkTimerController?.dismiss()
         }
@@ -609,9 +613,15 @@ class FocusMonitor {
             return
         }
 
-        guard let bid = app.bundleIdentifier else { return }
+        guard let bid = app.bundleIdentifier else {
+            handleRelevantContent()
+            stopBrowserPolling()
+            return
+        }
 
         // Neutral apps: log as neutral (gray in popover) but don't earn or penalize
+        // Keep enforcement state frozen — neutral apps shouldn't clear grayscale/overlays
+        // (otherwise opening System Settings becomes an escape hatch)
         if isNeutralApp(bid) {
             debugLog("👁️ EXIT: neutral app \(appName) — no earning, no penalty")
             stopBrowserPolling()
@@ -651,18 +661,21 @@ class FocusMonitor {
             // Check global noPlan snooze (applies to ALL apps, not per-target)
             if let until = noPlanSnoozeUntil, Date() < until {
                 debugLog("👁️ EXIT: \(state.rawValue) — globally snoozed until \(until)")
+                reconcileGrayscale()
                 stopBrowserPolling()
                 return
             }
             // Check per-target suppression (from "5 more min")
             if let until = suppressedUntil[bid], Date() < until {
                 debugLog("👁️ EXIT: \(state.rawValue) but suppressed until \(until)")
+                reconcileGrayscale()
                 stopBrowserPolling()
                 return
             }
             // If already showing overlay for this target, skip
             if isCurrentlyIrrelevant && currentTargetKey == bid {
                 debugLog("👁️ EXIT: \(state.rawValue) — overlay already showing for \(bid)")
+                reconcileGrayscale()
                 stopBrowserPolling()
                 return
             }
@@ -690,14 +703,61 @@ class FocusMonitor {
         }
 
         // WORK STATE (deep work or focus hours): score content for relevance
-        guard state.isWork else { return }
+        guard state.isWork else {
+            handleRelevantContent()
+            stopBrowserPolling()
+            return
+        }
+
+        // User-configured distracting apps: always treat as irrelevant during work blocks
+        // Checked BEFORE always-allowed — user intent overrides defaults
+        // Skip grace period — user explicitly configured this app as distracting
+        if distractingAppBundleIds.contains(bid) {
+            debugLog("👁️ \(appName) is user-configured distracting app — direct enforcement (no grace)")
+            stopBrowserPolling()
+            logAssessment(
+                title: appName,
+                intention: scheduleManager?.currentBlock?.title ?? "",
+                relevant: false,
+                confidence: 100,
+                reason: "User-configured distracting app",
+                action: "none"
+            )
+            if scheduleManager?.currentTimeState.isWork == true {
+                appDelegate?.earnedBrowseManager?.recordAssessment(relevant: false)
+            }
+            // Increment distraction counter
+            cumulativeDistractionSeconds += Self.browserPollInterval
+            // Set state directly — no grace period limbo
+            cancelGracePeriod()
+            warnedTargets.insert(bid)
+            currentTarget = appName
+            currentTargetKey = bid
+            isCurrentlyIrrelevant = true
+            // Start gradual grayscale (same slow shift as distracting websites)
+            let blockType = scheduleManager?.currentBlock?.blockType ?? .focusHours
+            if !(grayscaleController?.isActive ?? false) && isEnforcementEnabled(.screenRedShift) {
+                grayscaleController?.startDesaturation()
+                grayscaleTriggeredThisBlock = true
+            }
+            deepWorkTimerController?.update(isDistracted: true)
+            // Show overlay (deep work) or nudge (focus hours)
+            let intention = scheduleManager?.currentBlock?.title ?? ""
+            let focusDuration = computeFocusDurationMinutes()
+            if blockType == .deepWork && isEnforcementEnabled(.blockingOverlay) {
+                showOverlay(intention: intention, reason: "User-configured distracting app",
+                           focusDurationMinutes: focusDuration, isNoPlan: false, displayName: appName)
+            } else if isEnforcementEnabled(.nudge) {
+                showNudgeForContent(intention: intention, displayName: appName, escalated: false)
+            }
+            return
+        }
 
         // Apple system apps: auto-allow com.apple.* unless it's an entertainment app
         if bid.hasPrefix("com.apple.") && !Self.appleEntertainmentBundleIds.contains(bid) {
             debugLog("👁️ EXIT: Apple system app \(appName) — always allowed")
             handleRelevantContent()
             stopBrowserPolling()
-            // Log assessment so always-allowed apps appear in the assessment popover
             logAssessment(
                 title: appName,
                 intention: scheduleManager?.currentBlock?.title ?? "",
@@ -706,7 +766,6 @@ class FocusMonitor {
                 reason: "Always-allowed app",
                 action: "none"
             )
-            // Let the work tick timer handle all earning (no initial tick to avoid double-counting on app switch)
             appDelegate?.earnedBrowseManager?.updateLastActiveApp(name: appName, timestamp: Date())
             startWorkTickTimer(appName: appName)
             return
@@ -717,7 +776,6 @@ class FocusMonitor {
             debugLog("👁️ EXIT: \(appName) is always-allowed")
             handleRelevantContent()
             stopBrowserPolling()
-            // Log assessment so always-allowed apps appear in the assessment popover
             logAssessment(
                 title: appName,
                 intention: scheduleManager?.currentBlock?.title ?? "",
@@ -726,7 +784,6 @@ class FocusMonitor {
                 reason: "Always-allowed app",
                 action: "none"
             )
-            // Let the work tick timer handle all earning (no initial tick to avoid double-counting on app switch)
             appDelegate?.earnedBrowseManager?.updateLastActiveApp(name: appName, timestamp: Date())
             startWorkTickTimer(appName: appName)
             return
@@ -738,7 +795,7 @@ class FocusMonitor {
 
             // If grayscale was triggered this block, maintain it when returning to browser.
             // Assume content is irrelevant until AI scoring proves otherwise (prevents flicker).
-            if grayscaleTriggeredThisBlock && scheduleManager?.currentTimeState.isWork == true {
+            if grayscaleTriggeredThisBlock && scheduleManager?.currentTimeState.isWork == true && isEnforcementEnabled(.screenRedShift) {
                 isCurrentlyIrrelevant = true
                 if !(grayscaleController?.isActive ?? false) {
                     grayscaleController?.startDesaturation()
@@ -882,6 +939,7 @@ class FocusMonitor {
                 // Tab is still relevant — record ongoing work tick + assessment
                 appDelegate?.earnedBrowseManager?.recordWorkTick(seconds: Self.browserPollInterval)
                 appDelegate?.earnedBrowseManager?.recordAssessment(relevant: true)
+                pushFocusStatsToTimer()
                 // Log assessment so the popover time tracking is accurate
                 let browserName = Self.browserAppNames[bundleId] ?? "Browser"
                 logAssessment(
@@ -1036,6 +1094,7 @@ class FocusMonitor {
             )
             self.appDelegate?.earnedBrowseManager?.recordWorkTick(seconds: Self.browserPollInterval)
             self.appDelegate?.earnedBrowseManager?.recordAssessment(relevant: true)
+            self.pushFocusStatsToTimer()
             self.appDelegate?.earnedBrowseManager?.updateLastActiveApp(name: appName, timestamp: Date())
             // Decay distraction counter while on relevant/always-allowed app
             if self.cumulativeDistractionSeconds > 0 {
@@ -1184,6 +1243,23 @@ class FocusMonitor {
         }
     }
 
+    // MARK: - Floating Timer Stats
+
+    /// Push latest focus percentage and earned minutes to the floating timer widget.
+    private func pushFocusStatsToTimer() {
+        guard let ebm = appDelegate?.earnedBrowseManager else { return }
+        let focusPercent: Int
+        let blockEarned: Double
+        if let blockId = ebm.activeBlockId, let stats = ebm.blockFocusStats[blockId] {
+            focusPercent = stats.focusScore
+            blockEarned = stats.earnedMinutes
+        } else {
+            focusPercent = 0
+            blockEarned = 0
+        }
+        deepWorkTimerController?.update(focusPercent: focusPercent, earnedMinutes: blockEarned)
+    }
+
     // MARK: - Relevance Handling
 
     private func handleRelevantContent() {
@@ -1200,6 +1276,7 @@ class FocusMonitor {
         // Restore grayscale whenever user is on relevant content (any app, any tab)
         reconcileGrayscale()
         deepWorkTimerController?.update(isDistracted: false)
+        pushFocusStatsToTimer()
 
         // Decay cumulative distraction counter when back on relevant content
         // (counter persists — thresholds already crossed stay crossed)
@@ -1264,7 +1341,7 @@ class FocusMonitor {
             // Grayscale: instant if already triggered this block, otherwise at threshold
             let shouldGrayscale = grayscaleTriggeredThisBlock
                 || cumulativeDistractionSeconds >= Self.focusGrayscaleThreshold
-            if shouldGrayscale && !(grayscaleController?.isActive ?? false) {
+            if shouldGrayscale && !(grayscaleController?.isActive ?? false) && isEnforcementEnabled(.screenRedShift) {
                 grayscaleController?.startDesaturation()
                 grayscaleTriggeredThisBlock = true
                 appDelegate?.postLog("🌫️ Grayscale started at \(Int(cumulativeDistractionSeconds))s distraction (extension-handled site)")
@@ -1275,6 +1352,7 @@ class FocusMonitor {
             // Deep Work: timer dot red
             if blockType == .deepWork {
                 deepWorkTimerController?.update(isDistracted: true)
+                pushFocusStatsToTimer()
             }
             return // Extension handles nudges/redirects for social media
         }
@@ -1327,9 +1405,10 @@ class FocusMonitor {
                                                    intention: String, confidence: Int, reason: String) {
         // Timer dot → red immediately
         deepWorkTimerController?.update(isDistracted: true)
+        pushFocusStatsToTimer()
 
         // Site was already redirected during this block → instant redirect
-        if deepWorkRedirectedSites.contains(targetKey) {
+        if deepWorkRedirectedSites.contains(targetKey) && isEnforcementEnabled(.autoRedirect) {
             appDelegate?.postLog("👁️ Deep Work: instant redirect (revisit) for \(targetKey)")
             navigateToRelevant()
             return
@@ -1347,7 +1426,7 @@ class FocusMonitor {
         // 300s+: Intervention overlay (and re-trigger every 300s)
         if cumulativeDistractionSeconds >= Self.deepWorkInterventionThreshold
             && (cumulativeDistractionSeconds - lastInterventionAtDistraction >= Self.deepWorkInterventionThreshold)
-            && interventionEnabled {
+            && interventionEnabled && isEnforcementEnabled(.interventionExercises) {
             lastInterventionAtDistraction = cumulativeDistractionSeconds
             interventionCount += 1
             nudgeController?.dismiss()
@@ -1359,14 +1438,18 @@ class FocusMonitor {
         // 20s: Auto-redirect + grayscale
         if cumulativeDistractionSeconds >= Self.deepWorkRedirectThreshold && !deepWorkRedirectFired {
             deepWorkRedirectFired = true
-            deepWorkAutoRedirect()
-            return
+            if isEnforcementEnabled(.autoRedirect) {
+                deepWorkAutoRedirect()
+                return
+            }
         }
 
         // 10s: First nudge
         if cumulativeDistractionSeconds >= Self.deepWorkNudgeThreshold && !nudgeShownForCurrentContent {
             nudgeShownForCurrentContent = true
-            showNudgeForContent(intention: intention, displayName: displayName, escalated: false)
+            if isEnforcementEnabled(.nudge) {
+                showNudgeForContent(intention: intention, displayName: displayName, escalated: false)
+            }
         }
     }
 
@@ -1383,7 +1466,7 @@ class FocusMonitor {
         deepWorkRedirectedSites.insert(targetKey)
 
         // Start grayscale at the second notification (the redirect)
-        if !(grayscaleController?.isActive ?? false) {
+        if !(grayscaleController?.isActive ?? false) && isEnforcementEnabled(.screenRedShift) {
             grayscaleController?.startDesaturation()
             grayscaleTriggeredThisBlock = true
             appDelegate?.postLog("🌫️ Deep Work: grayscale started on redirect")
@@ -1464,11 +1547,12 @@ class FocusMonitor {
 
         // Update floating timer distraction dot (red) for focus hours too
         deepWorkTimerController?.update(isDistracted: true)
+        pushFocusStatsToTimer()
 
         // ── Grayscale: instant if already triggered this block, otherwise at 30s ──
         let shouldGrayscale = grayscaleTriggeredThisBlock
             || cumulativeDistractionSeconds >= Self.focusGrayscaleThreshold
-        if shouldGrayscale && !(grayscaleController?.isActive ?? false) {
+        if shouldGrayscale && !(grayscaleController?.isActive ?? false) && isEnforcementEnabled(.screenRedShift) {
             grayscaleController?.startDesaturation()
             grayscaleTriggeredThisBlock = true
             appDelegate?.postLog("🌫️ Focus Hours: grayscale at \(Int(cumulativeDistractionSeconds))s\(grayscaleTriggeredThisBlock ? " (re-trigger)" : "")")
@@ -1482,7 +1566,7 @@ class FocusMonitor {
         // 300s+: Intervention overlay (re-trigger every 300s)
         if cumulativeDistractionSeconds >= Self.focusInterventionThreshold
             && (cumulativeDistractionSeconds - lastInterventionAtDistraction >= Self.focusInterventionThreshold)
-            && interventionEnabled {
+            && interventionEnabled && isEnforcementEnabled(.interventionExercises) {
             lastInterventionAtDistraction = cumulativeDistractionSeconds
             interventionCount += 1
             nudgeController?.dismiss()
@@ -1494,7 +1578,8 @@ class FocusMonitor {
         // Past intervention threshold but between re-triggers: Level 2 persistent nudges
         if cumulativeDistractionSeconds >= Self.focusInterventionThreshold {
             // Show level 2 nudge if not already showing one (and intervention isn't showing)
-            if !(nudgeController?.isShowing ?? false) && !(interventionController?.isShowing ?? false) {
+            if !(nudgeController?.isShowing ?? false) && !(interventionController?.isShowing ?? false)
+                && isEnforcementEnabled(.nudge) {
                 let distractionMinutes = Int(cumulativeDistractionSeconds / 60)
                 showNudgeForContent(intention: intention, displayName: displayName,
                                    escalated: true, distractionMinutes: distractionMinutes)
@@ -1504,12 +1589,14 @@ class FocusMonitor {
 
         // 240s: Warning nudge (red, "intervention in 60s")
         if cumulativeDistractionSeconds >= Self.focusWarningThreshold
-            && interventionEnabled
+            && interventionEnabled && isEnforcementEnabled(.interventionExercises)
             && lastNudgeShownAtDistraction < Self.focusWarningThreshold {
             lastNudgeShownAtDistraction = cumulativeDistractionSeconds
-            showNudgeForContent(intention: intention, displayName: displayName,
-                               escalated: true, distractionMinutes: Int(cumulativeDistractionSeconds / 60),
-                               warning: true)
+            if isEnforcementEnabled(.nudge) {
+                showNudgeForContent(intention: intention, displayName: displayName,
+                                   escalated: true, distractionMinutes: Int(cumulativeDistractionSeconds / 60),
+                                   warning: true)
+            }
             return
         }
 
@@ -1521,7 +1608,9 @@ class FocusMonitor {
             if shouldShow {
                 nudgeShownForCurrentContent = true
                 lastNudgeShownAtDistraction = cumulativeDistractionSeconds
-                showNudgeForContent(intention: intention, displayName: displayName, escalated: false)
+                if isEnforcementEnabled(.nudge) {
+                    showNudgeForContent(intention: intention, displayName: displayName, escalated: false)
+                }
             }
         }
     }
@@ -1531,6 +1620,11 @@ class FocusMonitor {
     /// Whether focus interventions are enabled (default: true).
     private var interventionEnabled: Bool {
         return UserDefaults.standard.object(forKey: "focusInterventionEnabled") as? Bool ?? true
+    }
+
+    /// Check if a specific enforcement mechanism is enabled for the current block type.
+    private func isEnforcementEnabled(_ mechanism: ScheduleManager.EnforcementMechanism) -> Bool {
+        return scheduleManager?.isEnforcementEnabled(mechanism) ?? true
     }
 
     /// Show the full-screen intervention overlay with a random game.
@@ -1689,24 +1783,28 @@ class FocusMonitor {
 
         switch blockType {
         case .deepWork:
-            // Show full blocking overlay immediately
-            nudgeController?.dismiss()
-            let focusDuration = computeFocusDurationMinutes()
-            showOverlay(
-                intention: intention,
-                reason: "Content not related to your deep work focus.",
-                focusDurationMinutes: focusDuration,
-                isNoPlan: false,
-                displayName: currentTarget
-            )
+            if isEnforcementEnabled(.blockingOverlay) {
+                // Show full blocking overlay immediately
+                nudgeController?.dismiss()
+                let focusDuration = computeFocusDurationMinutes()
+                showOverlay(
+                    intention: intention,
+                    reason: "Content not related to your deep work focus.",
+                    focusDurationMinutes: focusDuration,
+                    isNoPlan: false,
+                    displayName: currentTarget
+                )
+            }
             warnedTargets.insert(currentTargetKey)
             isCurrentlyIrrelevant = true
 
         case .focusHours:
             // Show persistent level 2 nudge (will re-show on next poll via threshold check)
-            let distractionMinutes = Int(cumulativeDistractionSeconds / 60)
-            showNudgeForContent(intention: intention, displayName: currentTarget,
-                               escalated: true, distractionMinutes: max(1, distractionMinutes))
+            if isEnforcementEnabled(.nudge) {
+                let distractionMinutes = Int(cumulativeDistractionSeconds / 60)
+                showNudgeForContent(intention: intention, displayName: currentTarget,
+                                   escalated: true, distractionMinutes: max(1, distractionMinutes))
+            }
 
         case .freeTime:
             break
@@ -1896,7 +1994,7 @@ class FocusMonitor {
                        focusDurationMinutes: pending.focusDurationMinutes, isNoPlan: true, displayName: pending.displayName)
         } else if blockType == .deepWork {
             // Deep Work native app: show full blocking overlay + start grayscale
-            if !(grayscaleController?.isActive ?? false) {
+            if !(grayscaleController?.isActive ?? false) && isEnforcementEnabled(.screenRedShift) {
                 grayscaleController?.startDesaturation()
                 grayscaleTriggeredThisBlock = true
                 appDelegate?.postLog("🌫️ Deep Work: grayscale started on native app overlay")
@@ -1904,15 +2002,23 @@ class FocusMonitor {
                              relevant: false, confidence: 0, reason: "Deep Work native app overlay grayscale",
                              action: "grayscale_on", isEvent: true)
             }
-            logAssessment(title: pending.displayName, appName: currentAppName, intention: pending.intention,
-                         relevant: false, confidence: pending.confidence, reason: pending.reason, action: "blocked")
-            showOverlay(intention: pending.intention, reason: pending.reason,
-                       focusDurationMinutes: pending.focusDurationMinutes, isNoPlan: false, displayName: pending.displayName)
+            if isEnforcementEnabled(.blockingOverlay) {
+                logAssessment(title: pending.displayName, appName: currentAppName, intention: pending.intention,
+                             relevant: false, confidence: pending.confidence, reason: pending.reason, action: "blocked")
+                showOverlay(intention: pending.intention, reason: pending.reason,
+                           focusDurationMinutes: pending.focusDurationMinutes, isNoPlan: false, displayName: pending.displayName)
+            } else if isEnforcementEnabled(.nudge) {
+                logAssessment(title: pending.displayName, appName: currentAppName, intention: pending.intention,
+                             relevant: false, confidence: pending.confidence, reason: pending.reason, action: "nudge")
+                showNudgeForContent(intention: pending.intention, displayName: pending.displayName, escalated: false)
+            }
         } else {
             // Focus Hours native app: show nudge instead of overlay
-            logAssessment(title: pending.displayName, appName: currentAppName, intention: pending.intention,
-                         relevant: false, confidence: pending.confidence, reason: pending.reason, action: "nudge")
-            showNudgeForContent(intention: pending.intention, displayName: pending.displayName, escalated: false)
+            if isEnforcementEnabled(.nudge) {
+                logAssessment(title: pending.displayName, appName: currentAppName, intention: pending.intention,
+                             relevant: false, confidence: pending.confidence, reason: pending.reason, action: "nudge")
+                showNudgeForContent(intention: pending.intention, displayName: pending.displayName, escalated: false)
+            }
         }
 
         // Update state

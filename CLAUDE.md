@@ -1,5 +1,19 @@
 # Intentional macOS App - Development Guide
 
+## Documentation Maintenance (MANDATORY)
+
+After completing any code changes, assess whether this CLAUDE.md needs updating. Update it if any of the following changed:
+- New or modified message types (NativeMessagingHost ↔ extension)
+- Changes to EarnedBrowseManager, TimeTracker, or ScheduleManager state/APIs
+- New features or significant behavior changes
+- Changes to focus enforcement, blocking, or overlay logic
+- New Swift files or significant restructuring
+- Dashboard UI changes that affect extension ↔ app interaction
+
+Keep updates minimal and precise — just add/modify the relevant sections. Do not rewrite sections that haven't changed.
+
+---
+
 ## Parallel Development (Worktree Workflow)
 
 This repo uses git worktrees for parallel feature development. Multiple Claude Code agents may be working on different features simultaneously in separate worktrees.
@@ -303,6 +317,14 @@ Cumulative: 300 seconds of cumulative distraction triggers escalation (both Deep
 
 ### Social Media Delegation
 Social media sites (YouTube, Instagram, Facebook) are skipped by FocusMonitor — the Chrome extension handles enforcement for those.
+
+### Distracting Apps (User-Configured)
+User-configured distracting apps (`distractingAppBundleIds` set, synced from `onboarding_settings.json`) skip AI scoring and grace periods — enforcement is immediate:
+- Checked BEFORE always-allowed list (user intent overrides defaults)
+- `isCurrentlyIrrelevant` set to `true` immediately (no grace period limbo)
+- Gradual grayscale starts immediately via `startDesaturation()` (same progressive shift as browser tabs)
+- Deep Work: blocking overlay shown; Focus Hours: nudge shown
+- Cumulative distraction counter incremented on each evaluation
 
 ### Always-Allowed Apps (~100 bundle IDs)
 Terminals, IDEs, code editors, password managers, system utilities. Auto-earn work ticks during work blocks. Logged to `relevance_log.jsonl` with reason "Always-allowed app".
