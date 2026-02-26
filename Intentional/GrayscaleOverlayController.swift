@@ -1,226 +1,379 @@
 import Cocoa
 import QuartzCore
 
-/// Manages screen desaturation as a focus enforcement tool.
+/// Manages screen red shift + atmospheric vignette as a focus enforcement tool.
 ///
-/// Uses a transparent fullscreen NSWindow with a CIColorControls backgroundFilter
-/// to desaturate everything visible behind the window. This avoids the system
-/// "Color Filter On/Off" notification triggered by the old UAGrayscale approach.
+/// **Gamma Red Shift** — `CGSetDisplayTransferByTable` reduces green/blue channels,
+/// giving the entire screen a red/warm tint. Public API, no notification, smooth animation.
 ///
-/// - `startDesaturation()`: Shows the overlay window with saturation=0
-/// - `restoreSaturation()`: Closes the overlay window
-/// - `dismiss()`: Same as restoreSaturation
+/// **Atmospheric Vignette** — Full-screen click-through NSWindow with a radial gradient
+/// overlay. Ultra-soft warm orange-red from edges, max opacity 0.20. Creates a subtle
+/// "warmth closing in" feel that complements the gamma red shift.
 ///
-/// **Fallback note**: If `backgroundFilters` doesn't work on a particular macOS version,
-/// uncomment the old UAGrayscale code below and comment out the CIFilter approach.
+/// Previous failed grayscale approaches (kept as comments, NEVER delete):
+/// - CGDisplayForceToGray — NO-OP on macOS 15
+/// - CABackdropLayer + CAFilter("colorSaturate") — zero visual effect on macOS 15
+/// - CABackdropLayer + CIFilter — zero visual effect
+/// - Gamma tables for grayscale — GREEN or FOGGY (per-channel can't mix)
+/// - CGSNewCIFilterByName — error 1006 / crash
+/// - CIFilter backgroundFilters — no visual effect on macOS 15
+/// - UAGrayscaleSetEnabled — works but shows notification (kept as fallback)
+/// - Damage vignette overlay — too aggressive combined with red shift (kept as comment)
+/// - Vignette A/B/C variants — tested Gentle Radial, Edge Bars, Corner Bloom; Atmospheric won
+///
+/// NEVER delete ANY commented-out approach. They are preserved for reference.
 class GrayscaleOverlayController {
 
-    /// The transparent overlay window that applies the desaturation filter
-    private var overlayWindow: NSWindow?
+    // MARK: - Configuration
 
-    /// Static reference for forceRestoreSaturation (called from SIGTERM handler and startup)
-    private static var sharedOverlayWindow: NSWindow?
+    /// How much green/blue channels are reduced at max intensity (gamma shift)
+    /// 0.0 = fully removed, 1.0 = untouched. Lower = more red/sickly.
+    private static let greenFloor: CGGammaValue = 0.45
+    private static let blueFloor: CGGammaValue = 0.35
 
-    /// Whether the effect is currently active
-    var isActive: Bool { overlayWindow != nil }
+    /// Gamma table resolution
+    private static let tableSize: Int = 256
 
-    init() {}
+    // MARK: - Animation Config
 
-    // MARK: - Static Cleanup (safe to call from signal handlers or startup)
+    /// Duration to reach full red shift (seconds)
+    private let desaturationDuration: TimeInterval = 30.0
 
-    /// Restore saturation without needing an instance. Safe to call from signal handlers or startup.
-    static func forceRestoreSaturation() {
-        // Close the CIFilter overlay window if it exists
-        if let window = sharedOverlayWindow {
-            window.orderOut(nil)
-            sharedOverlayWindow = nil
-            NSLog("🌫️ forceRestoreSaturation: overlay window closed")
-        }
+    /// Duration to restore normal (seconds)
+    private let restoreDuration: TimeInterval = 3.0
 
-        // Also restore UAGrayscale in case it was left on by a previous version
+    /// Animation tick interval (~60fps)
+    private let animationInterval: TimeInterval = 1.0 / 60.0
+
+    // MARK: - UAGrayscale Fallback (kept available)
+
+    private static let uaHandle: UnsafeMutableRawPointer? = {
         let path = "/System/Library/PrivateFrameworks/UniversalAccess.framework/UniversalAccess"
-        if let handle = dlopen(path, RTLD_LAZY),
-           let sym = dlsym(handle, "UAGrayscaleSetEnabled") {
-            let setEnabled = unsafeBitCast(sym, to: (@convention(c) (Bool) -> Void).self)
-            setEnabled(false)
-            NSLog("🌫️ forceRestoreSaturation: UAGrayscale OFF (legacy cleanup)")
-        }
+        return dlopen(path, RTLD_LAZY)
+    }()
+
+    private static let uaSetEnabled: (@convention(c) (Bool) -> Void)? = {
+        guard let h = uaHandle, let sym = dlsym(h, "UAGrayscaleSetEnabled") else { return nil }
+        return unsafeBitCast(sym, to: (@convention(c) (Bool) -> Void).self)
+    }()
+
+    // MARK: - Instance State
+
+    /// Current effect intensity: 0.0 = normal, 1.0 = full red shift
+    private var currentIntensity: CGGammaValue = 0.0
+
+    /// Animation timer
+    private var animationTimer: Timer?
+
+    /// Whether the effect is active
+    private var grayscaleEnabled = false
+
+    /// Full-screen click-through window for vignette overlay
+    private var vignetteWindow: NSWindow?
+
+    /// The gradient layer rendering the atmospheric vignette
+    private var vignetteLayer: CAGradientLayer?
+
+    // MARK: - Public Properties
+
+    var isActive: Bool { grayscaleEnabled }
+
+    init() {
+        NSLog("🌫️ [INIT] GrayscaleOverlayController created — red shift mode")
+    }
+
+    // MARK: - Static Cleanup
+
+    static func forceRestoreSaturation() {
+        NSLog("🌫️ [FORCE] forceRestoreSaturation called")
+        uaSetEnabled?(false)
+        CGDisplayRestoreColorSyncSettings()
+        NSLog("🌫️ [FORCE] ✅ All restored")
     }
 
     // MARK: - Public API
 
-    /// Enable screen desaturation via CIFilter overlay window.
+    /// Begin red shift + atmospheric vignette over 30 seconds.
     func startDesaturation() {
-        guard overlayWindow == nil else { return }
+        NSLog("🌫️ [START] startDesaturation() — isActive=\(isActive), intensity=\(currentIntensity)")
 
-        // Create overlay window covering all screens
-        let screenFrame = NSScreen.screens.reduce(NSRect.zero) { $0.union($1.frame) }
-
-        let window = NSWindow(
-            contentRect: screenFrame,
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
-        )
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        window.ignoresMouseEvents = true
-        window.level = .screenSaver
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        window.hasShadow = false
-
-        // Set up the content view with a CIColorControls backgroundFilter (saturation = 0)
-        let contentView = NSView(frame: screenFrame)
-        contentView.wantsLayer = true
-        if let filter = CIFilter(name: "CIColorControls") {
-            filter.setDefaults()
-            filter.setValue(0.0, forKey: "inputSaturation")
-            contentView.layer?.backgroundFilters = [filter]
-        } else {
-            NSLog("🌫️ WARNING: CIColorControls filter not available")
+        guard !grayscaleEnabled else {
+            NSLog("🌫️ [START] ⚠️ Already active, skipping")
+            return
         }
 
-        window.contentView = contentView
-        window.orderFrontRegardless()
-
-        overlayWindow = window
-        GrayscaleOverlayController.sharedOverlayWindow = window
-        NSLog("🌫️ Grayscale overlay ON (CIFilter)")
+        grayscaleEnabled = true
+        setupVignetteWindow()
+        setupVignette()
+        animateIntensity(to: 1.0, duration: desaturationDuration)
+        NSLog("🌫️ [START] ✅ Starting \(desaturationDuration)s red shift + atmospheric vignette")
     }
 
-    /// Disable screen desaturation (close the overlay window).
+    /// Restore normal over 3 seconds.
     func restoreSaturation() {
-        guard let window = overlayWindow else { return }
-        window.orderOut(nil)
-        overlayWindow = nil
-        GrayscaleOverlayController.sharedOverlayWindow = nil
-        NSLog("🌫️ Grayscale overlay OFF")
+        NSLog("🌫️ [RESTORE] restoreSaturation() — isActive=\(isActive), intensity=\(currentIntensity)")
+
+        guard grayscaleEnabled else {
+            NSLog("🌫️ [RESTORE] ⚠️ Not active, nothing to restore")
+            return
+        }
+
+        animateIntensity(to: 0.0, duration: restoreDuration) { [weak self] in
+            self?.grayscaleEnabled = false
+            self?.teardownVignette()
+            CGDisplayRestoreColorSyncSettings()
+            NSLog("🌫️ [RESTORE] ✅ Fully restored")
+        }
     }
 
-    /// Same as restoreSaturation — close the overlay if active.
     func dismiss() {
+        NSLog("🌫️ [DISMISS] dismiss() — isActive=\(isActive)")
         restoreSaturation()
     }
 
+    // MARK: - Vignette Window
+
+    private func setupVignetteWindow() {
+        guard let screen = NSScreen.main else { return }
+        let window = NSWindow(
+            contentRect: screen.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.level = .screenSaver
+        window.ignoresMouseEvents = true
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.hasShadow = false
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+
+        let hostView = NSView(frame: screen.frame)
+        hostView.wantsLayer = true
+        hostView.layer?.backgroundColor = NSColor.clear.cgColor
+        window.contentView = hostView
+
+        window.orderFrontRegardless()
+        vignetteWindow = window
+        NSLog("🌫️ [VIGNETTE] Window created \(Int(screen.frame.width))x\(Int(screen.frame.height))")
+    }
+
+    private func teardownVignette() {
+        vignetteLayer = nil
+        vignetteWindow?.orderOut(nil)
+        vignetteWindow = nil
+        NSLog("🌫️ [VIGNETTE] Torn down")
+    }
+
+    // MARK: - Atmospheric Vignette
+
+    private func setupVignette() {
+        guard let layer = vignetteWindow?.contentView?.layer,
+              let frame = vignetteWindow?.frame else { return }
+
+        let grad = CAGradientLayer()
+        grad.type = .radial
+        grad.frame = CGRect(origin: .zero, size: frame.size)
+        grad.startPoint = CGPoint(x: 0.5, y: 0.5)
+        grad.endPoint = CGPoint(x: 1.0, y: 1.0)
+        // Warm orange-red tones, very low opacity
+        grad.colors = [
+            NSColor(red: 1.0, green: 0.35, blue: 0.1, alpha: 0.0).cgColor,
+            NSColor(red: 1.0, green: 0.3, blue: 0.08, alpha: 0.0).cgColor,
+            NSColor(red: 0.95, green: 0.25, blue: 0.05, alpha: 0.05).cgColor,
+            NSColor(red: 0.9, green: 0.2, blue: 0.05, alpha: 0.12).cgColor,
+            NSColor(red: 0.85, green: 0.15, blue: 0.05, alpha: 0.20).cgColor,
+        ]
+        // Barely perceptible start, wide coverage
+        grad.locations = [0.0, 0.25, 0.45, 0.7, 1.0]
+        grad.opacity = 0.0
+
+        layer.addSublayer(grad)
+        vignetteLayer = grad
+        NSLog("🌫️ [VIGNETTE] Atmospheric setup — warm orange-red, max 0.20")
+    }
+
+    /// Update vignette layer opacity to match current intensity.
+    private func applyVignette(_ intensity: CGGammaValue) {
+        vignetteLayer?.opacity = Float(intensity)
+    }
+
     deinit {
-        dismiss()
+        animationTimer?.invalidate()
+        if grayscaleEnabled {
+            teardownVignette()
+            CGDisplayRestoreColorSyncSettings()
+            NSLog("🌫️ [DEINIT] Force-restored")
+        }
+    }
+
+    // MARK: - Apply Red Shift
+
+    /// Apply gamma red shift to all displays.
+    private func applyRedShift(_ intensity: CGGammaValue) {
+        let tableSize = Self.tableSize
+        let t = intensity
+
+        let gGain: CGGammaValue = 1.0 - t * (1.0 - Self.greenFloor)
+        let bGain: CGGammaValue = 1.0 - t * (1.0 - Self.blueFloor)
+
+        var redTable = [CGGammaValue](repeating: 0, count: tableSize)
+        var greenTable = [CGGammaValue](repeating: 0, count: tableSize)
+        var blueTable = [CGGammaValue](repeating: 0, count: tableSize)
+
+        for i in 0..<tableSize {
+            let v = CGGammaValue(i) / CGGammaValue(tableSize - 1)
+            redTable[i]   = v
+            greenTable[i] = v * gGain
+            blueTable[i]  = v * bGain
+        }
+
+        var displayCount: UInt32 = 0
+        CGGetActiveDisplayList(0, nil, &displayCount)
+        guard displayCount > 0 else { return }
+
+        var displays = [CGDirectDisplayID](repeating: 0, count: Int(displayCount))
+        CGGetActiveDisplayList(displayCount, &displays, &displayCount)
+
+        for display in displays {
+            CGSetDisplayTransferByTable(display, UInt32(tableSize), &redTable, &greenTable, &blueTable)
+        }
+    }
+
+    // MARK: - Animation
+
+    private func animateIntensity(to target: CGGammaValue, duration: TimeInterval, completion: (() -> Void)? = nil) {
+        animationTimer?.invalidate()
+        animationTimer = nil
+
+        let start = currentIntensity
+        let delta = target - start
+
+        if abs(delta) < 0.001 {
+            completion?()
+            return
+        }
+
+        let startTime = CACurrentMediaTime()
+        let totalSteps = Int(duration / animationInterval)
+        var stepCount = 0
+
+        NSLog("🌫️ [ANIM] Intensity \(String(format: "%.2f", start)) → \(String(format: "%.2f", target)) over \(duration)s")
+
+        animationTimer = Timer.scheduledTimer(withTimeInterval: animationInterval, repeats: true) { [weak self] timer in
+            guard let self = self else {
+                timer.invalidate()
+                return
+            }
+
+            let elapsed = CACurrentMediaTime() - startTime
+            let progress = min(CGGammaValue(elapsed / duration), 1.0)
+
+            let eased = progress < 0.5
+                ? 2.0 * progress * progress
+                : 1.0 - pow(-2.0 * progress + 2.0, 2) / 2.0
+
+            let newIntensity = start + delta * eased
+            self.currentIntensity = newIntensity
+            self.applyRedShift(newIntensity)
+            self.applyVignette(newIntensity)
+
+            stepCount += 1
+
+            let logInterval = max(totalSteps / max(Int(duration / 5.0), 1), 1)
+            if stepCount % logInterval == 0 || progress >= 1.0 {
+                NSLog("🌫️ [ANIM] intensity=\(String(format: "%.3f", newIntensity)) progress=\(String(format: "%.1f%%", progress * 100))")
+            }
+
+            if progress >= 1.0 {
+                timer.invalidate()
+                self.animationTimer = nil
+                self.currentIntensity = target
+                self.applyRedShift(target)
+                self.applyVignette(target)
+                NSLog("🌫️ [ANIM] ✅ Complete — intensity=\(String(format: "%.2f", target))")
+                completion?()
+            }
+        }
     }
 }
 
-// MARK: - Old UAGrayscale Implementation (commented out)
+// MARK: - Failed: Damage Vignette Overlay (too aggressive with red shift)
 //
-// The code below uses the private UAGrayscaleSetEnabled API from the UniversalAccess
-// framework. This works but triggers the macOS "Color Filter On/Off" system notification.
-// Kept here as a fallback in case the CIFilter backgroundFilters approach doesn't work
-// on a particular macOS version.
+// Full-screen transparent click-through NSWindow with CAGradientLayer radial type.
+// Transparent center → deep red edges that creep inward as intensity increases.
+// Combined with gamma red shift it was too aggressive visually.
 //
-// To revert: uncomment the code below, comment out the CIFilter implementation above,
-// and restore the old class body.
+// ---- DAMAGE VIGNETTE IMPLEMENTATION START ----
+// NSWindow(level: .screenSaver, ignoresMouseEvents: true, backgroundColor: .clear)
+// CAGradientLayer(type: .radial, startPoint: center, endPoint: corner)
+// Colors: clear → dark red (0.6,0,0,0) → (0.5,0,0,0.7) → (0.3,0,0,1.0)
+// Locations shift inward with intensity: [0,0.6,0.8,1.0] → [0,0.3,0.5,0.75]
+// Max opacity: 0.85, max encroachment: 0.3
+// ---- DAMAGE VIGNETTE IMPLEMENTATION END ----
+
+// MARK: - Fallback: UAGrayscaleSetEnabled (true grayscale, shows notification)
 //
-// ---- OLD IMPLEMENTATION START ----
+// The ONLY approach that produces true grayscale on macOS 15 Sequoia.
+// Triggers "Color Filter On/Off" notification — no way to suppress it.
+// Currently kept loaded for forceRestoreSaturation() cleanup.
 //
-// class GrayscaleOverlayController {
+// ---- UAGRAYSCALE IMPLEMENTATION START ----
 //
-//     /// Whether we turned on system grayscale (so we only turn it off if we turned it on)
-//     private var systemGrayscaleEnabled = false
+// uaSetEnabled(true)  → true grayscale ON (notification)
+// uaSetEnabled(false) → grayscale OFF (notification)
 //
-//     /// Cached framework handle (opened once, kept alive)
-//     private var uaHandle: UnsafeMutableRawPointer?
-//     private var uaSetEnabled: (@convention(c) (Bool) -> Void)?
-//     private var uaIsEnabled: (@convention(c) () -> Bool)?
+// ---- UAGRAYSCALE IMPLEMENTATION END ----
+
+// MARK: - Failed: CGDisplayForceToGray (NO-OP on macOS 15)
 //
-//     /// Whether the effect is currently active
-//     var isActive: Bool { systemGrayscaleEnabled }
+// Symbol exists but is a no-op on macOS 15 Sequoia.
 //
-//     init() {
-//         loadFramework()
-//     }
+// ---- CGDISPLAYFORCETOGRAY IMPLEMENTATION START ----
+// dlsym(handle, "CGDisplayForceToGray") → found, forceToGray(true) = no visual effect
+// ---- CGDISPLAYFORCETOGRAY IMPLEMENTATION END ----
+
+// MARK: - Failed: CABackdropLayer + CAFilter("colorSaturate") (no visual effect)
 //
-//     // MARK: - Static Cleanup (safe to call from signal handlers or startup)
+// Full window server config. Setup succeeded. Animation ran. Zero visual change on macOS 15.
 //
-//     /// Restore saturation without needing an instance. Safe to call from signal handlers or startup.
-//     static func forceRestoreSaturation() {
-//         let path = "/System/Library/PrivateFrameworks/UniversalAccess.framework/UniversalAccess"
-//         guard let handle = dlopen(path, RTLD_LAZY),
-//               let sym = dlsym(handle, "UAGrayscaleSetEnabled") else { return }
-//         let setEnabled = unsafeBitCast(sym, to: (@convention(c) (Bool) -> Void).self)
-//         setEnabled(false)
-//         NSLog("🌫️ forceRestoreSaturation: grayscale OFF")
-//     }
+// ---- CABACKDROPLAYER CAFILTER IMPLEMENTATION START ----
+// CAFilter(type: "colorSaturate"), shouldAutoFlattenLayerTree=false,
+// canHostLayersInWindowServer toggled, windowServerAware=true,
+// allowsGroupBlending=true, CGSSetWindowTags(0x800). Zero effect.
+// ---- CABACKDROPLAYER CAFILTER IMPLEMENTATION END ----
+
+// MARK: - Failed: CABackdropLayer + CIFilter (no visual effect)
 //
-//     // MARK: - Public API
+// ---- CABACKDROPLAYER CIFILTER IMPLEMENTATION START ----
+// CIFilter("CIColorControls") on CABackdropLayer.filters — no visual change.
+// ---- CABACKDROPLAYER CIFILTER IMPLEMENTATION END ----
+
+// MARK: - Failed: Gamma tables for grayscale — GREEN or FOGGY
 //
-//     /// Enable system grayscale.
-//     func startDesaturation() {
-//         guard !systemGrayscaleEnabled else { return }
+// BT.709 weights: green screen. Identical ramps: foggy white.
+// Per-channel LUTs can't do cross-channel mixing for grayscale.
+// BUT they ARE used successfully here for the red shift component.
 //
-//         // Ensure we have Accessibility permission (needed for UniversalAccess)
-//         if !AXIsProcessTrusted() {
-//             NSLog("🌫️ Accessibility permission required for grayscale — prompting user")
-//             let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
-//             AXIsProcessTrustedWithOptions(options)
-//             return
-//         }
+// ---- GAMMA GRAYSCALE IMPLEMENTATION START ----
+// BT.709: redTable[i]=v*0.2126, greenTable[i]=v*0.7152 → GREEN
+// Mid-gray: table[i] = v*s + 0.5*(1-s) → FOGGY WHITE
+// ---- GAMMA GRAYSCALE IMPLEMENTATION END ----
+
+// MARK: - Failed: CGSNewCIFilterByName (error 1006 / crash)
 //
-//         // Check if user already has grayscale on (don't claim ownership)
-//         if let isEnabled = uaIsEnabled, isEnabled() {
-//             NSLog("🌫️ System grayscale already enabled by user — not taking ownership")
-//             return
-//         }
+// 3-param: error 1006. 4-param: EXC_BAD_ACCESS (wrong signature).
 //
-//         setSystemGrayscale(true)
-//     }
+// ---- CGS FILTER IMPLEMENTATION START ----
+// CGSNewCIFilterByName(cid, "CIColorControls", &fid) → 1006
+// CGSNewCIFilterByName(cid, 0, "CIColorControls", &fid) → EXC_BAD_ACCESS
+// ---- CGS FILTER IMPLEMENTATION END ----
+
+// MARK: - Failed: CIFilter backgroundFilters (no visual effect)
 //
-//     /// Disable system grayscale (if we enabled it).
-//     func restoreSaturation() {
-//         guard systemGrayscaleEnabled else { return }
-//         setSystemGrayscale(false)
-//     }
+// macOS compositor ignores backgroundFilters on macOS 15.
 //
-//     /// Same as restoreSaturation — disable grayscale if we enabled it.
-//     func dismiss() {
-//         restoreSaturation()
-//     }
-//
-//     // MARK: - UniversalAccess Private Framework
-//
-//     private func loadFramework() {
-//         let frameworkPath = "/System/Library/PrivateFrameworks/UniversalAccess.framework/UniversalAccess"
-//         guard let handle = dlopen(frameworkPath, RTLD_LAZY) else {
-//             NSLog("🌫️ WARNING: Could not load UniversalAccess framework — grayscale unavailable")
-//             return
-//         }
-//         uaHandle = handle
-//
-//         if let sym = dlsym(handle, "UAGrayscaleSetEnabled") {
-//             uaSetEnabled = unsafeBitCast(sym, to: (@convention(c) (Bool) -> Void).self)
-//         } else {
-//             NSLog("🌫️ WARNING: UAGrayscaleSetEnabled not found")
-//         }
-//
-//         if let sym = dlsym(handle, "UAGrayscaleIsEnabled") {
-//             uaIsEnabled = unsafeBitCast(sym, to: (@convention(c) () -> Bool).self)
-//         } else {
-//             NSLog("🌫️ WARNING: UAGrayscaleIsEnabled not found")
-//         }
-//     }
-//
-//     private func setSystemGrayscale(_ enabled: Bool) {
-//         guard let setEnabled = uaSetEnabled else {
-//             NSLog("🌫️ WARNING: Cannot toggle grayscale — framework not loaded")
-//             return
-//         }
-//         setEnabled(enabled)
-//         systemGrayscaleEnabled = enabled
-//         NSLog("🌫️ System grayscale \(enabled ? "ON" : "OFF")")
-//     }
-//
-//     deinit {
-//         dismiss()
-//         if let handle = uaHandle {
-//             dlclose(handle)
-//         }
-//     }
-// }
-//
-// ---- OLD IMPLEMENTATION END ----
+// ---- CIFILTER BACKGROUNDFILTERS IMPLEMENTATION START ----
+// contentView.layer?.backgroundFilters = [CIFilter(name: "CIColorControls")]
+// No visual change.
+// ---- CIFILTER BACKGROUNDFILTERS IMPLEMENTATION END ----

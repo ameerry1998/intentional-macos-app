@@ -38,6 +38,14 @@ class FocusMonitor {
     var interventionController: InterventionOverlayController?
     var grayscaleController: GrayscaleOverlayController?
     var deepWorkTimerController: DeepWorkTimerController?
+    var ritualController: BlockRitualController?
+
+    /// Whether the block start ritual is showing (enforcement paused)
+    private var awaitingRitual = false
+
+    /// Skip showing ritual on the next onBlockChanged (set when ritual's Start saves edits,
+    /// which triggers updateBlock → recalculateState → onBlockChanged synchronously)
+    private var skipNextRitual = false
 
     /// User-configured distracting apps: always treated as irrelevant during work blocks
     var distractingAppBundleIds: Set<String> = []
@@ -521,21 +529,120 @@ class FocusMonitor {
         // Grayscale: reconcile — after resetting flags above, reconciler will restore color
         reconcileGrayscale()
 
-        // Floating timer: show for all focus schedule blocks (Deep Work, Focus Hours, Free Time)
-        if let block = scheduleManager?.currentBlock {
+        // Dismiss any existing ritual card
+        ritualController?.dismiss()
+        awaitingRitual = false
+
+        // Skip ritual if the user just clicked Start (which saves edits via updateBlock,
+        // triggering this method synchronously). Proceed directly to timer + enforcement.
+        if skipNextRitual {
+            skipNextRitual = false
+            showTimerForCurrentBlock()
+            if let app = currentApp { evaluateApp(app) }
+            return
+        }
+
+        // Block Start Ritual: show ritual card BEFORE timer + enforcement
+        // Skip ritual if we're joining a block already in progress (e.g. app restart mid-block).
+        // Only show ritual in the first 90 seconds of a block.
+        if let block = scheduleManager?.currentBlock, ritualController != nil {
             let calendar = Calendar.current
+            let nowMinutes = calendar.component(.hour, from: Date()) * 60 + calendar.component(.minute, from: Date())
+            let elapsedSeconds = (nowMinutes - block.startMinutes) * 60
+            let blockJustStarted = elapsedSeconds < 90
+
+            let availableMinutes = appDelegate?.earnedBrowseManager?.availableMinutes ?? 0
+
+            if !blockJustStarted {
+                appDelegate?.postLog("🧘 Block ritual: skipped — block already \(elapsedSeconds / 60) min in progress")
+                showTimerForCurrentBlock()
+                if let app = currentApp { evaluateApp(app) }
+                return
+            }
+
+            if block.blockType == .deepWork || block.blockType == .focusHours {
+                // Full ritual card: focus question + if-then plan + Start/Edit/+15 min
+                awaitingRitual = true
+                appDelegate?.postLog("🧘 Block ritual: showing for \(block.blockType.rawValue) block \"\(block.title)\"")
+
+                ritualController?.show(
+                    block: block,
+                    availableMinutes: availableMinutes,
+                    onStart: { [weak self] in
+                        guard let self = self else { return }
+                        self.awaitingRitual = false
+                        // Pass focus goal to the timer widget
+                        let goal = self.ritualController?.currentFocusGoal ?? 80
+                        self.deepWorkTimerController?.update(focusGoal: goal)
+                        self.appDelegate?.postLog("🧘 Block ritual: user started — activating timer + enforcement (goal: \(goal)%)")
+                        // Save any inline edits (title, description, block type) from the ritual card.
+                        // Set skipNextRitual because updateBlock → recalculateState → onBlockChanged
+                        // fires synchronously, which would re-show the ritual we just dismissed.
+                        if let updatedBlock = self.ritualController?.buildUpdatedBlock() {
+                            self.skipNextRitual = true
+                            self.scheduleManager?.updateBlock(updatedBlock)
+                        }
+                        self.showTimerForCurrentBlock()
+                        if let app = self.currentApp {
+                            self.evaluateApp(app)
+                        }
+                    },
+                    onSaveEdit: { [weak self] updatedBlock in
+                        self?.scheduleManager?.updateBlock(updatedBlock)
+                    },
+                    onPushBack: { [weak self] in
+                        guard let self = self else { return }
+                        self.awaitingRitual = false
+                        self.appDelegate?.postLog("🧘 Block ritual: pushed back 15 min")
+                        self.scheduleManager?.pushBlockBack(id: block.id)
+                        // pushBlockBack triggers recalculateState → onBlockChanged,
+                        // which will re-enter this method with the new state
+                    }
+                )
+                return  // Skip timer + evaluateApp until ritual completes
+
+            } else if block.blockType == .freeTime {
+                // Simple transition card: "Enjoy your break" + Start
+                awaitingRitual = true
+                appDelegate?.postLog("🧘 Block ritual: showing free time transition for \"\(block.title)\"")
+
+                ritualController?.show(
+                    block: block,
+                    availableMinutes: availableMinutes,
+                    onStart: { [weak self] in
+                        guard let self = self else { return }
+                        self.awaitingRitual = false
+                        self.appDelegate?.postLog("🧘 Block ritual: free time started — showing timer")
+                        self.showTimerForCurrentBlock()
+                    },
+                    onSaveEdit: { _ in },  // No edit for free time
+                    onPushBack: { }        // No push back for free time
+                )
+                return  // Skip timer until ritual completes
+            }
+        }
+
+        // No ritual (nil block or no ritual controller) — proceed as before
+        showTimerForCurrentBlock()
+
+        // Re-evaluate current frontmost app against the new block
+        if let app = currentApp {
+            evaluateApp(app)
+        }
+    }
+
+    /// Show the floating timer pill for the current block (extracted for reuse by ritual flow).
+    private func showTimerForCurrentBlock() {
+        if let block = scheduleManager?.currentBlock {
             let now = Date()
-            let endOfBlock = calendar.date(bySettingHour: block.endHour, minute: block.endMinute, second: 0, of: now) ?? now
+            let endOfBlock = Calendar.current.date(
+                bySettingHour: block.endHour, minute: block.endMinute, second: 0, of: now
+            ) ?? now
             deepWorkTimerController?.show(intention: block.title, endsAt: endOfBlock)
             deepWorkTimerController?.update(isDistracted: false)
             pushFocusStatsToTimer()
         } else {
             deepWorkTimerController?.dismiss()
-        }
-
-        // Re-evaluate current frontmost app against the new block
-        if let app = currentApp {
-            evaluateApp(app)
         }
     }
 
@@ -577,6 +684,12 @@ class FocusMonitor {
     }
 
     private func evaluateApp(_ app: NSRunningApplication) {
+        // Block start ritual is showing — skip all enforcement until user starts
+        if awaitingRitual {
+            debugLog("👁️ evaluateApp: skipped — awaiting block start ritual")
+            return
+        }
+
         let appName = app.localizedName ?? app.bundleIdentifier ?? "unknown"
         let bundleId = app.bundleIdentifier ?? "no-bundle-id"
         let currentState = scheduleManager?.currentTimeState.rawValue ?? "nil"
@@ -786,6 +899,10 @@ class FocusMonitor {
             )
             appDelegate?.earnedBrowseManager?.updateLastActiveApp(name: appName, timestamp: Date())
             startWorkTickTimer(appName: appName)
+            // Background audio detection: mute distracting sources even when switching to always-allowed apps
+            if state.isWork && isEnforcementEnabled(.backgroundAudioDetection) {
+                muteBackgroundDistractingAudio()
+            }
             return
         }
 
@@ -817,6 +934,11 @@ class FocusMonitor {
         // Non-browser app: stop browser polling and score the app name
         stopBrowserPolling()
         debugLog("👁️ App switched to: \(appName) (\(bid))")
+
+        // Background audio detection: mute distracting browser tabs + apps
+        if state.isWork && isEnforcementEnabled(.backgroundAudioDetection) {
+            muteBackgroundDistractingAudio()
+        }
 
         // Score app name asynchronously
         Task {
@@ -1101,6 +1223,12 @@ class FocusMonitor {
                 let decay = Self.browserPollInterval * Self.distractionDecayRatio
                 self.cumulativeDistractionSeconds = max(0, self.cumulativeDistractionSeconds - decay)
             }
+            // Re-mute distracting browser tabs periodically (user may unmute)
+            if self.isEnforcementEnabled(.backgroundAudioDetection),
+               let bid = self.currentAppBundleId,
+               !Self.browserBundleIds.contains(bid) {
+                self.appDelegate?.socketRelayServer?.broadcastMuteBackgroundTab(platform: "all")
+            }
         }
     }
 
@@ -1129,6 +1257,9 @@ class FocusMonitor {
     }
 
     private func pollActiveTab(bundleId: String) {
+        // Don't poll during block start ritual
+        if awaitingRitual { return }
+
         guard currentAppBundleId == bundleId,
               let manager = scheduleManager,
               manager.currentTimeState.isWork else {
@@ -2143,6 +2274,55 @@ class FocusMonitor {
         let calendar = Calendar.current
         let now = calendar.component(.hour, from: Date()) * 60 + calendar.component(.minute, from: Date())
         return max(0, now - block.startMinutes)
+    }
+
+    // MARK: - Background Audio Muting
+
+    /// Mute all background distracting audio sources (browser tabs + apps).
+    private func muteBackgroundDistractingAudio() {
+        appDelegate?.socketRelayServer?.broadcastMuteBackgroundTab(platform: "all")
+        pauseDistractingApps()
+        debugLog("🔇 Background audio: muted distracting sources")
+    }
+
+    /// Iterate running apps, pause any that are user-configured as distracting.
+    private func pauseDistractingApps() {
+        let runningApps = NSWorkspace.shared.runningApplications
+        for app in runningApps {
+            guard let bid = app.bundleIdentifier,
+                  distractingAppBundleIds.contains(bid),
+                  bid != currentAppBundleId else { continue }
+            pauseAppViaAppleScript(bundleId: bid, appName: app.localizedName ?? bid)
+        }
+    }
+
+    /// Send AppleScript pause to a specific app.
+    private func pauseAppViaAppleScript(bundleId: String, appName: String) {
+        let script: String
+        switch bundleId {
+        case "com.spotify.client":
+            script = "tell application \"Spotify\" to pause"
+        case "com.apple.Music":
+            script = "tell application \"Music\" to pause"
+        case "com.apple.TV":
+            script = "tell application \"TV\" to pause"
+        case "com.apple.Podcasts":
+            script = "tell application \"Podcasts\" to pause"
+        default:
+            return
+        }
+        appleScriptQueue.async { [weak self] in
+            let appleScript = NSAppleScript(source: script)
+            var error: NSDictionary?
+            appleScript?.executeAndReturnError(&error)
+            DispatchQueue.main.async {
+                if let err = error {
+                    self?.debugLog("🔇 Failed to pause \(appName): \(err)")
+                } else {
+                    self?.debugLog("🔇 Paused \(appName) via AppleScript")
+                }
+            }
+        }
     }
 
     deinit {

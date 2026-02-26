@@ -270,7 +270,6 @@ body {
   color: #ef4444;
   background: rgba(239,68,68,0.1);
 }
-.distracting-site.pinned .distracting-site-remove { display: none; }
 .distracting-sites-add {
   display: flex;
   gap: 8px;
@@ -312,6 +311,164 @@ body {
   color: rgba(255,255,255,0.35);
   padding: 0 20px 14px;
   font-style: italic;
+}
+
+/* ===== Distracting Apps ===== */
+.distracting-apps-list {
+  padding: 4px 20px 12px;
+}
+.distracting-app {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+.distracting-app + .distracting-app {
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.distracting-app-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+}
+.distracting-app-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.85);
+}
+.distracting-app-remove {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.3);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+.distracting-app-remove:hover {
+  color: #ef4444;
+  background: rgba(239,68,68,0.1);
+}
+.distracting-apps-add-btn {
+  background: rgba(99,102,241,0.15);
+  border: 1px solid rgba(99,102,241,0.3);
+  color: rgba(99,102,241,0.9);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+  width: 100%;
+}
+.distracting-apps-add-btn:hover {
+  background: rgba(99,102,241,0.25);
+}
+.distracting-apps-empty {
+  font-size: 13px;
+  color: rgba(255,255,255,0.35);
+  padding: 4px 0;
+  font-style: italic;
+}
+
+/* ===== App Picker Modal ===== */
+.app-picker-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.app-picker-card {
+  background: #1a1a2e;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 20px;
+  width: 400px;
+  max-height: 500px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.app-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.app-picker-close {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.4);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.app-picker-close:hover {
+  color: #fff;
+  background: rgba(255,255,255,0.06);
+}
+.app-picker-search {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 14px;
+  margin-bottom: 12px;
+  outline: none;
+}
+.app-picker-search:focus {
+  border-color: rgba(99,102,241,0.5);
+}
+.app-picker-search::placeholder {
+  color: rgba(255,255,255,0.3);
+}
+.app-picker-list {
+  overflow-y: auto;
+  flex: 1;
+  max-height: 360px;
+}
+.app-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.app-picker-row:hover {
+  background: rgba(255,255,255,0.06);
+}
+.app-picker-row-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+.app-picker-row-name {
+  flex: 1;
+  font-size: 14px;
+  color: rgba(255,255,255,0.85);
+}
+.app-picker-row-added {
+  font-size: 11px;
+  color: rgba(99,102,241,0.8);
+  background: rgba(99,102,241,0.1);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+.app-picker-loading {
+  text-align: center;
+  padding: 40px 0;
+  color: rgba(255,255,255,0.4);
+  font-size: 13px;
 }
 
 /* ===== Usage Cards ===== */
@@ -1353,28 +1510,29 @@ body {
 .focus-goal-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 .focus-goal-number {
-  width: 24px; height: 24px;
+  width: 20px; height: 20px;
   border-radius: 50%;
   background: rgba(99, 102, 241, 0.15);
   color: #6366f1;
-  font-size: 12px; font-weight: 700;
+  font-size: 11px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
 .focus-goal-input {
   flex: 1;
-  padding: 10px 14px;
+  padding: 7px 10px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  border-radius: 8px;
   color: #ffffff;
-  font-size: 14px;
+  font-size: 13px;
   font-family: inherit;
   outline: none;
+  min-width: 0;
 }
 .focus-goal-input:focus { border-color: #6366f1; }
 .focus-goal-input::placeholder { color: rgba(255, 255, 255, 0.25); }
@@ -1571,12 +1729,6 @@ body {
   padding: 12px 0 0;
 }
 
-/* ===== Focus Score Bottom Row ===== */
-.focus-bottom-row {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 20px;
-}
 
 /* Calendar */
 .calendar-container {
@@ -1591,7 +1743,7 @@ body {
 }
 .calendar-grid {
   position: relative;
-  height: 1008px; /* 24 hours * 42px */
+  /* height set dynamically by JS based on CALENDAR_HOUR_HEIGHT */
 }
 .calendar-hour-row {
   position: absolute;
@@ -1728,19 +1880,6 @@ body {
   white-space: nowrap;
   margin-right: 4px;
 }
-.calendar-block-nudge-badge {
-  position: absolute;
-  top: -4px; right: -4px;
-  background: #f59e0b;
-  color: #000;
-  font-size: 8px;
-  font-weight: 700;
-  padding: 1px 4px;
-  border-radius: 8px;
-  line-height: 1.2;
-  white-space: nowrap;
-  pointer-events: none;
-}
 .calendar-block-score-badge {
   position: absolute;
   right: 8px; top: 6px;
@@ -1789,6 +1928,82 @@ body {
   width: 8px; height: 8px;
   border-radius: 50%;
   background: #ef4444;
+}
+
+/* Zoom Control */
+.calendar-zoom-wrapper {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(10, 10, 10, 0.85);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+.calendar-zoom-icon { font-size: 10px; color: rgba(255, 255, 255, 0.25); }
+.calendar-zoom-slider {
+  width: 80px; height: 2px;
+  -webkit-appearance: none; background: rgba(255, 255, 255, 0.1);
+  border-radius: 1px; outline: none; cursor: pointer;
+}
+.calendar-zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 10px; height: 10px;
+  border-radius: 50%; background: rgba(255, 255, 255, 0.35); cursor: pointer;
+}
+.calendar-focus-stats {
+  margin-left: auto;
+  display: flex;
+  gap: 10px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+}
+.calendar-focus-stats span span {
+  font-weight: 600;
+}
+
+/* Date Navigation */
+.calendar-date-nav {
+  display: flex; align-items: center; gap: 6px; margin-left: 12px;
+}
+.calendar-date-nav button {
+  background: none; border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px; color: rgba(255, 255, 255, 0.5);
+  font-size: 12px; padding: 2px 8px; cursor: pointer;
+  transition: all 0.15s;
+}
+.calendar-date-nav button:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.8);
+}
+.calendar-date-label {
+  font-size: 13px; color: rgba(255, 255, 255, 0.6);
+  font-weight: 500; min-width: 100px; text-align: center;
+}
+
+/* Empty State */
+.calendar-empty-state {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  z-index: 4; pointer-events: none;
+}
+.calendar-empty-text {
+  font-size: 14px; color: rgba(255, 255, 255, 0.3); margin-bottom: 16px;
+}
+.calendar-empty-btn {
+  pointer-events: auto; padding: 10px 24px;
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 10px; color: #a5b4fc;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s;
+}
+.calendar-empty-btn:hover {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: rgba(99, 102, 241, 0.5);
 }
 
 /* Block Editor Popover */
@@ -2159,61 +2374,34 @@ body {
     <div class="focus-calendar-header">
       <div class="focus-calendar-header-left">
         <div class="section-title" style="margin-bottom: 0;">Schedule</div>
+        <div class="calendar-date-nav">
+          <button id="calendar-nav-prev" onclick="navigateScheduleDate(-1)">&larr;</button>
+          <span class="calendar-date-label" id="calendar-date-label">Today</span>
+          <button id="calendar-nav-next" onclick="navigateScheduleDate(1)" style="visibility:hidden;">&rarr;</button>
+        </div>
       </div>
-      <div class="focus-calendar-header-right">
+      <div class="focus-calendar-header-right" id="calendar-add-buttons">
         <button class="btn-small btn-small-deep" onclick="addFocusBlock('deepWork')">+ Deep Work</button>
         <button class="btn-small" onclick="addFocusBlock('focusHours')">+ Focus Hours</button>
         <button class="btn-small btn-small-free" onclick="addFocusBlock('freeTime')">+ Free Time</button>
+        <button onclick="navigateToEnforcementSection()" title="Enforcement settings" style="background:none;border:none;color:rgba(255,255,255,0.4);font-size:16px;cursor:pointer;padding:2px 6px;margin-left:2px;">&#x2026;</button>
       </div>
     </div>
     <div class="calendar-container" id="calendar-container"></div>
-    <div class="focus-save-bar">
-      <button class="save-btn" id="focus-save-schedule-btn" onclick="saveAndStartDay()" style="display:none;">Save changes</button>
-    </div>
 
-    <!-- B. Goals + Distraction Budget side by side -->
-    <div class="today-split-row">
-      <div class="focus-goals-card">
-        <div class="focus-goals-title">Today's Goals</div>
-        <div class="focus-goal-row">
-          <span class="focus-goal-number">1</span>
-          <input type="text" id="focus-goal-1" class="focus-goal-input" placeholder="Most important task...">
-        </div>
-        <div class="focus-goal-row">
-          <span class="focus-goal-number">2</span>
-          <input type="text" id="focus-goal-2" class="focus-goal-input" placeholder="Second priority...">
-        </div>
-        <div class="focus-goal-row">
-          <span class="focus-goal-number">3</span>
-          <input type="text" id="focus-goal-3" class="focus-goal-input" placeholder="Third priority...">
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Earned Browse (always visible — the single budget system) -->
+    <!-- B. Earned Browse (full width) -->
     <div class="earned-browse-widget" id="earned-browse-widget" style="margin-top: 16px;">
       <div class="focus-goals-title">Earned Browse</div>
-      <div style="display: flex; gap: 16px; margin-top: 8px;">
-        <div style="flex: 1; text-align: center;">
-          <div style="font-size: 24px; font-weight: 700; color: #34d399;" id="earned-available">0</div>
-          <div style="font-size: 11px; color: rgba(255,255,255,0.5);" id="earned-available-label">min available</div>
-        </div>
-        <div style="flex: 1; text-align: center;">
-          <div style="font-size: 24px; font-weight: 700; color: #60a5fa;" id="earned-earned">0</div>
-          <div style="font-size: 11px; color: rgba(255,255,255,0.5);">min earned</div>
-        </div>
-        <div style="flex: 1; text-align: center;">
-          <div style="font-size: 24px; font-weight: 700; color: #f87171;" id="earned-used">0</div>
-          <div style="font-size: 11px; color: rgba(255,255,255,0.5);">min used</div>
-        </div>
+      <div style="height: 20px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; display: flex; margin-top: 8px;">
+        <div id="eb4-bar-avail" style="background: #34d399; transition: width 0.3s; border-radius: 4px 0 0 4px;"></div>
+        <div id="eb4-bar-used" style="background: #f87171; transition: width 0.3s;"></div>
       </div>
-      <div style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
-        <div style="flex: 1; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
-          <div id="earned-bar-used" style="height: 100%; background: #f87171; border-radius: 3px; transition: width 0.3s;" ></div>
-        </div>
+      <div style="display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: rgba(255,255,255,0.5);">
+        <span id="eb4-avail-label" style="color: #34d399;">0 available</span>
+        <span id="eb4-used-label" style="color: #f87171;">0 used</span>
       </div>
-      <!-- Per-platform usage breakdown -->
+
+      <!-- Footer: platform usage, cost, extra time -->
       <div id="earned-platform-usage" style="display: flex; align-items: center; gap: 16px; margin-top: 10px; font-size: 11px; color: rgba(255,255,255,0.4);">
         <span id="earned-yt-usage"></span>
         <span id="earned-ig-usage"></span>
@@ -2225,45 +2413,42 @@ body {
         <span id="earned-deep-work" style="display: none;">Deep work active</span>
         <span id="earned-visits"></span>
       </div>
-      <!-- Extra Time Flow (expandable, shown when user clicks request link) -->
+      <!-- Extra Time Flow -->
       <div id="earned-extra-time-flow" class="earned-extra-time-flow" style="display: none;">
-          <!-- Step 1: Select amount + send -->
-          <div id="extra-time-step-amount" style="display: none;">
-            <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 8px;">How much extra time?</div>
-            <div class="extra-time-pills">
-              <button class="extra-time-pill" data-minutes="15">15 min</button>
-              <button class="extra-time-pill" data-minutes="30">30 min</button>
-              <button class="extra-time-pill" data-minutes="60">60 min</button>
-            </div>
-            <div id="extra-time-send-error" class="extra-time-error" style="display: none;"></div>
-            <div style="display: flex; gap: 8px; margin-top: 10px;">
-              <button id="extra-time-send" class="extra-time-action-btn" disabled>Send Request</button>
-              <button class="extra-time-cancel-btn" data-action="cancel">Cancel</button>
-            </div>
-            <div id="extra-time-remaining" style="font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 6px;"></div>
+        <div id="extra-time-step-amount" style="display: none;">
+          <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 8px;">How much extra time?</div>
+          <div class="extra-time-pills">
+            <button class="extra-time-pill" data-minutes="15">15 min</button>
+            <button class="extra-time-pill" data-minutes="30">30 min</button>
+            <button class="extra-time-pill" data-minutes="60">60 min</button>
           </div>
-          <!-- Step 3: Enter code -->
-          <div id="extra-time-step-code" style="display: none;">
-            <div id="extra-time-code-msg" style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 8px;"></div>
-            <div class="extra-time-code-grid">
-              <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="0">
-              <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="1">
-              <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="2">
-              <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="3">
-              <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="4">
-              <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="5">
-            </div>
-            <div id="extra-time-code-error" class="extra-time-error" style="display: none;"></div>
-            <div style="display: flex; gap: 8px; margin-top: 10px;">
-              <button id="extra-time-verify" class="extra-time-action-btn" disabled>Verify</button>
-              <button class="extra-time-cancel-btn" data-action="cancel">Cancel</button>
-            </div>
+          <div id="extra-time-send-error" class="extra-time-error" style="display: none;"></div>
+          <div style="display: flex; gap: 8px; margin-top: 10px;">
+            <button id="extra-time-send" class="extra-time-action-btn" disabled>Send Request</button>
+            <button class="extra-time-cancel-btn" data-action="cancel">Cancel</button>
           </div>
-          <!-- Step 4: Success -->
-          <div id="extra-time-step-success" style="display: none;">
-            <div id="extra-time-success-msg" style="font-size: 13px; font-weight: 600; color: #34d399;"></div>
+          <div id="extra-time-remaining" style="font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 6px;"></div>
+        </div>
+        <div id="extra-time-step-code" style="display: none;">
+          <div id="extra-time-code-msg" style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 8px;"></div>
+          <div class="extra-time-code-grid">
+            <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="0">
+            <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="1">
+            <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="2">
+            <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="3">
+            <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="4">
+            <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="5">
+          </div>
+          <div id="extra-time-code-error" class="extra-time-error" style="display: none;"></div>
+          <div style="display: flex; gap: 8px; margin-top: 10px;">
+            <button id="extra-time-verify" class="extra-time-action-btn" disabled>Verify</button>
+            <button class="extra-time-cancel-btn" data-action="cancel">Cancel</button>
           </div>
         </div>
+        <div id="extra-time-step-success" style="display: none;">
+          <div id="extra-time-success-msg" style="font-size: 13px; font-weight: 600; color: #34d399;"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Profile setup (inline, shown when no profile exists) -->
@@ -2278,43 +2463,29 @@ body {
       <button class="btn-small" style="margin-top:10px;" onclick="saveProfileInline()">Save profile</button>
     </div>
 
-    <!-- D. This Week -->
-    <div class="section-title" style="margin-top: 24px;">This Week</div>
-    <div id="weekly-usage">
-      <div style="color: var(--text-secondary); font-size: 13px; padding: 16px 0;">Loading history...</div>
-    </div>
-
-    <!-- E. Focus Score + Time Breakdown -->
-    <div class="focus-bottom-row" style="margin-top: 24px;">
-      <div class="focus-score-compact">
-        <div class="focus-score-ring" style="position:relative;">
-          <svg viewBox="0 0 120 120">
-            <circle cx="60" cy="60" r="54" class="score-bg"/>
-            <circle cx="60" cy="60" r="54" class="score-fill" id="score-fill-circle"/>
-          </svg>
-          <div class="focus-score-value" id="focus-score-value" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:22px;font-weight:700;">--</div>
-        </div>
-        <div class="focus-score-label">Today's Focus</div>
-      </div>
-      <div class="settings-card" id="focus-time-breakdown" style="flex:1;margin-bottom:0;">
-        <div class="settings-card-title">Time Breakdown</div>
-        <div class="setting-row">
-          <div class="setting-label">Focused</div>
-          <span class="setting-value" id="score-focused-time">--</span>
-        </div>
-        <div class="setting-row">
-          <div class="setting-label">Off-task</div>
-          <span class="setting-value" id="score-offtask-time">--</span>
-        </div>
-        <div class="setting-row">
-          <div class="setting-label">Breaks</div>
-          <span class="setting-value" id="score-break-time">--</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- F. Collapsible Detail Sections -->
+    <!-- D. Collapsible Detail Sections -->
     <div style="margin-top: 24px;">
+      <div class="collapsible-section">
+        <div class="collapsible-header" onclick="toggleCollapsible('goals')">
+          <span class="collapsible-arrow" id="arrow-goals">▸</span>
+          <span>Today's Goals</span>
+        </div>
+        <div class="collapsible-body" id="body-goals" style="display:none;">
+          <div class="focus-goal-row">
+            <span class="focus-goal-number">1</span>
+            <input type="text" id="focus-goal-1" class="focus-goal-input" placeholder="Most important task...">
+          </div>
+          <div class="focus-goal-row">
+            <span class="focus-goal-number">2</span>
+            <input type="text" id="focus-goal-2" class="focus-goal-input" placeholder="Second priority...">
+          </div>
+          <div class="focus-goal-row">
+            <span class="focus-goal-number">3</span>
+            <input type="text" id="focus-goal-3" class="focus-goal-input" placeholder="Third priority...">
+          </div>
+        </div>
+      </div>
+
       <div class="collapsible-section">
         <div class="collapsible-header" onclick="toggleCollapsible('sessions')">
           <span class="collapsible-arrow" id="arrow-sessions">▸</span>
@@ -2368,6 +2539,28 @@ body {
       <div class="distracting-sites-add" id="distracting-sites-add">
         <input type="text" id="distracting-site-input" placeholder="e.g. reddit.com, twitter.com">
         <button type="button" onclick="addDistractingSite()">Add</button>
+      </div>
+    </div>
+
+    <!-- ===== Distracting Apps ===== -->
+    <div class="settings-card" style="margin-top: 16px;">
+      <div class="settings-card-title">Distracting Apps</div>
+      <div class="setting-desc" style="padding: 2px 20px 8px;">These apps are always marked as off-task during work blocks.</div>
+      <div class="distracting-apps-list" id="distracting-apps-list"></div>
+      <div class="distracting-sites-add" id="distracting-apps-add">
+        <button type="button" class="distracting-apps-add-btn" onclick="showAppPicker()">+ Add App</button>
+      </div>
+    </div>
+
+    <!-- App Picker Modal -->
+    <div class="app-picker-modal" id="app-picker-modal" style="display: none;" onclick="if(event.target===this)hideAppPicker()">
+      <div class="app-picker-card">
+        <div class="app-picker-header">
+          <span style="font-size: 16px; font-weight: 600; color: #fff;">Add Distracting App</span>
+          <button class="app-picker-close" onclick="hideAppPicker()">&times;</button>
+        </div>
+        <input type="text" class="app-picker-search" id="app-picker-search" placeholder="Search apps..." oninput="filterAppPicker()">
+        <div class="app-picker-list" id="app-picker-list"></div>
       </div>
     </div>
 
@@ -2779,6 +2972,87 @@ body {
       </div>
     </div>
 
+    <!-- Enforcement Settings Card -->
+    <div class="settings-card" id="enforcement-settings-card">
+      <div class="settings-card-title">Enforcement Settings</div>
+      <style>
+        .enf-grid {
+          display: grid;
+          grid-template-columns: 1fr 80px 80px;
+          gap: 0;
+          margin-top: 4px;
+        }
+        .enf-grid .enf-header {
+          font-size: 12px;
+          font-weight: 600;
+          padding: 0 0 10px 0;
+          text-align: center;
+        }
+        .enf-grid .enf-row {
+          display: contents;
+        }
+        .enf-grid .enf-row > * {
+          padding: 10px 0;
+          border-top: 1px solid rgba(255,255,255,0.06);
+        }
+        .enf-grid .enf-label {
+          font-size: 13px;
+          color: rgba(255,255,255,0.85);
+          display: flex;
+          align-items: center;
+        }
+        .enf-grid .enf-toggle {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .enf-grid .enf-toggle .toggle {
+          display: inline-block;
+        }
+      </style>
+      <div class="enf-grid">
+        <div></div>
+        <div class="enf-header" style="color: #f87171;">Deep Work</div>
+        <div class="enf-header" style="color: #818cf8;">Focus Hours</div>
+
+        <div class="enf-row">
+          <div class="enf-label">Nudge notifications</div>
+          <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-dw-nudge" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
+          <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-fh-nudge" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
+        </div>
+
+        <div class="enf-row">
+          <div class="enf-label">Screen red shift</div>
+          <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-dw-redshift" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
+          <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-fh-redshift" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
+        </div>
+
+        <div class="enf-row">
+          <div class="enf-label">Auto-redirect</div>
+          <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-dw-redirect" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
+          <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-fh-redirect" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
+        </div>
+
+        <div class="enf-row">
+          <div class="enf-label">Blocking overlay</div>
+          <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-dw-overlay" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
+          <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-fh-overlay" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
+        </div>
+
+        <div class="enf-row">
+          <div class="enf-label">Intervention exercises</div>
+          <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-dw-intervention" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
+          <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-fh-intervention" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
+        </div>
+
+        <div class="enf-row">
+          <div class="enf-label">Background audio from distracting sites</div>
+          <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-dw-audio" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
+          <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-fh-audio" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Time Limits Card -->
     <div class="settings-card">
       <div class="settings-card-title">Time Limits</div>
@@ -2912,11 +3186,11 @@ function navigateTo(pageId) {
   if (pageId === 'settings') {
     loadAccountPage();
     sendMessage({ type: 'GET_EXTENSION_STATUS' });
+    sendMessage({ type: 'GET_SCHEDULE_STATE' });
   }
 
   // Load all data when viewing Today page
   if (pageId === 'today') {
-    sendMessage({ type: 'GET_USAGE_HISTORY' });
     sendMessage({ type: 'GET_JOURNAL' });
     loadFocusState();
     sendMessage({ type: 'GET_RELEVANCE_LOG' });
@@ -2947,10 +3221,9 @@ function toggleCollapsible(id) {
 function refresh() {
   sendMessage({ type: 'GET_DASHBOARD_DATA' });
   sendMessage({ type: 'GET_EXTENSION_STATUS' });
-  // Load weekly history and journal if on Today page
+  // Load journal if on Today page
   var todayPage = document.getElementById('page-today');
   if (todayPage && todayPage.classList.contains('active')) {
-    sendMessage({ type: 'GET_USAGE_HISTORY' });
     sendMessage({ type: 'GET_JOURNAL' });
   }
 }
@@ -3068,6 +3341,7 @@ var PINNED_SITES = [
   { domain: 'facebook.com', icon: '👤', badge: 'Filtering' }
 ];
 var customDistractingSites = [];
+var disabledPlatforms = [];
 
 function renderDistractingSites() {
   var list = document.getElementById('distracting-sites-list');
@@ -3075,6 +3349,7 @@ function renderDistractingSites() {
   list.innerHTML = '';
   var locked = typeof isSettingsLocked === 'function' && isSettingsLocked();
   PINNED_SITES.forEach(function(site) {
+    if (disabledPlatforms.indexOf(site.domain) !== -1) return; // Skip disabled platforms
     var div = document.createElement('div');
     div.className = 'distracting-site pinned';
 
@@ -3092,6 +3367,15 @@ function renderDistractingSites() {
     badge.className = 'distracting-site-badge';
     badge.textContent = site.badge;
     div.appendChild(badge);
+
+    if (!locked) {
+      var removeBtn = document.createElement('button');
+      removeBtn.className = 'distracting-site-remove';
+      removeBtn.title = 'Remove';
+      removeBtn.textContent = '×';
+      removeBtn.addEventListener('click', function() { disablePinnedSite(site.domain); });
+      div.appendChild(removeBtn);
+    }
 
     list.appendChild(div);
   });
@@ -3147,22 +3431,195 @@ function addDistractingSite() {
   if (!input) return;
   var domain = normalizeDomain(input.value);
   if (!domain) { input.value = ''; return; }
-  // Check against pinned sites
+  // Check if re-enabling a disabled pinned site
   var isPinned = PINNED_SITES.some(function(s) { return s.domain === domain; });
-  if (isPinned) { input.value = ''; return; }
+  if (isPinned) {
+    var idx = disabledPlatforms.indexOf(domain);
+    if (idx !== -1) {
+      disabledPlatforms.splice(idx, 1);
+      renderDistractingSites();
+      clearTimeout(settingSaveTimer);
+      saveAllSettings();
+    }
+    input.value = '';
+    return;
+  }
   // Check duplicates
   if (customDistractingSites.indexOf(domain) !== -1) { input.value = ''; return; }
   customDistractingSites.push(domain);
   renderDistractingSites();
   input.value = '';
   input.focus();
-  onSettingChange();
+  clearTimeout(settingSaveTimer);
+  saveAllSettings();  // Immediate save — sites must persist before app close
+}
+
+function disablePinnedSite(domain) {
+  if (disabledPlatforms.indexOf(domain) === -1) {
+    disabledPlatforms.push(domain);
+  }
+  renderDistractingSites();
+  clearTimeout(settingSaveTimer);
+  saveAllSettings();  // Immediate save
 }
 
 function removeDistractingSite(domain) {
   customDistractingSites = customDistractingSites.filter(function(d) { return d !== domain; });
   renderDistractingSites();
-  onSettingChange();
+  clearTimeout(settingSaveTimer);
+  saveAllSettings();  // Immediate save — sites must persist before app close
+}
+
+// ===== Distracting Apps Management =====
+var distractingApps = [];
+var installedAppsCache = null;
+
+function renderDistractingApps() {
+  var list = document.getElementById('distracting-apps-list');
+  if (!list) return;
+  list.innerHTML = '';
+  var locked = typeof isSettingsLocked === 'function' && isSettingsLocked();
+  if (distractingApps.length === 0) {
+    var empty = document.createElement('div');
+    empty.className = 'distracting-apps-empty';
+    empty.textContent = 'No apps added yet';
+    list.appendChild(empty);
+    return;
+  }
+  distractingApps.forEach(function(app) {
+    var div = document.createElement('div');
+    div.className = 'distracting-app';
+
+    if (app.icon) {
+      var icon = document.createElement('img');
+      icon.className = 'distracting-app-icon';
+      icon.src = 'data:image/png;base64,' + app.icon;
+      div.appendChild(icon);
+    } else {
+      var iconPlaceholder = document.createElement('span');
+      iconPlaceholder.style.cssText = 'width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:16px;';
+      iconPlaceholder.textContent = '📱';
+      div.appendChild(iconPlaceholder);
+    }
+
+    var name = document.createElement('span');
+    name.className = 'distracting-app-name';
+    name.textContent = app.name;
+    div.appendChild(name);
+
+    if (!locked) {
+      var removeBtn = document.createElement('button');
+      removeBtn.className = 'distracting-app-remove';
+      removeBtn.title = 'Remove';
+      removeBtn.textContent = '×';
+      removeBtn.addEventListener('click', function() { removeDistractingApp(app.bundleId); });
+      div.appendChild(removeBtn);
+    }
+
+    list.appendChild(div);
+  });
+}
+
+function addDistractingApp(app) {
+  if (distractingApps.some(function(a) { return a.bundleId === app.bundleId; })) return;
+  distractingApps.push({ name: app.name, bundleId: app.bundleId, icon: app.icon });
+  renderDistractingApps();
+  clearTimeout(settingSaveTimer);
+  saveAllSettings();
+}
+
+function removeDistractingApp(bundleId) {
+  distractingApps = distractingApps.filter(function(a) { return a.bundleId !== bundleId; });
+  renderDistractingApps();
+  clearTimeout(settingSaveTimer);
+  saveAllSettings();
+}
+
+function showAppPicker() {
+  var modal = document.getElementById('app-picker-modal');
+  modal.style.display = 'flex';
+  var search = document.getElementById('app-picker-search');
+  search.value = '';
+  search.focus();
+
+  if (installedAppsCache) {
+    renderAppPickerList(installedAppsCache);
+  } else {
+    document.getElementById('app-picker-list').innerHTML = '<div class="app-picker-loading">Loading apps...</div>';
+    sendMessage({ type: 'GET_INSTALLED_APPS' });
+  }
+}
+
+function hideAppPicker() {
+  document.getElementById('app-picker-modal').style.display = 'none';
+}
+
+// Called from native app with installed apps list
+window._installedAppsResult = function(apps) {
+  installedAppsCache = apps;
+  renderAppPickerList(apps);
+};
+
+function renderAppPickerList(apps) {
+  var list = document.getElementById('app-picker-list');
+  var search = document.getElementById('app-picker-search');
+  var query = (search ? search.value : '').toLowerCase();
+
+  var filtered = apps;
+  if (query) {
+    filtered = apps.filter(function(app) {
+      return app.name.toLowerCase().indexOf(query) !== -1;
+    });
+  }
+
+  list.innerHTML = '';
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="app-picker-loading">No apps found</div>';
+    return;
+  }
+
+  filtered.forEach(function(app) {
+    var row = document.createElement('div');
+    row.className = 'app-picker-row';
+
+    if (app.icon) {
+      var icon = document.createElement('img');
+      icon.className = 'app-picker-row-icon';
+      icon.src = 'data:image/png;base64,' + app.icon;
+      row.appendChild(icon);
+    } else {
+      var iconPlaceholder = document.createElement('span');
+      iconPlaceholder.style.cssText = 'width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:18px;';
+      iconPlaceholder.textContent = '📱';
+      row.appendChild(iconPlaceholder);
+    }
+
+    var name = document.createElement('span');
+    name.className = 'app-picker-row-name';
+    name.textContent = app.name;
+    row.appendChild(name);
+
+    var isAdded = distractingApps.some(function(a) { return a.bundleId === app.bundleId; });
+    if (isAdded) {
+      var badge = document.createElement('span');
+      badge.className = 'app-picker-row-added';
+      badge.textContent = 'Added';
+      row.appendChild(badge);
+    } else {
+      row.addEventListener('click', function() {
+        addDistractingApp(app);
+        renderAppPickerList(installedAppsCache);
+      });
+    }
+
+    list.appendChild(row);
+  });
+}
+
+function filterAppPicker() {
+  if (installedAppsCache) {
+    renderAppPickerList(installedAppsCache);
+  }
 }
 
 // ===== Platform Settings Collapse =====
@@ -3254,7 +3711,9 @@ function saveAllSettings() {
       partnerEmail: settings.partnerEmail,
       partnerName: settings.partnerName,
       maxPerPeriod: maxPerPeriod,
-      distractingSites: customDistractingSites
+      distractingSites: customDistractingSites,
+      disabledPlatforms: disabledPlatforms,
+      distractingApps: distractingApps.map(function(a) { return { name: a.name, bundleId: a.bundleId }; })
     }
   });
 }
@@ -3309,9 +3768,14 @@ function populateSettingsUI(data) {
     document.getElementById('adv-device-id').textContent = data.deviceId;
   }
 
-  // Load custom distracting sites
+  // Load custom distracting sites and disabled platforms
   customDistractingSites = data.distractingSites || [];
+  disabledPlatforms = data.disabledPlatforms || [];
   renderDistractingSites();
+
+  // Load distracting apps
+  distractingApps = data.distractingApps || [];
+  renderDistractingApps();
 
   // Sync platform collapse states after populating checkboxes
   syncAllPlatformCollapses();
@@ -3662,7 +4126,9 @@ var LOCKED_INPUT_IDS = [
   'fb-block-gaming', 'fb-block-stories',
   'fb-block-sponsored', 'fb-block-suggested', 'fb-friends-only',
   'yt-hide-sponsored',
-  'adv-period-enabled', 'adv-period-minutes', 'adv-period-hours'
+  'adv-period-enabled', 'adv-period-minutes', 'adv-period-hours',
+  'enf-dw-nudge', 'enf-dw-redshift', 'enf-dw-redirect', 'enf-dw-overlay', 'enf-dw-intervention',
+  'enf-fh-nudge', 'enf-fh-redshift', 'enf-fh-redirect', 'enf-fh-overlay', 'enf-fh-intervention'
 ];
 
 // Descriptions for the lock confirmation modal
@@ -3929,6 +4395,7 @@ function requestUnlock() {
   setButtonLoading('request-unlock-btn', 'Requesting...');
   sendMessage({ type: 'REQUEST_UNLOCK' });
 }
+
 
 function confirmReset() {
   if (confirm('Reset all settings and return to onboarding? This cannot be undone.')) {
@@ -4474,8 +4941,10 @@ var blockFocusData = {};  // { blockId: { focusScore, earnedMinutes, ... } }
 var CALENDAR_START_HOUR = 0;
 var CALENDAR_END_HOUR = 24;
 var CALENDAR_HOUR_HEIGHT = 42;
+var calendarZoomLevel = 42;
 var calendarDragState = null;
 var calendarNowTimer = null;
+var calendarViewDate = null; // null = today, otherwise "yyyy-MM-dd"
 
 var focusDirty = false; // tracks unsaved block changes
 var goalSaveTimer = null;
@@ -4492,9 +4961,15 @@ window._scheduleStateResult = function(data) {
   if (data.goals) focusState.goals = data.goals;
   if (data.dailyPlan !== undefined) focusState.dailyPlan = data.dailyPlan;
   if (data.blocks) focusState.blocks = data.blocks;
+  if (data.calendarZoom) {
+    calendarZoomLevel = data.calendarZoom;
+    CALENDAR_HOUR_HEIGHT = calendarZoomLevel;
+  }
+  calendarViewDate = null; // Reset to today view
   focusDirty = false;
   renderFocusPage();
   renderCalendar();
+  updateDateNavUI();
   loadFocusScore();
   loadEarnedStatus();
 
@@ -4505,6 +4980,11 @@ window._scheduleStateResult = function(data) {
   // Sync AI model dropdown in Settings
   var modelSelect = document.getElementById('ai-model-select');
   if (modelSelect && data.aiModel) modelSelect.value = data.aiModel;
+
+  // Sync enforcement settings toggles
+  if (data.enforcementSettings) {
+    populateEnforcementSettingsUI(data.enforcementSettings);
+  }
 };
 
 window._focusEnabledResult = function(data) {
@@ -4529,17 +5009,82 @@ window._aiModelResult = function(data) {
   if (data.success) showToast(data.model === 'qwen' ? 'Using Qwen3 4B (MLX)' : 'Using Apple Foundation Models');
 };
 
+// ===== Enforcement Settings =====
+var enforcementSaveTimer = null;
+
+function readEnforcementSettingsFromUI() {
+  return {
+    deepWork: {
+      nudgeNotifications: document.getElementById('enf-dw-nudge').checked,
+      screenRedShift: document.getElementById('enf-dw-redshift').checked,
+      autoRedirect: document.getElementById('enf-dw-redirect').checked,
+      blockingOverlay: document.getElementById('enf-dw-overlay').checked,
+      interventionExercises: document.getElementById('enf-dw-intervention').checked,
+      backgroundAudioDetection: document.getElementById('enf-dw-audio').checked
+    },
+    focusHours: {
+      nudgeNotifications: document.getElementById('enf-fh-nudge').checked,
+      screenRedShift: document.getElementById('enf-fh-redshift').checked,
+      autoRedirect: document.getElementById('enf-fh-redirect').checked,
+      blockingOverlay: document.getElementById('enf-fh-overlay').checked,
+      interventionExercises: document.getElementById('enf-fh-intervention').checked,
+      backgroundAudioDetection: document.getElementById('enf-fh-audio').checked
+    }
+  };
+}
+
+function populateEnforcementSettingsUI(enf) {
+  if (!enf) return;
+  var dw = enf.deepWork || {};
+  var fh = enf.focusHours || {};
+  document.getElementById('enf-dw-nudge').checked = dw.nudgeNotifications !== false;
+  document.getElementById('enf-dw-redshift').checked = dw.screenRedShift !== false;
+  document.getElementById('enf-dw-redirect').checked = dw.autoRedirect !== false;
+  document.getElementById('enf-dw-overlay').checked = dw.blockingOverlay !== false;
+  document.getElementById('enf-dw-intervention').checked = dw.interventionExercises !== false;
+  document.getElementById('enf-dw-audio').checked = dw.backgroundAudioDetection !== false;
+  document.getElementById('enf-fh-nudge').checked = fh.nudgeNotifications !== false;
+  document.getElementById('enf-fh-redshift').checked = fh.screenRedShift !== false;
+  document.getElementById('enf-fh-redirect').checked = fh.autoRedirect !== undefined ? fh.autoRedirect : false;
+  document.getElementById('enf-fh-overlay').checked = fh.blockingOverlay !== undefined ? fh.blockingOverlay : false;
+  document.getElementById('enf-fh-intervention').checked = fh.interventionExercises !== undefined ? fh.interventionExercises : false;
+  document.getElementById('enf-fh-audio').checked = fh.backgroundAudioDetection !== undefined ? fh.backgroundAudioDetection : false;
+}
+
+function onEnforcementSettingChange() {
+  if (enforcementSaveTimer) clearTimeout(enforcementSaveTimer);
+  enforcementSaveTimer = setTimeout(saveEnforcementSettings, 300);
+}
+
+function saveEnforcementSettings() {
+  var settings = readEnforcementSettingsFromUI();
+  sendMessage({ type: 'SET_ENFORCEMENT_SETTINGS', settings: settings });
+}
+
+window._enforcementSettingsResult = function(data) {
+  if (data.success) {
+    showToast('Enforcement settings saved');
+  } else {
+    showToast(data.error || 'Failed to save enforcement settings');
+  }
+};
+
+function navigateToEnforcementSection() {
+  navigateTo('settings');
+  setTimeout(function() {
+    var card = document.getElementById('enforcement-settings-card');
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 150);
+}
+
 window._profileResult = function(data) {
   if (data.success) showToast('Profile saved');
 };
 
 window._scheduleResult = function(data) {
-  var btn = document.getElementById('focus-save-schedule-btn');
-  if (btn) { btn.textContent = 'Save changes'; btn.disabled = false; btn.style.display = 'none'; }
   if (data.success) {
     focusState.hasPlan = true;
     focusDirty = false;
-    showToast('Schedule saved!');
   } else {
     showToast('Failed to save schedule', 'error');
   }
@@ -4586,9 +5131,9 @@ function renderFocusPage() {
     }
   }
 
-  // Save button visibility
+  // Save button no longer needed (auto-save)
   var saveBtn = document.getElementById('focus-save-schedule-btn');
-  if (saveBtn) saveBtn.style.display = focusDirty ? '' : 'none';
+  if (saveBtn) saveBtn.style.display = 'none';
 }
 
 function onGoalBlur() {
@@ -4622,10 +5167,34 @@ function saveGoals() {
   });
 }
 
+var _autoSaveTimer = null;
 function markFocusDirty() {
   focusDirty = true;
-  var saveBtn = document.getElementById('focus-save-schedule-btn');
-  if (saveBtn) saveBtn.style.display = '';
+  // Auto-save with debounce (300ms) — no manual Save button needed
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(function() {
+    autoSaveSchedule();
+  }, 300);
+}
+
+function autoSaveSchedule() {
+  focusState.goals = [
+    (document.getElementById('focus-goal-1') || {}).value || '',
+    (document.getElementById('focus-goal-2') || {}).value || '',
+    (document.getElementById('focus-goal-3') || {}).value || ''
+  ].map(function(g) { return g.trim(); });
+
+  focusState.blocks.sort(function(a, b) {
+    return (a.startHour * 60 + a.startMinute) - (b.startHour * 60 + b.startMinute);
+  });
+
+  sendMessage({
+    type: 'SET_SCHEDULE',
+    blocks: focusState.blocks,
+    goals: focusState.goals.filter(function(g) { return g; }),
+    dailyPlan: focusState.dailyPlan
+  });
+  focusDirty = false;
 }
 
 function autoGenerateBlocks() {
@@ -4681,7 +5250,18 @@ function renderCalendar() {
   var container = document.getElementById('calendar-container');
   if (!container) return;
 
-  var html = '<div class="calendar-grid" id="calendar-grid">';
+  var gridHeight = (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * CALENDAR_HOUR_HEIGHT;
+  var html = '<div class="calendar-zoom-wrapper">' +
+    '<span class="calendar-zoom-icon">-</span>' +
+    '<input type="range" class="calendar-zoom-slider" id="calendar-zoom-slider" min="42" max="140" value="' + calendarZoomLevel + '">' +
+    '<span class="calendar-zoom-icon">+</span>' +
+    '<div class="calendar-focus-stats">' +
+    '<span><span id="score-focused-time">--</span> focused</span>' +
+    '<span><span id="score-offtask-time">--</span> off-task</span>' +
+    '<span><span id="score-break-time">--</span> free</span>' +
+    '</div>' +
+    '</div>';
+  html += '<div class="calendar-grid" id="calendar-grid" style="height:' + gridHeight + 'px;">';
   for (var h = CALENDAR_START_HOUR; h < CALENDAR_END_HOUR; h++) {
     var top = (h - CALENDAR_START_HOUR) * CALENDAR_HOUR_HEIGHT;
     html += '<div class="calendar-hour-row" style="top:' + top + 'px;">' +
@@ -4692,6 +5272,7 @@ function renderCalendar() {
   html += '</div>';
   container.innerHTML = html;
 
+  initCalendarZoom();
   renderCalendarBlocks();
   renderNowLine();
   scrollCalendarToTime();
@@ -4770,6 +5351,7 @@ function renderCalendarBlocks() {
     grid.appendChild(el);
   });
   updateBlockRings();
+  renderEmptyState();
 }
 
 function updateBlockRings() {
@@ -4812,9 +5394,7 @@ function updateBlockRings() {
       '</svg>' +
       '<div class="ring-text" style="color:' + color + '">' + score + '%</div>' +
       (earned >= 0.1 ? '<div class="ring-earned">+' + earned.toFixed(1) + 'm</div>' : '');
-    if (nudges > 0) {
-      ring.innerHTML += '<div class="calendar-block-nudge-badge">\u26a0' + nudges + '</div>';
-    }
+    // Nudge badge removed
     ring.addEventListener('click', (function(bid) { return function(e) { e.stopPropagation(); openBlockAssessments(bid, e); }; })(blockId));
     el.appendChild(ring);
   });
@@ -5316,6 +5896,9 @@ function renderNowLine() {
   var existing = grid.querySelector('.calendar-now-line');
   if (existing) existing.remove();
 
+  // Don't show now-line when viewing past days
+  if (!isViewingToday()) return;
+
   var now = new Date();
   var minuteOfDay = now.getHours() * 60 + now.getMinutes();
   var calStart = CALENDAR_START_HOUR * 60;
@@ -5364,6 +5947,7 @@ function scrollCalendarToTime() {
 // ---- Calendar Interactions ----
 
 function onCalendarHourClick(event, hour) {
+  if (!isViewingToday()) return;
   if (event.target.closest('.calendar-block')) return;
   var track = event.currentTarget;
   var rect = track.getBoundingClientRect();
@@ -5603,6 +6187,154 @@ function deleteFocusBlock(blockId) {
   renderCalendarBlocks();
 }
 
+// ---- Calendar Zoom ----
+
+function initCalendarZoom() {
+  var slider = document.getElementById('calendar-zoom-slider');
+  if (!slider) return;
+  slider.addEventListener('input', function() {
+    calendarZoomLevel = parseInt(this.value);
+    applyCalendarZoom();
+  });
+  slider.addEventListener('change', function() {
+    sendMessage({ type: 'SET_CALENDAR_ZOOM', zoom: calendarZoomLevel });
+  });
+
+  // Pinch-to-zoom on trackpad (WKWebView translates pinch to ctrl+wheel)
+  var container = document.getElementById('calendar-container');
+  container.addEventListener('wheel', function(e) {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    calendarZoomLevel = Math.max(42, Math.min(140, calendarZoomLevel + (e.deltaY < 0 ? 4 : -4)));
+    var s = document.getElementById('calendar-zoom-slider');
+    if (s) s.value = calendarZoomLevel;
+    applyCalendarZoom();
+    clearTimeout(container._zoomPersistTimer);
+    container._zoomPersistTimer = setTimeout(function() {
+      sendMessage({ type: 'SET_CALENDAR_ZOOM', zoom: calendarZoomLevel });
+    }, 500);
+  }, { passive: false });
+}
+
+function applyCalendarZoom() {
+  CALENDAR_HOUR_HEIGHT = calendarZoomLevel;
+  var grid = document.getElementById('calendar-grid');
+  if (!grid) return;
+  var gridHeight = (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * CALENDAR_HOUR_HEIGHT;
+  grid.style.height = gridHeight + 'px';
+  // Reposition hour rows
+  grid.querySelectorAll('.calendar-hour-row').forEach(function(row) {
+    var hour = parseInt(row.querySelector('.calendar-hour-track').dataset.hour);
+    row.style.top = ((hour - CALENDAR_START_HOUR) * CALENDAR_HOUR_HEIGHT) + 'px';
+    row.style.height = CALENDAR_HOUR_HEIGHT + 'px';
+  });
+  renderCalendarBlocks();
+  renderNowLine();
+}
+
+// ---- Date Navigation ----
+
+function navigateScheduleDate(offset) {
+  var today = getTodayString();
+  var current = calendarViewDate || today;
+  var parts = current.split('-');
+  var d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+  d.setDate(d.getDate() + offset);
+  var newDate = formatDateISO(d);
+
+  // Can't go past today
+  if (newDate > today) return;
+
+  if (newDate === today) {
+    calendarViewDate = null;
+    loadFocusState(); // Reload today's live state
+  } else {
+    calendarViewDate = newDate;
+    sendMessage({ type: 'GET_SCHEDULE_FOR_DATE', date: newDate });
+  }
+  updateDateNavUI();
+}
+
+window._scheduleForDateResult = function(data) {
+  focusState.blocks = data.blocks || [];
+  renderCalendar();
+  // Mark all blocks as past when viewing history
+  if (calendarViewDate) {
+    document.querySelectorAll('.calendar-block').forEach(function(el) {
+      el.classList.add('past');
+    });
+  }
+  updateDateNavUI();
+};
+
+function updateDateNavUI() {
+  var label = document.getElementById('calendar-date-label');
+  var nextBtn = document.getElementById('calendar-nav-next');
+  var addBtns = document.getElementById('calendar-add-buttons');
+  var saveBtn = document.getElementById('focus-save-schedule-btn');
+  var isToday = !calendarViewDate;
+
+  if (label) label.textContent = isToday ? 'Today' : formatDateLabel(calendarViewDate);
+  if (nextBtn) nextBtn.style.visibility = isToday ? 'hidden' : 'visible';
+  if (addBtns) addBtns.style.display = isToday ? '' : 'none';
+  if (saveBtn && !isToday) saveBtn.style.display = 'none';
+}
+
+function formatDateLabel(dateStr) {
+  var today = getTodayString();
+  var parts = today.split('-');
+  var todayDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+  var yesterday = new Date(todayDate);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (dateStr === formatDateISO(yesterday)) return 'Yesterday';
+  var dp = dateStr.split('-');
+  var d = new Date(parseInt(dp[0]), parseInt(dp[1]) - 1, parseInt(dp[2]));
+  var days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate();
+}
+
+function getTodayString() {
+  return formatDateISO(new Date());
+}
+
+function formatDateISO(d) {
+  var y = d.getFullYear();
+  var m = String(d.getMonth() + 1).padStart(2, '0');
+  var day = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + day;
+}
+
+function isViewingToday() {
+  return !calendarViewDate;
+}
+
+// ---- Empty State ----
+
+function renderEmptyState() {
+  var grid = document.getElementById('calendar-grid');
+  if (!grid) return;
+  var existing = grid.querySelector('.calendar-empty-state');
+  if (existing) existing.remove();
+
+  if (focusState.blocks.length > 0) return;
+
+  var empty = document.createElement('div');
+  empty.className = 'calendar-empty-state';
+  if (isViewingToday()) {
+    empty.innerHTML = '<div class="calendar-empty-text">No blocks scheduled</div>' +
+      '<button class="calendar-empty-btn" onclick="onPlanYourDay()">Plan Your Day</button>';
+  } else {
+    empty.innerHTML = '<div class="calendar-empty-text">No schedule for this day</div>';
+  }
+  grid.appendChild(empty);
+}
+
+function onPlanYourDay() {
+  scrollCalendarToTime();
+  addFocusBlock('focusHours');
+}
+
 // ---- Block Resize ----
 
 function startBlockResize(blockId, edge, event) {
@@ -5770,16 +6502,6 @@ function loadFocusScore() {
 }
 
 window._focusScoreResult = function(data) {
-  var score = data.score || 0;
-  var valueEl = document.getElementById('focus-score-value');
-  if (valueEl) valueEl.textContent = score + '%';
-
-  var circle = document.getElementById('score-fill-circle');
-  if (circle) {
-    var circumference = 339.292;
-    circle.style.strokeDashoffset = circumference * (1 - score / 100);
-  }
-
   var el;
   el = document.getElementById('score-focused-time');
   if (el) el.textContent = formatFocusDuration(data.focusedMinutes || 0);
@@ -5812,6 +6534,20 @@ window._focusScoreResult = function(data) {
 
 // ---- Earned Browse ----
 
+function updateEarnedBrowseBar(earned, used, available, effectiveTime) {
+  var availPct = earned > 0 ? Math.min(100, (available / earned) * 100) : 0;
+  var usedPct = earned > 0 ? Math.min(100, (used / earned) * 100) : 0;
+
+  var barAvail = document.getElementById('eb4-bar-avail');
+  if (barAvail) barAvail.style.width = (earned > 0 ? availPct : 0) + '%';
+  var barUsed = document.getElementById('eb4-bar-used');
+  if (barUsed) barUsed.style.width = (earned > 0 ? usedPct : 0) + '%';
+  var availLabel = document.getElementById('eb4-avail-label');
+  if (availLabel) availLabel.textContent = Math.round(effectiveTime) + ' min available';
+  var usedLabel = document.getElementById('eb4-used-label');
+  if (usedLabel) usedLabel.textContent = Math.round(used) + ' min used';
+}
+
 function loadEarnedStatus() {
   sendMessage({ type: 'GET_EARNED_STATUS' });
 }
@@ -5825,32 +6561,7 @@ window._earnedStatusResult = function(data) {
   var available = Math.max(0, data.availableMinutes || 0);
   var effectiveTime = data.effectiveBrowseTime != null ? Math.max(0, data.effectiveBrowseTime) : available;
 
-  var availEl = document.getElementById('earned-available');
-  var earnedEl = document.getElementById('earned-earned');
-  var usedEl = document.getElementById('earned-used');
-  var availLabel = document.getElementById('earned-available-label');
-  if (availEl) {
-    // Show effective browse time (accounts for cost multiplier)
-    availEl.textContent = Math.round(effectiveTime);
-    availEl.style.color = data.poolExhausted ? '#ef4444' : '#34d399';
-  }
-  if (availLabel) {
-    availLabel.textContent = data.isWorkBlock && data.costMultiplier > 1
-      ? 'min available (' + Math.round(available) + ' at ' + data.costMultiplier + 'x)'
-      : 'min available';
-  }
-  if (earnedEl) earnedEl.textContent = Math.round(earned);
-  if (usedEl) usedEl.textContent = Math.round(used);
-
-  // Progress bar: used / earned
-  var barEl = document.getElementById('earned-bar-used');
-  if (barEl && earned > 0) {
-    var pct = Math.min(100, (used / earned) * 100);
-    barEl.style.width = pct + '%';
-    barEl.style.background = pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : '#34d399';
-  } else if (barEl) {
-    barEl.style.width = '0%';
-  }
+  updateEarnedBrowseBar(earned, used, available, effectiveTime);
 
   // Cost multiplier indicator
   var costEl = document.getElementById('earned-cost-indicator');

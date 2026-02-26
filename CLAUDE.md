@@ -54,6 +54,7 @@ intentional-macos-app/
     NudgeWindowController.swift # Nudge-mode notification overlay
     GrayscaleOverlayController.swift  # Full-screen desaturation overlay (Deep Work)
     DeepWorkTimerController.swift     # Floating pill timer widget (Deep Work)
+    BlockRitualController.swift       # Block start ritual overlay (intent + if-then plan)
     RelevanceScorer.swift       # AI scoring (Apple Foundation Models + MLX Qwen3-4B)
     SocketRelayServer.swift     # Unix socket server for extension communication
     NativeMessagingHost.swift   # Chrome native messaging protocol (4-byte length + JSON)
@@ -168,6 +169,7 @@ Order matters. Components have dependencies that must be wired in sequence.
 13. ScheduleManager         → Load schedule, recalculateState
 14. RelevanceScorer         → AI model initialization
 15. FocusMonitor            → Desktop monitoring (refs: ScheduleManager, RelevanceScorer)
+15a. BlockRitualController   → Wired to FocusMonitor.ritualController
 16. Wire ScheduleManager.onBlockChanged callback  ← MUST be after all managers
 17. Manual activeBlockId sync                      ← Catches app-started-during-block
 18. NativeMessagingHost (template)
@@ -280,6 +282,17 @@ intentBonusAmount      // Bonus amount (10.0)
 ```
 
 ## Focus Enforcement (FocusMonitor)
+
+### Block Start Ritual (BlockRitualController)
+When a block starts, a ritual card shows BEFORE the timer and enforcement activate. The user sets their intention and if-then plan, then clicks Start (or it auto-starts after 3 min for work / 30s for free time).
+
+- **Deep Work / Focus Hours**: Full ritual card — focus question, 3 if-then plan options, Start/Edit/+15 min buttons, Skip link
+- **Free Time**: Simple transition card — "Enjoy your break. X min available." + Start button
+- While ritual is showing, `awaitingRitual = true` — `evaluateApp()` and `pollActiveTab()` return early (no enforcement)
+- Edit mode allows inline block title/time/type editing → calls `ScheduleManager.updateBlock()`
+- +15 min button calls `ScheduleManager.pushBlockBack(id:minutes:)` — shifts block start forward
+- If-then plan selection saved to `UserDefaults("defaultIfThenPlan")` for pre-filling next ritual
+- Focus question pre-fills from block description
 
 ### Two Input Paths
 1. **Non-browser apps**: Detected via `NSWorkspace.didActivateApplicationNotification`, scored by app name

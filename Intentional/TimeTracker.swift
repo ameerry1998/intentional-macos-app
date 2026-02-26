@@ -166,7 +166,7 @@ class TimeTracker {
     /// Record usage heartbeat from extension (new cross-browser tracking)
     /// Called when tab is visible OR audio is playing
     /// DEDUPLICATION: Multiple tabs may send heartbeats - only count actual elapsed time
-    func recordUsageHeartbeat(platform: String, browser: String, seconds: Int, timestamp: Double) {
+    func recordUsageHeartbeat(platform: String, browser: String, seconds: Int, timestamp: Double, isFreeBrowse: Bool = false) {
         let key = platform.lowercased()
         let now = Date()
 
@@ -177,17 +177,17 @@ class TimeTracker {
         let actualSeconds: Int
         if let lastTime = lastHeartbeatTime[key] {
             let elapsed = now.timeIntervalSince(lastTime)
-            // Guard against negative elapsed (clock skew, stale lastHeartbeatTime from previous run)
-            // and clamp to reasonable maximum (60s for a 30s heartbeat interval)
-            let clampedElapsed = max(0, min(elapsed, 60.0))
-            // Use the MINIMUM of reported seconds and actual elapsed time
-            // This prevents over-counting when multiple tabs send heartbeats
-            actualSeconds = min(seconds, Int(clampedElapsed))
+            // Guard against negative elapsed (clock skew)
+            let clampedElapsed = max(0, elapsed)
 
-            if actualSeconds < seconds {
-                appDelegate?.postLog("💓 \(platform) (\(browser)): +\(actualSeconds)s (reported \(seconds)s, clamped — \(Int(clampedElapsed))s since last heartbeat)")
-            } else {
+            if clampedElapsed >= Double(seconds) {
+                // Normal: enough real time passed, trust reported value
+                actualSeconds = seconds
                 appDelegate?.postLog("💓 \(platform) (\(browser)): +\(actualSeconds)s")
+            } else {
+                // Overlap: less time passed than reported (e.g. multiple tabs), clamp to elapsed
+                actualSeconds = max(0, Int(clampedElapsed))
+                appDelegate?.postLog("💓 \(platform) (\(browser)): +\(actualSeconds)s (reported \(seconds)s, clamped — \(Int(clampedElapsed))s since last heartbeat)")
             }
         } else {
             // First heartbeat - trust the reported value
@@ -201,6 +201,9 @@ class TimeTracker {
         // Add time
         let minutes = Double(actualSeconds) / 60.0
         dailyUsage[key]?.minutesUsed += minutes
+        if isFreeBrowse {
+            dailyUsage[key]?.freeBrowseMinutes += minutes
+        }
         dailyUsage[key]?.lastUpdated = now
 
         // Update session if exists
@@ -214,7 +217,7 @@ class TimeTracker {
         saveUsage()
 
         // Notify EarnedBrowseManager of social media time
-        onSocialMediaTimeRecorded?(platform, minutes, false)
+        onSocialMediaTimeRecorded?(platform, minutes, isFreeBrowse)
 
         // Log when crossing a minute boundary
         if let usage = dailyUsage[key], Int(usage.minutesUsed) != Int(usage.minutesUsed - minutes) {

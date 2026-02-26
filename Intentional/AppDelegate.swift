@@ -290,6 +290,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         focusMonitor?.overlayController = focusOverlayController
         let interventionController = InterventionOverlayController(appDelegate: self)
         focusMonitor?.interventionController = interventionController
+        focusMonitor?.ritualController = BlockRitualController()
+        // Load user-configured distracting apps from saved settings
+        let settingsURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("Intentional").appendingPathComponent("onboarding_settings.json")
+        if let data = try? Data(contentsOf: settingsURL),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let apps = json["distractingApps"] as? [[String: Any]] {
+            focusMonitor?.distractingAppBundleIds = Set(apps.compactMap { $0["bundleId"] as? String })
+        }
         focusMonitor?.start()
         postLog("👁️ FocusMonitor + NudgeWindowController + FocusOverlayWindow + InterventionOverlay initialized")
 

@@ -262,6 +262,20 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "GET_BLOCK_ASSESSMENTS":
             handleGetBlockAssessments(body)
 
+        case "SET_CALENDAR_ZOOM":
+            if let zoom = body["zoom"] as? Int {
+                appDelegate?.scheduleManager?.setCalendarZoom(zoom)
+            }
+
+        case "SET_ENFORCEMENT_SETTINGS":
+            handleSetEnforcementSettings(body)
+
+        case "GET_SCHEDULE_FOR_DATE":
+            handleGetScheduleForDate(body)
+
+        case "GET_INSTALLED_APPS":
+            handleGetInstalledApps()
+
         default:
             appDelegate?.postLog("⚠️ WKWebView: Unknown message type: \(type)")
         }
@@ -669,6 +683,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             "autoRelockEnabled": autoRelockEnabled
         ]
         result["distractingSites"] = (savedSettings["distractingSites"] as? [String]) ?? [String]()
+        result["disabledPlatforms"] = (savedSettings["disabledPlatforms"] as? [String]) ?? [String]()
+        result["distractingApps"] = (savedSettings["distractingApps"] as? [[String: Any]]) ?? [[String: Any]]()
         if let tuu = temporaryUnlockUntil { result["temporaryUnlockUntil"] = tuu }
         if let sua = selfUnlockAvailableAt { result["selfUnlockAvailableAt"] = sua }
 
@@ -764,6 +780,26 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                         }
                     }
 
+                    // Disabled platforms: can't disable platforms while locked (re-enabling is OK)
+                    if violation == nil, let newDisabled = settings["disabledPlatforms"] as? [String] {
+                        let currentDisabled = (json["disabledPlatforms"] as? [String]) ?? []
+                        let newlyDisabled = newDisabled.filter { !currentDisabled.contains($0) }
+                        if !newlyDisabled.isEmpty {
+                            violation = "Cannot remove platforms from distracting sites while settings are locked"
+                        }
+                    }
+
+                    // Distracting apps: can't remove apps while locked (adding is OK)
+                    if violation == nil, let newApps = settings["distractingApps"] as? [[String: Any]] {
+                        let currentApps = (json["distractingApps"] as? [[String: Any]]) ?? []
+                        let currentBundleIds = Set(currentApps.compactMap { $0["bundleId"] as? String })
+                        let newBundleIds = Set(newApps.compactMap { $0["bundleId"] as? String })
+                        let removedApps = currentBundleIds.subtracting(newBundleIds)
+                        if !removedApps.isEmpty {
+                            violation = "Cannot remove distracting apps while settings are locked"
+                        }
+                    }
+
                     if let v = violation {
                         let escaped = v.replacingOccurrences(of: "'", with: "\\'")
                         callJS("window._saveSettingsResult && window._saveSettingsResult({ success: false, message: '\(escaped)' })")
@@ -778,6 +814,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let partnerEmail = settings["partnerEmail"] as? String
         let partnerName = settings["partnerName"] as? String
         let distractingSites = settings["distractingSites"] as? [String]
+        let disabledPlatforms = settings["disabledPlatforms"] as? [String]
+        let distractingApps = settings["distractingApps"] as? [[String: Any]]
         let platforms: [String: Any] = ["youtube": ytSettings, "instagram": igSettings, "facebook": fbSettings]
 
         saveSettingsToFile(
@@ -787,12 +825,20 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             partnerName: partnerName,
             lockMode: lockMode,
             maxPerPeriod: settings["maxPerPeriod"] as? [String: Any],
-            distractingSites: distractingSites
+            distractingSites: distractingSites,
+            disabledPlatforms: disabledPlatforms,
+            distractingApps: distractingApps
         )
 
         // Update WebsiteBlocker with new distracting sites
         if let sites = distractingSites {
             appDelegate?.websiteBlocker?.updateDistractingSites(sites)
+        }
+
+        // Update FocusMonitor with new distracting apps
+        if let apps = distractingApps {
+            let bundleIds = Set(apps.compactMap { $0["bundleId"] as? String })
+            appDelegate?.focusMonitor?.distractingAppBundleIds = bundleIds
         }
 
         broadcastSettingsToExtensions(settings)
@@ -817,7 +863,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         partnerName: String?,
         lockMode: String,
         maxPerPeriod: [String: Any]?,
-        distractingSites: [String]? = nil
+        distractingSites: [String]? = nil,
+        disabledPlatforms: [String]? = nil,
+        distractingApps: [[String: Any]]? = nil
     ) {
         updateSettingsFile { settings in
             var existingPlatforms = settings["platforms"] as? [String: Any] ?? [:]
@@ -836,6 +884,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             if let cats = blockedCategories { settings["blockedCategories"] = cats }
             if let mpp = maxPerPeriod { settings["maxPerPeriod"] = mpp }
             if let ds = distractingSites { settings["distractingSites"] = ds }
+            if let dp = disabledPlatforms { settings["disabledPlatforms"] = dp }
+            if let da = distractingApps { settings["distractingApps"] = da }
             settings["lastModified"] = ISO8601DateFormatter().string(from: Date())
         }
     }
@@ -850,6 +900,89 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         }
         appDelegate?.socketRelayServer?.broadcastToAll(message)
         appDelegate?.postLog("🌐 SETTINGS_SYNC broadcast to \(appDelegate?.socketRelayServer?.connectionCount ?? 0) extension(s)")
+    }
+
+    // MARK: - Get Installed Apps
+
+    private var installedAppsCache: [[String: Any]]?
+
+    private func handleGetInstalledApps() {
+        // Return cached result if available
+        if let cached = installedAppsCache {
+            sendInstalledAppsResult(cached)
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            var apps: [[String: Any]] = []
+            let searchPaths = ["/Applications", NSHomeDirectory() + "/Applications"]
+
+            // Bundle IDs to exclude (system utilities, Intentional itself, always-allowed productivity apps)
+            let excludedPrefixes = ["com.apple."]
+            let excludedBundleIds: Set<String> = [
+                "com.intentional.app",
+                Bundle.main.bundleIdentifier ?? ""
+            ]
+
+            for searchPath in searchPaths {
+                guard let contents = try? FileManager.default.contentsOfDirectory(atPath: searchPath) else { continue }
+                for item in contents {
+                    guard item.hasSuffix(".app") else { continue }
+                    let appPath = (searchPath as NSString).appendingPathComponent(item)
+                    guard let bundle = Bundle(path: appPath),
+                          let bundleId = bundle.bundleIdentifier else { continue }
+
+                    // Skip excluded apps
+                    if excludedBundleIds.contains(bundleId) { continue }
+                    if excludedPrefixes.contains(where: { bundleId.hasPrefix($0) }) { continue }
+
+                    let name = FileManager.default.displayName(atPath: appPath).replacingOccurrences(of: ".app", with: "")
+
+                    var appEntry: [String: Any] = [
+                        "name": name,
+                        "bundleId": bundleId
+                    ]
+
+                    // Get app icon as base64 PNG (32x32 thumbnail)
+                    if let icon = NSWorkspace.shared.icon(forFile: appPath) as NSImage? {
+                        let targetSize = NSSize(width: 32, height: 32)
+                        let resized = NSImage(size: targetSize)
+                        resized.lockFocus()
+                        icon.draw(in: NSRect(origin: .zero, size: targetSize),
+                                  from: NSRect(origin: .zero, size: icon.size),
+                                  operation: .copy, fraction: 1.0)
+                        resized.unlockFocus()
+
+                        if let tiffData = resized.tiffRepresentation,
+                           let bitmap = NSBitmapImageRep(data: tiffData),
+                           let pngData = bitmap.representation(using: .png, properties: [:]) {
+                            appEntry["icon"] = pngData.base64EncodedString()
+                        }
+                    }
+
+                    apps.append(appEntry)
+                }
+            }
+
+            // Sort alphabetically by name
+            apps.sort { ($0["name"] as? String ?? "") < ($1["name"] as? String ?? "") }
+
+            DispatchQueue.main.async {
+                self?.installedAppsCache = apps
+                self?.sendInstalledAppsResult(apps)
+            }
+        }
+    }
+
+    private func sendInstalledAppsResult(_ apps: [[String: Any]]) {
+        do {
+            let data = try JSONSerialization.data(withJSONObject: apps)
+            if let json = String(data: data, encoding: .utf8) {
+                callJS("window._installedAppsResult && window._installedAppsResult(\(json))")
+            }
+        } catch {
+            appDelegate?.postLog("⚠️ GET_INSTALLED_APPS: JSON serialization failed: \(error)")
+        }
     }
 
     // MARK: - Sync State from Backend
@@ -1196,6 +1329,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         }
     }
 
+    // MARK: - Preview Block Ritual
+
     // MARK: - Reset Settings
 
     private func handleResetSettings() {
@@ -1448,6 +1583,44 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         callJS("window._scheduleResult && window._scheduleResult({ success: true })")
     }
 
+    // MARK: - Schedule History
+
+    private func handleGetScheduleForDate(_ body: [String: Any]) {
+        guard let dateString = body["date"] as? String,
+              let manager = appDelegate?.scheduleManager else {
+            callJS("window._scheduleForDateResult && window._scheduleForDateResult({ blocks: [], goals: [], dailyPlan: '' })")
+            return
+        }
+
+        if let schedule = manager.getScheduleForDate(dateString) {
+            let blocks = schedule.blocks.map { block -> [String: Any] in
+                return [
+                    "id": block.id,
+                    "title": block.title,
+                    "description": block.description,
+                    "startHour": block.startHour,
+                    "startMinute": block.startMinute,
+                    "endHour": block.endHour,
+                    "endMinute": block.endMinute,
+                    "blockType": block.blockType.rawValue,
+                    "isFree": block.isFree
+                ]
+            }
+            let result: [String: Any] = [
+                "date": schedule.date,
+                "blocks": blocks,
+                "goals": schedule.goals,
+                "dailyPlan": schedule.dailyPlan
+            ]
+            if let data = try? JSONSerialization.data(withJSONObject: result),
+               let json = String(data: data, encoding: .utf8) {
+                callJS("window._scheduleForDateResult && window._scheduleForDateResult(\(json))")
+            }
+        } else {
+            callJS("window._scheduleForDateResult && window._scheduleForDateResult({ date: '\(dateString)', blocks: [], goals: [], dailyPlan: '' })")
+        }
+    }
+
     // MARK: - Focus Score
 
     private func handleGetFocusScore() {
@@ -1641,6 +1814,40 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         }
     }
 
+    private func handleSetEnforcementSettings(_ body: [String: Any]) {
+        guard let enfDict = body["settings"] as? [String: Any] else {
+            callJS("window._enforcementSettingsResult && window._enforcementSettingsResult({ success: false, error: 'Invalid settings' })")
+            return
+        }
+
+        // Lock check: reject if settings are locked
+        let currentLockMode = UserDefaults.standard.string(forKey: "lockMode") ?? "none"
+        if currentLockMode != "none" {
+            var isUnlocked = false
+            if let data = try? Data(contentsOf: settingsFileURL),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let unlockUntil = json["temporaryUnlockUntil"] as? String {
+                let formatter = ISO8601DateFormatter()
+                if let date = formatter.date(from: unlockUntil), date > Date() {
+                    isUnlocked = true
+                }
+            }
+            if !isUnlocked {
+                callJS("window._enforcementSettingsResult && window._enforcementSettingsResult({ success: false, error: 'Settings are locked' })")
+                return
+            }
+        }
+
+        do {
+            let data = try JSONSerialization.data(withJSONObject: enfDict)
+            let settings = try JSONDecoder().decode(ScheduleManager.EnforcementSettings.self, from: data)
+            appDelegate?.scheduleManager?.setEnforcementSettings(settings)
+            callJS("window._enforcementSettingsResult && window._enforcementSettingsResult({ success: true })")
+        } catch {
+            callJS("window._enforcementSettingsResult && window._enforcementSettingsResult({ success: false, error: 'Parse error' })")
+        }
+    }
+
     // MARK: - Earned Browse Status
 
     private func handleGetEarnedStatus() {
@@ -1799,4 +2006,5 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         }
         callJS("window.\(callbackName) && window.\(callbackName)(\(jsonStr))")
     }
+
 }

@@ -98,6 +98,68 @@ class ScheduleManager {
         var blocks: [FocusBlock]
     }
 
+    // MARK: - Enforcement Settings
+
+    struct BlockEnforcementSettings: Codable {
+        var nudgeNotifications: Bool
+        var screenRedShift: Bool
+        var autoRedirect: Bool
+        var blockingOverlay: Bool
+        var interventionExercises: Bool
+        var backgroundAudioDetection: Bool
+
+        func toDict() -> [String: Bool] {
+            return [
+                "nudgeNotifications": nudgeNotifications,
+                "screenRedShift": screenRedShift,
+                "autoRedirect": autoRedirect,
+                "blockingOverlay": blockingOverlay,
+                "interventionExercises": interventionExercises,
+                "backgroundAudioDetection": backgroundAudioDetection
+            ]
+        }
+    }
+
+    struct EnforcementSettings: Codable {
+        var deepWork: BlockEnforcementSettings
+        var focusHours: BlockEnforcementSettings
+
+        func settings(for blockType: BlockType) -> BlockEnforcementSettings {
+            switch blockType {
+            case .deepWork: return deepWork
+            case .focusHours: return focusHours
+            case .freeTime: return BlockEnforcementSettings(
+                nudgeNotifications: false, screenRedShift: false, autoRedirect: false,
+                blockingOverlay: false, interventionExercises: false, backgroundAudioDetection: false)
+            }
+        }
+
+        static let defaults = EnforcementSettings(
+            deepWork: BlockEnforcementSettings(
+                nudgeNotifications: true, screenRedShift: true, autoRedirect: true,
+                blockingOverlay: true, interventionExercises: true, backgroundAudioDetection: false),
+            focusHours: BlockEnforcementSettings(
+                nudgeNotifications: true, screenRedShift: true, autoRedirect: false,
+                blockingOverlay: false, interventionExercises: false, backgroundAudioDetection: false)
+        )
+
+        func toDict() -> [String: Any] {
+            return [
+                "deepWork": deepWork.toDict(),
+                "focusHours": focusHours.toDict()
+            ]
+        }
+    }
+
+    enum EnforcementMechanism {
+        case nudge
+        case screenRedShift
+        case autoRedirect
+        case blockingOverlay
+        case interventionExercises
+        case backgroundAudioDetection
+    }
+
     enum TimeState: String {
         case deepWork = "deep_work"
         case focusHours = "focus_hours"
@@ -150,6 +212,13 @@ class ScheduleManager {
     private let profileFileURL: URL
     private let scheduleFileURL: URL
     private let settingsFileURL: URL
+    private let historyFileURL: URL
+
+    /// Calendar zoom level (px per hour): 42 (default) → 140 (max)
+    private(set) var calendarZoom: Int = 42
+
+    /// Per-block-type enforcement toggles
+    private(set) var enforcementSettings: EnforcementSettings = .defaults
 
     // MARK: - Timer
 
@@ -167,6 +236,7 @@ class ScheduleManager {
         profileFileURL = dir.appendingPathComponent("focus_profile.json")
         scheduleFileURL = dir.appendingPathComponent("daily_schedule.json")
         settingsFileURL = dir.appendingPathComponent("focus_settings.json")
+        historyFileURL = dir.appendingPathComponent("schedule_history.json")
 
         loadSettings()
         loadProfile()
@@ -205,6 +275,31 @@ class ScheduleManager {
         aiModel = model
         saveSettings()
         appDelegate?.postLog("📋 AI model: \(model)")
+    }
+
+    func setCalendarZoom(_ zoom: Int) {
+        calendarZoom = max(42, min(140, zoom))
+        saveSettings()
+    }
+
+    func setEnforcementSettings(_ settings: EnforcementSettings) {
+        enforcementSettings = settings
+        saveSettings()
+        appDelegate?.postLog("📋 Enforcement settings updated")
+    }
+
+    /// Check if a specific enforcement mechanism is enabled for the current block type.
+    func isEnforcementEnabled(_ mechanism: EnforcementMechanism) -> Bool {
+        guard let blockType = currentBlock?.blockType else { return true }
+        let settings = enforcementSettings.settings(for: blockType)
+        switch mechanism {
+        case .nudge: return settings.nudgeNotifications
+        case .screenRedShift: return settings.screenRedShift
+        case .autoRedirect: return settings.autoRedirect
+        case .blockingOverlay: return settings.blockingOverlay
+        case .interventionExercises: return settings.interventionExercises
+        case .backgroundAudioDetection: return settings.backgroundAudioDetection
+        }
     }
 
     /// Set user profile (one-time during opt-in)
@@ -265,6 +360,33 @@ class ScheduleManager {
         recalculateState(forceCallback: true)
     }
 
+    /// Push a block's start time forward by N minutes.
+    /// Used by the block start ritual's "+15 min" button.
+    func pushBlockBack(id: String, minutes: Int = 15) {
+        guard var schedule = todaySchedule,
+              let index = schedule.blocks.firstIndex(where: { $0.id == id }) else { return }
+        var block = schedule.blocks[index]
+        let newStartMinutes = block.startMinutes + minutes
+        block = FocusBlock(
+            id: block.id,
+            title: block.title,
+            description: block.description,
+            startHour: newStartMinutes / 60,
+            startMinute: newStartMinutes % 60,
+            endHour: block.endHour,
+            endMinute: block.endMinute,
+            blockType: block.blockType
+        )
+        // Only apply if the block still has positive duration
+        guard block.startMinutes < block.endMinutes else { return }
+        schedule.blocks[index] = block
+        schedule.blocks.sort { $0.startMinutes < $1.startMinutes }
+        todaySchedule = schedule
+        saveSchedule()
+        recalculateState(forceCallback: true)
+        appDelegate?.postLog("📋 Block \"\(block.title)\" pushed back \(minutes) min → \(block.startHour):\(String(format: "%02d", block.startMinute))")
+    }
+
     /// Snooze the morning planning prompt (30 min, up to 3 times)
     /// Returns true if snooze was accepted
     func snooze() -> Bool {
@@ -286,7 +408,9 @@ class ScheduleManager {
             "state": currentTimeState.rawValue,
             "hasPlan": todaySchedule != nil && todaySchedule?.date == Self.todayString(),
             "focusEnforcement": focusEnforcement,
-            "aiModel": aiModel
+            "aiModel": aiModel,
+            "calendarZoom": calendarZoom,
+            "enforcementSettings": enforcementSettings.toDict()
         ]
 
         if let block = currentBlock {
@@ -404,6 +528,14 @@ class ScheduleManager {
                 isEnabled = json["enabled"] as? Bool ?? false
                 focusEnforcement = json["focusEnforcement"] as? String ?? "block"
                 aiModel = json["aiModel"] as? String ?? "apple"
+                calendarZoom = json["calendarZoom"] as? Int ?? 42
+
+                // Parse enforcement settings (graceful fallback to defaults)
+                if let enfDict = json["enforcementSettings"] as? [String: Any],
+                   let enfData = try? JSONSerialization.data(withJSONObject: enfDict),
+                   let enf = try? JSONDecoder().decode(EnforcementSettings.self, from: enfData) {
+                    enforcementSettings = enf
+                }
             }
         } catch {
             appDelegate?.postLog("⚠️ ScheduleManager: Failed to load settings: \(error)")
@@ -414,7 +546,9 @@ class ScheduleManager {
         let json: [String: Any] = [
             "enabled": isEnabled,
             "focusEnforcement": focusEnforcement,
-            "aiModel": aiModel
+            "aiModel": aiModel,
+            "calendarZoom": calendarZoom,
+            "enforcementSettings": enforcementSettings.toDict()
         ]
         if let data = try? JSONSerialization.data(withJSONObject: json) {
             try? data.write(to: settingsFileURL)
@@ -446,8 +580,11 @@ class ScheduleManager {
             let data = try Data(contentsOf: scheduleFileURL)
             todaySchedule = try JSONDecoder().decode(DailySchedule.self, from: data)
 
-            // Reset if from a different day
+            // Reset if from a different day — archive the old schedule first
             if todaySchedule?.date != Self.todayString() {
+                if let oldSchedule = todaySchedule {
+                    archiveSchedule(oldSchedule)
+                }
                 todaySchedule = nil
                 snoozeUntil = nil
                 snoozeCount = 0
@@ -455,6 +592,56 @@ class ScheduleManager {
         } catch {
             appDelegate?.postLog("⚠️ ScheduleManager: Failed to load schedule: \(error)")
         }
+    }
+
+    // MARK: - Schedule History
+
+    private func archiveSchedule(_ schedule: DailySchedule) {
+        var history = loadHistory()
+        // Don't archive duplicates
+        if history.contains(where: { $0.date == schedule.date }) { return }
+        // Don't archive empty schedules
+        if schedule.blocks.isEmpty { return }
+        history.append(schedule)
+        // Cap at 90 entries
+        if history.count > 90 {
+            history = Array(history.suffix(90))
+        }
+        saveHistory(history)
+        appDelegate?.postLog("📋 Archived schedule for \(schedule.date) (\(schedule.blocks.count) blocks)")
+    }
+
+    private func loadHistory() -> [DailySchedule] {
+        guard FileManager.default.fileExists(atPath: historyFileURL.path) else { return [] }
+        do {
+            let data = try Data(contentsOf: historyFileURL)
+            return try JSONDecoder().decode([DailySchedule].self, from: data)
+        } catch {
+            appDelegate?.postLog("⚠️ ScheduleManager: Failed to load history: \(error)")
+            return []
+        }
+    }
+
+    private func saveHistory(_ history: [DailySchedule]) {
+        do {
+            let data = try JSONEncoder().encode(history)
+            try data.write(to: historyFileURL)
+        } catch {
+            appDelegate?.postLog("⚠️ ScheduleManager: Failed to save history: \(error)")
+        }
+    }
+
+    /// Get schedule for a specific date (today or from history)
+    func getScheduleForDate(_ dateString: String) -> DailySchedule? {
+        if dateString == Self.todayString() {
+            return todaySchedule
+        }
+        return loadHistory().first(where: { $0.date == dateString })
+    }
+
+    /// Get list of dates with archived schedules
+    func availableHistoryDates() -> [String] {
+        return loadHistory().map { $0.date }
     }
 
     private func saveSchedule() {

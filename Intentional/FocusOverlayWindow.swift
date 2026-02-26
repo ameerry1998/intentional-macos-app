@@ -221,113 +221,169 @@ struct FocusOverlayView: View {
     private let accentStart = Color(red: 0.39, green: 0.4, blue: 0.95)   // indigo-500
     private let accentEnd = Color(red: 0.55, green: 0.36, blue: 0.96)    // violet-500
 
+    // Green accent for noPlan card
+    private let goGreen = Color(red: 0.25, green: 0.78, blue: 0.45)
+    private let goGreenBright = Color(red: 0.30, green: 0.88, blue: 0.52)
+
     var body: some View {
         ZStack {
-            // Full-screen glassmorphic blur + dark tint (immediate, no progressive ramp)
-            ZStack {
-                VisualEffectBlur(material: .fullScreenUI, blendingMode: .behindWindow)
-                Color.black.opacity(0.80)
-            }
-            .ignoresSafeArea()
-
-            // Center card
-            VStack(spacing: 0) {
-                if viewModel.isNoPlan {
-                    noPlanOverlay
-                } else {
-                    deepWorkOverlay
-                }
-            }
-            .padding(40)
-            .frame(maxWidth: 460)
-            .background(
+            if viewModel.isNoPlan {
+                // Light backdrop for noPlan
+                Color.black.opacity(0.08)
+                    .ignoresSafeArea()
+            } else {
+                // Full-screen glassmorphic blur + dark tint for deep work
                 ZStack {
-                    VisualEffectBlur(material: .hudWindow, blendingMode: .withinWindow)
-                    cardBg.opacity(0.7)
+                    VisualEffectBlur(material: .fullScreenUI, blendingMode: .behindWindow)
+                    Color.black.opacity(0.80)
                 }
-            )
-            .cornerRadius(20)
-            .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.6), radius: 40, x: 0, y: 12)
+                .ignoresSafeArea()
+            }
+
+            VStack {
+                Spacer()
+
+                // Center card
+                VStack(spacing: 0) {
+                    if viewModel.isNoPlan {
+                        noPlanOverlay
+                    } else {
+                        deepWorkOverlay
+                    }
+                }
+                .padding(viewModel.isNoPlan ? 32 : 40)
+                .frame(maxWidth: 460)
+                .background(
+                    viewModel.isNoPlan
+                        ? AnyView(ZStack {
+                            VisualEffectBlur(material: .sidebar, blendingMode: .withinWindow)
+                            Color(white: 0.93)
+                        })
+                        : AnyView(ZStack {
+                            VisualEffectBlur(material: .hudWindow, blendingMode: .withinWindow)
+                            cardBg.opacity(0.7)
+                        })
+                )
+                .cornerRadius(viewModel.isNoPlan ? 24 : 20)
+                .overlay(
+                    RoundedRectangle(cornerRadius: viewModel.isNoPlan ? 24 : 20)
+                        .stroke(viewModel.isNoPlan ? Color.black.opacity(0.05) : Color.white.opacity(0.12), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(viewModel.isNoPlan ? 0.10 : 0.6), radius: 40, x: 0, y: 12)
+
+                Spacer()
+            }
         }
     }
 
     // MARK: - No Plan / Unplanned Overlay
 
+    // Light-mode text colors for noPlan
+    private let lightTextPrimary = Color(white: 0.10)
+    private let lightTextSecondary = Color(white: 0.48)
+    private let lightTextTertiary = Color(white: 0.55)
+
     @ViewBuilder
     private var noPlanOverlay: some View {
-        Text("Unscheduled Time")
-            .font(.system(size: 22, weight: .bold))
-            .foregroundColor(textPrimary)
-            .padding(.bottom, 8)
-
-        Text("Plan your day to stay focused")
-            .font(.system(size: 14))
-            .foregroundColor(textSecondary)
+        Text("Unscheduled time")
+            .font(.system(size: 13, weight: .medium))
+            .foregroundColor(lightTextSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.bottom, 16)
 
+        Text("Plan your day to stay focused")
+            .font(.system(size: 24, weight: .bold))
+            .foregroundColor(lightTextPrimary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .lineLimit(2)
+            .padding(.bottom, 6)
+
+        Text("Set up your schedule so Intentional can help you stay on track.")
+            .font(.system(size: 15))
+            .foregroundColor(lightTextSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .lineLimit(2)
+            .padding(.bottom, 4)
+
         if let nextTitle = viewModel.nextBlockTitle, let nextTime = viewModel.nextBlockTime {
-            Text("Next up: \"\(nextTitle)\" at \(nextTime)")
-                .font(.system(size: 12))
-                .foregroundColor(textTertiary)
-                .padding(.bottom, 16)
+            HStack(spacing: 6) {
+                Circle().fill(accentStart).frame(width: 6, height: 6)
+                Text("Next: \"\(nextTitle)\" at \(nextTime)")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(lightTextTertiary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 8)
         }
 
-        Button(action: { viewModel.onPlanDay?() }) {
-            Text("Plan My Day")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(.white)
-                .padding(.horizontal, 32)
-                .padding(.vertical, 13)
-                .background(
-                    LinearGradient(colors: [accentStart, accentEnd], startPoint: .leading, endPoint: .trailing)
-                )
-                .cornerRadius(12)
-        }
-        .buttonStyle(.plain)
-        .padding(.bottom, 16)
+        Spacer().frame(height: 28)
 
-        if !viewModel.showQuickSession {
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    viewModel.showQuickSession = true
-                }
-            }) {
-                Text("+ Quick session instead")
-                    .font(.system(size: 13))
-                    .foregroundColor(textSecondary)
+        HStack(spacing: 12) {
+            Button(action: { viewModel.onPlanDay?() }) {
+                Text("Plan My Day")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        LinearGradient(colors: [goGreen, goGreenBright],
+                                       startPoint: .leading, endPoint: .trailing)
+                    )
+                    .cornerRadius(12)
             }
             .buttonStyle(.plain)
-            .padding(.bottom, 12)
-        } else {
+
+            if !viewModel.showQuickSession {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        viewModel.showQuickSession = true
+                    }
+                }) {
+                    Text("Quick session")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(lightTextSecondary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 7)
+                        .background(Color.black.opacity(0.05))
+                        .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+
+        if viewModel.showQuickSession {
             quickSessionForm
-                .padding(.bottom, 12)
+                .padding(.top, 12)
         }
 
         if viewModel.canSnooze {
             Button(action: { viewModel.onSnooze?() }) {
                 Text("Snooze 30 min")
                     .font(.system(size: 12))
-                    .foregroundColor(textTertiary)
+                    .foregroundColor(lightTextTertiary)
             }
             .buttonStyle(.plain)
+            .padding(.top, 12)
         }
     }
 
     @ViewBuilder
     private var quickSessionForm: some View {
+        let isLight = viewModel.isNoPlan
+        let fieldBg = isLight ? Color.black.opacity(0.04) : Color.white.opacity(0.06)
+        let fieldBorder = isLight ? Color.black.opacity(0.08) : Color.white.opacity(0.1)
+        let fieldText = isLight ? lightTextPrimary : textPrimary
+        let labelColor = isLight ? lightTextSecondary : textSecondary
+
         VStack(spacing: 10) {
             TextField("What are you working on?", text: $viewModel.quickBlockTitle)
                 .textFieldStyle(.plain)
                 .font(.system(size: 14))
-                .foregroundColor(textPrimary)
+                .foregroundColor(fieldText)
                 .padding(12)
-                .background(Color.white.opacity(0.06))
+                .background(fieldBg)
                 .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.1), lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(fieldBorder, lineWidth: 1))
                 .frame(maxWidth: 340)
 
             HStack(spacing: 8) {
@@ -335,13 +391,17 @@ struct FocusOverlayView: View {
                     Button(action: { viewModel.selectedDuration = option.minutes }) {
                         Text(option.label)
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(viewModel.selectedDuration == option.minutes ? .white : textSecondary)
+                            .foregroundColor(
+                                viewModel.selectedDuration == option.minutes
+                                    ? .white
+                                    : labelColor
+                            )
                             .padding(.horizontal, 14)
                             .padding(.vertical, 7)
                             .background(
                                 viewModel.selectedDuration == option.minutes
-                                    ? AnyShapeStyle(LinearGradient(colors: [accentStart, accentEnd], startPoint: .leading, endPoint: .trailing))
-                                    : AnyShapeStyle(Color.white.opacity(0.06))
+                                    ? AnyShapeStyle(LinearGradient(colors: [goGreen, goGreenBright], startPoint: .leading, endPoint: .trailing))
+                                    : AnyShapeStyle(fieldBg)
                             )
                             .cornerRadius(8)
                     }
@@ -357,7 +417,7 @@ struct FocusOverlayView: View {
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
                         .background(
-                            LinearGradient(colors: [accentStart, accentEnd], startPoint: .leading, endPoint: .trailing)
+                            LinearGradient(colors: [goGreen, goGreenBright], startPoint: .leading, endPoint: .trailing)
                         )
                         .cornerRadius(10)
                 }
@@ -368,12 +428,12 @@ struct FocusOverlayView: View {
                 Button(action: { viewModel.startQuickBlock(isFree: true) }) {
                     Text("Free Time")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(textSecondary)
+                        .foregroundColor(labelColor)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
-                        .background(Color.white.opacity(0.06))
+                        .background(fieldBg)
                         .cornerRadius(10)
-                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.1), lineWidth: 1))
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(fieldBorder, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
             }

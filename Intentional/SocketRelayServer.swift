@@ -186,6 +186,17 @@ class SocketRelayServer {
         appDelegate?.postLog("💰 POOL_EXHAUSTED broadcast to \(connectionCount) connection(s)")
     }
 
+    /// Broadcast MUTE_BACKGROUND_TAB to all connected browsers.
+    /// Called when a usage heartbeat arrives during a work block with background audio detection enabled.
+    /// The extension handles this by calling chrome.tabs.update(tabId, {muted: true}) on matching tabs.
+    func broadcastMuteBackgroundTab(platform: String) {
+        broadcastToAll([
+            "type": "MUTE_BACKGROUND_TAB",
+            "platform": platform
+        ])
+        appDelegate?.postLog("🔇 MUTE_BACKGROUND_TAB(\(platform)) broadcast to \(connectionCount) connection(s)")
+    }
+
     /// Broadcast EARNED_MINUTES_UPDATE to all connected browsers.
     /// Called whenever earned pool changes (work ticks, social media time, extra time).
     func broadcastEarnedMinutesUpdate(_ manager: EarnedBrowseManager) {

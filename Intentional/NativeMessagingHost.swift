@@ -447,7 +447,8 @@ class NativeMessagingHost {
                 platform: platform,
                 browser: browser,
                 seconds: seconds,
-                timestamp: timestamp
+                timestamp: timestamp,
+                isFreeBrowse: isFreeBrowse
             )
 
             // Check if earned browse pool is exhausted
@@ -463,6 +464,9 @@ class NativeMessagingHost {
 
             // Push authoritative state back to this browser's extension
             self?.sendStateSync()
+
+            // Note: background audio muting is handled by FocusMonitor.evaluateApp()
+            // (triggers when user switches away from browser during work block)
         }
     }
 
