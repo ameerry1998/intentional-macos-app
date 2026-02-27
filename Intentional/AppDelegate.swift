@@ -58,31 +58,50 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return appSupport + "/strict-mode"
     }
 
-    /// Block Cmd+Q when accountability lock is active.
+    /// Block Cmd+Q when strict mode is enabled.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        let lockMode = UserDefaults.standard.string(forKey: "lockMode") ?? "none"
+        let strictEnabled = UserDefaults.standard.bool(forKey: "strictModeEnabled")
 
-        if lockMode == "none" {
+        if !strictEnabled {
             return .terminateNow
         }
 
-        // Locked — show dialog, block quit
-        postLog("🔒 Quit blocked — lock mode is '\(lockMode)'")
-        let alert = NSAlert()
-        alert.messageText = "Intentional is Locked"
-        alert.informativeText = "This app is in accountability mode. To quit, unlock it first through your accountability partner."
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "Keep Running")
-        alert.runModal()
+        let lockMode = UserDefaults.standard.string(forKey: "lockMode") ?? "none"
 
-        return .terminateCancel
+        if lockMode == "none" {
+            // Strict ON but no lock — offer to disable & quit
+            postLog("🔒 Quit intercepted — strict mode ON, lock=none")
+            let alert = NSAlert()
+            alert.messageText = "App Persistence is On"
+            alert.informativeText = "Intentional is set to keep running. You can disable this and quit."
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "Disable & Quit")
+            alert.addButton(withTitle: "Keep Running")
+            let response = alert.runModal()
+            if response == .alertFirstButtonReturn {
+                UserDefaults.standard.set(false, forKey: "strictModeEnabled")
+                updateStrictMode()
+                return .terminateNow
+            }
+            return .terminateCancel
+        } else {
+            // Strict ON + lock active — must unlock first
+            postLog("🔒 Quit blocked — strict mode ON, lock='\(lockMode)'")
+            let alert = NSAlert()
+            alert.messageText = "Intentional is Locked"
+            alert.informativeText = "App persistence is on and your settings are locked. To quit, unlock your settings first."
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "Keep Running")
+            alert.runModal()
+            return .terminateCancel
+        }
     }
 
-    /// Enable/disable strict mode based on lock mode.
-    /// Called on launch and whenever lock mode changes.
-    func updateStrictMode(lockMode: String) {
-        let strictEnabled = (lockMode == "partner" || lockMode == "self")
-        postLog("🔒 updateStrictMode: lockMode=\(lockMode), strict=\(strictEnabled)")
+    /// Enable/disable strict mode based on the `strictModeEnabled` user preference.
+    /// Called on launch and whenever the user toggles strict mode.
+    func updateStrictMode() {
+        let strictEnabled = UserDefaults.standard.bool(forKey: "strictModeEnabled")
+        postLog("🔒 updateStrictMode: strict=\(strictEnabled)")
 
         // 1. Login item: auto-start on login
         if #available(macOS 13.0, *) {
@@ -235,9 +254,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             await backendClient?.sendEvent(type: "app_started", details: [:])
         }
 
-        // Initialize strict mode based on current lock setting
-        let currentLockMode = UserDefaults.standard.string(forKey: "lockMode") ?? "none"
-        updateStrictMode(lockMode: currentLockMode)
+        // Initialize strict mode based on user preference
+        updateStrictMode()
 
         // Notify UI
         postEventNotification(type: "app_started")
@@ -290,7 +308,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         focusMonitor?.overlayController = focusOverlayController
         let interventionController = InterventionOverlayController(appDelegate: self)
         focusMonitor?.interventionController = interventionController
-        focusMonitor?.ritualController = BlockRitualController()
+        // focusMonitor?.ritualController = BlockRitualController()  // Now pill-centric
         focusMonitor?.endRitualController = BlockEndRitualController()
         // Load user-configured distracting apps from saved settings
         let settingsURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -323,26 +341,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.socketRelayServer?.broadcastScheduleSync()
             self.mainWindowController?.pushScheduleUpdate()
 
-            // Show end ritual for the block that just ended
+            // Show celebration in the pill for the block that just ended
             if let prevBlock = prevBlock, let prevStats = prevStats,
                prevBlock.id != block?.id,      // Not the same block (edited)
                prevStats.totalTicks > 0 {      // User was actually present
 
                 let nextBlock = self.scheduleManager?.nextUpcomingBlock()
 
-                self.focusMonitor?.endRitualController?.show(
+                self.focusMonitor?.showCelebration(
                     block: prevBlock,
                     stats: prevStats,
                     nextBlock: nextBlock,
-                    onDone: { [weak self] selfRating, reflection in
-                        self?.earnedBrowseManager?.saveBlockReflection(
-                            blockId: prevBlock.id,
-                            selfRating: selfRating,
-                            reflection: reflection
-                        )
-                    }
+                    onDone: {}
                 )
             }
+
+            // If celebration was skipped but pill was in blockComplete, resume deferred start
+            self.focusMonitor?.resumeIfPendingBlockStart()
         }
 
         // ScheduleManager.init() already called recalculateState(), but the callback

@@ -361,18 +361,18 @@ class NativeMessagingHost {
                 // Session already active — send SESSION_SYNC with existing state so browser corrects itself
                 self.appDelegate?.postLog("🔒 \(platform) session already active, sending correction to \(browser)")
                 self.sendSessionSync()
-            }
-            // If wasSet == true, onSessionChanged fires → SocketRelayServer broadcasts to ALL
-
-            // Grant intent bonus during Free Time if user set an intent (not free browse)
-            if !freeBrowse,
-               let mgr = self.earnedBrowseManager,
-               let currentBlock = self.scheduleManager?.currentBlock,
-               currentBlock.blockType == .freeTime {
-                let granted = mgr.grantIntentBonus(blockId: currentBlock.id)
-                if granted {
-                    self.appDelegate?.socketRelayServer?.broadcastEarnedMinutesUpdate(mgr)
-                    self.appDelegate?.mainWindowController?.pushEarnedUpdate()
+            } else {
+                // Grant intent bonus during Free Time if user set an intent (not free browse)
+                // Must be inside wasSet guard — reconnect-rejected SESSION_STARTs must not trigger bonus
+                if !freeBrowse,
+                   let mgr = self.earnedBrowseManager,
+                   let currentBlock = self.scheduleManager?.currentBlock,
+                   currentBlock.blockType == .freeTime {
+                    let granted = mgr.grantIntentBonus(blockId: currentBlock.id)
+                    if granted {
+                        self.appDelegate?.socketRelayServer?.broadcastEarnedMinutesUpdate(mgr)
+                        self.appDelegate?.mainWindowController?.pushEarnedUpdate()
+                    }
                 }
             }
         }

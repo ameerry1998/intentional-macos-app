@@ -455,6 +455,12 @@ class ScheduleManager {
     /// - Parameter forceCallback: When true, always fire onBlockChanged even if state didn't change.
     ///   Used when the schedule is explicitly modified (blocks added/removed/updated) so FocusMonitor
     ///   re-evaluates even if the computed state happens to be the same.
+    /// Force an immediate recalculation of the current time state and block.
+    /// Used when callers need a fresh state without waiting for the 10s poll timer.
+    func forceRecalculate() {
+        recalculateState()
+    }
+
     private func recalculateState(forceCallback: Bool = false) {
         let previousState = currentTimeState
         let previousBlockId = currentBlock?.id

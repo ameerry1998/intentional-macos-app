@@ -276,6 +276,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "GET_INSTALLED_APPS":
             handleGetInstalledApps()
 
+        case "PREVIEW_SOUND":
+            if let sound = body["sound"] as? String {
+                NSSound(named: sound)?.play()
+            }
+
+        case "SAVE_STRICT_MODE":
+            handleSaveStrictMode(body)
+
         default:
             appDelegate?.postLog("⚠️ WKWebView: Unknown message type: \(type)")
         }
@@ -685,6 +693,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         result["distractingSites"] = (savedSettings["distractingSites"] as? [String]) ?? [String]()
         result["disabledPlatforms"] = (savedSettings["disabledPlatforms"] as? [String]) ?? [String]()
         result["distractingApps"] = (savedSettings["distractingApps"] as? [[String: Any]]) ?? [[String: Any]]()
+        result["soundTone"] = (savedSettings["soundTone"] as? String) ?? "Glass"
+        result["strictModeEnabled"] = UserDefaults.standard.bool(forKey: "strictModeEnabled")
         if let tuu = temporaryUnlockUntil { result["temporaryUnlockUntil"] = tuu }
         if let sua = selfUnlockAvailableAt { result["selfUnlockAvailableAt"] = sua }
 
@@ -816,6 +826,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let distractingSites = settings["distractingSites"] as? [String]
         let disabledPlatforms = settings["disabledPlatforms"] as? [String]
         let distractingApps = settings["distractingApps"] as? [[String: Any]]
+        let soundTone = settings["soundTone"] as? String
         let platforms: [String: Any] = ["youtube": ytSettings, "instagram": igSettings, "facebook": fbSettings]
 
         saveSettingsToFile(
@@ -827,8 +838,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             maxPerPeriod: settings["maxPerPeriod"] as? [String: Any],
             distractingSites: distractingSites,
             disabledPlatforms: disabledPlatforms,
-            distractingApps: distractingApps
+            distractingApps: distractingApps,
+            soundTone: soundTone
         )
+
+        // Persist sound tone to UserDefaults for DeepWorkTimerController
+        if let tone = soundTone {
+            UserDefaults.standard.set(tone, forKey: "soundTone")
+        }
 
         // Update WebsiteBlocker with new distracting sites
         if let sites = distractingSites {
@@ -865,7 +882,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         maxPerPeriod: [String: Any]?,
         distractingSites: [String]? = nil,
         disabledPlatforms: [String]? = nil,
-        distractingApps: [[String: Any]]? = nil
+        distractingApps: [[String: Any]]? = nil,
+        soundTone: String? = nil
     ) {
         updateSettingsFile { settings in
             var existingPlatforms = settings["platforms"] as? [String: Any] ?? [:]
@@ -886,6 +904,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             if let ds = distractingSites { settings["distractingSites"] = ds }
             if let dp = disabledPlatforms { settings["disabledPlatforms"] = dp }
             if let da = distractingApps { settings["distractingApps"] = da }
+            if let st = soundTone { settings["soundTone"] = st }
             settings["lastModified"] = ISO8601DateFormatter().string(from: Date())
         }
     }
@@ -1111,9 +1130,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 ]
                 self.appDelegate?.socketRelayServer?.broadcastToAll(lockSync)
                 self.appDelegate?.postLog("🔒 SAVE_LOCK_SETTINGS: requested=\(lockMode), actual=\(actualLockMode), consent=\(consentStatus)")
-
-                // 7. Update strict mode (login item, watchdog, flag file)
-                self.appDelegate?.updateStrictMode(lockMode: actualLockMode)
             }
         }
     }
@@ -1160,11 +1176,46 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 ]
                 self.appDelegate?.socketRelayServer?.broadcastToAll(lockSync)
                 self.appDelegate?.postLog("🔒 REMOVE_PARTNER: done, removed=\(removed)")
-
-                // Disable strict mode (login item, watchdog, flag)
-                self.appDelegate?.updateStrictMode(lockMode: "none")
             }
         }
+    }
+
+    // MARK: - Strict Mode Toggle
+
+    private func handleSaveStrictMode(_ body: [String: Any]) {
+        let enabled = body["enabled"] as? Bool ?? false
+        appDelegate?.postLog("🔒 SAVE_STRICT_MODE: enabled=\(enabled)")
+
+        // Reject disabling strict mode when settings are locked
+        let lockMode = UserDefaults.standard.string(forKey: "lockMode") ?? "none"
+        if lockMode != "none" && !enabled {
+            // Check if settings are currently unlocked
+            var isUnlocked = false
+            if let data = try? Data(contentsOf: settingsFileURL),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let unlockUntil = json["temporaryUnlockUntil"] as? String {
+                let formatter = ISO8601DateFormatter()
+                if let date = formatter.date(from: unlockUntil), date > Date() {
+                    isUnlocked = true
+                }
+            }
+            if !isUnlocked {
+                callJS("window._strictModeResult && window._strictModeResult({ success: false, message: 'Settings are locked. Unlock first to change this.' })")
+                appDelegate?.postLog("🔒 SAVE_STRICT_MODE: Rejected — settings locked")
+                return
+            }
+        }
+
+        // Save preference
+        UserDefaults.standard.set(enabled, forKey: "strictModeEnabled")
+        updateSettingsFile { settings in
+            settings["strictModeEnabled"] = enabled
+        }
+
+        // Apply strict mode (login item, watchdog, flag file)
+        appDelegate?.updateStrictMode()
+
+        callJS("window._strictModeResult && window._strictModeResult({ success: true, enabled: \(enabled) })")
     }
 
     // MARK: - Request Unlock

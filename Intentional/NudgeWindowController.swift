@@ -1,23 +1,26 @@
 import Cocoa
 import SwiftUI
 
-/// Manages a floating nudge notification window.
+/// Manages a compact nudge toast that appears below the floating pill timer.
 ///
-/// Shows a dark, minimal card in the top-right corner of the screen when the user
-/// is on irrelevant content during a work block.
+/// Shows a dark, minimal toast (300px wide, matching pill width) below the pill
+/// when the user is on irrelevant content during a work block.
 ///
 /// Two modes:
 /// - **Level 1** (default): Auto-dismisses after 8s. Used for initial distraction detection.
 /// - **Level 2** (escalated): Stays until user interacts. Used after sustained distraction.
 ///
-/// Two action buttons:
-/// - "Got it" — acknowledges the nudge
-/// - "This is relevant" — opens inline justification text field for AI re-evaluation
+/// Actions:
+/// - "Got it" — button on the right, acknowledges the nudge
+/// - "This is relevant" — secondary text link, opens inline justification field
 class NudgeWindowController {
 
     weak var appDelegate: AppDelegate?
     private var nudgeWindow: NSWindow?
     private var autoDismissTimer: Timer?
+
+    /// Frame of the pill window — used to position nudge below it
+    var pillWindowFrame: NSRect?
 
     /// Called when the user clicks "Got it" (or nudge auto-dismisses)
     var onGotIt: (() -> Void)?
@@ -28,13 +31,14 @@ class NudgeWindowController {
         self.appDelegate = appDelegate
     }
 
-    /// Show a nudge notification in the top-right corner.
+    /// Show a nudge toast below the pill (or top-right fallback).
     ///
     /// - Parameters:
     ///   - intention: The current block's intention
     ///   - appOrPage: The name of the off-task app or page title
     ///   - escalated: If true, nudge stays until user interacts (level 2)
     ///   - distractionMinutes: Cumulative distraction time (shown in level 2)
+    ///   - warning: If true, shows red warning style (pre-intervention)
     func showNudge(intention: String, appOrPage: String, escalated: Bool = false,
                    distractionMinutes: Int = 0, warning: Bool = false) {
         // Close any existing nudge first
@@ -58,10 +62,10 @@ class NudgeWindowController {
 
         let view = NudgeView(viewModel: viewModel)
         let hostingView = NSHostingView(rootView: view)
-        hostingView.frame = NSRect(x: 0, y: 0, width: 340, height: 10)
+        let windowWidth: CGFloat = 300
+        hostingView.frame = NSRect(x: 0, y: 0, width: windowWidth, height: 10)
         let fittingSize = hostingView.fittingSize
-        let windowWidth: CGFloat = 340
-        let windowHeight = max(fittingSize.height, 120)
+        let windowHeight = max(fittingSize.height, 40)
         hostingView.frame = NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight)
 
         let window = NSWindow(
@@ -77,30 +81,38 @@ class NudgeWindowController {
         window.hasShadow = true
         window.level = .floating
         window.isReleasedWhenClosed = false
-        window.isMovableByWindowBackground = true
+        window.isMovableByWindowBackground = false
         window.animationBehavior = .utilityWindow
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-        if let screenFrame = NSScreen.main?.visibleFrame {
-            let windowFrame = window.frame
+        // Position below pill (right-aligned), or top-right fallback
+        if let pillFrame = pillWindowFrame {
             let newOrigin = NSPoint(
-                x: screenFrame.maxX - windowFrame.width - 20,
-                y: screenFrame.maxY - windowFrame.height - 20
+                x: pillFrame.maxX - windowWidth,
+                y: pillFrame.minY - windowHeight - 6
+            )
+            window.setFrameOrigin(newOrigin)
+        } else if let screenFrame = NSScreen.main?.visibleFrame {
+            let newOrigin = NSPoint(
+                x: screenFrame.maxX - windowWidth - 20,
+                y: screenFrame.maxY - windowHeight - 20
             )
             window.setFrameOrigin(newOrigin)
         }
 
-        // Wire up resize callback: when justification field appears, resize window from top-right
-        viewModel.onNeedsResize = { [weak hostingView, weak window] in
+        // Wire up resize callback: when justification field appears, grow downward from top-right
+        viewModel.onNeedsResize = { [weak hostingView, weak window, weak self] in
             guard let hv = hostingView, let w = window else { return }
             DispatchQueue.main.async {
                 let newSize = hv.fittingSize
                 let oldFrame = w.frame
-                // Keep top-right corner fixed
+                // Keep top-right corner fixed (grow downward)
                 let newOrigin = NSPoint(
                     x: oldFrame.maxX - newSize.width,
                     y: oldFrame.maxY - newSize.height
                 )
                 w.setFrame(NSRect(origin: newOrigin, size: newSize), display: true, animate: true)
+                _ = self // prevent unused capture warning
             }
         }
 
@@ -188,68 +200,78 @@ class NudgeViewModel: ObservableObject {
     }
 }
 
-// MARK: - SwiftUI Nudge View
+// MARK: - Compact Toast View
 
 struct NudgeView: View {
     @ObservedObject var viewModel: NudgeViewModel
 
-    // Colors (matching dark theme)
-    private let bgColor = Color(red: 0.09, green: 0.09, blue: 0.11)
-    private let borderColor = Color(red: 0.23, green: 0.23, blue: 0.26)
-    private let textPrimary = Color(red: 0.95, green: 0.95, blue: 0.95)
-    private let textSecondary = Color(red: 0.70, green: 0.70, blue: 0.70)
-    private let textTertiary = Color(red: 0.50, green: 0.50, blue: 0.50)
-    private let accentStart = Color(red: 0.39, green: 0.4, blue: 0.95)   // indigo
-    private let accentEnd = Color(red: 0.55, green: 0.36, blue: 0.96)    // violet
+    // Translucent red palette (matches reference toast)
+    private let redBg = Color(red: 0.85, green: 0.18, blue: 0.18)
+    private let textPrimary = Color.white
+    private let textSecondary = Color.white.opacity(0.85)
+    private let textTertiary = Color.white.opacity(0.55)
 
-    // Warning colors (red scheme for 4-min warning)
-    private let warningStart = Color(red: 0.95, green: 0.25, blue: 0.25)  // red-500
-    private let warningEnd = Color(red: 0.85, green: 0.15, blue: 0.15)    // red-700
-    private let warningBorder = Color(red: 0.4, green: 0.1, blue: 0.1)
+    // Warning: deeper red
+    private let warningBg = Color(red: 0.70, green: 0.10, blue: 0.10)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // Block intention with accent dot
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: viewModel.warning ? [warningStart, warningEnd] : [accentStart, accentEnd],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 8, height: 8)
-
-                Text(viewModel.intention)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(textPrimary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            }
-
-            // Message — different for warning vs level 2 vs level 1
-            if viewModel.warning {
-                Text("You've been off-task for \(viewModel.distractionMinutes) min. A focus intervention starts in 60s if you don't get back on task.")
-                    .font(.system(size: 12))
-                    .foregroundColor(textSecondary)
-            } else if viewModel.escalated {
-                Text("You've been off-task for \(viewModel.distractionMinutes) min. You're not earning browse time.")
-                    .font(.system(size: 12))
-                    .foregroundColor(textSecondary)
-            } else {
-                Text("This doesn't seem related to your intention.")
-                    .font(.system(size: 12))
-                    .foregroundColor(textSecondary)
-            }
-
-            // App/page name
-            Text(viewModel.appOrPage)
-                .font(.system(size: 11))
-                .foregroundColor(textTertiary)
+        VStack(alignment: .leading, spacing: 0) {
+            // Main row: message + Got it button
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    if viewModel.warning {
+                        Text("Off-task \(viewModel.distractionMinutes) min")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(textPrimary)
+                        Text("Intervention in 60s")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(textSecondary)
+                    } else if viewModel.escalated {
+                        Text("Off-task \(viewModel.distractionMinutes) min")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(textPrimary)
+                    } else {
+                        Text("Not related to your task")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(textPrimary)
+                    }
+                }
                 .lineLimit(1)
-                .truncationMode(.middle)
 
-            // Justification text field (shown when "This is relevant" is clicked)
+                Spacer(minLength: 4)
+
+                Button(action: viewModel.onGotIt) {
+                    Text("Got it")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(textPrimary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.white.opacity(0.2))
+                        .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+
+            // "This is relevant" secondary link (below main row)
+            if !viewModel.showJustificationField {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        viewModel.showJustificationField = true
+                    }
+                }) {
+                    Text("This is relevant")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(textTertiary)
+                        .underline()
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 8)
+            }
+
+            // Justification field (expanded when "This is relevant" tapped)
             if viewModel.showJustificationField {
                 VStack(spacing: 6) {
                     TextField("Why is this relevant?", text: $viewModel.justificationText)
@@ -257,9 +279,9 @@ struct NudgeView: View {
                         .font(.system(size: 12))
                         .foregroundColor(textPrimary)
                         .padding(8)
-                        .background(Color.white.opacity(0.06))
+                        .background(Color.white.opacity(0.12))
                         .cornerRadius(6)
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.1), lineWidth: 1))
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.2), lineWidth: 1))
                         .onSubmit { viewModel.submitJustification() }
 
                     HStack {
@@ -279,57 +301,15 @@ struct NudgeView: View {
                         .disabled(!viewModel.canSubmit || viewModel.isChecking)
                     }
                 }
-            }
-
-            // Action buttons
-            HStack(spacing: 8) {
-                Spacer()
-
-                // "Got it" — secondary
-                Button(action: viewModel.onGotIt) {
-                    Text("Got it")
-                        .font(.system(size: 12, weight: .medium))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 6)
-                        .foregroundColor(textSecondary)
-                        .background(Color(red: 0.12, green: 0.12, blue: 0.13))
-                        .cornerRadius(6)
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(borderColor, lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-
-                // "This is relevant" — primary
-                if !viewModel.showJustificationField {
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            viewModel.showJustificationField = true
-                        }
-                    }) {
-                        Text("This is relevant")
-                            .font(.system(size: 12, weight: .medium))
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 6)
-                            .foregroundColor(bgColor)
-                            .background(
-                                LinearGradient(
-                                    colors: viewModel.warning ? [warningStart, warningEnd] : [accentStart, accentEnd],
-                                    startPoint: .leading, endPoint: .trailing
-                                )
-                            )
-                            .cornerRadius(6)
-                    }
-                    .buttonStyle(.plain)
-                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 10)
             }
         }
-        .padding(16)
-        .frame(width: 340)
-        .background(bgColor)
-        .cornerRadius(12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(viewModel.warning ? warningBorder : borderColor, lineWidth: 1)
+        .frame(width: 300)
+        .background(
+            (viewModel.warning ? warningBg : redBg).opacity(0.92)
         )
-        .shadow(color: .black.opacity(0.4), radius: 12, x: 0, y: 4)
+        .cornerRadius(18)
+        .shadow(color: .black.opacity(0.35), radius: 10, x: 0, y: 3)
     }
 }

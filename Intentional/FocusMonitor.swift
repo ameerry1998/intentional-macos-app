@@ -48,6 +48,16 @@ class FocusMonitor {
     /// which triggers updateBlock → recalculateState → onBlockChanged synchronously)
     private var skipNextRitual = false
 
+    /// Guards against showing the start ritual repeatedly for the same block
+    private var lastRitualShownForBlockId: String?
+
+    /// Whether we're waiting for celebration to finish before starting the next block
+    private var pendingBlockStartAfterCelebration = false
+
+    /// Tracks which block the celebration is currently showing for, to prevent
+    /// re-showing a start ritual for the same (just-finished) block.
+    private var celebrationForBlockId: String?
+
     /// User-configured distracting apps: always treated as irrelevant during work blocks
     var distractingAppBundleIds: Set<String> = []
 
@@ -471,6 +481,22 @@ class FocusMonitor {
         grayscaleController = GrayscaleOverlayController()
         deepWorkTimerController = DeepWorkTimerController()
 
+        // Listen for End Block button tapped on the floating pill
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handlePillEndBlock),
+            name: .pillEndBlockTapped, object: nil
+        )
+
+        // Listen for pill edit mode transitions
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handlePillEnterEdit),
+            name: .pillEnterEditMode, object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handlePillExitEdit),
+            name: .pillExitEditMode, object: nil
+        )
+
         appDelegate?.postLog("👁️ FocusMonitor started — watching frontmost app")
     }
 
@@ -496,10 +522,140 @@ class FocusMonitor {
     /// Called when the active focus block changes.
     /// Resets all warning state, timers, and suppression.
     func onBlockChanged() {
-        // Dismiss any existing end ritual from a previous block transition
-        endRitualController?.dismiss()
+        // If pill is in blockComplete/celebration mode, defer — AppDelegate will call showCelebration()
+        if let pillMode = deepWorkTimerController?.viewModel?.mode,
+           pillMode == .blockComplete || pillMode == .celebration {
+            pendingBlockStartAfterCelebration = true
+            appDelegate?.postLog("👁️ onBlockChanged() — pill in celebration mode, deferring block start")
+            // Still reset enforcement state below, but don't dismiss pill or show ritual
+            resetEnforcementState()
+            return
+        }
 
         appDelegate?.postLog("👁️ onBlockChanged() — resetting all state, will re-evaluate current app")
+        resetEnforcementState()
+
+        awaitingRitual = false
+
+        // Skip ritual if the user just clicked Start (which saves edits via updateBlock,
+        // triggering this method synchronously). Proceed directly to timer + enforcement.
+        if skipNextRitual {
+            skipNextRitual = false
+            // Keep lastRitualShownForBlockId — it was set in handleRitualStart()
+            // so subsequent onBlockChanged calls won't re-show the ritual
+            showTimerForCurrentBlock()
+            if let app = currentApp { evaluateApp(app) }
+            return
+        }
+
+        // Block Start Ritual (pill-centric): show pill in start ritual mode BEFORE enforcement.
+        // Skip if block is already >90s in progress (e.g. app restart mid-block).
+        if let block = scheduleManager?.currentBlock {
+            // Guard: don't re-show ritual for the same block
+            if block.id == lastRitualShownForBlockId {
+                appDelegate?.postLog("🧘 Block ritual: skipped — already shown for block \(block.id)")
+                showTimerForCurrentBlock()
+                if let app = currentApp { evaluateApp(app) }
+                return
+            }
+            let calendar = Calendar.current
+            let nowMinutes = calendar.component(.hour, from: Date()) * 60 + calendar.component(.minute, from: Date())
+            let elapsedSeconds = (nowMinutes - block.startMinutes) * 60
+            let blockJustStarted = elapsedSeconds < 90
+
+            let availableMinutes = appDelegate?.earnedBrowseManager?.availableMinutes ?? 0
+
+            if !blockJustStarted {
+                appDelegate?.postLog("🧘 Block ritual: skipped — block already \(elapsedSeconds / 60) min in progress")
+                showTimerForCurrentBlock()
+                if let app = currentApp { evaluateApp(app) }
+                return
+            }
+
+            if block.blockType == .deepWork || block.blockType == .focusHours {
+                awaitingRitual = true
+                lastRitualShownForBlockId = block.id
+                appDelegate?.postLog("🧘 Block ritual (pill): showing for \(block.blockType.rawValue) block \"\(block.title)\"")
+
+                let data = StartRitualData(
+                    block: block,
+                    availableMinutes: availableMinutes,
+                    isFreeTime: false,
+                    onStart: { [weak self] in self?.handleRitualStart() },
+                    onSaveEdit: { [weak self] updatedBlock in
+                        self?.scheduleManager?.updateBlock(updatedBlock)
+                    },
+                    onPushBack: { [weak self] in
+                        guard let self = self else { return }
+                        self.awaitingRitual = false
+                        self.deepWorkTimerController?.dismiss()
+                        self.appDelegate?.postLog("🧘 Block ritual: pushed back 15 min")
+                        self.scheduleManager?.pushBlockBack(id: block.id)
+                    }
+                )
+
+                let now = Date()
+                let endOfBlock = Calendar.current.date(
+                    bySettingHour: block.endHour, minute: block.endMinute, second: 0, of: now
+                ) ?? now
+                deepWorkTimerController?.showStartRitual(block: block, endsAt: endOfBlock, data: data)
+                return
+
+            } else if block.blockType == .freeTime {
+                awaitingRitual = true
+                lastRitualShownForBlockId = block.id
+                appDelegate?.postLog("🧘 Block ritual (pill): showing free time transition for \"\(block.title)\"")
+
+                let data = StartRitualData(
+                    block: block,
+                    availableMinutes: availableMinutes,
+                    isFreeTime: true,
+                    onStart: { [weak self] in
+                        guard let self = self else { return }
+                        self.awaitingRitual = false
+                        self.appDelegate?.postLog("🧘 Block ritual: free time started — showing timer")
+                        self.showTimerForCurrentBlock()
+                    }
+                )
+
+                let now = Date()
+                let endOfBlock = Calendar.current.date(
+                    bySettingHour: block.endHour, minute: block.endMinute, second: 0, of: now
+                ) ?? now
+                deepWorkTimerController?.showStartRitual(block: block, endsAt: endOfBlock, data: data)
+                return
+            }
+        }
+
+        // No ritual (nil block or no ritual controller) — proceed as before
+        showTimerForCurrentBlock()
+
+        // Re-evaluate current frontmost app against the new block
+        if let app = currentApp {
+            evaluateApp(app)
+        }
+    }
+
+    /// Show the floating timer pill for the current block (extracted for reuse by ritual flow).
+    private func showTimerForCurrentBlock() {
+        if let block = scheduleManager?.currentBlock {
+            let now = Date()
+            let endOfBlock = Calendar.current.date(
+                bySettingHour: block.endHour, minute: block.endMinute, second: 0, of: now
+            ) ?? now
+            deepWorkTimerController?.show(intention: block.title, endsAt: endOfBlock)
+            deepWorkTimerController?.update(isDistracted: false)
+            pushFocusStatsToTimer()
+        } else {
+            deepWorkTimerController?.dismiss()
+        }
+    }
+
+    // MARK: - Enforcement State Reset
+
+    /// Resets all enforcement counters and dismisses overlays. Used by onBlockChanged
+    /// and when deferring block start during celebration.
+    private func resetEnforcementState() {
         warnedTargets.removeAll()
         suppressedUntil.removeAll()
         noPlanSnoozeUntil = nil
@@ -530,124 +686,250 @@ class FocusMonitor {
         grayscaleTriggeredThisBlock = false
         interventionController?.dismiss()
         deepWorkRedirectedSites.removeAll()
-
-        // Grayscale: reconcile — after resetting flags above, reconciler will restore color
         reconcileGrayscale()
+    }
 
-        // Dismiss any existing ritual card
-        ritualController?.dismiss()
-        awaitingRitual = false
+    // MARK: - Celebration (pill-centric block end)
 
-        // Skip ritual if the user just clicked Start (which saves edits via updateBlock,
-        // triggering this method synchronously). Proceed directly to timer + enforcement.
-        if skipNextRitual {
-            skipNextRitual = false
-            showTimerForCurrentBlock()
-            if let app = currentApp { evaluateApp(app) }
-            return
+    /// Show celebration by expanding the existing pill. Called by AppDelegate after capturing prev block stats.
+    func showCelebration(
+        block: ScheduleManager.FocusBlock,
+        stats: EarnedBrowseManager.BlockFocusStats,
+        nextBlock: ScheduleManager.FocusBlock?,
+        onDone: @escaping () -> Void
+    ) {
+        celebrationForBlockId = block.id
+        let isFreeTime = block.blockType == .freeTime
+
+        // Skip trivial free time blocks (0 ticks)
+        if isFreeTime && stats.totalTicks == 0 { return }
+
+        // Load app breakdown for work blocks
+        var appBreakdown: [(appName: String, seconds: Int)] = []
+        if !isFreeTime {
+            appBreakdown = BlockEndRitualController.loadAppBreakdown(
+                startHour: block.startHour, startMinute: block.startMinute,
+                endHour: block.endHour, endMinute: block.endMinute
+            )
         }
 
-        // Block Start Ritual: show ritual card BEFORE timer + enforcement
-        // Skip ritual if we're joining a block already in progress (e.g. app restart mid-block).
-        // Only show ritual in the first 90 seconds of a block.
-        if let block = scheduleManager?.currentBlock, ritualController != nil {
-            let calendar = Calendar.current
-            let nowMinutes = calendar.component(.hour, from: Date()) * 60 + calendar.component(.minute, from: Date())
-            let elapsedSeconds = (nowMinutes - block.startMinutes) * 60
-            let blockJustStarted = elapsedSeconds < 90
+        let data = CelebrationData(
+            blockTitle: block.title,
+            blockType: block.blockType,
+            startHour: block.startHour,
+            startMinute: block.startMinute,
+            endHour: block.endHour,
+            endMinute: block.endMinute,
+            focusScore: stats.focusScore,
+            earnedMinutes: stats.earnedMinutes,
+            totalTicks: stats.totalTicks,
+            nextBlock: nextBlock,
+            appBreakdown: appBreakdown,
+            isFreeTime: isFreeTime,
+            nextBlockAvailableMinutes: appDelegate?.earnedBrowseManager?.availableMinutes ?? 0
+        )
 
-            let availableMinutes = appDelegate?.earnedBrowseManager?.availableMinutes ?? 0
+        deepWorkTimerController?.enterCelebration(data: data) { [weak self] in
+            self?.resumeAfterCelebration()
+            onDone()
+        }
 
-            if !blockJustStarted {
-                appDelegate?.postLog("🧘 Block ritual: skipped — block already \(elapsedSeconds / 60) min in progress")
+        // Wire Up Next card's Start button to skip the separate start ritual
+        deepWorkTimerController?.viewModel?.onStartFromUpNext = { [weak self] in
+            self?.handleStartFromUpNext()
+            onDone()
+        }
+    }
+
+    /// Called when celebration was skipped (e.g. 0 ticks) but pill was in blockComplete mode.
+    /// Unblocks the deferred block start so the start ritual can show.
+    /// Does NOT fire if celebration is currently showing — that has its own Done → resume flow.
+    func resumeIfPendingBlockStart() {
+        guard pendingBlockStartAfterCelebration else { return }
+        // Don't interrupt an active celebration — it calls resumeAfterCelebration via Done button
+        if deepWorkTimerController?.viewModel?.mode == .celebration { return }
+        appDelegate?.postLog("👁️ resumeIfPendingBlockStart — celebration skipped, resuming")
+        resumeAfterCelebration()
+    }
+
+    /// Called when user clicks Done on celebration cards. Runs deferred block start logic.
+    /// Keeps the pill window alive and contracts into start ritual (smooth transition).
+    func resumeAfterCelebration() {
+        appDelegate?.postLog("👁️ resumeAfterCelebration — transitioning pill to next block")
+        pendingBlockStartAfterCelebration = false
+        awaitingRitual = false
+
+        // Force ScheduleManager to re-evaluate which block is current RIGHT NOW,
+        // instead of relying on the last 10s poll. This ensures currentBlock is accurate.
+        scheduleManager?.forceRecalculate()
+
+        if let block = scheduleManager?.currentBlock {
+            // Don't show start ritual for the block we just celebrated
+            if block.id == celebrationForBlockId {
+                appDelegate?.postLog("👁️ resumeAfterCelebration — skipping ritual for celebrated block \(block.id)")
+                celebrationForBlockId = nil
+                deepWorkTimerController?.dismiss()
                 showTimerForCurrentBlock()
                 if let app = currentApp { evaluateApp(app) }
                 return
             }
 
-            if block.blockType == .deepWork || block.blockType == .focusHours {
-                // Full ritual card: focus question + if-then plan + Start/Edit/+15 min
-                awaitingRitual = true
-                appDelegate?.postLog("🧘 Block ritual: showing for \(block.blockType.rawValue) block \"\(block.title)\"")
+            let calendar = Calendar.current
+            let nowMinutes = calendar.component(.hour, from: Date()) * 60 + calendar.component(.minute, from: Date())
+            let elapsedSeconds = (nowMinutes - block.startMinutes) * 60
 
-                ritualController?.show(
-                    block: block,
-                    availableMinutes: availableMinutes,
-                    onStart: { [weak self] in
-                        guard let self = self else { return }
-                        self.awaitingRitual = false
-                        // Pass focus goal to the timer widget
-                        let goal = self.ritualController?.currentFocusGoal ?? 80
-                        self.deepWorkTimerController?.update(focusGoal: goal)
-                        self.appDelegate?.postLog("🧘 Block ritual: user started — activating timer + enforcement (goal: \(goal)%)")
-                        // Save any inline edits (title, description, block type) from the ritual card.
-                        // Set skipNextRitual because updateBlock → recalculateState → onBlockChanged
-                        // fires synchronously, which would re-show the ritual we just dismissed.
-                        if let updatedBlock = self.ritualController?.buildUpdatedBlock() {
-                            self.skipNextRitual = true
-                            self.scheduleManager?.updateBlock(updatedBlock)
+            // Show start ritual if block is new enough (within first 120s to account for celebration time)
+            if elapsedSeconds < 120 && block.id != lastRitualShownForBlockId {
+                let availableMinutes = appDelegate?.earnedBrowseManager?.availableMinutes ?? 0
+                lastRitualShownForBlockId = block.id
+
+                if block.blockType == .deepWork || block.blockType == .focusHours {
+                    awaitingRitual = true
+
+                    let data = StartRitualData(
+                        block: block,
+                        availableMinutes: availableMinutes,
+                        isFreeTime: false,
+                        onStart: { [weak self] in self?.handleRitualStart() },
+                        onSaveEdit: { [weak self] updatedBlock in
+                            self?.scheduleManager?.updateBlock(updatedBlock)
+                        },
+                        onPushBack: { [weak self] in
+                            guard let self = self else { return }
+                            self.awaitingRitual = false
+                            self.deepWorkTimerController?.dismiss()
+                            self.scheduleManager?.pushBlockBack(id: block.id)
                         }
-                        self.showTimerForCurrentBlock()
-                        if let app = self.currentApp {
-                            self.evaluateApp(app)
+                    )
+
+                    celebrationForBlockId = nil
+                    // Keep pill alive — just transition mode (smooth contraction)
+                    deepWorkTimerController?.enterStartRitual(data: data)
+                    return
+
+                } else if block.blockType == .freeTime {
+                    awaitingRitual = true
+
+                    let data = StartRitualData(
+                        block: block,
+                        availableMinutes: availableMinutes,
+                        isFreeTime: true,
+                        onStart: { [weak self] in
+                            guard let self = self else { return }
+                            self.awaitingRitual = false
+                            self.appDelegate?.postLog("🧘 Block ritual: free time started — showing timer")
+                            self.showTimerForCurrentBlock()
                         }
-                    },
-                    onSaveEdit: { [weak self] updatedBlock in
-                        self?.scheduleManager?.updateBlock(updatedBlock)
-                    },
-                    onPushBack: { [weak self] in
-                        guard let self = self else { return }
-                        self.awaitingRitual = false
-                        self.appDelegate?.postLog("🧘 Block ritual: pushed back 15 min")
-                        self.scheduleManager?.pushBlockBack(id: block.id)
-                        // pushBlockBack triggers recalculateState → onBlockChanged,
-                        // which will re-enter this method with the new state
-                    }
-                )
-                return  // Skip timer + evaluateApp until ritual completes
+                    )
 
-            } else if block.blockType == .freeTime {
-                // Simple transition card: "Enjoy your break" + Start
-                awaitingRitual = true
-                appDelegate?.postLog("🧘 Block ritual: showing free time transition for \"\(block.title)\"")
-
-                ritualController?.show(
-                    block: block,
-                    availableMinutes: availableMinutes,
-                    onStart: { [weak self] in
-                        guard let self = self else { return }
-                        self.awaitingRitual = false
-                        self.appDelegate?.postLog("🧘 Block ritual: free time started — showing timer")
-                        self.showTimerForCurrentBlock()
-                    },
-                    onSaveEdit: { _ in },  // No edit for free time
-                    onPushBack: { }        // No push back for free time
-                )
-                return  // Skip timer until ritual completes
+                    celebrationForBlockId = nil
+                    deepWorkTimerController?.enterStartRitual(data: data)
+                    return
+                }
             }
         }
 
-        // No ritual (nil block or no ritual controller) — proceed as before
+        // Fallback: no ritual needed, just show timer
+        celebrationForBlockId = nil
+        deepWorkTimerController?.dismiss()
         showTimerForCurrentBlock()
+        if let app = currentApp { evaluateApp(app) }
+    }
 
-        // Re-evaluate current frontmost app against the new block
+    /// Consolidates ritual completion logic when user clicks Start.
+    private func handleRitualStart() {
+        awaitingRitual = false
+        appDelegate?.postLog("🧘 Block ritual (pill): user started — activating timer + enforcement")
+
+        // Lock in the block ID so the ritual is never re-shown for this block
+        if let blockId = scheduleManager?.currentBlock?.id {
+            lastRitualShownForBlockId = blockId
+        }
+
+        // Save any inline edits from the pill edit mode.
+        // Set skipNextRitual because updateBlock → recalculateState → onBlockChanged
+        // fires synchronously, which would re-show the ritual.
+        if let updatedBlock = deepWorkTimerController?.buildUpdatedBlockFromEdit() {
+            skipNextRitual = true
+            scheduleManager?.updateBlock(updatedBlock)
+        }
+
+        deepWorkTimerController?.viewModel?.stopAutoStartTimer()
+        showTimerForCurrentBlock()
         if let app = currentApp {
             evaluateApp(app)
         }
     }
 
-    /// Show the floating timer pill for the current block (extracted for reuse by ritual flow).
-    private func showTimerForCurrentBlock() {
+    /// Handle Start from Up Next celebration card — skip separate start ritual, go straight to timer.
+    private func handleStartFromUpNext() {
+        appDelegate?.postLog("👁️ handleStartFromUpNext — skipping start ritual, going straight to timer")
+        pendingBlockStartAfterCelebration = false
+        awaitingRitual = false
+        celebrationForBlockId = nil
+
+        if let block = scheduleManager?.currentBlock {
+            lastRitualShownForBlockId = block.id
+        }
+
+        showTimerForCurrentBlock()
+        if let app = currentApp {
+            evaluateApp(app)
+        }
+    }
+
+    /// Handle pill entering edit mode: expand window, enable keyboard.
+    @objc private func handlePillEnterEdit() {
+        guard let window = deepWorkTimerController?.timerWindow else { return }
+        window.allowKeyboardInput = true
+        window.makeKeyAndOrderFront(nil)
+        deepWorkTimerController?.animateWindowResize(to: NSSize(width: 460, height: 340))
+    }
+
+    /// Handle pill exiting edit mode: save edits, contract, resume auto-start.
+    @objc private func handlePillExitEdit() {
+        guard let vm = deepWorkTimerController?.viewModel,
+              let data = vm.startRitualData else { return }
+
+        // Save edits
+        var updatedBlock = data.block
+        updatedBlock.title = vm.editBlockTitle
+        updatedBlock.description = vm.editBlockDescription
+        updatedBlock.blockType = vm.editBlockType
+        data.onSaveEdit?(updatedBlock)
+
+        // Update start ritual data with edited block
+        vm.startRitualData = StartRitualData(
+            block: updatedBlock,
+            availableMinutes: data.availableMinutes,
+            isFreeTime: data.isFreeTime,
+            onStart: data.onStart,
+            onSaveEdit: data.onSaveEdit,
+            onPushBack: data.onPushBack
+        )
+
+        // Disable keyboard, contract, resume auto-start
+        deepWorkTimerController?.timerWindow?.allowKeyboardInput = false
+        vm.mode = .startRitual
+        deepWorkTimerController?.animateWindowResize(to: NSSize(width: 460, height: 160))
+        vm.resumeAutoStartTimer()
+    }
+
+    /// Handle End Block button tapped on the floating pill.
+    @objc private func handlePillEndBlock() {
+        appDelegate?.postLog("👁️ End Block tapped on pill — triggering early block end")
+        // Move pill to blockComplete mode so onBlockChanged sees it
+        if let vm = deepWorkTimerController?.viewModel, vm.mode == .timer {
+            vm.mode = .blockComplete
+        }
+        // End the current block early by advancing its end time to now
         if let block = scheduleManager?.currentBlock {
             let now = Date()
-            let endOfBlock = Calendar.current.date(
-                bySettingHour: block.endHour, minute: block.endMinute, second: 0, of: now
-            ) ?? now
-            deepWorkTimerController?.show(intention: block.title, endsAt: endOfBlock)
-            deepWorkTimerController?.update(isDistracted: false)
-            pushFocusStatsToTimer()
-        } else {
-            deepWorkTimerController?.dismiss()
+            let cal = Calendar.current
+            var updated = block
+            updated.endHour = cal.component(.hour, from: now)
+            updated.endMinute = cal.component(.minute, from: now)
+            scheduleManager?.updateBlock(updated)
         }
     }
 
@@ -774,7 +1056,7 @@ class FocusMonitor {
             return
         }
 
-        // UNPLANNED or NO_PLAN: use grace period before showing overlay
+        // UNPLANNED or NO_PLAN: show floating pill card (not full-screen overlay)
         if state == .unplanned || state == .noPlan {
             // Check global noPlan snooze (applies to ALL apps, not per-target)
             if let until = noPlanSnoozeUntil, Date() < until {
@@ -783,39 +1065,37 @@ class FocusMonitor {
                 stopBrowserPolling()
                 return
             }
-            // Check per-target suppression (from "5 more min")
-            if let until = suppressedUntil[bid], Date() < until {
-                debugLog("👁️ EXIT: \(state.rawValue) but suppressed until \(until)")
-                reconcileGrayscale()
-                stopBrowserPolling()
-                return
-            }
-            // If already showing overlay for this target, skip
-            if isCurrentlyIrrelevant && currentTargetKey == bid {
-                debugLog("👁️ EXIT: \(state.rawValue) — overlay already showing for \(bid)")
-                reconcileGrayscale()
+            // If pill is already showing noPlan, skip
+            if deepWorkTimerController?.viewModel?.mode == .noPlan {
+                debugLog("👁️ EXIT: \(state.rawValue) — noPlan pill already showing")
                 stopBrowserPolling()
                 return
             }
 
-            let intention = state == .noPlan ? "Plan your day" : "Unscheduled time"
-            let reason = state == .noPlan
-                ? "Set up your daily plan to start browsing."
-                : "This time isn't scheduled — add a block or take a break."
+            let isNoPlan = state == .noPlan
 
-            let pending = PendingOverlayInfo(
-                targetKey: bid,
-                displayName: appName,
-                intention: intention,
-                reason: reason,
-                isRevisit: warnedTargets.contains(bid),
-                focusDurationMinutes: 0,
-                isNoPlan: true,
-                confidence: 0
+            // Compute next block info
+            let nextBlock = scheduleManager?.nextUpcomingBlock()
+            let nextBlockTitle = nextBlock?.title
+            let nextBlockTime: String? = nextBlock.map {
+                let hour = $0.startHour > 12 ? $0.startHour - 12 : ($0.startHour == 0 ? 12 : $0.startHour)
+                let ampm = $0.startHour >= 12 ? "PM" : "AM"
+                return String(format: "%d:%02d %@", hour, $0.startMinute, ampm)
+            }
+
+            let canSnooze30 = (scheduleManager?.snoozeCount == 0) && isNoPlan
+
+            let data = NoPlanData(
+                isNoPlan: isNoPlan,
+                canSnooze: canSnooze30,
+                nextBlockTitle: nextBlockTitle,
+                nextBlockTime: nextBlockTime,
+                onPlanDay: { [weak self] in self?.handleNoPlanPlanDay() },
+                onSnooze: canSnooze30 ? { [weak self] in self?.handleNoPlanSnooze() } : nil
             )
 
-            debugLog("👁️ \(state.rawValue) — starting grace period on \(appName)")
-            startGracePeriod(pending: pending)
+            debugLog("👁️ \(state.rawValue) — showing noPlan pill card")
+            deepWorkTimerController?.showNoPlan(data: data)
             stopBrowserPolling()
             return
         }
@@ -1799,6 +2079,8 @@ class FocusMonitor {
                                      escalated: Bool = false, distractionMinutes: Int = 0,
                                      warning: Bool = false) {
         setupNudgeCallbacks()
+        // Pass pill frame so nudge appears below the floating timer
+        nudgeController?.pillWindowFrame = deepWorkTimerController?.timerWindow?.frame
         nudgeController?.showNudge(
             intention: intention,
             appOrPage: displayName,
@@ -2026,6 +2308,25 @@ class FocusMonitor {
         stopLingerTimer()
         isCurrentlyIrrelevant = false
         appDelegate?.postLog("💬 'Plan My Day' — opening today page")
+    }
+
+    /// Handle "Plan My Day" from noPlan pill card.
+    private func handleNoPlanPlanDay() {
+        deepWorkTimerController?.dismiss()
+        appDelegate?.showDashboardPage("today")
+        isCurrentlyIrrelevant = false
+        appDelegate?.postLog("💬 noPlan pill: 'Plan My Day' — opening today page")
+    }
+
+    /// Handle "Snooze 30 min" from noPlan pill card.
+    private func handleNoPlanSnooze() {
+        deepWorkTimerController?.dismiss()
+        let accepted = scheduleManager?.snooze() ?? false
+        isCurrentlyIrrelevant = false
+        if accepted {
+            noPlanSnoozeUntil = Date().addingTimeInterval(30 * 60)
+        }
+        appDelegate?.postLog("💬 noPlan pill: 'Snooze 30 min' — accepted: \(accepted)")
     }
 
     /// Handle quick block creation from the unplanned overlay.

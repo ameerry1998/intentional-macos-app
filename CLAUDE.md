@@ -51,9 +51,9 @@ intentional-macos-app/
     EarnedBrowseManager.swift   # Earned browse pool, block focus stats, deep work detection
     FocusMonitor.swift          # Desktop app monitoring, browser tab polling, overlay triggers
     FocusOverlayWindow.swift    # Full-screen blocking overlay (native NSWindow)
-    NudgeWindowController.swift # Nudge-mode notification overlay
+    NudgeWindowController.swift # Nudge toast (translucent red, below pill)
     GrayscaleOverlayController.swift  # Full-screen desaturation overlay (Deep Work)
-    DeepWorkTimerController.swift     # Floating pill timer widget (Deep Work)
+    DeepWorkTimerController.swift     # Floating pill timer + celebration cards + start ritual + confetti
     BlockRitualController.swift       # Block start ritual overlay (intent + if-then plan)
     BlockEndRitualController.swift    # Block end ritual overlay (reflection + self-assessment)
     RelevanceScorer.swift       # AI scoring (Apple Foundation Models + MLX Qwen3-4B)
@@ -163,7 +163,7 @@ Order matters. Components have dependencies that must be wired in sequence.
 6.  WebsiteBlocker          → AppleScript tab blocking
 7.  BrowserMonitor          → Protection status (references WebsiteBlocker)
 8.  Backend: registerDevice, sync lock/partner state
-9.  Strict mode init        → Login item, watchdog, flag file
+9.  Strict mode init        → Reads `strictModeEnabled` from UserDefaults → login item, watchdog, flag file
 10. TimeTracker             → Cross-browser usage aggregation
 11. EarnedBrowseManager     → Load pool from disk
 12. Wire TimeTracker.onSocialMediaTimeRecorded → EarnedBrowseManager.recordSocialMediaTime
@@ -429,8 +429,10 @@ Uses WKWebView with `WKScriptMessageHandler` bridge. All communication via `wind
 | `GET_EARNED_STATUS` | Pool state + per-block focus stats |
 | `GET_BLOCK_ASSESSMENTS` | Query relevance_log.jsonl by time range |
 | `GET_FOCUS_SCORE` | Today's completion percentage |
-| `SAVE_SETTINGS` / `GET_SETTINGS` | Settings management |
+| `SAVE_SETTINGS` / `GET_SETTINGS` | Settings management (includes `soundTone`) |
+| `PREVIEW_SOUND` | Play a system sound by name (for settings preview) |
 | `REQUEST_UNLOCK` / `VERIFY_UNLOCK` | Accountability flow |
+| `SAVE_STRICT_MODE` | Toggle app persistence (strict mode) |
 | `OPEN_ONBOARDING` | Switch to onboarding page |
 
 ### Dashboard Features
@@ -460,14 +462,28 @@ Determines whether each browser has the extension installed:
 
 Cross-checks socket status with file-based status to avoid false positives on disconnect.
 
-## Strict Mode (Accountability)
+## Strict Mode (App Persistence)
 
-When `lockMode` is `partner` or `self`:
-1. **Cmd+Q blocked** — shows "Intentional is Locked" alert
-2. **Login item registered** — auto-start on login (macOS 13+, `SMAppService`)
-3. **Strict mode flag file** — `~/Library/Application Support/Intentional/strict-mode`
-4. **Watchdog LaunchAgent** — relaunches app if force-quit (checks flag file)
-5. **SIGTERM handler** — skips no-relaunch marker when strict mode active
+Strict mode is an **independent, opt-in toggle** (`strictModeEnabled` in UserDefaults), decoupled from lock mode. It is a lockable setting — when settings are locked, the toggle can't be changed without the unlock flow.
+
+**Default: OFF.** Existing users upgrading will have strict mode off (UserDefaults returns false for missing keys).
+
+When `strictModeEnabled` is true:
+1. **Login item registered** — auto-start on login (macOS 13+, `SMAppService`)
+2. **Strict mode flag file** — `~/Library/Application Support/Intentional/strict-mode`
+3. **Watchdog LaunchAgent** — relaunches app if force-quit (checks flag file)
+4. **SIGTERM handler** — skips no-relaunch marker when strict mode active
+
+### Cmd+Q Behavior
+
+| Strict Mode | Lock Mode | Cmd+Q Result |
+|-------------|-----------|-------------|
+| OFF | any | Quits immediately |
+| ON | none | "Disable & Quit" / "Keep Running" dialog |
+| ON | partner/self | "Keep Running" only (must unlock settings first) |
+
+### Dashboard Toggle
+The "App Persistence" card appears in the Accountability tab (rendered by `renderLockState()` in dashboard.html). The `SAVE_STRICT_MODE` JS→Swift message saves the preference and calls `updateStrictMode()`. When settings are locked, the toggle row gets `.locked` CSS class (grayed out, pointer-events disabled).
 
 ## Persistence Files
 
@@ -475,7 +491,7 @@ All stored in `~/Library/Application Support/Intentional/`:
 
 | File | Contents |
 |------|----------|
-| `onboarding_settings.json` | Platform settings, lock mode, partner email |
+| `onboarding_settings.json` | Platform settings, lock mode, partner email, strictModeEnabled |
 | `focus_profile.json` | User's work profile text (AI context) |
 | `focus_settings.json` | enabled, focusEnforcement, aiModel |
 | `daily_schedule.json` | Today's blocks, goals, dailyPlan |

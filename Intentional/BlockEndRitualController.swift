@@ -1,10 +1,11 @@
 import Cocoa
 import SwiftUI
 
-/// Manages the block end ritual overlay shown when a focus block ends.
+/// Manages the block end celebration overlay shown when a focus block ends.
 ///
-/// Full-screen overlay with centered card showing session stats and optional reflection.
-/// Uses `KeyableWindow` (from FocusOverlayWindow.swift) so text fields accept keyboard input.
+/// Work blocks: 3-card carousel (Session Complete → Focus Score → App Breakdown).
+/// Free time blocks: Single "Break over" card.
+/// Full-screen overlay with centered card. Uses `KeyableWindow` (from FocusOverlayWindow.swift).
 class BlockEndRitualController {
 
     private var ritualWindow: NSWindow?
@@ -17,7 +18,7 @@ class BlockEndRitualController {
         block: ScheduleManager.FocusBlock,
         stats: EarnedBrowseManager.BlockFocusStats,
         nextBlock: ScheduleManager.FocusBlock?,
-        onDone: @escaping (Int?, String) -> Void
+        onDone: @escaping () -> Void
     ) {
         dismiss()
 
@@ -25,6 +26,15 @@ class BlockEndRitualController {
 
         // Skip trivial free time blocks (0 ticks)
         if isFreeTime && stats.totalTicks == 0 { return }
+
+        // Load app breakdown for work blocks
+        var appBreakdown: [(appName: String, seconds: Int)] = []
+        if !isFreeTime {
+            appBreakdown = Self.loadAppBreakdown(
+                startHour: block.startHour, startMinute: block.startMinute,
+                endHour: block.endHour, endMinute: block.endMinute
+            )
+        }
 
         let vm = BlockEndRitualViewModel(
             blockTitle: block.title,
@@ -37,17 +47,17 @@ class BlockEndRitualController {
             earnedMinutes: stats.earnedMinutes,
             totalTicks: stats.totalTicks,
             nextBlock: nextBlock,
+            appBreakdown: appBreakdown,
+            isFreeTime: isFreeTime,
             onDone: { [weak self] in
-                let rating = self?.viewModel?.selfRating
-                let reflection = self?.viewModel?.reflection ?? ""
                 self?.dismiss()
-                onDone(rating, reflection)
+                onDone()
             }
         )
 
         self.viewModel = vm
 
-        let view = BlockEndRitualView(viewModel: vm, isFreeTime: isFreeTime)
+        let view = BlockEndRitualView(viewModel: vm)
         let hostingView = NSHostingView(rootView: view)
 
         guard let screen = NSScreen.main else { return }
@@ -74,23 +84,77 @@ class BlockEndRitualController {
         window.makeKeyAndOrderFront(nil)
         ritualWindow = window
 
+        // Auto-dismiss: 30s after reaching last card, or 120s total
         autoDismissTimer = Timer.scheduledTimer(withTimeInterval: 120.0, repeats: false) { [weak self] _ in
             guard self?.isShowing == true else { return }
-            let rating = self?.viewModel?.selfRating
-            let reflection = self?.viewModel?.reflection ?? ""
             self?.dismiss()
-            onDone(rating, reflection)
+            onDone()
         }
     }
 
     func dismiss() {
         autoDismissTimer?.invalidate()
         autoDismissTimer = nil
+        viewModel?.stopAutoAdvance()
         ritualWindow?.close()
         ritualWindow = nil
     }
 
     deinit { dismiss() }
+
+    // MARK: - App Breakdown from relevance_log.jsonl
+
+    /// Load per-app time breakdown for a block's time window.
+    /// Groups entries by appName, counts ticks × 10 seconds, returns top 6 sorted by time.
+    static func loadAppBreakdown(startHour: Int, startMinute: Int, endHour: Int, endMinute: Int) -> [(appName: String, seconds: Int)] {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let logURL = appSupport.appendingPathComponent("Intentional").appendingPathComponent("relevance_log.jsonl")
+
+        guard FileManager.default.fileExists(atPath: logURL.path),
+              let content = try? String(contentsOf: logURL, encoding: .utf8) else {
+            return []
+        }
+
+        // Compute block start/end as Date objects (today)
+        let cal = Calendar.current
+        let now = Date()
+        var startComps = cal.dateComponents([.year, .month, .day], from: now)
+        startComps.hour = startHour
+        startComps.minute = startMinute
+        startComps.second = 0
+        var endComps = cal.dateComponents([.year, .month, .day], from: now)
+        endComps.hour = endHour
+        endComps.minute = endMinute
+        endComps.second = 0
+
+        guard let startDate = cal.date(from: startComps),
+              let endDate = cal.date(from: endComps) else { return [] }
+
+        let isoFormatter = ISO8601DateFormatter()
+        var appTicks: [String: Int] = [:]
+
+        for line in content.split(separator: "\n") {
+            guard let data = line.data(using: .utf8),
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let tsStr = obj["timestamp"] as? String,
+                  let ts = isoFormatter.date(from: tsStr),
+                  ts >= startDate, ts <= endDate else { continue }
+
+            // Skip neutral entries (loginwindow, etc.) and event entries (nudge/block markers)
+            if let neutral = obj["neutral"] as? Bool, neutral { continue }
+            if let isEvent = obj["isEvent"] as? Bool, isEvent { continue }
+
+            let appName = obj["appName"] as? String ?? obj["title"] as? String ?? "Unknown"
+            appTicks[appName, default: 0] += 1
+        }
+
+        // Convert ticks to seconds (10s per tick) and sort descending
+        return appTicks
+            .map { (appName: $0.key, seconds: $0.value * 10) }
+            .sorted { $0.seconds > $1.seconds }
+            .prefix(6)
+            .map { $0 }
+    }
 }
 
 // MARK: - View Model
@@ -108,10 +172,14 @@ class BlockEndRitualViewModel: ObservableObject {
     let nextBlockTitle: String?
     let nextBlockType: ScheduleManager.BlockType?
     let nextBlockStartsIn: String?
+    let appBreakdown: [(appName: String, seconds: Int)]
+    let isFreeTime: Bool
     let onDone: () -> Void
 
-    @Published var selfRating: Int? = nil
-    @Published var reflection: String = ""
+    @Published var currentCard: Int = 0
+    var cardCount: Int { isFreeTime ? 1 : 3 }
+
+    private var autoAdvanceTimer: Timer?
 
     var blockTypeLabel: String {
         switch blockType {
@@ -140,10 +208,18 @@ class BlockEndRitualViewModel: ObservableObject {
         return "\(Int(round(earnedMinutes))) min"
     }
 
+    var focusMessage: String {
+        if focusScore >= 80 { return ["Great session!", "Crushed it!", "Nailed it!"].randomElement()! }
+        if focusScore >= 50 { return "Good effort — next one's yours." }
+        return "We'll get there. Keep showing up."
+    }
+
     init(blockTitle: String, blockType: ScheduleManager.BlockType,
          startHour: Int, startMinute: Int, endHour: Int, endMinute: Int,
          focusScore: Int, earnedMinutes: Double, totalTicks: Int,
          nextBlock: ScheduleManager.FocusBlock?,
+         appBreakdown: [(appName: String, seconds: Int)],
+         isFreeTime: Bool,
          onDone: @escaping () -> Void) {
         self.blockTitle = blockTitle
         self.blockType = blockType
@@ -154,6 +230,8 @@ class BlockEndRitualViewModel: ObservableObject {
         self.focusScore = focusScore
         self.earnedMinutes = earnedMinutes
         self.totalTicks = totalTicks
+        self.appBreakdown = appBreakdown
+        self.isFreeTime = isFreeTime
         self.onDone = onDone
 
         // Next block info
@@ -176,6 +254,36 @@ class BlockEndRitualViewModel: ObservableObject {
             self.nextBlockType = nil
             self.nextBlockStartsIn = nil
         }
+
+        startAutoAdvance()
+    }
+
+    func nextCard() {
+        if currentCard < cardCount - 1 {
+            currentCard += 1
+            restartAutoAdvance()
+        } else {
+            onDone()
+        }
+    }
+
+    func startAutoAdvance() {
+        autoAdvanceTimer?.invalidate()
+        autoAdvanceTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            DispatchQueue.main.async {
+                self.nextCard()
+            }
+        }
+    }
+
+    func restartAutoAdvance() {
+        startAutoAdvance()
+    }
+
+    func stopAutoAdvance() {
+        autoAdvanceTimer?.invalidate()
+        autoAdvanceTimer = nil
     }
 
     private func formatTime(hour: Int, minute: Int) -> String {
@@ -183,13 +291,25 @@ class BlockEndRitualViewModel: ObservableObject {
         let ampm = hour < 12 ? "AM" : "PM"
         return minute == 0 ? "\(h12) \(ampm)" : "\(h12):\(String(format: "%02d", minute)) \(ampm)"
     }
+
+    /// Format seconds as human-readable duration (e.g. "1h 22m", "28m", "45s").
+    func formatDuration(_ seconds: Int) -> String {
+        if seconds >= 3600 {
+            let h = seconds / 3600
+            let m = (seconds % 3600) / 60
+            return m > 0 ? "\(h)h \(m)m" : "\(h)h"
+        } else if seconds >= 60 {
+            return "\(seconds / 60)m"
+        } else {
+            return "\(seconds)s"
+        }
+    }
 }
 
 // MARK: - SwiftUI View
 
 struct BlockEndRitualView: View {
     @ObservedObject var viewModel: BlockEndRitualViewModel
-    let isFreeTime: Bool
 
     private let goGreen = Color(red: 0.25, green: 0.78, blue: 0.45)
     private let goGreenBright = Color(red: 0.30, green: 0.88, blue: 0.52)
@@ -211,8 +331,6 @@ struct BlockEndRitualView: View {
         return Color(red: 0.95, green: 0.35, blue: 0.35)
     }
 
-    private let ratingEmojis = ["😤", "😕", "😐", "🙂", "🔥"]
-
     var body: some View {
         ZStack {
             Color.black.opacity(0.08)
@@ -221,10 +339,10 @@ struct BlockEndRitualView: View {
             VStack(spacing: 0) {
                 Spacer()
 
-                if isFreeTime {
+                if viewModel.isFreeTime {
                     freeTimeEndCard
                 } else {
-                    workBlockEndCard
+                    workBlockCarousel
                 }
 
                 Spacer()
@@ -232,249 +350,303 @@ struct BlockEndRitualView: View {
         }
     }
 
-    // MARK: - Work Block End Card
+    // MARK: - Work Block Carousel
 
-    private var workBlockEndCard: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack {
+    private var workBlockCarousel: some View {
+        ZStack {
+            // Card 1: Session Complete
+            if viewModel.currentCard == 0 {
+                sessionCompleteCard
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing),
+                        removal: .move(edge: .leading)
+                    ))
+            }
+
+            // Card 2: Focus Score
+            if viewModel.currentCard == 1 {
+                focusScoreCard
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing),
+                        removal: .move(edge: .leading)
+                    ))
+            }
+
+            // Card 3: App Breakdown
+            if viewModel.currentCard == 2 {
+                appBreakdownCard
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing),
+                        removal: .move(edge: .leading)
+                    ))
+            }
+        }
+        .animation(.easeInOut(duration: 0.35), value: viewModel.currentCard)
+    }
+
+    // MARK: - Card 1: Session Complete
+
+    private var sessionCompleteCard: some View {
+        cardContainer {
+            VStack(spacing: 0) {
+                // Header
                 Text("Session complete")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(Color(white: 0.50))
                     .tracking(0.5)
-                Spacer()
-                Text(viewModel.durationDisplay)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(blockTypeColor)
-            }
-            .padding(.bottom, 18)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 24)
 
-            // Block title
-            Text(viewModel.blockTitle)
-                .font(.system(size: 26, weight: .bold))
-                .foregroundColor(Color(white: 0.10))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .lineLimit(2)
-                .padding(.bottom, 6)
-
-            // Block type + time
-            HStack(spacing: 6) {
-                Circle().fill(blockTypeColor).frame(width: 7, height: 7)
-                Text(viewModel.blockTypeLabel)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(blockTypeColor)
-                    .tracking(0.8)
-                Text("·")
-                    .foregroundColor(Color(white: 0.55))
-                Text(viewModel.timeDisplay)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Color(white: 0.50))
-                Spacer()
-            }
-            .padding(.bottom, 20)
-
-            // Divider
-            Rectangle()
-                .fill(Color.black.opacity(0.06))
-                .frame(height: 1)
-                .padding(.bottom, 20)
-
-            // Earned minutes
-            Text("You earned \(viewModel.earnedDisplay) of recharge time.")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(Color(white: 0.30))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, 16)
-
-            // Focus bar
-            VStack(spacing: 8) {
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.black.opacity(0.06))
-                            .frame(height: 8)
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(focusBarColor)
-                            .frame(width: geo.size.width * CGFloat(viewModel.focusScore) / 100.0, height: 8)
-                    }
-                }
-                .frame(height: 8)
-
-                HStack {
+                // Block title + duration
+                HStack(alignment: .top) {
+                    Text(viewModel.blockTitle)
+                        .font(.system(size: 26, weight: .bold))
+                        .foregroundColor(Color(white: 0.10))
+                        .lineLimit(2)
                     Spacer()
-                    Text("\(viewModel.focusScore)% focused")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(focusBarColor)
+                    Text(viewModel.durationDisplay)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(Color(white: 0.35))
                 }
-            }
-            .padding(.bottom, 20)
-
-            // Divider
-            Rectangle()
-                .fill(Color.black.opacity(0.06))
-                .frame(height: 1)
-                .padding(.bottom, 20)
-
-            // Self-assessment
-            Text("How focused did you feel?")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(Color(white: 0.35))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, 12)
-
-            HStack(spacing: 12) {
-                ForEach(0..<ratingEmojis.count, id: \.self) { index in
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            viewModel.selfRating = index
-                        }
-                    }) {
-                        Text(ratingEmojis[index])
-                            .font(.system(size: 24))
-                            .frame(width: 44, height: 44)
-                            .background(
-                                viewModel.selfRating == index
-                                    ? focusBarColor.opacity(0.15)
-                                    : Color.black.opacity(0.03)
-                            )
-                            .cornerRadius(10)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(
-                                        viewModel.selfRating == index
-                                            ? focusBarColor.opacity(0.4)
-                                            : Color.black.opacity(0.06),
-                                        lineWidth: 1.5
-                                    )
-                            )
-                    }
-                    .buttonStyle(.plain)
-                }
-                Spacer()
-            }
-            .padding(.bottom, 16)
-
-            // Reflection text field
-            Text("What went well?")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(Color(white: 0.35))
-                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.bottom, 8)
 
-            TextField("", text: $viewModel.reflection)
-                .textFieldStyle(.plain)
-                .font(.system(size: 14))
-                .foregroundColor(Color(white: 0.15))
-                .padding(12)
-                .background(Color.black.opacity(0.03))
-                .cornerRadius(10)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.black.opacity(0.08), lineWidth: 1)
-                )
-                .padding(.bottom, 20)
+                // Block type + time
+                HStack(spacing: 6) {
+                    Circle().fill(blockTypeColor).frame(width: 7, height: 7)
+                    Text(viewModel.blockTypeLabel)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(blockTypeColor)
+                        .tracking(0.8)
+                    Text("\u{00B7}")
+                        .foregroundColor(Color(white: 0.55))
+                    Text(viewModel.timeDisplay)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color(white: 0.50))
+                    Spacer()
+                }
+                .padding(.bottom, 28)
 
-            // Next block preview (if any)
-            if let nextTitle = viewModel.nextBlockTitle, let startsIn = viewModel.nextBlockStartsIn {
+                // Divider
+                Rectangle()
+                    .fill(Color.black.opacity(0.06))
+                    .frame(height: 1)
+                    .padding(.bottom, 24)
+
+                // Earned minutes
+                Text("You earned \(viewModel.earnedDisplay) of recharge time.")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(Color(white: 0.30))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 28)
+
+                // Next button
+                nextButton(label: "Next")
+            }
+        }
+    }
+
+    // MARK: - Card 2: Focus Score
+
+    private var focusScoreCard: some View {
+        cardContainer {
+            VStack(spacing: 0) {
+                Spacer().frame(height: 8)
+
+                // Big focus score
+                Text("\(viewModel.focusScore)% focused")
+                    .font(.system(size: 36, weight: .bold))
+                    .foregroundColor(focusBarColor)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.bottom, 20)
+
+                // Focus bar
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(Color.black.opacity(0.06))
+                            .frame(height: 10)
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(focusBarColor)
+                            .frame(width: geo.size.width * CGFloat(viewModel.focusScore) / 100.0, height: 10)
+                    }
+                }
+                .frame(height: 10)
+                .padding(.bottom, 24)
+
+                // Encouragement message
+                Text(viewModel.focusMessage)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(Color(white: 0.35))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.bottom, 28)
+
+                // Next button
+                nextButton(label: "Next")
+            }
+        }
+    }
+
+    // MARK: - Card 3: App Breakdown
+
+    private var appBreakdownCard: some View {
+        cardContainer {
+            VStack(spacing: 0) {
+                // Header
+                Text("Where you spent your time")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(Color(white: 0.50))
+                    .tracking(0.5)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 20)
+
+                // App list
+                if viewModel.appBreakdown.isEmpty {
+                    Text("No activity recorded for this block.")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color(white: 0.50))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.bottom, 20)
+                } else {
+                    VStack(spacing: 12) {
+                        ForEach(Array(viewModel.appBreakdown.enumerated()), id: \.offset) { _, entry in
+                            HStack {
+                                Text(entry.appName)
+                                    .font(.system(size: 15, weight: .medium))
+                                    .foregroundColor(Color(white: 0.15))
+                                    .lineLimit(1)
+                                Spacer()
+                                Text(viewModel.formatDuration(entry.seconds))
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(Color(white: 0.40))
+                            }
+                        }
+                    }
+                    .padding(.bottom, 20)
+                }
+
+                // Divider
                 Rectangle()
                     .fill(Color.black.opacity(0.06))
                     .frame(height: 1)
                     .padding(.bottom, 16)
 
-                nextBlockPreview(title: nextTitle, startsIn: startsIn, blockType: viewModel.nextBlockType)
-                    .padding(.bottom, 20)
-            }
+                // Next block preview (if any)
+                if let nextTitle = viewModel.nextBlockTitle, let startsIn = viewModel.nextBlockStartsIn {
+                    nextBlockPreview(title: nextTitle, startsIn: startsIn, blockType: viewModel.nextBlockType)
+                        .padding(.bottom, 20)
+                }
 
-            // Done button
-            Button(action: viewModel.onDone) {
-                Text("Done")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(
-                        LinearGradient(colors: [goGreen, goGreenBright],
-                                       startPoint: .leading, endPoint: .trailing)
-                    )
-                    .cornerRadius(12)
+                // Done button
+                Button(action: viewModel.onDone) {
+                    Text("Done")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            LinearGradient(colors: [goGreen, goGreenBright],
+                                           startPoint: .leading, endPoint: .trailing)
+                        )
+                        .cornerRadius(12)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
-        .padding(32)
-        .frame(maxWidth: 460)
-        .background(
-            ZStack {
-                VisualEffectBlur(material: .sidebar, blendingMode: .withinWindow)
-                Color(white: 0.93)
-            }
-        )
-        .cornerRadius(24)
-        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.black.opacity(0.05), lineWidth: 1))
-        .shadow(color: .black.opacity(0.10), radius: 40, x: 0, y: 10)
     }
 
     // MARK: - Free Time End Card
 
     private var freeTimeEndCard: some View {
-        VStack(spacing: 0) {
-            Text("Break over")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Color(white: 0.50))
-                .tracking(0.5)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, 18)
-
-            // Block type + time
-            HStack(spacing: 6) {
-                Circle().fill(freeTimeColor).frame(width: 7, height: 7)
-                Text("FREE TIME")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(freeTimeColor)
-                    .tracking(0.8)
-                Text("·")
-                    .foregroundColor(Color(white: 0.55))
-                Text(viewModel.timeDisplay)
-                    .font(.system(size: 12, weight: .medium))
+        cardContainer {
+            VStack(spacing: 0) {
+                Text("Break over")
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(Color(white: 0.50))
-                Spacer()
-            }
-            .padding(.bottom, 20)
+                    .tracking(0.5)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 18)
 
-            // Next block preview (if any)
-            if let nextTitle = viewModel.nextBlockTitle, let startsIn = viewModel.nextBlockStartsIn {
-                nextBlockPreview(title: nextTitle, startsIn: startsIn, blockType: viewModel.nextBlockType)
-                    .padding(.bottom, 20)
-            }
+                // Block type + time
+                HStack(spacing: 6) {
+                    Circle().fill(freeTimeColor).frame(width: 7, height: 7)
+                    Text("FREE TIME")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(freeTimeColor)
+                        .tracking(0.8)
+                    Text("\u{00B7}")
+                        .foregroundColor(Color(white: 0.55))
+                    Text(viewModel.timeDisplay)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color(white: 0.50))
+                    Spacer()
+                }
+                .padding(.bottom, 20)
 
-            // Done button
-            Button(action: viewModel.onDone) {
-                Text("Done")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(
-                        LinearGradient(colors: [goGreen, goGreenBright],
-                                       startPoint: .leading, endPoint: .trailing)
-                    )
-                    .cornerRadius(12)
+                // Next block preview (if any)
+                if let nextTitle = viewModel.nextBlockTitle, let startsIn = viewModel.nextBlockStartsIn {
+                    nextBlockPreview(title: nextTitle, startsIn: startsIn, blockType: viewModel.nextBlockType)
+                        .padding(.bottom, 20)
+                }
+
+                // Done button
+                Button(action: viewModel.onDone) {
+                    Text("Done")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            LinearGradient(colors: [goGreen, goGreenBright],
+                                           startPoint: .leading, endPoint: .trailing)
+                        )
+                        .cornerRadius(12)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
-        .padding(32)
-        .frame(maxWidth: 460)
-        .background(
-            ZStack {
-                VisualEffectBlur(material: .sidebar, blendingMode: .withinWindow)
-                Color(white: 0.93)
-            }
-        )
-        .cornerRadius(24)
-        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.black.opacity(0.05), lineWidth: 1))
-        .shadow(color: .black.opacity(0.10), radius: 40, x: 0, y: 10)
     }
 
-    // MARK: - Next Block Preview
+    // MARK: - Shared Components
+
+    private func cardContainer<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(32)
+            .frame(maxWidth: 460)
+            .background(
+                ZStack {
+                    VisualEffectBlur(material: .sidebar, blendingMode: .withinWindow)
+                    Color(white: 0.93)
+                }
+            )
+            .cornerRadius(24)
+            .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.black.opacity(0.05), lineWidth: 1))
+            .shadow(color: .black.opacity(0.10), radius: 40, x: 0, y: 10)
+    }
+
+    private func nextButton(label: String) -> some View {
+        Button(action: {
+            withAnimation {
+                viewModel.nextCard()
+            }
+        }) {
+            HStack(spacing: 6) {
+                Text(label)
+                    .font(.system(size: 16, weight: .bold))
+                Text("\u{2192}")
+                    .font(.system(size: 16, weight: .bold))
+            }
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(
+                LinearGradient(colors: [goGreen, goGreenBright],
+                               startPoint: .leading, endPoint: .trailing)
+            )
+            .cornerRadius(12)
+        }
+        .buttonStyle(.plain)
+    }
 
     private func nextBlockPreview(title: String, startsIn: String, blockType: ScheduleManager.BlockType?) -> some View {
         let color: Color = {

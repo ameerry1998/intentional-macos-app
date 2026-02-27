@@ -187,12 +187,12 @@ body {
 }
 
 .section-title {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.35);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .platform-section-title {
@@ -471,6 +471,34 @@ body {
   font-size: 13px;
 }
 
+/* ===== Sound Tone Picker ===== */
+.sound-tone-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 20px 16px;
+}
+.sound-tone-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.7);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.sound-tone-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.9);
+}
+.sound-tone-btn.selected {
+  background: rgba(74,222,128,0.15);
+  border-color: rgba(74,222,128,0.5);
+  color: rgba(74,222,128,0.95);
+}
+
 /* ===== Usage Cards ===== */
 .usage-grid {
   display: grid;
@@ -601,46 +629,46 @@ body {
 /* ===== Settings Card ===== */
 .settings-card {
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
   overflow: hidden;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .settings-card-title {
-  padding: 16px 20px 8px;
-  font-size: 13px;
+  padding: 10px 14px 4px;
+  font-size: 11px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.35);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
 }
 
 .setting-row {
   display: flex;
   align-items: center;
-  padding: 14px 20px;
-  gap: 14px;
+  padding: 10px 14px;
+  gap: 12px;
 }
 
 .setting-row + .setting-row {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .setting-label {
   flex: 1;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
 }
 
 .setting-desc {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.35);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
   margin-top: 2px;
 }
 
 .setting-value {
-  font-size: 14px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.5);
   min-width: 50px;
   text-align: right;
@@ -649,8 +677,8 @@ body {
 /* Toggle Switch */
 .toggle {
   position: relative;
-  width: 44px;
-  height: 24px;
+  width: 40px;
+  height: 22px;
   flex-shrink: 0;
 }
 
@@ -663,8 +691,8 @@ body {
 .toggle-track {
   position: absolute;
   inset: 0;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 11px;
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -674,8 +702,8 @@ body {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   background: #ffffff;
   border-radius: 50%;
   transition: transform 0.2s;
@@ -686,7 +714,7 @@ body {
 }
 
 .toggle input:checked + .toggle-track::after {
-  transform: translateX(20px);
+  transform: translateX(18px);
 }
 
 /* Range Slider */
@@ -855,14 +883,14 @@ body {
 .lock-mode-option {
   display: flex;
   align-items: center;
-  padding: 14px 20px;
-  gap: 14px;
+  padding: 10px 14px;
+  gap: 12px;
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .lock-mode-option + .lock-mode-option {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .lock-mode-option:hover {
@@ -874,8 +902,8 @@ body {
 }
 
 .lock-mode-radio {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.2);
   flex-shrink: 0;
@@ -890,8 +918,8 @@ body {
 .lock-mode-option.selected .lock-mode-radio::after {
   content: '';
   position: absolute;
-  top: 3px;
-  left: 3px;
+  top: 2px;
+  left: 2px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -900,7 +928,7 @@ body {
 
 /* Status badges */
 .status-badge {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -909,8 +937,8 @@ body {
 
 .status-badge::before {
   content: '';
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -931,12 +959,12 @@ body {
 /* Setting input (inline in setting-row) */
 .setting-input {
   flex: 1;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
   color: #ffffff;
-  font-size: 14px;
+  font-size: 13px;
   outline: none;
   font-family: inherit;
   min-width: 0;
@@ -1027,8 +1055,8 @@ body {
 /* Full-width button rows */
 .lock-btn-row {
   display: flex;
-  gap: 10px;
-  margin-top: 16px;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .lock-btn-row .btn-primary,
@@ -1041,21 +1069,21 @@ body {
 
 /* Helper text between cards */
 .lock-helper-text {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.4);
-  padding: 12px 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+  padding: 6px 2px;
   line-height: 1.5;
 }
 
 /* Unlock code input */
 .unlock-code-input {
-  width: 200px;
-  padding: 16px 24px;
+  width: 180px;
+  padding: 12px 20px;
   background: rgba(255, 255, 255, 0.06);
-  border: 2px solid rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
   color: #ffffff;
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
   text-align: center;
   letter-spacing: 8px;
@@ -1068,27 +1096,27 @@ body {
 }
 
 .unlock-code-input::placeholder {
-  color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.15);
   letter-spacing: 4px;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 /* Countdown timer */
 .countdown-display {
-  font-size: 48px;
+  font-size: 36px;
   font-weight: 700;
   color: #f59e0b;
   font-variant-numeric: tabular-nums;
-  margin: 16px 0;
+  margin: 10px 0;
 }
 
 /* Temporarily unlocked banner */
 .unlock-timer-bar {
-  height: 4px;
-  background: rgba(255, 255, 255, 0.1);
+  height: 3px;
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 2px;
-  margin: 16px auto;
-  max-width: 300px;
+  margin: 10px auto;
+  max-width: 260px;
   overflow: hidden;
 }
 
@@ -1100,61 +1128,59 @@ body {
 }
 
 .btn-primary {
-  padding: 12px 32px;
+  padding: 8px 20px;
   background: #6366f1;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   color: #ffffff;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
-  margin-top: 8px;
+  transition: all 0.15s;
+  margin-top: 6px;
 }
 
 .btn-primary:hover {
   background: #5558e6;
-  transform: translateY(-1px);
 }
 
 .btn-primary:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-  transform: none;
 }
 
 .btn-secondary {
-  padding: 12px 32px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 10px;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 14px;
+  padding: 8px 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
-  margin-top: 8px;
+  transition: all 0.15s;
+  margin-top: 6px;
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .btn-danger {
-  padding: 12px 32px;
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 10px;
+  padding: 8px 20px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
   color: #ef4444;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
-  margin-top: 8px;
+  transition: all 0.15s;
+  margin-top: 6px;
 }
 
 .btn-danger:hover {
-  background: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.2);
 }
 
 /* ===== Advanced Page ===== */
@@ -1220,16 +1246,16 @@ body {
 }
 
 .locked-banner {
-  padding: 12px 20px;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 10px;
-  margin-bottom: 20px;
+  padding: 8px 14px;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  border-radius: 8px;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* Lock-confirmable: OFF toggle that can be enabled with confirmation */
@@ -2463,8 +2489,8 @@ body {
       <button class="btn-small" style="margin-top:10px;" onclick="saveProfileInline()">Save profile</button>
     </div>
 
-    <!-- D. Collapsible Detail Sections -->
-    <div style="margin-top: 24px;">
+    <!-- D. Collapsible Detail Sections (hidden for now) -->
+    <div style="margin-top: 24px; display: none;">
       <div class="collapsible-section">
         <div class="collapsible-header" onclick="toggleCollapsible('goals')">
           <span class="collapsible-arrow" id="arrow-goals">▸</span>
@@ -2562,6 +2588,13 @@ body {
         <input type="text" class="app-picker-search" id="app-picker-search" placeholder="Search apps..." oninput="filterAppPicker()">
         <div class="app-picker-list" id="app-picker-list"></div>
       </div>
+    </div>
+
+    <!-- ===== Notification Sound ===== -->
+    <div class="settings-card" style="margin-top: 16px;">
+      <div class="settings-card-title">Notification Sound</div>
+      <div class="setting-desc" style="padding: 2px 20px 8px;">Sound played during pill transitions.</div>
+      <div class="sound-tone-grid" id="sound-tone-picker"></div>
     </div>
 
     <!-- ===== Content Filtering ===== -->
@@ -3713,7 +3746,8 @@ function saveAllSettings() {
       maxPerPeriod: maxPerPeriod,
       distractingSites: customDistractingSites,
       disabledPlatforms: disabledPlatforms,
-      distractingApps: distractingApps.map(function(a) { return { name: a.name, bundleId: a.bundleId }; })
+      distractingApps: distractingApps.map(function(a) { return { name: a.name, bundleId: a.bundleId }; }),
+      soundTone: selectedSoundTone
     }
   });
 }
@@ -3777,8 +3811,39 @@ function populateSettingsUI(data) {
   distractingApps = data.distractingApps || [];
   renderDistractingApps();
 
+  // Load sound tone picker
+  renderSoundTonePicker(data.soundTone || 'Glass');
+
   // Sync platform collapse states after populating checkboxes
   syncAllPlatformCollapses();
+}
+
+// ===== Sound Tone Picker =====
+var selectedSoundTone = 'Glass';
+var soundToneOptions = ['Basso','Blow','Bottle','Frog','Funk','Glass','Hero','Morse','Ping','Pop','Purr','Sosumi','Submarine','Tink'];
+
+function renderSoundTonePicker(currentTone) {
+  selectedSoundTone = currentTone;
+  var container = document.getElementById('sound-tone-picker');
+  if (!container) return;
+  container.innerHTML = soundToneOptions.map(function(name) {
+    var cls = 'sound-tone-btn' + (name === selectedSoundTone ? ' selected' : '');
+    return '<button type="button" class="' + cls + '" data-sound="' + name + '" onclick="selectSoundTone(\'' + name + '\')">' + name + '</button>';
+  }).join('');
+}
+
+function selectSoundTone(name) {
+  selectedSoundTone = name;
+  // Update UI
+  var btns = document.querySelectorAll('.sound-tone-btn');
+  btns.forEach(function(b) {
+    b.classList.toggle('selected', b.dataset.sound === name);
+  });
+  // Play preview
+  sendMessage({ type: 'PREVIEW_SOUND', sound: name });
+  // Auto-save
+  clearTimeout(settingSaveTimer);
+  settingSaveTimer = setTimeout(saveAllSettings, 600);
 }
 
 // ===== Lock State Machine =====
@@ -3856,7 +3921,6 @@ function renderLockState() {
     case 'pending':
       el.innerHTML =
         '<div class="settings-card">' +
-          '<div class="settings-card-title">Partner Invitation</div>' +
           '<div class="setting-row">' +
             '<div class="setting-label">Status</div>' +
             '<span class="status-badge pending">Pending</span>' +
@@ -3866,9 +3930,9 @@ function renderLockState() {
             '<span class="setting-value">' + partnerDisplay + '</span>' +
           '</div>' +
         '</div>' +
-        '<div class="lock-helper-text">Your partner needs to click the confirmation link in their email before lock mode can be activated.</div>' +
+        '<div class="lock-helper-text">Partner needs to confirm via email before lock mode can activate.</div>' +
         '<div class="lock-btn-row">' +
-          '<button class="btn-primary" id="resend-invite-btn" onclick="resendInvite()">Resend Invitation</button>' +
+          '<button class="btn-primary" id="resend-invite-btn" onclick="resendInvite()">Resend</button>' +
           '<button class="btn-secondary" onclick="changePartner()">Change Partner</button>' +
         '</div>';
       startConsentPolling();
@@ -3877,7 +3941,6 @@ function renderLockState() {
     case 'confirmed':
       el.innerHTML =
         '<div class="settings-card">' +
-          '<div class="settings-card-title">Partner Status</div>' +
           '<div class="setting-row">' +
             '<div class="setting-label">Status</div>' +
             '<span class="status-badge confirmed">Confirmed</span>' +
@@ -3887,14 +3950,14 @@ function renderLockState() {
             '<span class="setting-value">' + partnerDisplay + '</span>' +
           '</div>' +
         '</div>' +
-        '<div class="lock-helper-text">Your partner is ready. Choose how to lock your settings:</div>' +
+        '<div class="lock-helper-text">Partner is ready. Choose how to lock your settings:</div>' +
         '<div class="lock-btn-row">' +
-          '<button class="btn-primary" id="enable-partner-btn" onclick="enableLockMode(\'partner\')">Enable Partner Lock</button>' +
-          '<button class="btn-secondary" id="enable-self-btn" onclick="enableLockMode(\'self\')">Enable 24-Hour Delay</button>' +
+          '<button class="btn-primary" id="enable-partner-btn" onclick="enableLockMode(\'partner\')">Partner Lock</button>' +
+          '<button class="btn-secondary" id="enable-self-btn" onclick="enableLockMode(\'self\')">24-Hour Delay</button>' +
         '</div>' +
-        '<div class="lock-btn-row" style="margin-top:8px;">' +
-          '<button class="btn-secondary" onclick="changePartner()">Change Partner</button>' +
-          '<button class="btn-danger" id="remove-partner-btn" onclick="removePartner()">Remove Partner</button>' +
+        '<div class="lock-btn-row" style="margin-top:4px;">' +
+          '<button class="btn-secondary" onclick="changePartner()">Change</button>' +
+          '<button class="btn-danger" id="remove-partner-btn" onclick="removePartner()">Remove</button>' +
         '</div>';
       stopConsentPolling();
       break;
@@ -3904,7 +3967,6 @@ function renderLockState() {
       var modeLabel = mode === 'partner' ? 'Partner Lock' : '24-Hour Delay';
       el.innerHTML =
         '<div class="settings-card">' +
-          '<div class="settings-card-title">Lock Status</div>' +
           '<div class="setting-row">' +
             '<div class="setting-label">Status</div>' +
             '<span class="status-badge locked">Locked</span>' +
@@ -3919,33 +3981,25 @@ function renderLockState() {
             '<span class="setting-value">' + partnerDisplay + '</span>' +
           '</div>' : '') +
         '</div>' +
-        '<div class="settings-card">' +
-          '<div class="settings-card-title">Protected Settings</div>' +
-          '<div class="setting-row"><div class="setting-label">Platform toggles (YouTube, Instagram, Facebook)</div></div>' +
-          '<div class="setting-row"><div class="setting-label">Relevance thresholds</div></div>' +
-          '<div class="setting-row"><div class="setting-label">Content blocking (Shorts, Reels, Watch)</div></div>' +
-          '<div class="setting-row"><div class="setting-label">Blocked categories</div></div>' +
-          '<div class="setting-row"><div class="setting-label">Free browse budgets</div></div>' +
-        '</div>' +
-        '<button class="btn-primary" id="request-unlock-btn" onclick="requestUnlock()" style="width:100%;margin-top:16px;">Request Unlock Code</button>';
+        '<div class="lock-helper-text" style="color:rgba(255,255,255,0.3);">Platform toggles, thresholds, content blocking, budgets, and app persistence are protected.</div>' +
+        '<button class="btn-primary" id="request-unlock-btn" onclick="requestUnlock()" style="width:100%;">Request Unlock Code</button>';
       stopConsentPolling();
       break;
 
     case 'unlock_code_entry':
       var codeMode = settings.lockMode || 'partner';
       var codeMsg = codeMode === 'partner'
-        ? 'A 6-digit code has been sent to your partner. Enter it below to temporarily unlock settings.'
-        : 'Enter the 6-digit code you received to temporarily unlock settings.';
+        ? 'A 6-digit code has been sent to your partner.'
+        : 'Enter the 6-digit code to unlock settings.';
       el.innerHTML =
         '<div class="settings-card">' +
-          '<div class="settings-card-title">Enter Unlock Code</div>' +
-          '<div style="padding:24px 20px;text-align:center;">' +
-            '<div class="lock-helper-text" style="padding:0;margin-bottom:20px;">' + codeMsg + '</div>' +
+          '<div style="padding:16px 14px;text-align:center;">' +
+            '<div class="lock-helper-text" style="padding:0;margin-bottom:14px;">' + codeMsg + '</div>' +
             '<input type="text" class="unlock-code-input" id="unlock-code" maxlength="6" placeholder="000000" oninput="onCodeInput(this)">' +
           '</div>' +
         '</div>' +
         '<div class="lock-btn-row">' +
-          '<button class="btn-primary" id="verify-code-btn" onclick="verifyUnlockCode()" disabled>Verify Code</button>' +
+          '<button class="btn-primary" id="verify-code-btn" onclick="verifyUnlockCode()" disabled>Verify</button>' +
           '<button class="btn-secondary" onclick="cancelUnlock()">Cancel</button>' +
         '</div>';
       setTimeout(function() {
@@ -3959,15 +4013,14 @@ function renderLockState() {
       var availAt = new Date(settings.selfUnlockAvailableAt).getTime();
       el.innerHTML =
         '<div class="settings-card">' +
-          '<div class="settings-card-title">Unlock Request</div>' +
-          '<div style="text-align:center;padding:24px 20px;">' +
-            '<div style="font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:8px;">Time remaining</div>' +
-            '<div class="countdown-display" id="countdown-timer" style="margin:12px 0;">--:--:--</div>' +
+          '<div style="text-align:center;padding:14px;">' +
+            '<div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Time remaining</div>' +
+            '<div class="countdown-display" id="countdown-timer">--:--:--</div>' +
             '<div class="unlock-timer-bar"><div class="unlock-timer-fill" id="countdown-bar" style="width:100%;background:#f59e0b;"></div></div>' +
-            '<div class="lock-helper-text" style="padding:0;margin-top:12px;">Settings will unlock automatically when the timer reaches zero.</div>' +
+            '<div class="lock-helper-text" style="padding:0;margin-top:8px;">Unlocks automatically when timer reaches zero.</div>' +
           '</div>' +
         '</div>' +
-        '<button class="btn-secondary" onclick="cancelUnlock()" style="width:100%;margin-top:16px;">Cancel Request</button>';
+        '<button class="btn-secondary" onclick="cancelUnlock()" style="width:100%;">Cancel</button>';
       updateCountdown(availAt);
       countdownInterval = setInterval(function() {
         updateCountdown(availAt);
@@ -3978,7 +4031,6 @@ function renderLockState() {
     case 'unlocked':
       el.innerHTML =
         '<div class="settings-card">' +
-          '<div class="settings-card-title">Lock Status</div>' +
           '<div class="setting-row">' +
             '<div class="setting-label">Status</div>' +
             '<span class="status-badge unlocked">Unlocked</span>' +
@@ -3989,9 +4041,9 @@ function renderLockState() {
             '<span class="setting-value">' + partnerDisplay + '</span>' +
           '</div>' : '') +
         '</div>' +
-        '<div class="lock-helper-text">Settings are unlocked. Make your changes, then re-lock when done.</div>' +
+        '<div class="lock-helper-text">Settings are unlocked. Make your changes, then re-lock.</div>' +
         '<button class="btn-primary" onclick="relockSettings()" style="width:100%;">Re-lock Settings</button>' +
-        '<div class="lock-btn-row" style="margin-top:8px;">' +
+        '<div class="lock-btn-row">' +
           '<button class="btn-secondary" onclick="changePartner()">Change Partner</button>' +
           '<button class="btn-danger" id="remove-partner-btn" onclick="removePartner()">Remove Partner</button>' +
         '</div>';
@@ -4003,12 +4055,11 @@ function renderLockState() {
       var totalMs = 5 * 60 * 1000;
       el.innerHTML =
         '<div class="settings-card">' +
-          '<div class="settings-card-title">Temporary Unlock</div>' +
-          '<div style="text-align:center;padding:24px 20px;">' +
-            '<div style="font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:8px;">Time remaining</div>' +
-            '<div class="countdown-display" id="unlock-countdown" style="color:#34d399;margin:12px 0;">--:--</div>' +
+          '<div style="text-align:center;padding:14px;">' +
+            '<div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Time remaining</div>' +
+            '<div class="countdown-display" id="unlock-countdown" style="color:#34d399;">--:--</div>' +
             '<div class="unlock-timer-bar"><div class="unlock-timer-fill" id="unlock-bar"></div></div>' +
-            '<div class="lock-helper-text" style="padding:0;margin-top:12px;">Make your changes now. Lock re-engages when timer expires.</div>' +
+            '<div class="lock-helper-text" style="padding:0;margin-top:8px;">Make changes now. Lock re-engages when timer expires.</div>' +
           '</div>' +
         '</div>';
       updateUnlockCountdown(unlockEnd, totalMs);
@@ -4021,7 +4072,6 @@ function renderLockState() {
     case 'declined':
       el.innerHTML =
         '<div class="settings-card">' +
-          '<div class="settings-card-title">Partner Invitation</div>' +
           '<div class="setting-row">' +
             '<div class="setting-label">Status</div>' +
             '<span class="status-badge declined">Declined</span>' +
@@ -4031,26 +4081,24 @@ function renderLockState() {
             '<span class="setting-value">' + partnerDisplay + '</span>' +
           '</div>' +
         '</div>' +
-        '<div class="lock-helper-text">' + (name || email) + ' declined the accountability request. You can try a different partner.</div>' +
+        '<div class="lock-helper-text">' + (name || email) + ' declined. Try a different partner.</div>' +
         '<div class="settings-card">' +
-          '<div class="settings-card-title">New Partner</div>' +
           '<div class="setting-row">' +
-            '<div class="setting-label" style="min-width:50px;">Name</div>' +
+            '<div class="setting-label" style="min-width:40px;">Name</div>' +
             '<input class="setting-input" id="lock-partner-name" placeholder="Optional">' +
           '</div>' +
           '<div class="setting-row">' +
-            '<div class="setting-label" style="min-width:50px;">Email</div>' +
+            '<div class="setting-label" style="min-width:40px;">Email</div>' +
             '<input class="setting-input" id="lock-partner-email" placeholder="partner@email.com" type="email">' +
           '</div>' +
         '</div>' +
-        '<button class="btn-primary" id="save-lock-btn" onclick="saveLockSettings()" style="width:100%;margin-top:16px;">Save Lock Settings</button>';
+        '<button class="btn-primary" id="save-lock-btn" onclick="saveLockSettings()" style="width:100%;">Save</button>';
       stopConsentPolling();
       break;
 
     case 'expired':
       el.innerHTML =
         '<div class="settings-card">' +
-          '<div class="settings-card-title">Partner Invitation</div>' +
           '<div class="setting-row">' +
             '<div class="setting-label">Status</div>' +
             '<span class="status-badge expired">Expired</span>' +
@@ -4060,9 +4108,9 @@ function renderLockState() {
             '<span class="setting-value">' + partnerDisplay + '</span>' +
           '</div>' +
         '</div>' +
-        '<div class="lock-helper-text">The invitation expired after 7 days without a response.</div>' +
+        '<div class="lock-helper-text">Invitation expired after 7 days.</div>' +
         '<div class="lock-btn-row">' +
-          '<button class="btn-primary" id="resend-invite-btn" onclick="resendInvite()">Resend Invitation</button>' +
+          '<button class="btn-primary" id="resend-invite-btn" onclick="resendInvite()">Resend</button>' +
           '<button class="btn-secondary" onclick="changePartner()">Change Partner</button>' +
         '</div>';
       stopConsentPolling();
@@ -4075,12 +4123,11 @@ function renderLockState() {
       var showPartner = (selectedLockMode && selectedLockMode !== 'none') ? '' : ' style="display:none"';
       el.innerHTML =
         '<div class="settings-card">' +
-          '<div class="settings-card-title">Lock Mode</div>' +
           '<div class="lock-mode-option' + noneSelected + '" data-mode="none" onclick="selectLockMode(\'none\')">' +
             '<div class="lock-mode-radio"></div>' +
             '<div>' +
               '<div class="setting-label">Unlocked</div>' +
-              '<div class="setting-desc">Anyone can change settings freely</div>' +
+              '<div class="setting-desc">Anyone can change settings</div>' +
             '</div>' +
           '</div>' +
           '<div class="lock-mode-option' + partnerSelected + '" data-mode="partner" onclick="selectLockMode(\'partner\')">' +
@@ -4094,28 +4141,69 @@ function renderLockState() {
             '<div class="lock-mode-radio"></div>' +
             '<div>' +
               '<div class="setting-label">24-Hour Delay</div>' +
-              '<div class="setting-desc">24-hour cooling period before settings can change</div>' +
+              '<div class="setting-desc">Cooling period before settings change</div>' +
             '</div>' +
           '</div>' +
         '</div>' +
         '<div class="settings-card" id="partner-fields-card"' + showPartner + '>' +
-          '<div class="settings-card-title">Accountability Partner</div>' +
           '<div class="setting-row">' +
-            '<div class="setting-label" style="min-width:50px;">Name</div>' +
+            '<div class="setting-label" style="min-width:40px;">Name</div>' +
             '<input class="setting-input" id="lock-partner-name" placeholder="Optional" value="' + name + '">' +
           '</div>' +
           '<div class="setting-row">' +
-            '<div class="setting-label" style="min-width:50px;">Email</div>' +
+            '<div class="setting-label" style="min-width:40px;">Email</div>' +
             '<input class="setting-input" id="lock-partner-email" placeholder="partner@email.com" type="email" value="' + email + '">' +
           '</div>' +
         '</div>' +
-        '<button class="btn-primary" id="save-lock-btn" onclick="saveLockSettings()" style="width:100%;margin-top:16px;">Save Lock Settings</button>';
+        '<button class="btn-primary" id="save-lock-btn" onclick="saveLockSettings()" style="width:100%;">Save</button>';
       stopConsentPolling();
   }
+
+  // Append strict mode (app persistence) card
+  var strictEnabled = settings.strictModeEnabled || false;
+  var locked = isSettingsLocked();
+  var strictDisabled = locked ? ' disabled' : '';
+  el.innerHTML +=
+    '<div class="settings-card" style="margin-top:10px;">' +
+      '<div class="setting-row' + (locked ? ' locked' : '') + '">' +
+        '<div>' +
+          '<div class="setting-label">Keep app running</div>' +
+          '<div class="setting-desc">Prevents quitting and auto-restarts if force-quit' + (locked ? ' · locked' : '') + '</div>' +
+        '</div>' +
+        '<label class="toggle">' +
+          '<input type="checkbox" id="strict-mode-toggle"' + (strictEnabled ? ' checked' : '') + strictDisabled + ' onchange="toggleStrictMode(this.checked)">' +
+          '<span class="toggle-track"></span>' +
+        '</label>' +
+      '</div>' +
+    '</div>';
 
   // Enforce lock on platform settings pages
   enforceLockMode();
 }
+
+// ===== Strict Mode Toggle =====
+
+function toggleStrictMode(enabled) {
+  if (enabled) {
+    // Confirmation before enabling
+    if (!confirm('This will prevent quitting the app and auto-restart it if force-quit. Are you sure?')) {
+      document.getElementById('strict-mode-toggle').checked = false;
+      return;
+    }
+  }
+  sendMessage({ type: 'SAVE_STRICT_MODE', enabled: enabled });
+}
+
+window._strictModeResult = function(result) {
+  if (result.success) {
+    settings.strictModeEnabled = result.enabled;
+  } else {
+    // Revert toggle
+    var toggle = document.getElementById('strict-mode-toggle');
+    if (toggle) toggle.checked = settings.strictModeEnabled || false;
+    if (result.message) alert(result.message);
+  }
+};
 
 // ===== Lock Enforcement on Settings Pages =====
 var LOCKED_INPUT_IDS = [
@@ -5955,7 +6043,7 @@ function onCalendarHourClick(event, hour) {
   var minuteInHour = Math.round((yOffset / CALENDAR_HOUR_HEIGHT) * 60 / 15) * 15;
   var startMin = hour * 60 + minuteInHour;
   var endMin = Math.min(startMin + 60, CALENDAR_END_HOUR * 60);
-  if (endMin - startMin < 15) return;
+  if (endMin - startMin < 2) return;
   if (hasBlockOverlap(startMin, endMin, null)) return;
 
   var newBlock = {
@@ -5993,7 +6081,7 @@ function addFocusBlock(blockType) {
     endMin = Math.min(startMin + 60, CALENDAR_END_HOUR * 60);
   }
 
-  if (startMin >= CALENDAR_END_HOUR * 60 || endMin - startMin < 15) {
+  if (startMin >= CALENDAR_END_HOUR * 60 || endMin - startMin < 2) {
     showToast('No available time slots', 'error');
     return;
   }
@@ -6065,8 +6153,7 @@ function openBlockEditor(blockId, event) {
     document.getElementById('editor-start').disabled = true;
     document.getElementById('editor-end').disabled = true;
     document.querySelectorAll('#editor-block-type .block-type-btn').forEach(function(b) { b.disabled = true; b.style.pointerEvents = 'none'; });
-    var delBtn = editor.querySelector('.block-editor-delete');
-    if (delBtn) delBtn.style.display = 'none';
+    // Delete still allowed for past blocks (helps with testing)
   } else if (active) {
     document.getElementById('editor-start').disabled = true;
     document.querySelectorAll('#editor-block-type .block-type-btn').forEach(function(b) { b.disabled = true; b.style.pointerEvents = 'none'; });
@@ -6135,8 +6222,8 @@ function saveBlockEdit() {
   }
 
   // Enforce 15-minute minimum duration
-  if (newEndMin - newStartMin < 15) {
-    showToast('Block must be at least 15 minutes', 'error');
+  if (newEndMin - newStartMin < 2) {
+    showToast('Block must be at least 2 minutes', 'error');
     return;
   }
 
@@ -6367,13 +6454,13 @@ function onBlockResizeMove(event) {
 
   if (calendarDragState.edge === 'top') {
     var endMin = block.endHour * 60 + block.endMinute;
-    if (minutes < endMin - 15 && !hasBlockOverlap(minutes, endMin, block.id)) {
+    if (minutes < endMin - 2 && !hasBlockOverlap(minutes, endMin, block.id)) {
       block.startHour = Math.floor(minutes / 60);
       block.startMinute = minutes % 60;
     }
   } else {
     var startMin = block.startHour * 60 + block.startMinute;
-    if (minutes > startMin + 15 && !hasBlockOverlap(startMin, minutes, block.id)) {
+    if (minutes > startMin + 2 && !hasBlockOverlap(startMin, minutes, block.id)) {
       block.endHour = Math.floor(minutes / 60);
       block.endMinute = minutes % 60;
     }
