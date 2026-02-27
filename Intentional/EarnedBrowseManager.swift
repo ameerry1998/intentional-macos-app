@@ -81,6 +81,8 @@ class EarnedBrowseManager {
         var totalTicks: Int = 0
         var earnedMinutes: Double = 0
         var nudgeCount: Int = 0
+        var selfRating: Int? = nil    // 0-4 emoji scale (nil = not rated)
+        var reflection: String = ""   // "What went well?" text
         /// Focus score: percentage of ticks that were relevant (0-100)
         var focusScore: Int { totalTicks > 0 ? Int(round(Double(relevantTicks) / Double(totalTicks) * 100)) : 0 }
     }
@@ -215,6 +217,15 @@ class EarnedBrowseManager {
         save()
     }
 
+    /// Save the user's self-assessment and reflection for a completed block.
+    func saveBlockReflection(blockId: String, selfRating: Int?, reflection: String) {
+        guard var stats = blockFocusStats[blockId] else { return }
+        stats.selfRating = selfRating
+        stats.reflection = reflection
+        blockFocusStats[blockId] = stats
+        save()
+    }
+
     // MARK: - Daily Reset
 
     /// Ensure state is for today. Resets pool on new day with welcome credit.
@@ -320,14 +331,19 @@ class EarnedBrowseManager {
         // Serialize block focus stats
         var blockStatsArray: [[String: Any]] = []
         for (_, stats) in blockFocusStats {
-            blockStatsArray.append([
+            var entry: [String: Any] = [
                 "blockId": stats.blockId,
                 "blockTitle": stats.blockTitle,
                 "relevantTicks": stats.relevantTicks,
                 "totalTicks": stats.totalTicks,
                 "earnedMinutes": stats.earnedMinutes,
-                "nudgeCount": stats.nudgeCount
-            ])
+                "nudgeCount": stats.nudgeCount,
+                "reflection": stats.reflection
+            ]
+            if let rating = stats.selfRating {
+                entry["selfRating"] = rating
+            }
+            blockStatsArray.append(entry)
         }
 
         let state: [String: Any] = [
@@ -384,6 +400,8 @@ class EarnedBrowseManager {
                         stats.totalTicks = entry["totalTicks"] as? Int ?? 0
                         stats.earnedMinutes = entry["earnedMinutes"] as? Double ?? 0
                         stats.nudgeCount = entry["nudgeCount"] as? Int ?? 0
+                        stats.selfRating = entry["selfRating"] as? Int
+                        stats.reflection = entry["reflection"] as? String ?? ""
                         blockFocusStats[blockId] = stats
                     }
                 }

@@ -55,6 +55,7 @@ intentional-macos-app/
     GrayscaleOverlayController.swift  # Full-screen desaturation overlay (Deep Work)
     DeepWorkTimerController.swift     # Floating pill timer widget (Deep Work)
     BlockRitualController.swift       # Block start ritual overlay (intent + if-then plan)
+    BlockEndRitualController.swift    # Block end ritual overlay (reflection + self-assessment)
     RelevanceScorer.swift       # AI scoring (Apple Foundation Models + MLX Qwen3-4B)
     SocketRelayServer.swift     # Unix socket server for extension communication
     NativeMessagingHost.swift   # Chrome native messaging protocol (4-byte length + JSON)
@@ -170,6 +171,7 @@ Order matters. Components have dependencies that must be wired in sequence.
 14. RelevanceScorer         → AI model initialization
 15. FocusMonitor            → Desktop monitoring (refs: ScheduleManager, RelevanceScorer)
 15a. BlockRitualController   → Wired to FocusMonitor.ritualController
+15b. BlockEndRitualController → Wired to FocusMonitor.endRitualController
 16. Wire ScheduleManager.onBlockChanged callback  ← MUST be after all managers
 17. Manual activeBlockId sync                      ← Catches app-started-during-block
 18. NativeMessagingHost (template)
@@ -266,6 +268,8 @@ struct BlockFocusStats {
     var totalTicks: Int        // Total ticks in the block
     var earnedMinutes: Double  // Minutes earned this block
     var focusScore: Double     // relevantTicks / totalTicks
+    var selfRating: Int?       // 0-4 emoji scale from end ritual (nil = not rated)
+    var reflection: String     // "What went well?" text from end ritual
 }
 ```
 
@@ -293,6 +297,18 @@ When a block starts, a ritual card shows BEFORE the timer and enforcement activa
 - +15 min button calls `ScheduleManager.pushBlockBack(id:minutes:)` — shifts block start forward
 - If-then plan selection saved to `UserDefaults("defaultIfThenPlan")` for pre-filling next ritual
 - Focus question pre-fills from block description
+
+### Block End Ritual (BlockEndRitualController)
+When a focus block ends, a reflection card shows celebrating what the user accomplished.
+
+- **Work blocks**: Full card — "Session complete" header, block stats, earned minutes, focus bar (green ≥80%, amber ≥50%, red <50%), emoji self-assessment (5 options, 0-4), "What went well?" text field, next block preview, Done button
+- **Free Time blocks**: Simple "Break over" card — block type/time, next block preview, Done button
+- Does NOT set `awaitingRitual` — enforcement for the new block can begin alongside the end ritual
+- Auto-dismiss after 120s (saves whatever was entered)
+- Skip conditions: no previous block, same block ID (edit), 0 totalTicks, trivial free time (0 ticks)
+- Back-to-back blocks: end ritual shows first → Done dismisses → start ritual shows for new block
+- Self-assessment and reflection saved to `BlockFocusStats` (persisted in `earned_browse.json`)
+- Triggered in `AppDelegate.onBlockChanged` closure AFTER existing logic, captures previous block data BEFORE `earnedBrowseManager.onBlockChanged()` resets activeBlockId
 
 ### Two Input Paths
 1. **Non-browser apps**: Detected via `NSWorkspace.didActivateApplicationNotification`, scored by app name

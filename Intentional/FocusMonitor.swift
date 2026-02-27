@@ -39,6 +39,7 @@ class FocusMonitor {
     var grayscaleController: GrayscaleOverlayController?
     var deepWorkTimerController: DeepWorkTimerController?
     var ritualController: BlockRitualController?
+    var endRitualController: BlockEndRitualController?
 
     /// Whether the block start ritual is showing (enforcement paused)
     private var awaitingRitual = false
@@ -485,6 +486,7 @@ class FocusMonitor {
         overlayController?.dismiss()
         grayscaleController?.dismiss()
         deepWorkTimerController?.dismiss()
+        endRitualController?.dismiss()
         appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
         appDelegate?.postLog("👁️ FocusMonitor stopped")
     }
@@ -494,6 +496,9 @@ class FocusMonitor {
     /// Called when the active focus block changes.
     /// Resets all warning state, timers, and suppression.
     func onBlockChanged() {
+        // Dismiss any existing end ritual from a previous block transition
+        endRitualController?.dismiss()
+
         appDelegate?.postLog("👁️ onBlockChanged() — resetting all state, will re-evaluate current app")
         warnedTargets.removeAll()
         suppressedUntil.removeAll()

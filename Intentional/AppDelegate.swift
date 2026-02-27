@@ -291,6 +291,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let interventionController = InterventionOverlayController(appDelegate: self)
         focusMonitor?.interventionController = interventionController
         focusMonitor?.ritualController = BlockRitualController()
+        focusMonitor?.endRitualController = BlockEndRitualController()
         // Load user-configured distracting apps from saved settings
         let settingsURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
             .appendingPathComponent("Intentional").appendingPathComponent("onboarding_settings.json")
@@ -305,13 +306,43 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Wire schedule block changes: when the active block changes,
         // clear the relevance cache, reset focus monitor, and broadcast SCHEDULE_SYNC
         scheduleManager?.onBlockChanged = { [weak self] block, state in
-            self?.postLog("📋 Block changed → \(state.rawValue)" + (block != nil ? " (\(block!.title))" : ""))
-            self?.relevanceScorer?.clearCache()
+            guard let self = self else { return }
+            self.postLog("📋 Block changed → \(state.rawValue)" + (block != nil ? " (\(block!.title))" : ""))
+
+            // Capture previous block data BEFORE resetting activeBlockId
+            let prevBlockId = self.earnedBrowseManager?.activeBlockId
+            let prevStats = prevBlockId.flatMap { self.earnedBrowseManager?.blockFocusStats[$0] }
+            let prevBlock = prevBlockId.flatMap { id in
+                self.scheduleManager?.todaySchedule?.blocks.first(where: { $0.id == id })
+            }
+
+            self.relevanceScorer?.clearCache()
             // Set activeBlockId BEFORE focusMonitor re-evaluates (which may call recordWorkTick)
-            self?.earnedBrowseManager?.onBlockChanged(blockId: block?.id, blockTitle: block?.title)
-            self?.focusMonitor?.onBlockChanged()
-            self?.socketRelayServer?.broadcastScheduleSync()
-            self?.mainWindowController?.pushScheduleUpdate()
+            self.earnedBrowseManager?.onBlockChanged(blockId: block?.id, blockTitle: block?.title)
+            self.focusMonitor?.onBlockChanged()
+            self.socketRelayServer?.broadcastScheduleSync()
+            self.mainWindowController?.pushScheduleUpdate()
+
+            // Show end ritual for the block that just ended
+            if let prevBlock = prevBlock, let prevStats = prevStats,
+               prevBlock.id != block?.id,      // Not the same block (edited)
+               prevStats.totalTicks > 0 {      // User was actually present
+
+                let nextBlock = self.scheduleManager?.nextUpcomingBlock()
+
+                self.focusMonitor?.endRitualController?.show(
+                    block: prevBlock,
+                    stats: prevStats,
+                    nextBlock: nextBlock,
+                    onDone: { [weak self] selfRating, reflection in
+                        self?.earnedBrowseManager?.saveBlockReflection(
+                            blockId: prevBlock.id,
+                            selfRating: selfRating,
+                            reflection: reflection
+                        )
+                    }
+                )
+            }
         }
 
         // ScheduleManager.init() already called recalculateState(), but the callback
