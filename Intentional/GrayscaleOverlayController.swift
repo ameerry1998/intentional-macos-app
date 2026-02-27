@@ -60,7 +60,7 @@ class GrayscaleOverlayController {
     // MARK: - Instance State
 
     /// Current effect intensity: 0.0 = normal, 1.0 = full red shift
-    private var currentIntensity: CGGammaValue = 0.0
+    private(set) var currentIntensity: CGGammaValue = 0.0
 
     /// Animation timer
     private var animationTimer: Timer?
@@ -93,9 +93,11 @@ class GrayscaleOverlayController {
 
     // MARK: - Public API
 
-    /// Begin red shift + atmospheric vignette over 30 seconds.
-    func startDesaturation() {
-        NSLog("🌫️ [START] startDesaturation() — isActive=\(isActive), intensity=\(currentIntensity)")
+    /// Begin red shift + atmospheric vignette.
+    /// - Parameter fromIntensity: Starting intensity (0.0–1.0). Duration scales proportionally.
+    ///   Default 0.0 = full 30s ramp. 0.5 = 15s ramp. 1.0 = instant.
+    func startDesaturation(fromIntensity: CGGammaValue = 0.0) {
+        NSLog("🌫️ [START] startDesaturation(from=\(String(format: "%.2f", fromIntensity))) — isActive=\(isActive), intensity=\(currentIntensity)")
 
         guard !grayscaleEnabled else {
             NSLog("🌫️ [START] ⚠️ Already active, skipping")
@@ -105,8 +107,28 @@ class GrayscaleOverlayController {
         grayscaleEnabled = true
         setupVignetteWindow()
         setupVignette()
-        animateIntensity(to: 1.0, duration: desaturationDuration)
-        NSLog("🌫️ [START] ✅ Starting \(desaturationDuration)s red shift + atmospheric vignette")
+
+        let clampedStart = min(max(fromIntensity, 0.0), 1.0)
+        if clampedStart > 0.001 {
+            // Snap to starting intensity immediately (no animation)
+            currentIntensity = clampedStart
+            applyRedShift(clampedStart)
+            applyVignette(clampedStart)
+        }
+
+        let remainingFraction = CGGammaValue(1.0 - clampedStart)
+        let proportionalDuration = desaturationDuration * TimeInterval(remainingFraction)
+
+        if proportionalDuration < 0.1 {
+            // Already at max — just set to 1.0
+            currentIntensity = 1.0
+            applyRedShift(1.0)
+            applyVignette(1.0)
+            NSLog("🌫️ [START] ✅ Instant snap to full intensity (from=\(String(format: "%.2f", clampedStart)))")
+        } else {
+            animateIntensity(to: 1.0, duration: proportionalDuration)
+            NSLog("🌫️ [START] ✅ Starting \(String(format: "%.1f", proportionalDuration))s ramp (from=\(String(format: "%.2f", clampedStart)))")
+        }
     }
 
     /// Restore normal over 3 seconds.

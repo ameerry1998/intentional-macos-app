@@ -142,13 +142,17 @@ class EarnedBrowseManager {
     /// Deducts minutes × costMultiplier from pool based on block type.
     /// Returns remaining available minutes after deduction.
     @discardableResult
-    func recordSocialMediaTime(minutes: Double, blockType: ScheduleManager.BlockType) -> Double {
+    func recordSocialMediaTime(minutes: Double, blockType: ScheduleManager.BlockType, isFreeBrowse: Bool = false) -> Double {
         ensureToday()
         let multiplier: Double
-        switch blockType {
-        case .deepWork: multiplier = deepWorkCost
-        case .focusHours: multiplier = focusHoursCost
-        case .freeTime: multiplier = freeTimeCost
+        if isFreeBrowse {
+            multiplier = focusHoursCost  // 2x — free browse costs double
+        } else {
+            switch blockType {
+            case .deepWork: multiplier = deepWorkCost
+            case .focusHours: multiplier = focusHoursCost
+            case .freeTime: multiplier = freeTimeCost
+            }
         }
         usedMinutes += minutes * multiplier
         save()

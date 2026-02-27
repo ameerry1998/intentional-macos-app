@@ -205,14 +205,14 @@ class NudgeViewModel: ObservableObject {
 struct NudgeView: View {
     @ObservedObject var viewModel: NudgeViewModel
 
-    // Translucent red palette (matches reference toast)
-    private let redBg = Color(red: 0.85, green: 0.18, blue: 0.18)
+    // Translucent red palette (matches reference toast — frosted glass + red tint)
+    private let redTint = Color(red: 0.75, green: 0.12, blue: 0.12)
     private let textPrimary = Color.white
     private let textSecondary = Color.white.opacity(0.85)
     private let textTertiary = Color.white.opacity(0.55)
 
-    // Warning: deeper red
-    private let warningBg = Color(red: 0.70, green: 0.10, blue: 0.10)
+    // Warning: deeper red tint
+    private let warningTint = Color(red: 0.60, green: 0.08, blue: 0.08)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -307,7 +307,12 @@ struct NudgeView: View {
         }
         .frame(width: 300)
         .background(
-            (viewModel.warning ? warningBg : redBg).opacity(0.92)
+            ZStack {
+                // Frosted glass blur layer
+                VisualEffectBlur(material: .hudWindow, blendingMode: .behindWindow)
+                // Semi-translucent red tint overlay
+                (viewModel.warning ? warningTint : redTint).opacity(0.72)
+            }
         )
         .cornerRadius(18)
         .shadow(color: .black.opacity(0.35), radius: 10, x: 0, y: 3)

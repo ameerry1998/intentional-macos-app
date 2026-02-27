@@ -153,7 +153,7 @@ class DeepWorkTimerController {
                 vm.isApproachingEnd = remaining <= 60
                 // Countdown tones at 3, 2, 1
                 if secs >= 1 && secs <= 3 && vm.mode == .timer {
-                    Self.playSound("Tink")
+                    Self.playSound("Morse")
                 }
             }
         }

@@ -398,6 +398,8 @@ class FocusMonitor {
     private var deepWorkRedirectFired = false
     /// Whether grayscale has been triggered at least once this block (instant re-trigger on revisit)
     private var grayscaleTriggeredThisBlock = false
+    /// When the user last transitioned from irrelevant to relevant (for graduated vignette decay)
+    private var lastDistractionEndTime: Date?
 
     // Deep Work aggressive enforcement
     /// Sites that have been auto-redirected during this Deep Work block (instant redirect on revisit)
@@ -406,6 +408,12 @@ class FocusMonitor {
     static let deepWorkNativeGraceSeconds: TimeInterval = 5.0
     /// Deep Work justification suppression: shorter (3 min instead of 5 min)
     static let deepWorkSuppressionSeconds: TimeInterval = 180.0
+
+    // Graduated vignette decay: anti-gaming minimum and full recovery thresholds
+    /// Minimum sustained focus time before any vignette decay (anti-gaming)
+    static let vignetteMinRecoverySeconds: TimeInterval = 60.0
+    /// Sustained focus time for full vignette reset (flag clears, must re-accumulate 30s distraction)
+    static let vignetteFullRecoverySeconds: TimeInterval = 180.0
 
     // Global noPlan snooze: suppresses ALL noPlan/unplanned overlays (not per-target)
     private var noPlanSnoozeUntil: Date?
@@ -684,6 +692,7 @@ class FocusMonitor {
         lastInterventionAtDistraction = 0
         deepWorkRedirectFired = false
         grayscaleTriggeredThisBlock = false
+        lastDistractionEndTime = nil
         interventionController?.dismiss()
         deepWorkRedirectedSites.removeAll()
         reconcileGrayscale()
@@ -840,6 +849,9 @@ class FocusMonitor {
     private func handleRitualStart() {
         awaitingRitual = false
         appDelegate?.postLog("🧘 Block ritual (pill): user started — activating timer + enforcement")
+
+        // Play Glass sound on session start
+        NSSound(named: "Glass")?.play()
 
         // Lock in the block ID so the ritual is never re-shown for this block
         if let blockId = scheduleManager?.currentBlock?.id {
@@ -1135,7 +1147,7 @@ class FocusMonitor {
             // Start gradual grayscale (same slow shift as distracting websites)
             let blockType = scheduleManager?.currentBlock?.blockType ?? .focusHours
             if !(grayscaleController?.isActive ?? false) && isEnforcementEnabled(.screenRedShift) {
-                grayscaleController?.startDesaturation()
+                grayscaleController?.startDesaturation(fromIntensity: vignetteRetriggerIntensity())
                 grayscaleTriggeredThisBlock = true
             }
             deepWorkTimerController?.update(isDistracted: true)
@@ -1200,7 +1212,7 @@ class FocusMonitor {
             if grayscaleTriggeredThisBlock && scheduleManager?.currentTimeState.isWork == true && isEnforcementEnabled(.screenRedShift) {
                 isCurrentlyIrrelevant = true
                 if !(grayscaleController?.isActive ?? false) {
-                    grayscaleController?.startDesaturation()
+                    grayscaleController?.startDesaturation(fromIntensity: vignetteRetriggerIntensity())
                     appDelegate?.postLog("🌫️ Browser activated: grayscale maintained (pending AI score)")
                     logAssessment(title: "Grayscale", appName: appName, intention: scheduleManager?.currentBlock?.title ?? "",
                                  relevant: false, confidence: 0, reason: "Browser activated — maintaining grayscale pending AI score",
@@ -1362,6 +1374,24 @@ class FocusMonitor {
         // Don't score our own focus-blocked page
         if info.url.contains("focus-blocked.html") || info.url.contains("blocked.html") {
             lastScoreWasIrrelevant = false
+            return
+        }
+
+        // Social media sites are always irrelevant during work blocks — skip AI scoring.
+        // This prevents the AI from incorrectly scoring e.g. YouTube Shorts as "relevant"
+        // when navigating between pages on the same social media site.
+        if isSocialMedia(info.hostname) {
+            lastScoreWasIrrelevant = true
+            let browserName = Self.browserAppNames[bundleId] ?? "Browser"
+            logAssessment(
+                title: info.title, appName: browserName, hostname: info.hostname, intention: block.title,
+                relevant: false, confidence: 100, reason: "Social media site", action: "none"
+            )
+            if manager.currentTimeState.isWork {
+                appDelegate?.earnedBrowseManager?.recordAssessment(relevant: false)
+            }
+            appDelegate?.postLog("👁️ Social media bypass: \"\(info.title)\" (\(info.hostname)) — skipping AI, treating as irrelevant")
+            handleIrrelevantContent(targetKey: info.hostname, displayName: info.title, confidence: 100, reason: "Social media site")
             return
         }
 
@@ -1636,6 +1666,19 @@ class FocusMonitor {
 
     // MARK: - Grayscale Reconciliation
 
+    /// Compute vignette starting intensity based on recovery time since last distraction.
+    /// < 60s focus → 1.0 (anti-gaming), 60-180s → linear decay, ≥ 180s → 0.0 (full reset)
+    private func vignetteRetriggerIntensity() -> CGGammaValue {
+        guard grayscaleTriggeredThisBlock, let lastEnd = lastDistractionEndTime else {
+            return 0.0 // Never triggered or no timestamp → fresh start
+        }
+        let recovery = Date().timeIntervalSince(lastEnd)
+        if recovery < Self.vignetteMinRecoverySeconds { return 1.0 }
+        if recovery >= Self.vignetteFullRecoverySeconds { return 0.0 }
+        let range = Self.vignetteFullRecoverySeconds - Self.vignetteMinRecoverySeconds
+        return CGGammaValue(1.0 - (recovery - Self.vignetteMinRecoverySeconds) / range)
+    }
+
     /// Reconciliation check: ensure grayscale matches current state.
     /// Called on every poll tick and on app-switch evaluation.
     /// Grayscale should be ON only when ALL of these are true:
@@ -1644,6 +1687,14 @@ class FocusMonitor {
     ///   3. The user is currently on irrelevant content (isCurrentlyIrrelevant)
     /// If any condition is false and grayscale is active, restore color.
     private func reconcileGrayscale() {
+        // Graduated decay: full reset after 180s of sustained focus
+        if grayscaleTriggeredThisBlock, let lastEnd = lastDistractionEndTime,
+           Date().timeIntervalSince(lastEnd) >= Self.vignetteFullRecoverySeconds {
+            grayscaleTriggeredThisBlock = false
+            lastDistractionEndTime = nil
+            appDelegate?.postLog("🌫️ Vignette fully decayed — 180s focus recovery complete")
+        }
+
         guard grayscaleController?.isActive == true else { return }
 
         let inWorkBlock = scheduleManager?.currentTimeState.isWork == true
@@ -1682,6 +1733,12 @@ class FocusMonitor {
         debugLog("👁️ handleRelevantContent — dismissing overlays")
         cancelGracePeriod()
         stopLingerTimer()
+
+        // Record recovery start time when transitioning from irrelevant → relevant
+        if isCurrentlyIrrelevant && grayscaleTriggeredThisBlock {
+            lastDistractionEndTime = Date()
+        }
+
         isCurrentlyIrrelevant = false
         tabIsOnBlockingPage = false
         blockedOriginalURL = nil
@@ -1743,6 +1800,11 @@ class FocusMonitor {
         // Increment cumulative distraction counter (always — even for extension-handled sites)
         cumulativeDistractionSeconds += Self.browserPollInterval
 
+        // Mark as irrelevant so reconciler maintains grayscale/vignette across poll cycles.
+        // Must be set for ALL irrelevant content (not just extension-handled social media),
+        // otherwise reconcileGrayscale() tears down the vignette on the next poll.
+        isCurrentlyIrrelevant = true
+
         // Check if extension handles nudge/redirect enforcement for this site
         let extensionHandled: Bool = {
             guard isBrowser, isSocialMedia(targetKey), let bundleId = currentAppBundleId else { return false }
@@ -1752,25 +1814,26 @@ class FocusMonitor {
 
         appDelegate?.postLog("👁️ Distraction: \(Int(cumulativeDistractionSeconds))s [\(blockType.rawValue)]\(extensionHandled ? " (ext handles nudges)" : "")")
 
-        // Grayscale + deep work timer apply regardless of who handles nudges
+        // Extension-handled social media: grayscale applies regardless, but nudge handling depends on block type
         if isBrowser && extensionHandled {
             // Grayscale: instant if already triggered this block, otherwise at threshold
             let shouldGrayscale = grayscaleTriggeredThisBlock
                 || cumulativeDistractionSeconds >= Self.focusGrayscaleThreshold
             if shouldGrayscale && !(grayscaleController?.isActive ?? false) && isEnforcementEnabled(.screenRedShift) {
-                grayscaleController?.startDesaturation()
+                grayscaleController?.startDesaturation(fromIntensity: vignetteRetriggerIntensity())
                 grayscaleTriggeredThisBlock = true
                 appDelegate?.postLog("🌫️ Grayscale started at \(Int(cumulativeDistractionSeconds))s distraction (extension-handled site)")
                 logAssessment(title: currentTarget, appName: currentAppName, intention: scheduleManager?.currentBlock?.title ?? "",
                              relevant: false, confidence: 0, reason: "Grayscale at \(Int(cumulativeDistractionSeconds))s distraction (extension-handled)",
                              action: "grayscale_on", isEvent: true)
             }
-            // Deep Work: timer dot red
+            // Deep Work: extension handles social media blocking — app defers entirely
             if blockType == .deepWork {
                 deepWorkTimerController?.update(isDistracted: true)
                 pushFocusStatsToTimer()
+                return // Extension blocks social media during Deep Work
             }
-            return // Extension handles nudges/redirects for social media
+            // Focus Hours: fall through to macOS app enforcement (nudges, escalation)
         }
 
         let intention = scheduleManager?.currentBlock?.title ?? ""
@@ -1883,7 +1946,7 @@ class FocusMonitor {
 
         // Start grayscale at the second notification (the redirect)
         if !(grayscaleController?.isActive ?? false) && isEnforcementEnabled(.screenRedShift) {
-            grayscaleController?.startDesaturation()
+            grayscaleController?.startDesaturation(fromIntensity: vignetteRetriggerIntensity())
             grayscaleTriggeredThisBlock = true
             appDelegate?.postLog("🌫️ Deep Work: grayscale started on redirect")
             logAssessment(title: currentTarget, appName: currentAppName, intention: scheduleManager?.currentBlock?.title ?? "",
@@ -1957,7 +2020,8 @@ class FocusMonitor {
     /// Between interventions: Level 2 persistent nudges (re-show on each poll if dismissed)
     private func handleFocusHoursBrowserIrrelevance(targetKey: String, displayName: String,
                                                      intention: String, confidence: Int, reason: String) {
-        // Track current target
+        // Track current target (nudge timing is continuous across site changes —
+        // switching between irrelevant sites doesn't reset the nudge cadence)
         currentTarget = displayName
         currentTargetKey = targetKey
 
@@ -1969,7 +2033,7 @@ class FocusMonitor {
         let shouldGrayscale = grayscaleTriggeredThisBlock
             || cumulativeDistractionSeconds >= Self.focusGrayscaleThreshold
         if shouldGrayscale && !(grayscaleController?.isActive ?? false) && isEnforcementEnabled(.screenRedShift) {
-            grayscaleController?.startDesaturation()
+            grayscaleController?.startDesaturation(fromIntensity: vignetteRetriggerIntensity())
             grayscaleTriggeredThisBlock = true
             appDelegate?.postLog("🌫️ Focus Hours: grayscale at \(Int(cumulativeDistractionSeconds))s\(grayscaleTriggeredThisBlock ? " (re-trigger)" : "")")
             logAssessment(title: displayName, appName: currentAppName, intention: intention,
@@ -2432,7 +2496,7 @@ class FocusMonitor {
         } else if blockType == .deepWork {
             // Deep Work native app: show full blocking overlay + start grayscale
             if !(grayscaleController?.isActive ?? false) && isEnforcementEnabled(.screenRedShift) {
-                grayscaleController?.startDesaturation()
+                grayscaleController?.startDesaturation(fromIntensity: vignetteRetriggerIntensity())
                 grayscaleTriggeredThisBlock = true
                 appDelegate?.postLog("🌫️ Deep Work: grayscale started on native app overlay")
                 logAssessment(title: pending.displayName, appName: currentAppName, intention: pending.intention,

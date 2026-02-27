@@ -66,35 +66,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return .terminateNow
         }
 
-        let lockMode = UserDefaults.standard.string(forKey: "lockMode") ?? "none"
-
-        if lockMode == "none" {
-            // Strict ON but no lock — offer to disable & quit
-            postLog("🔒 Quit intercepted — strict mode ON, lock=none")
-            let alert = NSAlert()
-            alert.messageText = "App Persistence is On"
-            alert.informativeText = "Intentional is set to keep running. You can disable this and quit."
-            alert.alertStyle = .warning
-            alert.addButton(withTitle: "Disable & Quit")
-            alert.addButton(withTitle: "Keep Running")
-            let response = alert.runModal()
-            if response == .alertFirstButtonReturn {
-                UserDefaults.standard.set(false, forKey: "strictModeEnabled")
-                updateStrictMode()
-                return .terminateNow
-            }
-            return .terminateCancel
-        } else {
-            // Strict ON + lock active — must unlock first
-            postLog("🔒 Quit blocked — strict mode ON, lock='\(lockMode)'")
-            let alert = NSAlert()
-            alert.messageText = "Intentional is Locked"
-            alert.informativeText = "App persistence is on and your settings are locked. To quit, unlock your settings first."
-            alert.alertStyle = .warning
-            alert.addButton(withTitle: "Keep Running")
-            alert.runModal()
-            return .terminateCancel
-        }
+        // Strict mode is ON — block quit (requires partner code to disable via dashboard)
+        postLog("🔒 Quit blocked — strict mode ON (requires partner code to disable)")
+        let alert = NSAlert()
+        alert.messageText = "App Persistence is On"
+        alert.informativeText = "Intentional is set to keep running. To disable this, open settings and request a code from your accountability partner."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Keep Running")
+        alert.runModal()
+        return .terminateCancel
     }
 
     /// Enable/disable strict mode based on the `strictModeEnabled` user preference.
@@ -287,7 +267,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             guard let mgr = self?.earnedBrowseManager else { return }
             let blockType = self?.scheduleManager?.currentBlock?.blockType ?? .freeTime
             let remaining = mgr.recordSocialMediaTime(
-                minutes: minutes, blockType: blockType
+                minutes: minutes, blockType: blockType, isFreeBrowse: isFreeBrowse
             )
             self?.socketRelayServer?.broadcastEarnedMinutesUpdate(mgr)
             self?.mainWindowController?.pushEarnedUpdate()

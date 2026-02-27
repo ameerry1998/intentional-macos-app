@@ -1149,7 +1149,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             }
 
             await MainActor.run {
-                // 3. Clear all partner/lock state from settings file
+                // 3. Clear all partner/lock state from settings file + disable strict mode
                 self.updateSettingsFile { settings in
                     settings["lockMode"] = "none"
                     settings["partnerEmail"] = ""
@@ -1159,8 +1159,11 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                     settings["selfUnlockAvailableAt"] = nil
                     settings["unlockRequested"] = false
                     settings["settingsUnlocked"] = false
+                    settings["strictModeEnabled"] = false
                 }
                 UserDefaults.standard.set("none", forKey: "lockMode")
+                UserDefaults.standard.set(false, forKey: "strictModeEnabled")
+                self.appDelegate?.updateStrictMode()
 
                 // 4. Report result to dashboard
                 let success = removed ? "true" : "false"
@@ -1186,22 +1189,32 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let enabled = body["enabled"] as? Bool ?? false
         appDelegate?.postLog("🔒 SAVE_STRICT_MODE: enabled=\(enabled)")
 
-        // Reject disabling strict mode when settings are locked
-        let lockMode = UserDefaults.standard.string(forKey: "lockMode") ?? "none"
-        if lockMode != "none" && !enabled {
-            // Check if settings are currently unlocked
-            var isUnlocked = false
-            if let data = try? Data(contentsOf: settingsFileURL),
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let unlockUntil = json["temporaryUnlockUntil"] as? String {
+        // Read current settings state
+        var consentStatus = "none"
+        var isUnlocked = false
+        if let data = try? Data(contentsOf: settingsFileURL),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            consentStatus = json["consentStatus"] as? String ?? "none"
+            if let unlockUntil = json["temporaryUnlockUntil"] as? String {
                 let formatter = ISO8601DateFormatter()
                 if let date = formatter.date(from: unlockUntil), date > Date() {
                     isUnlocked = true
                 }
             }
+        }
+
+        if enabled {
+            // Enabling: require confirmed accountability partner
+            if consentStatus != "confirmed" {
+                callJS("window._strictModeResult && window._strictModeResult({ success: false, message: 'You need a confirmed accountability partner to enable this.' })")
+                appDelegate?.postLog("🔒 SAVE_STRICT_MODE: Rejected — no confirmed partner")
+                return
+            }
+        } else {
+            // Disabling: ALWAYS requires an active unlock window (code from partner)
             if !isUnlocked {
-                callJS("window._strictModeResult && window._strictModeResult({ success: false, message: 'Settings are locked. Unlock first to change this.' })")
-                appDelegate?.postLog("🔒 SAVE_STRICT_MODE: Rejected — settings locked")
+                callJS("window._strictModeResult && window._strictModeResult({ success: false, message: 'Request a code from your partner to disable this.' })")
+                appDelegate?.postLog("🔒 SAVE_STRICT_MODE: Rejected — no unlock window")
                 return
             }
         }

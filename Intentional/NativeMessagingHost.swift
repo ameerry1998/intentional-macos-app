@@ -363,7 +363,6 @@ class NativeMessagingHost {
                 self.sendSessionSync()
             } else {
                 // Grant intent bonus during Free Time if user set an intent (not free browse)
-                // Must be inside wasSet guard — reconnect-rejected SESSION_STARTs must not trigger bonus
                 if !freeBrowse,
                    let mgr = self.earnedBrowseManager,
                    let currentBlock = self.scheduleManager?.currentBlock,

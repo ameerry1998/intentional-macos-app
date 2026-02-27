@@ -4161,32 +4161,85 @@ function renderLockState() {
 
   // Append strict mode (app persistence) card
   var strictEnabled = settings.strictModeEnabled || false;
-  var locked = isSettingsLocked();
-  var strictDisabled = locked ? ' disabled' : '';
-  el.innerHTML +=
-    '<div class="settings-card" style="margin-top:10px;">' +
-      '<div class="setting-row' + (locked ? ' locked' : '') + '">' +
-        '<div>' +
-          '<div class="setting-label">Keep app running</div>' +
-          '<div class="setting-desc">Prevents quitting and auto-restarts if force-quit' + (locked ? ' · locked' : '') + '</div>' +
+  var hasPartner = settings.consentStatus === 'confirmed';
+
+  if (strictDisableState === 'code_entry') {
+    el.innerHTML +=
+      '<div class="settings-card" style="margin-top:10px;" id="strict-mode-card">' +
+        '<div class="setting-row">' +
+          '<div>' +
+            '<div class="setting-label">App Persistence</div>' +
+            '<div class="setting-desc">Enter the code sent to your partner</div>' +
+          '</div>' +
         '</div>' +
-        '<label class="toggle">' +
-          '<input type="checkbox" id="strict-mode-toggle"' + (strictEnabled ? ' checked' : '') + strictDisabled + ' onchange="toggleStrictMode(this.checked)">' +
-          '<span class="toggle-track"></span>' +
-        '</label>' +
-      '</div>' +
-    '</div>';
+        '<div style="padding:0 14px 10px;text-align:center;">' +
+          '<input type="text" class="unlock-code-input" id="strict-disable-code" maxlength="6" placeholder="000000" oninput="onStrictCodeInput(this)">' +
+        '</div>' +
+        '<div class="lock-btn-row">' +
+          '<button class="btn-primary" id="strict-verify-btn" onclick="verifyStrictDisable()" disabled>Verify</button>' +
+          '<button class="btn-secondary" onclick="cancelStrictDisable()">Cancel</button>' +
+        '</div>' +
+      '</div>';
+    setTimeout(function() {
+      var inp = document.getElementById('strict-disable-code');
+      if (inp) inp.focus();
+    }, 100);
+  } else if (!hasPartner) {
+    el.innerHTML +=
+      '<div class="settings-card" style="margin-top:10px;opacity:0.5;" id="strict-mode-card">' +
+        '<div class="setting-row">' +
+          '<div>' +
+            '<div class="setting-label">App Persistence</div>' +
+            '<div class="setting-desc">Prevents quitting and auto-restarts if force-quit. Requires an accountability partner.</div>' +
+          '</div>' +
+          '<label class="toggle">' +
+            '<input type="checkbox" disabled>' +
+            '<span class="toggle-track"></span>' +
+          '</label>' +
+        '</div>' +
+      '</div>';
+  } else if (!strictEnabled) {
+    el.innerHTML +=
+      '<div class="settings-card" style="margin-top:10px;" id="strict-mode-card">' +
+        '<div class="setting-row">' +
+          '<div>' +
+            '<div class="setting-label">App Persistence</div>' +
+            '<div class="setting-desc">Prevents quitting and auto-restarts if force-quit</div>' +
+          '</div>' +
+          '<label class="toggle">' +
+            '<input type="checkbox" id="strict-mode-toggle" onchange="toggleStrictMode(this.checked)">' +
+            '<span class="toggle-track"></span>' +
+          '</label>' +
+        '</div>' +
+      '</div>';
+  } else {
+    el.innerHTML +=
+      '<div class="settings-card" style="margin-top:10px;" id="strict-mode-card">' +
+        '<div class="setting-row">' +
+          '<div>' +
+            '<div class="setting-label">App Persistence</div>' +
+            '<div class="setting-desc">Active · requires partner code to disable</div>' +
+          '</div>' +
+          '<label class="toggle">' +
+            '<input type="checkbox" checked disabled>' +
+            '<span class="toggle-track"></span>' +
+          '</label>' +
+        '</div>' +
+        '<button class="btn-secondary" id="strict-disable-btn" onclick="requestStrictDisable()" style="width:100%;margin-top:4px;">Request Code to Disable</button>' +
+      '</div>';
+  }
 
   // Enforce lock on platform settings pages
   enforceLockMode();
 }
 
-// ===== Strict Mode Toggle =====
+// ===== Strict Mode (App Persistence) =====
+
+var strictDisableState = 'idle'; // 'idle' | 'requesting' | 'code_entry' | 'verifying'
 
 function toggleStrictMode(enabled) {
   if (enabled) {
-    // Confirmation before enabling
-    if (!confirm('This will prevent quitting the app and auto-restart it if force-quit. Are you sure?')) {
+    if (!confirm('This will prevent quitting the app and auto-restart it if force-quit. You will need a code from your accountability partner to disable it. Continue?')) {
       document.getElementById('strict-mode-toggle').checked = false;
       return;
     }
@@ -4194,14 +4247,40 @@ function toggleStrictMode(enabled) {
   sendMessage({ type: 'SAVE_STRICT_MODE', enabled: enabled });
 }
 
+function requestStrictDisable() {
+  strictDisableState = 'requesting';
+  setButtonLoading('strict-disable-btn', 'Requesting...');
+  sendMessage({ type: 'REQUEST_UNLOCK' });
+}
+
+function onStrictCodeInput(el) {
+  el.value = el.value.replace(/[^0-9]/g, '');
+  var btn = document.getElementById('strict-verify-btn');
+  if (btn) btn.disabled = el.value.length < 6;
+}
+
+function verifyStrictDisable() {
+  var code = (document.getElementById('strict-disable-code') || {}).value || '';
+  if (code.length < 6) return;
+  strictDisableState = 'verifying';
+  setButtonLoading('strict-verify-btn', 'Verifying...');
+  sendMessage({ type: 'VERIFY_UNLOCK', code: code });
+}
+
+function cancelStrictDisable() {
+  strictDisableState = 'idle';
+  renderLockState();
+}
+
 window._strictModeResult = function(result) {
   if (result.success) {
     settings.strictModeEnabled = result.enabled;
+    showToast(result.enabled ? 'App persistence enabled' : 'App persistence disabled');
+    renderLockState();
   } else {
-    // Revert toggle
     var toggle = document.getElementById('strict-mode-toggle');
     if (toggle) toggle.checked = settings.strictModeEnabled || false;
-    if (result.message) alert(result.message);
+    if (result.message) showToast(result.message, 'error');
   }
 };
 
@@ -4631,6 +4710,8 @@ window._removePartnerResult = function(data) {
     settings.selfUnlockAvailableAt = null;
     settings.unlockRequested = false;
     settings.settingsUnlocked = false;
+    settings.strictModeEnabled = false;
+    strictDisableState = 'idle';
     showToast('Partner removed');
   } else {
     showToast('Failed to remove partner', 'error');
@@ -4650,6 +4731,20 @@ window._resendInviteResult = function(data) {
 
 // Unlock result
 window._unlockResult = function(data) {
+  // Strict mode disable flow intercept
+  if (strictDisableState === 'requesting') {
+    if (data.success) {
+      strictDisableState = 'code_entry';
+      showToast(data.message || 'Code sent to your partner');
+      renderLockState();
+    } else {
+      strictDisableState = 'idle';
+      clearButtonLoading('strict-disable-btn');
+      showToast(data.message || 'Failed to request code', 'error');
+    }
+    return;
+  }
+
   if (data.success) {
     // Transition to code entry or countdown state
     if (settings.lockMode === 'self') {
@@ -4672,6 +4767,23 @@ window._unlockResult = function(data) {
 
 // Verify unlock result
 window._verifyUnlockResult = function(data) {
+  // Strict mode disable flow intercept
+  if (strictDisableState === 'verifying') {
+    if (data.success) {
+      // Unlock window is now active (Swift already wrote temporaryUnlockUntil to settings file)
+      settings.temporaryUnlockUntil = data.unlockUntil || new Date(Date.now() + 5 * 60000).toISOString();
+      settings.unlockRequested = false;
+      strictDisableState = 'idle';
+      // Now disable strict mode (allowed because unlock window is active)
+      sendMessage({ type: 'SAVE_STRICT_MODE', enabled: false });
+    } else {
+      strictDisableState = 'code_entry';
+      clearButtonLoading('strict-verify-btn');
+      showToast(data.message || 'Invalid code', 'error');
+    }
+    return;
+  }
+
   if (data.success) {
     if (data.auto_relock === false) {
       showToast('Settings unlocked!');
@@ -6071,10 +6183,22 @@ function addFocusBlock(blockType) {
   blockType = blockType || 'focusHours';
   var now = new Date();
   var currentMin = now.getHours() * 60 + now.getMinutes();
-  var startMin = Math.ceil(currentMin / 15) * 15;
+  var startMin = currentMin;  // Start at current time (red line position)
+
+  // If current time is inside an existing block, jump to that block's end
+  for (var i = 0; i < focusState.blocks.length; i++) {
+    var b = focusState.blocks[i];
+    var bStart = b.startHour * 60 + b.startMinute;
+    var bEnd = b.endHour * 60 + b.endMinute;
+    if (currentMin >= bStart && currentMin < bEnd) {
+      startMin = bEnd;
+      break;
+    }
+  }
+
   var endMin = startMin + 60;
 
-  // Find next available slot
+  // If the 1-hour slot still overlaps with later blocks, shrink or skip forward
   for (var attempt = 0; attempt < 48; attempt++) {
     if (!hasBlockOverlap(startMin, endMin, null)) break;
     startMin += 15;
@@ -6267,7 +6391,7 @@ function selectBlockType(btn) {
 
 function deleteFocusBlock(blockId) {
   var block = focusState.blocks.find(function(b) { return b.id === blockId; });
-  if (block && (isBlockPast(block) || isBlockActive(block))) return;
+  if (block && isBlockActive(block)) return;
   focusState.blocks = focusState.blocks.filter(function(b) { return b.id !== blockId; });
   closeBlockEditor();
   markFocusDirty();
