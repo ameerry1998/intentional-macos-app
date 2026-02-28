@@ -400,6 +400,8 @@ class FocusMonitor {
     private var grayscaleTriggeredThisBlock = false
     /// When the user last transitioned from irrelevant to relevant (for graduated vignette decay)
     private var lastDistractionEndTime: Date?
+    /// Number of distraction→focus recoveries during the current block
+    private var blockRecoveryCount: Int = 0
 
     // Deep Work aggressive enforcement
     /// Sites that have been auto-redirected during this Deep Work block (instant redirect on revisit)
@@ -693,6 +695,7 @@ class FocusMonitor {
         deepWorkRedirectFired = false
         grayscaleTriggeredThisBlock = false
         lastDistractionEndTime = nil
+        blockRecoveryCount = 0
         interventionController?.dismiss()
         deepWorkRedirectedSites.removeAll()
         reconcileGrayscale()
@@ -735,7 +738,8 @@ class FocusMonitor {
             nextBlock: nextBlock,
             appBreakdown: appBreakdown,
             isFreeTime: isFreeTime,
-            nextBlockAvailableMinutes: appDelegate?.earnedBrowseManager?.availableMinutes ?? 0
+            nextBlockAvailableMinutes: appDelegate?.earnedBrowseManager?.availableMinutes ?? 0,
+            recoveryCount: stats.recoveryCount
         )
 
         deepWorkTimerController?.enterCelebration(data: data) { [weak self] in
@@ -1085,28 +1089,58 @@ class FocusMonitor {
             }
 
             let isNoPlan = state == .noPlan
+            let remaining = scheduleManager?.remainingBlocks() ?? []
+            let hasSchedule = (scheduleManager?.todayBlockCount ?? 0) > 0
+            let isDoneForDay = !isNoPlan && remaining.isEmpty && hasSchedule
 
-            // Compute next block info
-            let nextBlock = scheduleManager?.nextUpcomingBlock()
-            let nextBlockTitle = nextBlock?.title
-            let nextBlockTime: String? = nextBlock.map {
-                let hour = $0.startHour > 12 ? $0.startHour - 12 : ($0.startHour == 0 ? 12 : $0.startHour)
-                let ampm = $0.startHour >= 12 ? "PM" : "AM"
-                return String(format: "%d:%02d %@", hour, $0.startMinute, ampm)
-            }
+            let cardState: NoPlanData.CardState
+            if isNoPlan { cardState = .noPlan }
+            else if isDoneForDay { cardState = .doneForDay }
+            else { cardState = .gap }
 
+            let isAfternoon = Calendar.current.component(.hour, from: Date()) >= 12
             let canSnooze30 = (scheduleManager?.snoozeCount == 0) && isNoPlan
 
+            // Countdown string for gap state
+            let nextBlock = remaining.first
+            let nextBlockCountdown: String? = nextBlock.map {
+                let nowMin = ScheduleManager.currentMinuteOfDay()
+                let diff = $0.startMinutes - nowMin
+                if diff >= 60 {
+                    let h = diff / 60, m = diff % 60
+                    return m > 0 ? "in \(h)h \(m)m" : "in \(h)h"
+                }
+                return "in \(diff) min"
+            }
+
+            // Summary stats for doneForDay
+            let summaryResult = appDelegate?.earnedBrowseManager?.todaySummary()
+            let summaryBlockCount = summaryResult?.blockCount ?? 0
+            let summaryFocusedMinutes = summaryResult?.focusedMinutes ?? 0
+            let summaryAvgFocusScore = summaryResult?.avgFocusScore ?? 0
+            let focusedTime: String = {
+                let h = Int(summaryFocusedMinutes) / 60, m = Int(summaryFocusedMinutes) % 60
+                if h > 0 && m > 0 { return "\(h)h \(m)m" }
+                return h > 0 ? "\(h)h" : "\(m)m"
+            }()
+
             let data = NoPlanData(
-                isNoPlan: isNoPlan,
+                state: cardState,
+                isAfternoon: isAfternoon,
                 canSnooze: canSnooze30,
-                nextBlockTitle: nextBlockTitle,
-                nextBlockTime: nextBlockTime,
+                remainingBlocks: Array(remaining.prefix(3)),
+                nextBlockCountdown: nextBlockCountdown,
+                completedBlockCount: summaryBlockCount,
+                totalFocusedTime: focusedTime,
+                avgFocusScore: summaryAvgFocusScore,
                 onPlanDay: { [weak self] in self?.handleNoPlanPlanDay() },
+                onQuickBlock: { [weak self] type, duration in self?.handleQuickBlockFromPill(type: type, duration: duration) },
+                onScheduleNow: { [weak self] in self?.handleScheduleNow() },
+                onDismiss: { [weak self] in self?.handleNoPlanDismiss() },
                 onSnooze: canSnooze30 ? { [weak self] in self?.handleNoPlanSnooze() } : nil
             )
 
-            debugLog("👁️ \(state.rawValue) — showing noPlan pill card")
+            debugLog("👁️ \(state.rawValue) — showing noPlan pill card (state: \(cardState))")
             deepWorkTimerController?.showNoPlan(data: data)
             stopBrowserPolling()
             return
@@ -1734,9 +1768,17 @@ class FocusMonitor {
         cancelGracePeriod()
         stopLingerTimer()
 
-        // Record recovery start time when transitioning from irrelevant → relevant
-        if isCurrentlyIrrelevant && grayscaleTriggeredThisBlock {
-            lastDistractionEndTime = Date()
+        // Celebrate recovery: flash pill green + track recovery count
+        if isCurrentlyIrrelevant && scheduleManager?.currentTimeState.isWork == true {
+            blockRecoveryCount += 1
+            deepWorkTimerController?.flashRecovery()
+            appDelegate?.earnedBrowseManager?.incrementRecoveryCount()
+            appDelegate?.postLog("💚 Recovery #\(blockRecoveryCount) — focus restored")
+
+            // Track vignette decay timestamp (only when grayscale was triggered)
+            if grayscaleTriggeredThisBlock {
+                lastDistractionEndTime = Date()
+            }
         }
 
         isCurrentlyIrrelevant = false
@@ -2382,6 +2424,17 @@ class FocusMonitor {
         appDelegate?.postLog("💬 noPlan pill: 'Plan My Day' — opening today page")
     }
 
+    /// Handle "Schedule Now" from gap pill card — open dashboard with new block prefilled.
+    private func handleScheduleNow() {
+        deepWorkTimerController?.dismiss()
+        appDelegate?.showMainWindow()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.appDelegate?.mainWindowController?.openScheduleWithNewBlock()
+        }
+        isCurrentlyIrrelevant = false
+        appDelegate?.postLog("💬 noPlan pill: 'Schedule Now' — opening dashboard with new block")
+    }
+
     /// Handle "Snooze 30 min" from noPlan pill card.
     private func handleNoPlanSnooze() {
         deepWorkTimerController?.dismiss()
@@ -2393,8 +2446,28 @@ class FocusMonitor {
         appDelegate?.postLog("💬 noPlan pill: 'Snooze 30 min' — accepted: \(accepted)")
     }
 
+    /// Handle quick block creation from noPlan pill card.
+    private func handleQuickBlockFromPill(type: ScheduleManager.BlockType, duration: Int) {
+        let title: String
+        switch type {
+        case .deepWork: title = "Deep Work"
+        case .focusHours: title = "Focus Session"
+        case .freeTime: title = "Free Time"
+        }
+        deepWorkTimerController?.dismiss()
+        handleStartQuickBlock(title: title, durationMinutes: duration, isFree: type == .freeTime, blockType: type)
+    }
+
+    /// Handle minimize (−) from gap/doneForDay pill card — hide to dock + snooze 30 min.
+    private func handleNoPlanDismiss() {
+        deepWorkTimerController?.minimize()
+        noPlanSnoozeUntil = Date().addingTimeInterval(30 * 60)
+        isCurrentlyIrrelevant = false
+        appDelegate?.postLog("💬 noPlan pill: minimized to dock — snoozed 30 min")
+    }
+
     /// Handle quick block creation from the unplanned overlay.
-    private func handleStartQuickBlock(title: String, durationMinutes: Int, isFree: Bool) {
+    private func handleStartQuickBlock(title: String, durationMinutes: Int, isFree: Bool, blockType: ScheduleManager.BlockType? = nil) {
         let calendar = Calendar.current
         let now = Date()
         let startHour = calendar.component(.hour, from: now)
@@ -2403,7 +2476,7 @@ class FocusMonitor {
         let endHour = calendar.component(.hour, from: endDate)
         let endMinute = calendar.component(.minute, from: endDate)
 
-        let blockType: ScheduleManager.BlockType = isFree ? .freeTime : .focusHours
+        let resolvedBlockType: ScheduleManager.BlockType = blockType ?? (isFree ? .freeTime : .focusHours)
 
         let block = ScheduleManager.FocusBlock(
             id: UUID().uuidString,
@@ -2413,13 +2486,13 @@ class FocusMonitor {
             startMinute: startMinute,
             endHour: endHour,
             endMinute: endMinute,
-            blockType: blockType
+            blockType: resolvedBlockType
         )
 
         scheduleManager?.addBlock(block)
         overlayController?.dismiss()
         isCurrentlyIrrelevant = false
-        appDelegate?.postLog("💬 Quick block created: \"\(title)\" (\(durationMinutes) min, type: \(blockType.rawValue))")
+        appDelegate?.postLog("💬 Quick block created: \"\(title)\" (\(durationMinutes) min, type: \(resolvedBlockType.rawValue))")
     }
 
     /// Handle "Snooze for 30 min" — snooze via ScheduleManager and dismiss overlay.

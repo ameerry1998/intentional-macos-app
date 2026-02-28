@@ -669,6 +669,16 @@ class ScheduleManager {
         return schedule.blocks.first(where: { $0.startMinutes > now })
     }
 
+    /// Returns all blocks that haven't started yet (start time after now).
+    func remainingBlocks() -> [FocusBlock] {
+        guard let schedule = todaySchedule, schedule.date == Self.todayString() else { return [] }
+        let now = Self.currentMinuteOfDay()
+        return schedule.blocks.filter { $0.startMinutes > now }
+    }
+
+    /// Number of blocks in today's schedule (0 if no schedule).
+    var todayBlockCount: Int { todaySchedule?.blocks.count ?? 0 }
+
     private func blockToDict(_ block: FocusBlock) -> [String: Any] {
         return [
             "id": block.id,

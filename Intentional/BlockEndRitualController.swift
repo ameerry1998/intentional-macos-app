@@ -49,6 +49,7 @@ class BlockEndRitualController {
             nextBlock: nextBlock,
             appBreakdown: appBreakdown,
             isFreeTime: isFreeTime,
+            recoveryCount: stats.recoveryCount,
             onDone: { [weak self] in
                 self?.dismiss()
                 onDone()
@@ -174,6 +175,7 @@ class BlockEndRitualViewModel: ObservableObject {
     let nextBlockStartsIn: String?
     let appBreakdown: [(appName: String, seconds: Int)]
     let isFreeTime: Bool
+    let recoveryCount: Int
     let onDone: () -> Void
 
     @Published var currentCard: Int = 0
@@ -220,6 +222,7 @@ class BlockEndRitualViewModel: ObservableObject {
          nextBlock: ScheduleManager.FocusBlock?,
          appBreakdown: [(appName: String, seconds: Int)],
          isFreeTime: Bool,
+         recoveryCount: Int = 0,
          onDone: @escaping () -> Void) {
         self.blockTitle = blockTitle
         self.blockType = blockType
@@ -232,6 +235,7 @@ class BlockEndRitualViewModel: ObservableObject {
         self.totalTicks = totalTicks
         self.appBreakdown = appBreakdown
         self.isFreeTime = isFreeTime
+        self.recoveryCount = recoveryCount
         self.onDone = onDone
 
         // Next block info
@@ -479,7 +483,21 @@ struct BlockEndRitualView: View {
                     .foregroundColor(Color(white: 0.35))
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.bottom, 28)
+                    .padding(.bottom, viewModel.recoveryCount > 0 ? 12 : 28)
+
+                // Recovery count
+                if viewModel.recoveryCount > 0 {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(goGreen)
+                            .frame(width: 6, height: 6)
+                        Text("Recovered focus \(viewModel.recoveryCount) time\(viewModel.recoveryCount == 1 ? "" : "s")")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(goGreen)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.bottom, 20)
+                }
 
                 // Next button
                 nextButton(label: "Next")

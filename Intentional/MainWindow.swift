@@ -105,6 +105,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         }
     }
 
+    /// Navigate to today page and open the block editor for a new block at the current time.
+    func openScheduleWithNewBlock() {
+        webView.evaluateJavaScript("navigateTo('today'); setTimeout(function(){ addFocusBlock('focusHours'); }, 400);") { _, error in
+            if let error = error {
+                self.appDelegate?.postLog("⚠️ openScheduleWithNewBlock error: \(error)")
+            }
+        }
+    }
+
     // MARK: - Debug Monitor
 
     func showDebugMonitor() {

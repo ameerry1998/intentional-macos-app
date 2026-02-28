@@ -268,6 +268,7 @@ struct BlockFocusStats {
     var totalTicks: Int        // Total ticks in the block
     var earnedMinutes: Double  // Minutes earned this block
     var focusScore: Double     // relevantTicks / totalTicks
+    var recoveryCount: Int     // Distraction→focus transitions this block
     var selfRating: Int?       // 0-4 emoji scale from end ritual (nil = not rated)
     var reflection: String     // "What went well?" text from end ritual
 }
@@ -327,6 +328,16 @@ Native apps: 5s grace → blocking overlay + grayscale starts.
 Justification: "This is relevant" accepted → 3 min suppression only (no permanent whitelist), grayscale pauses.
 
 **Floating timer widget**: Pill-shaped widget in top-right corner during all focus schedule blocks (Deep Work, Focus Hours, Free Time). Shows `[dot] block title [MM:SS]`. Dot: indigo=focused, red=distracted. Draggable. Auto-dismisses when block ends.
+
+**Unscheduled pill cards** (3-state `NoPlanData.CardState`):
+
+| State | Condition | Card | Dismiss |
+|-------|-----------|------|---------|
+| `noPlan` | `timeState == .noPlan` | "What are you working on?" + 3 quick-block buttons (Deep Work/Focus/Free Time) + "Plan Full Day →" + snooze | No dismiss — must snooze or act |
+| `gap` | `timeState == .unplanned` AND remaining blocks exist | "UNSCHEDULED" + "Up next in Xm" + accent-bar block list + "Schedule Now" button | − button minimizes to dock (30 min snooze) |
+| `doneForDay` | `timeState == .unplanned` AND no remaining blocks AND blocks existed | Green "DAY COMPLETE" + stats + focus badge | − button minimizes; auto-dismiss 30s |
+
+Quick-block buttons create a block starting now with default duration (adjusted for afternoon: shorter). "Schedule Now" opens the dashboard calendar with a pre-filled 1-hour focus block at the current time via `MainWindow.openScheduleWithNewBlock()`.
 
 **Darkening overlay**: Full-screen click-through overlay (`.floating` level, `ignoresMouseEvents = true`). Progressive black overlay: alpha 0.0→0.45 over 30s (0.5s steps). Snap-back: 2s to clear. Creates a drained/muted visual effect.
 

@@ -81,6 +81,7 @@ class EarnedBrowseManager {
         var totalTicks: Int = 0
         var earnedMinutes: Double = 0
         var nudgeCount: Int = 0
+        var recoveryCount: Int = 0     // Distraction→focus transitions this block
         /// Focus score: percentage of ticks that were relevant (0-100)
         var focusScore: Int { totalTicks > 0 ? Int(round(Double(relevantTicks) / Double(totalTicks) * 100)) : 0 }
     }
@@ -219,6 +220,13 @@ class EarnedBrowseManager {
         save()
     }
 
+    /// Increment recovery count (distraction→focus transition) for the current block.
+    func incrementRecoveryCount() {
+        guard let blockId = activeBlockId, var stats = blockFocusStats[blockId] else { return }
+        stats.recoveryCount += 1
+        blockFocusStats[blockId] = stats
+    }
+
     // MARK: - Daily Reset
 
     /// Ensure state is for today. Resets pool on new day with welcome credit.
@@ -324,13 +332,14 @@ class EarnedBrowseManager {
         // Serialize block focus stats
         var blockStatsArray: [[String: Any]] = []
         for (_, stats) in blockFocusStats {
-            var entry: [String: Any] = [
+            let entry: [String: Any] = [
                 "blockId": stats.blockId,
                 "blockTitle": stats.blockTitle,
                 "relevantTicks": stats.relevantTicks,
                 "totalTicks": stats.totalTicks,
                 "earnedMinutes": stats.earnedMinutes,
-                "nudgeCount": stats.nudgeCount
+                "nudgeCount": stats.nudgeCount,
+                "recoveryCount": stats.recoveryCount
             ]
             blockStatsArray.append(entry)
         }
@@ -389,6 +398,7 @@ class EarnedBrowseManager {
                         stats.totalTicks = entry["totalTicks"] as? Int ?? 0
                         stats.earnedMinutes = entry["earnedMinutes"] as? Double ?? 0
                         stats.nudgeCount = entry["nudgeCount"] as? Int ?? 0
+                        stats.recoveryCount = entry["recoveryCount"] as? Int ?? 0
                         blockFocusStats[blockId] = stats
                     }
                 }
@@ -402,6 +412,17 @@ class EarnedBrowseManager {
             appDelegate?.postLog("⚠️ EarnedBrowseManager: Failed to load: \(error)")
             ensureToday()
         }
+    }
+
+    // MARK: - Summary
+
+    /// Returns today's aggregate stats across all completed blocks.
+    func todaySummary() -> (blockCount: Int, focusedMinutes: Double, avgFocusScore: Int) {
+        let stats = Array(blockFocusStats.values)
+        guard !stats.isEmpty else { return (0, 0, 0) }
+        let totalMinutes = stats.reduce(0.0) { $0 + Double($1.totalTicks) * 10.0 / 60.0 }
+        let avgFocus = stats.reduce(0) { $0 + $1.focusScore } / stats.count
+        return (stats.count, totalMinutes, avgFocus)
     }
 
     // MARK: - Helpers
