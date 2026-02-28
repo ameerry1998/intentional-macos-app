@@ -40,7 +40,7 @@ class GrayscaleOverlayController {
     private let desaturationDuration: TimeInterval = 30.0
 
     /// Duration to restore normal (seconds)
-    private let restoreDuration: TimeInterval = 3.0
+    private let restoreDuration: TimeInterval = 2.0
 
     /// Animation tick interval (~60fps)
     private let animationInterval: TimeInterval = 1.0 / 60.0
@@ -93,9 +93,12 @@ class GrayscaleOverlayController {
 
     // MARK: - Public API
 
+    /// Duration for re-trigger fade-in (seconds). Always animates from 0, never snaps.
+    private let retriggerFadeDuration: TimeInterval = 5.0
+
     /// Begin red shift + atmospheric vignette.
-    /// - Parameter fromIntensity: Starting intensity (0.0–1.0). Duration scales proportionally.
-    ///   Default 0.0 = full 30s ramp. 0.5 = 15s ramp. 1.0 = instant.
+    /// - Parameter fromIntensity: Target intensity to animate toward (0.0–1.0).
+    ///   Always fades in from 0. Duration: 30s for fresh start, 10s for re-trigger.
     func startDesaturation(fromIntensity: CGGammaValue = 0.0) {
         NSLog("🌫️ [START] startDesaturation(from=\(String(format: "%.2f", fromIntensity))) — isActive=\(isActive), intensity=\(currentIntensity)")
 
@@ -108,26 +111,21 @@ class GrayscaleOverlayController {
         setupVignetteWindow()
         setupVignette()
 
-        let clampedStart = min(max(fromIntensity, 0.0), 1.0)
-        if clampedStart > 0.001 {
-            // Snap to starting intensity immediately (no animation)
-            currentIntensity = clampedStart
-            applyRedShift(clampedStart)
-            applyVignette(clampedStart)
-        }
+        // Always start from 0 — never snap to a high intensity
+        currentIntensity = 0.0
+        applyRedShift(0.0)
+        applyVignette(0.0)
 
-        let remainingFraction = CGGammaValue(1.0 - clampedStart)
-        let proportionalDuration = desaturationDuration * TimeInterval(remainingFraction)
+        let clampedTarget = min(max(fromIntensity, 0.0), 1.0)
 
-        if proportionalDuration < 0.1 {
-            // Already at max — just set to 1.0
-            currentIntensity = 1.0
-            applyRedShift(1.0)
-            applyVignette(1.0)
-            NSLog("🌫️ [START] ✅ Instant snap to full intensity (from=\(String(format: "%.2f", clampedStart)))")
+        if clampedTarget > 0.001 {
+            // Re-trigger: fade from 0 → 1.0, using shorter re-trigger duration
+            animateIntensity(to: 1.0, duration: retriggerFadeDuration)
+            NSLog("🌫️ [START] ✅ Re-trigger fade 0→1.0 over \(String(format: "%.1f", retriggerFadeDuration))s (target was \(String(format: "%.2f", clampedTarget)))")
         } else {
-            animateIntensity(to: 1.0, duration: proportionalDuration)
-            NSLog("🌫️ [START] ✅ Starting \(String(format: "%.1f", proportionalDuration))s ramp (from=\(String(format: "%.2f", clampedStart)))")
+            // Fresh start: full 30s ramp from 0 → 1.0
+            animateIntensity(to: 1.0, duration: desaturationDuration)
+            NSLog("🌫️ [START] ✅ Fresh fade 0→1.0 over \(String(format: "%.1f", desaturationDuration))s")
         }
     }
 

@@ -497,6 +497,16 @@ class FocusMonitor {
             name: .pillEndBlockTapped, object: nil
         )
 
+        // Listen for pill minimize and mute
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handlePillMinimize),
+            name: .pillMinimizeTapped, object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handlePillMuteToggle),
+            name: .pillMuteToggled, object: nil
+        )
+
         // Listen for pill edit mode transitions
         NotificationCenter.default.addObserver(
             self, selector: #selector(handlePillEnterEdit),
@@ -505,6 +515,12 @@ class FocusMonitor {
         NotificationCenter.default.addObserver(
             self, selector: #selector(handlePillExitEdit),
             name: .pillExitEditMode, object: nil
+        )
+
+        // Listen for "Back to Task" button in the in-pill distraction card
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handlePillBackToTask),
+            name: .pillBackToTaskTapped, object: nil
         )
 
         appDelegate?.postLog("👁️ FocusMonitor started — watching frontmost app")
@@ -949,6 +965,26 @@ class FocusMonitor {
         }
     }
 
+    @objc private func handlePillMinimize() {
+        deepWorkTimerController?.minimize()
+        noPlanSnoozeUntil = Date().addingTimeInterval(30 * 60)
+        isCurrentlyIrrelevant = false
+        appDelegate?.postLog("💬 Pill: minimized via button — snoozed 30 min")
+    }
+
+    @objc private func handlePillMuteToggle() {
+        let wasMuted = DeepWorkTimerController.soundEnabled == false
+        DeepWorkTimerController.soundEnabled = wasMuted  // toggle: was muted → unmute, was unmuted → mute
+        deepWorkTimerController?.viewModel?.isMuted = !wasMuted
+        appDelegate?.postLog("🔇 Pill: sound \(wasMuted ? "unmuted" : "muted")")
+    }
+
+    @objc private func handlePillBackToTask() {
+        deepWorkTimerController?.dismissDistractionCard()
+        handleBackToWork()
+        appDelegate?.postLog("💬 Pill: 'Back to Task' tapped — navigating to last relevant content")
+    }
+
     // MARK: - Browser Tab Scoring (called by NativeMessagingHost)
 
     /// Called by NativeMessagingHost after scoring a browser tab via SCORE_RELEVANCE.
@@ -1091,14 +1127,16 @@ class FocusMonitor {
             let isNoPlan = state == .noPlan
             let remaining = scheduleManager?.remainingBlocks() ?? []
             let hasSchedule = (scheduleManager?.todayBlockCount ?? 0) > 0
-            let isDoneForDay = !isNoPlan && remaining.isEmpty && hasSchedule
+            let allBlocksDone = !isNoPlan && remaining.isEmpty && hasSchedule
+            let currentHour = Calendar.current.component(.hour, from: Date())
 
             let cardState: NoPlanData.CardState
             if isNoPlan { cardState = .noPlan }
-            else if isDoneForDay { cardState = .doneForDay }
+            else if allBlocksDone && currentHour >= 21 { cardState = .doneForDay }
+            else if allBlocksDone { cardState = .allCaughtUp }
             else { cardState = .gap }
 
-            let isAfternoon = Calendar.current.component(.hour, from: Date()) >= 12
+            let isAfternoon = currentHour >= 12
             let canSnooze30 = (scheduleManager?.snoozeCount == 0) && isNoPlan
 
             // Countdown string for gap state
@@ -1722,7 +1760,10 @@ class FocusMonitor {
     /// If any condition is false and grayscale is active, restore color.
     private func reconcileGrayscale() {
         // Graduated decay: full reset after 180s of sustained focus
-        if grayscaleTriggeredThisBlock, let lastEnd = lastDistractionEndTime,
+        // Only decay if user is NOT currently distracted — otherwise the timer
+        // from a brief recovery would expire while still on distracting content
+        if grayscaleTriggeredThisBlock, !isCurrentlyIrrelevant,
+           let lastEnd = lastDistractionEndTime,
            Date().timeIntervalSince(lastEnd) >= Self.vignetteFullRecoverySeconds {
             grayscaleTriggeredThisBlock = false
             lastDistractionEndTime = nil
@@ -1785,6 +1826,7 @@ class FocusMonitor {
         tabIsOnBlockingPage = false
         blockedOriginalURL = nil
         nudgeController?.dismiss()
+        deepWorkTimerController?.dismissDistractionCard()
         overlayController?.dismiss()
         appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
 
@@ -2184,16 +2226,21 @@ class FocusMonitor {
     private func showNudgeForContent(intention: String, displayName: String,
                                      escalated: Bool = false, distractionMinutes: Int = 0,
                                      warning: Bool = false) {
-        setupNudgeCallbacks()
-        // Pass pill frame so nudge appears below the floating timer
-        nudgeController?.pillWindowFrame = deepWorkTimerController?.timerWindow?.frame
-        nudgeController?.showNudge(
-            intention: intention,
-            appOrPage: displayName,
-            escalated: escalated,
-            distractionMinutes: distractionMinutes,
-            warning: warning
-        )
+        // Level 1 (non-escalated, non-warning): use in-pill distraction card instead of external nudge toast
+        if !escalated && !warning {
+            deepWorkTimerController?.showDistractionCard()
+        } else {
+            // Escalated / warning: use external nudge toast below the pill
+            setupNudgeCallbacks()
+            nudgeController?.pillWindow = deepWorkTimerController?.timerWindow
+            nudgeController?.showNudge(
+                intention: intention,
+                appOrPage: displayName,
+                escalated: escalated,
+                distractionMinutes: distractionMinutes,
+                warning: warning
+            )
+        }
         appDelegate?.earnedBrowseManager?.recordNudge()
         // Log enforcement event for popover visibility
         let browserName = currentAppBundleId.flatMap { Self.browserAppNames[$0] } ?? ""
@@ -2203,7 +2250,7 @@ class FocusMonitor {
         } else if escalated {
             reason = "Level 2 nudge (persistent)"
         } else {
-            reason = "Level 1 nudge"
+            reason = "Level 1 nudge (in-pill)"
         }
         logAssessment(
             title: displayName, appName: browserName.isEmpty ? displayName : browserName,

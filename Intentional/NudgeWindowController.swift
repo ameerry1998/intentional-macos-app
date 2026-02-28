@@ -19,8 +19,8 @@ class NudgeWindowController {
     private var nudgeWindow: NSWindow?
     private var autoDismissTimer: Timer?
 
-    /// Frame of the pill window — used to position nudge below it
-    var pillWindowFrame: NSRect?
+    /// The pill window — nudge is added as a child so it moves with dragging
+    weak var pillWindow: NSWindow?
 
     /// Called when the user clicks "Got it" (or nudge auto-dismisses)
     var onGotIt: (() -> Void)?
@@ -86,12 +86,15 @@ class NudgeWindowController {
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         // Position below pill (right-aligned), or top-right fallback
-        if let pillFrame = pillWindowFrame {
+        if let pill = pillWindow {
+            let pillFrame = pill.frame
             let newOrigin = NSPoint(
                 x: pillFrame.maxX - windowWidth,
                 y: pillFrame.minY - windowHeight - 6
             )
             window.setFrameOrigin(newOrigin)
+            // Add as child window so it moves with the pill when dragged
+            pill.addChildWindow(window, ordered: .below)
         } else if let screenFrame = NSScreen.main?.visibleFrame {
             let newOrigin = NSPoint(
                 x: screenFrame.maxX - windowWidth - 20,
@@ -140,7 +143,10 @@ class NudgeWindowController {
     func dismiss() {
         autoDismissTimer?.invalidate()
         autoDismissTimer = nil
-        nudgeWindow?.close()
+        if let nw = nudgeWindow {
+            nw.parent?.removeChildWindow(nw)
+            nw.close()
+        }
         nudgeWindow = nil
     }
 

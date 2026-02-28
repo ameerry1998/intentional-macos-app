@@ -84,7 +84,8 @@ struct NoPlanData {
     enum CardState {
         case noPlan        // No schedule today
         case gap           // Between blocks, more coming
-        case doneForDay    // All blocks complete
+        case allCaughtUp   // All blocks done but early in the day — offer to plan more
+        case doneForDay    // All blocks complete (evening)
     }
     let state: CardState
     let isAfternoon: Bool
@@ -134,6 +135,49 @@ class DeepWorkTimerController {
         NSSound(named: name)?.play()
     }
 
+    // MARK: - Position Persistence
+
+    /// UserDefaults key for saved pill top-right corner position
+    private static let positionKey = "pillWindowTopRight"
+    private var moveObserver: Any?
+
+    /// Save the pill's top-right corner so we can restore it later.
+    private func startTrackingPosition() {
+        moveObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didMoveNotification, object: timerWindow,
+            queue: .main
+        ) { [weak self] _ in
+            guard let frame = self?.timerWindow?.frame else { return }
+            let topRight = NSPoint(x: frame.maxX, y: frame.maxY)
+            UserDefaults.standard.set(NSStringFromPoint(topRight), forKey: Self.positionKey)
+        }
+    }
+
+    private func stopTrackingPosition() {
+        if let obs = moveObserver { NotificationCenter.default.removeObserver(obs) }
+        moveObserver = nil
+    }
+
+    /// Position a window using the saved top-right corner, or fall back to screen top-right.
+    private func positionWindow(_ window: NSWindow, width: CGFloat, height: CGFloat) {
+        if let saved = UserDefaults.standard.string(forKey: Self.positionKey) {
+            let topRight = NSPointFromString(saved)
+            if topRight.x > 0 && topRight.y > 0 {
+                let origin = NSPoint(x: topRight.x - width, y: topRight.y - height)
+                window.setFrameOrigin(origin)
+                return
+            }
+        }
+        // Fallback: top-right corner with 20px padding
+        if let screenFrame = NSScreen.main?.visibleFrame {
+            let origin = NSPoint(
+                x: screenFrame.maxX - width - 20,
+                y: screenFrame.maxY - height - 20
+            )
+            window.setFrameOrigin(origin)
+        }
+    }
+
     // MARK: - Public API
 
     /// Show the floating timer widget.
@@ -170,17 +214,11 @@ class DeepWorkTimerController {
         window.isMovableByWindowBackground = true
         window.animationBehavior = .utilityWindow
 
-        // Position in top-right corner
-        if let screenFrame = NSScreen.main?.visibleFrame {
-            let origin = NSPoint(
-                x: screenFrame.maxX - windowWidth - 20,
-                y: screenFrame.maxY - windowHeight - 20
-            )
-            window.setFrameOrigin(origin)
-        }
+        positionWindow(window, width: windowWidth, height: windowHeight)
 
         window.orderFrontRegardless()
         timerWindow = window
+        startTrackingPosition()
         Self.playSound("Glass")
 
         // Start 1s countdown
@@ -209,16 +247,56 @@ class DeepWorkTimerController {
         }
     }
 
-    /// Update the distraction state (changes dot color).
+    /// Update the distraction state (changes dot color + plays negative sound on transition).
     func update(isDistracted: Bool) {
+        let wasDistracted = viewModel?.isDistracted ?? false
         viewModel?.isDistracted = isDistracted
+        // Play negative sound on transition to distracted (not on every poll)
+        if isDistracted && !wasDistracted && viewModel?.mode == .timer {
+            Self.playSound("Basso")
+        }
     }
 
-    /// Brief "welcome back" flash — green dot + "Back on track" for 3s.
+    private var distractionCardTimer: Timer?
+
+    /// Show an in-pill "Not related to your task" card with a "Back to Task" button.
+    /// Auto-dismisses after 8 seconds. Replaces the separate nudge toast for level-1 nudges.
+    func showDistractionCard() {
+        guard let vm = viewModel, vm.mode == .timer, !vm.isRecovering else { return }
+        // Reset timer if already showing
+        distractionCardTimer?.invalidate()
+        vm.isShowingDistractionCard = true
+
+        distractionCardTimer = Timer.scheduledTimer(withTimeInterval: 8.0, repeats: false) { [weak self] _ in
+            self?.viewModel?.isShowingDistractionCard = false
+            self?.distractionCardTimer = nil
+        }
+    }
+
+    /// Dismiss the in-pill distraction card (e.g., user tapped Back to Task or returned to focus).
+    func dismissDistractionCard() {
+        distractionCardTimer?.invalidate()
+        distractionCardTimer = nil
+        viewModel?.isShowingDistractionCard = false
+    }
+
+    private static let recoveryMessages = [
+        "Welcome back",
+        "Back in the zone",
+        "Nice recovery",
+        "Locked in",
+        "You got this",
+        "Focus regained",
+        "On track",
+        "Let's go",
+    ]
+
+    /// Full-pill recovery takeover — replaces all content with a large motivational message + confetti.
     func flashRecovery() {
         guard let vm = viewModel, vm.mode == .timer, !vm.isRecovering else { return }
+        vm.recoveryMessage = Self.recoveryMessages.randomElement() ?? "Welcome back"
         vm.isRecovering = true
-        Self.playSound("Tink")
+        Self.playSound("Hero")
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
             self?.viewModel?.isRecovering = false
@@ -311,9 +389,10 @@ class DeepWorkTimerController {
         let windowWidth: CGFloat = 310
         let windowHeight: CGFloat
         switch data.state {
-        case .noPlan:     windowHeight = 270
-        case .gap:        windowHeight = CGFloat(130 + min(data.remainingBlocks.count, 3) * 36)
-        case .doneForDay: windowHeight = 155
+        case .noPlan:       windowHeight = 270
+        case .gap:          windowHeight = CGFloat(130 + min(data.remainingBlocks.count, 3) * 36)
+        case .allCaughtUp:  windowHeight = 195
+        case .doneForDay:   windowHeight = 155
         }
         hostingView.frame = NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight)
 
@@ -334,21 +413,15 @@ class DeepWorkTimerController {
         window.isMovableByWindowBackground = true
         window.animationBehavior = .utilityWindow
 
-        // Position in top-right corner
-        if let screenFrame = NSScreen.main?.visibleFrame {
-            let origin = NSPoint(
-                x: screenFrame.maxX - windowWidth - 20,
-                y: screenFrame.maxY - windowHeight - 20
-            )
-            window.setFrameOrigin(origin)
-        }
+        positionWindow(window, width: windowWidth, height: windowHeight)
 
         window.orderFrontRegardless()
         timerWindow = window
+        startTrackingPosition()
 
-        // Auto-dismiss for doneForDay state
+        // Auto-dismiss for doneForDay and allCaughtUp states
         autoDismissTimer?.invalidate()
-        if data.state == .doneForDay {
+        if data.state == .doneForDay || data.state == .allCaughtUp {
             autoDismissTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: false) { [weak self] _ in
                 self?.dismiss()
             }
@@ -371,6 +444,7 @@ class DeepWorkTimerController {
         countdownTimer = nil
         autoDismissTimer?.invalidate()
         autoDismissTimer = nil
+        stopTrackingPosition()
         viewModel?.stopAutoAdvance()
         viewModel?.stopAutoStartTimer()
         timerWindow?.allowKeyboardInput = false
@@ -414,6 +488,9 @@ class DeepWorkTimerViewModel: ObservableObject {
     @Published var timeDisplay: String
     @Published var isDistracted: Bool = false
     @Published var isRecovering: Bool = false
+    @Published var recoveryMessage: String = "Welcome back"
+    @Published var isShowingDistractionCard: Bool = false
+    @Published var isMuted: Bool = false
     @Published var focusPercent: Int = 0
     @Published var earnedMinutes: Double = 0.0
     @Published var focusGoal: Int = 80
@@ -669,24 +746,126 @@ struct DeepWorkTimerView: View {
     // MARK: - Timer Mode (normal pill)
 
     private var timerBody: some View {
+        let showTakeover = viewModel.isRecovering || viewModel.isShowingDistractionCard
+        return ZStack {
+            // Normal timer content — hidden during takeover states
+            normalTimerContent
+                .opacity(showTakeover ? 0 : 1)
+
+            // Recovery takeover — large motivational message, full pill
+            if viewModel.isRecovering {
+                recoveryTakeover
+                    .transition(.opacity)
+            }
+
+            // Distraction takeover — "Not related to your task" + Back to Task button
+            if viewModel.isShowingDistractionCard && !viewModel.isRecovering {
+                distractionTakeover
+                    .transition(.opacity)
+            }
+        }
+        .frame(width: 300)
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .background(
+            ZStack {
+                bgColor
+                if viewModel.isRecovering {
+                    LinearGradient(
+                        colors: [recoveryColor.opacity(0.35), goGreenBright.opacity(0.25)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    )
+                }
+                if viewModel.isShowingDistractionCard && !viewModel.isRecovering {
+                    distractedColor.opacity(0.15)
+                }
+            }
+            .cornerRadius(18)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(
+                    viewModel.isRecovering ? recoveryColor :
+                    viewModel.isShowingDistractionCard ? distractedColor.opacity(0.6) :
+                    borderColor,
+                    lineWidth: viewModel.isRecovering || viewModel.isShowingDistractionCard ? 2 : 1
+                )
+        )
+        .shadow(color: viewModel.isRecovering ? recoveryColor.opacity(0.6) : .black.opacity(0.4),
+                radius: viewModel.isRecovering ? 16 : 8, x: 0, y: 2)
+        .overlay(
+            Group {
+                if viewModel.isRecovering {
+                    ConfettiCanvasView()
+                        .allowsHitTesting(false)
+                        .cornerRadius(18)
+                        .clipped()
+                }
+            }
+        )
+        .animation(.easeInOut(duration: 0.4), value: viewModel.isRecovering)
+        .animation(.easeInOut(duration: 0.3), value: viewModel.isShowingDistractionCard)
+    }
+
+    /// Full-pill recovery takeover: large motivational message centered in the pill.
+    private var recoveryTakeover: some View {
+        VStack(spacing: 4) {
+            Text(viewModel.recoveryMessage)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Text(viewModel.timeDisplay)
+                .font(.system(size: 11, weight: .medium).monospacedDigit())
+                .foregroundColor(.white.opacity(0.5))
+        }
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.vertical, 14)
+    }
+
+    /// In-pill distraction card: "Not related to your task" + "Back to Task" button.
+    private var distractionTakeover: some View {
+        HStack(spacing: 8) {
+            Text("Not related to your task")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(distractedColor)
+                .lineLimit(1)
+
+            Spacer(minLength: 4)
+
+            Button(action: {
+                NotificationCenter.default.post(name: .pillBackToTaskTapped, object: nil)
+            }) {
+                Text("Back to Task")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(distractedColor.opacity(0.7))
+                    .cornerRadius(8)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Normal timer layout (dot + intention + countdown + stats row).
+    private var normalTimerContent: some View {
         VStack(spacing: 0) {
             // Top row: dot + intention + timer
             HStack(spacing: 8) {
                 Circle()
                     .fill(
-                        viewModel.isRecovering
-                            ? LinearGradient(colors: [recoveryColor, recoveryColor], startPoint: .topLeading, endPoint: .bottomTrailing)
-                            : viewModel.isDistracted
-                                ? LinearGradient(colors: [distractedColor, distractedColor], startPoint: .topLeading, endPoint: .bottomTrailing)
-                                : LinearGradient(colors: [focusedStart, focusedEnd], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        viewModel.isDistracted
+                            ? LinearGradient(colors: [distractedColor, distractedColor], startPoint: .topLeading, endPoint: .bottomTrailing)
+                            : LinearGradient(colors: [focusedStart, focusedEnd], startPoint: .topLeading, endPoint: .bottomTrailing)
                     )
                     .frame(width: 8, height: 8)
-                    .scaleEffect(viewModel.isRecovering ? 1.4 : 1.0)
-                    .animation(.easeInOut(duration: 0.5).repeatCount(3, autoreverses: true), value: viewModel.isRecovering)
 
-                Text(viewModel.isRecovering ? "Back on track" : viewModel.intention)
+                Text(viewModel.intention)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(viewModel.isRecovering ? recoveryColor : textSecondary)
+                    .foregroundColor(textSecondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
 
@@ -695,6 +874,30 @@ struct DeepWorkTimerView: View {
                 Text(viewModel.timeDisplay)
                     .font(.system(size: 13, weight: .semibold).monospacedDigit())
                     .foregroundColor(viewModel.isApproachingEnd ? amberColor : textPrimary)
+
+                if viewModel.isHovered {
+                    // Mute button
+                    Button(action: {
+                        NotificationCenter.default.post(name: .pillMuteToggled, object: nil)
+                    }) {
+                        Image(systemName: viewModel.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundColor(viewModel.isMuted ? amberColor : textSecondary.opacity(0.6))
+                            .frame(width: 16, height: 16)
+                    }
+                    .buttonStyle(.plain)
+
+                    // Minimize button
+                    Button(action: {
+                        NotificationCenter.default.post(name: .pillMinimizeTapped, object: nil)
+                    }) {
+                        Text("\u{2212}")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(textSecondary.opacity(0.6))
+                            .frame(width: 16, height: 16)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             .padding(.horizontal, 14)
             .padding(.top, 8)
@@ -742,13 +945,6 @@ struct DeepWorkTimerView: View {
                 .padding(.bottom, 8)
             }
         }
-        .background(bgColor)
-        .cornerRadius(18)
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(borderColor, lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.4), radius: 8, x: 0, y: 2)
     }
 
     // MARK: - Block Complete Mode (transitional)
@@ -1436,15 +1632,19 @@ struct DeepWorkTimerView: View {
 
     private var noPlanBorderColor: Color {
         guard let data = viewModel.noPlanData else { return amberColor }
-        return data.state == .doneForDay ? goGreen : amberColor
+        switch data.state {
+        case .doneForDay, .allCaughtUp: return goGreen
+        default: return amberColor
+        }
     }
 
     @ViewBuilder
     private func noPlanContent(data: NoPlanData) -> some View {
         switch data.state {
-        case .noPlan:     noPlanCTA(data: data)
-        case .gap:        gapPreview(data: data)
-        case .doneForDay: doneForDay(data: data)
+        case .noPlan:       noPlanCTA(data: data)
+        case .gap:          gapPreview(data: data)
+        case .allCaughtUp:  allCaughtUp(data: data)
+        case .doneForDay:   doneForDay(data: data)
         }
     }
 
@@ -1667,6 +1867,70 @@ struct DeepWorkTimerView: View {
     }
 
     // MARK: - Done For Day: "Nice work today"
+
+    // MARK: - All Caught Up: finished scheduled blocks but early in the day
+
+    private func allCaughtUp(data: NoPlanData) -> some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack(spacing: 6) {
+                Circle().fill(goGreen).frame(width: 7, height: 7)
+                Text("ALL CAUGHT UP")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(goGreen)
+                    .tracking(0.8)
+                Spacer()
+                Button(action: { data.onDismiss?() }) {
+                    Text("\u{2212}")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(textSecondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 10)
+            .padding(.bottom, 8)
+
+            Rectangle().fill(separatorColor).frame(height: 1).padding(.horizontal, 14)
+
+            // Stats
+            Text("\(data.completedBlockCount) block\(data.completedBlockCount == 1 ? "" : "s") done \u{00B7} \(data.totalFocusedTime) focused")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(textSecondary)
+                .padding(.top, 10)
+                .padding(.bottom, 10)
+
+            // Actions
+            HStack(spacing: 12) {
+                Button(action: { data.onScheduleNow?() }) {
+                    HStack(spacing: 2) {
+                        Text("Schedule More")
+                            .font(.system(size: 11, weight: .medium))
+                        Text("\u{2192}")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundColor(goGreen)
+                }
+                .buttonStyle(.plain)
+
+                Text("\u{00B7}").foregroundColor(textSecondary.opacity(0.4))
+
+                Button(action: { data.onPlanDay() }) {
+                    HStack(spacing: 2) {
+                        Text("Plan Full Day")
+                            .font(.system(size: 11, weight: .medium))
+                        Text("\u{2192}")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundColor(textSecondary.opacity(0.6))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.bottom, 12)
+        }
+    }
+
+    // MARK: - Done For Day: all blocks complete (evening)
 
     private func doneForDay(data: NoPlanData) -> some View {
         VStack(spacing: 0) {
@@ -2023,6 +2287,9 @@ struct ConfettiCanvasView: View {
 
 extension Notification.Name {
     static let pillEndBlockTapped = Notification.Name("pillEndBlockTapped")
+    static let pillMinimizeTapped = Notification.Name("pillMinimizeTapped")
+    static let pillMuteToggled = Notification.Name("pillMuteToggled")
     static let pillEnterEditMode = Notification.Name("pillEnterEditMode")
     static let pillExitEditMode = Notification.Name("pillExitEditMode")
+    static let pillBackToTaskTapped = Notification.Name("pillBackToTaskTapped")
 }

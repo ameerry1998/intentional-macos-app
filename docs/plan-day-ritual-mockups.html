@@ -1,0 +1,1804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan Full Day Ritual — 3 Variations</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #17171b;
+    --card-bg: rgba(30, 30, 38, 0.95);
+    --card-bg-solid: #1e1e26;
+    --amber: #f2bf40;
+    --go-green: #40c773;
+    --go-green-bright: #4de085;
+    --focus-hours: #7375f2;
+    --deep-work: #f24040;
+    --free-time: #40c773;
+    --text-primary: rgba(255,255,255,0.92);
+    --text-secondary: rgba(255,255,255,0.55);
+    --text-tertiary: rgba(255,255,255,0.35);
+    --separator: rgba(255,255,255,0.08);
+    --border: rgba(255,255,255,0.12);
+    --input-bg: rgba(255,255,255,0.06);
+  }
+
+  body {
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px 20px 60px;
+  }
+
+  /* ── Page header ── */
+  .page-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .page-subtitle {
+    font-size: 12px;
+    color: rgba(255,255,255,0.22);
+    margin-bottom: 28px;
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  /* ── Tab navigation ── */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 3px;
+    margin-bottom: 36px;
+  }
+  .tab {
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    background: transparent;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--text-primary); }
+  .tab.active {
+    background: rgba(255,255,255,0.1);
+    color: var(--text-primary);
+  }
+
+  /* ── Variation panels ── */
+  .variation-panel {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 500px;
+    animation: fadeIn 0.3s ease;
+  }
+  .variation-panel.active { display: flex; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .variation-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .variation-desc {
+    font-size: 12px;
+    color: rgba(255,255,255,0.18);
+    text-align: center;
+    max-width: 420px;
+    line-height: 1.5;
+    margin-bottom: 24px;
+  }
+
+  /* ── Shared card ── */
+  .card {
+    background: var(--card-bg);
+    border-radius: 18px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ── Shared input ── */
+  .text-input {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: inherit;
+  }
+  .text-input:focus {
+    border-color: rgba(255,255,255,0.2);
+  }
+  .text-input::placeholder {
+    color: var(--text-tertiary);
+  }
+
+  /* ── Shared buttons ── */
+  .btn-primary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 10px 0;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--go-green), var(--go-green-bright));
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .btn-primary:hover { opacity: 0.9; transform: scale(1.01); }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-primary:disabled {
+    opacity: 0.4;
+    cursor: default;
+    transform: none;
+  }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 16px;
+    border: 1.5px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .btn-secondary:hover {
+    border-color: rgba(255,255,255,0.25);
+    color: var(--text-primary);
+  }
+
+  .btn-ghost {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: color 0.15s;
+    font-family: inherit;
+  }
+  .btn-ghost:hover { color: var(--text-secondary); }
+
+  .btn-green-ghost {
+    background: none;
+    border: none;
+    color: var(--go-green);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: opacity 0.15s;
+    font-family: inherit;
+  }
+  .btn-green-ghost:hover { opacity: 0.75; }
+
+  /* ── Step indicator dots ── */
+  .step-dots {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    padding: 14px 0 8px;
+  }
+  .step-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.12);
+    transition: all 0.3s;
+  }
+  .step-dot.active {
+    background: var(--go-green);
+    width: 18px;
+    border-radius: 3px;
+  }
+  .step-dot.completed {
+    background: rgba(64, 199, 115, 0.4);
+  }
+
+  /* ── Block type colors ── */
+  .block-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .block-type-badge.deep-work {
+    background: rgba(242, 64, 64, 0.15);
+    color: var(--deep-work);
+  }
+  .block-type-badge.focus-hours {
+    background: rgba(115, 117, 242, 0.15);
+    color: var(--focus-hours);
+  }
+  .block-type-badge.free-time {
+    background: rgba(64, 199, 115, 0.15);
+    color: var(--free-time);
+  }
+
+  .block-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ============================================================
+     VARIATION A: The Funnel (Step-by-step wizard)
+     ============================================================ */
+  .wizard-card {
+    width: 400px;
+    min-height: 200px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .wizard-step {
+    display: none;
+    flex-direction: column;
+    padding: 20px;
+    animation: slideIn 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
+  }
+  .wizard-step.active { display: flex; }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(30px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes slideOut {
+    from { opacity: 1; transform: translateX(0); }
+    to { opacity: 0; transform: translateX(-30px); }
+  }
+
+  .wiz-header {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .wiz-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.3;
+    margin-bottom: 6px;
+  }
+
+  .wiz-subtitle {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 20px;
+  }
+
+  /* Yesterday stats */
+  .yesterday-stats {
+    display: flex;
+    gap: 16px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 10px;
+    margin-bottom: 12px;
+  }
+  .yesterday-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+  }
+  .yesterday-stat .value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .yesterday-stat .label {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+  }
+  .yesterday-mood {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--go-green);
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  /* Timeline builder */
+  .timeline-builder {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+    max-height: 240px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .timeline-builder::-webkit-scrollbar { width: 3px; }
+  .timeline-builder::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+  .tl-suggestion {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+  }
+  .tl-suggestion:hover {
+    background: rgba(255,255,255,0.07);
+  }
+  .tl-suggestion.accepted {
+    border-color: rgba(64, 199, 115, 0.3);
+    background: rgba(64, 199, 115, 0.06);
+  }
+  .tl-suggestion.dismissed {
+    opacity: 0.3;
+    height: 0;
+    padding: 0 12px;
+    overflow: hidden;
+    margin: 0;
+  }
+
+  .tl-time-col {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    width: 48px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .tl-bar {
+    width: 3px;
+    height: 32px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .tl-info { flex: 1; min-width: 0; }
+  .tl-info .name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .tl-info .meta {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    margin-top: 1px;
+  }
+  .tl-info .name-input {
+    background: transparent;
+    border: none;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    outline: none;
+    width: 100%;
+    font-family: inherit;
+    padding: 0;
+  }
+  .tl-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .tl-action-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: none;
+    background: rgba(255,255,255,0.06);
+    color: var(--text-tertiary);
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .tl-action-btn:hover {
+    background: rgba(255,255,255,0.12);
+    color: var(--text-secondary);
+  }
+  .tl-action-btn.accept { color: var(--go-green); }
+  .tl-action-btn.accept:hover { background: rgba(64,199,115,0.15); }
+
+  /* Ready summary */
+  .ready-summary {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    padding: 16px 0;
+    margin-bottom: 16px;
+  }
+  .ready-stat {
+    text-align: center;
+  }
+  .ready-stat .big {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-primary);
+  }
+  .ready-stat .label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+  }
+
+  .ready-blocks {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .wiz-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 4px;
+  }
+
+  /* ============================================================
+     VARIATION B: The Single Screen
+     ============================================================ */
+  .single-card {
+    width: 400px;
+    max-height: 560px;
+    overflow-y: auto;
+  }
+  .single-card::-webkit-scrollbar { width: 3px; }
+  .single-card::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+  .single-header {
+    padding: 18px 20px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .single-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .single-yesterday {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    line-height: 1.4;
+    text-align: right;
+  }
+
+  .single-section {
+    padding: 14px 20px 0;
+  }
+  .single-section-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  /* Mini calendar */
+  .mini-calendar {
+    background: rgba(255,255,255,0.03);
+    border-radius: 10px;
+    padding: 10px 12px;
+    position: relative;
+    height: 180px;
+    overflow: hidden;
+  }
+  .cal-hour {
+    display: flex;
+    align-items: flex-start;
+    height: 30px;
+    position: relative;
+  }
+  .cal-hour-label {
+    font-size: 9px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    width: 34px;
+    flex-shrink: 0;
+    padding-top: 1px;
+  }
+  .cal-hour-line {
+    flex: 1;
+    height: 1px;
+    background: rgba(255,255,255,0.05);
+    margin-top: 6px;
+    position: relative;
+  }
+  .cal-block {
+    position: absolute;
+    left: 38px;
+    right: 8px;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #fff;
+    z-index: 2;
+    transition: all 0.3s;
+    cursor: default;
+  }
+  .cal-block .cal-block-time {
+    font-size: 8px;
+    font-weight: 500;
+    opacity: 0.7;
+    margin-top: 1px;
+  }
+  .cal-now-line {
+    position: absolute;
+    left: 34px;
+    right: 0;
+    height: 2px;
+    background: var(--amber);
+    z-index: 3;
+    opacity: 0.6;
+  }
+  .cal-now-dot {
+    position: absolute;
+    left: 30px;
+    width: 8px;
+    height: 8px;
+    background: var(--amber);
+    border-radius: 50%;
+    z-index: 3;
+    transform: translateY(-3px);
+  }
+
+  /* Templates */
+  .templates {
+    display: flex;
+    gap: 8px;
+  }
+  .template-btn {
+    flex: 1;
+    padding: 10px 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .template-btn:hover {
+    border-color: rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06);
+  }
+  .template-btn.selected {
+    border-color: rgba(64, 199, 115, 0.4);
+    background: rgba(64, 199, 115, 0.06);
+  }
+  .template-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .template-detail {
+    font-size: 9px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    line-height: 1.4;
+  }
+  .template-blocks {
+    display: flex;
+    gap: 2px;
+    justify-content: center;
+    margin-top: 6px;
+  }
+  .template-block-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+  }
+
+  .single-footer {
+    padding: 14px 20px 18px;
+  }
+
+  /* ============================================================
+     VARIATION C: The Conversation
+     ============================================================ */
+  .chat-card {
+    width: 380px;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .chat-header {
+    padding: 14px 18px 10px;
+    border-bottom: 1px solid var(--separator);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .chat-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--go-green), #2a9d5c);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .chat-header-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .chat-header-sub {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    margin-top: 1px;
+  }
+
+  .chat-body {
+    flex: 1;
+    padding: 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 380px;
+    overflow-y: auto;
+  }
+  .chat-body::-webkit-scrollbar { width: 3px; }
+  .chat-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+  .chat-msg {
+    max-width: 85%;
+    padding: 9px 13px;
+    border-radius: 14px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.5;
+    animation: msgAppear 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
+  }
+  @keyframes msgAppear {
+    from { opacity: 0; transform: translateY(8px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .chat-msg.system {
+    align-self: flex-start;
+    background: rgba(255,255,255,0.06);
+    color: var(--text-primary);
+    border-bottom-left-radius: 4px;
+  }
+  .chat-msg.user {
+    align-self: flex-end;
+    background: rgba(64, 199, 115, 0.15);
+    color: var(--text-primary);
+    border-bottom-right-radius: 4px;
+  }
+
+  .chat-typing {
+    align-self: flex-start;
+    display: flex;
+    gap: 4px;
+    padding: 10px 16px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 14px;
+    border-bottom-left-radius: 4px;
+  }
+  .chat-typing .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+    animation: typingBounce 1.2s ease-in-out infinite;
+  }
+  .chat-typing .dot:nth-child(2) { animation-delay: 0.15s; }
+  .chat-typing .dot:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes typingBounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-4px); opacity: 1; }
+  }
+
+  .chat-quick-btns {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-self: flex-end;
+    animation: msgAppear 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
+  }
+  .chat-quick-btn {
+    padding: 7px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .chat-quick-btn:hover {
+    border-color: var(--go-green);
+    background: rgba(64, 199, 115, 0.1);
+  }
+
+  .chat-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 12px 18px 16px;
+    border-top: 1px solid var(--separator);
+  }
+  .chat-input {
+    flex: 1;
+    background: var(--input-bg);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    outline: none;
+    font-family: inherit;
+  }
+  .chat-input::placeholder { color: var(--text-tertiary); }
+  .chat-input:focus { border-color: rgba(255,255,255,0.2); }
+
+  .chat-send {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, var(--go-green), var(--go-green-bright));
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .chat-send:hover { opacity: 0.85; }
+  .chat-send:disabled { opacity: 0.3; cursor: default; }
+
+  .chat-block-confirm {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.06);
+    margin-top: 4px;
+  }
+  .chat-block-bar {
+    width: 3px;
+    height: 28px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .chat-block-info .name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .chat-block-info .time {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    margin-top: 1px;
+  }
+
+  /* Hidden helper */
+  .hidden { display: none !important; }
+
+  /* Scrollbar for entire page */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+
+  /* ── Separator ── */
+  .sep {
+    height: 1px;
+    background: var(--separator);
+    margin: 0 20px;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-title">Plan Full Day Ritual</div>
+<div class="page-subtitle">3 interactive variations for the day planning flow. Click through each to test the interaction.</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="showVariation('a')">A: The Funnel</button>
+  <button class="tab" onclick="showVariation('b')">B: Single Screen</button>
+  <button class="tab" onclick="showVariation('c')">C: Conversation</button>
+</div>
+
+<!-- ============================================================
+     VARIATION A: The Funnel (Step-by-step wizard)
+     ============================================================ -->
+<div id="panel-a" class="variation-panel active">
+  <div class="variation-label">Variation A</div>
+  <div class="variation-desc">Card-based wizard. Four steps: Yesterday recap, set intention, build schedule, launch. Guided and linear.</div>
+
+  <div class="card wizard-card" id="wizard">
+    <!-- Step dots -->
+    <div class="step-dots" id="wiz-dots">
+      <div class="step-dot active"></div>
+      <div class="step-dot"></div>
+      <div class="step-dot"></div>
+      <div class="step-dot"></div>
+    </div>
+
+    <!-- Step 1: Yesterday -->
+    <div class="wizard-step active" id="wiz-step-0">
+      <div class="wiz-header">Yesterday</div>
+      <div class="yesterday-stats">
+        <div class="yesterday-stat">
+          <div class="value">4</div>
+          <div class="label">blocks</div>
+        </div>
+        <div class="yesterday-stat">
+          <div class="value">5h 20m</div>
+          <div class="label">focused</div>
+        </div>
+        <div class="yesterday-stat">
+          <div class="value">78%</div>
+          <div class="label">avg score</div>
+        </div>
+      </div>
+      <div class="yesterday-mood">Nice momentum. Let's keep it going.</div>
+      <div class="wiz-nav">
+        <button class="btn-ghost" onclick="wizGoTo(1)">Skip</button>
+        <button class="btn-secondary" onclick="wizGoTo(1)">Next</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Intention -->
+    <div class="wizard-step" id="wiz-step-1">
+      <div class="wiz-title">What matters most today?</div>
+      <div class="wiz-subtitle">One sentence. This anchors your focus.</div>
+      <input type="text" class="text-input" id="wiz-intention" placeholder="e.g. Ship the onboarding redesign" oninput="wizCheckIntention()">
+      <div style="height: 14px;"></div>
+      <div class="wiz-nav">
+        <button class="btn-ghost" onclick="wizGoTo(0)">Back</button>
+        <button class="btn-secondary" id="wiz-intention-next" disabled onclick="wizGoTo(2)">Next</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Build schedule -->
+    <div class="wizard-step" id="wiz-step-2">
+      <div class="wiz-header">Build your schedule</div>
+      <div style="font-size: 11px; color: var(--text-tertiary); margin-bottom: 12px;">Tap to accept, rename inline, or dismiss. Based on the time of day.</div>
+      <div class="timeline-builder" id="wiz-timeline">
+        <!-- Populated by JS -->
+      </div>
+      <button class="btn-ghost" onclick="wizAddBlock()" style="align-self: flex-start; padding-left: 0; color: var(--go-green); font-weight: 600;">+ Add block</button>
+      <div style="height: 8px;"></div>
+      <div class="wiz-nav">
+        <button class="btn-ghost" onclick="wizGoTo(1)">Back</button>
+        <button class="btn-secondary" onclick="wizGoTo(3)" id="wiz-schedule-next">Next</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Ready -->
+    <div class="wizard-step" id="wiz-step-3">
+      <div style="text-align: center;">
+        <div style="font-size: 28px; margin-bottom: 8px;">&#9889;</div>
+        <div class="wiz-title" style="text-align: center;">You're set.</div>
+      </div>
+      <div class="ready-summary">
+        <div class="ready-stat">
+          <div class="big" id="ready-blocks">4</div>
+          <div class="label">blocks</div>
+        </div>
+        <div class="ready-stat">
+          <div class="big" id="ready-hours">5.5h</div>
+          <div class="label">focused</div>
+        </div>
+      </div>
+      <div class="ready-blocks" id="ready-badges">
+        <!-- Populated by JS -->
+      </div>
+      <div id="ready-intention" style="font-size: 12px; color: var(--text-secondary); text-align: center; margin-bottom: 16px; font-style: italic;"></div>
+      <button class="btn-primary" onclick="wizFinish()" style="font-size: 14px; padding: 12px 0;">Start My Day</button>
+      <div style="height: 6px;"></div>
+      <div class="wiz-nav">
+        <button class="btn-ghost" onclick="wizGoTo(2)">Back</button>
+        <span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     VARIATION B: The Single Screen
+     ============================================================ -->
+<div id="panel-b" class="variation-panel">
+  <div class="variation-label">Variation B</div>
+  <div class="variation-desc">Everything visible at once. Scan, pick a template, customize, launch. Power-user friendly.</div>
+
+  <div class="card single-card" id="single">
+    <div class="single-header">
+      <div class="single-title">Plan Your Day</div>
+      <div class="single-yesterday">Yesterday: 5h 20m focused<br>4 blocks, 78% avg</div>
+    </div>
+
+    <div class="single-section">
+      <div class="single-section-label">Today's focus</div>
+      <input type="text" class="text-input" id="single-focus" placeholder="What's your focus today?">
+    </div>
+
+    <div class="single-section">
+      <div class="single-section-label">Quick templates</div>
+      <div class="templates">
+        <div class="template-btn" onclick="selectTemplate('deep')" id="tmpl-deep">
+          <div class="template-name">Deep Morning</div>
+          <div class="template-detail">2h deep work<br>1h focus<br>30m break</div>
+          <div class="template-blocks">
+            <div class="template-block-dot" style="background: var(--deep-work);"></div>
+            <div class="template-block-dot" style="background: var(--deep-work);"></div>
+            <div class="template-block-dot" style="background: var(--focus-hours);"></div>
+            <div class="template-block-dot" style="background: var(--free-time);"></div>
+          </div>
+        </div>
+        <div class="template-btn" onclick="selectTemplate('balanced')" id="tmpl-balanced">
+          <div class="template-name">Balanced</div>
+          <div class="template-detail">Focus + break<br>alternating<br>4 blocks</div>
+          <div class="template-blocks">
+            <div class="template-block-dot" style="background: var(--focus-hours);"></div>
+            <div class="template-block-dot" style="background: var(--free-time);"></div>
+            <div class="template-block-dot" style="background: var(--focus-hours);"></div>
+            <div class="template-block-dot" style="background: var(--free-time);"></div>
+          </div>
+        </div>
+        <div class="template-btn" onclick="selectTemplate('light')" id="tmpl-light">
+          <div class="template-name">Light Day</div>
+          <div class="template-detail">2 focus blocks<br>1h each<br>low pressure</div>
+          <div class="template-blocks">
+            <div class="template-block-dot" style="background: var(--focus-hours);"></div>
+            <div class="template-block-dot" style="background: var(--focus-hours);"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="single-section">
+      <div class="single-section-label">Schedule preview</div>
+      <div class="mini-calendar" id="mini-cal">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <div class="single-footer">
+      <button class="btn-primary" onclick="singleLaunch()" id="single-launch-btn">Start Planning</button>
+      <div style="text-align: center; margin-top: 8px;">
+        <button class="btn-ghost" style="font-size: 11px;">or open full calendar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     VARIATION C: The Conversation
+     ============================================================ -->
+<div id="panel-c" class="variation-panel">
+  <div class="variation-label">Variation C</div>
+  <div class="variation-desc">Chat-like guided flow. Warm, coaching-style. Messages appear one at a time with typing indicators.</div>
+
+  <div class="card chat-card" id="chat">
+    <div class="chat-header">
+      <div class="chat-avatar">I</div>
+      <div>
+        <div class="chat-header-text">Intentional</div>
+        <div class="chat-header-sub">Your focus coach</div>
+      </div>
+    </div>
+
+    <div class="chat-body" id="chat-body">
+      <!-- Messages populated by JS -->
+    </div>
+
+    <div class="chat-input-row" id="chat-input-row">
+      <input type="text" class="chat-input" id="chat-input" placeholder="Type your response..." onkeydown="chatKeyDown(event)" disabled>
+      <button class="chat-send" id="chat-send-btn" onclick="chatSendInput()" disabled>&#8593;</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ============================================================
+// TAB NAVIGATION
+// ============================================================
+function showVariation(id) {
+  document.querySelectorAll('.variation-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  document.querySelectorAll('.tab')[{a:0,b:1,c:2}[id]].classList.add('active');
+
+  // Reset variation C on switch
+  if (id === 'c') {
+    resetChat();
+  }
+}
+
+// ============================================================
+// VARIATION A: The Funnel
+// ============================================================
+let wizStep = 0;
+const wizBlocks = [];
+
+function wizInit() {
+  // Generate suggestions based on "morning" scenario (9 AM start)
+  const now = new Date();
+  const hour = now.getHours();
+
+  const suggestions = [];
+  let startH = Math.max(hour, 9);
+
+  if (startH < 12) {
+    suggestions.push({ type: 'deep-work', name: 'Deep Work', duration: 120, start: startH, color: 'var(--deep-work)', label: 'Deep Work' });
+    suggestions.push({ type: 'free-time', name: 'Break', duration: 30, start: startH + 2, color: 'var(--free-time)', label: 'Free Time' });
+    suggestions.push({ type: 'focus-hours', name: 'Focus Hours', duration: 90, start: startH + 2.5, color: 'var(--focus-hours)', label: 'Focus Hours' });
+    suggestions.push({ type: 'free-time', name: 'Lunch Break', duration: 60, start: startH + 4, color: 'var(--free-time)', label: 'Free Time' });
+    suggestions.push({ type: 'focus-hours', name: 'Afternoon Focus', duration: 90, start: startH + 5, color: 'var(--focus-hours)', label: 'Focus Hours' });
+  } else {
+    suggestions.push({ type: 'focus-hours', name: 'Focus Block', duration: 90, start: startH, color: 'var(--focus-hours)', label: 'Focus Hours' });
+    suggestions.push({ type: 'free-time', name: 'Break', duration: 30, start: startH + 1.5, color: 'var(--free-time)', label: 'Free Time' });
+    suggestions.push({ type: 'focus-hours', name: 'Wrap-up', duration: 60, start: startH + 2, color: 'var(--focus-hours)', label: 'Focus Hours' });
+  }
+
+  wizBlocks.length = 0;
+  suggestions.forEach(s => {
+    wizBlocks.push({ ...s, accepted: false, dismissed: false });
+  });
+
+  renderWizTimeline();
+}
+
+function renderWizTimeline() {
+  const container = document.getElementById('wiz-timeline');
+  container.innerHTML = '';
+
+  wizBlocks.forEach((block, i) => {
+    if (block.dismissed) return;
+
+    const endH = block.start + block.duration / 60;
+    const startStr = formatHour(block.start);
+    const endStr = formatHour(endH);
+
+    const el = document.createElement('div');
+    el.className = 'tl-suggestion' + (block.accepted ? ' accepted' : '');
+    el.innerHTML = `
+      <div class="tl-time-col">${startStr}</div>
+      <div class="tl-bar" style="background: ${block.color};"></div>
+      <div class="tl-info">
+        ${block.accepted
+          ? `<input class="tl-info name-input" value="${block.name}" onchange="wizRenameBlock(${i}, this.value)" onclick="event.stopPropagation()">`
+          : `<div class="name">${block.name}</div>`
+        }
+        <div class="meta">${block.label} &middot; ${block.duration}m &middot; ${startStr} - ${endStr}</div>
+      </div>
+      <div class="tl-actions">
+        ${!block.accepted ? `<button class="tl-action-btn accept" onclick="event.stopPropagation(); wizAcceptBlock(${i})" title="Accept">&#10003;</button>` : ''}
+        <button class="tl-action-btn" onclick="event.stopPropagation(); wizDismissBlock(${i})" title="Remove">&#10005;</button>
+      </div>
+    `;
+
+    if (!block.accepted) {
+      el.onclick = () => wizAcceptBlock(i);
+    }
+
+    container.appendChild(el);
+  });
+
+  updateWizScheduleNext();
+}
+
+function wizAcceptBlock(i) {
+  wizBlocks[i].accepted = true;
+  renderWizTimeline();
+}
+
+function wizDismissBlock(i) {
+  wizBlocks[i].dismissed = true;
+  renderWizTimeline();
+}
+
+function wizRenameBlock(i, name) {
+  wizBlocks[i].name = name;
+}
+
+function wizAddBlock() {
+  const lastBlock = [...wizBlocks].filter(b => !b.dismissed).pop();
+  let startH = lastBlock ? lastBlock.start + lastBlock.duration / 60 + 0.5 : 14;
+  if (startH >= 21) startH = 20;
+
+  wizBlocks.push({
+    type: 'focus-hours',
+    name: 'Focus Block',
+    duration: 60,
+    start: startH,
+    color: 'var(--focus-hours)',
+    label: 'Focus Hours',
+    accepted: true,
+    dismissed: false
+  });
+  renderWizTimeline();
+}
+
+function updateWizScheduleNext() {
+  const accepted = wizBlocks.filter(b => b.accepted && !b.dismissed);
+  const btn = document.getElementById('wiz-schedule-next');
+  btn.disabled = accepted.length === 0;
+}
+
+function wizGoTo(step) {
+  const prev = document.getElementById('wiz-step-' + wizStep);
+  const next = document.getElementById('wiz-step-' + step);
+
+  prev.classList.remove('active');
+  prev.style.display = 'none';
+  next.style.display = 'flex';
+  next.classList.add('active');
+
+  // Force re-trigger animation
+  next.style.animation = 'none';
+  next.offsetHeight; // reflow
+  next.style.animation = step > wizStep ? 'slideIn 0.35s cubic-bezier(0.34, 1.2, 0.64, 1)' : 'slideIn 0.35s cubic-bezier(0.34, 1.2, 0.64, 1)';
+
+  wizStep = step;
+  updateWizDots();
+
+  if (step === 3) {
+    wizBuildSummary();
+  }
+}
+
+function updateWizDots() {
+  const dots = document.querySelectorAll('#wiz-dots .step-dot');
+  dots.forEach((dot, i) => {
+    dot.classList.remove('active', 'completed');
+    if (i === wizStep) dot.classList.add('active');
+    else if (i < wizStep) dot.classList.add('completed');
+  });
+}
+
+function wizCheckIntention() {
+  const val = document.getElementById('wiz-intention').value.trim();
+  document.getElementById('wiz-intention-next').disabled = val.length === 0;
+}
+
+function wizBuildSummary() {
+  const accepted = wizBlocks.filter(b => b.accepted && !b.dismissed);
+  const totalMinutes = accepted.reduce((sum, b) => sum + b.duration, 0);
+  const hours = (totalMinutes / 60).toFixed(1);
+
+  document.getElementById('ready-blocks').textContent = accepted.length;
+  document.getElementById('ready-hours').textContent = hours + 'h';
+
+  const badgesEl = document.getElementById('ready-badges');
+  badgesEl.innerHTML = '';
+  accepted.forEach(b => {
+    const badge = document.createElement('div');
+    badge.className = 'block-type-badge ' + b.type;
+    badge.innerHTML = `<span class="block-dot" style="background: ${b.color}; width: 5px; height: 5px;"></span> ${b.name}`;
+    badgesEl.appendChild(badge);
+  });
+
+  const intention = document.getElementById('wiz-intention').value.trim();
+  document.getElementById('ready-intention').textContent = intention ? '"' + intention + '"' : '';
+}
+
+function wizFinish() {
+  const btn = event.target;
+  btn.textContent = 'Day started!';
+  btn.style.background = 'rgba(64, 199, 115, 0.2)';
+  btn.style.color = 'var(--go-green)';
+  btn.disabled = true;
+  setTimeout(() => {
+    btn.textContent = 'Start My Day';
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.disabled = false;
+    wizGoTo(0);
+    wizInit();
+    document.getElementById('wiz-intention').value = '';
+    wizCheckIntention();
+  }, 1500);
+}
+
+function formatHour(h) {
+  const hour = Math.floor(h);
+  const min = Math.round((h - hour) * 60);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const h12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+  return h12 + ':' + (min < 10 ? '0' : '') + min + ' ' + ampm;
+}
+
+// ============================================================
+// VARIATION B: The Single Screen
+// ============================================================
+let selectedTemplate = null;
+
+const templates = {
+  deep: [
+    { name: 'Deep Work', type: 'deep-work', color: '#f24040', startOff: 0, duration: 120 },
+    { name: 'Break', type: 'free-time', color: '#40c773', startOff: 120, duration: 30 },
+    { name: 'Focus Block', type: 'focus-hours', color: '#7375f2', startOff: 150, duration: 60 },
+    { name: 'Break', type: 'free-time', color: '#40c773', startOff: 210, duration: 30 },
+  ],
+  balanced: [
+    { name: 'Focus Block 1', type: 'focus-hours', color: '#7375f2', startOff: 0, duration: 75 },
+    { name: 'Break', type: 'free-time', color: '#40c773', startOff: 75, duration: 30 },
+    { name: 'Focus Block 2', type: 'focus-hours', color: '#7375f2', startOff: 105, duration: 75 },
+    { name: 'Break', type: 'free-time', color: '#40c773', startOff: 180, duration: 30 },
+  ],
+  light: [
+    { name: 'Focus Block 1', type: 'focus-hours', color: '#7375f2', startOff: 0, duration: 60 },
+    { name: 'Focus Block 2', type: 'focus-hours', color: '#7375f2', startOff: 120, duration: 60 },
+  ]
+};
+
+function selectTemplate(id) {
+  // Toggle if already selected
+  if (selectedTemplate === id) {
+    selectedTemplate = null;
+    document.querySelectorAll('.template-btn').forEach(b => b.classList.remove('selected'));
+    renderCalendar([]);
+    document.getElementById('single-launch-btn').textContent = 'Start Planning';
+    return;
+  }
+
+  selectedTemplate = id;
+  document.querySelectorAll('.template-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('tmpl-' + id).classList.add('selected');
+
+  renderCalendar(templates[id]);
+  document.getElementById('single-launch-btn').textContent = 'Start My Day';
+}
+
+function renderCalendar(blocks) {
+  const cal = document.getElementById('mini-cal');
+  cal.innerHTML = '';
+
+  const now = new Date();
+  const currentHour = now.getHours();
+  const startHour = Math.max(currentHour, 9);
+
+  // Render hour lines
+  for (let h = startHour; h <= 21; h++) {
+    const hourEl = document.createElement('div');
+    hourEl.className = 'cal-hour';
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h > 12 ? h - 12 : h;
+    hourEl.innerHTML = `
+      <div class="cal-hour-label">${h12} ${ampm}</div>
+      <div class="cal-hour-line"></div>
+    `;
+    cal.appendChild(hourEl);
+  }
+
+  // Now marker
+  const totalVisibleMinutes = (21 - startHour) * 60;
+  const minutesSinceStart = (currentHour - startHour) * 60 + now.getMinutes();
+  const nowPct = Math.max(0, Math.min(1, minutesSinceStart / totalVisibleMinutes));
+  const nowTop = nowPct * 180;
+
+  const nowLine = document.createElement('div');
+  nowLine.className = 'cal-now-line';
+  nowLine.style.top = nowTop + 'px';
+  cal.appendChild(nowLine);
+
+  const nowDot = document.createElement('div');
+  nowDot.className = 'cal-now-dot';
+  nowDot.style.top = nowTop + 'px';
+  cal.appendChild(nowDot);
+
+  // Render blocks
+  const baseMinutes = startHour * 60 + now.getMinutes();
+  blocks.forEach(block => {
+    const blockStartMin = baseMinutes + block.startOff;
+    const blockEndMin = blockStartMin + block.duration;
+    const blockStartH = blockStartMin / 60;
+    const blockEndH = blockEndMin / 60;
+
+    const topPct = ((blockStartMin - startHour * 60) / totalVisibleMinutes) * 180;
+    const heightPct = (block.duration / totalVisibleMinutes) * 180;
+
+    const blockEl = document.createElement('div');
+    blockEl.className = 'cal-block';
+    blockEl.style.top = Math.max(0, topPct) + 'px';
+    blockEl.style.height = Math.max(18, heightPct) + 'px';
+    blockEl.style.background = block.color + '22';
+    blockEl.style.borderLeft = '3px solid ' + block.color;
+
+    const startStr = formatHour24(blockStartMin);
+    const endStr = formatHour24(blockEndMin);
+    blockEl.innerHTML = `${block.name}<div class="cal-block-time">${startStr} - ${endStr}</div>`;
+    cal.appendChild(blockEl);
+  });
+}
+
+function formatHour24(totalMin) {
+  const h = Math.floor(totalMin / 60);
+  const m = Math.round(totalMin % 60);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
+  return h12 + ':' + (m < 10 ? '0' : '') + m + ' ' + ampm;
+}
+
+function singleLaunch() {
+  const btn = document.getElementById('single-launch-btn');
+  btn.textContent = 'Day planned!';
+  btn.style.background = 'rgba(64, 199, 115, 0.2)';
+  btn.style.color = 'var(--go-green)';
+  btn.disabled = true;
+  setTimeout(() => {
+    btn.textContent = selectedTemplate ? 'Start My Day' : 'Start Planning';
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.disabled = false;
+  }, 1500);
+}
+
+// ============================================================
+// VARIATION C: The Conversation
+// ============================================================
+let chatState = 0;
+let chatBlocks = [];
+let chatIntention = '';
+let chatBlockStart = null;
+let chatBlockDuration = null;
+
+function resetChat() {
+  chatState = 0;
+  chatBlocks = [];
+  chatIntention = '';
+  chatBlockStart = null;
+  chatBlockDuration = null;
+  document.getElementById('chat-body').innerHTML = '';
+  document.getElementById('chat-input').value = '';
+  document.getElementById('chat-input').disabled = true;
+  document.getElementById('chat-send-btn').disabled = true;
+
+  // Start conversation
+  setTimeout(() => chatNextStep(), 400);
+}
+
+function chatNextStep() {
+  const body = document.getElementById('chat-body');
+
+  switch (chatState) {
+    case 0:
+      // Greeting with yesterday stats
+      showTyping(() => {
+        addSystemMsg("Good morning! Yesterday you focused for <strong>5h 20m</strong> across <strong>4 blocks</strong> with a <strong>78% avg focus score</strong>. Nice work.");
+        chatState = 1;
+        setTimeout(() => chatNextStep(), 600);
+      });
+      break;
+
+    case 1:
+      // Ask for intention
+      showTyping(() => {
+        addSystemMsg("What's the main thing you want to accomplish today?");
+        enableInput("e.g. Ship the onboarding redesign");
+        chatState = 2;
+      }, 500);
+      break;
+
+    case 2:
+      // User typed intention — handled in chatSendInput
+      break;
+
+    case 3:
+      // Ask for first block start time
+      showTyping(() => {
+        addSystemMsg("Great focus. When do you want your first deep work block?");
+        showQuickButtons([
+          { text: 'Now', value: 'now' },
+          { text: 'In 30 min', value: '30' },
+          { text: 'In 1 hour', value: '60' },
+        ]);
+        chatState = 4;
+      });
+      break;
+
+    case 4:
+      // User picked start time — handled in quick button click
+      break;
+
+    case 5:
+      // Ask duration
+      showTyping(() => {
+        addSystemMsg("How long for this block?");
+        showQuickButtons([
+          { text: '1 hour', value: '60' },
+          { text: '1.5 hours', value: '90' },
+          { text: '2 hours', value: '120' },
+        ]);
+        chatState = 6;
+      });
+      break;
+
+    case 6:
+      // User picked duration — handled in quick button click
+      break;
+
+    case 7:
+      // Confirm block, ask for more
+      const lastBlock = chatBlocks[chatBlocks.length - 1];
+      showTyping(() => {
+        let msg = `Got it.`;
+        addSystemMsg(msg);
+        addBlockConfirm(lastBlock);
+
+        setTimeout(() => {
+          showTyping(() => {
+            addSystemMsg("Want to add another block?");
+            showQuickButtons([
+              { text: 'Add focus block', value: 'focus' },
+              { text: 'Add a break', value: 'break' },
+              { text: "That's enough", value: 'done' },
+            ]);
+            chatState = 8;
+          }, 300);
+        }, 400);
+      });
+      break;
+
+    case 8:
+      // User picking next action — handled in quick button click
+      break;
+
+    case 9:
+      // Another block start time
+      showTyping(() => {
+        const lastBlock = chatBlocks[chatBlocks.length - 1];
+        const suggestedStart = lastBlock.endH;
+        addSystemMsg("When should it start?");
+        const h1 = formatHour(suggestedStart);
+        const h2 = formatHour(suggestedStart + 0.5);
+        showQuickButtons([
+          { text: h1, value: String(suggestedStart) },
+          { text: h2, value: String(suggestedStart + 0.5) },
+        ]);
+        chatState = 10;
+      });
+      break;
+
+    case 10:
+      // User picked start — handled in quick button
+      break;
+
+    case 11:
+      // Duration for next block
+      showTyping(() => {
+        addSystemMsg("Duration?");
+        const btns = chatPendingType === 'break'
+          ? [{ text: '15 min', value: '15' }, { text: '30 min', value: '30' }, { text: '45 min', value: '45' }]
+          : [{ text: '1 hour', value: '60' }, { text: '1.5 hours', value: '90' }, { text: '2 hours', value: '120' }];
+        showQuickButtons(btns);
+        chatState = 12;
+      });
+      break;
+
+    case 12:
+      // User picked duration — handled in quick button
+      break;
+
+    case 13:
+      // Final summary
+      const totalMin = chatBlocks.reduce((s, b) => s + b.duration, 0);
+      const totalH = (totalMin / 60).toFixed(1);
+      const focusBlocks = chatBlocks.filter(b => b.type !== 'free-time');
+      showTyping(() => {
+        let summary = `Your day: <strong>${chatBlocks.length} blocks</strong>, <strong>${totalH}h</strong> planned.`;
+        addSystemMsg(summary);
+        chatBlocks.forEach(b => addBlockConfirm(b));
+        setTimeout(() => {
+          showTyping(() => {
+            addSystemMsg("Let's do this. Ready?");
+            showStartButton();
+            chatState = 14;
+          }, 300);
+        }, 400);
+      });
+      break;
+
+    case 14:
+      // Done
+      break;
+  }
+
+  scrollChatToBottom();
+}
+
+let chatPendingType = 'deep-work';
+
+function chatSendInput() {
+  const input = document.getElementById('chat-input');
+  const val = input.value.trim();
+  if (!val) return;
+
+  addUserMsg(val);
+  input.value = '';
+  disableInput();
+
+  if (chatState === 2) {
+    chatIntention = val;
+    chatState = 3;
+    setTimeout(() => chatNextStep(), 400);
+  }
+}
+
+function chatKeyDown(e) {
+  if (e.key === 'Enter') chatSendInput();
+  // Enable send button based on input
+  setTimeout(() => {
+    document.getElementById('chat-send-btn').disabled = !document.getElementById('chat-input').value.trim();
+  }, 10);
+}
+
+function chatQuickPick(value) {
+  // Remove quick buttons
+  const btns = document.querySelector('.chat-quick-btns');
+  if (btns) btns.remove();
+
+  if (chatState === 4) {
+    // Start time picked
+    let label;
+    const now = new Date();
+    let startH;
+    if (value === 'now') {
+      startH = now.getHours() + now.getMinutes() / 60;
+      label = 'Now';
+    } else {
+      startH = now.getHours() + (now.getMinutes() + parseInt(value)) / 60;
+      label = 'In ' + value + ' min';
+    }
+    chatBlockStart = startH;
+    addUserMsg(label);
+    chatState = 5;
+    setTimeout(() => chatNextStep(), 400);
+  } else if (chatState === 6) {
+    // Duration picked
+    chatBlockDuration = parseInt(value);
+    addUserMsg(value === '60' ? '1 hour' : value === '90' ? '1.5 hours' : '2 hours');
+
+    const endH = chatBlockStart + chatBlockDuration / 60;
+    chatBlocks.push({
+      name: chatIntention.length > 30 ? chatIntention.substring(0, 30) + '...' : chatIntention,
+      type: 'deep-work',
+      color: '#f24040',
+      startH: chatBlockStart,
+      endH: endH,
+      duration: chatBlockDuration,
+      label: 'Deep Work'
+    });
+    chatState = 7;
+    setTimeout(() => chatNextStep(), 400);
+  } else if (chatState === 8) {
+    // Add another or done
+    if (value === 'done') {
+      addUserMsg("That's enough");
+      chatState = 13;
+      setTimeout(() => chatNextStep(), 400);
+    } else if (value === 'break') {
+      addUserMsg("Add a break");
+      chatPendingType = 'break';
+      chatState = 9;
+      setTimeout(() => chatNextStep(), 400);
+    } else {
+      addUserMsg("Add focus block");
+      chatPendingType = 'focus';
+      chatState = 9;
+      setTimeout(() => chatNextStep(), 400);
+    }
+  } else if (chatState === 10) {
+    // Start time for additional block
+    chatBlockStart = parseFloat(value);
+    addUserMsg(formatHour(chatBlockStart));
+    chatState = 11;
+    setTimeout(() => chatNextStep(), 400);
+  } else if (chatState === 12) {
+    // Duration for additional block
+    chatBlockDuration = parseInt(value);
+    const durLabel = chatBlockDuration >= 60 ? (chatBlockDuration / 60) + (chatBlockDuration % 60 === 0 ? '' : '.5') + ' hour' + (chatBlockDuration > 60 ? 's' : '') : chatBlockDuration + ' min';
+    addUserMsg(durLabel);
+
+    const endH = chatBlockStart + chatBlockDuration / 60;
+    const isBreak = chatPendingType === 'break';
+    chatBlocks.push({
+      name: isBreak ? 'Break' : 'Focus Block',
+      type: isBreak ? 'free-time' : 'focus-hours',
+      color: isBreak ? '#40c773' : '#7375f2',
+      startH: chatBlockStart,
+      endH: endH,
+      duration: chatBlockDuration,
+      label: isBreak ? 'Free Time' : 'Focus Hours'
+    });
+    chatState = 7;
+    setTimeout(() => chatNextStep(), 400);
+  }
+}
+
+function addSystemMsg(html) {
+  const body = document.getElementById('chat-body');
+  const msg = document.createElement('div');
+  msg.className = 'chat-msg system';
+  msg.innerHTML = html;
+  body.appendChild(msg);
+  scrollChatToBottom();
+}
+
+function addUserMsg(text) {
+  const body = document.getElementById('chat-body');
+  const msg = document.createElement('div');
+  msg.className = 'chat-msg user';
+  msg.textContent = text;
+  body.appendChild(msg);
+  scrollChatToBottom();
+}
+
+function addBlockConfirm(block) {
+  const body = document.getElementById('chat-body');
+  const el = document.createElement('div');
+  el.className = 'chat-block-confirm';
+  el.style.animation = 'msgAppear 0.3s cubic-bezier(0.34, 1.2, 0.64, 1)';
+  el.innerHTML = `
+    <div class="chat-block-bar" style="background: ${block.color};"></div>
+    <div class="chat-block-info">
+      <div class="name">${block.name}</div>
+      <div class="time">${block.label} &middot; ${formatHour(block.startH)} - ${formatHour(block.endH)}</div>
+    </div>
+  `;
+  body.appendChild(el);
+  scrollChatToBottom();
+}
+
+function showTyping(callback, delay) {
+  const body = document.getElementById('chat-body');
+  const typing = document.createElement('div');
+  typing.className = 'chat-typing';
+  typing.id = 'chat-typing-indicator';
+  typing.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+  body.appendChild(typing);
+  scrollChatToBottom();
+
+  setTimeout(() => {
+    typing.remove();
+    callback();
+    scrollChatToBottom();
+  }, delay || 800);
+}
+
+function showQuickButtons(buttons) {
+  const body = document.getElementById('chat-body');
+  const container = document.createElement('div');
+  container.className = 'chat-quick-btns';
+  buttons.forEach(btn => {
+    const el = document.createElement('button');
+    el.className = 'chat-quick-btn';
+    el.textContent = btn.text;
+    el.onclick = () => chatQuickPick(btn.value);
+    container.appendChild(el);
+  });
+  body.appendChild(container);
+  scrollChatToBottom();
+}
+
+function showStartButton() {
+  const body = document.getElementById('chat-body');
+  const container = document.createElement('div');
+  container.style.cssText = 'width: 100%; padding: 4px 0; animation: msgAppear 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);';
+  const btn = document.createElement('button');
+  btn.className = 'btn-primary';
+  btn.textContent = "Let's go";
+  btn.style.maxWidth = '200px';
+  btn.onclick = () => {
+    btn.textContent = 'Day started!';
+    btn.style.background = 'rgba(64, 199, 115, 0.2)';
+    btn.style.color = 'var(--go-green)';
+    btn.disabled = true;
+  };
+  container.appendChild(btn);
+  body.appendChild(container);
+  scrollChatToBottom();
+}
+
+function enableInput(placeholder) {
+  const input = document.getElementById('chat-input');
+  input.disabled = false;
+  input.placeholder = placeholder || 'Type your response...';
+  input.focus();
+}
+
+function disableInput() {
+  const input = document.getElementById('chat-input');
+  input.disabled = true;
+  document.getElementById('chat-send-btn').disabled = true;
+}
+
+function scrollChatToBottom() {
+  setTimeout(() => {
+    const body = document.getElementById('chat-body');
+    body.scrollTop = body.scrollHeight;
+  }, 50);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+wizInit();
+renderCalendar([]);
+resetChat();
+</script>
+</body>
+</html>

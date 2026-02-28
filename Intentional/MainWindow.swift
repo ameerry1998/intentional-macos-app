@@ -38,6 +38,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let contentController = WKUserContentController()
         contentController.add(self, name: "intentional")
 
+        // Inject theme at document-start to prevent flash of wrong theme
+        let theme = MainWindow.readThemeFromSettings()
+        let themeScript = WKUserScript(
+            source: MainWindow.themeInjectionJS(theme: theme),
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        contentController.addUserScript(themeScript)
+
         let config = WKWebViewConfiguration()
         config.userContentController = contentController
         // Allow file:// access for local resources
@@ -54,7 +63,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         window.title = "Intentional"
         window.center()
         window.setFrameAutosaveName("MainWindow")
-        window.backgroundColor = NSColor(red: 0.06, green: 0.06, blue: 0.14, alpha: 1.0)
+        window.backgroundColor = MainWindow.windowBackground(for: theme)
 
         // Force window visible
         window.makeKeyAndOrderFront(nil)
@@ -62,6 +71,47 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         // Load appropriate page
         loadCurrentPage()
+    }
+
+    // MARK: - Theme Helpers
+
+    static func readThemeFromSettings() -> String {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let settingsURL = appSupport.appendingPathComponent("Intentional/onboarding_settings.json")
+        guard FileManager.default.fileExists(atPath: settingsURL.path),
+              let data = try? Data(contentsOf: settingsURL),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let theme = json["theme"] as? String else {
+            return "iridescent"
+        }
+        return theme
+    }
+
+    static func themeInjectionJS(theme: String) -> String {
+        let setAttr = theme == "iridescent" ? "" : "document.documentElement.setAttribute('data-theme','\(theme)');"
+        let effectClass: String
+        switch theme {
+        case "iridescent": effectClass = "document.body.classList.add('theme-effects-iridescent');"
+        case "warm": effectClass = "document.body.classList.add('theme-effects-warm');"
+        default: effectClass = ""
+        }
+        // Run at document-start: set attribute immediately, add body class after DOM ready
+        return """
+        \(setAttr)
+        document.addEventListener('DOMContentLoaded', function() {
+            \(effectClass)
+        });
+        """
+    }
+
+    static func windowBackground(for theme: String) -> NSColor {
+        switch theme {
+        case "classic":   return NSColor(red: 0.04, green: 0.04, blue: 0.04, alpha: 1.0)
+        case "emerald":   return NSColor(red: 0.04, green: 0.04, blue: 0.04, alpha: 1.0)
+        case "warm":      return NSColor(red: 0.067, green: 0.067, blue: 0.063, alpha: 1.0)
+        case "light":     return NSColor(red: 0.96, green: 0.96, blue: 0.97, alpha: 1.0)
+        default:          return NSColor(red: 0.055, green: 0.055, blue: 0.07, alpha: 1.0) // iridescent
+        }
     }
 
     // MARK: - Page Loading
@@ -315,6 +365,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let partnerEmail = settings["partnerEmail"] as? String
         let partnerName = settings["partnerName"] as? String
         let lockMode = settings["lockMode"] as? String ?? "none"
+        let theme = settings["theme"] as? String
 
         appDelegate?.postLog("📋 Saving onboarding: lock=\(lockMode)")
 
@@ -327,7 +378,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             platforms: platforms,
             partnerEmail: partnerEmail,
             partnerName: partnerName,
-            lockMode: lockMode
+            lockMode: lockMode,
+            theme: theme
         )
 
         // 3. Make API calls, sync consent status, and broadcast to extensions
@@ -558,7 +610,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         platforms: [String: Any],
         partnerEmail: String?,
         partnerName: String?,
-        lockMode: String
+        lockMode: String,
+        theme: String? = nil
     ) {
         let appSupport = FileManager.default.urls(
             for: .applicationSupportDirectory,
@@ -569,13 +622,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         let settingsURL = dir.appendingPathComponent("onboarding_settings.json")
 
-        let settings: [String: Any] = [
+        var settings: [String: Any] = [
             "platforms": platforms,
             "partnerEmail": partnerEmail ?? "",
             "partnerName": partnerName ?? "",
             "lockMode": lockMode,
             "completedAt": ISO8601DateFormatter().string(from: Date())
         ]
+        if let th = theme { settings["theme"] = th }
 
         if let data = try? JSONSerialization.data(withJSONObject: settings, options: .prettyPrinted) {
             try? data.write(to: settingsURL)
@@ -703,6 +757,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         result["disabledPlatforms"] = (savedSettings["disabledPlatforms"] as? [String]) ?? [String]()
         result["distractingApps"] = (savedSettings["distractingApps"] as? [[String: Any]]) ?? [[String: Any]]()
         result["soundTone"] = (savedSettings["soundTone"] as? String) ?? "Glass"
+        result["theme"] = (savedSettings["theme"] as? String) ?? "iridescent"
         result["strictModeEnabled"] = UserDefaults.standard.bool(forKey: "strictModeEnabled")
         if let tuu = temporaryUnlockUntil { result["temporaryUnlockUntil"] = tuu }
         if let sua = selfUnlockAvailableAt { result["selfUnlockAvailableAt"] = sua }
@@ -836,6 +891,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let disabledPlatforms = settings["disabledPlatforms"] as? [String]
         let distractingApps = settings["distractingApps"] as? [[String: Any]]
         let soundTone = settings["soundTone"] as? String
+        let theme = settings["theme"] as? String
         let platforms: [String: Any] = ["youtube": ytSettings, "instagram": igSettings, "facebook": fbSettings]
 
         saveSettingsToFile(
@@ -848,12 +904,18 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             distractingSites: distractingSites,
             disabledPlatforms: disabledPlatforms,
             distractingApps: distractingApps,
-            soundTone: soundTone
+            soundTone: soundTone,
+            theme: theme
         )
 
         // Persist sound tone to UserDefaults for DeepWorkTimerController
         if let tone = soundTone {
             UserDefaults.standard.set(tone, forKey: "soundTone")
+        }
+
+        // Update window background for theme change
+        if let th = theme {
+            self.window?.backgroundColor = MainWindow.windowBackground(for: th)
         }
 
         // Update WebsiteBlocker with new distracting sites
@@ -907,7 +969,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         distractingSites: [String]? = nil,
         disabledPlatforms: [String]? = nil,
         distractingApps: [[String: Any]]? = nil,
-        soundTone: String? = nil
+        soundTone: String? = nil,
+        theme: String? = nil
     ) {
         updateSettingsFile { settings in
             var existingPlatforms = settings["platforms"] as? [String: Any] ?? [:]
@@ -929,6 +992,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             if let dp = disabledPlatforms { settings["disabledPlatforms"] = dp }
             if let da = distractingApps { settings["distractingApps"] = da }
             if let st = soundTone { settings["soundTone"] = st }
+            if let th = theme { settings["theme"] = th }
             settings["lastModified"] = ISO8601DateFormatter().string(from: Date())
         }
     }
