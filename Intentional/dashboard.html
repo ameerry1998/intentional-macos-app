@@ -6226,6 +6226,30 @@ function addFocusBlock(blockType) {
   if (blockType !== 'freeTime') openBlockEditor(newBlock.id, { clientY: 300, clientX: 500 });
 }
 
+function openNewBlockDraft() {
+  var now = new Date();
+  var startMin = now.getHours() * 60 + now.getMinutes();
+  var endMin = Math.min(startMin + 60, CALENDAR_END_HOUR * 60);
+  if (endMin - startMin < 2) return;
+
+  var newBlock = {
+    id: generateFocusUUID(),
+    title: '',
+    description: '',
+    startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
+    endHour: Math.floor(endMin / 60), endMinute: endMin % 60,
+    blockType: 'focusHours',
+    isFree: false
+  };
+
+  focusState.blocks.push(newBlock);
+  renderCalendarBlocks();
+  // Open editor first (its closeBlockEditor() call runs before draftBlockId is set,
+  // so it won't delete our new block), then mark it as draft
+  openBlockEditor(newBlock.id, { clientY: 300, clientX: 500 });
+  focusState.draftBlockId = newBlock.id;
+}
+
 // ---- Block Editor Popover ----
 
 function openBlockEditor(blockId, event) {
@@ -6297,10 +6321,22 @@ function openBlockEditor(blockId, event) {
 
 function closeBlockEditorOutside(e) {
   var editor = document.getElementById('block-editor');
-  if (editor && !editor.contains(e.target) && !e.target.closest('.calendar-block')) saveBlockEdit();
+  if (editor && !editor.contains(e.target) && !e.target.closest('.calendar-block')) {
+    if (focusState.draftBlockId) {
+      closeBlockEditor();
+    } else {
+      saveBlockEdit();
+    }
+  }
 }
 
 function closeBlockEditor() {
+  if (focusState.draftBlockId) {
+    var draftId = focusState.draftBlockId;
+    focusState.draftBlockId = null;
+    focusState.blocks = focusState.blocks.filter(function(b) { return b.id !== draftId; });
+    renderCalendarBlocks();
+  }
   var editor = document.getElementById('block-editor');
   if (editor) editor.remove();
   focusState.editingBlockId = null;
@@ -6308,6 +6344,7 @@ function closeBlockEditor() {
 }
 
 function saveBlockEdit() {
+  focusState.draftBlockId = null;
   var blockId = focusState.editingBlockId;
   if (!blockId) { closeBlockEditor(); return; }
   var block = focusState.blocks.find(function(b) { return b.id === blockId; });
@@ -6392,9 +6429,11 @@ function selectBlockType(btn) {
 function deleteFocusBlock(blockId) {
   var block = focusState.blocks.find(function(b) { return b.id === blockId; });
   if (block && isBlockActive(block)) return;
+  var isDraft = focusState.draftBlockId === blockId;
+  if (isDraft) focusState.draftBlockId = null;
   focusState.blocks = focusState.blocks.filter(function(b) { return b.id !== blockId; });
   closeBlockEditor();
-  markFocusDirty();
+  if (!isDraft) markFocusDirty();
   renderCalendarBlocks();
 }
 

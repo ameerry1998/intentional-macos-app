@@ -107,7 +107,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
     /// Navigate to today page and open the block editor for a new block at the current time.
     func openScheduleWithNewBlock() {
-        webView.evaluateJavaScript("navigateTo('today'); setTimeout(function(){ addFocusBlock('focusHours'); }, 400);") { _, error in
+        webView.evaluateJavaScript("navigateTo('today'); setTimeout(function(){ openNewBlockDraft(); }, 400);") { _, error in
             if let error = error {
                 self.appDelegate?.postLog("⚠️ openScheduleWithNewBlock error: \(error)")
             }
@@ -870,6 +870,21 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         broadcastSettingsToExtensions(settings)
         callJS("window._saveSettingsResult && window._saveSettingsResult({ success: true })")
         appDelegate?.postLog("💾 SAVE_SETTINGS: Settings saved and broadcast")
+
+        // Sync settings to backend (fire-and-forget, don't block UI)
+        let syncPayload: [String: Any] = {
+            var payload: [String: Any] = [:]
+            payload["platforms"] = platforms
+            if let ds = distractingSites { payload["distractingSites"] = ds }
+            if let dp = disabledPlatforms { payload["disabledPlatforms"] = dp }
+            if let da = distractingApps { payload["distractingApps"] = da }
+            if let cats = settings["blockedCategories"] as? [String] { payload["blockedCategories"] = cats }
+            if let mpp = settings["maxPerPeriod"] as? [String: Any] { payload["maxPerPeriod"] = mpp }
+            return payload
+        }()
+        Task {
+            await appDelegate?.backendClient?.syncSettings(settings: syncPayload)
+        }
     }
 
     // MARK: - End Session

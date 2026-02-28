@@ -8,6 +8,41 @@ class KeyablePanel: NSPanel {
     override var canBecomeKey: Bool { allowKeyboardInput }
 }
 
+// MARK: - Transparent Hosting View (no default background behind rounded corners)
+
+class TransparentHostingView<Content: View>: NSHostingView<Content> {
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        clearBackgroundViews()
+        guard let layer = self.layer else { return }
+        layer.backgroundColor = .clear
+        layer.isOpaque = false
+    }
+
+    override func layout() {
+        super.layout()
+        clearBackgroundViews()
+    }
+
+    /// Recursively find and hide any internal background views that NSHostingView creates.
+    private func clearBackgroundViews() {
+        func clearSubviews(_ view: NSView) {
+            let typeName = String(describing: type(of: view))
+            if typeName.contains("Background") {
+                view.isHidden = true
+            }
+            view.layer?.backgroundColor = .clear
+            view.layer?.isOpaque = false
+            for subview in view.subviews {
+                clearSubviews(subview)
+            }
+        }
+        for subview in self.subviews {
+            clearSubviews(subview)
+        }
+    }
+}
+
 // MARK: - Pill Mode + Celebration Data
 
 enum PillMode {
@@ -109,7 +144,7 @@ class DeepWorkTimerController {
         self.viewModel = vm
 
         let view = DeepWorkTimerView(viewModel: vm)
-        let hostingView = NSHostingView(rootView: view)
+        let hostingView = TransparentHostingView(rootView: view)
         hostingView.autoresizingMask = [.width, .height]
         hostingView.wantsLayer = true
         hostingView.layer?.backgroundColor = .clear
@@ -268,7 +303,7 @@ class DeepWorkTimerController {
         vm.mode = .noPlan
 
         let view = DeepWorkTimerView(viewModel: vm)
-        let hostingView = NSHostingView(rootView: view)
+        let hostingView = TransparentHostingView(rootView: view)
         hostingView.autoresizingMask = [.width, .height]
         hostingView.wantsLayer = true
         hostingView.layer?.backgroundColor = .clear
@@ -277,7 +312,7 @@ class DeepWorkTimerController {
         let windowHeight: CGFloat
         switch data.state {
         case .noPlan:     windowHeight = 270
-        case .gap:        windowHeight = CGFloat(160 + min(data.remainingBlocks.count, 3) * 36)
+        case .gap:        windowHeight = CGFloat(130 + min(data.remainingBlocks.count, 3) * 36)
         case .doneForDay: windowHeight = 155
         }
         hostingView.frame = NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight)
@@ -320,9 +355,14 @@ class DeepWorkTimerController {
         }
     }
 
-    /// Minimize the pill to the dock (hide without destroying state).
+    /// Minimize the pill to the dock without destroying state.
     func minimize() {
-        timerWindow?.miniaturize(nil)
+        guard let window = timerWindow else { return }
+        // Borderless panels need .miniaturizable for miniaturize to work
+        if !window.styleMask.contains(.miniaturizable) {
+            window.styleMask.insert(.miniaturizable)
+        }
+        window.miniaturize(nil)
     }
 
     /// Hide the widget and stop the countdown.
@@ -1566,21 +1606,18 @@ struct DeepWorkTimerView: View {
             }
             .padding(.bottom, 6)
 
-            // Schedule Now button
+            // Schedule Now link
             Button(action: { data.onScheduleNow?() }) {
-                Text("Schedule Now")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 7)
-                    .background(
-                        LinearGradient(colors: [goGreen, goGreenBright],
-                                       startPoint: .leading, endPoint: .trailing)
-                    )
-                    .cornerRadius(8)
+                HStack(spacing: 2) {
+                    Text("Schedule Now")
+                        .font(.system(size: 11, weight: .medium))
+                    Text("\u{2192}")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundColor(goGreen)
             }
             .buttonStyle(.plain)
-            .padding(.horizontal, 14)
+            .frame(maxWidth: .infinity, alignment: .center)
             .padding(.bottom, 10)
         }
     }

@@ -204,7 +204,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         websiteBlocker = WebsiteBlocker(backendClient: backendClient!, appDelegate: self)
         // Load custom distracting sites from settings
         if let supportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-            let settingsURL = supportDir.appendingPathComponent("Intentional/settings.json")
+            let settingsURL = supportDir.appendingPathComponent("Intentional/onboarding_settings.json")
             if let data = try? Data(contentsOf: settingsURL),
                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let sites = json["distractingSites"] as? [String], !sites.isEmpty {
@@ -230,6 +230,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     mainWindowController?.syncStateFromBackend(status)
                 }
             }
+
+            // Restore settings from backend on fresh install (no local settings file)
+            await self.restoreSettingsFromBackendIfNeeded()
 
             await backendClient?.sendEvent(type: "app_started", details: [:])
         }
@@ -575,6 +578,58 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil,
             userInfo: ["type": type]
         )
+    }
+
+    // MARK: - Settings Restore from Backend
+
+    /// On fresh install (no local settings file), pull settings from backend and restore them.
+    /// Local settings always win if they exist — backend is only the fallback.
+    private func restoreSettingsFromBackendIfNeeded() async {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("Intentional")
+        let settingsURL = dir.appendingPathComponent("onboarding_settings.json")
+
+        // Only restore if local settings file doesn't exist (fresh install)
+        guard !FileManager.default.fileExists(atPath: settingsURL.path) else {
+            postLog("☁️ Settings restore: local file exists, skipping backend pull")
+            return
+        }
+
+        guard let backendSettings = await backendClient?.getSettings() else {
+            postLog("☁️ Settings restore: no backend settings available")
+            return
+        }
+
+        postLog("☁️ Settings restore: fresh install detected, restoring from backend")
+
+        // Write backend settings to disk
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        if let data = try? JSONSerialization.data(withJSONObject: backendSettings, options: .prettyPrinted) {
+            try? data.write(to: settingsURL)
+            postLog("☁️ Settings restore: wrote settings to \(settingsURL.lastPathComponent)")
+        }
+
+        // Update in-memory components on the main thread
+        await MainActor.run {
+            // Restore distracting sites into WebsiteBlocker
+            if let sites = backendSettings["distractingSites"] as? [String], !sites.isEmpty {
+                websiteBlocker?.updateDistractingSites(sites)
+                postLog("☁️ Settings restore: updated WebsiteBlocker with \(sites.count) distracting site(s)")
+            }
+
+            // Restore distracting apps into FocusMonitor
+            if let apps = backendSettings["distractingApps"] as? [[String: Any]] {
+                let bundleIds = Set(apps.compactMap { $0["bundleId"] as? String })
+                focusMonitor?.distractingAppBundleIds = bundleIds
+                postLog("☁️ Settings restore: updated FocusMonitor with \(bundleIds.count) distracting app(s)")
+            }
+
+            // Broadcast restored settings to connected browser extensions
+            socketRelayServer?.broadcastToAll(
+                ["type": "SETTINGS_SYNC"].merging(backendSettings) { _, new in new }
+            )
+            postLog("☁️ Settings restore: broadcast to extensions complete")
+        }
     }
 
     func postLog(_ message: String) {
