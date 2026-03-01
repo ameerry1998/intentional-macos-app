@@ -5,6 +5,58 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Intentional — Setup</title>
 <style>
+/* ===== Iridescent Theme: CSS Custom Properties ===== */
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+:root {
+  --bg-base: #0e0e12;
+  --bg-elevated: rgba(20, 20, 28, 0.9);
+  --bg-elevated-solid: #14141c;
+  --accent-primary: #8b5cf6;
+  --accent-primary-hover: #7c3aed;
+  --accent-primary-rgb: 139, 92, 246;
+  --gradient-iridescent: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899);
+  --block-focus: #8b5cf6;
+  --block-deep-work: #ef4444;
+  --block-free-time: #34d399;
+  --color-success: #34d399;
+  --color-success-rgb: 52, 211, 153;
+  --color-error: #ef4444;
+  --color-error-rgb: 239, 68, 68;
+  --color-warning: #f59e0b;
+  --color-warning-rgb: 245, 158, 11;
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.5);
+  --highlight-edge: linear-gradient(90deg, transparent, rgba(6,182,212,0.4), rgba(139,92,246,0.4), rgba(236,72,153,0.3), transparent);
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes border-rotate {
+  0% { --angle: 0deg; }
+  100% { --angle: 360deg; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes aurora-drift {
+  0% { transform: translate(0, 0) scale(1); opacity: 0.3; }
+  33% { transform: translate(30px, -20px) scale(1.1); opacity: 0.4; }
+  66% { transform: translate(-20px, 15px) scale(0.95); opacity: 0.25; }
+  100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
+}
+
 /* ===== Reset & Base ===== */
 *, *::before, *::after {
   margin: 0;
@@ -14,7 +66,7 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, sans-serif;
-  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+  background: var(--bg-base);
   color: #ffffff;
   min-height: 100vh;
   display: flex;
@@ -25,18 +77,59 @@ body {
   -moz-osx-font-smoothing: grayscale;
   user-select: none;
   -webkit-user-select: none;
+  position: relative;
 }
 
-/* ===== Glow Background ===== */
+/* ===== Glow Background (Aurora) ===== */
 .glow {
   position: fixed;
   width: 150%;
   height: 150%;
   top: -25%;
   left: -25%;
-  background: radial-gradient(ellipse at center, rgba(99, 102, 241, 0.12) 0%, transparent 50%);
+  background: radial-gradient(ellipse at center, rgba(var(--accent-primary-rgb), 0.1) 0%, transparent 50%);
   animation: glow-pulse 4s ease-in-out infinite;
   pointer-events: none;
+}
+.theme-effects-iridescent .glow::before {
+  content: '';
+  position: absolute;
+  top: 10%;
+  left: -5%;
+  width: 40%;
+  height: 40%;
+  background: radial-gradient(ellipse, rgba(6, 182, 212, 0.06), transparent 70%);
+  animation: aurora-drift 10s ease-in-out infinite;
+}
+.theme-effects-iridescent .glow::after {
+  content: '';
+  position: absolute;
+  bottom: 15%;
+  right: -5%;
+  width: 40%;
+  height: 40%;
+  background: radial-gradient(ellipse, rgba(236, 72, 153, 0.04), transparent 70%);
+  animation: aurora-drift 12s ease-in-out infinite reverse;
+}
+.theme-effects-warm .glow::before {
+  content: '';
+  position: absolute;
+  top: 10%;
+  left: -5%;
+  width: 40%;
+  height: 40%;
+  background: radial-gradient(ellipse, rgba(251, 191, 36, 0.05), transparent 70%);
+  animation: aurora-drift 10s ease-in-out infinite;
+}
+.theme-effects-warm .glow::after {
+  content: '';
+  position: absolute;
+  bottom: 15%;
+  right: -5%;
+  width: 40%;
+  height: 40%;
+  background: radial-gradient(ellipse, rgba(52, 211, 153, 0.04), transparent 70%);
+  animation: aurora-drift 12s ease-in-out infinite reverse;
 }
 
 @keyframes glow-pulse {
@@ -161,15 +254,25 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  background: var(--accent-primary);
   color: white;
   flex: 1;
   max-width: 200px;
 }
+.theme-effects-iridescent .btn-primary {
+  background: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899);
+  background-size: 200% 200%;
+  animation: gradient-shift 4s ease infinite;
+}
+.theme-effects-warm .btn-primary {
+  background: linear-gradient(135deg, #fbbf24, #34d399, #8b5cf6);
+  background-size: 200% 200%;
+  animation: gradient-shift 4s ease infinite;
+}
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 8px 24px rgba(var(--accent-primary-rgb), 0.4);
 }
 
 .btn-primary:disabled {
@@ -230,7 +333,9 @@ body {
 }
 
 .dot.active {
-  background: #6366f1;
+  background: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899);
+  background-size: 200% 200%;
+  animation: gradient-shift 4s ease infinite;
   width: 24px;
   border-radius: 5px;
 }
@@ -298,7 +403,9 @@ body {
 }
 
 .checkbox-label input:checked + .checkbox-custom {
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  background: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899);
+  background-size: 200% 200%;
+  animation: gradient-shift 4s ease infinite;
   border-color: transparent;
 }
 
@@ -327,11 +434,11 @@ body {
 }
 
 .select-input:focus {
-  border-color: #6366f1;
+  border-color: var(--accent-primary);
 }
 
 .select-input option {
-  background: #1a1a2e;
+  background: var(--bg-elevated-solid);
   color: #ffffff;
 }
 
@@ -351,7 +458,7 @@ body {
 }
 
 .text-input:focus {
-  border-color: #6366f1;
+  border-color: var(--accent-primary);
 }
 
 .text-input::placeholder {
@@ -385,8 +492,9 @@ body {
 }
 
 .danger-chip.selected {
-  background: rgba(99, 102, 241, 0.15);
-  border-color: #6366f1;
+  background: rgba(var(--accent-primary-rgb), 0.15);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.2), 0 0 12px rgba(var(--accent-primary-rgb), 0.1);
 }
 
 .danger-chip-icon {
@@ -424,7 +532,9 @@ body {
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  background: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899);
+  background-size: 200% 200%;
+  animation: gradient-shift 4s ease infinite;
   color: white;
   border-radius: 20px;
   font-size: 11px;
@@ -481,7 +591,7 @@ body {
 }
 
 .benefit-icon {
-  color: #34d399;
+  color: var(--color-success);
   font-weight: bold;
   font-size: 14px;
 }
@@ -513,8 +623,9 @@ body {
 }
 
 .lock-option.selected {
-  background: rgba(99, 102, 241, 0.15);
-  border-color: #6366f1;
+  background: rgba(var(--accent-primary-rgb), 0.15);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.2), 0 0 12px rgba(var(--accent-primary-rgb), 0.1);
 }
 
 .lock-option.disabled {
@@ -546,7 +657,7 @@ body {
 
 .lock-note {
   font-size: 13px;
-  color: #f59e0b;
+  color: var(--color-warning);
   text-align: center;
   margin-top: 16px;
   min-height: 20px;
@@ -578,12 +689,12 @@ body {
 }
 
 .browser-row.connected {
-  background: rgba(52, 211, 153, 0.12);
-  border: 1px solid rgba(52, 211, 153, 0.25);
+  background: rgba(var(--color-success-rgb), 0.12);
+  border: 1px solid rgba(var(--color-success-rgb), 0.25);
 }
 
 .browser-row.connected:hover {
-  background: rgba(52, 211, 153, 0.18);
+  background: rgba(var(--color-success-rgb), 0.18);
 }
 
 .browser-icon {
@@ -644,7 +755,7 @@ body {
 }
 
 .browser-ext-url.copied {
-  color: #34d399;
+  color: var(--color-success);
 }
 
 .browser-status {
@@ -655,7 +766,7 @@ body {
 }
 
 .browser-status.connected {
-  color: #34d399;
+  color: var(--color-success);
   animation: check-pop 0.3s ease-out;
 }
 
@@ -671,7 +782,9 @@ body {
   font-weight: 600;
   border: none;
   border-radius: 8px;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  background: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899);
+  background-size: 200% 200%;
+  animation: gradient-shift 4s ease infinite;
   color: white;
   cursor: pointer;
   transition: all 0.2s;
@@ -681,7 +794,7 @@ body {
 
 .browser-install-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 4px 12px rgba(var(--accent-primary-rgb), 0.4);
 }
 
 .browser-summary {
@@ -695,7 +808,7 @@ body {
 }
 
 .browser-summary.all-connected {
-  color: #34d399;
+  color: var(--color-success);
 }
 
 .poll-spinner {
@@ -810,7 +923,9 @@ body {
 }
 
 .toggle-input:checked + .toggle-track {
-  background: #6366f1;
+  background: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899);
+  background-size: 200% 200%;
+  animation: gradient-shift 4s ease infinite;
 }
 
 .toggle-thumb {
@@ -937,8 +1052,9 @@ body {
 }
 
 .block-mode-option.selected {
-  background: rgba(99, 102, 241, 0.15);
-  border-color: #6366f1;
+  background: rgba(var(--accent-primary-rgb), 0.15);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.2), 0 0 12px rgba(var(--accent-primary-rgb), 0.1);
   color: white;
 }
 
@@ -966,7 +1082,7 @@ body {
   width: 40px;
   height: 40px;
   border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #6366f1;
+  border-top-color: var(--accent-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -989,6 +1105,129 @@ body {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 3px;
 }
+
+/* ===== Theme: Classic ===== */
+[data-theme="classic"] {
+  --bg-base: #0a0a0a;
+  --bg-elevated: rgba(26, 26, 46, 0.9);
+  --bg-elevated-solid: #1a1a2e;
+  --accent-primary: #6366f1;
+  --accent-primary-hover: #4f46e5;
+  --accent-primary-rgb: 99, 102, 241;
+  --block-focus: #6366f1;
+  --highlight-edge: transparent;
+}
+
+/* ===== Theme: Emerald ===== */
+[data-theme="emerald"] {
+  --bg-base: #0a0a0a;
+  --bg-elevated: rgba(26, 26, 30, 0.9);
+  --bg-elevated-solid: #1a1a1e;
+  --accent-primary: #34d399;
+  --accent-primary-hover: #2bc48c;
+  --accent-primary-rgb: 52, 211, 153;
+  --block-focus: #34d399;
+  --highlight-edge: transparent;
+}
+
+/* ===== Theme: Warm Iridescent ===== */
+[data-theme="warm"] {
+  --bg-base: #111110;
+  --bg-elevated: rgba(26, 26, 24, 0.9);
+  --bg-elevated-solid: #1a1a18;
+  --accent-primary: #34d399;
+  --accent-primary-hover: #2bc48c;
+  --accent-primary-rgb: 52, 211, 153;
+  --block-focus: #8b5cf6;
+  --highlight-edge: linear-gradient(90deg, transparent, rgba(251,191,36,0.4), rgba(52,211,153,0.4), rgba(139,92,246,0.3), transparent);
+}
+
+/* ===== Theme: Light ===== */
+[data-theme="light"] {
+  --bg-base: #f5f5f7;
+  --bg-elevated: rgba(255, 255, 255, 0.92);
+  --bg-elevated-solid: #ffffff;
+  --accent-primary: #7c3aed;
+  --accent-primary-hover: #6d28d9;
+  --accent-primary-rgb: 124, 58, 237;
+  --block-focus: #7c3aed;
+  --text-primary: #1a1a2e;
+  --text-secondary: rgba(0, 0, 0, 0.55);
+  --highlight-edge: transparent;
+}
+[data-theme="light"] .title,
+[data-theme="light"] .welcome-title {
+  color: var(--text-primary);
+}
+[data-theme="light"] .subtitle {
+  color: rgba(0, 0, 0, 0.6);
+}
+[data-theme="light"] .description {
+  color: rgba(0, 0, 0, 0.4);
+}
+[data-theme="light"] .saving-text {
+  color: rgba(0, 0, 0, 0.6);
+}
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+/* ===== Theme Onboarding Grid ===== */
+.theme-onboarding-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin: 24px 0 32px;
+}
+.theme-onboarding-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px;
+  border-radius: 12px;
+  border: 2px solid rgba(255,255,255,0.1);
+  cursor: pointer;
+  transition: all 0.2s;
+  background: transparent;
+}
+.theme-onboarding-card:hover {
+  border-color: rgba(var(--accent-primary-rgb), 0.4);
+}
+.theme-onboarding-card.selected {
+  border-color: var(--accent-primary);
+  background: rgba(var(--accent-primary-rgb), 0.1);
+}
+[data-theme="light"] .theme-onboarding-card {
+  border-color: rgba(0,0,0,0.1);
+}
+.theme-onboarding-preview {
+  width: 56px;
+  height: 38px;
+  border-radius: 6px;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.theme-onboarding-preview .accent-bar {
+  height: 5px;
+}
+.theme-onboarding-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.6);
+}
+.theme-onboarding-card.selected .theme-onboarding-label {
+  color: var(--accent-primary);
+}
+[data-theme="light"] .theme-onboarding-label {
+  color: rgba(0,0,0,0.5);
+}
+[data-theme="light"] .theme-onboarding-card.selected .theme-onboarding-label {
+  color: var(--accent-primary);
+}
 </style>
 </head>
 <body>
@@ -1010,8 +1249,53 @@ body {
     </div>
   </div>
 
-  <!-- Screen 2: Install Extension -->
+  <!-- Screen 2: Choose Your Look -->
   <div class="screen" data-screen="2">
+    <h1 class="title">Choose Your Look</h1>
+    <p class="subtitle">Pick a theme that feels right.</p>
+    <p class="description">You can always change this later in Settings.</p>
+
+    <div class="theme-onboarding-grid" id="onboarding-theme-picker">
+      <div class="theme-onboarding-card selected" data-theme-id="iridescent" onclick="selectOnboardingTheme('iridescent')">
+        <div class="theme-onboarding-preview" style="background: #0e0e12;">
+          <div class="accent-bar" style="background: linear-gradient(90deg, #06b6d4, #8b5cf6, #ec4899);"></div>
+        </div>
+        <div class="theme-onboarding-label">Iridescent</div>
+      </div>
+      <div class="theme-onboarding-card" data-theme-id="classic" onclick="selectOnboardingTheme('classic')">
+        <div class="theme-onboarding-preview" style="background: #0a0a0a;">
+          <div class="accent-bar" style="background: #6366f1;"></div>
+        </div>
+        <div class="theme-onboarding-label">Classic</div>
+      </div>
+      <div class="theme-onboarding-card" data-theme-id="emerald" onclick="selectOnboardingTheme('emerald')">
+        <div class="theme-onboarding-preview" style="background: #0a0a0a;">
+          <div class="accent-bar" style="background: #34d399;"></div>
+        </div>
+        <div class="theme-onboarding-label">Emerald</div>
+      </div>
+      <div class="theme-onboarding-card" data-theme-id="warm" onclick="selectOnboardingTheme('warm')">
+        <div class="theme-onboarding-preview" style="background: #111110;">
+          <div class="accent-bar" style="background: linear-gradient(90deg, #fbbf24, #34d399, #8b5cf6);"></div>
+        </div>
+        <div class="theme-onboarding-label">Warm</div>
+      </div>
+      <div class="theme-onboarding-card" data-theme-id="light" onclick="selectOnboardingTheme('light')">
+        <div class="theme-onboarding-preview" style="background: #f5f5f7; border-color: rgba(0,0,0,0.1);">
+          <div class="accent-bar" style="background: #7c3aed;"></div>
+        </div>
+        <div class="theme-onboarding-label">Light</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <button class="btn btn-secondary" data-action="back">Back</button>
+      <button class="btn btn-primary" data-action="next">Next</button>
+    </div>
+  </div>
+
+  <!-- Screen 3: Install Extension -->
+  <div class="screen" data-screen="3">
     <h1 class="title">Install the Extension</h1>
     <p class="subtitle">Get protection in every browser you use.</p>
     <p class="description">Intentional needs a browser extension to filter and manage content in your browsers.</p>
@@ -1031,8 +1315,8 @@ body {
     </div>
   </div>
 
-  <!-- Screen 3: Choose Your Platforms -->
-  <div class="screen" data-screen="3">
+  <!-- Screen 4: Choose Your Platforms -->
+  <div class="screen" data-screen="4">
 
     <!-- Platform List View -->
     <div id="platform-list-view">
@@ -1199,8 +1483,8 @@ body {
 
   </div>
 
-  <!-- Screen 4: Accountability Partner (was Screen 5) -->
-  <div class="screen" data-screen="4">
+  <!-- Screen 5: Accountability Partner -->
+  <div class="screen" data-screen="5">
     <h1 class="title">Accountability Partner</h1>
     <p class="subtitle">Choose someone who can help keep you accountable.</p>
 
@@ -1236,8 +1520,8 @@ body {
     </div>
   </div>
 
-  <!-- Screen 5: Lock Settings (was Screen 6) -->
-  <div class="screen" data-screen="5">
+  <!-- Screen 6: Lock Settings -->
+  <div class="screen" data-screen="6">
     <h1 class="title">Lock Your Settings?</h1>
     <p class="subtitle">Prevents you from changing limits on impulse.</p>
 
@@ -1273,13 +1557,14 @@ body {
     </div>
   </div>
 
-  <!-- Progress Dots (5 screens) -->
+  <!-- Progress Dots (6 screens) -->
   <div class="progress-dots" id="progress-dots">
     <span class="dot active" data-screen="1"></span>
     <span class="dot" data-screen="2"></span>
     <span class="dot" data-screen="3"></span>
     <span class="dot" data-screen="4"></span>
     <span class="dot" data-screen="5"></span>
+    <span class="dot" data-screen="6"></span>
   </div>
 
 </div>
@@ -1293,8 +1578,9 @@ body {
 <script>
 // ===== State =====
 let currentScreen = 1;
-const totalScreens = 5;
+const totalScreens = 6;
 let selectedLockMode = 'none';
+let selectedTheme = 'iridescent';
 let extensionPollTimer = null;
 let activeConfigPanel = null;
 let configSteps = { youtube: 1, instagram: 1 };
@@ -1326,6 +1612,30 @@ const DANGER_ZONE_CATEGORIES = [
   { id: 'sports', icon: '⚽', label: 'Sports' },
   { id: 'politics', icon: '📢', label: 'Politics' }
 ];
+
+// ===== Theme =====
+function applyTheme(themeId) {
+  if (!themeId) themeId = 'iridescent';
+  var html = document.documentElement;
+  var body = document.body;
+  if (themeId === 'iridescent') {
+    html.removeAttribute('data-theme');
+  } else {
+    html.setAttribute('data-theme', themeId);
+  }
+  body.classList.remove('theme-effects-iridescent', 'theme-effects-warm');
+  if (themeId === 'iridescent') body.classList.add('theme-effects-iridescent');
+  if (themeId === 'warm') body.classList.add('theme-effects-warm');
+}
+
+function selectOnboardingTheme(themeId) {
+  selectedTheme = themeId;
+  applyTheme(themeId);
+  var cards = document.querySelectorAll('.theme-onboarding-card');
+  cards.forEach(function(c) {
+    c.classList.toggle('selected', c.dataset.themeId === themeId);
+  });
+}
 
 // ===== Bridge =====
 function sendMessage(payload) {
@@ -1362,11 +1672,11 @@ function goToScreen(target) {
     updateDots();
 
     // Screen-specific init
-    if (target === 2) startExtensionPolling();
+    if (target === 3) startExtensionPolling();
     else stopExtensionPolling();
 
-    if (target === 3) updatePlatformSummaries();
-    if (target === 5) updateLockOptions();
+    if (target === 4) updatePlatformSummaries();
+    if (target === 6) updateLockOptions();
   }, 200);
 }
 
@@ -1456,7 +1766,7 @@ window._extensionStatusResult = function(data) {
     if (isConnected) {
       statusHtml = '<span class="browser-status connected">&#10003;</span>';
     } else if (isDisabled) {
-      statusHtml = `<span class="browser-status" style="color: #f59e0b;">Disabled</span>`;
+      statusHtml = `<span class="browser-status" style="color: var(--color-warning);">Disabled</span>`;
     } else {
       statusHtml = `<button class="browser-install-btn" onclick="installExtension('${encodeURIComponent(b.name)}', '${b.bundleId || ''}')">Install</button>`;
     }
@@ -1797,7 +2107,8 @@ function saveOnboarding() {
     blockedCategories: [...platformSettings.youtube.blockedCategories],
     partnerEmail: document.getElementById('partner-email').value.trim() || null,
     partnerName: document.getElementById('partner-name').value.trim() || null,
-    lockMode: selectedLockMode
+    lockMode: selectedLockMode,
+    theme: selectedTheme
   };
 
   sendMessage({ type: 'SAVE_ONBOARDING', settings: settings });

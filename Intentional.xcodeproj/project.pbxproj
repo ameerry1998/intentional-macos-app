@@ -42,6 +42,7 @@
 		A1000064000000000000025 /* BlockRitualController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000065000000000000025 /* BlockRitualController.swift */; };
 		A1000066000000000000026 /* BlockEndRitualController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000067000000000000026 /* BlockEndRitualController.swift */; };
 		A100F0C0000000000000001 /* focus-blocked.html in Resources */ = {isa = PBXBuildFile; fileRef = A100F0C1000000000000001 /* focus-blocked.html */; };
+		A1000068000000000000027 /* PlanningCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000069000000000000027 /* PlanningCoach.swift */; };
 		A2000001000000000000001 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = A2000003000000000000001 /* MLXLLM */; };
 		A2000002000000000000001 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = A2000004000000000000001 /* MLXLMCommon */; };
 /* End PBXBuildFile section */
@@ -96,6 +97,7 @@
 		A1000065000000000000025 /* BlockRitualController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockRitualController.swift; sourceTree = "<group>"; };
 		A1000067000000000000026 /* BlockEndRitualController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockEndRitualController.swift; sourceTree = "<group>"; };
 		A100F0C1000000000000001 /* focus-blocked.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "focus-blocked.html"; sourceTree = "<group>"; };
+		A1000069000000000000027 /* PlanningCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanningCoach.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -141,6 +143,7 @@
 				A1000041000000000000013 /* SocketRelayServer.swift */,
 				A1000049000000000000017 /* ScheduleManager.swift */,
 				A1000051000000000000018 /* RelevanceScorer.swift */,
+				A1000069000000000000027 /* PlanningCoach.swift */,
 				A1000053000000000000019 /* FocusMonitor.swift */,
 				A1000055000000000000020 /* NudgeWindowController.swift */,
 				A1000057000000000000021 /* FocusOverlayWindow.swift */,
@@ -270,6 +273,7 @@
 				A1000040000000000000013 /* SocketRelayServer.swift in Sources */,
 				A1000048000000000000017 /* ScheduleManager.swift in Sources */,
 				A1000050000000000000018 /* RelevanceScorer.swift in Sources */,
+				A1000068000000000000027 /* PlanningCoach.swift in Sources */,
 				A1000052000000000000019 /* FocusMonitor.swift in Sources */,
 				A1000054000000000000020 /* NudgeWindowController.swift in Sources */,
 				A1000056000000000000021 /* FocusOverlayWindow.swift in Sources */,

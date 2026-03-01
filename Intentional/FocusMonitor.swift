@@ -2454,21 +2454,21 @@ class FocusMonitor {
         appDelegate?.postLog("💬 'Open Intentional' — opening main window")
     }
 
-    /// Handle "Plan My Day" — open the focus/calendar page in the dashboard.
+    /// Handle "Plan My Day" — open the guided planning wizard in the dashboard.
     private func handlePlanDay() {
         overlayController?.dismiss()
-        appDelegate?.showDashboardPage("today")
+        appDelegate?.showDashboardPage("plan")
         stopLingerTimer()
         isCurrentlyIrrelevant = false
-        appDelegate?.postLog("💬 'Plan My Day' — opening today page")
+        appDelegate?.postLog("💬 'Plan My Day' — opening plan page")
     }
 
     /// Handle "Plan My Day" from noPlan pill card.
     private func handleNoPlanPlanDay() {
         deepWorkTimerController?.dismiss()
-        appDelegate?.showDashboardPage("today")
+        appDelegate?.showDashboardPage("plan")
         isCurrentlyIrrelevant = false
-        appDelegate?.postLog("💬 noPlan pill: 'Plan My Day' — opening today page")
+        appDelegate?.postLog("💬 noPlan pill: 'Plan My Day' — opening plan page")
     }
 
     /// Handle "Schedule Now" from gap pill card — open dashboard with new block prefilled.

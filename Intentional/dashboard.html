@@ -170,6 +170,10 @@ body {
   display: flex;
   position: relative;
 }
+input, textarea, [contenteditable] {
+  user-select: text;
+  -webkit-user-select: text;
+}
 
 /* Aurora background blobs — gated by theme class */
 body.theme-effects-iridescent::before {
@@ -2817,6 +2821,863 @@ body.theme-effects-warm::after {
 .theme-picker-card.selected .theme-picker-label {
   color: var(--accent-primary);
 }
+
+/* ===== Plan Chat ===== */
+#plan-chat-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 300px;
+  max-height: calc(100vh - 240px);
+  overflow-y: auto;
+  padding-bottom: 16px;
+  scroll-behavior: smooth;
+}
+.plan-msg {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  word-wrap: break-word;
+  animation: planFadeIn 0.2s ease;
+}
+@keyframes planFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.plan-msg.user {
+  align-self: flex-end;
+  background: var(--accent-primary);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.plan-msg.ai {
+  align-self: flex-start;
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.85);
+  border-bottom-left-radius: 4px;
+}
+.plan-typing {
+  align-self: flex-start;
+  padding: 10px 14px;
+  font-size: 14px;
+  color: rgba(255,255,255,0.35);
+  display: none;
+}
+.plan-typing.visible { display: block; }
+.plan-typing span {
+  animation: typingDot 1.4s infinite;
+}
+.plan-typing span:nth-child(2) { animation-delay: 0.2s; }
+.plan-typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typingDot {
+  0%, 60%, 100% { opacity: 0.3; }
+  30% { opacity: 1; }
+}
+#plan-input-bar {
+  display: flex;
+  gap: 8px;
+  padding: 12px 0 0;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  margin-top: auto;
+}
+#plan-input {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: rgba(255,255,255,0.9);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  resize: none;
+  overflow-y: hidden;
+  min-height: 38px;
+  max-height: 120px;
+  line-height: 1.4;
+}
+#plan-input:focus {
+  border-color: var(--accent-primary);
+}
+#plan-input::placeholder {
+  color: rgba(255,255,255,0.3);
+}
+#plan-send-btn {
+  background: var(--accent-primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+#plan-send-btn:hover {
+  background: var(--accent-primary-hover);
+}
+#plan-send-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.plan-block-previews {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 85%;
+  animation: planFadeIn 0.25s ease;
+}
+.plan-block-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--block-focus);
+  transition: opacity 0.3s, transform 0.3s;
+}
+.plan-block-card.accepted {
+  border-color: var(--color-success);
+  background: rgba(52,211,153,0.06);
+}
+.plan-block-card.dismissed {
+  opacity: 0;
+  transform: translateX(-20px);
+  pointer-events: none;
+}
+.plan-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+.plan-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.plan-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.85);
+}
+.plan-card-time {
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
+}
+.plan-card-type {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-top: 2px;
+}
+.plan-card-type.deep-work { background: rgba(239,68,68,0.15); color: #ef4444; }
+.plan-card-type.focus-hours { background: rgba(139,92,246,0.15); color: var(--block-focus); }
+.plan-card-type.free-time { background: rgba(52,211,153,0.15); color: var(--block-free-time); }
+.plan-card-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.plan-action {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  color: rgba(255,255,255,0.5);
+}
+.plan-action:hover {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.9);
+}
+.plan-action.accept:hover { border-color: var(--color-success); color: var(--color-success); }
+.plan-action.dismiss:hover { border-color: #ef4444; color: #ef4444; }
+.plan-card-accepted {
+  color: var(--color-success);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  padding: 4px 0;
+}
+/* Inline edit within card */
+.plan-card-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+}
+.plan-card-edit input, .plan-card-edit select {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: rgba(255,255,255,0.85);
+  font-size: 13px;
+  outline: none;
+}
+.plan-card-edit input:focus, .plan-card-edit select:focus {
+  border-color: var(--accent-primary);
+}
+.plan-card-edit-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.plan-card-edit-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+.plan-card-edit-actions button {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+}
+.plan-edit-save {
+  background: var(--accent-primary);
+  color: #fff;
+}
+.plan-edit-cancel {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.6);
+}
+#plan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+#plan-header .section-title { margin: 0; }
+#plan-reset-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+#plan-reset-btn:hover, #plan-copy-btn:hover {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.7);
+}
+#plan-copy-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+/* ===== Plan Wizard ===== */
+#plan-wizard-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 16px 0 20px;
+}
+.plan-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: default;
+}
+.plan-step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.3);
+  transition: all 0.25s;
+  flex-shrink: 0;
+}
+.plan-step-label {
+  font-size: 13px;
+  color: rgba(255,255,255,0.3);
+  transition: color 0.25s;
+  white-space: nowrap;
+}
+.plan-step.active .plan-step-num {
+  background: var(--accent-primary);
+  color: #fff;
+}
+.plan-step.active .plan-step-label {
+  color: rgba(255,255,255,0.85);
+}
+.plan-step.completed .plan-step-num {
+  background: var(--color-success);
+  color: #fff;
+}
+.plan-step.completed .plan-step-label {
+  color: rgba(255,255,255,0.5);
+}
+.plan-step-line {
+  width: 40px;
+  height: 1px;
+  background: rgba(255,255,255,0.1);
+  margin: 0 12px;
+  flex-shrink: 0;
+}
+.plan-wizard-content {
+  animation: wizardFadeIn 0.25s ease;
+}
+@keyframes wizardFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.plan-wizard-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.9);
+  margin-bottom: 4px;
+}
+.plan-wizard-subtitle {
+  font-size: 13px;
+  color: rgba(255,255,255,0.4);
+  margin-bottom: 20px;
+}
+.plan-priority-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.plan-priority-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.4);
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.plan-priority-input {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: rgba(255,255,255,0.9);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.plan-priority-input:focus {
+  border-color: var(--accent-primary);
+}
+.plan-priority-input::placeholder {
+  color: rgba(255,255,255,0.25);
+}
+.plan-priority-input.error {
+  border-color: #ef4444;
+}
+.plan-chips-section {
+  margin-top: 16px;
+  margin-bottom: 20px;
+}
+.plan-chips-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255,255,255,0.3);
+  margin-bottom: 8px;
+}
+.plan-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.plan-chip {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.6);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.plan-chip:hover {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.85);
+  border-color: var(--accent-primary);
+}
+.plan-wizard-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 24px;
+}
+.plan-wizard-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.plan-wizard-btn.primary {
+  background: var(--accent-primary);
+  color: #fff;
+}
+.plan-wizard-btn.primary:hover {
+  background: var(--accent-primary-hover);
+}
+.plan-wizard-btn.primary:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.plan-wizard-btn.secondary {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.6);
+}
+.plan-wizard-btn.secondary:hover {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.85);
+}
+.plan-wizard-btn.commit {
+  background: var(--color-success);
+  color: #fff;
+}
+.plan-wizard-btn.commit:hover {
+  filter: brightness(1.1);
+}
+.plan-wizard-link {
+  font-size: 12px;
+  color: rgba(255,255,255,0.35);
+  cursor: pointer;
+  text-align: center;
+  margin-top: 12px;
+}
+.plan-wizard-link:hover {
+  color: rgba(255,255,255,0.6);
+}
+.plan-projection-card {
+  background: rgba(52,211,153,0.08);
+  border: 1px solid rgba(52,211,153,0.2);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.plan-projection-card .proj-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.plan-projection-card .proj-text {
+  font-size: 13px;
+  color: var(--color-success);
+}
+.plan-projection-card .proj-text strong {
+  font-weight: 600;
+}
+.plan-warning-card {
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.2);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #f59e0b;
+  display: none;
+}
+.plan-step2-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.plan-adjust-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.plan-adjust-input {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: rgba(255,255,255,0.9);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.plan-adjust-input:focus {
+  border-color: var(--accent-primary);
+}
+.plan-adjust-input::placeholder {
+  color: rgba(255,255,255,0.25);
+}
+.plan-summary-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.plan-summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+}
+.plan-summary-row + .plan-summary-row {
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.plan-summary-label {
+  font-size: 13px;
+  color: rgba(255,255,255,0.45);
+}
+.plan-summary-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.85);
+}
+.plan-first-block {
+  background: rgba(139,92,246,0.08);
+  border: 1px solid rgba(139,92,246,0.2);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+}
+.plan-first-block-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255,255,255,0.35);
+  margin-bottom: 6px;
+}
+.plan-first-block-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.9);
+}
+.plan-first-block-time {
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
+  margin-top: 2px;
+}
+.plan-intention-label {
+  font-size: 13px;
+  color: rgba(255,255,255,0.6);
+  margin-bottom: 10px;
+}
+.plan-intention-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-bottom: 4px;
+}
+.plan-intention-option:hover {
+  background: rgba(255,255,255,0.04);
+}
+.plan-intention-option input[type="radio"] {
+  margin-top: 2px;
+  accent-color: var(--accent-primary);
+}
+.plan-intention-option label {
+  font-size: 13px;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+}
+.plan-intention-custom {
+  margin-top: 6px;
+  margin-left: 24px;
+}
+.plan-intention-custom input {
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: rgba(255,255,255,0.85);
+  font-size: 13px;
+  outline: none;
+}
+.plan-intention-custom input:focus {
+  border-color: var(--accent-primary);
+}
+
+/* Light theme overrides for wizard */
+[data-theme="light"] .plan-step-num {
+  background: rgba(0,0,0,0.06);
+  color: rgba(0,0,0,0.3);
+}
+[data-theme="light"] .plan-step-label {
+  color: rgba(0,0,0,0.3);
+}
+[data-theme="light"] .plan-step.active .plan-step-label {
+  color: rgba(0,0,0,0.85);
+}
+[data-theme="light"] .plan-step.completed .plan-step-label {
+  color: rgba(0,0,0,0.5);
+}
+[data-theme="light"] .plan-step-line {
+  background: rgba(0,0,0,0.1);
+}
+[data-theme="light"] .plan-wizard-title {
+  color: rgba(0,0,0,0.9);
+}
+[data-theme="light"] .plan-wizard-subtitle {
+  color: rgba(0,0,0,0.45);
+}
+[data-theme="light"] .plan-priority-num {
+  background: rgba(0,0,0,0.06);
+  color: rgba(0,0,0,0.4);
+}
+[data-theme="light"] .plan-priority-input {
+  background: rgba(0,0,0,0.03);
+  border-color: rgba(0,0,0,0.12);
+  color: rgba(0,0,0,0.9);
+}
+[data-theme="light"] .plan-priority-input::placeholder {
+  color: rgba(0,0,0,0.3);
+}
+[data-theme="light"] .plan-chip {
+  background: rgba(0,0,0,0.04);
+  border-color: rgba(0,0,0,0.1);
+  color: rgba(0,0,0,0.5);
+}
+[data-theme="light"] .plan-chip:hover {
+  background: rgba(0,0,0,0.08);
+  color: rgba(0,0,0,0.8);
+}
+[data-theme="light"] .plan-wizard-btn.secondary {
+  background: rgba(0,0,0,0.05);
+  color: rgba(0,0,0,0.5);
+}
+[data-theme="light"] .plan-wizard-btn.secondary:hover {
+  background: rgba(0,0,0,0.08);
+  color: rgba(0,0,0,0.8);
+}
+[data-theme="light"] .plan-wizard-link {
+  color: rgba(0,0,0,0.35);
+}
+[data-theme="light"] .plan-wizard-link:hover {
+  color: rgba(0,0,0,0.6);
+}
+[data-theme="light"] .plan-summary-card {
+  background: rgba(0,0,0,0.02);
+  border-color: rgba(0,0,0,0.08);
+}
+[data-theme="light"] .plan-summary-label {
+  color: rgba(0,0,0,0.45);
+}
+[data-theme="light"] .plan-summary-value {
+  color: rgba(0,0,0,0.85);
+}
+[data-theme="light"] .plan-first-block {
+  background: rgba(139,92,246,0.06);
+  border-color: rgba(139,92,246,0.15);
+}
+[data-theme="light"] .plan-first-block-label {
+  color: rgba(0,0,0,0.35);
+}
+[data-theme="light"] .plan-first-block-title {
+  color: rgba(0,0,0,0.9);
+}
+[data-theme="light"] .plan-first-block-time {
+  color: rgba(0,0,0,0.4);
+}
+[data-theme="light"] .plan-intention-label {
+  color: rgba(0,0,0,0.6);
+}
+[data-theme="light"] .plan-intention-option label {
+  color: rgba(0,0,0,0.65);
+}
+[data-theme="light"] .plan-intention-option:hover {
+  background: rgba(0,0,0,0.03);
+}
+[data-theme="light"] .plan-adjust-input {
+  background: rgba(0,0,0,0.03);
+  border-color: rgba(0,0,0,0.12);
+  color: rgba(0,0,0,0.9);
+}
+[data-theme="light"] .plan-adjust-input::placeholder {
+  color: rgba(0,0,0,0.3);
+}
+[data-theme="light"] .plan-warning-card {
+  background: rgba(245,158,11,0.06);
+  border-color: rgba(245,158,11,0.15);
+}
+[data-theme="light"] .plan-summary-row + .plan-summary-row {
+  border-top-color: rgba(0,0,0,0.06);
+}
+[data-theme="light"] .plan-intention-custom input {
+  background: rgba(0,0,0,0.03);
+  border-color: rgba(0,0,0,0.12);
+  color: rgba(0,0,0,0.85);
+}
+[data-theme="light"] .plan-step2-blocks {
+  scrollbar-color: rgba(0,0,0,0.15) transparent;
+}
+#plan-memories-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+#plan-memories-btn:hover {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.7);
+}
+.plan-memories-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.plan-memories-box {
+  background: var(--bg-elevated);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  max-width: 440px;
+  width: 90%;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 20px;
+}
+.plan-memories-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.plan-memories-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.plan-memories-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.plan-memories-close:hover {
+  color: var(--text-primary);
+}
+.plan-memories-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+  opacity: 0.7;
+}
+.plan-memories-insight {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  user-select: text;
+  -webkit-user-select: text;
+  line-height: 1.4;
+}
+.plan-memories-empty {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: 16px 0;
+  text-align: center;
+}
+.plan-memories-actions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+.plan-memories-copy-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.plan-memories-copy-btn:hover {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.8);
+}
+[data-theme="light"] #plan-memories-btn {
+  border-color: rgba(0,0,0,0.1);
+  color: rgba(0,0,0,0.45);
+}
+[data-theme="light"] #plan-memories-btn:hover {
+  background: rgba(0,0,0,0.04);
+  color: rgba(0,0,0,0.7);
+}
+[data-theme="light"] .plan-memories-box {
+  border-color: rgba(0,0,0,0.1);
+}
+[data-theme="light"] .plan-memories-insight {
+  background: rgba(0,0,0,0.03);
+  border-color: rgba(0,0,0,0.06);
+}
+[data-theme="light"] .plan-memories-copy-btn {
+  border-color: rgba(0,0,0,0.1);
+  color: rgba(0,0,0,0.45);
+}
+[data-theme="light"] .plan-memories-copy-btn:hover {
+  background: rgba(0,0,0,0.04);
+  color: rgba(0,0,0,0.7);
+}
 </style>
 </head>
 <body>
@@ -2829,6 +3690,9 @@ body.theme-effects-warm::after {
   </div>
   <div class="sidebar-item active" data-page="today" onclick="navigateTo('today')">
     <span class="sidebar-item-icon">📋</span> Today
+  </div>
+  <div class="sidebar-item" data-page="plan" onclick="navigateTo('plan')">
+    <span class="sidebar-item-icon">💬</span> Plan
   </div>
   <div class="sidebar-item" data-page="distractions" onclick="navigateTo('distractions')">
     <span class="sidebar-item-icon">🚫</span> Distractions
@@ -3623,6 +4487,114 @@ body.theme-effects-warm::after {
     </div>
   </div>
 
+  <!-- Page: Plan (AI Day Planning) -->
+  <div class="page" id="page-plan">
+
+    <!-- Step indicator bar -->
+    <div id="plan-wizard-steps">
+      <div class="plan-step active" data-step="1">
+        <div class="plan-step-num">1</div>
+        <div class="plan-step-label">Priorities</div>
+      </div>
+      <div class="plan-step-line"></div>
+      <div class="plan-step" data-step="2">
+        <div class="plan-step-num">2</div>
+        <div class="plan-step-label">Time Blocks</div>
+      </div>
+      <div class="plan-step-line"></div>
+      <div class="plan-step" data-step="3">
+        <div class="plan-step-num">3</div>
+        <div class="plan-step-label">Commit</div>
+      </div>
+    </div>
+
+    <!-- Step 1: Priorities -->
+    <div id="plan-step-1" class="plan-wizard-content">
+      <div class="plan-wizard-title">What matters today?</div>
+      <div class="plan-wizard-subtitle">Name your top priorities — the AI will build a schedule around them.</div>
+      <div class="plan-priority-row">
+        <div class="plan-priority-num">1</div>
+        <input class="plan-priority-input" id="plan-pri-1" placeholder="Most important task today..." />
+      </div>
+      <div class="plan-priority-row">
+        <div class="plan-priority-num">2</div>
+        <input class="plan-priority-input" id="plan-pri-2" placeholder="Second priority (optional)" />
+      </div>
+      <div class="plan-priority-row">
+        <div class="plan-priority-num">3</div>
+        <input class="plan-priority-input" id="plan-pri-3" placeholder="Third priority (optional)" />
+      </div>
+      <div id="plan-chips-section" class="plan-chips-section" style="display:none;">
+        <div class="plan-chips-label">From yesterday</div>
+        <div class="plan-chips-row" id="plan-chips-row"></div>
+      </div>
+      <div class="plan-wizard-nav">
+        <div></div>
+        <button class="plan-wizard-btn primary" id="plan-build-btn" onclick="planWizardBuildSchedule()">Build my schedule</button>
+      </div>
+      <div class="plan-wizard-link" onclick="planWizardShowChat()">Or chat with coach</div>
+      <div class="plan-wizard-link" onclick="showPlanMemories()" style="font-size:11px;opacity:0.5;margin-top:4px;">View coaching memories</div>
+    </div>
+
+    <!-- Step 2: Time Blocks -->
+    <div id="plan-step-2" class="plan-wizard-content" style="display:none;">
+      <div class="plan-wizard-title">Your time blocks</div>
+      <div class="plan-wizard-subtitle" id="plan-step2-subtitle"></div>
+      <div class="plan-projection-card" id="plan-projection">
+        <div class="proj-icon">+</div>
+        <div class="proj-text" id="plan-projection-text">This plan earns ~<strong>0</strong> min browse time</div>
+      </div>
+      <div class="plan-warning-card" id="plan-deep-warning">Heads up: more than 3 hours of Deep Work scheduled. Consider mixing in some Focus Hours for sustainable energy.</div>
+      <div class="plan-step2-blocks" id="plan-step2-blocks"></div>
+      <div class="plan-adjust-bar">
+        <input class="plan-adjust-input" id="plan-adjust-input" placeholder="Adjust: Move deep work earlier, add a lunch break..." onkeydown="if(event.key==='Enter')planWizardAdjust()" />
+        <button class="plan-wizard-btn primary" onclick="planWizardAdjust()" style="padding:8px 14px;font-size:13px;">Send</button>
+      </div>
+      <div class="plan-typing" id="plan-step2-typing" style="display:none;"><span>.</span><span>.</span><span>.</span> Adjusting</div>
+      <div class="plan-wizard-nav">
+        <button class="plan-wizard-btn secondary" onclick="planWizardGoToStep(1)">Back</button>
+        <button class="plan-wizard-btn primary" id="plan-accept-btn" onclick="planWizardAcceptAll()">Accept all &amp; continue</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Commit -->
+    <div id="plan-step-3" class="plan-wizard-content" style="display:none;">
+      <div class="plan-wizard-title">Ready to start</div>
+      <div class="plan-wizard-subtitle">Here's your plan for today. Set your distraction strategy and go.</div>
+      <div class="plan-summary-card" id="plan-summary-card"></div>
+      <div id="plan-first-block-preview"></div>
+      <div class="plan-intention-label">When I get distracted, I will...</div>
+      <div id="plan-intention-options"></div>
+      <div class="plan-wizard-nav">
+        <button class="plan-wizard-btn secondary" onclick="planWizardGoToStep(2)">Back</button>
+        <button class="plan-wizard-btn commit" onclick="planWizardCommit()">Start my day</button>
+      </div>
+    </div>
+
+    <!-- Chat mode (freeform) -->
+    <div id="plan-step-chat" style="display:none;">
+      <div id="plan-header">
+        <div class="section-title">Plan Your Day</div>
+        <div style="display:flex;gap:8px;">
+          <button id="plan-copy-btn" onclick="copyPlanChat()">Copy</button>
+          <button id="plan-memories-btn" onclick="showPlanMemories()">Memories</button>
+          <button id="plan-reset-btn" onclick="resetPlanChat()">New conversation</button>
+          <button id="plan-clear-memory-btn" onclick="clearPlanMemory()" style="opacity:0.6;">Clear memories</button>
+        </div>
+      </div>
+      <div id="plan-chat-container">
+        <div class="plan-msg ai">What would you like to accomplish today?</div>
+      </div>
+      <div class="plan-typing" id="plan-typing"><span>.</span><span>.</span><span>.</span> Thinking</div>
+      <div id="plan-input-bar">
+        <textarea id="plan-input" placeholder="What do you want to accomplish today?" rows="1" onkeydown="planInputKeydown(event)" oninput="planInputAutoResize(this)"></textarea>
+        <button id="plan-send-btn" onclick="sendPlanMessage()">Send</button>
+      </div>
+      <div class="plan-wizard-link" onclick="planWizardShowGuided()">Back to guided</div>
+    </div>
+
+  </div>
+
 </div>
 
 <!-- Toast -->
@@ -3703,6 +4675,16 @@ function navigateTo(pageId) {
     loadAccountPage();
     sendMessage({ type: 'GET_EXTENSION_STATUS' });
     sendMessage({ type: 'GET_SCHEDULE_STATE' });
+  }
+
+  // Reset wizard when viewing Plan page
+  if (pageId === 'plan') {
+    planWizardShowGuided();
+    planWizardLoadYesterday();
+    setTimeout(function() {
+      var input = document.getElementById('plan-pri-1');
+      if (input) input.focus();
+    }, 100);
   }
 
   // Load all data when viewing Today page
@@ -7734,6 +8716,782 @@ function formatFocusDuration(minutes) {
   return Math.floor(minutes / 60) + 'h ' + (minutes % 60) + 'm';
 }
 
+// ===== Plan Chat =====
+
+var planChatHistory = [];
+var planSending = false;
+
+function planInputKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendPlanMessage();
+  }
+}
+
+function planInputAutoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  el.style.overflowY = el.scrollHeight > 120 ? 'auto' : 'hidden';
+}
+
+function sendPlanMessage() {
+  var input = document.getElementById('plan-input');
+  var msg = input.value.trim();
+  if (!msg || planSending) return;
+  input.value = '';
+  input.style.height = 'auto';
+  planSending = true;
+  document.getElementById('plan-send-btn').disabled = true;
+
+  appendPlanMessage('user', msg);
+  showPlanTyping(true);
+
+  sendMessage({ type: 'PLAN_DAY_CHAT', message: msg });
+}
+
+window._planDayChatResult = function(data) {
+  // Guided wizard mode handling
+  if (planWizardState.mode === 'guided') {
+    // Step 1: AI returned blocks from priorities
+    var step1 = document.getElementById('plan-step-1');
+    var step2 = document.getElementById('plan-step-2');
+    if (step1 && step1.style.display !== 'none' && data.blocks && data.blocks.length > 0) {
+      var fixed1 = fixBlockOverlaps(data.blocks);
+      if (fixed1.warnings.length > 0) showToast('Auto-fixed overlapping blocks');
+      planWizardState.generatedBlocks = fixed1.blocks;
+      if (data.message) {
+        document.getElementById('plan-step2-subtitle').textContent = data.message;
+      }
+      planWizardRenderStep2Blocks(fixed1.blocks);
+      planWizardGoToStep(2);
+      var buildBtn = document.getElementById('plan-build-btn');
+      if (buildBtn) { buildBtn.disabled = false; buildBtn.textContent = 'Build my schedule'; }
+      return;
+    }
+    // Step 2: AI returned adjusted blocks
+    if (step2 && step2.style.display !== 'none' && data.blocks && data.blocks.length > 0) {
+      var fixed2 = fixBlockOverlaps(data.blocks);
+      if (fixed2.warnings.length > 0) showToast('Auto-fixed overlapping blocks');
+      planWizardState.generatedBlocks = fixed2.blocks;
+      if (data.message) {
+        document.getElementById('plan-step2-subtitle').textContent = data.message;
+      }
+      planWizardRenderStep2Blocks(fixed2.blocks);
+      var typing2 = document.getElementById('plan-step2-typing');
+      if (typing2) typing2.style.display = 'none';
+      return;
+    }
+    // AI asked a question instead of returning blocks — show as toast, re-enable
+    if (step1 && step1.style.display !== 'none' && data.message) {
+      showToast(data.message);
+      var buildBtn2 = document.getElementById('plan-build-btn');
+      if (buildBtn2) { buildBtn2.disabled = false; buildBtn2.textContent = 'Build my schedule'; }
+      return;
+    }
+    if (step2 && step2.style.display !== 'none' && data.message) {
+      showToast(data.message);
+      var typing2b = document.getElementById('plan-step2-typing');
+      if (typing2b) typing2b.style.display = 'none';
+      return;
+    }
+  }
+
+  // Chat mode fallback (original behavior)
+  planSending = false;
+  var sendBtn = document.getElementById('plan-send-btn');
+  if (sendBtn) sendBtn.disabled = false;
+  showPlanTyping(false);
+
+  if (data.message) {
+    appendPlanMessage('ai', data.message);
+  }
+
+  if (data.blocks && data.blocks.length > 0) {
+    var fixed3 = fixBlockOverlaps(data.blocks);
+    if (fixed3.warnings.length > 0) showToast('Auto-fixed overlapping blocks');
+    renderPlanBlockPreviews(fixed3.blocks);
+  }
+};
+
+function appendPlanMessage(role, text) {
+  var container = document.getElementById('plan-chat-container');
+  var div = document.createElement('div');
+  div.className = 'plan-msg ' + role;
+  div.textContent = text;
+  container.appendChild(div);
+  planChatHistory.push({ role: role, text: text });
+  scrollPlanToBottom();
+}
+
+function showPlanTyping(visible) {
+  var el = document.getElementById('plan-typing');
+  if (el) el.classList.toggle('visible', visible);
+  if (visible) scrollPlanToBottom();
+}
+
+function scrollPlanToBottom() {
+  var container = document.getElementById('plan-chat-container');
+  setTimeout(function() { container.scrollTop = container.scrollHeight; }, 50);
+}
+
+function renderPlanBlockPreviews(blocks) {
+  var container = document.getElementById('plan-chat-container');
+  var wrapper = document.createElement('div');
+  wrapper.className = 'plan-block-previews';
+
+  blocks.forEach(function(block, i) {
+    var card = document.createElement('div');
+    card.className = 'plan-block-card';
+
+    var color = block.blockType === 'deepWork' ? 'var(--block-deep-work)' :
+                block.blockType === 'freeTime' ? 'var(--block-free-time)' :
+                'var(--block-focus)';
+    card.style.borderLeftColor = color;
+
+    var typeLabel = block.blockType === 'deepWork' ? 'Deep Work' :
+                    block.blockType === 'freeTime' ? 'Free Time' : 'Focus Hours';
+    var typeCls = block.blockType === 'deepWork' ? 'deep-work' :
+                  block.blockType === 'freeTime' ? 'free-time' : 'focus-hours';
+
+    var timeStr = formatPlanTime(block.startHour, block.startMinute) + ' \u2013 ' +
+                  formatPlanTime(block.endHour, block.endMinute);
+
+    card.innerHTML =
+      '<div class="plan-card-header">' +
+        '<div class="plan-card-info">' +
+          '<span class="plan-card-title">' + escapeHtml(block.title) + '</span>' +
+          '<span class="plan-card-time">' + timeStr + '</span>' +
+          '<span class="plan-card-type ' + typeCls + '">' + typeLabel + '</span>' +
+        '</div>' +
+        '<div class="plan-card-actions">' +
+          '<button class="plan-action edit" onclick="editPlanBlock(this)" title="Edit">\u270F</button>' +
+          '<button class="plan-action accept" onclick="acceptPlanBlock(this)" title="Accept">\u2713</button>' +
+          '<button class="plan-action dismiss" onclick="dismissPlanBlock(this)" title="Dismiss">\u2717</button>' +
+        '</div>' +
+      '</div>';
+
+    card._blockData = JSON.parse(JSON.stringify(block));
+    wrapper.appendChild(card);
+  });
+
+  container.appendChild(wrapper);
+  scrollPlanToBottom();
+}
+
+function formatPlanTime(h, m) {
+  var ampm = h >= 12 ? 'PM' : 'AM';
+  var h12 = h % 12 || 12;
+  return h12 + ':' + (m < 10 ? '0' : '') + m + ' ' + ampm;
+}
+
+function acceptPlanBlock(btn) {
+  var card = btn.closest('.plan-block-card');
+  if (!card || !card._blockData) return;
+  var block = card._blockData;
+
+  var newBlock = {
+    id: generateFocusUUID(),
+    title: block.title,
+    description: block.description || '',
+    startHour: block.startHour,
+    startMinute: block.startMinute,
+    endHour: block.endHour,
+    endMinute: block.endMinute,
+    blockType: block.blockType,
+    isFree: block.blockType === 'freeTime'
+  };
+
+  focusState.blocks.push(newBlock);
+  markFocusDirty();
+  renderCalendarBlocks();
+
+  card.classList.add('accepted');
+  var actions = card.querySelector('.plan-card-actions');
+  if (actions) actions.innerHTML = '<span class="plan-card-accepted">Added \u2713</span>';
+}
+
+function dismissPlanBlock(btn) {
+  var card = btn.closest('.plan-block-card');
+  if (!card) return;
+  card.classList.add('dismissed');
+  setTimeout(function() { card.remove(); }, 300);
+}
+
+function editPlanBlock(btn) {
+  var card = btn.closest('.plan-block-card');
+  if (!card || !card._blockData) return;
+  var block = card._blockData;
+
+  var header = card.querySelector('.plan-card-header');
+  if (!header) return;
+  header.style.display = 'none';
+
+  var editDiv = document.createElement('div');
+  editDiv.className = 'plan-card-edit';
+  editDiv.innerHTML =
+    '<input type="text" class="plan-edit-title" value="' + escapeHtml(block.title) + '" placeholder="Block title" />' +
+    '<div class="plan-card-edit-row">' +
+      '<input type="time" class="plan-edit-start" value="' + padTime(block.startHour) + ':' + padTime(block.startMinute) + '" />' +
+      '<span style="color:rgba(255,255,255,0.3)">\u2013</span>' +
+      '<input type="time" class="plan-edit-end" value="' + padTime(block.endHour) + ':' + padTime(block.endMinute) + '" />' +
+      '<select class="plan-edit-type">' +
+        '<option value="focusHours"' + (block.blockType === 'focusHours' ? ' selected' : '') + '>Focus Hours</option>' +
+        '<option value="deepWork"' + (block.blockType === 'deepWork' ? ' selected' : '') + '>Deep Work</option>' +
+        '<option value="freeTime"' + (block.blockType === 'freeTime' ? ' selected' : '') + '>Free Time</option>' +
+      '</select>' +
+    '</div>' +
+    '<div class="plan-card-edit-actions">' +
+      '<button class="plan-edit-cancel" onclick="cancelPlanEdit(this)">Cancel</button>' +
+      '<button class="plan-edit-save" onclick="savePlanEdit(this)">Save</button>' +
+    '</div>';
+  card.appendChild(editDiv);
+}
+
+function padTime(n) { return n < 10 ? '0' + n : '' + n; }
+
+function savePlanEdit(btn) {
+  var card = btn.closest('.plan-block-card');
+  if (!card) return;
+  var editDiv = card.querySelector('.plan-card-edit');
+  var title = editDiv.querySelector('.plan-edit-title').value.trim();
+  if (!title) { editDiv.querySelector('.plan-edit-title').style.borderColor = '#ef4444'; return; }
+
+  var startParts = editDiv.querySelector('.plan-edit-start').value.split(':');
+  var endParts = editDiv.querySelector('.plan-edit-end').value.split(':');
+  var blockType = editDiv.querySelector('.plan-edit-type').value;
+
+  card._blockData.title = title;
+  card._blockData.startHour = parseInt(startParts[0]);
+  card._blockData.startMinute = parseInt(startParts[1]);
+  card._blockData.endHour = parseInt(endParts[0]);
+  card._blockData.endMinute = parseInt(endParts[1]);
+  card._blockData.blockType = blockType;
+
+  // Re-render card
+  editDiv.remove();
+  var header = card.querySelector('.plan-card-header');
+  header.style.display = '';
+
+  var block = card._blockData;
+  var color = block.blockType === 'deepWork' ? 'var(--block-deep-work)' :
+              block.blockType === 'freeTime' ? 'var(--block-free-time)' :
+              'var(--block-focus)';
+  card.style.borderLeftColor = color;
+
+  var typeLabel = block.blockType === 'deepWork' ? 'Deep Work' :
+                  block.blockType === 'freeTime' ? 'Free Time' : 'Focus Hours';
+  var typeCls = block.blockType === 'deepWork' ? 'deep-work' :
+                block.blockType === 'freeTime' ? 'free-time' : 'focus-hours';
+
+  var timeStr = formatPlanTime(block.startHour, block.startMinute) + ' \u2013 ' +
+                formatPlanTime(block.endHour, block.endMinute);
+
+  var info = header.querySelector('.plan-card-info');
+  info.innerHTML =
+    '<span class="plan-card-title">' + escapeHtml(block.title) + '</span>' +
+    '<span class="plan-card-time">' + timeStr + '</span>' +
+    '<span class="plan-card-type ' + typeCls + '">' + typeLabel + '</span>';
+}
+
+function cancelPlanEdit(btn) {
+  var card = btn.closest('.plan-block-card');
+  if (!card) return;
+  var editDiv = card.querySelector('.plan-card-edit');
+  if (editDiv) editDiv.remove();
+  var header = card.querySelector('.plan-card-header');
+  if (header) header.style.display = '';
+}
+
+function copyPlanChat() {
+  var text = '';
+  planChatHistory.forEach(function(msg) {
+    text += (msg.role === 'user' ? 'Me: ' : 'Coach: ') + msg.text + '\n\n';
+  });
+  var accepted = document.querySelectorAll('.plan-block-card.accepted');
+  if (accepted.length > 0) {
+    text += '--- Accepted Blocks ---\n';
+    accepted.forEach(function(card) {
+      var b = card._blockData;
+      if (b) text += '- ' + b.title + ' (' + formatPlanTime(b.startHour, b.startMinute) +
+                      ' - ' + formatPlanTime(b.endHour, b.endMinute) + ', ' +
+                      (b.blockType === 'deepWork' ? 'Deep Work' :
+                       b.blockType === 'freeTime' ? 'Free Time' : 'Focus Hours') + ')\n';
+    });
+  }
+  navigator.clipboard.writeText(text.trim());
+  showToast('Copied to clipboard');
+}
+
+function resetPlanChat() {
+  planChatHistory = [];
+  var container = document.getElementById('plan-chat-container');
+  container.innerHTML = '<div class="plan-msg ai">What would you like to accomplish today?</div>';
+  sendMessage({ type: 'PLAN_DAY_RESET' });
+}
+
+function clearPlanMemory() {
+  if (confirm('Clear all coaching memories? The coach will start fresh with no history of your preferences.')) {
+    sendMessage({ type: 'PLAN_DAY_CLEAR_MEMORY' });
+    showToast('Coaching memories cleared');
+  }
+}
+
+function showPlanMemories() {
+  sendMessage({ type: 'GET_PLAN_MEMORIES' });
+}
+
+window._planMemoriesResult = function(data) {
+  var meta = document.getElementById('plan-memories-meta');
+  var list = document.getElementById('plan-memories-list');
+  var parts = [];
+  if (data.lastUpdated) parts.push('Last updated: ' + data.lastUpdated);
+  if (data.preferredBlockDuration) parts.push('Preferred block length: ~' + data.preferredBlockDuration + ' min');
+  meta.textContent = parts.join(' · ') || '';
+
+  list.innerHTML = '';
+  if (!data.insights || data.insights.length === 0) {
+    list.innerHTML = '<div class="plan-memories-empty">No coaching memories yet. Chat with the coach to build up insights about your work style.</div>';
+  } else {
+    data.insights.forEach(function(insight) {
+      var card = document.createElement('div');
+      card.className = 'plan-memories-insight';
+      card.textContent = insight;
+      list.appendChild(card);
+    });
+  }
+  document.getElementById('plan-memories-modal').style.display = '';
+};
+
+function hidePlanMemories() {
+  document.getElementById('plan-memories-modal').style.display = 'none';
+}
+
+function copyPlanMemories() {
+  var list = document.getElementById('plan-memories-list');
+  var insights = list.querySelectorAll('.plan-memories-insight');
+  if (insights.length === 0) {
+    showToast('No memories to copy');
+    return;
+  }
+  var text = 'Coaching Memories\n\n';
+  insights.forEach(function(el) {
+    text += '- ' + el.textContent + '\n';
+  });
+  var meta = document.getElementById('plan-memories-meta').textContent;
+  if (meta) text += '\n' + meta;
+  navigator.clipboard.writeText(text.trim());
+  showToast('Copied to clipboard');
+}
+
+function fixBlockOverlaps(blocks) {
+  if (!blocks || blocks.length === 0) return { blocks: blocks, warnings: [] };
+  var sorted = blocks.slice().sort(function(a, b) {
+    var aStart = a.startHour * 60 + a.startMinute;
+    var bStart = b.startHour * 60 + b.startMinute;
+    return aStart - bStart;
+  });
+  var warnings = [];
+  var result = [];
+  for (var i = 0; i < sorted.length; i++) {
+    var block = Object.assign({}, sorted[i]);
+    if (i > 0) {
+      var prev = result[result.length - 1];
+      var prevEnd = prev.endHour * 60 + prev.endMinute;
+      var curStart = block.startHour * 60 + block.startMinute;
+      if (prevEnd > curStart) {
+        warnings.push('Trimmed "' + prev.title + '" to avoid overlap with "' + block.title + '"');
+        prev.endHour = block.startHour;
+        prev.endMinute = block.startMinute;
+        var prevDur = (prev.endHour * 60 + prev.endMinute) - (prev.startHour * 60 + prev.startMinute);
+        if (prevDur < 5) {
+          warnings[warnings.length - 1] = 'Removed "' + prev.title + '" (too short after overlap fix)';
+          result.pop();
+        }
+      }
+    }
+    var dur = (block.endHour * 60 + block.endMinute) - (block.startHour * 60 + block.startMinute);
+    if (dur >= 5) {
+      result.push(block);
+    }
+  }
+  return { blocks: result, warnings: warnings };
+}
+
+// ===== Plan Wizard =====
+
+var planWizardState = {
+  step: 1,
+  priorities: [],
+  generatedBlocks: [],
+  acceptedBlocks: [],
+  yesterdayGoals: [],
+  mode: 'guided'  // 'guided' or 'chat'
+};
+
+function planWizardGoToStep(n) {
+  // Hide all steps
+  ['plan-step-1', 'plan-step-2', 'plan-step-3', 'plan-step-chat'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  // Show target step
+  var target = document.getElementById('plan-step-' + n);
+  if (target) target.style.display = '';
+  planWizardState.step = n;
+
+  // Update step indicators
+  document.querySelectorAll('#plan-wizard-steps .plan-step').forEach(function(step) {
+    var stepNum = parseInt(step.dataset.step);
+    step.classList.remove('active', 'completed');
+    if (stepNum === n) step.classList.add('active');
+    else if (stepNum < n) step.classList.add('completed');
+  });
+
+  // Show/hide step bar
+  var stepBar = document.getElementById('plan-wizard-steps');
+  if (stepBar) stepBar.style.display = (planWizardState.mode === 'chat') ? 'none' : '';
+}
+
+function planWizardShowChat() {
+  planWizardState.mode = 'chat';
+  ['plan-step-1', 'plan-step-2', 'plan-step-3'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  var chat = document.getElementById('plan-step-chat');
+  if (chat) chat.style.display = '';
+  var stepBar = document.getElementById('plan-wizard-steps');
+  if (stepBar) stepBar.style.display = 'none';
+  setTimeout(function() {
+    var input = document.getElementById('plan-input');
+    if (input) input.focus();
+  }, 100);
+}
+
+function planWizardShowGuided() {
+  planWizardState.mode = 'guided';
+  planWizardState.step = 1;
+  planWizardState.generatedBlocks = [];
+  planWizardState.acceptedBlocks = [];
+  // Clear priority inputs
+  for (var i = 1; i <= 3; i++) {
+    var inp = document.getElementById('plan-pri-' + i);
+    if (inp) { inp.value = ''; inp.classList.remove('error'); }
+  }
+  var buildBtn = document.getElementById('plan-build-btn');
+  if (buildBtn) { buildBtn.disabled = false; buildBtn.textContent = 'Build my schedule'; }
+  planWizardGoToStep(1);
+}
+
+function planWizardBuildSchedule() {
+  // Validate at least one priority
+  var pri1 = (document.getElementById('plan-pri-1').value || '').trim();
+  var pri2 = (document.getElementById('plan-pri-2').value || '').trim();
+  var pri3 = (document.getElementById('plan-pri-3').value || '').trim();
+
+  if (!pri1) {
+    document.getElementById('plan-pri-1').classList.add('error');
+    document.getElementById('plan-pri-1').focus();
+    return;
+  }
+  document.getElementById('plan-pri-1').classList.remove('error');
+
+  var priorities = [pri1];
+  if (pri2) priorities.push(pri2);
+  if (pri3) priorities.push(pri3);
+  planWizardState.priorities = priorities;
+
+  // Disable button
+  var btn = document.getElementById('plan-build-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Building...'; }
+
+  // Send to AI with [PRIORITIES] prefix
+  var msg = '[PRIORITIES] My priorities for today are: ' + priorities.join(', ');
+  sendMessage({ type: 'PLAN_DAY_CHAT', message: msg });
+}
+
+function planWizardRenderStep2Blocks(blocks) {
+  var container = document.getElementById('plan-step2-blocks');
+  if (!container) return;
+  container.innerHTML = '';
+
+  blocks.forEach(function(block, i) {
+    var card = document.createElement('div');
+    card.className = 'plan-block-card';
+    card.dataset.wizardIdx = i;
+
+    var color = block.blockType === 'deepWork' ? 'var(--block-deep-work)' :
+                block.blockType === 'freeTime' ? 'var(--block-free-time)' :
+                'var(--block-focus)';
+    card.style.borderLeftColor = color;
+
+    var typeLabel = block.blockType === 'deepWork' ? 'Deep Work' :
+                    block.blockType === 'freeTime' ? 'Free Time' : 'Focus Hours';
+    var typeCls = block.blockType === 'deepWork' ? 'deep-work' :
+                  block.blockType === 'freeTime' ? 'free-time' : 'focus-hours';
+
+    var timeStr = formatPlanTime(block.startHour, block.startMinute) + ' – ' +
+                  formatPlanTime(block.endHour, block.endMinute);
+
+    card.innerHTML =
+      '<div class="plan-card-header">' +
+        '<div class="plan-card-info">' +
+          '<span class="plan-card-title">' + escapeHtml(block.title) + '</span>' +
+          '<span class="plan-card-time">' + timeStr + '</span>' +
+          '<span class="plan-card-type ' + typeCls + '">' + typeLabel + '</span>' +
+        '</div>' +
+        '<div class="plan-card-actions">' +
+          '<button class="plan-action edit" onclick="editPlanBlock(this)" title="Edit">✏</button>' +
+          '<button class="plan-action dismiss" onclick="planWizardDismissBlock(this)" title="Dismiss">✗</button>' +
+        '</div>' +
+      '</div>';
+
+    card._blockData = JSON.parse(JSON.stringify(block));
+    container.appendChild(card);
+  });
+
+  planWizardUpdateProjections();
+}
+
+function planWizardDismissBlock(btn) {
+  var card = btn.closest('.plan-block-card');
+  if (!card) return;
+  card.classList.add('dismissed');
+  setTimeout(function() {
+    card.remove();
+    planWizardUpdateProjections();
+  }, 300);
+}
+
+function planWizardUpdateProjections() {
+  var container = document.getElementById('plan-step2-blocks');
+  if (!container) return;
+  var cards = container.querySelectorAll('.plan-block-card:not(.dismissed)');
+  var deepWorkMins = 0;
+  var focusHoursMins = 0;
+
+  cards.forEach(function(card) {
+    var b = card._blockData;
+    if (!b) return;
+    var dur = (b.endHour * 60 + b.endMinute) - (b.startHour * 60 + b.startMinute);
+    if (dur < 0) dur = 0;
+    if (b.blockType === 'deepWork') deepWorkMins += dur;
+    else if (b.blockType === 'focusHours') focusHoursMins += dur;
+  });
+
+  var earned = 5 + (deepWorkMins * 0.3) + (focusHoursMins * 0.2);
+  var projText = document.getElementById('plan-projection-text');
+  if (projText) projText.innerHTML = 'This plan earns ~<strong>' + Math.round(earned) + '</strong> min browse time';
+
+  var warning = document.getElementById('plan-deep-warning');
+  if (warning) warning.style.display = deepWorkMins > 180 ? '' : 'none';
+}
+
+function planWizardAdjust() {
+  var input = document.getElementById('plan-adjust-input');
+  if (!input) return;
+  var msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+
+  var typing = document.getElementById('plan-step2-typing');
+  if (typing) typing.style.display = '';
+
+  sendMessage({ type: 'PLAN_DAY_CHAT', message: msg });
+}
+
+function planWizardAcceptAll() {
+  var container = document.getElementById('plan-step2-blocks');
+  if (!container) return;
+  var cards = container.querySelectorAll('.plan-block-card:not(.dismissed)');
+  var blocks = [];
+  cards.forEach(function(card) {
+    if (card._blockData) blocks.push(JSON.parse(JSON.stringify(card._blockData)));
+  });
+
+  if (blocks.length === 0) {
+    showToast('No blocks to accept');
+    return;
+  }
+
+  planWizardState.acceptedBlocks = blocks;
+  planWizardPopulateStep3();
+  planWizardGoToStep(3);
+}
+
+function planWizardPopulateStep3() {
+  var blocks = planWizardState.acceptedBlocks;
+  var workBlocks = blocks.filter(function(b) { return b.blockType !== 'freeTime'; });
+  var freeBlocks = blocks.filter(function(b) { return b.blockType === 'freeTime'; });
+
+  // Total work minutes
+  var workMins = 0;
+  workBlocks.forEach(function(b) {
+    workMins += (b.endHour * 60 + b.endMinute) - (b.startHour * 60 + b.startMinute);
+  });
+  var deepMins = 0;
+  var focusMins = 0;
+  blocks.forEach(function(b) {
+    var dur = (b.endHour * 60 + b.endMinute) - (b.startHour * 60 + b.startMinute);
+    if (b.blockType === 'deepWork') deepMins += dur;
+    else if (b.blockType === 'focusHours') focusMins += dur;
+  });
+  var earned = 5 + (deepMins * 0.3) + (focusMins * 0.2);
+
+  var workH = Math.floor(workMins / 60);
+  var workM = workMins % 60;
+  var workStr = workH > 0 ? workH + 'h ' + (workM > 0 ? workM + 'm' : '') : workM + 'm';
+
+  // Summary card
+  var summary = document.getElementById('plan-summary-card');
+  if (summary) {
+    summary.innerHTML =
+      '<div class="plan-summary-row"><span class="plan-summary-label">Blocks</span><span class="plan-summary-value">' + blocks.length + ' total (' + workBlocks.length + ' work, ' + freeBlocks.length + ' break)</span></div>' +
+      '<div class="plan-summary-row"><span class="plan-summary-label">Work time</span><span class="plan-summary-value">' + workStr.trim() + '</span></div>' +
+      '<div class="plan-summary-row"><span class="plan-summary-label">Earned browse</span><span class="plan-summary-value">~' + Math.round(earned) + ' min</span></div>';
+  }
+
+  // First block preview
+  var firstBlock = blocks[0];
+  var previewEl = document.getElementById('plan-first-block-preview');
+  if (previewEl && firstBlock) {
+    var typeLabel = firstBlock.blockType === 'deepWork' ? 'Deep Work' :
+                    firstBlock.blockType === 'freeTime' ? 'Free Time' : 'Focus Hours';
+    var timeStr = formatPlanTime(firstBlock.startHour, firstBlock.startMinute) + ' – ' +
+                  formatPlanTime(firstBlock.endHour, firstBlock.endMinute);
+    previewEl.innerHTML =
+      '<div class="plan-first-block">' +
+        '<div class="plan-first-block-label">Starting with</div>' +
+        '<div class="plan-first-block-title">' + escapeHtml(firstBlock.title) + '</div>' +
+        '<div class="plan-first-block-time">' + timeStr + ' · ' + typeLabel + '</div>' +
+      '</div>';
+  }
+
+  // If-then intention options
+  var ifThenPlans = [
+    'Close the tab and return to my task',
+    'Pause, re-read my intention, and start again',
+    'Write down what pulled me away for later, then refocus'
+  ];
+  var savedPlan = parseInt(localStorage.getItem('defaultIfThenPlan') || '0');
+  var optionsEl = document.getElementById('plan-intention-options');
+  if (optionsEl) {
+    var html = '';
+    ifThenPlans.forEach(function(plan, i) {
+      var checked = (i === savedPlan) ? ' checked' : '';
+      html +=
+        '<div class="plan-intention-option" onclick="document.getElementById(\'plan-itp-' + i + '\').checked=true;">' +
+          '<input type="radio" name="plan-intention" id="plan-itp-' + i + '" value="' + i + '"' + checked + ' />' +
+          '<label for="plan-itp-' + i + '">' + escapeHtml(plan) + '</label>' +
+        '</div>';
+    });
+    // Custom option
+    html +=
+      '<div class="plan-intention-option" onclick="document.getElementById(\'plan-itp-custom\').checked=true;document.getElementById(\'plan-itp-custom-text\').focus();">' +
+        '<input type="radio" name="plan-intention" id="plan-itp-custom" value="custom" />' +
+        '<label for="plan-itp-custom">Something else...</label>' +
+      '</div>' +
+      '<div class="plan-intention-custom"><input type="text" id="plan-itp-custom-text" placeholder="Type your strategy..." onfocus="document.getElementById(\'plan-itp-custom\').checked=true;" /></div>';
+    optionsEl.innerHTML = html;
+  }
+}
+
+function planWizardCommit() {
+  var blocks = planWizardState.acceptedBlocks;
+  if (!blocks || blocks.length === 0) return;
+
+  // Save if-then plan
+  var selectedRadio = document.querySelector('input[name="plan-intention"]:checked');
+  if (selectedRadio) {
+    var val = selectedRadio.value;
+    if (val !== 'custom') {
+      sendMessage({ type: 'SAVE_IF_THEN_PLAN', planIndex: parseInt(val) });
+      localStorage.setItem('defaultIfThenPlan', val);
+    }
+  }
+
+  // Push blocks to focusState
+  blocks.forEach(function(block) {
+    var newBlock = {
+      id: generateFocusUUID(),
+      title: block.title,
+      description: block.description || '',
+      startHour: block.startHour,
+      startMinute: block.startMinute,
+      endHour: block.endHour,
+      endMinute: block.endMinute,
+      blockType: block.blockType,
+      isFree: block.blockType === 'freeTime'
+    };
+    focusState.blocks.push(newBlock);
+  });
+
+  // Set goals from priorities
+  focusState.goals = planWizardState.priorities.concat(['', '', '']).slice(0, 3);
+
+  // Save and render
+  markFocusDirty();
+  renderCalendarBlocks();
+
+  // Play sound
+  sendMessage({ type: 'PREVIEW_SOUND', sound: 'Glass' });
+
+  // Toast + navigate
+  showToast('Plan saved — ' + blocks.length + ' blocks added');
+  navigateTo('today');
+
+  // Reset wizard state
+  planWizardState.generatedBlocks = [];
+  planWizardState.acceptedBlocks = [];
+}
+
+function planWizardLoadYesterday() {
+  sendMessage({ type: 'PLAN_DAY_GET_YESTERDAY' });
+}
+
+window._planDayYesterdayResult = function(data) {
+  var items = [];
+  if (data.goals && data.goals.length) {
+    data.goals.forEach(function(g) { if (g && g.trim()) items.push(g.trim()); });
+  }
+  if (data.blockTitles && data.blockTitles.length) {
+    data.blockTitles.forEach(function(t) {
+      if (t && t.trim() && items.indexOf(t.trim()) === -1) items.push(t.trim());
+    });
+  }
+  planWizardState.yesterdayGoals = items;
+
+  var section = document.getElementById('plan-chips-section');
+  var row = document.getElementById('plan-chips-row');
+  if (!section || !row) return;
+
+  if (items.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = '';
+  row.innerHTML = '';
+  items.forEach(function(item) {
+    var chip = document.createElement('span');
+    chip.className = 'plan-chip';
+    chip.textContent = item;
+    chip.onclick = function() { planWizardFillPriority(item); };
+    row.appendChild(chip);
+  });
+};
+
+function planWizardFillPriority(text) {
+  for (var i = 1; i <= 3; i++) {
+    var inp = document.getElementById('plan-pri-' + i);
+    if (inp && !inp.value.trim()) {
+      inp.value = text;
+      inp.classList.remove('error');
+      return;
+    }
+  }
+}
+
 // ===== Init =====
 sendMessage({ type: 'GET_SETTINGS' });
 sendMessage({ type: 'GET_PARTNER_STATUS' });
@@ -7756,6 +9514,20 @@ setInterval(refresh, 5000);
     <div class="lock-confirm-actions">
       <button class="lock-confirm-cancel" onclick="closeLockConfirm(false)">Cancel</button>
       <button class="lock-confirm-enable" onclick="closeLockConfirm(true)" id="lock-confirm-btn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div id="plan-memories-modal" class="plan-memories-overlay" style="display:none" onclick="if(event.target===this)hidePlanMemories()">
+  <div class="plan-memories-box">
+    <div class="plan-memories-header">
+      <h3>Coaching Memories</h3>
+      <button class="plan-memories-close" onclick="hidePlanMemories()">&times;</button>
+    </div>
+    <div class="plan-memories-meta" id="plan-memories-meta"></div>
+    <div id="plan-memories-list"></div>
+    <div class="plan-memories-actions">
+      <button class="plan-memories-copy-btn" onclick="copyPlanMemories()">Copy to clipboard</button>
     </div>
   </div>
 </div>

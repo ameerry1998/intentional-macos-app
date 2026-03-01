@@ -343,6 +343,26 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "SAVE_STRICT_MODE":
             handleSaveStrictMode(body)
 
+        case "PLAN_DAY_CHAT":
+            handlePlanDayChat(body)
+
+        case "PLAN_DAY_RESET":
+            appDelegate?.planningCoach?.reset()
+
+        case "PLAN_DAY_CLEAR_MEMORY":
+            appDelegate?.planningCoach?.clearMemory()
+
+        case "GET_PLAN_MEMORIES":
+            handleGetPlanMemories()
+
+        case "PLAN_DAY_GET_YESTERDAY":
+            handlePlanDayGetYesterday()
+
+        case "SAVE_IF_THEN_PLAN":
+            if let planIndex = body["planIndex"] as? Int {
+                UserDefaults.standard.set(planIndex, forKey: "defaultIfThenPlan")
+            }
+
         default:
             appDelegate?.postLog("⚠️ WKWebView: Unknown message type: \(type)")
         }
@@ -2134,6 +2154,75 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     /// Push earned browse status to the dashboard (called by AppDelegate when pool changes).
     func pushEarnedUpdate() {
         handleGetEarnedStatus()
+    }
+
+    // MARK: - Plan Day Chat
+
+    private func handlePlanDayChat(_ body: [String: Any]) {
+        guard let userMessage = body["message"] as? String else { return }
+        Task {
+            let response = await appDelegate?.planningCoach?.chat(userMessage: userMessage)
+            await MainActor.run {
+                let blocksArray: [[String: Any]] = (response?.blocks ?? []).map { b in
+                    [
+                        "title": b.title,
+                        "description": b.description,
+                        "startHour": b.startHour,
+                        "startMinute": b.startMinute,
+                        "endHour": b.endHour,
+                        "endMinute": b.endMinute,
+                        "blockType": b.blockType
+                    ]
+                }
+                var data: [String: Any] = [
+                    "message": response?.message ?? "Something went wrong.",
+                    "blocks": blocksArray
+                ]
+                if let error = response?.error {
+                    data["error"] = error
+                }
+                self.callJSCallback("_planDayChatResult", data: data)
+            }
+        }
+    }
+
+    private func handleGetPlanMemories() {
+        guard let coach = appDelegate?.planningCoach else {
+            callJSCallback("_planMemoriesResult", data: ["insights": [], "preferredBlockDuration": 75, "lastUpdated": ""])
+            return
+        }
+        let mem = coach.currentMemory
+        callJSCallback("_planMemoriesResult", data: [
+            "insights": mem.insights,
+            "preferredBlockDuration": mem.preferredBlockDuration,
+            "lastUpdated": mem.lastUpdated
+        ])
+    }
+
+    private func handlePlanDayGetYesterday() {
+        let cal = Calendar.current
+        guard let yesterday = cal.date(byAdding: .day, value: -1, to: Date()) else {
+            callJSCallback("_planDayYesterdayResult", data: ["goals": [], "blockTitles": []])
+            return
+        }
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        let yesterdayStr = df.string(from: yesterday)
+
+        guard let schedule = appDelegate?.scheduleManager?.getScheduleForDate(yesterdayStr) else {
+            callJSCallback("_planDayYesterdayResult", data: ["goals": [], "blockTitles": []])
+            return
+        }
+
+        let workBlockTitles = schedule.blocks
+            .filter { !$0.isFree }
+            .map { $0.title }
+
+        let data: [String: Any] = [
+            "goals": schedule.goals,
+            "blockTitles": workBlockTitles
+        ]
+        callJSCallback("_planDayYesterdayResult", data: data)
     }
 
     // MARK: - JS Helpers

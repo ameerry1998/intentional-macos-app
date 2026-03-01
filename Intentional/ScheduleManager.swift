@@ -645,6 +645,12 @@ class ScheduleManager {
         return loadHistory().first(where: { $0.date == dateString })
     }
 
+    /// Get recent schedule history for planning context.
+    func getRecentHistory(days: Int) -> [DailySchedule] {
+        let history = loadHistory()
+        return Array(history.suffix(days))
+    }
+
     /// Get list of dates with archived schedules
     func availableHistoryDates() -> [String] {
         return loadHistory().map { $0.date }

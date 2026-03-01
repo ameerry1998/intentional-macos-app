@@ -37,6 +37,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Earn Your Browse budget system
     var earnedBrowseManager: EarnedBrowseManager?
 
+    // LLM-powered day planning coach
+    var planningCoach: PlanningCoach?
+
     // Native app heartbeat timer (Phase 2: Tamper Detection)
     var heartbeatTimer: Timer?
 
@@ -280,6 +283,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Initialize Daily Focus Plan (V2: schedule engine + relevance scoring)
         scheduleManager = ScheduleManager(appDelegate: self)
         relevanceScorer = RelevanceScorer(appDelegate: self)
+
+        // Initialize LLM-powered planning coach (reuses models from RelevanceScorer)
+        planningCoach = PlanningCoach(appDelegate: self)
 
         // Initialize focus monitor and nudge window (V2: desktop app monitoring)
         nudgeController = NudgeWindowController(appDelegate: self)
