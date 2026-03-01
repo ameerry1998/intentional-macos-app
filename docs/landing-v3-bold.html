@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intentional — Stop Wasting Time</title>
+<style>
+/* ── Reset & Base ── */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0a0a;
+  --bg-elevated: #111111;
+  --bg-card: rgba(255,255,255,0.03);
+  --border: rgba(255,255,255,0.1);
+  --border-hard: rgba(255,255,255,0.25);
+  --text-primary: rgba(255,255,255,0.95);
+  --text-secondary: rgba(255,255,255,0.55);
+  --text-dim: rgba(255,255,255,0.3);
+  --green: #22c55e;
+  --green-dim: rgba(34, 197, 94, 0.15);
+  --green-glow: rgba(34, 197, 94, 0.4);
+  --red: #ef4444;
+  --red-dim: rgba(239, 68, 68, 0.1);
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+  --mono: 'SF Mono', ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+  --max-width: 1140px;
+  --section-gap: 160px;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+a { color: var(--green); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Nav ── */
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 18px 32px;
+  background: rgba(10,10,10,0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-logo {
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--green);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.nav-links {
+  display: flex;
+  gap: 32px;
+  align-items: center;
+}
+
+.nav-links a {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  transition: color 0.2s;
+}
+
+.nav-links a:hover { color: var(--text-primary); text-decoration: none; }
+
+.nav-cta {
+  font-family: var(--mono) !important;
+  font-size: 13px !important;
+  color: var(--bg) !important;
+  background: var(--green);
+  padding: 8px 20px;
+  border-radius: 4px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.nav-cta:hover {
+  background: #16a34a;
+  color: var(--bg) !important;
+}
+
+/* ── Hero ── */
+.hero {
+  padding: 180px 0 120px;
+  text-align: center;
+}
+
+.hero-label {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--green);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 32px;
+  display: inline-block;
+  padding: 6px 16px;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 2px;
+}
+
+.hero h1 {
+  font-family: var(--mono);
+  font-size: clamp(40px, 7vw, 80px);
+  font-weight: 800;
+  line-height: 1.0;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+  margin-bottom: 28px;
+}
+
+.hero h1 .green { color: var(--green); }
+
+.hero-sub {
+  font-size: 20px;
+  color: var(--text-secondary);
+  max-width: 640px;
+  margin: 0 auto 24px;
+  line-height: 1.65;
+}
+
+.hero-sub strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.hero-sub .callout {
+  color: var(--green);
+  font-weight: 600;
+}
+
+/* Video placeholder */
+.video-placeholder {
+  max-width: 800px;
+  margin: 48px auto 48px;
+  aspect-ratio: 16/9;
+  background: var(--bg-elevated);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: border-color 0.3s, box-shadow 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.video-placeholder:hover {
+  border-color: var(--green);
+  box-shadow: 0 0 60px rgba(34, 197, 94, 0.1);
+}
+
+.video-placeholder::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(34, 197, 94, 0.05), transparent 70%);
+}
+
+.play-btn {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 0 40px rgba(34, 197, 94, 0.3);
+}
+
+.play-btn svg {
+  width: 32px;
+  height: 32px;
+  fill: var(--bg);
+  margin-left: 4px;
+}
+
+.video-label {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--text-secondary);
+  position: relative;
+  z-index: 1;
+  letter-spacing: 0.03em;
+}
+
+/* CTAs */
+.hero-ctas {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn-primary {
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--green);
+  border: 2px solid var(--green);
+  padding: 16px 40px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all 0.2s;
+  display: inline-block;
+  text-decoration: none;
+}
+
+.btn-primary:hover {
+  background: #16a34a;
+  border-color: #16a34a;
+  box-shadow: 0 0 30px rgba(34, 197, 94, 0.3);
+  text-decoration: none;
+}
+
+.btn-ghost {
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 2px solid var(--border-hard);
+  padding: 16px 40px;
+  border-radius: 4px;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: all 0.2s;
+  display: inline-block;
+  text-decoration: none;
+}
+
+.btn-ghost:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+/* ── Stats Section ── */
+.stats-section {
+  padding: 100px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 40px 20px;
+  position: relative;
+}
+
+.stat-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 20%;
+  height: 60%;
+  width: 1px;
+  background: var(--border);
+}
+
+.stat-number {
+  font-family: var(--mono);
+  font-size: clamp(64px, 10vw, 120px);
+  font-weight: 800;
+  color: var(--green);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.stat-label {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-top: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  line-height: 1.5;
+}
+
+.stats-source {
+  text-align: center;
+  margin-top: 40px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+}
+
+/* ── "Here's What Happens" Section ── */
+.happens-section {
+  padding: var(--section-gap) 0;
+}
+
+.section-header {
+  margin-bottom: 72px;
+}
+
+.section-tag {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--green);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-family: var(--mono);
+  font-size: clamp(28px, 4.5vw, 48px);
+  font-weight: 800;
+  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
+}
+
+.happens-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.happens-card {
+  border: 2px solid var(--border);
+  padding: 36px 28px;
+  position: relative;
+  background: var(--bg);
+  transition: border-color 0.3s;
+}
+
+.happens-card:hover {
+  border-color: var(--green);
+}
+
+.happens-card:nth-child(1) { transform: rotate(-0.8deg); }
+.happens-card:nth-child(2) { transform: rotate(0.5deg); border-color: var(--green); }
+.happens-card:nth-child(3) { transform: rotate(-0.3deg); }
+
+.happens-phase {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--green);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 20px;
+  display: inline-block;
+  padding: 4px 10px;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.happens-card h3 {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  line-height: 1.35;
+  color: var(--text-primary);
+}
+
+.happens-card p {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.happens-card p .highlight {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.happens-card p .red {
+  color: var(--red);
+  font-weight: 600;
+}
+
+/* ── Checklist Features ── */
+.checklist-section {
+  padding: var(--section-gap) 0;
+  border-top: 1px solid var(--border);
+}
+
+.checklist {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 28px 0;
+  border-bottom: 1px solid var(--border);
+  transition: all 0.2s;
+}
+
+.check-item:first-child {
+  border-top: 1px solid var(--border);
+}
+
+.check-item:hover {
+  padding-left: 8px;
+}
+
+.check-box {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border: 2px solid var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+  background: var(--green-dim);
+}
+
+.check-box svg {
+  width: 16px;
+  height: 16px;
+  stroke: var(--green);
+  fill: none;
+  stroke-width: 3;
+}
+
+.check-content h3 {
+  font-family: var(--mono);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.check-content p {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ── Screenshots ── */
+.screenshots-section {
+  padding: var(--section-gap) 0;
+  overflow: hidden;
+}
+
+.screenshots-row {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  padding: 0 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  perspective: 1200px;
+}
+
+.screenshot-frame {
+  flex: 0 0 420px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.4s;
+  position: relative;
+  background: var(--bg-elevated);
+}
+
+.screenshot-frame:nth-child(1) {
+  transform: rotateY(8deg) translateX(40px);
+  z-index: 1;
+}
+
+.screenshot-frame:nth-child(2) {
+  transform: scale(1.05) translateY(-8px);
+  z-index: 3;
+  border-color: var(--green);
+  box-shadow: 0 0 60px rgba(34, 197, 94, 0.1);
+}
+
+.screenshot-frame:nth-child(3) {
+  transform: rotateY(-8deg) translateX(-40px);
+  z-index: 1;
+}
+
+.screenshot-frame:hover {
+  z-index: 4;
+  transform: scale(1.08) translateY(-12px);
+  border-color: var(--green);
+  box-shadow: 0 0 60px rgba(34, 197, 94, 0.15);
+}
+
+.screenshot-frame img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.screenshot-label {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 12px 16px;
+  text-align: center;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Testimonial Videos ── */
+.testimonials-section {
+  padding: var(--section-gap) 0;
+  border-top: 1px solid var(--border);
+}
+
+.testimonial-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.testimonial-card {
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: border-color 0.3s;
+}
+
+.testimonial-card:hover {
+  border-color: var(--green);
+}
+
+.testimonial-video {
+  aspect-ratio: 16/9;
+  background: var(--bg-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.testimonial-video::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(34, 197, 94, 0.04), transparent 70%);
+}
+
+.testimonial-play {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.15);
+  border: 2px solid var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.testimonial-play svg {
+  width: 18px;
+  height: 18px;
+  fill: var(--green);
+  margin-left: 3px;
+}
+
+.testimonial-info {
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.testimonial-name {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.testimonial-role {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* ── Uncomfortable Truth ── */
+.truth-section {
+  padding: var(--section-gap) 0;
+  border-top: 1px solid var(--border);
+}
+
+.truth-content {
+  max-width: 680px;
+  margin-bottom: 80px;
+}
+
+.truth-content h2 {
+  font-family: var(--mono);
+  font-size: clamp(28px, 4.5vw, 48px);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin-bottom: 36px;
+}
+
+.truth-manifesto p {
+  font-size: 18px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+  margin-bottom: 8px;
+}
+
+.truth-manifesto p .strike {
+  text-decoration: line-through;
+  color: var(--text-dim);
+}
+
+.truth-manifesto p .bold {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.truth-manifesto p .green {
+  color: var(--green);
+  font-weight: 700;
+}
+
+/* Comparison Table */
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 14px;
+  margin-top: 24px;
+}
+
+.comparison-table th {
+  text-align: left;
+  padding: 16px 20px;
+  border-bottom: 2px solid var(--border-hard);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.comparison-table th:not(:first-child) {
+  text-align: center;
+}
+
+.comparison-table th:last-child {
+  color: var(--green);
+}
+
+.comparison-table td {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.comparison-table td:not(:first-child) {
+  text-align: center;
+}
+
+.comparison-table tr:hover td {
+  background: rgba(255,255,255,0.02);
+}
+
+.comparison-table .feature-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.table-yes {
+  color: var(--green);
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.table-no {
+  color: var(--text-dim);
+  font-size: 18px;
+}
+
+.table-partial {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+/* ── Pricing ── */
+.pricing-section {
+  padding: var(--section-gap) 0;
+  border-top: 1px solid var(--border);
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.pricing-card {
+  border: 2px solid var(--border);
+  padding: 40px 32px;
+  position: relative;
+  text-align: center;
+  transition: border-color 0.3s;
+}
+
+.pricing-card:hover {
+  border-color: rgba(255,255,255,0.2);
+}
+
+.pricing-card.featured {
+  border-color: var(--green);
+  box-shadow: 0 0 60px rgba(34, 197, 94, 0.08);
+}
+
+.pricing-card.featured::before {
+  content: 'BEST VALUE';
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-50%);
+  background: var(--green);
+  color: var(--bg);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 16px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.pricing-tier {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 20px;
+}
+
+.pricing-amount {
+  font-family: var(--mono);
+  font-size: 56px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.pricing-period {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-bottom: 28px;
+}
+
+.pricing-features {
+  list-style: none;
+  text-align: left;
+  margin-bottom: 32px;
+}
+
+.pricing-features li {
+  font-size: 14px;
+  color: var(--text-secondary);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pricing-features li::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: var(--green);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.pricing-btn {
+  display: block;
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+  padding: 16px;
+  border: 2px solid var(--green);
+  background: transparent;
+  color: var(--green);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all 0.2s;
+  text-align: center;
+  text-decoration: none;
+}
+
+.pricing-btn:hover {
+  background: var(--green);
+  color: var(--bg);
+  text-decoration: none;
+}
+
+.pricing-card.featured .pricing-btn {
+  background: var(--green);
+  color: var(--bg);
+}
+
+.pricing-card.featured .pricing-btn:hover {
+  background: #16a34a;
+  border-color: #16a34a;
+  box-shadow: 0 0 30px rgba(34, 197, 94, 0.3);
+}
+
+.pricing-urgency {
+  text-align: center;
+  margin-top: 28px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text-dim);
+  letter-spacing: 0.03em;
+}
+
+.pricing-urgency span {
+  color: var(--red);
+  font-weight: 600;
+}
+
+/* ── Final CTA ── */
+.final-cta {
+  padding: var(--section-gap) 0 120px;
+  text-align: center;
+  border-top: 1px solid var(--border);
+  position: relative;
+}
+
+.final-cta::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 400px;
+  background: radial-gradient(ellipse, rgba(34, 197, 94, 0.06), transparent 70%);
+  pointer-events: none;
+}
+
+.final-cta h2 {
+  font-family: var(--mono);
+  font-size: clamp(32px, 5.5vw, 64px);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.final-cta .sub {
+  font-size: 19px;
+  color: var(--text-secondary);
+  max-width: 520px;
+  margin: 0 auto 40px;
+  line-height: 1.7;
+}
+
+/* ── Footer ── */
+.footer {
+  padding: 48px 0;
+  border-top: 1px solid var(--border);
+}
+
+.footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.footer-logo {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.footer-links {
+  display: flex;
+  gap: 24px;
+}
+
+.footer-links a {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: color 0.2s;
+}
+
+.footer-links a:hover { color: var(--text-secondary); }
+
+.footer-copy {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .stat-item:not(:last-child)::after {
+    display: none;
+  }
+  .stat-item {
+    border-bottom: 1px solid var(--border);
+  }
+  .happens-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .happens-card:nth-child(1),
+  .happens-card:nth-child(2),
+  .happens-card:nth-child(3) {
+    transform: none;
+  }
+  .screenshots-row {
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+  .screenshot-frame {
+    flex: none;
+    width: 100%;
+    max-width: 500px;
+  }
+  .screenshot-frame:nth-child(1),
+  .screenshot-frame:nth-child(2),
+  .screenshot-frame:nth-child(3) {
+    transform: none;
+  }
+  .testimonial-grid {
+    grid-template-columns: 1fr;
+  }
+  .pricing-grid {
+    grid-template-columns: 1fr;
+    max-width: 360px;
+  }
+  .comparison-table {
+    font-size: 12px;
+  }
+  .comparison-table th,
+  .comparison-table td {
+    padding: 10px 8px;
+  }
+}
+
+@media (max-width: 600px) {
+  .nav-links a:not(.nav-cta) { display: none; }
+  .hero { padding: 140px 0 80px; }
+  .hero-ctas { flex-direction: column; align-items: center; }
+  .btn-primary, .btn-ghost { width: 100%; max-width: 320px; text-align: center; }
+  .footer-inner { flex-direction: column; text-align: center; }
+  .footer-links { justify-content: center; }
+}
+
+/* ── Scroll animations ── */
+.fade-in {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.fade-in.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+</style>
+</head>
+<body>
+
+<!-- ── Nav ── -->
+<nav class="nav">
+  <div class="nav-logo">// intentional</div>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#faq">FAQ</a>
+    <a href="#download" class="nav-cta">Download</a>
+  </div>
+</nav>
+
+<!-- ── Hero ── -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-label">macOS focus app</div>
+    <h1>You know you're<br><span class="green">wasting time.</span></h1>
+    <p class="hero-sub">
+      The average knowledge worker loses <strong>2.5 hours per day</strong> to distraction.
+      You're not average &mdash; you're probably worse.
+      <span class="callout">Intentional fixes that.</span>
+    </p>
+
+    <!-- Video Placeholder -->
+    <div class="video-placeholder">
+      <div class="play-btn">
+        <svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19"/></svg>
+      </div>
+      <span class="video-label">See it in action &mdash; 60 sec</span>
+    </div>
+
+    <div class="hero-ctas">
+      <a href="#download" class="btn-primary">Download Now</a>
+      <a href="#faq" class="btn-ghost">I'm not ready</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Big Stats ── -->
+<section class="stats-section">
+  <div class="container">
+    <div class="stats-grid">
+      <div class="stat-item fade-in">
+        <div class="stat-number">2.5h</div>
+        <div class="stat-label">Lost to distraction<br>every single day</div>
+      </div>
+      <div class="stat-item fade-in">
+        <div class="stat-number">23x</div>
+        <div class="stat-label">You check your phone<br>per hour</div>
+      </div>
+      <div class="stat-item fade-in">
+        <div class="stat-number">47%</div>
+        <div class="stat-label">Of work time<br>is wasted</div>
+      </div>
+    </div>
+    <div class="stats-source">Sources: University of California Irvine, RescueTime, Microsoft Research</div>
+  </div>
+</section>
+
+<!-- ── Here's What Happens ── -->
+<section class="happens-section">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-tag">The intervention</div>
+      <h2 class="section-title">Here's what happens</h2>
+    </div>
+
+    <div class="happens-grid">
+      <div class="happens-card fade-in">
+        <div class="happens-phase">Before</div>
+        <h3>You open YouTube.<br>"Just one video."</h3>
+        <p>
+          You tell yourself it's research. It's not. Three videos later you're watching
+          someone restore a rusty axe. <span class="red">Sound familiar?</span>
+        </p>
+      </div>
+
+      <div class="happens-card fade-in">
+        <div class="happens-phase">During</div>
+        <h3>Intentional steps in.</h3>
+        <p>
+          First, a <span class="highlight">gentle nudge</span>. Keep going and the screen
+          goes <span class="highlight">grayscale</span>. Still going?
+          <span class="highlight">Blocked</span>. Then: <span class="highlight">60 seconds
+          of breathing exercises</span>. You'll survive.
+        </p>
+      </div>
+
+      <div class="happens-card fade-in">
+        <div class="happens-phase">After</div>
+        <h3>You earned 24 minutes of browse time.</h3>
+        <p>
+          You use 5. You close the tab yourself. You feel like a
+          <span class="highlight">god</span>. This is what control feels like.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Checklist Features ── -->
+<section class="checklist-section" id="features">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-tag">Everything you need</div>
+      <h2 class="section-title">The full arsenal</h2>
+    </div>
+
+    <div class="checklist">
+      <div class="check-item fade-in">
+        <div class="check-box">
+          <svg viewBox="0 0 24 24"><polyline points="4,12 10,18 20,6"/></svg>
+        </div>
+        <div class="check-content">
+          <h3>AI Relevance Scoring</h3>
+          <p>On-device AI reads your page titles and knows if you're working or drifting. No cloud. No data leaves your Mac.</p>
+        </div>
+      </div>
+
+      <div class="check-item fade-in">
+        <div class="check-box">
+          <svg viewBox="0 0 24 24"><polyline points="4,12 10,18 20,6"/></svg>
+        </div>
+        <div class="check-content">
+          <h3>Earned Browse System</h3>
+          <p>Every 5 minutes of focused work earns 1 minute of guilt-free scroll time. Deep work earns faster. You decide when to spend it.</p>
+        </div>
+      </div>
+
+      <div class="check-item fade-in">
+        <div class="check-box">
+          <svg viewBox="0 0 24 24"><polyline points="4,12 10,18 20,6"/></svg>
+        </div>
+        <div class="check-content">
+          <h3>Progressive Enforcement</h3>
+          <p>Nudge. Grayscale. Block. Intervention. Four escalating levels that match how distracted you actually are.</p>
+        </div>
+      </div>
+
+      <div class="check-item fade-in">
+        <div class="check-box">
+          <svg viewBox="0 0 24 24"><polyline points="4,12 10,18 20,6"/></svg>
+        </div>
+        <div class="check-content">
+          <h3>Accountability Partner Lock</h3>
+          <p>Send a code to someone you trust. They hold the key. You can't cheat without asking them first.</p>
+        </div>
+      </div>
+
+      <div class="check-item fade-in">
+        <div class="check-box">
+          <svg viewBox="0 0 24 24"><polyline points="4,12 10,18 20,6"/></svg>
+        </div>
+        <div class="check-content">
+          <h3>AI Schedule Builder</h3>
+          <p>Plan your day with focus blocks. The AI knows your schedule and adjusts enforcement based on what you should be doing right now.</p>
+        </div>
+      </div>
+
+      <div class="check-item fade-in">
+        <div class="check-box">
+          <svg viewBox="0 0 24 24"><polyline points="4,12 10,18 20,6"/></svg>
+        </div>
+        <div class="check-content">
+          <h3>Strict Mode</h3>
+          <p>Survives force-quit. Relaunches on login. Can't be uninstalled without your partner's code. For when you mean it.</p>
+        </div>
+      </div>
+
+      <div class="check-item fade-in">
+        <div class="check-box">
+          <svg viewBox="0 0 24 24"><polyline points="4,12 10,18 20,6"/></svg>
+        </div>
+        <div class="check-content">
+          <h3>Cross-Browser</h3>
+          <p>Chrome, Safari, Edge, Brave, Arc, Firefox, Opera, Vivaldi. If it opens tabs, we're watching.</p>
+        </div>
+      </div>
+
+      <div class="check-item fade-in">
+        <div class="check-box">
+          <svg viewBox="0 0 24 24"><polyline points="4,12 10,18 20,6"/></svg>
+        </div>
+        <div class="check-content">
+          <h3>On-Device Privacy</h3>
+          <p>All AI runs locally. All data stays on your Mac. We literally cannot see what you browse. Zero telemetry.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Screenshots ── -->
+<section class="screenshots-section">
+  <div class="container">
+    <div class="section-header fade-in" style="text-align: center;">
+      <div class="section-tag">See it yourself</div>
+      <h2 class="section-title">Built for your Mac</h2>
+    </div>
+  </div>
+  <div class="screenshots-row fade-in">
+    <div class="screenshot-frame">
+      <img src="screenshots/Planning view.png" alt="Planning view — set intentions and schedule focus blocks" loading="lazy">
+      <div class="screenshot-label">Planning</div>
+    </div>
+    <div class="screenshot-frame">
+      <img src="screenshots/Calendar view.png" alt="Calendar view — drag and resize focus blocks on a daily timeline" loading="lazy">
+      <div class="screenshot-label">Calendar</div>
+    </div>
+    <div class="screenshot-frame">
+      <img src="screenshots/Accountability view.png" alt="Accountability view — partner lock and strict mode settings" loading="lazy">
+      <div class="screenshot-label">Accountability</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Testimonial Videos ── -->
+<section class="testimonials-section">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-tag">Proof</div>
+      <h2 class="section-title">Real users. Real results.</h2>
+    </div>
+
+    <div class="testimonial-grid fade-in">
+      <div class="testimonial-card">
+        <div class="testimonial-video">
+          <div class="testimonial-play">
+            <svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19"/></svg>
+          </div>
+        </div>
+        <div class="testimonial-info">
+          <div class="testimonial-name">Alex K.</div>
+          <div class="testimonial-role">Software Engineer</div>
+        </div>
+      </div>
+
+      <div class="testimonial-card">
+        <div class="testimonial-video">
+          <div class="testimonial-play">
+            <svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19"/></svg>
+          </div>
+        </div>
+        <div class="testimonial-info">
+          <div class="testimonial-name">Priya R.</div>
+          <div class="testimonial-role">Grad Student, Neuroscience</div>
+        </div>
+      </div>
+
+      <div class="testimonial-card">
+        <div class="testimonial-video">
+          <div class="testimonial-play">
+            <svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19"/></svg>
+          </div>
+        </div>
+        <div class="testimonial-info">
+          <div class="testimonial-name">Marcus T.</div>
+          <div class="testimonial-role">Freelance Designer</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── The Uncomfortable Truth ── -->
+<section class="truth-section">
+  <div class="container">
+    <div class="truth-content fade-in">
+      <h2>The uncomfortable<br>truth</h2>
+      <div class="truth-manifesto">
+        <p>You don't have a <span class="strike">motivation problem</span>.</p>
+        <p>You have a <span class="bold">tools problem</span>.</p>
+        <p>&nbsp;</p>
+        <p>Screen Time is a joke.</p>
+        <p>Freedom is easy to quit.</p>
+        <p>Cold Turkey blocks everything.</p>
+        <p>&nbsp;</p>
+        <p><span class="bold">None of them understand what you're working on.</span></p>
+        <p><span class="green">Intentional does.</span></p>
+      </div>
+    </div>
+
+    <div class="fade-in" style="overflow-x: auto;">
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>Screen Time</th>
+            <th>Freedom</th>
+            <th>Cold Turkey</th>
+            <th>Intentional</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="feature-name">AI relevance scoring</td>
+            <td><span class="table-no">&mdash;</span></td>
+            <td><span class="table-no">&mdash;</span></td>
+            <td><span class="table-no">&mdash;</span></td>
+            <td><span class="table-yes">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td class="feature-name">Earned browse system</td>
+            <td><span class="table-no">&mdash;</span></td>
+            <td><span class="table-no">&mdash;</span></td>
+            <td><span class="table-no">&mdash;</span></td>
+            <td><span class="table-yes">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td class="feature-name">Progressive enforcement</td>
+            <td><span class="table-no">&mdash;</span></td>
+            <td><span class="table-partial">Partial</span></td>
+            <td><span class="table-partial">Binary</span></td>
+            <td><span class="table-yes">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td class="feature-name">Survives force-quit</td>
+            <td><span class="table-no">&mdash;</span></td>
+            <td><span class="table-no">&mdash;</span></td>
+            <td><span class="table-yes">&#10003;</span></td>
+            <td><span class="table-yes">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td class="feature-name">Cross-browser</td>
+            <td><span class="table-partial">Safari only</span></td>
+            <td><span class="table-yes">&#10003;</span></td>
+            <td><span class="table-yes">&#10003;</span></td>
+            <td><span class="table-yes">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td class="feature-name">On-device data only</td>
+            <td><span class="table-yes">&#10003;</span></td>
+            <td><span class="table-no">&mdash;</span></td>
+            <td><span class="table-yes">&#10003;</span></td>
+            <td><span class="table-yes">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td class="feature-name">Accountability partner lock</td>
+            <td><span class="table-no">&mdash;</span></td>
+            <td><span class="table-no">&mdash;</span></td>
+            <td><span class="table-partial">Basic</span></td>
+            <td><span class="table-yes">&#10003;</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ── Pricing ── -->
+<section class="pricing-section" id="pricing">
+  <div class="container">
+    <div class="section-header fade-in" style="text-align: center;">
+      <div class="section-tag">Pick your plan</div>
+      <h2 class="section-title">How much is your<br>time worth?</h2>
+    </div>
+
+    <div class="pricing-grid fade-in">
+      <!-- Monthly -->
+      <div class="pricing-card">
+        <div class="pricing-tier">Monthly</div>
+        <div class="pricing-amount">$6</div>
+        <div class="pricing-period">/ month</div>
+        <ul class="pricing-features">
+          <li>All features included</li>
+          <li>AI relevance scoring</li>
+          <li>Earned browse system</li>
+          <li>Accountability partner</li>
+          <li>Strict mode</li>
+        </ul>
+        <a href="#download" class="pricing-btn">Get it now</a>
+      </div>
+
+      <!-- Lifetime -->
+      <div class="pricing-card featured">
+        <div class="pricing-tier">Lifetime</div>
+        <div class="pricing-amount">$79</div>
+        <div class="pricing-period">one-time payment</div>
+        <ul class="pricing-features">
+          <li>Everything in Monthly</li>
+          <li>All future updates</li>
+          <li>Priority support</li>
+          <li>Early access to new features</li>
+          <li>Pay once, own it forever</li>
+        </ul>
+        <a href="#download" class="pricing-btn">Get it now</a>
+      </div>
+    </div>
+
+    <div class="pricing-urgency">
+      <span>Lifetime price goes up after launch.</span> Lock it in now.
+    </div>
+  </div>
+</section>
+
+<!-- ── Final CTA ── -->
+<section class="final-cta" id="download">
+  <div class="container">
+    <h2 class="fade-in">Stop lying<br>to yourself.</h2>
+    <p class="sub fade-in">Download it. Plan tomorrow. Earn your scroll.</p>
+    <div class="fade-in">
+      <a href="#" class="btn-primary">Download for macOS</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── FAQ (anchor target for "I'm not ready" button) ── -->
+<section id="faq" style="padding: 100px 0; border-top: 1px solid var(--border);">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-tag">Still here?</div>
+      <h2 class="section-title">FAQ</h2>
+    </div>
+
+    <div style="max-width: 680px; display: flex; flex-direction: column; gap: 0;">
+
+      <details class="faq-item fade-in" style="border-bottom: 1px solid var(--border); padding: 24px 0;">
+        <summary style="font-family: var(--mono); font-size: 15px; font-weight: 600; color: var(--text-primary); cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; letter-spacing: 0.02em;">
+          Will this actually stop me?
+          <span style="color: var(--green); font-size: 20px; transition: transform 0.2s;">+</span>
+        </summary>
+        <p style="margin-top: 16px; font-size: 15px; color: var(--text-secondary); line-height: 1.7;">
+          Strict mode survives force-quit, relaunches on login, and needs your accountability partner's code to disable.
+          You'd have to uninstall the entire app &mdash; and your partner gets notified. So yeah, it stops you.
+        </p>
+      </details>
+
+      <details class="faq-item fade-in" style="border-bottom: 1px solid var(--border); padding: 24px 0;">
+        <summary style="font-family: var(--mono); font-size: 15px; font-weight: 600; color: var(--text-primary); cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; letter-spacing: 0.02em;">
+          Does the AI send my data anywhere?
+          <span style="color: var(--green); font-size: 20px; transition: transform 0.2s;">+</span>
+        </summary>
+        <p style="margin-top: 16px; font-size: 15px; color: var(--text-secondary); line-height: 1.7;">
+          No. All AI runs on-device using Apple's Foundation Models or a local Qwen3-4B model via MLX.
+          Your browsing data never leaves your Mac. We literally cannot see what you do.
+        </p>
+      </details>
+
+      <details class="faq-item fade-in" style="border-bottom: 1px solid var(--border); padding: 24px 0;">
+        <summary style="font-family: var(--mono); font-size: 15px; font-weight: 600; color: var(--text-primary); cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; letter-spacing: 0.02em;">
+          What if I need social media for work?
+          <span style="color: var(--green); font-size: 20px; transition: transform 0.2s;">+</span>
+        </summary>
+        <p style="margin-top: 16px; font-size: 15px; color: var(--text-secondary); line-height: 1.7;">
+          The AI understands context. If your focus block is "Social media marketing" and you're on Instagram,
+          it scores that as relevant. You won't get nudged. It's not a dumb blocklist &mdash; it actually
+          understands what you're supposed to be doing.
+        </p>
+      </details>
+
+      <details class="faq-item fade-in" style="border-bottom: 1px solid var(--border); padding: 24px 0;">
+        <summary style="font-family: var(--mono); font-size: 15px; font-weight: 600; color: var(--text-primary); cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; letter-spacing: 0.02em;">
+          Can I use it without an accountability partner?
+          <span style="color: var(--green); font-size: 20px; transition: transform 0.2s;">+</span>
+        </summary>
+        <p style="margin-top: 16px; font-size: 15px; color: var(--text-secondary); line-height: 1.7;">
+          Yes. The earned browse system, AI scoring, progressive enforcement, and scheduling all work standalone.
+          The accountability partner and strict mode are optional layers for when you want maximum commitment.
+        </p>
+      </details>
+
+      <details class="faq-item fade-in" style="border-bottom: 1px solid var(--border); padding: 24px 0;">
+        <summary style="font-family: var(--mono); font-size: 15px; font-weight: 600; color: var(--text-primary); cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; letter-spacing: 0.02em;">
+          Why not just use Screen Time?
+          <span style="color: var(--green); font-size: 20px; transition: transform 0.2s;">+</span>
+        </summary>
+        <p style="margin-top: 16px; font-size: 15px; color: var(--text-secondary); line-height: 1.7;">
+          Screen Time blocks apps by time limit. It doesn't know what you're working on, doesn't reward focus,
+          doesn't escalate progressively, and you can dismiss it with one click. It's a speed bump.
+          Intentional is a system.
+        </p>
+      </details>
+
+      <details class="faq-item fade-in" style="border-bottom: 1px solid var(--border); padding: 24px 0;">
+        <summary style="font-family: var(--mono); font-size: 15px; font-weight: 600; color: var(--text-primary); cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; letter-spacing: 0.02em;">
+          What macOS versions are supported?
+          <span style="color: var(--green); font-size: 20px; transition: transform 0.2s;">+</span>
+        </summary>
+        <p style="margin-top: 16px; font-size: 15px; color: var(--text-secondary); line-height: 1.7;">
+          macOS 14 (Sonoma) and later. Apple Foundation Models require macOS 26 for on-device AI;
+          older versions use the bundled MLX Qwen3-4B model automatically.
+        </p>
+      </details>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ── -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-logo">// intentional</div>
+      <div class="footer-links">
+        <a href="#">Privacy</a>
+        <a href="#">Terms</a>
+        <a href="#">Support</a>
+        <a href="https://github.com/AriTheElk/intentional-macos-app">GitHub</a>
+      </div>
+      <div class="footer-copy">&copy; 2026 Intentional. All rights reserved.</div>
+    </div>
+  </div>
+</footer>
+
+<!-- ── Scroll animation observer ── -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, {
+    threshold: 0.1,
+    rootMargin: '0px 0px -40px 0px'
+  });
+
+  document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+  // FAQ toggle animation
+  document.querySelectorAll('details').forEach(detail => {
+    detail.addEventListener('toggle', () => {
+      const icon = detail.querySelector('summary span');
+      if (icon) {
+        icon.textContent = detail.open ? '\u2212' : '+';
+      }
+    });
+  });
+});
+</script>
+
+</body>
+</html>

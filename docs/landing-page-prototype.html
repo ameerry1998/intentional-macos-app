@@ -1,0 +1,1762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intentional — Focus That Actually Works</title>
+<style>
+/* ── Reset & Base ── */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0a0b;
+  --bg-elevated: #111113;
+  --bg-card: rgba(255,255,255,0.04);
+  --bg-card-hover: rgba(255,255,255,0.07);
+  --border: rgba(255,255,255,0.08);
+  --border-hover: rgba(255,255,255,0.15);
+  --text-primary: rgba(255,255,255,0.95);
+  --text-secondary: rgba(255,255,255,0.6);
+  --text-tertiary: rgba(255,255,255,0.35);
+
+  /* Warm palette from the app */
+  --amber: #fbbf24;
+  --amber-glow: rgba(251, 191, 36, 0.15);
+  --emerald: #34d399;
+  --emerald-dim: #2a9d6f;
+  --emerald-glow: rgba(52, 211, 153, 0.15);
+  --violet: #8b5cf6;
+  --violet-glow: rgba(139, 92, 246, 0.15);
+  --red: #ef4444;
+  --red-glow: rgba(239, 68, 68, 0.15);
+
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, monospace;
+
+  --max-width: 1100px;
+  --section-gap: 140px;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ── Typography ── */
+h1 { font-size: clamp(42px, 6vw, 72px); font-weight: 800; line-height: 1.05; letter-spacing: -0.03em; }
+h2 { font-size: clamp(32px, 4vw, 48px); font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; }
+h3 { font-size: 22px; font-weight: 700; line-height: 1.3; }
+p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+/* ── Grain texture overlay ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Nav ── */
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(10, 10, 11, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.nav-logo-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--emerald-dim), var(--emerald));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 800;
+  color: #000;
+}
+
+.nav-logo-text {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  list-style: none;
+}
+
+.nav-links a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--text-primary); }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #fff;
+  color: #000;
+}
+.btn-primary:hover {
+  background: rgba(255,255,255,0.9);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(255,255,255,0.15);
+}
+
+.btn-emerald {
+  background: var(--emerald);
+  color: #000;
+}
+.btn-emerald:hover {
+  background: #4ae8ac;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 24px rgba(52, 211, 153, 0.3);
+}
+
+.btn-secondary {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+}
+
+.btn-sm {
+  padding: 8px 18px;
+  font-size: 14px;
+  border-radius: 10px;
+}
+
+/* ── Hero ── */
+.hero {
+  padding-top: 140px;
+  padding-bottom: 80px;
+  text-align: center;
+  position: relative;
+}
+
+/* Glow behind hero */
+.hero::before {
+  content: '';
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 800px;
+  height: 400px;
+  background: radial-gradient(ellipse, rgba(52, 211, 153, 0.08), transparent 70%);
+  pointer-events: none;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px 6px 8px;
+  border-radius: 100px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 32px;
+  position: relative;
+}
+
+.hero-badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--emerald);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.hero h1 {
+  max-width: 800px;
+  margin: 0 auto 24px;
+  position: relative;
+}
+
+.hero-gradient-text {
+  background: linear-gradient(135deg, var(--amber), var(--emerald), var(--violet));
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradient-shift 6s ease infinite;
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.hero-sub {
+  font-size: 20px;
+  max-width: 600px;
+  margin: 0 auto 40px;
+  color: var(--text-secondary);
+  position: relative;
+}
+
+.hero-ctas {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.hero-note {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  position: relative;
+}
+
+/* ── App Screenshot ── */
+.hero-screenshot {
+  margin-top: 64px;
+  position: relative;
+  max-width: 960px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.app-frame {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.05),
+    0 25px 80px rgba(0,0,0,0.6),
+    0 0 100px rgba(52, 211, 153, 0.06);
+  position: relative;
+}
+
+.app-frame img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Placeholder for screenshots before images are added */
+.screenshot-placeholder {
+  width: 100%;
+  aspect-ratio: 16/10;
+  background: var(--bg-elevated);
+  border: 2px dashed rgba(255,255,255,0.1);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+
+.screenshot-placeholder .label {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.screenshot-placeholder .hint {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  background: rgba(255,255,255,0.05);
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+/* Floating elements on hero screenshot */
+.hero-screenshot .float-pill {
+  position: absolute;
+  top: -16px;
+  right: 40px;
+  background: rgba(20, 20, 24, 0.95);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 22px;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  z-index: 2;
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.float-pill .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--violet);
+  box-shadow: 0 0 8px var(--violet);
+}
+
+.float-pill .time {
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+}
+
+.hero-screenshot .float-earned {
+  position: absolute;
+  bottom: -20px;
+  left: 30px;
+  background: rgba(20, 20, 24, 0.95);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  border-radius: 14px;
+  padding: 14px 20px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  z-index: 2;
+  animation: float 4s ease-in-out infinite;
+  animation-delay: -2s;
+}
+
+.float-earned-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+
+.float-earned-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--emerald);
+  font-family: var(--font-mono);
+  line-height: 1;
+}
+
+.float-earned-unit {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.float-earned-bar {
+  height: 4px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 2px;
+  margin-top: 8px;
+  width: 140px;
+  overflow: hidden;
+}
+
+.float-earned-bar span {
+  display: block;
+  height: 100%;
+  width: 65%;
+  background: linear-gradient(90deg, var(--emerald), var(--amber));
+  border-radius: 2px;
+}
+
+/* ── Section shared ── */
+.section-eyebrow {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 16px;
+}
+
+.eyebrow-amber { color: var(--amber); }
+.eyebrow-emerald { color: var(--emerald); }
+.eyebrow-violet { color: var(--violet); }
+.eyebrow-red { color: var(--red); }
+
+/* ── Problem Section ── */
+.problem {
+  padding: var(--section-gap) 0 80px;
+}
+
+.problem-header {
+  text-align: center;
+  margin-bottom: 64px;
+}
+
+.problem h2 {
+  max-width: 700px;
+  margin: 0 auto 20px;
+  text-align: center;
+}
+
+.problem-sub {
+  font-size: 18px;
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.problem-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 48px;
+}
+
+.problem-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px 28px;
+  transition: all 0.25s;
+}
+
+.problem-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+  transform: translateY(-2px);
+}
+
+.problem-icon {
+  font-size: 28px;
+  margin-bottom: 16px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+.problem-card h3 { margin-bottom: 10px; font-size: 18px; }
+.problem-card p { font-size: 15px; line-height: 1.6; }
+
+/* ── How It Works ── */
+.how-it-works {
+  padding: 80px 0 var(--section-gap);
+}
+
+.how-header {
+  text-align: center;
+  margin-bottom: 72px;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 100px;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: center;
+}
+
+.step.reverse { direction: rtl; }
+.step.reverse > * { direction: ltr; }
+
+.step-number {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 12px;
+}
+
+.step-content h3 {
+  font-size: 28px;
+  margin-bottom: 16px;
+  line-height: 1.25;
+}
+
+.step-content p {
+  font-size: 17px;
+  margin-bottom: 20px;
+}
+
+.step-detail {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.step-detail-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.step-detail p { font-size: 15px; margin: 0; }
+
+.step-visual {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+}
+
+.step-visual img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Step visual with CSS mockup fallback */
+.step-visual-mock {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px;
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* AI nudge browser mockup */
+.nudge-mockup { text-align: center; width: 100%; }
+
+.nudge-pill-float {
+  margin-bottom: 16px;
+  background: rgba(30, 30, 34, 0.95);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 20px;
+  padding: 8px 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.nudge-pill-float .red-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 6px var(--red);
+  animation: pulse 1.5s infinite;
+}
+
+.nudge-browser {
+  background: rgba(20, 20, 24, 0.9);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  width: 100%;
+  max-width: 380px;
+  margin: 0 auto;
+}
+
+.nudge-browser-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid var(--border);
+}
+
+.browser-dots {
+  display: flex;
+  gap: 5px;
+}
+
+.browser-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+}
+
+.browser-url {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.nudge-browser-body {
+  padding: 48px 24px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.nudge-dimmer {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+}
+
+.nudge-toast {
+  position: relative;
+  z-index: 1;
+  background: rgba(30, 30, 34, 0.95);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 14px;
+  padding: 18px 28px;
+  text-align: center;
+  backdrop-filter: blur(20px);
+}
+
+.nudge-toast-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.nudge-toast-btn {
+  display: inline-block;
+  padding: 8px 20px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Earned browse mockup */
+.earn-mockup { text-align: center; width: 100%; }
+
+.earn-card {
+  background: rgba(20, 20, 24, 0.9);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px;
+  max-width: 340px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.earn-header {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-tertiary);
+  margin-bottom: 16px;
+}
+
+.earn-amount {
+  font-size: 56px;
+  font-weight: 800;
+  color: var(--emerald);
+  font-family: var(--font-mono);
+  line-height: 1;
+}
+
+.earn-unit {
+  font-size: 16px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  margin-bottom: 16px;
+  display: block;
+}
+
+.earn-bar-wrap { margin: 16px 0; }
+.earn-bar-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+
+.earn-bar {
+  height: 8px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+}
+
+.earn-bar-green {
+  height: 100%;
+  width: 72%;
+  background: var(--emerald);
+  border-radius: 4px 0 0 4px;
+}
+
+.earn-bar-red {
+  height: 100%;
+  width: 28%;
+  background: var(--red);
+  border-radius: 0 4px 4px 0;
+  opacity: 0.7;
+}
+
+.earn-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.earn-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+.earn-row-label { color: var(--text-secondary); }
+.earn-row-value { font-weight: 600; font-family: var(--font-mono); }
+.earn-row-value.pos { color: var(--emerald); }
+.earn-row-value.neg { color: var(--amber); }
+
+/* ── Features ── */
+.features {
+  padding: var(--section-gap) 0;
+}
+
+.features-header {
+  text-align: center;
+  margin-bottom: 72px;
+}
+
+.feature-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.feature-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 36px 32px;
+  transition: all 0.25s;
+}
+
+.feature-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+  transform: translateY(-2px);
+}
+
+.feature-card.wide {
+  grid-column: span 2;
+}
+
+.feature-card.wide .feature-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  align-items: center;
+}
+
+.feature-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.tag-ai { background: var(--violet-glow); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.2); }
+.tag-enforce { background: var(--amber-glow); color: var(--amber); border: 1px solid rgba(251, 191, 36, 0.2); }
+.tag-earn { background: var(--emerald-glow); color: var(--emerald); border: 1px solid rgba(52, 211, 153, 0.2); }
+.tag-lock { background: var(--red-glow); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.2); }
+
+.feature-card h3 { margin-bottom: 12px; }
+.feature-card p { font-size: 16px; }
+
+.feature-list {
+  list-style: none;
+  margin-top: 16px;
+}
+.feature-list li {
+  padding: 6px 0;
+  font-size: 15px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.feature-list li::before {
+  content: '→';
+  color: var(--text-tertiary);
+}
+
+/* AI scoring mockup */
+.feature-visual {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.ai-scoring-mock { padding: 20px; }
+
+.ai-score-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.ai-score-item:last-child { border-bottom: none; }
+
+.ai-verdict {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.verdict-ok { background: rgba(52, 211, 153, 0.15); color: var(--emerald); }
+.verdict-no { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+
+.ai-score-title { flex: 1; color: var(--text-secondary); }
+
+/* Screenshot inside feature card */
+.feature-screenshot {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.feature-screenshot img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ── Comparison ── */
+.comparison {
+  padding: 80px 0 var(--section-gap);
+}
+
+.comparison-header { text-align: center; margin-bottom: 48px; }
+
+.comparison-table {
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.comparison-table th,
+.comparison-table td {
+  padding: 16px 20px;
+  text-align: left;
+  font-size: 15px;
+  border-bottom: 1px solid var(--border);
+}
+
+.comparison-table th {
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary);
+  background: rgba(255,255,255,0.02);
+}
+
+.comparison-table th:not(:first-child),
+.comparison-table td:not(:first-child) {
+  text-align: center;
+  width: 130px;
+}
+
+.comparison-table tr:last-child td { border-bottom: none; }
+.comparison-table td:first-child { color: var(--text-secondary); font-weight: 500; }
+
+.hl { background: rgba(52, 211, 153, 0.04); }
+.comparison-table th.hl {
+  color: var(--emerald);
+  font-weight: 800;
+  font-size: 14px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.y { color: var(--emerald); font-weight: 700; }
+.n { color: var(--text-tertiary); }
+.p { color: var(--amber); }
+
+/* ── Social Proof ── */
+.social-proof {
+  padding: var(--section-gap) 0;
+}
+
+.proof-header { text-align: center; margin-bottom: 64px; }
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 64px;
+}
+
+.stat-card {
+  text-align: center;
+  padding: 32px 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.stat-number {
+  font-size: 48px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.stat-number.c-amber { color: var(--amber); }
+.stat-number.c-emerald { color: var(--emerald); }
+.stat-number.c-violet { color: var(--violet); }
+
+.stat-label { font-size: 15px; color: var(--text-secondary); }
+
+.testimonials {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.testimonial {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 24px;
+}
+
+.testimonial-stars { color: var(--amber); font-size: 16px; margin-bottom: 12px; letter-spacing: 2px; }
+
+.testimonial-quote {
+  font-size: 15px;
+  color: var(--text-primary);
+  line-height: 1.6;
+  margin-bottom: 16px;
+  font-style: italic;
+}
+
+.testimonial-author { display: flex; align-items: center; gap: 10px; }
+
+.testimonial-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.testimonial-name { font-size: 14px; font-weight: 600; }
+.testimonial-role { font-size: 13px; color: var(--text-tertiary); }
+
+/* placeholder notice */
+.placeholder-notice {
+  text-align: center;
+  padding: 16px 24px;
+  margin-bottom: 40px;
+  background: rgba(251, 191, 36, 0.06);
+  border: 1px dashed rgba(251, 191, 36, 0.2);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--amber);
+}
+
+/* ── Pricing ── */
+.pricing { padding: var(--section-gap) 0; }
+.pricing-header { text-align: center; margin-bottom: 64px; }
+
+.pricing-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.pricing-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 36px 32px;
+  position: relative;
+  transition: all 0.25s;
+}
+.pricing-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+
+.pricing-card.featured {
+  border-color: var(--emerald);
+  background: rgba(52, 211, 153, 0.04);
+}
+
+.pricing-popular {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 14px;
+  background: var(--emerald);
+  color: #000;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 100px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pricing-name { font-size: 16px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
+.pricing-price { font-size: 48px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+.pricing-period { font-size: 14px; color: var(--text-tertiary); margin-bottom: 24px; }
+
+.pricing-features { list-style: none; margin-bottom: 28px; }
+.pricing-features li {
+  padding: 6px 0;
+  font-size: 15px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pricing-features .check { color: var(--emerald); font-size: 16px; }
+.pricing-card .btn { width: 100%; justify-content: center; }
+.pricing-guarantee { text-align: center; margin-top: 24px; font-size: 14px; color: var(--text-tertiary); }
+
+/* ── FAQ ── */
+.faq { padding: var(--section-gap) 0; }
+.faq-header { text-align: center; margin-bottom: 64px; }
+
+.faq-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.faq-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+}
+
+.faq-question { font-size: 16px; font-weight: 700; margin-bottom: 10px; color: var(--text-primary); }
+.faq-answer { font-size: 15px; color: var(--text-secondary); line-height: 1.6; }
+
+/* ── Final CTA ── */
+.final-cta {
+  padding: var(--section-gap) 0;
+  text-align: center;
+  position: relative;
+}
+
+.final-cta::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.06), transparent 70%);
+  pointer-events: none;
+}
+
+.final-cta h2 { position: relative; max-width: 600px; margin: 0 auto 20px; }
+.final-cta p { position: relative; max-width: 480px; margin: 0 auto 36px; font-size: 18px; }
+.final-cta .hero-ctas { position: relative; }
+
+/* ── Footer ── */
+footer {
+  padding: 48px 0;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin-bottom: 20px;
+  list-style: none;
+}
+
+.footer-links a { color: var(--text-tertiary); text-decoration: none; font-size: 14px; transition: color 0.2s; }
+.footer-links a:hover { color: var(--text-secondary); }
+.footer-copy { font-size: 13px; color: var(--text-tertiary); }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  :root { --section-gap: 80px; }
+  .nav-links { display: none; }
+
+  .problem-grid,
+  .feature-cards,
+  .stats-row,
+  .testimonials,
+  .pricing-cards,
+  .faq-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .feature-card.wide .feature-inner { grid-template-columns: 1fr; }
+  .step { grid-template-columns: 1fr; gap: 32px; }
+  .step.reverse { direction: ltr; }
+  .hero-ctas { flex-direction: column; }
+  .comparison-table { font-size: 13px; }
+  .comparison-table th, .comparison-table td { padding: 12px 10px; }
+  .hero-screenshot .float-pill { display: none; }
+  .hero-screenshot .float-earned { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Nav ── -->
+<nav class="nav">
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-icon">I</div>
+    <span class="nav-logo-text">Intentional</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#how-it-works">How It Works</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="#faq">FAQ</a></li>
+    <li><a href="#download" class="btn btn-emerald btn-sm">Download for Mac</a></li>
+  </ul>
+</nav>
+
+<!-- ── Hero ── -->
+<section class="hero container">
+  <div class="hero-badge">
+    <span class="hero-badge-dot"></span>
+    macOS native &nbsp;·&nbsp; works across every browser
+  </div>
+
+  <h1>
+    Your willpower is fine.<br>
+    <span class="hero-gradient-text">Your tools are broken.</span>
+  </h1>
+
+  <p class="hero-sub">
+    Intentional uses on-device AI to know when you're off-task — then makes you <em>earn</em> your screen time back. Not a blocklist. A system.
+  </p>
+
+  <div class="hero-ctas">
+    <a href="#download" class="btn btn-emerald">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+      Download for Mac
+    </a>
+    <a href="#how-it-works" class="btn btn-secondary">See how it works</a>
+  </div>
+  <p class="hero-note">macOS 13+ &nbsp;·&nbsp; Free to try &nbsp;·&nbsp; No account required</p>
+
+  <!-- App screenshot with floating elements -->
+  <div class="hero-screenshot">
+    <!-- Floating pill timer -->
+    <div class="float-pill">
+      <span class="dot"></span>
+      Vibe coding
+      <span class="time">47:23</span>
+    </div>
+
+    <!-- Main screenshot -->
+    <div class="app-frame">
+      <img src="screenshots/Calendar view.png" alt="Intentional — schedule your day with focus blocks and see your earned browse time">
+    </div>
+
+    <!-- Floating earned browse card -->
+    <div class="float-earned">
+      <div class="float-earned-label">Earned Browse</div>
+      <span class="float-earned-value">5</span>
+      <span class="float-earned-unit"> min available</span>
+      <div class="float-earned-bar"><span></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Problem ── -->
+<section class="problem container">
+  <div class="problem-header">
+    <span class="section-eyebrow eyebrow-amber">The problem</span>
+    <h2>You've tried blocking apps before.<br>It didn't stick.</h2>
+    <p class="problem-sub">
+      Dumb blockers treat everything the same. You disable them the first time you need YouTube for a tutorial — and never turn them back on.
+    </p>
+  </div>
+
+  <div class="problem-grid">
+    <div class="problem-card">
+      <div class="problem-icon" style="background: var(--red-glow);">🔓</div>
+      <h3>Too easy to disable</h3>
+      <p>Screen Time? One click to ignore for today. Freedom? Quit the app. Cold Turkey? Uninstall it. Every blocker has an escape hatch you'll use within a week.</p>
+    </div>
+    <div class="problem-card">
+      <div class="problem-icon" style="background: var(--amber-glow);">🧱</div>
+      <h3>Blocks everything or nothing</h3>
+      <p>YouTube is a distraction when you're procrastinating. It's essential when you're following a tutorial. Blocklists can't tell the difference — so you turn them off.</p>
+    </div>
+    <div class="problem-card">
+      <div class="problem-icon" style="background: var(--violet-glow);">😤</div>
+      <h3>No reward for focusing</h3>
+      <p>You grind through 3 hours of deep work. Your reward? The same restrictions. No progress bar. No payoff. No reason to keep going tomorrow.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── How It Works ── -->
+<section class="how-it-works container" id="how-it-works">
+  <div class="how-header">
+    <span class="section-eyebrow eyebrow-emerald">How it works</span>
+    <h2>Plan. Focus. Earn.</h2>
+    <p style="max-width: 560px; margin: 16px auto 0;">Three modes that match how your brain actually works — structure when you need it, freedom when you've earned it.</p>
+  </div>
+
+  <div class="steps">
+
+    <!-- Step 1: Plan -->
+    <div class="step">
+      <div class="step-content">
+        <div class="step-number" style="color: var(--emerald);">Step 1</div>
+        <h3>Plan your day — or let AI do it</h3>
+        <p>Tell Intentional what you're working on. Quick Plan builds your schedule in under a minute. Or talk it out with the AI coach if you're not sure where to start.</p>
+        <div class="step-detail">
+          <div class="step-detail-icon" style="background: var(--red-glow); color: #fca5a5;">🔴</div>
+          <p><strong>Deep Work</strong> — Social media completely blocked. AI aggressively guards your attention.</p>
+        </div>
+        <div class="step-detail">
+          <div class="step-detail-icon" style="background: var(--violet-glow); color: #c4b5fd;">🟣</div>
+          <p><strong>Focus Hours</strong> — Gentle nudges when you drift. Screen desaturates the longer you stay off-task.</p>
+        </div>
+        <div class="step-detail">
+          <div class="step-detail-icon" style="background: var(--emerald-glow); color: #6ee7b7;">🟢</div>
+          <p><strong>Free Time</strong> — Browse freely. Set an intention for +10 min bonus.</p>
+        </div>
+      </div>
+      <div class="step-visual">
+        <img src="screenshots/Planning view.png" alt="Plan your day with AI — Quick Plan or Talk it Out">
+      </div>
+    </div>
+
+    <!-- Step 2: Focus -->
+    <div class="step reverse">
+      <div class="step-content">
+        <div class="step-number" style="color: var(--violet);">Step 2</div>
+        <h3>AI guards your focus — not a blocklist</h3>
+        <p>On-device AI scores every tab and app against your current task. Stack Overflow during a coding block? Fine. Reddit? You'll get nudged back. Same YouTube, different verdicts.</p>
+        <div class="step-detail">
+          <div class="step-detail-icon" style="background: var(--violet-glow); color: #c4b5fd;">🧠</div>
+          <p><strong>Context-aware.</strong> It reads the page title, knows your block description, and decides in milliseconds. All on-device, nothing leaves your Mac.</p>
+        </div>
+        <div class="step-detail">
+          <div class="step-detail-icon" style="background: var(--red-glow); color: #fca5a5;">⚡</div>
+          <p><strong>Progressive escalation.</strong> Gentle nudge → grayscale overlay → full block → mandatory 60-second breathing exercise.</p>
+        </div>
+      </div>
+      <div class="step-visual-mock">
+        <div class="nudge-mockup">
+          <div class="nudge-pill-float">
+            <span class="red-dot"></span>
+            Vibe coding
+            <span style="font-family: var(--font-mono); color: var(--text-tertiary); margin-left: 4px;">32:14</span>
+          </div>
+          <div class="nudge-browser">
+            <div class="nudge-browser-bar">
+              <div class="browser-dots"><span></span><span></span><span></span></div>
+              <span class="browser-url">reddit.com/r/programming</span>
+            </div>
+            <div class="nudge-browser-body">
+              <div class="nudge-dimmer"></div>
+              <div class="nudge-toast">
+                <div class="nudge-toast-text">Not related to your task</div>
+                <div class="nudge-toast-btn">← Back to Task</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Earn -->
+    <div class="step">
+      <div class="step-content">
+        <div class="step-number" style="color: var(--amber);">Step 3</div>
+        <h3>Earn your scroll</h3>
+        <p>Every minute of focused work earns browse time. Want to check Instagram? You can — if you've earned it. The green bar grows while you focus. The red bar grows when you spend it.</p>
+        <div class="step-detail">
+          <div class="step-detail-icon" style="background: var(--emerald-glow); color: var(--emerald);">📊</div>
+          <p><strong>5 min focused work = 1 min browse.</strong> Deep Work earns at 1.5x. You always see exactly where you stand.</p>
+        </div>
+        <div class="step-detail">
+          <div class="step-detail-icon" style="background: var(--amber-glow); color: var(--amber);">🏆</div>
+          <p><strong>It feels like a game.</strong> Watch your pool grow. Get end-of-block celebrations with focus scores. Compete against yourself.</p>
+        </div>
+      </div>
+      <div class="step-visual-mock">
+        <div class="earn-mockup">
+          <div class="earn-card">
+            <div class="earn-header">Earned Browse</div>
+            <div class="earn-amount">5</div>
+            <span class="earn-unit">min available</span>
+            <div class="earn-bar-wrap">
+              <div class="earn-bar-labels">
+                <span>5 min available</span>
+                <span>2 min used</span>
+              </div>
+              <div class="earn-bar">
+                <span class="earn-bar-green"></span>
+                <span class="earn-bar-red"></span>
+              </div>
+            </div>
+            <div class="earn-rows">
+              <div class="earn-row">
+                <span class="earn-row-label">Vibe coding (1h)</span>
+                <span class="earn-row-value pos">+7 min</span>
+              </div>
+              <div class="earn-row">
+                <span class="earn-row-label">Instagram (2 min)</span>
+                <span class="earn-row-value neg">−2 min</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── Features ── -->
+<section class="features container" id="features">
+  <div class="features-header">
+    <span class="section-eyebrow eyebrow-violet">Features</span>
+    <h2>Not just another blocker</h2>
+  </div>
+
+  <div class="feature-cards">
+
+    <!-- Wide: AI Scoring -->
+    <div class="feature-card wide">
+      <div class="feature-inner">
+        <div>
+          <span class="feature-tag tag-ai">On-Device AI</span>
+          <h3>It knows what you're working on</h3>
+          <p>Uses Apple's on-device models (or local Qwen3 fallback) to score every tab and app against your current task. No cloud. No data leaves your Mac.</p>
+          <ul class="feature-list">
+            <li>Scores browser tabs by page title vs. your block description</li>
+            <li>100+ always-allowed apps (IDEs, terminals, Figma...)</li>
+            <li>"This is relevant" override — 3 min grace, not permanent whitelist</li>
+          </ul>
+        </div>
+        <div class="feature-visual">
+          <div class="ai-scoring-mock">
+            <div class="ai-score-item">
+              <span class="ai-verdict verdict-ok">Relevant</span>
+              <span class="ai-score-title">Stack Overflow: useEffect cleanup</span>
+            </div>
+            <div class="ai-score-item">
+              <span class="ai-verdict verdict-no">Blocked</span>
+              <span class="ai-score-title">Reddit: r/programming</span>
+            </div>
+            <div class="ai-score-item">
+              <span class="ai-verdict verdict-ok">Relevant</span>
+              <span class="ai-score-title">YouTube: React Server Components</span>
+            </div>
+            <div class="ai-score-item">
+              <span class="ai-verdict verdict-no">Blocked</span>
+              <span class="ai-score-title">YouTube: MrBeast Challenge</span>
+            </div>
+            <div class="ai-score-item">
+              <span class="ai-verdict verdict-ok">Relevant</span>
+              <span class="ai-score-title">Figma: Dashboard redesign</span>
+            </div>
+            <div class="ai-score-item">
+              <span class="ai-verdict verdict-no">Blocked</span>
+              <span class="ai-score-title">Twitter / X: Home feed</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progressive Enforcement -->
+    <div class="feature-card">
+      <span class="feature-tag tag-enforce">Enforcement</span>
+      <h3>Escalation, not punishment</h3>
+      <p>Starts with a gentle in-pill nudge. If you keep going: the screen slowly drains to grayscale, then goes dark, then you're doing breathing exercises for 60 seconds.</p>
+      <ul class="feature-list">
+        <li>Nudge → Grayscale → Block → Intervention</li>
+        <li>Deep Work is aggressive. Focus Hours is gentle.</li>
+        <li>Floating pill timer always on screen</li>
+      </ul>
+    </div>
+
+    <!-- Accountability -->
+    <div class="feature-card">
+      <span class="feature-tag tag-lock">Accountability</span>
+      <h3>Can't just turn it off</h3>
+      <p>Add an accountability partner. Enable Strict Mode. Now the app survives force-quit, re-launches on login, and needs a 6-digit code from your partner to disable.</p>
+      <ul class="feature-list">
+        <li>Partner gets notified by email</li>
+        <li>Survives Cmd+Q and reboot</li>
+        <li>You chose this — and you can't undo it alone</li>
+      </ul>
+    </div>
+
+    <!-- AI Planning -->
+    <div class="feature-card">
+      <span class="feature-tag tag-ai">AI Coach</span>
+      <h3>Plans your day in under a minute</h3>
+      <p>Quick Plan: list your priorities, AI builds the schedule. Talk it Out: chat with the AI coach when you're not sure where to start. Remembers what you worked on yesterday.</p>
+    </div>
+
+    <!-- Cross-browser -->
+    <div class="feature-card">
+      <span class="feature-tag tag-earn">Cross-Browser</span>
+      <h3>Works everywhere, not just Chrome</h3>
+      <p>Native macOS app monitors Chrome, Safari, Arc, Brave, Edge, Firefox, Opera, Vivaldi — plus desktop apps. No extension needed for basic blocking.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── Comparison ── -->
+<section class="comparison container">
+  <div class="comparison-header">
+    <h2>How Intentional compares</h2>
+    <p style="max-width: 480px; margin: 16px auto 0;">Other tools block sites. Intentional understands your work.</p>
+  </div>
+  <table class="comparison-table">
+    <thead>
+      <tr>
+        <th></th>
+        <th class="hl">Intentional</th>
+        <th>Freedom</th>
+        <th>Cold Turkey</th>
+        <th>one sec</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>AI knows what's relevant</td>
+        <td class="hl"><span class="y">✓</span></td>
+        <td><span class="n">✗</span></td>
+        <td><span class="n">✗</span></td>
+        <td><span class="n">✗</span></td>
+      </tr>
+      <tr>
+        <td>Earned browse system</td>
+        <td class="hl"><span class="y">✓</span></td>
+        <td><span class="n">✗</span></td>
+        <td><span class="n">✗</span></td>
+        <td><span class="n">✗</span></td>
+      </tr>
+      <tr>
+        <td>Progressive enforcement</td>
+        <td class="hl"><span class="y">✓</span></td>
+        <td><span class="n">✗</span></td>
+        <td><span class="p">~</span></td>
+        <td><span class="y">✓</span></td>
+      </tr>
+      <tr>
+        <td>AI-built daily schedule</td>
+        <td class="hl"><span class="y">✓</span></td>
+        <td><span class="n">✗</span></td>
+        <td><span class="n">✗</span></td>
+        <td><span class="n">✗</span></td>
+      </tr>
+      <tr>
+        <td>Survives force-quit</td>
+        <td class="hl"><span class="y">✓</span></td>
+        <td><span class="n">✗</span></td>
+        <td><span class="y">✓</span></td>
+        <td><span class="n">✗</span></td>
+      </tr>
+      <tr>
+        <td>Works across all browsers</td>
+        <td class="hl"><span class="y">✓</span></td>
+        <td><span class="y">✓</span></td>
+        <td><span class="y">✓</span></td>
+        <td><span class="p">~</span></td>
+      </tr>
+      <tr>
+        <td>All data stays on-device</td>
+        <td class="hl"><span class="y">✓</span></td>
+        <td><span class="n">✗</span></td>
+        <td><span class="y">✓</span></td>
+        <td><span class="p">~</span></td>
+      </tr>
+      <tr>
+        <td>Accountability partner lock</td>
+        <td class="hl"><span class="y">✓</span></td>
+        <td><span class="n">✗</span></td>
+        <td><span class="p">~</span></td>
+        <td><span class="n">✗</span></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ── Social Proof ── -->
+<section class="social-proof container" id="social-proof">
+  <div class="proof-header">
+    <span class="section-eyebrow eyebrow-emerald">Early users</span>
+    <h2>People are getting their time back</h2>
+  </div>
+
+  <div class="placeholder-notice">
+    ⚠ These testimonials and stats are placeholders — replace with real user data before launch
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-number c-amber">2.4h</div>
+      <div class="stat-label">Average screen time recovered per day</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number c-emerald">87%</div>
+      <div class="stat-label">Still using Intentional after week 1</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number c-violet">14 min</div>
+      <div class="stat-label">Average earned browse time used daily</div>
+    </div>
+  </div>
+
+  <div class="testimonials">
+    <div class="testimonial">
+      <div class="testimonial-stars">★★★★★</div>
+      <div class="testimonial-quote">"The earned browse thing sounded gimmicky. Then I realized I was checking my pool like a high score. Haven't opened Instagram during work in two weeks."</div>
+      <div class="testimonial-author">
+        <div class="testimonial-avatar">M</div>
+        <div>
+          <div class="testimonial-name">Marcus T.</div>
+          <div class="testimonial-role">Software Engineer</div>
+        </div>
+      </div>
+    </div>
+    <div class="testimonial">
+      <div class="testimonial-stars">★★★★★</div>
+      <div class="testimonial-quote">"I've tried Freedom, Cold Turkey, Screen Time — all of it. This is the first one that knows the difference between me watching a tutorial and doom-scrolling."</div>
+      <div class="testimonial-author">
+        <div class="testimonial-avatar">S</div>
+        <div>
+          <div class="testimonial-name">Sarah K.</div>
+          <div class="testimonial-role">Product Designer</div>
+        </div>
+      </div>
+    </div>
+    <div class="testimonial">
+      <div class="testimonial-stars">★★★★★</div>
+      <div class="testimonial-quote">"Strict Mode with my wife as accountability partner. I literally cannot disable it without her code. That's exactly what I needed."</div>
+      <div class="testimonial-author">
+        <div class="testimonial-avatar">J</div>
+        <div>
+          <div class="testimonial-name">James R.</div>
+          <div class="testimonial-role">Freelance Developer</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Pricing ── -->
+<section class="pricing container" id="pricing">
+  <div class="pricing-header">
+    <span class="section-eyebrow eyebrow-emerald">Pricing</span>
+    <h2>Simple, honest pricing</h2>
+    <p style="max-width: 480px; margin: 16px auto 0;">Free 7-day trial. No credit card required. Cancel anytime.</p>
+  </div>
+
+  <div class="pricing-cards">
+    <div class="pricing-card">
+      <div class="pricing-name">Monthly</div>
+      <div class="pricing-price">$6<span style="font-size: 20px; color: var(--text-tertiary);">/mo</span></div>
+      <div class="pricing-period">Billed monthly</div>
+      <ul class="pricing-features">
+        <li><span class="check">✓</span> All features included</li>
+        <li><span class="check">✓</span> AI relevance scoring</li>
+        <li><span class="check">✓</span> Earned browse system</li>
+        <li><span class="check">✓</span> Accountability partner</li>
+        <li><span class="check">✓</span> AI day planning</li>
+      </ul>
+      <a href="#" class="btn btn-secondary">Start Free Trial</a>
+    </div>
+
+    <div class="pricing-card featured">
+      <div class="pricing-popular">Best Value</div>
+      <div class="pricing-name">Lifetime</div>
+      <div class="pricing-price">$79</div>
+      <div class="pricing-period">Pay once, yours forever</div>
+      <ul class="pricing-features">
+        <li><span class="check">✓</span> Everything in Monthly</li>
+        <li><span class="check">✓</span> All future updates</li>
+        <li><span class="check">✓</span> Priority support</li>
+        <li><span class="check">✓</span> No subscription ever</li>
+        <li><span class="check">✓</span> Support indie development</li>
+      </ul>
+      <a href="#" class="btn btn-emerald">Get Lifetime Access</a>
+    </div>
+  </div>
+
+  <p class="pricing-guarantee">30-day money-back guarantee. No questions asked.</p>
+</section>
+
+<!-- ── FAQ ── -->
+<section class="faq container" id="faq">
+  <div class="faq-header">
+    <h2>Frequently asked questions</h2>
+  </div>
+
+  <div class="faq-grid">
+    <div class="faq-item">
+      <div class="faq-question">Does it work with Safari / Arc / Firefox?</div>
+      <div class="faq-answer">Yes. The native macOS app monitors all browsers. A Chrome/Edge extension adds deeper in-browser features, but blocking and focus monitoring work everywhere out of the box.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-question">What if I need YouTube for work?</div>
+      <div class="faq-answer">That's the whole point. The AI scores each page against your current task. A React tutorial during a coding block? Allowed. MrBeast compilation? Blocked. Same site, different verdicts.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-question">Can I really not turn it off?</div>
+      <div class="faq-answer">With Strict Mode + accountability partner: the app survives force-quit, relaunches on boot, and requires a 6-digit code texted to your partner to disable. You chose this.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-question">Is my data private?</div>
+      <div class="faq-answer">100%. AI scoring runs entirely on your Mac using Apple's built-in models. No browsing data ever leaves your device. The only network call is optional partner sync.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-question">Does it slow down my Mac?</div>
+      <div class="faq-answer">No. Uses ~50MB RAM and near-zero CPU when you're focused. AI scoring is milliseconds via on-device models. Tab polling every 10 seconds, not continuously.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-question">How is this different from Freedom / Cold Turkey?</div>
+      <div class="faq-answer">Those are blocklists — block everything or nothing. Intentional uses AI to understand context, rewards focus with earned browse time, and escalates progressively instead of hard-blocking immediately.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Final CTA ── -->
+<section class="final-cta container" id="download">
+  <h2>Your focus is worth more<br>than another tab.</h2>
+  <p>Download Intentional. Plan your first block. Earn your first break. Takes 2 minutes.</p>
+  <div class="hero-ctas">
+    <a href="#" class="btn btn-emerald" style="font-size: 18px; padding: 14px 32px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+      Download for Mac — Free Trial
+    </a>
+  </div>
+  <p class="hero-note" style="margin-top: 16px;">macOS 13+ &nbsp;·&nbsp; Apple Silicon &amp; Intel &nbsp;·&nbsp; ~25MB</p>
+</section>
+
+<!-- ── Footer ── -->
+<footer>
+  <div class="container">
+    <ul class="footer-links">
+      <li><a href="#">Privacy</a></li>
+      <li><a href="#">Support</a></li>
+      <li><a href="#">Twitter</a></li>
+      <li><a href="#">GitHub</a></li>
+    </ul>
+    <p class="footer-copy">&copy; 2026 Intentional. Built with too much screen time.</p>
+  </div>
+</footer>
+
+</body>
+</html>
