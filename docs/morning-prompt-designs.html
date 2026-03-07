@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Morning Prompt — Plan-First Designs</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #1a1a2e;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+    color: #fff;
+    min-height: 100vh;
+    padding: 40px;
+  }
+
+  h1 {
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  .section-note {
+    font-size: 12px;
+    color: rgba(255,255,255,0.25);
+    text-align: center;
+    margin-bottom: 40px;
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.5;
+  }
+
+  .designs {
+    display: flex;
+    gap: 50px;
+    justify-content: center;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .design-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .design-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.3);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 4px;
+  }
+
+  .design-desc {
+    font-size: 11px;
+    color: rgba(255,255,255,0.2);
+    text-align: center;
+    max-width: 300px;
+    line-height: 1.5;
+    margin-top: 8px;
+  }
+
+  /* ===== Pill base ===== */
+  .pill {
+    width: 310px;
+    border-radius: 20px;
+    background: rgba(15, 15, 22, 0.95);
+    backdrop-filter: blur(30px);
+    border: 1.5px solid rgba(255,255,255,0.08);
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
+  }
+
+  /* Shared utilities */
+  .pill-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px 8px;
+  }
+  .pill-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #f59e0b;
+  }
+  .pill-badge {
+    font-size: 10px;
+    font-weight: 700;
+    color: #f59e0b;
+    letter-spacing: 0.8px;
+  }
+  .pill-sep {
+    height: 1px;
+    background: rgba(255,255,255,0.06);
+    margin: 0 14px;
+  }
+  .text-primary { color: #fff; }
+  .text-secondary { color: rgba(255,255,255,0.5); }
+  .text-tertiary { color: rgba(255,255,255,0.35); }
+
+  /* Accent colors */
+  .c-purple { background: #8b5cf6; }
+  .c-deep { background: #ef4444; }
+  .c-focus { background: #8b5cf6; }
+  .c-free { background: #34d399; }
+
+  /* Plan button (primary CTA) */
+  .plan-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 10px 0;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .plan-btn:hover { filter: brightness(1.1); }
+  .plan-btn span {
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .plan-btn .arrow {
+    font-size: 14px;
+    color: rgba(255,255,255,0.7);
+  }
+
+  /* Outlined variant */
+  .plan-btn-outline {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 9px 0;
+    border-radius: 10px;
+    background: rgba(139, 92, 246, 0.1);
+    border: 1.5px solid rgba(139, 92, 246, 0.4);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .plan-btn-outline:hover { background: rgba(139, 92, 246, 0.2); }
+  .plan-btn-outline span {
+    font-size: 13px;
+    font-weight: 600;
+    color: #a78bfa;
+  }
+  .plan-btn-outline .arrow {
+    font-size: 14px;
+    color: rgba(167, 139, 250, 0.7);
+  }
+
+  /* Quick block row */
+  .qb-row {
+    display: flex;
+    gap: 6px;
+  }
+  .qb-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 8px 4px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .qb-btn:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.12);
+  }
+  .qb-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .qb-label { font-size: 10px; font-weight: 600; color: #fff; }
+  .qb-time { font-size: 9px; font-weight: 500; color: rgba(255,255,255,0.4); }
+
+  /* "or" divider */
+  .or-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 14px;
+  }
+  .or-line {
+    flex: 1;
+    height: 1px;
+    background: rgba(255,255,255,0.06);
+  }
+  .or-text {
+    font-size: 10px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.25);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Snooze */
+  .snooze {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.3);
+    text-align: center;
+    cursor: pointer;
+  }
+  .snooze:hover { color: rgba(255,255,255,0.5); }
+
+  /* Motivational quote */
+  .quote {
+    font-size: 11px;
+    font-style: italic;
+    color: rgba(255,255,255,0.35);
+    text-align: center;
+    line-height: 1.4;
+    padding: 0 8px;
+  }
+
+  /* Greeting */
+  .greeting {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .greeting-sub {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.45);
+    line-height: 1.4;
+  }
+
+  /* Time chip */
+  .time-chip {
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.05);
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+
+  /* Link style */
+  .link-text {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.4);
+    cursor: pointer;
+    text-align: center;
+  }
+  .link-text:hover { color: rgba(255,255,255,0.6); }
+
+  /* Current (reference) */
+  .current-tag {
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.2);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 3px 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Morning Prompt — Plan-First Redesign</h1>
+<p class="section-note">
+  Current design leads with quick blocks and buries "Plan Full Day" as a text link.
+  These variants flip the hierarchy: planning your day is the primary action, quick blocks are secondary.
+</p>
+
+<div class="designs">
+
+  <!-- ===== CURRENT (reference) ===== -->
+  <div class="design-col">
+    <div class="design-label">Current</div>
+    <div class="pill">
+      <div class="pill-header">
+        <div class="pill-dot"></div>
+        <span class="pill-badge">NO PLAN</span>
+      </div>
+      <div class="pill-sep"></div>
+      <div style="padding: 10px 14px 2px;">
+        <div style="font-size: 14px; font-weight: 700;">What are you working on?</div>
+      </div>
+      <div style="padding: 0 14px 10px;">
+        <div class="text-secondary" style="font-size: 11px;">Pick a quick block or plan your full day.</div>
+      </div>
+      <div style="padding: 0 14px 10px;">
+        <div class="qb-row">
+          <div class="qb-btn">
+            <div class="qb-dot c-deep"></div>
+            <div class="qb-label">Deep Focus</div>
+            <div class="qb-time">1 hour</div>
+          </div>
+          <div class="qb-btn">
+            <div class="qb-dot c-focus"></div>
+            <div class="qb-label">Focus</div>
+            <div class="qb-time">30 min</div>
+          </div>
+          <div class="qb-btn">
+            <div class="qb-dot c-free"></div>
+            <div class="qb-label">Free Time</div>
+            <div class="qb-time">30 min</div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align: center; padding-bottom: 4px;">
+        <span class="link-text">Plan Full Day &rarr;</span>
+      </div>
+      <div style="text-align: center; padding-bottom: 10px;">
+        <span class="snooze">Snooze 30 min</span>
+      </div>
+    </div>
+    <div class="current-tag">Current Design</div>
+    <div class="design-desc">Quick blocks dominate. "Plan Full Day" is a tiny link that's easy to miss.</div>
+  </div>
+
+  <!-- ===== OPTION A: Big Plan Button ===== -->
+  <div class="design-col">
+    <div class="design-label">A — Big Plan Button</div>
+    <div class="pill">
+      <div class="pill-header">
+        <div class="pill-dot"></div>
+        <span class="pill-badge">GOOD MORNING</span>
+        <span style="flex:1"></span>
+        <span class="time-chip">10:22 AM</span>
+      </div>
+      <div class="pill-sep"></div>
+      <div style="padding: 10px 14px 4px;">
+        <div class="greeting">Ready to plan your day?</div>
+      </div>
+      <div style="padding: 0 14px 12px;">
+        <div class="greeting-sub">A quick plan keeps you focused and on track.</div>
+      </div>
+      <div style="padding: 0 14px 10px;">
+        <div class="plan-btn">
+          <span>Plan Your Day</span>
+          <span class="arrow">&rarr;</span>
+        </div>
+      </div>
+      <div style="padding: 0 0 8px;">
+        <div class="or-divider">
+          <div class="or-line"></div>
+          <span class="or-text">or start a quick block</span>
+          <div class="or-line"></div>
+        </div>
+      </div>
+      <div style="padding: 0 14px 10px;">
+        <div class="qb-row">
+          <div class="qb-btn">
+            <div class="qb-dot c-deep"></div>
+            <div class="qb-label">Deep Focus</div>
+            <div class="qb-time">1 hour</div>
+          </div>
+          <div class="qb-btn">
+            <div class="qb-dot c-focus"></div>
+            <div class="qb-label">Focus</div>
+            <div class="qb-time">30 min</div>
+          </div>
+          <div class="qb-btn">
+            <div class="qb-dot c-free"></div>
+            <div class="qb-label">Free Time</div>
+            <div class="qb-time">30 min</div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align: center; padding-bottom: 10px;">
+        <span class="snooze">Snooze 30 min</span>
+      </div>
+    </div>
+    <div class="design-desc">Full-width gradient button is the clear primary action. Quick blocks demoted below an "or" divider. Friendly greeting replaces the stern "NO PLAN".</div>
+  </div>
+
+  <!-- ===== OPTION B: Compact motivational ===== -->
+  <div class="design-col">
+    <div class="design-label">B — Motivational + Compact</div>
+    <div class="pill">
+      <div class="pill-header">
+        <div class="pill-dot" style="background: #8b5cf6;"></div>
+        <span class="pill-badge" style="color: #a78bfa;">NEW DAY</span>
+        <span style="flex:1"></span>
+        <span class="snooze" style="font-size: 10px;">Snooze</span>
+      </div>
+      <div class="pill-sep"></div>
+      <div style="padding: 12px 14px 4px;">
+        <div class="greeting">What will today be about?</div>
+      </div>
+      <div style="padding: 2px 14px 12px;">
+        <div class="quote">"The secret of getting ahead is getting started."</div>
+      </div>
+      <div style="padding: 0 14px 12px;">
+        <div class="plan-btn">
+          <span>&#9998;&ensp;Plan Your Day</span>
+          <span class="arrow">&rarr;</span>
+        </div>
+      </div>
+      <div style="padding: 0 14px 10px; text-align: center;">
+        <span class="link-text">or jump into a quick block &darr;</span>
+      </div>
+      <div style="padding: 0 14px 12px; display: none;" id="b-blocks">
+        <div class="qb-row">
+          <div class="qb-btn">
+            <div class="qb-dot c-deep"></div>
+            <div class="qb-label">Deep Focus</div>
+          </div>
+          <div class="qb-btn">
+            <div class="qb-dot c-focus"></div>
+            <div class="qb-label">Focus</div>
+          </div>
+          <div class="qb-btn">
+            <div class="qb-dot c-free"></div>
+            <div class="qb-label">Free Time</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="design-desc">Motivational quote adds warmth. Quick blocks are hidden behind a toggle link to keep the card compact and plan-focused. Purple accent feels more inviting than amber warning.</div>
+  </div>
+
+  <!-- ===== OPTION C: Split choice ===== -->
+  <div class="design-col">
+    <div class="design-label">C — Split Choice Cards</div>
+    <div class="pill">
+      <div class="pill-header">
+        <div class="pill-dot"></div>
+        <span class="pill-badge">GOOD MORNING</span>
+      </div>
+      <div class="pill-sep"></div>
+      <div style="padding: 10px 14px 4px;">
+        <div class="greeting">Start your day right</div>
+      </div>
+      <div style="padding: 0 14px 12px;">
+        <div class="greeting-sub">People who plan their day are 2x more productive.</div>
+      </div>
+      <!-- Plan card (highlighted) -->
+      <div style="padding: 0 14px 8px;">
+        <div style="padding: 12px 14px; border-radius: 10px; background: rgba(139,92,246,0.12); border: 1.5px solid rgba(139,92,246,0.3); cursor: pointer; display: flex; align-items: center; gap: 10px;">
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #8b5cf6, #6d28d9); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;">&#128197;</div>
+          <div style="flex: 1;">
+            <div style="font-size: 13px; font-weight: 700; color: #fff;">Plan Your Day</div>
+            <div style="font-size: 10px; color: rgba(255,255,255,0.45); margin-top: 1px;">Set intentions, schedule blocks, stay focused</div>
+          </div>
+          <div style="color: rgba(255,255,255,0.3); font-size: 14px;">&rsaquo;</div>
+        </div>
+      </div>
+      <!-- Quick block card (subtle) -->
+      <div style="padding: 0 14px 12px;">
+        <div style="padding: 10px 14px; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); cursor: pointer; display: flex; align-items: center; gap: 10px;">
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;">&#9201;</div>
+          <div style="flex: 1;">
+            <div style="font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7);">Start a Quick Block</div>
+            <div style="font-size: 10px; color: rgba(255,255,255,0.35); margin-top: 1px;">Jump into a focus session right now</div>
+          </div>
+          <div style="color: rgba(255,255,255,0.2); font-size: 14px;">&rsaquo;</div>
+        </div>
+      </div>
+      <div style="text-align: center; padding-bottom: 10px;">
+        <span class="snooze">Snooze 30 min</span>
+      </div>
+    </div>
+    <div class="design-desc">Two clear choices as cards. Plan is visually prominent (purple border + gradient icon). Quick block is muted. Social proof stat nudges toward planning.</div>
+  </div>
+
+  <!-- ===== OPTION D: Minimal zen ===== -->
+  <div class="design-col">
+    <div class="design-label">D — Minimal + Time Context</div>
+    <div class="pill" style="width: 290px;">
+      <div style="padding: 14px 14px 6px; text-align: center;">
+        <div style="font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.3); letter-spacing: 0.5px;">SUNDAY, MARCH 1</div>
+      </div>
+      <div style="padding: 0 14px 4px; text-align: center;">
+        <div style="font-size: 18px; font-weight: 700;">Plan your day</div>
+      </div>
+      <div style="padding: 0 14px 14px; text-align: center;">
+        <div class="greeting-sub">You have the whole day ahead.</div>
+      </div>
+      <div style="padding: 0 14px 10px;">
+        <div class="plan-btn" style="border-radius: 12px; padding: 12px 0;">
+          <span style="font-size: 14px;">Let's go</span>
+          <span class="arrow" style="font-size: 15px;">&rarr;</span>
+        </div>
+      </div>
+      <div style="text-align: center; padding: 0 0 6px;">
+        <span class="link-text" style="font-size: 10px;">or start a quick block</span>
+      </div>
+      <div style="text-align: center; padding-bottom: 12px;">
+        <span class="snooze" style="font-size: 10px;">Snooze 30 min</span>
+      </div>
+    </div>
+    <div class="design-desc">Ultra-minimal. Date context grounds you in the present. Single big CTA. No quick blocks visible — just a subtle text link. Feels calm and intentional.</div>
+  </div>
+
+</div>
+
+<script>
+  // Toggle quick blocks in Option B
+  document.querySelector('#b-blocks')?.previousElementSibling?.addEventListener('click', function() {
+    var blocks = document.getElementById('b-blocks');
+    if (blocks.style.display === 'none') {
+      blocks.style.display = 'block';
+      this.querySelector('.link-text').textContent = 'hide quick blocks \u2191';
+    } else {
+      blocks.style.display = 'none';
+      this.querySelector('.link-text').textContent = 'or jump into a quick block \u2193';
+    }
+  });
+</script>
+
+</body>
+</html>

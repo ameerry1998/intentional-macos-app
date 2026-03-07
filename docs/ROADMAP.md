@@ -374,6 +374,51 @@ The coaching mode toggle should feel like choosing your difficulty level in a ga
 
 ### P0 — Ship Next (High Impact, Clear Spec)
 
+#### Default Block Duration: 30 Minutes
+**Status:** Ready to implement
+**Psychological basis:** BJ Fogg's Tiny Habits (lower the activation energy, make it feel small)
+
+Change the default block duration from 60 minutes to 30 minutes everywhere — calendar drag-create, quick-block buttons in the pill, AI planning coach suggestions. 30 minutes feels approachable even when unmotivated. Users can always extend, but starting small reduces planning resistance. The planning coach's system prompt should also default to 30-minute blocks.
+
+#### Rename Block Types for Clarity
+**Status:** Ready to implement (display names only, internal IDs unchanged)
+
+Rename the three block types in all user-facing UI:
+- `deepWork` → **"Deep Focus"** — "Hard creative/technical work. Distractions aggressively blocked."
+- `focusHours` → **"Focus"** — "Moderate focus work. Gentle nudges keep you on track."
+- `freeTime` → **"Free Time"** — "Breaks, errands, personal time. No enforcement."
+
+Each block type should show its one-line explanation in the block creation UI, type picker, and planning coach wizard. Internal identifiers (`deepWork`, `focusHours`, `freeTime`) stay the same — this is a display-only change. Affects: dashboard calendar, pill cards, planning coach, start/end rituals, settings.
+
+#### Mid-Block Celebration in Pill
+**Status:** Design needed
+**Psychological basis:** Variable ratio reinforcement, BJ Fogg's celebration method ("Shine" — the emotional micro-moment after a small win wires the habit)
+
+Show brief motivational messages in the floating pill at variable focus streak milestones (e.g., 10, 20, 30 minutes of continuous focus). The celebration should be:
+- Subtle: a brief text swap in the pill (similar to recovery takeover) lasting 2-3 seconds
+- Variable: not perfectly predictable — sometimes at 8 min, sometimes at 12 min (variable ratio)
+- Warm: messages like "Locked in", "Crushing it", "Deep in the zone", "Flow state"
+- Non-interruptive: no sound, no popup, no button — just a visual acknowledgment that fades
+
+This addresses the "punishment-to-reinforcement ratio is inverted" problem — currently the pill only reacts to bad behavior. Mid-block celebrations make it react to good behavior too.
+
+#### One-Time Onboarding Tooltips
+**Status:** Design needed
+**Psychological basis:** Expectation setting reduces reactance (users accept enforcement better when they understand it in advance)
+
+Show one-time tooltips explaining enforcement features the first time a user encounters them:
+- **Screen darkening**: "The screen dims gradually when you're off-task. It clears when you return to your work." (shown on first grayscale activation)
+- **Auto-redirect**: "We brought you back to your last relevant page. You chose Deep Focus for this block." (shown on first redirect)
+- **Nudge**: "This is a gentle reminder to check if you're still on track." (shown on first nudge)
+- **Intervention**: "This is a refocus break. It helps you reset before returning to work." (shown on first intervention)
+
+Each tooltip shown once per feature, tracked via UserDefaults. Dismissible with a single tap. This prevents the "WTF is happening to my screen" moment that can trigger reactance.
+
+#### Self-Accountability Partner Prevention
+**Status:** Ready to implement
+
+Prevent users from entering their own email address as their accountability partner. Check `partnerEmail` against the user's registered email (from `deviceId` registration or stored email). Show a friendly message: "Your accountability partner should be someone else — a friend, family member, or colleague who can help keep you honest." This is a simple validation on the partner email input field.
+
 #### Block Start Ritual
 **Status:** Design phase
 **Psychological basis:** Implementation intentions meta-analysis (d=0.65 effect size, Gollwitzer & Sheeran 2006, 94 studies)
@@ -436,6 +481,128 @@ Key design decisions:
 - `music.youtube.com` exempted even if `youtube.com` is distracting
 - Spotify/Apple Music always allowed (music apps, not "distracting sites")
 - No new settings needed — uses existing distracting sites config
+
+#### Idle Detection — Anti-Gaming for Earned Browse
+**Status:** Design phase
+**Priority rationale:** Integrity issue — the earned browse system's credibility depends on earning being real
+
+##### The Problem
+
+The earned browse system currently rewards *presence*, not *activity*. FocusMonitor checks what app or tab is in the foreground and, if it's relevant, records a work tick that earns browse time. But it never checks whether the user is actually *doing anything*. This creates an obvious gaming vector:
+
+1. Open VS Code / a relevant document / your IDE
+2. Walk away, scroll your phone, zone out, take a nap
+3. Come back to a fat earned browse balance you didn't work for
+
+This undermines the entire earned browse contract ("focus earns you recharge time"). If users discover they can game it — and they will — the system loses its motivational power. Worse, it actively teaches the wrong lesson: that the appearance of work is as good as actual work.
+
+This isn't hypothetical. Any user who spends 5 minutes with the system will realize the timer just needs a relevant app in the foreground. The longer this goes unaddressed, the more users build the habit of gaming rather than focusing.
+
+##### Design Principles
+
+- **Generous, not paranoid.** The threshold should accommodate legitimate low-input work (reading documentation, thinking through a problem, watching a tutorial). The goal is catching someone who walked away for 5 minutes, not penalizing someone who paused to think for 30 seconds.
+- **Pause, don't punish.** When idle is detected, earning simply pauses — no penalty, no lost progress, no scolding. The moment you move the mouse or press a key, earning resumes instantly.
+- **Transparent, not sneaky.** The user should know idle detection exists and see when it activates. No hidden surveillance. A brief indicator in the pill ("Paused — move mouse to resume") makes the system legible.
+- **Coach tone.** If there's a nudge, it should be warm: "Still there?" not "Inactivity detected."
+
+##### Technical Approach: IOKit System Idle Time
+
+macOS exposes system-wide idle time (seconds since last mouse movement or keystroke) via IOKit's `HIDIdleTime` property. This is the simplest and most reliable approach:
+
+```swift
+import IOKit
+
+func systemIdleTime() -> TimeInterval {
+    var iterator: io_iterator_t = 0
+    IOServiceGetMatchingServices(kIOMainPortDefault,
+        IOServiceMatching("IOHIDSystem"), &iterator)
+    let entry = IOIteratorNext(iterator)
+    defer { IOObjectRelease(entry); IOObjectRelease(iterator) }
+
+    var dict: Unmanaged<CFMutableDictionary>?
+    IORegistryEntryCreateCFProperties(entry, &dict, kCFAllocatorDefault, 0)
+    let nsDict = dict?.takeRetainedValue() as? [String: Any]
+    let nanos = nsDict?["HIDIdleTime"] as? Int64 ?? 0
+    return TimeInterval(nanos) / 1_000_000_000
+}
+```
+
+**Why IOKit over event taps:**
+- Single function call vs. setting up a `CGEventTap` listener
+- No additional permissions needed beyond what we already have
+- Works at the OS level — catches all input devices (trackpad, mouse, keyboard, Touch Bar)
+- Can be checked in the existing FocusMonitor polling loop (already runs every 10s)
+- No background thread or event stream to manage
+
+##### Behavior Spec
+
+**Idle threshold: 3 minutes (180 seconds).** This is generous enough that reading a long paragraph, thinking through a problem, or watching a code review video won't trigger it. But anyone who walked away or switched to their phone will hit it.
+
+**What happens when idle is detected:**
+
+| Elapsed Idle Time | Action |
+|-------------------|--------|
+| 0–180s | Normal — work ticks earned as usual |
+| 180s+ | **Earning paused.** Work ticks stop accumulating. Pill shows subtle "paused" indicator (e.g., timer text dims or shows a small pause icon). No sound, no popup. |
+| 300s (5 min) | **Gentle nudge in pill**: "Still there?" with a subtle pulse. Single click/keypress anywhere dismisses and resumes earning. |
+| 600s+ (10 min) | **Block timer pauses entirely.** The countdown stops — idle time shouldn't count toward block duration either. Pill shows "Timer paused" state. Resumes on any input. |
+
+**On activity resume:**
+- Earning resumes instantly on first mouse movement or keystroke
+- No penalty for the idle period — it simply wasn't counted
+- Brief "Welcome back" message (reuses existing recovery takeover pattern, 2s)
+- Block timer resumes if it was paused
+
+**Integration points in existing code:**
+- `FocusMonitor.evaluateApp()` — check `systemIdleTime() > 180` before calling `recordWorkTick()`. If idle, skip the tick.
+- `FocusMonitor.pollActiveTab()` — same check. If idle, skip the relevance evaluation entirely (saves AI calls too).
+- `DeepWorkTimerController` — show paused state in pill UI when idle detected.
+- `EarnedBrowseManager` — no changes needed. It already just receives ticks from FocusMonitor. Fewer ticks = less earning.
+
+##### Media Playback Exception (IOPMAssertion)
+
+`HIDIdleTime` is purely physical input — it has no idea whether you're watching the screen. A user watching a 20-minute relevant lecture in fullscreen would hit the idle threshold at 3 minutes even though they're legitimately working. To handle this, check for active power management assertions via `IOPMCopyAssertionsByProcess()`.
+
+When any app plays video (browsers, VLC, Zoom, etc.), it creates an `IOPMAssertion` (typically `PreventUserIdleDisplaySleep`) to keep the screen on. We can detect this and use it as a "media is playing" signal.
+
+**The logic (checked in order):**
+
+1. Is `HIDIdleTime` > 180s? If no → earn normally, done.
+2. If yes → is any process holding a `PreventUserIdleDisplaySleep` assertion?
+3. If yes → is the foreground content **relevant** (already scored by FocusMonitor)? If so → skip idle check, earn normally. Media is playing and the content is on-task.
+4. If the foreground content is **irrelevant** → idle detection is moot anyway, because distraction enforcement is already active (nudges, redirects, etc.). No earning regardless.
+5. If no media assertion is active → genuinely idle → pause earning per the escalation table above.
+
+**Why this isn't gameable:** The media exception only fires when FocusMonitor has *already* confirmed the foreground content is relevant. You can't exploit it by playing Netflix — the relevance scorer (or distracting sites list) catches that before the idle check is ever reached. The only theoretical gaming vector is playing a relevant-looking video on loop while away, which is contrived enough not to worry about.
+
+**Coverage:** This handles lectures, tutorials, video calls, recorded meetings, screen recordings, presentations — any legitimate passive-viewing work. It uses the same IOKit framework as the idle time check, so no new dependencies.
+
+```swift
+func isMediaPlaying() -> Bool {
+    var assertions: Unmanaged<CFDictionary>?
+    guard IOPMCopyAssertionsByProcess(&assertions) == kIOReturnSuccess,
+          let dict = assertions?.takeRetainedValue() as? [String: [[String: Any]]] else {
+        return false
+    }
+    return dict.values.joined().contains { entry in
+        (entry["AssertionTrueType"] as? String) == "PreventUserIdleDisplaySleep"
+    }
+}
+```
+
+##### Edge Cases
+
+- **External keyboard/mouse:** IOKit `HIDIdleTime` captures all HID devices, so Bluetooth peripherals are included.
+- **Sleep/wake:** `SleepWakeMonitor` already handles this — idle time resets on wake.
+- **Screen lock:** System idle time continues accumulating while locked, which is correct — you're not working if your screen is locked.
+- **Presentation mode / screen sharing:** Covered by the media playback exception — video conferencing apps hold display assertions. If presenting from another machine with a relevant app frontmost, the assertion check handles it.
+
+##### What This Does NOT Do
+
+- **No webcam monitoring.** No eye tracking, face detection, or camera access. Ever.
+- **No keystroke logging.** We check *whether* input happened, not *what* was typed.
+- **No screenshot analysis.** We don't capture or analyze screen content beyond what FocusMonitor already does (reading the frontmost app name and browser tab title).
+- **No punitive response.** Idle time is simply not counted. There's no "you were idle" report, no shame metric, no penalty to earned minutes already banked.
 
 ---
 
@@ -660,3 +827,50 @@ The enforcement pipeline is effective as scaffolding for new users, but the prod
 - Hobson et al. Psychology of rituals: Anxiety reduction and performance. UC Berkeley. [Link](https://faculty.haas.berkeley.edu/jschroeder/Publications/Hobson%20et%20al%20Psychology%20of%20Rituals.pdf)
 - PMC (2024). Gamification of behavior change: Mathematical principles. [Link](https://pmc.ncbi.nlm.nih.gov/articles/PMC10998180/)
 - Self-Compassion.org. Self-compassion and burnout research. [Link](https://self-compassion.org/blog/self-compassion-and-burnout/)
+- Claessens et al. (2007). Planning granularity meta-analysis: medium granularity (1-2h blocks) outperforms high or low granularity.
+- Kahneman & Tversky. Planning fallacy: systematic underestimation of task duration amplified across full-day plans.
+- Dai et al. "Fresh Start Effect": motivation spikes at temporal landmarks (Mondays, month starts, post-break).
+- Cialdini. Commitment/Consistency: micro-yeses ("yes ladder") increase compliance with larger asks.
+
+---
+
+## Research: Motivating People to Plan Their Day
+
+### Why People Resist Planning (Key Findings)
+
+**BJ Fogg's B=MAP**: Planning fails when motivation is low (mornings, after energy dips), ability is low (blank calendar = decision paralysis), or prompts are poorly timed. When motivation is unreliable, shrink the behavior instead.
+
+**SDT**: Mandatory planning screens trigger reactance (autonomy threat). Failed past plans trigger inadequacy (competence threat). Solo planning lacks relatedness.
+
+**Nir Eyal**: People avoid planning because it surfaces uncomfortable emotions — anxiety about the day, fear of commitment, overwhelm. The emotional cost of planning feels higher than not planning, especially in the moment.
+
+### What Works (Evidence-Based Techniques)
+
+| Technique | Source | Application |
+|-----------|--------|-------------|
+| **Shrink the behavior** | Fogg's Tiny Habits | Ask for ONE focus item, not a full day plan. Under 2 minutes. |
+| **Pre-fill, don't blank-slate** | Successful app patterns | AI suggests blocks based on time/past patterns. User approves/tweaks. |
+| **Celebrate immediately** | Fogg's "Shine" method | Satisfying animation/sound when block is created. Wires the habit. |
+| **Yes Ladder** | Cialdini's Commitment/Consistency | "Working on something?" → "Set a timer?" → "Plan what's next?" Each micro-yes makes the next easier. |
+| **Variable prompts** | Variable ratio reinforcement | Rotate question framing. Skip some days. Never same prompt twice. |
+| **Temporal scaffolding** | Educational psychology | Build the day one block at a time (morning prompt → mid-morning → afternoon), not a single planning session. |
+| **Fresh start effect** | Dai et al. | Leverage Mondays, post-break, streak recovery for stronger prompts. |
+| **Identity framing** | Eyal's precommitment | "You've planned 4 of the last 5 days" reinforces "I'm someone who plans." |
+| **Match energy to ask** | Fogg + app research | Low engagement = tiny ask ("one focus?"). High engagement = bigger ask ("plan your afternoon?"). |
+| **Fail gracefully** | All sources | If plan breaks, help revise — don't show failure. No punishment for skipping. |
+
+### Micro-Planning > Full-Day Planning
+
+Research overwhelmingly favors micro-planning (1-3 items, next 1-2 hours) over full-day planning:
+- **Planning fallacy** amplifies across 8+ blocks — plan is unrealistic by noon, triggering abandonment
+- **Medium granularity** (1-2h blocks) outperforms both fine (15-min) and coarse (to-do list) planning
+- **Cal Newport's approach**: Plan morning, revise at lunch, plan afternoon — living document, not commitment
+- **Core insight**: AI coach's job is getting users to plan their NEXT block. The full day emerges from repeated micro-planning moments.
+
+### AI Coach Anti-Patterns (What Annoys Users)
+
+- Repetitive prompts (habituation kills effectiveness after 3-5 exposures)
+- Guilt-tripping ("You haven't planned today!")
+- False urgency ("Plan now or lose productivity!")
+- Ignoring context (prompting while user is clearly in deep focus)
+- Interrupting flow (any prompt that breaks focus is counterproductive)

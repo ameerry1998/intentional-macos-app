@@ -59,6 +59,74 @@ body::before {
   z-index: 9999;
 }
 
+/* ── Satin texture accents ── */
+.satin-accent {
+  position: relative;
+  overflow: hidden;
+}
+.satin-accent::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('screenshots/satin-texture.png') center / cover no-repeat;
+  opacity: 0.06;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+/* Animated satin shimmer for dividers */
+.satin-divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(52, 211, 153, 0.15) 20%,
+    rgba(139, 92, 246, 0.2) 40%,
+    rgba(52, 211, 153, 0.3) 50%,
+    rgba(139, 92, 246, 0.2) 60%,
+    rgba(52, 211, 153, 0.15) 80%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: satin-flow 8s ease-in-out infinite;
+}
+
+@keyframes satin-flow {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Satin glow on featured elements */
+.satin-glow {
+  position: relative;
+}
+.satin-glow::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(52, 211, 153, 0.2),
+    rgba(139, 92, 246, 0.15),
+    rgba(52, 211, 153, 0.1),
+    rgba(251, 191, 36, 0.1)
+  );
+  background-size: 300% 300%;
+  animation: satin-border 6s ease-in-out infinite;
+  z-index: -1;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  padding: 1px;
+}
+
+@keyframes satin-border {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
 /* ── Typography ── */
 h1 { font-size: clamp(42px, 6vw, 72px); font-weight: 800; line-height: 1.05; letter-spacing: -0.03em; }
 h2 { font-size: clamp(32px, 4vw, 48px); font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; }
@@ -223,6 +291,23 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
 .hero {
   padding: 160px 0 100px;
   text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Satin texture behind hero */
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  right: -10%;
+  width: 60%;
+  height: 140%;
+  background: url('screenshots/satin-texture.png') center / cover no-repeat;
+  opacity: 0.04;
+  pointer-events: none;
+  transform: rotate(-15deg);
+  filter: blur(1px);
 }
 
 .hero-badge {
@@ -332,9 +417,32 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
 /* ── Stats section ── */
 .stats-section {
   padding: 80px 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Satin texture behind stats */
+.stats-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('screenshots/satin-texture.png') center / cover no-repeat;
+  opacity: 0.05;
+  pointer-events: none;
+}
+
+.stats-section::after {
+  content: '';
+  position: absolute;
+  inset: 0;
   background: var(--bg-elevated);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  opacity: 0.92;
+  pointer-events: none;
+}
+
+.stats-section > .container {
+  position: relative;
+  z-index: 1;
 }
 
 .stats-grid {
@@ -444,17 +552,13 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
 
 /* ── Pivot section ── */
 .pivot-section {
-  padding: var(--section-gap) 0;
+  padding: 80px 0;
   text-align: center;
 }
 
-.pivot-section .pivot-body {
-  max-width: 640px;
-  margin: 24px auto 40px;
-}
-
-.pivot-section .pivot-body p {
-  margin-bottom: 16px;
+.pivot-section .pivot-sub {
+  max-width: 580px;
+  margin: 16px auto 32px;
   font-size: 18px;
 }
 
@@ -466,6 +570,87 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
   transition: opacity 0.2s;
 }
 .pivot-cta:hover { opacity: 0.8; }
+
+/* ── Testimonials ── */
+.testimonials-section {
+  padding: var(--section-gap) 0;
+}
+
+.testimonial-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.testimonial-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+.testimonial-card:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-4px);
+}
+
+.testimonial-video {
+  aspect-ratio: 16 / 9;
+  background: var(--bg-elevated);
+  position: relative;
+  cursor: pointer;
+}
+
+.testimonial-video .play-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--emerald);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s ease;
+}
+
+.testimonial-video:hover .play-btn {
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.testimonial-video .play-btn .triangle {
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 9px 0 9px 16px;
+  border-color: transparent transparent transparent #000;
+  margin-left: 3px;
+}
+
+.testimonial-info {
+  padding: 16px 20px;
+}
+
+.testimonial-info .name {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.testimonial-info .role {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.testimonials-note {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
 
 /* ── How it works ── */
 .how-section {
@@ -850,87 +1035,6 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
 .comparison-table .cross { color: var(--text-tertiary); font-size: 18px; opacity: 0.5; }
 .comparison-table .partial { color: var(--amber); font-size: 18px; }
 
-/* ── Testimonials ── */
-.testimonials-section {
-  padding: var(--section-gap) 0;
-}
-
-.testimonial-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-}
-
-.testimonial-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  transition: all 0.3s ease;
-}
-.testimonial-card:hover {
-  border-color: var(--border-hover);
-  transform: translateY(-4px);
-}
-
-.testimonial-video {
-  aspect-ratio: 16 / 9;
-  background: var(--bg-elevated);
-  position: relative;
-  cursor: pointer;
-}
-
-.testimonial-video .play-btn {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--emerald);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.25s ease;
-}
-
-.testimonial-video:hover .play-btn {
-  transform: translate(-50%, -50%) scale(1.1);
-}
-
-.testimonial-video .play-btn .triangle {
-  width: 0;
-  height: 0;
-  border-style: solid;
-  border-width: 9px 0 9px 16px;
-  border-color: transparent transparent transparent #000;
-  margin-left: 3px;
-}
-
-.testimonial-info {
-  padding: 16px 20px;
-}
-
-.testimonial-info .name {
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--text-primary);
-}
-
-.testimonial-info .role {
-  font-size: 13px;
-  color: var(--text-tertiary);
-}
-
-.testimonials-note {
-  text-align: center;
-  margin-top: 24px;
-  font-size: 13px;
-  color: var(--text-tertiary);
-  font-style: italic;
-}
-
 /* ── Accountability section ── */
 .accountability-section {
   padding: var(--section-gap) 0;
@@ -962,6 +1066,23 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
 /* ── Pricing ── */
 .pricing-section {
   padding: var(--section-gap) 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Satin texture behind pricing */
+.pricing-section::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  left: -10%;
+  width: 50%;
+  height: 160%;
+  background: url('screenshots/satin-texture.png') center / cover no-repeat;
+  opacity: 0.03;
+  pointer-events: none;
+  transform: rotate(10deg);
+  filter: blur(2px);
 }
 
 .pricing-grid {
@@ -1110,18 +1231,33 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
   padding: var(--section-gap) 0;
   text-align: center;
   position: relative;
+  overflow: hidden;
 }
 
 .final-cta::before {
   content: '';
   position: absolute;
+  inset: 0;
+  background: url('screenshots/satin-texture.png') center / cover no-repeat;
+  opacity: 0.04;
+  pointer-events: none;
+}
+
+.final-cta::after {
+  content: '';
+  position: absolute;
   top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 400px;
-  height: 400px;
-  background: radial-gradient(circle, rgba(52, 211, 153, 0.08) 0%, transparent 70%);
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.1) 0%, transparent 70%);
   pointer-events: none;
+}
+
+.final-cta > .container {
+  position: relative;
+  z-index: 1;
 }
 
 .final-cta h2 {
@@ -1324,38 +1460,39 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
   </div>
 </section>
 
+<div class="satin-divider"></div>
+
 <!-- ════════════════════════ PROBLEM ════════════════════════ -->
 <section class="problem-section" id="problem">
   <div class="container">
     <div class="section-header reveal">
-      <div class="section-label red">THE PROBLEM</div>
-      <h2>You've tried everything.<br>Nothing sticks.</h2>
-      <p>Screen Time. Freedom. Cold Turkey. "Just delete the app." You've done it all. A week later, you're right back where you started. Here's why.</p>
+      <div class="section-label red">THE REAL COST</div>
+      <h2>Every distraction is bigger<br>than you think.</h2>
     </div>
 
     <div class="problem-grid">
       <div class="problem-card reveal">
         <div class="problem-icon red">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         </div>
-        <h3>You already know the escape hatch</h3>
-        <p>Screen Time? "Ignore for today." Freedom? Quit the app. Cold Turkey? Uninstall it. You bypass it before lunch on day one. And the moment you hit that button, the guilt is worse than if you'd never tried at all.</p>
+        <h3>The 23-minute trap</h3>
+        <p>"Just one quick check" costs 23 minutes to recover from. Do that 5 times a day and you've lost 2 hours before you realize it.</p>
       </div>
 
       <div class="problem-card reveal">
         <div class="problem-icon amber">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         </div>
-        <h3>It blocks what you actually need</h3>
-        <p>You're deep in a coding session and need a YouTube tutorial. Blocked. So you disable it "just for a second." Three hours later you're watching compilation videos and the blocker is still off. Every. Single. Time.</p>
+        <h3>The guilt spiral</h3>
+        <p>You know you should be working. You open Reddit anyway. Now you feel guilty <em>and</em> distracted. The shame makes it harder to start again.</p>
       </div>
 
       <div class="problem-card reveal">
         <div class="problem-icon violet">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M8 15h0M16 15h0M9 9h0M15 9h0"/></svg>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </div>
-        <h3>Zero reward for staying focused</h3>
-        <p>You white-knuckle through 3 hours of deep work. Your reward? Nothing. The same restrictions tomorrow. No progress bar, no payoff, no acknowledgment that you just did something hard. Willpower is a finite resource &mdash; and these tools drain it dry.</p>
+        <h3>Blockers don't work</h3>
+        <p>Screen Time, Freedom, Cold Turkey &mdash; you already know the bypass. And when they block a site you actually need for work, you turn them off entirely.</p>
       </div>
     </div>
   </div>
@@ -1364,13 +1501,55 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
 <!-- ════════════════════════ PIVOT ════════════════════════ -->
 <section class="pivot-section">
   <div class="container reveal">
-    <h2>It's not a discipline problem.<br>It's a tools problem.</h2>
-    <div class="pivot-body">
-      <p>Apps are designed by thousands of engineers to steal your attention. You were never supposed to fight that alone with a blocklist and willpower.</p>
-      <p>What if your tools understood the difference between a React tutorial and a MrBeast compilation? What if they nudged you back instead of blocking everything? What if every minute of focus actually <em>earned</em> you something?</p>
-      <p style="color: var(--text-primary); font-weight: 600;">That's what Intentional does.</p>
+    <h2>It's not a discipline problem.<br><span class="gradient-text">It's a tools problem.</span></h2>
+    <p class="pivot-sub">Apps are engineered to steal your attention. You need a tool that's smarter than your impulses.</p>
+    <a href="#how-it-works" class="pivot-cta">Here's how Intentional works &#8595;</a>
+  </div>
+</section>
+
+<div class="satin-divider"></div>
+
+<!-- ════════════════════════ TESTIMONIALS (moved up) ════════════════════════ -->
+<section class="testimonials-section" id="testimonials">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label amber">REAL PEOPLE</div>
+      <h2>They tried everything else first.</h2>
     </div>
-    <a href="#how-it-works" class="pivot-cta">Here's how &#8595;</a>
+
+    <div class="testimonial-grid">
+      <div class="testimonial-card reveal">
+        <div class="testimonial-video">
+          <div class="play-btn"><div class="triangle"></div></div>
+        </div>
+        <div class="testimonial-info">
+          <div class="name">Alex K.</div>
+          <div class="role">Software Engineer</div>
+        </div>
+      </div>
+
+      <div class="testimonial-card reveal">
+        <div class="testimonial-video">
+          <div class="play-btn"><div class="triangle"></div></div>
+        </div>
+        <div class="testimonial-info">
+          <div class="name">Priya R.</div>
+          <div class="role">Grad Student, Neuroscience</div>
+        </div>
+      </div>
+
+      <div class="testimonial-card reveal">
+        <div class="testimonial-video">
+          <div class="play-btn"><div class="triangle"></div></div>
+        </div>
+        <div class="testimonial-info">
+          <div class="name">Marcus T.</div>
+          <div class="role">Freelance Designer</div>
+        </div>
+      </div>
+    </div>
+
+    <p class="testimonials-note reveal">Video testimonials &mdash; coming soon</p>
   </div>
 </section>
 
@@ -1390,19 +1569,19 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
       <div class="how-text">
         <div class="how-step-num">Step 01</div>
         <h2>Set your intention</h2>
-        <p>Tell Intentional what you're working on. Quick Plan builds your schedule in under a minute. Or talk it out with the AI coach &mdash; it remembers what you worked on yesterday and helps when you're stuck.</p>
+        <p>Tell Intentional what you're working on. Quick Plan builds your schedule in under a minute.</p>
         <ul class="how-bullets">
           <li>
             <span class="dot red"></span>
-            <span><strong>Deep Work</strong> &mdash; Social media blocked. AI guards aggressively. Maximum earning rate.</span>
+            <span><strong>Deep Work</strong> &mdash; Social media blocked. AI guards aggressively.</span>
           </li>
           <li>
             <span class="dot violet"></span>
-            <span><strong>Focus Hours</strong> &mdash; Gentle nudges. Grayscale on drift. You stay in control.</span>
+            <span><strong>Focus Hours</strong> &mdash; Gentle nudges. You stay in control.</span>
           </li>
           <li>
             <span class="dot green"></span>
-            <span><strong>Free Time</strong> &mdash; Browse freely. Set an intent for +10 min bonus.</span>
+            <span><strong>Free Time</strong> &mdash; Browse freely. Earn bonus minutes.</span>
           </li>
         </ul>
       </div>
@@ -1413,8 +1592,8 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
       <div class="how-text">
         <div class="how-step-num">Step 02</div>
         <h2>AI guards your focus</h2>
-        <p>On-device AI scores every tab and app against your current task. Stack Overflow during a coding block? Relevant &mdash; it stays. Reddit rabbit hole? Nudged back. A React tutorial on YouTube? Allowed. MrBeast compilation? Blocked. Same site, different verdicts &mdash; because context matters.</p>
-        <p style="margin-top: 16px;"><strong style="color: var(--text-primary);">Progressive enforcement:</strong> gentle nudge &#8594; screen goes grayscale &#8594; full block &#8594; 60-second breathing exercise. You're never punished without warning.</p>
+        <p>On-device AI scores every tab against your current task. Stack Overflow? Fine. Reddit rabbit hole? Nudged back. Same site, different verdicts.</p>
+        <p style="margin-top: 16px;"><strong style="color: var(--text-primary);">Progressive enforcement:</strong> nudge &#8594; grayscale &#8594; block. Never punished without warning.</p>
       </div>
       <div class="how-visual" style="display: flex; flex-direction: column; align-items: center;">
         <div class="mockup-pill">
@@ -1462,7 +1641,7 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
       <div class="how-text">
         <div class="how-step-num">Step 03</div>
         <h2>Earn your scroll</h2>
-        <p>Every minute of focused work fills your browse pool. 5 minutes of focus = 1 minute of guilt-free social media. The green bar grows while you work. Spend it when you want. Finally &mdash; a reason to stay focused.</p>
+        <p>5 minutes of focus = 1 minute of guilt-free social media. Watch the green bar grow. Spend it when you want.</p>
         <div style="margin-top: 24px;">
           <div class="earn-mockup">
             <div class="earn-mockup-header">Earned Browse</div>
@@ -1518,48 +1697,50 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
       <div class="feature-card reveal">
         <div class="feature-tag violet">On-Device AI</div>
         <h3>Understands what you're working on</h3>
-        <p>Not a blocklist &mdash; actual intelligence. Scores every tab and app against your current task. All processing stays on your Mac. Your data never leaves the device.</p>
+        <p>Scores every tab and app against your current task. All processing stays on your Mac.</p>
       </div>
 
       <div class="feature-card reveal">
         <div class="feature-tag amber">Progressive Enforcement</div>
         <h3>Never zero to punished</h3>
-        <p>Gentle nudge first. Then your screen fades to grayscale. Then a full block. Deep Work is aggressive. Focus Hours is gentle. You choose the intensity.</p>
+        <p>Gentle nudge. Then grayscale. Then full block. You choose the intensity.</p>
       </div>
 
       <div class="feature-card reveal">
         <div class="feature-tag red">Accountability Partner</div>
-        <h3>You can't cheat &mdash; even if you try</h3>
-        <p>Add someone you trust. Enable Strict Mode. Now the app survives force-quit, relaunches on boot, and needs their 6-digit code to disable. Your focused self made the call. Your tempted self can't undo it.</p>
+        <h3>You can't cheat</h3>
+        <p>Someone you trust locks your settings. Survives force-quit, relaunches on boot. Needs their code to disable.</p>
       </div>
 
       <div class="feature-card reveal">
         <div class="feature-tag violet">AI Day Planner</div>
-        <h3>Schedule in under 60 seconds</h3>
-        <p>Quick Plan builds your day instantly. Or talk it out with the AI coach &mdash; it remembers yesterday's work and knows how to get you unstuck.</p>
+        <h3>Schedule in 60 seconds</h3>
+        <p>Quick Plan builds your day instantly. The AI coach remembers yesterday's work.</p>
       </div>
 
       <div class="feature-card reveal">
         <div class="feature-tag emerald">Cross-Browser</div>
-        <h3>Chrome, Safari, Arc, Brave, and more</h3>
-        <p>Chrome, Safari, Arc, Brave, Edge, Firefox, Opera, Vivaldi &mdash; plus desktop apps. One app, total coverage.</p>
+        <h3>Chrome, Safari, Arc, Brave &amp; more</h3>
+        <p>8 browsers plus desktop apps. One app, total coverage.</p>
       </div>
 
       <div class="feature-card reveal">
         <div class="feature-tag emerald">Earned Browse</div>
         <h3>Focus becomes a game you win</h3>
-        <p>5 min of focus = 1 min of social media. Deep Work earns faster. Watch your pool grow all day. Spend it guilt-free. The first blocker that actually rewards you.</p>
+        <p>5 min focus = 1 min social media. Deep Work earns faster. The first blocker that rewards you.</p>
       </div>
     </div>
   </div>
 </section>
 
+<div class="satin-divider"></div>
+
 <!-- ════════════════════════ COMPARISON ════════════════════════ -->
 <section class="comparison-section" id="comparison">
   <div class="container">
     <div class="section-header reveal">
-      <h2>Blocklists are dumb.<br>Intentional is smart.</h2>
-      <p>Other tools treat every website the same. Stack Overflow isn't Reddit &mdash; your focus tool should know the difference.</p>
+      <h2>Why other tools don't stick</h2>
+      <p>Blocklists treat every website the same. Intentional understands context.</p>
     </div>
 
     <div class="comparison-table-wrap reveal">
@@ -1610,13 +1791,6 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
             <td><span class="cross">&#10005;</span></td>
           </tr>
           <tr>
-            <td>Cross-browser support</td>
-            <td class="col-highlight"><span class="check">&#10003;</span></td>
-            <td><span class="check">&#10003;</span></td>
-            <td><span class="check">&#10003;</span></td>
-            <td><span class="partial">~</span></td>
-          </tr>
-          <tr>
             <td>All data on-device</td>
             <td class="col-highlight"><span class="check">&#10003;</span></td>
             <td><span class="cross">&#10005;</span></td>
@@ -1624,7 +1798,7 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
             <td><span class="cross">&#10005;</span></td>
           </tr>
           <tr>
-            <td>Accountability partner lock</td>
+            <td>Accountability partner</td>
             <td class="col-highlight"><span class="check">&#10003;</span></td>
             <td><span class="cross">&#10005;</span></td>
             <td><span class="partial">~</span></td>
@@ -1636,69 +1810,14 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
   </div>
 </section>
 
-<!-- ════════════════════════ POST-COMPARISON CTA ════════════════════════ -->
-<section style="padding: 60px 0; text-align: center;">
-  <div class="container reveal">
-    <a href="#download" class="btn-primary" style="font-size: 16px; padding: 16px 40px;">
-      Try What They Can't Do
-    </a>
-    <p style="margin-top: 12px; font-size: 13px; color: var(--text-tertiary);">Free 7-day trial &middot; macOS 13+</p>
-  </div>
-</section>
-
-<!-- ════════════════════════ TESTIMONIALS ════════════════════════ -->
-<section class="testimonials-section" id="testimonials">
-  <div class="container">
-    <div class="section-header reveal">
-      <div class="section-label amber">REAL PEOPLE</div>
-      <h2>They tried everything else first.</h2>
-    </div>
-
-    <div class="testimonial-grid">
-      <div class="testimonial-card reveal">
-        <div class="testimonial-video">
-          <div class="play-btn"><div class="triangle"></div></div>
-        </div>
-        <div class="testimonial-info">
-          <div class="name">Alex K.</div>
-          <div class="role">Software Engineer</div>
-        </div>
-      </div>
-
-      <div class="testimonial-card reveal">
-        <div class="testimonial-video">
-          <div class="play-btn"><div class="triangle"></div></div>
-        </div>
-        <div class="testimonial-info">
-          <div class="name">Priya R.</div>
-          <div class="role">Grad Student, Neuroscience</div>
-        </div>
-      </div>
-
-      <div class="testimonial-card reveal">
-        <div class="testimonial-video">
-          <div class="play-btn"><div class="triangle"></div></div>
-        </div>
-        <div class="testimonial-info">
-          <div class="name">Marcus T.</div>
-          <div class="role">Freelance Designer</div>
-        </div>
-      </div>
-    </div>
-
-    <p class="testimonials-note reveal">Video testimonials &mdash; coming soon</p>
-  </div>
-</section>
-
 <!-- ════════════════════════ ACCOUNTABILITY ════════════════════════ -->
 <section class="accountability-section" id="accountability">
   <div class="container">
     <div class="accountability-content reveal">
       <div class="accountability-text">
         <div class="section-label red">ACCOUNTABILITY</div>
-        <h2>Built for the 3 PM version of you</h2>
-        <p>You know the one. The version that "just needs 5 minutes" on YouTube. The version that convinces itself checking Twitter is basically research. Every other blocker trusts that version to be reasonable. Intentional doesn't.</p>
-        <p style="margin-top: 16px;">Add an accountability partner. Enable Strict Mode. Now the app survives force-quit, relaunches on reboot, and requires a 6-digit code from your partner to disable. The focused version of you made the call. The tempted version can't undo it.</p>
+        <h2>Built for the 3 PM<br>version of you</h2>
+        <p>Every other blocker trusts the tempted version of you to be reasonable. Intentional doesn't. Add a partner. Enable Strict Mode. Now it survives force-quit and needs their code to disable.</p>
       </div>
       <div class="accountability-visual">
         <img src="screenshots/Accountability view.png" alt="Intentional accountability partner setup screen">
@@ -1713,7 +1832,7 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
     <div class="section-header reveal">
       <div class="section-label emerald">PRICING</div>
       <h2>Less than the cost of<br>one lost afternoon</h2>
-      <p>The average knowledge worker loses 720 hours a year to distraction. At $50/hour, that's $36,000. Intentional costs $0.20/day.</p>
+      <p>720 hours lost per year &times; your hourly rate. Intentional costs $0.20/day.</p>
     </div>
 
     <div class="pricing-grid reveal">
@@ -1721,7 +1840,7 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
       <div class="pricing-card">
         <div class="pricing-plan">Monthly</div>
         <div class="pricing-price">$6<span>/mo</span></div>
-        <div class="pricing-note">$0.20/day &mdash; less than a single wasted hour costs you</div>
+        <div class="pricing-note">$0.20/day</div>
         <ul class="pricing-features">
           <li>On-device AI scoring</li>
           <li>Earned browse system</li>
@@ -1734,11 +1853,11 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
       </div>
 
       <!-- Lifetime -->
-      <div class="pricing-card featured">
+      <div class="pricing-card featured satin-glow">
         <div class="pricing-badge">Best Value</div>
         <div class="pricing-plan">Lifetime</div>
         <div class="pricing-price">$79</div>
-        <div class="pricing-note">Pay once. Focus forever. No subscriptions.</div>
+        <div class="pricing-note">Pay once. Focus forever.</div>
         <ul class="pricing-features">
           <li>Everything in Monthly</li>
           <li>All future updates</li>
@@ -1764,33 +1883,33 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
 
     <div class="faq-grid">
       <div class="faq-item reveal">
-        <h3>Does it work with Safari, Arc, and Firefox?</h3>
-        <p>Yes. Intentional works with Chrome, Safari, Arc, Brave, Edge, Firefox, Opera, and Vivaldi. Browsers with the companion extension get full session UI. Browsers without it still get blocking via AppleScript. Desktop apps are monitored natively.</p>
-      </div>
-
-      <div class="faq-item reveal">
         <h3>What if I need YouTube for work?</h3>
-        <p>That's exactly the problem Intentional solves. The AI scores each page against your current task. A React tutorial on YouTube during a coding block? Relevant &mdash; it stays. A MrBeast compilation? Not relevant &mdash; you get nudged back. Same site, different verdicts.</p>
+        <p>That's exactly the problem this solves. The AI scores each page against your task. A React tutorial? Relevant. A compilation video? Nudged back. Same site, different verdicts.</p>
       </div>
 
       <div class="faq-item reveal">
         <h3>Can I really not turn it off?</h3>
-        <p>With Strict Mode enabled, the app survives Cmd+Q, relaunches after reboot via a watchdog process, and requires a 6-digit code from your accountability partner to disable. Without Strict Mode, you can quit anytime. Your choice.</p>
+        <p>With Strict Mode, the app survives Cmd+Q, relaunches on reboot, and needs your partner's 6-digit code to disable. Without it, you can quit anytime.</p>
       </div>
 
       <div class="faq-item reveal">
-        <h3>Is my browsing data private?</h3>
-        <p>Completely. All AI scoring runs on-device using Apple's Foundation Models or a local Qwen3-4B model. Your page titles, URLs, and usage data never leave your Mac. The only network call is an optional anonymous heartbeat.</p>
+        <h3>Is my data private?</h3>
+        <p>Completely. All AI runs on-device. Your page titles, URLs, and usage data never leave your Mac.</p>
+      </div>
+
+      <div class="faq-item reveal">
+        <h3>Which browsers work?</h3>
+        <p>Chrome, Safari, Arc, Brave, Edge, Firefox, Opera, and Vivaldi. Desktop apps are monitored natively too.</p>
       </div>
 
       <div class="faq-item reveal">
         <h3>Does it slow down my Mac?</h3>
-        <p>No. The app uses Apple's on-device AI models which run on the Neural Engine, or a lightweight local LLM as fallback. Tab polling happens every 10 seconds. CPU usage is negligible &mdash; you won't notice it's running.</p>
+        <p>No. AI runs on Apple's Neural Engine. Tab polling is every 10 seconds. You won't notice it.</p>
       </div>
 
       <div class="faq-item reveal">
-        <h3>How is this different from Freedom or Cold Turkey?</h3>
-        <p>Freedom and Cold Turkey use blocklists &mdash; every site is either allowed or blocked. Intentional uses AI to understand what you're working on and scores each page individually. Plus: earned browse rewards, progressive enforcement (not binary on/off), and an AI schedule builder. It's not a wall. It's a system.</p>
+        <h3>How is this different from Freedom?</h3>
+        <p>Freedom uses blocklists &mdash; every site is allowed or blocked. Intentional uses AI to understand context, plus earned browse rewards and progressive enforcement. It's not a wall. It's a system.</p>
       </div>
     </div>
   </div>
@@ -1800,7 +1919,7 @@ p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
 <section class="final-cta" id="download">
   <div class="container reveal">
     <h2>You've read this far.<br>You know what's costing you.</h2>
-    <p>The person you want to be &mdash; the one who does deep, focused work &mdash; is on the other side of one download. Plan your first block. Earn your first break. It takes 2 minutes.</p>
+    <p>The person you want to be is on the other side of one download. It takes 2 minutes.</p>
     <a href="#" class="btn-primary" style="font-size: 18px; padding: 18px 48px;">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       Download Intentional Free

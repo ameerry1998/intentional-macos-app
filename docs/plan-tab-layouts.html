@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan Tab — Layout Explorations</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #111;
+  color: rgba(255,255,255,0.9);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== Navigation between mockups ===== */
+.mockup-nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  background: rgba(17,17,17,0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  z-index: 1000;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mockup-nav h1 {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.5);
+  margin-right: 12px;
+}
+.mockup-nav button {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 8px 16px;
+  color: rgba(255,255,255,0.6);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mockup-nav button:hover {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+}
+.mockup-nav button.active {
+  background: rgba(52,211,153,0.15);
+  border-color: rgba(52,211,153,0.3);
+  color: #34d399;
+}
+
+/* ===== Shared mockup frame ===== */
+.mockup-section {
+  display: none;
+  padding: 72px 24px 40px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+.mockup-section.visible { display: block; }
+.mockup-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: rgba(255,255,255,0.3);
+  margin-bottom: 6px;
+}
+.mockup-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.mockup-desc {
+  font-size: 14px;
+  color: rgba(255,255,255,0.45);
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+.mockup-pros, .mockup-cons {
+  font-size: 13px;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+.mockup-pros span { color: #34d399; }
+.mockup-cons span { color: #f87171; }
+
+/* ===== The "phone frame" for each mockup ===== */
+.frame {
+  background: #1a1a1a;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  overflow: hidden;
+  max-width: 620px;
+  margin: 0 auto 40px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.frame-header {
+  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.frame-dot { width: 10px; height: 10px; border-radius: 50%; }
+.frame-dot.r { background: #ff5f57; }
+.frame-dot.y { background: #febc2e; }
+.frame-dot.g { background: #28c840; }
+.frame-body {
+  padding: 24px;
+  min-height: 480px;
+}
+
+/* ===== Common elements ===== */
+.accent { color: #34d399; }
+.input-field {
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 12px 16px;
+  color: rgba(255,255,255,0.9);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+}
+.input-field:focus { border-color: #34d399; }
+.input-field::placeholder { color: rgba(255,255,255,0.25); }
+.btn-primary {
+  background: #34d399;
+  color: #000;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-secondary {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.6);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 12px 24px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.chip {
+  display: inline-block;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.6);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.chip:hover {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+}
+
+/* ===== Option A: Segmented Toggle ===== */
+.seg-toggle {
+  display: flex;
+  background: rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 3px;
+  margin-bottom: 24px;
+}
+.seg-toggle button {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255,255,255,0.45);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.seg-toggle button.active {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+}
+
+/* ===== Option B: Two cards ===== */
+.choice-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.choice-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+.choice-card:hover {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.15);
+}
+.choice-card.selected {
+  border-color: rgba(52,211,153,0.4);
+  background: rgba(52,211,153,0.06);
+}
+.choice-card .card-icon {
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+.choice-card .card-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.choice-card .card-desc {
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
+  line-height: 1.4;
+}
+
+/* ===== Option C: Unified input ===== */
+.unified-input-wrapper {
+  position: relative;
+  margin-bottom: 16px;
+}
+.unified-input {
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  padding: 16px 20px;
+  padding-right: 100px;
+  color: rgba(255,255,255,0.9);
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+  min-height: 56px;
+  resize: none;
+}
+.unified-input:focus { border-color: #34d399; }
+.unified-input::placeholder { color: rgba(255,255,255,0.25); }
+.unified-send {
+  position: absolute;
+  right: 8px;
+  bottom: 10px;
+  background: #34d399;
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.unified-hint {
+  font-size: 11px;
+  color: rgba(255,255,255,0.25);
+  text-align: center;
+  margin-top: 8px;
+}
+.quick-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.quick-action {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.quick-action:hover {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.8);
+}
+.quick-action .qa-icon {
+  margin-right: 6px;
+}
+
+/* ===== Option D: Chat with embedded wizard ===== */
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 440px;
+}
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 12px;
+}
+.chat-msg {
+  margin-bottom: 12px;
+  max-width: 85%;
+}
+.chat-msg.ai {
+  background: rgba(255,255,255,0.06);
+  border-radius: 14px 14px 14px 4px;
+  padding: 12px 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255,255,255,0.85);
+}
+.chat-msg.user {
+  background: rgba(52,211,153,0.12);
+  border: 1px solid rgba(52,211,153,0.2);
+  border-radius: 14px 14px 4px 14px;
+  padding: 12px 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-left: auto;
+}
+.chat-inline-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 14px;
+  margin-top: 8px;
+}
+.chat-inline-card .card-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-size: 13px;
+}
+.chat-inline-card .card-row:last-child { border: none; }
+.chat-inline-card .card-row .time {
+  color: rgba(255,255,255,0.35);
+  font-size: 12px;
+  width: 90px;
+  flex-shrink: 0;
+}
+.chat-inline-card .card-row .type-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.type-dot.deep { background: #818cf8; }
+.type-dot.focus { background: #34d399; }
+.type-dot.free { background: rgba(255,255,255,0.25); }
+.chat-inline-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.chat-inline-actions button {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+}
+.chat-inline-actions .accept-btn {
+  background: rgba(52,211,153,0.15);
+  border-color: rgba(52,211,153,0.3);
+  color: #34d399;
+}
+.chat-input-bar {
+  display: flex;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.chat-input-bar input {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: rgba(255,255,255,0.9);
+  font-size: 14px;
+  outline: none;
+}
+.chat-input-bar button {
+  background: #34d399;
+  color: #000;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ===== Option E: Tabbed with previews ===== */
+.tab-bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 24px;
+}
+.tab-bar button {
+  padding: 12px 20px;
+  border: none;
+  background: none;
+  color: rgba(255,255,255,0.35);
+  font-size: 14px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+.tab-bar button.active {
+  color: #fff;
+  border-bottom-color: #34d399;
+}
+.tab-bar button:hover:not(.active) {
+  color: rgba(255,255,255,0.6);
+}
+.mini-preview {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-top: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.mini-preview:hover {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.12);
+}
+.mini-preview .mp-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.3);
+  margin-bottom: 6px;
+}
+.mini-preview .mp-content {
+  font-size: 13px;
+  color: rgba(255,255,255,0.5);
+}
+
+/* ===== Priority input rows ===== */
+.pri-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.pri-num {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: rgba(52,211,153,0.15);
+  color: #34d399;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ===== Yesterday chips ===== */
+.yesterday-section {
+  margin-top: 16px;
+  margin-bottom: 20px;
+}
+.yesterday-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.25);
+  margin-bottom: 8px;
+}
+.yesterday-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ===== Greeting area ===== */
+.greeting {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.greeting h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.greeting p {
+  font-size: 14px;
+  color: rgba(255,255,255,0.4);
+}
+
+/* ===== Option F styles ===== */
+.method-pills {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  justify-content: center;
+}
+.method-pill {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 8px 18px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.method-pill:hover {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.7);
+}
+.method-pill.active {
+  background: rgba(52,211,153,0.1);
+  border-color: rgba(52,211,153,0.25);
+  color: #34d399;
+}
+.method-pill .pill-icon {
+  font-size: 14px;
+}
+</style>
+</head>
+<body>
+
+<div class="mockup-nav">
+  <h1>Plan Tab Layouts</h1>
+  <button class="active" onclick="showMockup('a')">A: Segmented</button>
+  <button onclick="showMockup('b')">B: Two Cards</button>
+  <button onclick="showMockup('c')">C: Unified Input</button>
+  <button onclick="showMockup('d')">D: Chat-First</button>
+  <button onclick="showMockup('e')">E: Tabs + Preview</button>
+</div>
+
+<!-- ============================================================ -->
+<!-- OPTION A: Segmented Toggle -->
+<!-- ============================================================ -->
+<div id="mockup-a" class="mockup-section visible">
+  <div class="mockup-label">Option A</div>
+  <div class="mockup-title">Segmented Toggle</div>
+  <div class="mockup-desc">
+    A toggle at the top switches between Guided and Chat modes. Both are equal-weight.
+    The toggle remembers your last choice. Simple, clear, familiar (iOS-style).
+  </div>
+  <div class="mockup-pros"><span>+ </span> Very clear that two modes exist. Familiar iOS pattern. Easy to switch. Remembers preference.</div>
+  <div class="mockup-cons"><span>- </span> Feels slightly "app settings"-like. Two separate UIs to maintain. No blending of the two approaches.</div>
+
+  <div class="frame">
+    <div class="frame-header">
+      <div class="frame-dot r"></div>
+      <div class="frame-dot y"></div>
+      <div class="frame-dot g"></div>
+    </div>
+    <div class="frame-body">
+      <div class="greeting">
+        <h2>Plan your day</h2>
+        <p>Friday, Feb 28</p>
+      </div>
+
+      <div class="seg-toggle">
+        <button class="active" onclick="segToggle(this, 'seg-guided', 'seg-chat')">Guided</button>
+        <button onclick="segToggle(this, 'seg-chat', 'seg-guided')">Chat with Coach</button>
+      </div>
+
+      <!-- Guided view -->
+      <div id="seg-guided">
+        <div class="pri-row">
+          <div class="pri-num">1</div>
+          <input class="input-field" placeholder="Most important task today...">
+        </div>
+        <div class="pri-row">
+          <div class="pri-num">2</div>
+          <input class="input-field" placeholder="Second priority (optional)">
+        </div>
+        <div class="pri-row">
+          <div class="pri-num">3</div>
+          <input class="input-field" placeholder="Third priority (optional)">
+        </div>
+        <div class="yesterday-section">
+          <div class="yesterday-label">From yesterday</div>
+          <div class="yesterday-chips">
+            <div class="chip">Software engineering</div>
+            <div class="chip">Intentional dev</div>
+            <div class="chip">Design review</div>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <button class="btn-primary">Build my schedule</button>
+        </div>
+      </div>
+
+      <!-- Chat view -->
+      <div id="seg-chat" style="display:none;">
+        <div class="chat-container" style="height:340px;">
+          <div class="chat-messages">
+            <div class="chat-msg ai">Hey! What are you working on today?</div>
+          </div>
+          <div class="chat-input-bar">
+            <input placeholder="What do you want to accomplish today?">
+            <button>Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- OPTION B: Two Choice Cards -->
+<!-- ============================================================ -->
+<div id="mockup-b" class="mockup-section">
+  <div class="mockup-label">Option B</div>
+  <div class="mockup-title">Landing with Choice Cards</div>
+  <div class="mockup-desc">
+    A brief landing page with two equal cards. The user picks their planning method each time.
+    Feels like a deliberate choice. Could remember last pick and pre-select it.
+  </div>
+  <div class="mockup-pros"><span>+ </span> Very discoverable — impossible to miss either option. Feels intentional (pun intended). Good for first-time users.</div>
+  <div class="mockup-cons"><span>- </span> Extra click every time before you can start planning. Gets tedious for daily users. Uses up vertical space.</div>
+
+  <div class="frame">
+    <div class="frame-header">
+      <div class="frame-dot r"></div>
+      <div class="frame-dot y"></div>
+      <div class="frame-dot g"></div>
+    </div>
+    <div class="frame-body">
+      <div class="greeting">
+        <h2>Good evening</h2>
+        <p>How would you like to plan today?</p>
+      </div>
+
+      <div class="choice-cards">
+        <div class="choice-card" onclick="this.classList.toggle('selected'); this.parentElement.querySelector(':scope > :last-child').classList.remove('selected')">
+          <div class="card-icon">📋</div>
+          <div class="card-title">Quick Plan</div>
+          <div class="card-desc">List your priorities, AI builds the schedule. 3 steps, under a minute.</div>
+        </div>
+        <div class="choice-card" onclick="this.classList.toggle('selected'); this.parentElement.querySelector(':scope > :first-child').classList.remove('selected')">
+          <div class="card-icon">💬</div>
+          <div class="card-title">Talk it Out</div>
+          <div class="card-desc">Chat with the AI coach. Great when you're not sure where to start.</div>
+        </div>
+      </div>
+
+      <div style="text-align:center; margin-top: 20px;">
+        <button class="btn-primary" style="padding: 14px 40px;">Let's go</button>
+      </div>
+
+      <div class="yesterday-section" style="margin-top:24px;">
+        <div class="yesterday-label">Yesterday you worked on</div>
+        <div class="yesterday-chips">
+          <div class="chip">Software engineering</div>
+          <div class="chip">Intentional dev</div>
+          <div class="chip">Design review</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- OPTION C: Unified Input -->
+<!-- ============================================================ -->
+<div id="mockup-c" class="mockup-section">
+  <div class="mockup-label">Option C</div>
+  <div class="mockup-title">Unified Input</div>
+  <div class="mockup-desc">
+    One big text field. Type a list of tasks → get a structured schedule. Type conversationally → get a coaching response.
+    The AI figures out the intent. Quick actions below for common patterns. No mode switching needed.
+  </div>
+  <div class="mockup-pros"><span>+ </span> Zero learning curve. No modes to discover. Feels natural and fast. Quick actions give structure without forcing it.</div>
+  <div class="mockup-cons"><span>- </span> Users may not realize they CAN have a conversation (looks like a form). Small models might struggle to distinguish list vs. chat intent. Less structured than the wizard.</div>
+
+  <div class="frame">
+    <div class="frame-header">
+      <div class="frame-dot r"></div>
+      <div class="frame-dot y"></div>
+      <div class="frame-dot g"></div>
+    </div>
+    <div class="frame-body">
+      <div class="greeting">
+        <h2>What's the plan?</h2>
+        <p>List your tasks, or just tell me about your day</p>
+      </div>
+
+      <div class="unified-input-wrapper">
+        <textarea class="unified-input" placeholder="e.g. &quot;Code my app for 2 hours then groceries at 6&quot;&#10;or &quot;I have a busy day, help me figure it out&quot;" rows="3"></textarea>
+        <button class="unified-send">Plan it</button>
+      </div>
+
+      <div class="quick-actions">
+        <div class="quick-action"><span class="qa-icon">⚡</span> Same as yesterday</div>
+        <div class="quick-action"><span class="qa-icon">🎯</span> Deep work morning</div>
+        <div class="quick-action"><span class="qa-icon">📅</span> Light admin day</div>
+        <div class="quick-action"><span class="qa-icon">🌙</span> Evening session</div>
+      </div>
+
+      <div class="yesterday-section">
+        <div class="yesterday-label">Yesterday</div>
+        <div class="yesterday-chips">
+          <div class="chip">Software engineering</div>
+          <div class="chip">Intentional dev</div>
+          <div class="chip">Design review</div>
+        </div>
+      </div>
+
+      <div class="unified-hint">Shift+Enter for new line · Enter to send · The AI builds your schedule from whatever you type</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- OPTION D: Chat-First with Inline Blocks -->
+<!-- ============================================================ -->
+<div id="mockup-d" class="mockup-section">
+  <div class="mockup-label">Option D</div>
+  <div class="mockup-title">Chat-First with Inline Blocks</div>
+  <div class="mockup-desc">
+    Chat is the primary UI. When the AI suggests blocks, they appear as inline cards within the conversation —
+    accept all, edit individual blocks, or keep chatting. Quick-start shortcuts at the top for users who don't want to type.
+    The wizard is gone; everything flows through conversation.
+  </div>
+  <div class="mockup-pros"><span>+ </span> Most natural and flexible. Inline block cards make the output feel integrated, not like a separate "step 2". Quick shortcuts bridge the gap for fast planners.</div>
+  <div class="mockup-cons"><span>- </span> Slower for power users who just want to type 3 tasks and go. Conversation history takes up space. Relies heavily on AI quality.</div>
+
+  <div class="frame">
+    <div class="frame-header">
+      <div class="frame-dot r"></div>
+      <div class="frame-dot y"></div>
+      <div class="frame-dot g"></div>
+    </div>
+    <div class="frame-body">
+      <div class="chat-container">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div style="font-size:16px;font-weight:600;">Plan Your Day</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn-secondary" style="padding:6px 12px;font-size:12px;border-radius:8px;">Memories</button>
+            <button class="btn-secondary" style="padding:6px 12px;font-size:12px;border-radius:8px;">New</button>
+          </div>
+        </div>
+        <div class="chat-messages">
+          <div class="chat-msg ai">
+            Hey! What are you working on today?
+            <div class="chat-inline-card" style="margin-top:10px;">
+              <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">QUICK START</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <div class="chip">📋 Same as yesterday</div>
+                <div class="chip">⚡ Just one task</div>
+                <div class="chip">🗓️ Plan full day</div>
+              </div>
+            </div>
+          </div>
+          <div class="chat-msg user">Code my app for a couple hours then groceries around 10</div>
+          <div class="chat-msg ai">
+            Nice — here's your evening:
+            <div class="chat-inline-card">
+              <div class="card-row">
+                <span class="time">8:15 – 10:00</span>
+                <span class="type-dot focus"></span>
+                <span>Code my app</span>
+              </div>
+              <div class="card-row">
+                <span class="time">10:00 – 10:45</span>
+                <span class="type-dot free"></span>
+                <span>Groceries</span>
+              </div>
+              <div class="chat-inline-actions">
+                <button class="accept-btn">Accept & start</button>
+                <button>Edit blocks</button>
+                <button>Adjust...</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input-bar">
+          <input placeholder="Make coding a deep work block...">
+          <button>Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- OPTION E: Tabs with Cross-Preview -->
+<!-- ============================================================ -->
+<div id="mockup-e" class="mockup-section">
+  <div class="mockup-label">Option E</div>
+  <div class="mockup-title">Tabs with Cross-Preview</div>
+  <div class="mockup-desc">
+    Two top-level tabs (Quick Plan / Coach Chat). Whichever you're NOT on shows a small preview card at the bottom
+    teasing the other mode. "Want help deciding? Chat with coach →" or "Ready to commit? Switch to Quick Plan →".
+    This solves discoverability while keeping the default clean.
+  </div>
+  <div class="mockup-pros"><span>+ </span> Each mode gets full space. The preview card is a gentle nudge without being intrusive. Tabs are universally understood.</div>
+  <div class="mockup-cons"><span>- </span> Two completely separate UIs. Preview card could be ignored (banner blindness). Slightly more complex than the segmented toggle.</div>
+
+  <div class="frame">
+    <div class="frame-header">
+      <div class="frame-dot r"></div>
+      <div class="frame-dot y"></div>
+      <div class="frame-dot g"></div>
+    </div>
+    <div class="frame-body">
+      <div class="tab-bar">
+        <button class="active" onclick="tabSwitch(this, 'tab-quick', 'tab-coach')">Quick Plan</button>
+        <button onclick="tabSwitch(this, 'tab-coach', 'tab-quick')">Coach Chat</button>
+      </div>
+
+      <!-- Quick Plan tab -->
+      <div id="tab-quick">
+        <div style="font-size:18px;font-weight:600;margin-bottom:4px;">What matters today?</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.4);margin-bottom:16px;">List your priorities — AI builds the schedule</div>
+
+        <div class="pri-row">
+          <div class="pri-num">1</div>
+          <input class="input-field" placeholder="Most important task...">
+        </div>
+        <div class="pri-row">
+          <div class="pri-num">2</div>
+          <input class="input-field" placeholder="Second priority (optional)">
+        </div>
+        <div class="pri-row">
+          <div class="pri-num">3</div>
+          <input class="input-field" placeholder="Third priority (optional)">
+        </div>
+
+        <div class="yesterday-section">
+          <div class="yesterday-label">From yesterday</div>
+          <div class="yesterday-chips">
+            <div class="chip">Software engineering</div>
+            <div class="chip">Intentional dev</div>
+          </div>
+        </div>
+
+        <div style="text-align:right;margin-bottom:16px;">
+          <button class="btn-primary">Build my schedule</button>
+        </div>
+
+        <div class="mini-preview" onclick="document.querySelectorAll('.tab-bar button')[1].click()">
+          <div class="mp-label">NOT SURE WHERE TO START?</div>
+          <div class="mp-content">Chat with the AI coach to figure out your priorities →</div>
+        </div>
+      </div>
+
+      <!-- Coach tab -->
+      <div id="tab-coach" style="display:none;">
+        <div class="chat-container" style="height:320px;">
+          <div class="chat-messages">
+            <div class="chat-msg ai">Hey! What are you working on today?</div>
+          </div>
+          <div class="chat-input-bar">
+            <input placeholder="What do you want to accomplish today?">
+            <button>Send</button>
+          </div>
+        </div>
+
+        <div class="mini-preview" onclick="document.querySelectorAll('.tab-bar button')[0].click()" style="margin-top:12px;">
+          <div class="mp-label">KNOW YOUR PRIORITIES?</div>
+          <div class="mp-content">Switch to Quick Plan for a faster flow →</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showMockup(id) {
+  document.querySelectorAll('.mockup-section').forEach(s => s.classList.remove('visible'));
+  document.querySelectorAll('.mockup-nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('mockup-' + id).classList.add('visible');
+  event.target.classList.add('active');
+}
+
+function segToggle(btn, showId, hideId) {
+  btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(showId).style.display = '';
+  document.getElementById(hideId).style.display = 'none';
+}
+
+function tabSwitch(btn, showId, hideId) {
+  btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(showId).style.display = '';
+  document.getElementById(hideId).style.display = 'none';
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan Card — Full Sequences</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #13131f;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+    color: #fff;
+    min-height: 100vh;
+    padding: 40px 30px;
+  }
+
+  :root {
+    --amber: #f2bf40;
+    --go-green: #40c773;
+    --go-green-bright: #4de085;
+    --focus-hours: #7375ff;
+    --deep-work: #f25959;
+    --free-time: #59d98d;
+    --text-primary: rgba(255,255,255,0.92);
+    --text-secondary: rgba(255,255,255,0.55);
+    --text-tertiary: rgba(255,255,255,0.35);
+    --separator: rgba(255,255,255,0.08);
+    --card-bg: rgba(30, 30, 38, 0.95);
+  }
+
+  h1 {
+    font-size: 14px; font-weight: 600;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 1px; text-transform: uppercase;
+    margin-bottom: 8px; text-align: center;
+  }
+  .page-note {
+    font-size: 12px; color: rgba(255,255,255,0.22);
+    text-align: center; margin-bottom: 50px; line-height: 1.5;
+  }
+
+  /* ── Sequence row ── */
+  .sequence {
+    margin-bottom: 70px;
+  }
+  .sequence-header {
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 28px; padding: 0 10px;
+  }
+  .sequence-letter {
+    font-size: 32px; font-weight: 800;
+    color: rgba(255,255,255,0.08);
+    line-height: 1;
+  }
+  .sequence-title {
+    font-size: 15px; font-weight: 700;
+    color: rgba(255,255,255,0.5);
+  }
+  .sequence-desc {
+    font-size: 12px; font-weight: 500;
+    color: rgba(255,255,255,0.22);
+    margin-top: 2px;
+  }
+
+  .sequence-flow {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: 10px;
+  }
+
+  .state-col {
+    display: flex; flex-direction: column;
+    align-items: center; flex-shrink: 0;
+    min-width: 0;
+  }
+  .state-label {
+    font-size: 10px; font-weight: 600;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 0.6px; text-transform: uppercase;
+    margin-bottom: 6px; text-align: center;
+    max-width: 300px;
+  }
+  .state-context {
+    font-size: 10px; font-weight: 500;
+    color: rgba(255,255,255,0.15);
+    margin-bottom: 12px; text-align: center;
+    max-width: 280px; line-height: 1.4;
+  }
+
+  .arrow-col {
+    display: flex; align-items: center; justify-content: center;
+    padding: 60px 12px 0;
+    flex-shrink: 0;
+  }
+  .arrow {
+    font-size: 18px; color: rgba(255,255,255,0.12);
+  }
+
+  /* ── Card base ── */
+  .card {
+    background: var(--card-bg);
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    overflow: hidden;
+  }
+  .amber-border { border: 1.5px solid rgba(242, 191, 64, 0.3); }
+  .subtle-border { border: 1px solid rgba(255,255,255,0.06); }
+  .green-border { border: 1.5px solid rgba(64, 199, 115, 0.3); }
+
+  /* ── Shared parts ── */
+  .header-row {
+    display: flex; align-items: center; gap: 6px;
+    padding: 9px 13px 7px;
+  }
+  .header-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .header-label {
+    font-size: 9.5px; font-weight: 600;
+    letter-spacing: 0.7px;
+  }
+  .header-spacer { flex: 1; }
+  .sep {
+    height: 1px; background: var(--separator);
+    margin: 0 13px;
+  }
+
+  .open-link {
+    font-size: 10px; font-weight: 600;
+    color: var(--go-green); cursor: pointer;
+    background: none; border: none;
+  }
+  .plan-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; padding: 7px 0; border: none; border-radius: 9px;
+    background: linear-gradient(90deg, var(--go-green), var(--go-green-bright));
+    color: #fff; font-size: 12px; font-weight: 700; cursor: pointer;
+  }
+  .ghost-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 5px 12px; border: 1.5px solid rgba(255,255,255,0.10);
+    border-radius: 7px; background: transparent;
+    color: var(--text-secondary); font-size: 11px; font-weight: 600; cursor: pointer;
+  }
+  .snooze-link {
+    font-size: 10px; font-weight: 500;
+    color: var(--text-tertiary); background: none; border: none; cursor: pointer;
+  }
+
+  /* ─── Sequence 1: Countdown + Stacked ─── */
+
+  /* No plan CTA */
+  .s1-noplan { width: 280px; }
+  .s1-noplan .hero {
+    text-align: center; padding: 14px 13px 12px;
+  }
+  .s1-noplan .hero-label {
+    font-size: 9px; font-weight: 600; color: var(--amber);
+    letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px;
+  }
+  .s1-noplan .hero-title {
+    font-size: 15px; font-weight: 700; color: var(--text-primary);
+    margin-bottom: 3px;
+  }
+  .s1-noplan .hero-sub {
+    font-size: 11px; font-weight: 500; color: var(--text-tertiary);
+    line-height: 1.4;
+  }
+  .s1-noplan .actions { padding: 0 13px 10px; }
+
+  /* Gap card - countdown */
+  .s1-gap { width: 280px; }
+  .s1-gap .content { padding: 8px 13px 10px; }
+  .s1-gap .countdown-row {
+    display: flex; align-items: baseline; gap: 6px;
+    margin-bottom: 8px;
+  }
+  .s1-gap .countdown-text {
+    font-size: 11px; font-weight: 500; color: var(--text-tertiary);
+  }
+  .s1-gap .countdown-val {
+    font-size: 22px; font-weight: 700; color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+  .s1-gap .countdown-unit {
+    font-size: 12px; font-weight: 500; color: var(--text-tertiary);
+  }
+  .s1-gap .block-card {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 9px; border-radius: 8px;
+    margin-bottom: 3px; position: relative;
+  }
+  .s1-gap .block-card.next { background: rgba(255,255,255,0.05); }
+  .s1-gap .block-card.later { opacity: 0.5; }
+  .s1-gap .block-card .bar {
+    width: 3px; border-radius: 2px;
+    align-self: stretch; flex-shrink: 0;
+  }
+  .s1-gap .block-card .info { flex: 1; min-width: 0; }
+  .s1-gap .block-card .name {
+    font-size: 11px; font-weight: 600; color: var(--text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .s1-gap .block-card .meta {
+    font-size: 9.5px; font-weight: 500; color: var(--text-tertiary);
+  }
+  .s1-gap .block-card .time {
+    font-size: 10px; font-weight: 500; color: var(--text-tertiary);
+    flex-shrink: 0;
+  }
+  .s1-gap .footer {
+    display: flex; align-items: center; justify-content: center;
+    padding: 6px 0 0;
+  }
+
+  /* Done card */
+  .s1-done { width: 280px; }
+  .s1-done .content {
+    padding: 12px 13px;
+    text-align: center;
+  }
+  .s1-done .done-icon {
+    font-size: 20px; margin-bottom: 4px;
+  }
+  .s1-done .done-text {
+    font-size: 13px; font-weight: 600; color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+  .s1-done .done-sub {
+    font-size: 11px; font-weight: 500; color: var(--text-tertiary);
+  }
+
+  /* ─── Sequence 2: Timeline style ─── */
+
+  .s2-noplan { width: 300px; }
+  .s2-noplan .content { padding: 10px 13px 12px; }
+  .s2-noplan .empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 8px 0 12px; gap: 6px;
+  }
+  .s2-noplan .empty-bar {
+    display: flex; gap: 4px; width: 100%; height: 4px; margin-bottom: 4px;
+  }
+  .s2-noplan .empty-seg {
+    height: 100%; border-radius: 2px;
+    background: rgba(255,255,255,0.06);
+  }
+  .s2-noplan .empty-title {
+    font-size: 14px; font-weight: 700; color: var(--text-primary);
+  }
+  .s2-noplan .empty-sub {
+    font-size: 11px; font-weight: 500; color: var(--text-tertiary);
+    text-align: center; line-height: 1.4;
+  }
+
+  /* Gap - timeline */
+  .s2-gap { width: 300px; }
+  .s2-gap .now-marker {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 13px 2px;
+  }
+  .s2-gap .now-line { flex: 1; height: 1px; background: var(--amber); opacity: 0.35; }
+  .s2-gap .now-label {
+    font-size: 8.5px; font-weight: 600; color: var(--amber);
+    letter-spacing: 0.4px; opacity: 0.6;
+  }
+  .s2-gap .timeline { padding: 4px 13px 8px; }
+  .s2-gap .tl-item {
+    display: flex; align-items: flex-start; gap: 9px;
+    padding-bottom: 5px;
+  }
+  .s2-gap .tl-item:last-child { padding-bottom: 0; }
+  .s2-gap .tl-track {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 2px; padding-top: 2px;
+  }
+  .s2-gap .tl-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .s2-gap .tl-line { width: 1.5px; flex: 1; min-height: 10px; background: var(--separator); }
+  .s2-gap .tl-content { flex: 1; min-width: 0; }
+  .s2-gap .tl-name {
+    font-size: 11.5px; font-weight: 600; color: var(--text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .s2-gap .tl-meta {
+    font-size: 9.5px; font-weight: 500; color: var(--text-tertiary);
+  }
+  .s2-gap .tl-time {
+    font-size: 9.5px; font-weight: 500; color: var(--text-tertiary);
+    flex-shrink: 0; padding-top: 1px;
+  }
+  .s2-gap .footer {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 13px 8px;
+  }
+
+  /* Done */
+  .s2-done { width: 300px; }
+  .s2-done .content { padding: 10px 13px 12px; }
+  .s2-done .done-row {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .s2-done .check {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: rgba(64, 199, 115, 0.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; flex-shrink: 0;
+  }
+  .s2-done .done-info { flex: 1; }
+  .s2-done .done-title {
+    font-size: 12px; font-weight: 600; color: var(--text-primary);
+  }
+  .s2-done .done-sub {
+    font-size: 10px; font-weight: 500; color: var(--text-tertiary);
+  }
+
+  /* ─── Sequence 3: Ultra-minimal / ticker ─── */
+
+  .s3-noplan { width: 300px; }
+  .s3-noplan .content { padding: 10px 13px 12px; }
+  .s3-noplan .prompt-row {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .s3-noplan .prompt-text {
+    flex: 1; font-size: 12px; font-weight: 500;
+    color: var(--text-secondary); line-height: 1.4;
+  }
+
+  .s3-gap { width: 300px; }
+  .s3-gap .ticker {
+    display: flex; align-items: center; gap: 9px;
+    padding: 8px 13px;
+  }
+  .s3-gap .ticker-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+  .s3-gap .ticker-text {
+    font-size: 11.5px; font-weight: 500; color: var(--text-secondary); flex: 1;
+  }
+  .s3-gap .ticker-text strong { color: var(--text-primary); font-weight: 600; }
+  .s3-gap .ticker-countdown {
+    font-size: 11px; font-weight: 700; color: var(--text-secondary);
+    font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+  .s3-gap .later-row {
+    display: flex; align-items: center; gap: 9px;
+    padding: 0 13px 8px;
+    opacity: 0.45;
+  }
+  .s3-gap .later-dot {
+    width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0;
+  }
+  .s3-gap .later-text {
+    font-size: 10px; font-weight: 500; color: var(--text-tertiary); flex: 1;
+  }
+  .s3-gap .later-time {
+    font-size: 10px; font-weight: 500; color: var(--text-tertiary); flex-shrink: 0;
+  }
+  .s3-gap .action-row {
+    padding: 0 13px 8px;
+  }
+
+  .s3-done { width: 300px; }
+  .s3-done .content {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 13px;
+  }
+  .s3-done .done-text {
+    font-size: 12px; font-weight: 500; color: var(--text-tertiary); flex: 1;
+  }
+
+  /* ─── Sequence 4: Warm / motivational ─── */
+
+  .s4-noplan { width: 310px; }
+  .s4-noplan .content { padding: 12px 13px 14px; }
+  .s4-noplan .greeting {
+    font-size: 16px; font-weight: 700; color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .s4-noplan .greeting-sub {
+    font-size: 11.5px; font-weight: 500; color: var(--text-tertiary);
+    line-height: 1.45; margin-bottom: 12px;
+  }
+  .s4-noplan .quick-options {
+    display: flex; gap: 6px; margin-bottom: 8px;
+  }
+  .s4-noplan .quick-opt {
+    flex: 1; padding: 8px 6px; border-radius: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    text-align: center; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .s4-noplan .quick-opt:hover { background: rgba(255,255,255,0.08); }
+  .s4-noplan .quick-opt .opt-icon {
+    font-size: 16px; margin-bottom: 2px;
+  }
+  .s4-noplan .quick-opt .opt-label {
+    font-size: 10px; font-weight: 600; color: var(--text-secondary);
+  }
+  .s4-noplan .quick-opt .opt-dur {
+    font-size: 9px; font-weight: 500; color: var(--text-tertiary);
+  }
+
+  .s4-gap { width: 310px; }
+  .s4-gap .content { padding: 8px 13px 10px; }
+  .s4-gap .msg-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 10px;
+  }
+  .s4-gap .msg-text {
+    font-size: 12.5px; font-weight: 600; color: var(--text-primary);
+    flex: 1;
+  }
+  .s4-gap .msg-countdown {
+    font-size: 12px; font-weight: 700; color: var(--amber);
+    font-variant-numeric: tabular-nums;
+  }
+  .s4-gap .block-preview {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 9px; background: rgba(255,255,255,0.04);
+    border-radius: 8px; margin-bottom: 4px;
+  }
+  .s4-gap .bp-bar {
+    width: 3px; align-self: stretch; border-radius: 2px; flex-shrink: 0;
+  }
+  .s4-gap .bp-info { flex: 1; min-width: 0; }
+  .s4-gap .bp-name {
+    font-size: 11.5px; font-weight: 600; color: var(--text-primary);
+  }
+  .s4-gap .bp-meta {
+    font-size: 9.5px; font-weight: 500; color: var(--text-tertiary);
+  }
+  .s4-gap .bp-time {
+    font-size: 10px; font-weight: 500; color: var(--text-tertiary); flex-shrink: 0;
+  }
+  .s4-gap .block-preview.faded { opacity: 0.45; background: transparent; }
+  .s4-gap .footer {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 0 0;
+  }
+
+  .s4-done { width: 310px; }
+  .s4-done .content { padding: 12px 13px; text-align: center; }
+  .s4-done .done-msg {
+    font-size: 14px; font-weight: 700; color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+  .s4-done .done-sub {
+    font-size: 11px; font-weight: 500; color: var(--text-tertiary);
+    margin-bottom: 8px;
+  }
+  .s4-done .done-stat {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 6px;
+    background: rgba(64, 199, 115, 0.1);
+  }
+  .s4-done .done-stat-text {
+    font-size: 11px; font-weight: 600; color: var(--go-green);
+  }
+</style>
+</head>
+<body>
+
+<h1>Unscheduled Card — Full Sequences</h1>
+<div class="page-note">
+  Each sequence shows the same design language across all 3 states.<br>
+  "Plan My Day" when no blocks exist · "Edit Schedule" when blocks exist · auto-dismiss or minimal when done.
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SEQUENCE 1: Countdown + Stacked Blocks
+     ═══════════════════════════════════════════════════ -->
+<div class="sequence">
+  <div class="sequence-header">
+    <div class="sequence-letter">1</div>
+    <div>
+      <div class="sequence-title">Countdown + Stacked Blocks</div>
+      <div class="sequence-desc">Countdown hero when blocks exist. Clean empty state when none. Compact "done" at end of day.</div>
+    </div>
+  </div>
+  <div class="sequence-flow">
+
+    <!-- State: No plan -->
+    <div class="state-col">
+      <div class="state-label">No plan set</div>
+      <div class="state-context">Morning, user never opened planner</div>
+      <div class="card s1-noplan amber-border">
+        <div class="header-row">
+          <div class="header-dot" style="background: var(--amber);"></div>
+          <div class="header-label" style="color: var(--amber);">NO PLAN</div>
+        </div>
+        <div class="sep"></div>
+        <div class="hero">
+          <div class="hero-title">What's the plan today?</div>
+          <div class="hero-sub">Set up blocks to track focus and earn browse time.</div>
+        </div>
+        <div class="actions">
+          <button class="plan-btn">Plan My Day</button>
+          <div style="text-align:center;"><button class="snooze-link" style="padding:6px 0 2px;">Snooze 30 min</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-col"><div class="arrow">→</div></div>
+
+    <!-- State: Gap between blocks -->
+    <div class="state-col">
+      <div class="state-label">Gap between blocks</div>
+      <div class="state-context">Blocks exist, currently in unscheduled time</div>
+      <div class="card s1-gap amber-border">
+        <div class="header-row">
+          <div class="header-dot" style="background: var(--amber);"></div>
+          <div class="header-label" style="color: var(--amber);">UNSCHEDULED</div>
+          <div class="header-spacer"></div>
+          <button class="open-link">Edit →</button>
+        </div>
+        <div class="sep"></div>
+        <div class="content">
+          <div class="countdown-row">
+            <div class="countdown-text">Next block in</div>
+            <div class="countdown-val">47<span class="countdown-unit"> min</span></div>
+          </div>
+          <div class="block-card next">
+            <div class="bar" style="background: var(--focus-hours);"></div>
+            <div class="info">
+              <div class="name">Software engineering</div>
+              <div class="meta">Focus Hours · 2h</div>
+            </div>
+            <div class="time">11:12 PM</div>
+          </div>
+          <div class="block-card later">
+            <div class="bar" style="background: var(--free-time);"></div>
+            <div class="info">
+              <div class="name">Break</div>
+              <div class="meta">Free Time · 30m</div>
+            </div>
+            <div class="time">1:12 AM</div>
+          </div>
+          <div class="block-card later">
+            <div class="bar" style="background: var(--deep-work);"></div>
+            <div class="info">
+              <div class="name">Research paper</div>
+              <div class="meta">Deep Work · 1h 30m</div>
+            </div>
+            <div class="time">1:42 AM</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-col"><div class="arrow">→</div></div>
+
+    <!-- State: Done for the day -->
+    <div class="state-col">
+      <div class="state-label">Done for the day</div>
+      <div class="state-context">All blocks are in the past</div>
+      <div class="card s1-done subtle-border">
+        <div class="header-row">
+          <div class="header-dot" style="background: var(--go-green);"></div>
+          <div class="header-label" style="color: var(--go-green);">COMPLETE</div>
+        </div>
+        <div class="sep"></div>
+        <div class="content">
+          <div class="done-text">All done for today</div>
+          <div class="done-sub">3 blocks completed · 4h 30m focused</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-col"><div class="arrow">→</div></div>
+
+    <!-- State: Mid-day, no plan -->
+    <div class="state-col">
+      <div class="state-label">Mid-day, no plan</div>
+      <div class="state-context">It's 2 PM, user never planned</div>
+      <div class="card s1-noplan amber-border">
+        <div class="header-row">
+          <div class="header-dot" style="background: var(--amber);"></div>
+          <div class="header-label" style="color: var(--amber);">NO PLAN</div>
+        </div>
+        <div class="sep"></div>
+        <div class="hero">
+          <div class="hero-title">Still time to plan</div>
+          <div class="hero-sub">Even a short block helps build momentum.</div>
+        </div>
+        <div class="actions">
+          <button class="plan-btn">Plan My Day</button>
+          <div style="text-align:center;"><button class="snooze-link" style="padding:6px 0 2px;">Snooze 30 min</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SEQUENCE 2: Timeline
+     ═══════════════════════════════════════════════════ -->
+<div class="sequence">
+  <div class="sequence-header">
+    <div class="sequence-letter">2</div>
+    <div>
+      <div class="sequence-title">Timeline</div>
+      <div class="sequence-desc">Vertical timeline with NOW marker. Empty schedule bar when no plan. Inline check when done.</div>
+    </div>
+  </div>
+  <div class="sequence-flow">
+
+    <div class="state-col">
+      <div class="state-label">No plan set</div>
+      <div class="state-context">Morning, user never opened planner</div>
+      <div class="card s2-noplan amber-border">
+        <div class="header-row">
+          <div class="header-dot" style="background: var(--amber);"></div>
+          <div class="header-label" style="color: var(--amber);">NO PLAN</div>
+        </div>
+        <div class="sep"></div>
+        <div class="content">
+          <div class="empty-state">
+            <div class="empty-bar">
+              <div class="empty-seg" style="flex:2;"></div>
+              <div class="empty-seg" style="flex:1.5;"></div>
+              <div class="empty-seg" style="flex:1;"></div>
+              <div class="empty-seg" style="flex:2.5;"></div>
+            </div>
+            <div class="empty-title">Plan your day</div>
+            <div class="empty-sub">Add blocks to track your focus and earn browse time.</div>
+          </div>
+          <button class="plan-btn">Plan My Day</button>
+          <div style="text-align:center;"><button class="snooze-link" style="padding:6px 0 0;">Snooze 30 min</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-col"><div class="arrow">→</div></div>
+
+    <div class="state-col">
+      <div class="state-label">Gap between blocks</div>
+      <div class="state-context">Blocks exist, currently in unscheduled time</div>
+      <div class="card s2-gap amber-border">
+        <div class="header-row">
+          <div class="header-dot" style="background: var(--amber);"></div>
+          <div class="header-label" style="color: var(--amber);">UNSCHEDULED</div>
+          <div class="header-spacer"></div>
+          <button class="open-link">Edit →</button>
+        </div>
+        <div class="sep"></div>
+        <div class="now-marker">
+          <div class="now-line"></div>
+          <div class="now-label">NOW</div>
+          <div class="now-line"></div>
+        </div>
+        <div class="timeline">
+          <div class="tl-item">
+            <div class="tl-track">
+              <div class="tl-dot" style="background: var(--focus-hours);"></div>
+              <div class="tl-line"></div>
+            </div>
+            <div class="tl-content">
+              <div class="tl-name">Software engineering</div>
+              <div class="tl-meta">Focus Hours · 2h</div>
+            </div>
+            <div class="tl-time">11:12 PM</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-track">
+              <div class="tl-dot" style="background: var(--free-time);"></div>
+              <div class="tl-line"></div>
+            </div>
+            <div class="tl-content">
+              <div class="tl-name">Break</div>
+              <div class="tl-meta">Free Time · 30m</div>
+            </div>
+            <div class="tl-time">1:12 AM</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-track">
+              <div class="tl-dot" style="background: var(--deep-work);"></div>
+            </div>
+            <div class="tl-content">
+              <div class="tl-name">Research paper</div>
+              <div class="tl-meta">Deep Work · 1h 30m</div>
+            </div>
+            <div class="tl-time">1:42 AM</div>
+          </div>
+        </div>
+        <div class="sep" style="margin-bottom:6px;"></div>
+        <div class="footer">
+          <button class="snooze-link" style="padding:0;">Dismiss</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-col"><div class="arrow">→</div></div>
+
+    <div class="state-col">
+      <div class="state-label">Done for the day</div>
+      <div class="state-context">All blocks are in the past</div>
+      <div class="card s2-done subtle-border">
+        <div class="header-row">
+          <div class="header-dot" style="background: var(--go-green);"></div>
+          <div class="header-label" style="color: var(--go-green);">COMPLETE</div>
+        </div>
+        <div class="sep"></div>
+        <div class="content">
+          <div class="done-row">
+            <div class="check">✓</div>
+            <div class="done-info">
+              <div class="done-title">Day complete</div>
+              <div class="done-sub">3 blocks · 4h 30m focused</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-col"><div class="arrow">→</div></div>
+
+    <div class="state-col">
+      <div class="state-label">Mid-day, no plan</div>
+      <div class="state-context">It's 2 PM, user never planned</div>
+      <div class="card s2-noplan amber-border">
+        <div class="header-row">
+          <div class="header-dot" style="background: var(--amber);"></div>
+          <div class="header-label" style="color: var(--amber);">NO PLAN</div>
+        </div>
+        <div class="sep"></div>
+        <div class="content">
+          <div class="empty-state">
+            <div class="empty-title" style="font-size: 13px;">There's still time</div>
+            <div class="empty-sub">Even one block can make a difference.</div>
+          </div>
+          <button class="plan-btn">Plan My Day</button>
+          <div style="text-align:center;"><button class="snooze-link" style="padding:6px 0 0;">Snooze 30 min</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SEQUENCE 3: Ultra-Minimal Ticker
+     ═══════════════════════════════════════════════════ -->
+<div class="sequence">
+  <div class="sequence-header">
+    <div class="sequence-letter">3</div>
+    <div>
+      <div class="sequence-title">Ultra-Minimal Ticker</div>
+      <div class="sequence-desc">Pill-width (300px), single-line info. Least intrusive. Feels like a status bar notification.</div>
+    </div>
+  </div>
+  <div class="sequence-flow">
+
+    <div class="state-col">
+      <div class="state-label">No plan set</div>
+      <div class="state-context">Morning, user never opened planner</div>
+      <div class="card s3-noplan amber-border">
+        <div class="header-row">
+          <div class="header-dot" style="background: var(--amber);"></div>
+          <div class="header-label" style="color: var(--amber);">NO PLAN</div>
+        </div>
+        <div class="sep"></div>
+        <div class="content">
+          <div class="prompt-row">
+            <div class="prompt-text">Set up today's blocks to start tracking.</div>
+            <button class="plan-btn" style="width: auto; padding: 7px 16px; flex-shrink: 0;">Plan</button>
+          </div>
+          <div style="text-align:center;"><button class="snooze-link" style="padding:6px 0 0;">Snooze 30 min</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-col"><div class="arrow">→</div></div>
+
+    <div class="state-col">
+      <div class="state-label">Gap between blocks</div>
+      <div class="state-context">Blocks exist, currently in unscheduled time</div>
+      <div class="card s3-gap amber-border">
+        <div class="header-row">
+          <div class="header-dot" style="background: var(--amber);"></div>
+          <div class="header-label" style="color: var(--amber);">UNSCHEDULED</div>
+          <div class="header-spacer"></div>
+          <button class="open-link">Edit →</button>
+        </div>
+        <div class="sep"></div>
+        <div class="ticker">
+          <div class="ticker-dot" style="background: var(--focus-hours);"></div>
+          <div class="ticker-text">Next: <strong>Software engineering</strong></div>
+          <div class="ticker-countdown">47m</div>
+        </div>
+        <div class="later-row">
+          <div class="later-dot" style="background: var(--free-time);"></div>
+          <div class="later-text">Break · 30m</div>
+          <div class="later-time">1:12 AM</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-col"><div class="arrow">→</div></div>
+
+    <div class="state-col">
+      <div class="state-label">Done for the day</div>
+      <div class="state-context">All blocks are in the past</div>
+      <div class="card s3-done subtle-border">
+        <div class="header-row">
+          <div class="header-dot" style="background: var(--go-green);"></div>
+          <div class="header-label" style="color: var(--go-green);">DONE</div>
+        </div>
+        <div class="sep"></div>
+        <div class="content">
+          <div class="done-text">All blocks complete · 4h 30m focused</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-col"><div class="arrow">→</div></div>
+
+    <div class="state-col">
+      <div class="state-label">Mid-day, no plan</div>
+      <div class="state-context">It's 2 PM, user never planned</div>
+      <div class="card s3-noplan amber-border">
+        <div class="header-row">
+          <div class="header-dot" style="background: var(--amber);"></div>
+          <div class="header-label" style="color: var(--amber);">NO PLAN</div>
+        </div>
+        <div class="sep"></div>
+        <div class="content">
+          <div class="prompt-row">
+            <div class="prompt-text">Still time to plan a block.</div>
+            <button class="plan-btn" style="width: auto; padding: 7px 16px; flex-shrink: 0;">Plan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SEQUENCE 4: Warm / Motivational
+     ═══════════════════════════════════════════════════ -->
+<div class="sequence">
+  <div class="sequence-header">
+    <div class="sequence-letter">4</div>
+    <div>
+      <div class="sequence-title">Warm + Quick Actions</div>
+      <div class="sequence-desc">Friendly greeting, quick-start block templates for no-plan. Accent bars for gap. Summary stat when done.</div>
+    </div>
+  </div>
+  <div class="sequence-flow">
+
+    <div class="state-col">
+      <div class="state-label">No plan set</div>
+      <div class="state-context">Morning, user never opened planner</div>
+      <div class="card s4-noplan amber-border">
+        <div class="header-row">
+          <div class="header-dot" style="background: var(--amber);"></div>
+          <div class="header-label" style="color: var(--amber);">NO PLAN</div>
+        </div>
+        <div class="sep"></div>
+        <div class="content">
+          <div class="greeting">What are you working on?</div>
+          <div class="greeting-sub">Pick a quick block or plan your full day.</div>
+          <div class="quick-options">
+            <div class="quick-opt">
+              <div class="opt-icon" style="color: var(--deep-work);">◆</div>
+              <div class="opt-label">Deep Work</div>
+              <div class="opt-dur">2 hours</div>
+            </div>
+            <div class="quick-opt">
+              <div class="opt-icon" style="color: var(--focus-hours);">◆</div>
+              <div class="opt-label">Focus</div>
+              <div class="opt-dur">1 hour</div>
+            </div>
+            <div class="quick-opt">
+              <div class="opt-icon" style="color: var(--free-time);">◆</div>
+              <div class="opt-label">Free Time</div>
+              <div class="opt-dur">30 min</div>
+            </div>
+          </div>
+          <button class="ghost-btn" style="width: 100%; justify-content: center;">Plan Full Day →</button>
+          <div style="text-align:center;"><button class="snooze-link" style="padding:6px 0 0;">Snooze 30 min</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-col"><div class="arrow">→</div></div>
+
+    <div class="state-col">
+      <div class="state-label">Gap between blocks</div>
+      <div class="state-context">Blocks exist, currently in unscheduled time</div>
+      <div class="card s4-gap amber-border">
+        <div class="header-row">
+          <div class="header-dot" style="background: var(--amber);"></div>
+          <div class="header-label" style="color: var(--amber);">UNSCHEDULED</div>
+          <div class="header-spacer"></div>
+          <button class="open-link">Edit →</button>
+        </div>
+        <div class="sep"></div>
+        <div class="content">
+          <div class="msg-row">
+            <div class="msg-text">Up next</div>
+            <div class="msg-countdown">in 47 min</div>
+          </div>
+          <div class="block-preview">
+            <div class="bp-bar" style="background: var(--focus-hours);"></div>
+            <div class="bp-info">
+              <div class="bp-name">Software engineering</div>
+              <div class="bp-meta">Focus Hours · 2h</div>
+            </div>
+            <div class="bp-time">11:12 PM</div>
+          </div>
+          <div class="block-preview faded">
+            <div class="bp-bar" style="background: var(--free-time);"></div>
+            <div class="bp-info">
+              <div class="bp-name">Break</div>
+              <div class="bp-meta">Free Time · 30m</div>
+            </div>
+            <div class="bp-time">1:12 AM</div>
+          </div>
+          <div class="block-preview faded">
+            <div class="bp-bar" style="background: var(--deep-work);"></div>
+            <div class="bp-info">
+              <div class="bp-name">Research paper</div>
+              <div class="bp-meta">Deep Work · 1h 30m</div>
+            </div>
+            <div class="bp-time">1:42 AM</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-col"><div class="arrow">→</div></div>
+
+    <div class="state-col">
+      <div class="state-label">Done for the day</div>
+      <div class="state-context">All blocks are in the past</div>
+      <div class="card s4-done green-border">
+        <div class="header-row">
+          <div class="header-dot" style="background: var(--go-green);"></div>
+          <div class="header-label" style="color: var(--go-green);">DAY COMPLETE</div>
+        </div>
+        <div class="sep"></div>
+        <div class="content">
+          <div class="done-msg">Nice work today</div>
+          <div class="done-sub">3 blocks · 4h 30m of focused time</div>
+          <div class="done-stat">
+            <div class="done-stat-text">78% average focus</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-col"><div class="arrow">→</div></div>
+
+    <div class="state-col">
+      <div class="state-label">Mid-day, no plan</div>
+      <div class="state-context">It's 2 PM, user never planned</div>
+      <div class="card s4-noplan amber-border">
+        <div class="header-row">
+          <div class="header-dot" style="background: var(--amber);"></div>
+          <div class="header-label" style="color: var(--amber);">NO PLAN</div>
+        </div>
+        <div class="sep"></div>
+        <div class="content">
+          <div class="greeting" style="font-size: 14px;">Start a quick block?</div>
+          <div class="greeting-sub" style="margin-bottom: 10px;">Even a short session helps build momentum.</div>
+          <div class="quick-options">
+            <div class="quick-opt">
+              <div class="opt-icon" style="color: var(--deep-work);">◆</div>
+              <div class="opt-label">Deep Work</div>
+              <div class="opt-dur">1 hour</div>
+            </div>
+            <div class="quick-opt">
+              <div class="opt-icon" style="color: var(--focus-hours);">◆</div>
+              <div class="opt-label">Focus</div>
+              <div class="opt-dur">45 min</div>
+            </div>
+            <div class="quick-opt">
+              <div class="opt-icon" style="color: var(--free-time);">◆</div>
+              <div class="opt-label">Free Time</div>
+              <div class="opt-dur">30 min</div>
+            </div>
+          </div>
+          <button class="ghost-btn" style="width: 100%; justify-content: center;">Plan Full Day →</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div style="height: 60px;"></div>
+
+</body>
+</html>

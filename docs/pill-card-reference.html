@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pill Card Reference — All States</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro", system-ui, sans-serif;
+  background: #111;
+  color: #fff;
+  padding: 40px;
+  line-height: 1.5;
+}
+h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+.subtitle { color: rgba(255,255,255,0.5); font-size: 15px; margin-bottom: 40px; }
+
+/* Flow diagram */
+.flow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 48px;
+  flex-wrap: wrap;
+  padding: 24px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.flow-box {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.flow-arrow { color: rgba(255,255,255,0.3); font-size: 18px; }
+.flow-timer { background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.4); }
+.flow-complete { background: rgba(245,158,11,0.2); border: 1px solid rgba(245,158,11,0.4); }
+.flow-celebration { background: rgba(236,72,153,0.2); border: 1px solid rgba(236,72,153,0.4); }
+.flow-ritual { background: rgba(52,211,153,0.2); border: 1px solid rgba(52,211,153,0.4); }
+.flow-noplan { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); }
+.flow-label { font-size: 11px; color: rgba(255,255,255,0.4); width: 100%; margin-top: 8px; font-weight: 400; }
+
+/* Section headers */
+.section {
+  margin-bottom: 48px;
+}
+.section-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.section-desc {
+  color: rgba(255,255,255,0.45);
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+/* Card grid */
+.card-row {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+.card-info {
+  flex: 1;
+  min-width: 260px;
+}
+.card-info h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.condition {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+.condition-when { background: rgba(99,102,241,0.2); color: #818cf8; }
+.condition-auto { background: rgba(245,158,11,0.2); color: #fbbf24; }
+.detail-list {
+  font-size: 13px;
+  color: rgba(255,255,255,0.55);
+  list-style: none;
+  padding: 0;
+}
+.detail-list li {
+  padding: 3px 0;
+  padding-left: 16px;
+  position: relative;
+}
+.detail-list li::before {
+  content: '·';
+  position: absolute;
+  left: 4px;
+  color: rgba(255,255,255,0.3);
+}
+
+/* Mock pill cards */
+.pill {
+  border-radius: 16px;
+  background: #1a1a1e;
+  border: 1px solid rgba(255,255,255,0.1);
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.pill-300 { width: 300px; }
+.pill-310 { width: 310px; }
+.pill-460 { width: 460px; }
+
+.pill-inner { padding: 14px 16px; }
+.pill-row { display: flex; align-items: center; gap: 8px; }
+.pill-row-between { display: flex; align-items: center; justify-content: space-between; }
+.pill-sep { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
+.pill-sep-amber { height: 1px; background: rgba(245,158,11,0.15); margin: 8px 0; }
+
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot-indigo { background: #6366f1; }
+.dot-red { background: #ef4444; }
+.dot-amber { background: #f59e0b; }
+.dot-green { background: #22c55e; }
+.dot-blue { background: #6366f1; }
+.dot-free { background: #34d399; }
+.dot-deep { background: #ef4444; }
+
+.pill-title { font-size: 13px; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pill-time { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pill-time-amber { color: #f59e0b; }
+.pill-stat { font-size: 12px; color: rgba(255,255,255,0.5); }
+.pill-stat-green { font-size: 12px; color: #34d399; font-weight: 600; }
+.pill-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.pill-label-amber { color: #f59e0b; }
+.pill-label-green { color: #22c55e; }
+.pill-label-red { color: #ef4444; }
+.pill-label-blue { color: #818cf8; }
+.pill-label-secondary { color: rgba(255,255,255,0.4); }
+.pill-text-secondary { font-size: 13px; color: rgba(255,255,255,0.45); }
+.pill-text-primary { font-size: 13px; color: rgba(255,255,255,0.85); }
+
+.pill-btn {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(52,211,153,0.15);
+  color: #34d399;
+  border: none;
+}
+.pill-btn-secondary {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.6);
+  border: none;
+}
+.pill-link {
+  font-size: 12px;
+  color: rgba(255,255,255,0.35);
+  text-decoration: none;
+}
+.pill-link-green {
+  font-size: 13px;
+  color: #34d399;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* Big focus score */
+.big-score {
+  font-size: 36px;
+  font-weight: 800;
+  text-align: center;
+  margin: 8px 0;
+}
+.big-score-green { color: #22c55e; }
+.big-score-amber { color: #f59e0b; }
+.big-score-red { color: #ef4444; }
+
+.focus-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+  margin: 4px 0 8px;
+}
+.focus-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+}
+.focus-bar-fill-green { background: #22c55e; }
+
+/* Celebration card nav dots */
+.carousel-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 0 4px;
+}
+.carousel-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+}
+.carousel-dot.active { background: rgba(255,255,255,0.7); }
+
+/* Quick block buttons in noPlan */
+.quick-blocks {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0;
+}
+.quick-block {
+  flex: 1;
+  padding: 8px 4px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  text-align: center;
+}
+.quick-block-label { font-size: 11px; font-weight: 600; margin-top: 4px; }
+.quick-block-dur { font-size: 10px; color: rgba(255,255,255,0.35); }
+
+/* Block list in gap card */
+.block-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.block-row-highlight { background: rgba(255,255,255,0.04); }
+.block-row-faded { opacity: 0.4; }
+.block-accent-bar { width: 3px; height: 24px; border-radius: 2px; flex-shrink: 0; }
+
+.minimize-btn {
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: rgba(255,255,255,0.35);
+  flex-shrink: 0;
+}
+
+/* Focus badge */
+.focus-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(52,211,153,0.1);
+  color: #34d399;
+}
+
+/* App breakdown */
+.app-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 3px 0;
+  color: rgba(255,255,255,0.6);
+}
+
+/* Celebration header */
+.celeb-header {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: rgba(255,255,255,0.4);
+  margin-bottom: 8px;
+}
+.celeb-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+/* Green border for start ritual */
+.pill-green-border {
+  border: 1.5px solid rgba(52,211,153,0.35);
+}
+/* Amber border for block complete */
+.pill-amber-border {
+  border: 1.5px solid rgba(245,158,11,0.5);
+}
+
+/* Type badge */
+.type-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.type-badge .dot { width: 6px; height: 6px; }
+
+/* Divider between sections */
+.divider {
+  height: 1px;
+  background: rgba(255,255,255,0.06);
+  margin: 48px 0;
+}
+
+/* Recovery takeover */
+.recovery-overlay {
+  background: linear-gradient(135deg, rgba(34,197,94,0.15), rgba(34,197,94,0.05));
+  padding: 14px 16px;
+  text-align: center;
+}
+
+/* Distraction takeover */
+.distraction-overlay {
+  background: linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05));
+  padding: 14px 16px;
+}
+
+.pill-section-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+</style>
+</head>
+<body>
+
+<h1>Pill Card Reference</h1>
+<p class="subtitle">Every floating pill card state, what it looks like, and when it appears.</p>
+
+<!-- ============================================ -->
+<!-- FLOW DIAGRAM -->
+<!-- ============================================ -->
+<div class="flow">
+  <div class="flow-label">Normal block lifecycle:</div>
+  <div class="flow-box flow-ritual">Start Ritual</div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box flow-timer">Timer</div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box flow-complete">Block Complete</div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box flow-celebration">Celebration</div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box flow-ritual">Start Ritual (next)</div>
+
+  <div class="flow-label">When no schedule exists:</div>
+  <div class="flow-box flow-noplan">No Plan / Gap / All Caught Up / Done for Day</div>
+</div>
+
+<!-- ============================================ -->
+<!-- 1. TIMER -->
+<!-- ============================================ -->
+<div class="section">
+  <div class="section-title">1. Timer</div>
+  <div class="section-desc">The main countdown pill shown during an active block.</div>
+
+  <div class="card-row">
+    <div class="pill pill-300">
+      <div class="pill-inner">
+        <div class="pill-row">
+          <div class="dot dot-indigo"></div>
+          <div class="pill-title">Write quarterly report</div>
+          <div class="pill-time">47:12</div>
+        </div>
+        <div class="pill-sep"></div>
+        <div class="pill-row-between">
+          <div class="pill-stat">82% focused</div>
+          <div class="pill-stat-green">+4m</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>Focused state</h3>
+      <span class="condition condition-when">When: User is on-task</span>
+      <ul class="detail-list">
+        <li>Indigo dot = currently focused</li>
+        <li>Shows block intention text</li>
+        <li>Countdown in MM:SS</li>
+        <li>Focus % + earned minutes in stats row</li>
+        <li>Hover reveals: sound toggle, minimize, "End Block"</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card-row">
+    <div class="pill pill-300">
+      <div class="pill-inner">
+        <div class="pill-row">
+          <div class="dot dot-red"></div>
+          <div class="pill-title">Write quarterly report</div>
+          <div class="pill-time">44:03</div>
+        </div>
+        <div class="pill-sep"></div>
+        <div class="pill-row-between">
+          <div class="pill-stat" style="color: #f59e0b;">61% focused</div>
+          <div class="pill-stat-green">+3m</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>Distracted state</h3>
+      <span class="condition condition-when">When: User is off-task</span>
+      <ul class="detail-list">
+        <li>Red dot = currently distracted</li>
+        <li>Same layout, dot color is the only change</li>
+        <li>Focus % turns amber (&lt;80%) or red (&lt;50%)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card-row">
+    <div class="pill pill-300">
+      <div class="recovery-overlay">
+        <div style="font-size: 20px; font-weight: 700; color: #22c55e;">Welcome back</div>
+        <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 4px;">Focus recovered</div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>Recovery takeover</h3>
+      <span class="condition condition-when">When: User returns to task after distraction</span>
+      <ul class="detail-list">
+        <li>Green gradient background fills entire pill</li>
+        <li>"Welcome back" message</li>
+        <li>Inline confetti effect plays</li>
+        <li>Returns to normal timer after ~3s</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card-row">
+    <div class="pill pill-300">
+      <div class="distraction-overlay">
+        <div style="font-size: 13px; font-weight: 600; color: #f87171;">Not related to your task</div>
+        <div style="margin-top: 6px;">
+          <span class="pill-btn" style="background: rgba(239,68,68,0.15); color: #f87171; font-size: 12px;">Back to Task</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>Distraction takeover</h3>
+      <span class="condition condition-when">When: AI scores current content as irrelevant</span>
+      <ul class="detail-list">
+        <li>Red gradient background</li>
+        <li>"Not related to your task" warning</li>
+        <li>"Back to Task" button</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ============================================ -->
+<!-- 2. BLOCK COMPLETE -->
+<!-- ============================================ -->
+<div class="section">
+  <div class="section-title">2. Block Complete</div>
+  <div class="section-desc">Brief transition state when the countdown hits 0:00. Shown for a few seconds before celebration.</div>
+
+  <div class="card-row">
+    <div class="pill pill-300 pill-amber-border">
+      <div class="pill-inner">
+        <div class="pill-row">
+          <div class="dot dot-amber"></div>
+          <div class="pill-title" style="color: #f59e0b;">Block complete</div>
+          <div class="pill-time pill-time-amber">0:00</div>
+        </div>
+        <div class="pill-sep-amber"></div>
+        <div class="pill-row-between">
+          <div class="pill-stat" style="color: #22c55e;">87% focused</div>
+          <div class="pill-stat-green">+12m</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <span class="condition condition-auto">Auto: transitions to Celebration in ~2s</span>
+      <ul class="detail-list">
+        <li>Amber dot, amber text, amber border</li>
+        <li>"Block complete" replaces intention text</li>
+        <li>"0:00" countdown frozen</li>
+        <li>Final focus % and earned minutes shown</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ============================================ -->
+<!-- 3. CELEBRATION -->
+<!-- ============================================ -->
+<div class="section">
+  <div class="section-title">3. Celebration Carousel</div>
+  <div class="section-desc">Expanded card with 3–4 swipeable sub-cards. Auto-advances every 10s. "Skip" link at bottom.</div>
+
+  <!-- Card 0: Session Complete -->
+  <div class="card-row" style="margin-bottom: 32px;">
+    <div class="pill pill-460">
+      <div class="pill-inner" style="padding: 18px 20px;">
+        <div class="celeb-header">Session complete</div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div class="celeb-title">Write quarterly report</div>
+          <div style="font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.7);">1h 30m</div>
+        </div>
+        <div class="type-badge" style="margin: 6px 0 12px;">
+          <div class="dot dot-blue" style="width:6px;height:6px;"></div>
+          <span class="pill-label-blue">FOCUS</span>
+          <span class="pill-text-secondary" style="font-size: 11px;">· 2:00 PM — 3:30 PM</span>
+        </div>
+        <div class="pill-sep"></div>
+        <div style="text-align: center; padding: 12px 0 8px;">
+          <div class="pill-text-secondary">You earned <span style="color: #34d399; font-weight: 600;">18 min</span> of recharge time.</div>
+        </div>
+        <div style="text-align: center; padding: 4px 0;">
+          <span class="pill-btn">Next →</span>
+        </div>
+        <div class="carousel-dots">
+          <div class="carousel-dot active"></div>
+          <div class="carousel-dot"></div>
+          <div class="carousel-dot"></div>
+        </div>
+        <div style="text-align: center; padding: 4px 0 0;">
+          <span class="pill-link">Skip</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>Card 1 of 3: Session Complete</h3>
+      <span class="condition condition-when">When: Block timer ends (work blocks)</span>
+      <ul class="detail-list">
+        <li>Block title + duration</li>
+        <li>Type badge (colored dot + label) + time range</li>
+        <li>Earned minutes summary</li>
+        <li>"Next →" advances carousel</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Card 1: Focus Score -->
+  <div class="card-row" style="margin-bottom: 32px;">
+    <div class="pill pill-460">
+      <div class="pill-inner" style="padding: 18px 20px;">
+        <div class="big-score big-score-green">87%</div>
+        <div class="focus-bar">
+          <div class="focus-bar-fill focus-bar-fill-green" style="width: 87%;"></div>
+        </div>
+        <div style="text-align: center; padding: 4px 0 12px;">
+          <div class="pill-text-secondary">Great focus session! Keep it up.</div>
+        </div>
+        <div style="text-align: center; margin-bottom: 8px;">
+          <span style="font-size: 12px; color: #22c55e; background: rgba(34,197,94,0.1); padding: 3px 10px; border-radius: 6px;">
+            Recovered focus 2 times
+          </span>
+        </div>
+        <div style="text-align: center; padding: 4px 0;">
+          <span class="pill-btn">Next →</span>
+        </div>
+        <div class="carousel-dots">
+          <div class="carousel-dot"></div>
+          <div class="carousel-dot active"></div>
+          <div class="carousel-dot"></div>
+        </div>
+        <div style="text-align: center; padding: 4px 0 0;">
+          <span class="pill-link">Skip</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>Card 2 of 3: Focus Score</h3>
+      <ul class="detail-list">
+        <li>Big % number (green ≥80%, amber ≥50%, red &lt;50%)</li>
+        <li>Color-coded progress bar</li>
+        <li>Encouragement message (varies by score)</li>
+        <li>Recovery count badge (if any distraction→focus transitions)</li>
+        <li>Confetti animation plays if ≥80%</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Card 2: App Breakdown -->
+  <div class="card-row" style="margin-bottom: 32px;">
+    <div class="pill pill-460">
+      <div class="pill-inner" style="padding: 18px 20px;">
+        <div class="pill-section-label">Where you spent your time</div>
+        <div style="margin: 8px 0 12px;">
+          <div class="app-row"><span>Xcode</span><span>42 min</span></div>
+          <div class="app-row"><span>Chrome — GitHub</span><span>18 min</span></div>
+          <div class="app-row"><span>Terminal</span><span>14 min</span></div>
+          <div class="app-row"><span>Slack</span><span>9 min</span></div>
+          <div class="app-row"><span>Figma</span><span>5 min</span></div>
+          <div class="app-row"><span style="color: rgba(255,255,255,0.3);">Other</span><span style="color: rgba(255,255,255,0.3);">2 min</span></div>
+        </div>
+        <div class="pill-sep"></div>
+        <div style="text-align: center; padding: 8px 0 4px;">
+          <span class="pill-btn">Done</span>
+        </div>
+        <div class="carousel-dots">
+          <div class="carousel-dot"></div>
+          <div class="carousel-dot"></div>
+          <div class="carousel-dot active"></div>
+        </div>
+        <div style="text-align: center; padding: 4px 0 0;">
+          <span class="pill-link">Skip</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>Card 3 of 3: App Breakdown</h3>
+      <ul class="detail-list">
+        <li>Top 6 apps by time spent</li>
+        <li>If no next block: "Done" button ends celebration</li>
+        <li>If back-to-back block: "Next →" leads to Card 4 (Up Next)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Card 3: Up Next (conditional) -->
+  <div class="card-row" style="margin-bottom: 32px;">
+    <div class="pill pill-460">
+      <div class="pill-inner" style="padding: 18px 20px;">
+        <div class="pill-section-label">Up next</div>
+        <div class="pill-sep"></div>
+        <div class="type-badge" style="margin: 12px 0 6px;">
+          <div class="dot dot-deep" style="width:6px;height:6px;"></div>
+          <span class="pill-label-red">DEEP WORK</span>
+          <span class="pill-text-secondary" style="font-size: 11px;">· 3:30 PM — 5:00 PM · 1h 30m</span>
+        </div>
+        <div style="font-size: 16px; font-weight: 600; margin: 8px 0 4px;">Research competitor analysis</div>
+        <div class="pill-text-secondary" style="font-size: 12px; margin-bottom: 12px;">Deep dive into Q1 reports and market trends</div>
+        <div style="text-align: center; padding: 4px 0;">
+          <span class="pill-btn">Start →</span>
+        </div>
+        <div class="carousel-dots">
+          <div class="carousel-dot"></div>
+          <div class="carousel-dot"></div>
+          <div class="carousel-dot"></div>
+          <div class="carousel-dot active"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>Card 4 of 4: Up Next <span style="color: #f59e0b; font-size: 12px;">(conditional)</span></h3>
+      <span class="condition condition-when">Only when: Next block starts within 5 min</span>
+      <ul class="detail-list">
+        <li>Shows next block details (type, title, description, time)</li>
+        <li>"Start →" begins the next block immediately</li>
+        <li>For free time: shows "Enjoy your break" + available minutes instead</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Free Time Celebration -->
+  <div class="card-row">
+    <div class="pill pill-460">
+      <div class="pill-inner" style="padding: 18px 20px;">
+        <div class="celeb-header">Break over</div>
+        <div class="type-badge" style="margin: 8px 0 12px;">
+          <div class="dot dot-free" style="width:6px;height:6px;"></div>
+          <span style="color: #34d399; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">FREE TIME</span>
+          <span class="pill-text-secondary" style="font-size: 11px;">· 3:30 PM — 4:00 PM</span>
+        </div>
+        <div class="pill-sep"></div>
+        <div style="text-align: center; padding: 12px 0 4px;">
+          <span class="pill-btn">Done</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>Free Time End (1 card only)</h3>
+      <span class="condition condition-when">When: Free time block ends</span>
+      <ul class="detail-list">
+        <li>Simple "Break over" — no carousel, no score, no breakdown</li>
+        <li>Shows next block preview if one follows</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ============================================ -->
+<!-- 4. START RITUAL -->
+<!-- ============================================ -->
+<div class="section">
+  <div class="section-title">4. Start Ritual</div>
+  <div class="section-desc">Shown when a new block begins. User sets intention before enforcement activates.</div>
+
+  <div class="card-row" style="margin-bottom: 32px;">
+    <div class="pill pill-460 pill-green-border">
+      <div class="pill-inner" style="padding: 16px 20px;">
+        <div class="type-badge" style="margin-bottom: 10px;">
+          <div class="dot dot-blue" style="width:6px;height:6px;"></div>
+          <span class="pill-label-blue">FOCUS</span>
+          <span class="pill-text-secondary" style="font-size: 11px;">· 2:00 PM — 3:30 PM</span>
+        </div>
+        <div class="pill-sep"></div>
+        <div style="font-size: 15px; font-weight: 600; margin: 10px 0 4px;">Write quarterly report</div>
+        <div class="pill-text-secondary" style="font-size: 12px; margin-bottom: 10px;">Summarize key metrics from Q1 data</div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <span class="pill-btn">Start</span>
+          <span class="pill-btn-secondary">Edit</span>
+          <span style="flex:1;"></span>
+          <span class="pill-text-secondary" style="font-size: 12px; font-variant-numeric: tabular-nums;">auto: 2:48</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>Work block start ritual</h3>
+      <span class="condition condition-when">When: Work block begins (deep work or focus hours)</span>
+      <span class="condition condition-auto">Auto-starts in 3 min if no action</span>
+      <ul class="detail-list">
+        <li>Green border glow</li>
+        <li>Block type badge + time range</li>
+        <li>Block title + description (if set)</li>
+        <li>"Start" begins enforcement + timer</li>
+        <li>"Edit" opens inline editor (see below)</li>
+        <li>Auto-start countdown (3 min)</li>
+        <li>No enforcement active while ritual is showing</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card-row" style="margin-bottom: 32px;">
+    <div class="pill pill-460 pill-green-border">
+      <div class="pill-inner" style="padding: 16px 20px;">
+        <div class="type-badge" style="margin-bottom: 10px;">
+          <div class="dot dot-free" style="width:6px;height:6px;"></div>
+          <span style="color: #34d399; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">FREE TIME</span>
+          <span class="pill-text-secondary" style="font-size: 11px;">· 3:30 PM — 4:00 PM</span>
+        </div>
+        <div class="pill-sep"></div>
+        <div style="font-size: 15px; font-weight: 600; margin: 10px 0 4px;">Enjoy your break.</div>
+        <div class="pill-text-secondary" style="font-size: 12px; margin-bottom: 10px;">24 min recharge available</div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="pill-btn" style="background: rgba(52,211,153,0.15); color: #34d399;">Start Break</span>
+          <span style="flex:1;"></span>
+          <span class="pill-text-secondary" style="font-size: 12px; font-variant-numeric: tabular-nums;">auto: 0:28</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>Free time start ritual</h3>
+      <span class="condition condition-when">When: Free time block begins</span>
+      <span class="condition condition-auto">Auto-starts in 30s</span>
+      <ul class="detail-list">
+        <li>Simpler — "Enjoy your break" instead of intention</li>
+        <li>Shows available recharge minutes</li>
+        <li>Much shorter auto-start (30s vs 3min)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Edit mode -->
+  <div class="card-row">
+    <div class="pill pill-460">
+      <div class="pill-inner" style="padding: 16px 20px;">
+        <div class="type-badge" style="margin-bottom: 10px;">
+          <div class="dot dot-blue" style="width:6px;height:6px;"></div>
+          <span class="pill-label-blue">FOCUS</span>
+          <span class="pill-text-secondary" style="font-size: 11px;">· 2:00 PM — 3:30 PM</span>
+        </div>
+        <div class="pill-sep"></div>
+        <div style="margin: 10px 0;">
+          <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 4px;">Title</div>
+          <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 8px 10px; font-size: 13px; color: #fff;">Write quarterly report</div>
+        </div>
+        <div style="margin: 8px 0;">
+          <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 4px;">Description</div>
+          <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 8px 10px; font-size: 13px; color: rgba(255,255,255,0.5);">What will you accomplish?</div>
+        </div>
+        <div style="display: flex; gap: 8px; margin: 10px 0 6px;">
+          <div style="flex: 1; padding: 6px; border-radius: 8px; text-align: center; font-size: 12px; font-weight: 600; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #f87171;">
+            <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#ef4444;margin-right:4px;vertical-align:middle;"></span>Deep Work
+          </div>
+          <div style="flex: 1; padding: 6px; border-radius: 8px; text-align: center; font-size: 12px; font-weight: 600; background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.4); color: #818cf8;">
+            <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#6366f1;margin-right:4px;vertical-align:middle;"></span>Focus Hours
+          </div>
+        </div>
+        <div style="text-align: center; margin-top: 10px;">
+          <span class="pill-btn">Done →</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>Start Ritual — Edit mode</h3>
+      <span class="condition condition-when">When: User clicks "Edit" on start ritual</span>
+      <ul class="detail-list">
+        <li>Editable title + description fields</li>
+        <li>Block type toggle (Deep Work / Focus Hours)</li>
+        <li>"Done" saves edits and returns to start ritual</li>
+        <li>Auto-start paused while editing</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ============================================ -->
+<!-- 5. NO PLAN CARDS -->
+<!-- ============================================ -->
+<div class="section">
+  <div class="section-title">5. No Plan Cards</div>
+  <div class="section-desc">Shown when there's no active block. 4 states based on schedule context.</div>
+
+  <!-- noPlan state -->
+  <div class="card-row" style="margin-bottom: 32px;">
+    <div class="pill pill-310">
+      <div class="pill-inner" style="padding: 14px 16px;">
+        <div class="pill-row" style="margin-bottom: 8px;">
+          <div class="dot dot-amber"></div>
+          <div class="pill-label pill-label-amber">NO PLAN</div>
+        </div>
+        <div class="pill-sep"></div>
+        <div style="font-size: 14px; font-weight: 600; margin: 10px 0 4px;">What are you working on?</div>
+        <div class="pill-text-secondary" style="font-size: 12px; margin-bottom: 8px;">Pick a quick block or plan your full day.</div>
+        <div class="quick-blocks">
+          <div class="quick-block">
+            <div class="dot dot-deep" style="margin: 0 auto;"></div>
+            <div class="quick-block-label" style="color: #f87171;">Deep Work</div>
+            <div class="quick-block-dur">2h</div>
+          </div>
+          <div class="quick-block">
+            <div class="dot dot-blue" style="margin: 0 auto;"></div>
+            <div class="quick-block-label" style="color: #818cf8;">Focus</div>
+            <div class="quick-block-dur">1h</div>
+          </div>
+          <div class="quick-block">
+            <div class="dot dot-free" style="margin: 0 auto;"></div>
+            <div class="quick-block-label" style="color: #34d399;">Free Time</div>
+            <div class="quick-block-dur">30m</div>
+          </div>
+        </div>
+        <div style="text-align: center; margin: 4px 0;">
+          <span class="pill-link-green">Plan Full Day →</span>
+        </div>
+        <div style="text-align: center; margin-top: 8px;">
+          <span class="pill-link">Snooze 30 min</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>No Plan</h3>
+      <span class="condition condition-when">When: No schedule set for today (timeState == .noPlan)</span>
+      <ul class="detail-list">
+        <li>3 quick-block buttons to start immediately</li>
+        <li>Afternoon: shorter defaults (1h/45m/30m) + different title</li>
+        <li>"Plan Full Day →" opens the dashboard calendar</li>
+        <li>"Snooze 30 min" hides card for 30 min (max 1 snooze)</li>
+        <li><strong>No dismiss button</strong> — must snooze or take action</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- gap state -->
+  <div class="card-row" style="margin-bottom: 32px;">
+    <div class="pill pill-310">
+      <div class="pill-inner" style="padding: 14px 16px;">
+        <div class="pill-row-between" style="margin-bottom: 8px;">
+          <div class="pill-row" style="gap: 6px;">
+            <div class="dot dot-amber"></div>
+            <div class="pill-label pill-label-amber">UNSCHEDULED</div>
+          </div>
+          <div class="minimize-btn">−</div>
+        </div>
+        <div class="pill-sep"></div>
+        <div class="pill-row-between" style="margin: 8px 0 6px;">
+          <span class="pill-text-secondary" style="font-size: 12px;">Up next</span>
+          <span style="font-size: 12px; color: #f59e0b; font-weight: 600;">in 47 min</span>
+        </div>
+        <div class="block-row block-row-highlight">
+          <div class="block-accent-bar" style="background: #ef4444;"></div>
+          <div style="flex: 1;">
+            <div style="font-size: 12px; font-weight: 600;">Research analysis</div>
+          </div>
+          <div style="font-size: 10px; color: rgba(255,255,255,0.4);">DEEP · 1h</div>
+          <div style="font-size: 11px; color: rgba(255,255,255,0.5);">3:30 PM</div>
+        </div>
+        <div class="block-row block-row-faded">
+          <div class="block-accent-bar" style="background: #34d399;"></div>
+          <div style="flex: 1;">
+            <div style="font-size: 12px; font-weight: 600;">Break</div>
+          </div>
+          <div style="font-size: 10px; color: rgba(255,255,255,0.4);">FREE · 30m</div>
+          <div style="font-size: 11px; color: rgba(255,255,255,0.5);">4:30 PM</div>
+        </div>
+        <div style="text-align: center; margin-top: 10px;">
+          <span class="pill-link-green">Schedule Now →</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>Gap (Unscheduled)</h3>
+      <span class="condition condition-when">When: Between blocks, more blocks remain (timeState == .unplanned)</span>
+      <ul class="detail-list">
+        <li>Shows next block (highlighted) + upcoming blocks (faded)</li>
+        <li>Up to 3 blocks listed</li>
+        <li>Countdown to next block in amber</li>
+        <li>"Schedule Now →" opens dashboard with pre-filled block at current time</li>
+        <li>− button minimizes to dock (30 min snooze)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- gap — all blocks done variant -->
+  <div class="card-row" style="margin-bottom: 32px;">
+    <div class="pill pill-310">
+      <div class="pill-inner" style="padding: 14px 16px;">
+        <div class="pill-row-between" style="margin-bottom: 8px;">
+          <div class="pill-row" style="gap: 6px;">
+            <div class="dot dot-green"></div>
+            <div class="pill-label pill-label-green">UNSCHEDULED</div>
+          </div>
+          <div class="minimize-btn">−</div>
+        </div>
+        <div class="pill-sep"></div>
+        <div style="text-align: center; padding: 10px 0 8px;">
+          <div class="pill-text-secondary" style="font-size: 13px;">9 blocks done · 2h 26m focused</div>
+        </div>
+        <div style="text-align: center; display: flex; justify-content: center; gap: 12px;">
+          <span class="pill-link-green">Schedule More →</span>
+          <span class="pill-text-secondary" style="font-size: 13px;">·</span>
+          <span class="pill-link" style="font-size: 13px;">Plan Full Day →</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>Gap — All Blocks Done</h3>
+      <span class="condition condition-when">When: All blocks done, before 9pm</span>
+      <span class="condition condition-auto">Auto-dismisses in 30s</span>
+      <ul class="detail-list">
+        <li>Same "UNSCHEDULED" card, green dot (blocks are done)</li>
+        <li>Shows completed block count + focused time stats</li>
+        <li>"Schedule More →" opens calendar with new block</li>
+        <li>"Plan Full Day →" opens full calendar</li>
+        <li>− button minimizes to dock</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- doneForDay state -->
+  <div class="card-row">
+    <div class="pill pill-310">
+      <div class="pill-inner" style="padding: 14px 16px;">
+        <div class="pill-row-between" style="margin-bottom: 8px;">
+          <div class="pill-row" style="gap: 6px;">
+            <div class="dot dot-green"></div>
+            <div class="pill-label pill-label-green">DAY COMPLETE</div>
+          </div>
+          <div class="minimize-btn">−</div>
+        </div>
+        <div class="pill-sep"></div>
+        <div style="text-align: center; padding: 8px 0 4px;">
+          <div style="font-size: 14px; font-weight: 600; margin-bottom: 6px;">Nice work today</div>
+          <div class="pill-text-secondary" style="font-size: 12px; margin-bottom: 8px;">6 blocks · 4h 30m of focused time</div>
+          <div class="focus-badge">82% average focus</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>Done for Day</h3>
+      <span class="condition condition-when">When: All blocks done, evening (no remaining blocks)</span>
+      <span class="condition condition-auto">Auto-dismisses in 30s</span>
+      <ul class="detail-list">
+        <li>Green "DAY COMPLETE" header</li>
+        <li>"Nice work today" + stats summary</li>
+        <li>Average focus % badge</li>
+        <li>− button minimizes to dock</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

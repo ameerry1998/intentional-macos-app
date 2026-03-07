@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vertical Silk — Straight vs Wavy</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  background: #0a0a0b;
+  color: #fff;
+  overflow-x: hidden;
+}
+
+.concept-switcher {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  display: flex;
+  gap: 8px;
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 12px;
+  padding: 8px;
+}
+.concept-switcher button {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.7);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+.concept-switcher button.active {
+  background: #34d399;
+  color: #000;
+  border-color: #34d399;
+}
+.concept-switcher button:hover:not(.active) {
+  border-color: rgba(255,255,255,0.5);
+  color: #fff;
+}
+
+.concept-label {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.7);
+  max-width: 640px;
+  text-align: center;
+  line-height: 1.5;
+}
+.concept-label strong { color: #34d399; }
+
+.section {
+  position: relative;
+  overflow: hidden;
+}
+.section--hero {
+  height: 100vh;
+  min-height: 600px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.section--divider { height: 60px; }
+.section--pricing {
+  min-height: 500px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.section--cta {
+  min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.section canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.section .overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.section--hero .overlay {
+  background: radial-gradient(ellipse at center, rgba(10,10,11,0.5) 0%, rgba(10,10,11,0.88) 70%);
+}
+.section--pricing .overlay {
+  background: linear-gradient(to bottom, rgba(10,10,11,0.95) 0%, rgba(10,10,11,0.65) 30%, rgba(10,10,11,0.65) 70%, rgba(10,10,11,0.95) 100%);
+}
+.section--cta .overlay {
+  background: radial-gradient(ellipse at center top, rgba(10,10,11,0.4) 0%, rgba(10,10,11,0.9) 70%);
+}
+
+.content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 0 32px;
+}
+.content h1 {
+  font-size: clamp(36px, 6vw, 64px);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  margin-bottom: 16px;
+  text-shadow: 0 8px 30px rgba(0,0,0,0.5);
+}
+.content .gradient-text {
+  background: linear-gradient(135deg, #d1fae5, #34d399, #059669);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.content p {
+  font-size: 18px;
+  color: rgba(255,255,255,0.6);
+  max-width: 560px;
+  margin: 0 auto;
+  line-height: 1.7;
+}
+.content h2 {
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+  text-shadow: 0 8px 30px rgba(0,0,0,0.5);
+}
+
+.gap-section {
+  height: 200px;
+  background: #0a0a0b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gap-section p {
+  color: rgba(255,255,255,0.3);
+  font-size: 14px;
+}
+</style>
+</head>
+<body>
+
+<div class="concept-switcher">
+  <button class="active" onclick="switchConcept(1)">A: Straight</button>
+  <button onclick="switchConcept(2)">B: Wavy</button>
+</div>
+
+<div class="concept-label" id="conceptLabel">
+  <strong>Concept A — Straight Vertical Pleats</strong><br>
+  Layered sine waves of the x-coordinate create parallel vertical fabric folds. Noise domain-warps for organic irregularity. Analytical derivative for specular highlights on ridges.
+</div>
+
+<!-- HERO -->
+<section class="section section--hero">
+  <canvas data-silk="hero"></canvas>
+  <div class="overlay"></div>
+  <div class="content">
+    <h1>You know you're<br><span class="gradient-text">wasting time.</span></h1>
+    <p>On-device AI that understands your work. Progressive enforcement that nudges before it blocks.</p>
+  </div>
+</section>
+
+<section class="section section--divider"><canvas data-silk="divider1"></canvas></section>
+<div class="gap-section"><p>— page content —</p></div>
+<section class="section section--divider"><canvas data-silk="divider2"></canvas></section>
+<div class="gap-section"><p>— page content —</p></div>
+
+<section class="section section--pricing">
+  <canvas data-silk="pricing"></canvas>
+  <div class="overlay"></div>
+  <div class="content">
+    <h2>Less than the cost of one lost afternoon</h2>
+    <p>720 hours lost per year × your hourly rate. Intentional costs $0.20/day.</p>
+  </div>
+</section>
+
+<div class="gap-section"><p>— page content —</p></div>
+<section class="section section--divider"><canvas data-silk="divider3"></canvas></section>
+
+<section class="section section--cta">
+  <canvas data-silk="cta"></canvas>
+  <div class="overlay"></div>
+  <div class="content">
+    <h2>You've read this far.<br>You know what's costing you.</h2>
+    <p>The person you want to be is on the other side of one download.</p>
+  </div>
+</section>
+
+<script>
+(function() {
+  'use strict';
+
+  // ── Palette ──
+  var palette = [
+    [5, 10, 8],
+    [8, 50, 40],
+    [12, 80, 65],
+    [20, 120, 100],
+    [34, 160, 135],
+    [52, 211, 153],
+    [110, 231, 183],
+    [167, 243, 208],
+    [220, 252, 238],
+  ];
+
+  function samplePalette(t) {
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    var s = t * (palette.length - 1);
+    var i = ~~s;
+    var f = s - i;
+    if (i >= palette.length - 1) return palette[palette.length - 1];
+    var a = palette[i], b = palette[i + 1];
+    return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f];
+  }
+
+  // ── Noise ──
+  function hash(x, y) {
+    var n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
+    return n - ~~n;
+  }
+  function smoothstep(t) { return t*t*(3-2*t); }
+  function noise2D(x, y) {
+    var ix = ~~(x < 0 ? x - 1 : x), iy = ~~(y < 0 ? y - 1 : y);
+    var fx = x - ix, fy = y - iy;
+    var ux = smoothstep(fx), uy = smoothstep(fy);
+    var a = hash(ix, iy), b = hash(ix+1, iy);
+    var c = hash(ix, iy+1), d = hash(ix+1, iy+1);
+    return a + (b-a)*ux + (c-a)*uy + (a-b-c+d)*ux*uy;
+  }
+  function fbm(x, y, oct) {
+    var v = 0, a = 0.5, f = 1;
+    for (var i = 0; i < oct; i++) {
+      v += noise2D(x*f, y*f) * a;
+      a *= 0.5; f *= 2;
+    }
+    return v;
+  }
+
+  // ═══════════════════════════════════════
+  // CONCEPT A: Straight Vertical Pleats
+  // Sine waves of bx → vertical folds
+  // ═══════════════════════════════════════
+  function renderA(data, w, h, t, sy) {
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        var nx = x * 0.003, ny = y * 0.003 * sy;
+        var bx = nx * 0.985 + ny * 0.174;
+        var by = -nx * 0.174 + ny * 0.985;
+        var w1 = fbm(nx * 0.5 + t * 0.3, ny * 0.7 + t * 0.1, 3) * 2.0;
+        var w2 = fbm(nx * 0.7 + 5.0, ny * 0.5 - t * 0.08, 3) * 1.2;
+
+        var f1 = Math.sin(bx * 16.0 + w1 + t * 0.5);
+        var f2 = Math.sin(bx * 8.0 + w2 - t * 0.3) * 0.4;
+        var f3 = Math.sin(bx * 26.0 + w1 * 0.7 + t * 0.7) * 0.1;
+        var f4 = Math.sin(bx * 4.0 + w2 * 1.3 - t * 0.15) * 0.3;
+        var fold = (f1 + f2 + f3 + f4) / 1.8;
+
+        var df = (16.0 * Math.cos(bx * 16.0 + w1 + t * 0.5)
+                + 8.0 * Math.cos(bx * 8.0 + w2 - t * 0.3) * 0.4
+                + 26.0 * Math.cos(bx * 26.0 + w1 * 0.7 + t * 0.7) * 0.1
+                + 4.0 * Math.cos(bx * 4.0 + w2 * 1.3 - t * 0.15) * 0.3) / 1.8;
+
+        var sharpness = Math.abs(df);
+        var spec = Math.pow(Math.max(0, 1.0 - sharpness * 0.06), 5.0);
+        spec *= Math.max(0, fold * 0.5 + 0.5);
+
+        var base = (fold + 1) * 0.5;
+        var ct = base * 0.55 + 0.18;
+        var rgb = samplePalette(ct);
+        var sa = spec * 0.6;
+        var r = Math.min(255, rgb[0] + sa * 200);
+        var g = Math.min(255, rgb[1] + sa * 240);
+        var b2 = Math.min(255, rgb[2] + sa * 200);
+        var idx = (y * w + x) * 4;
+        data[idx] = r; data[idx+1] = g; data[idx+2] = b2; data[idx+3] = 255;
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════
+  // CONCEPT B: Wavy Vertical Pleats
+  // Vertical folds that undulate with big
+  // sinusoidal waves — like curtains in wind
+  // ═══════════════════════════════════════
+  function renderB(data, w, h, t, sy) {
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        var nx = x * 0.003, ny = y * 0.003 * sy;
+        var bx = nx * 0.985 + ny * 0.174;
+        var by = -nx * 0.174 + ny * 0.985;
+
+        // Domain warping
+        var w1 = fbm(nx * 0.5 + t * 0.3, ny * 0.7 + t * 0.1, 3) * 2.0;
+        var w2 = fbm(nx * 0.7 + 5.0, ny * 0.5 - t * 0.08, 3) * 1.2;
+
+        // Big wave displacement — vertical lines sway left/right
+        var wave1 = Math.sin(by * 1.8 + t * 0.35) * 0.7;
+        var wave2 = Math.sin(by * 3.2 - t * 0.2 + 1.5) * 0.3;
+        var wave3 = Math.sin(by * 0.8 + t * 0.15 + 3.0) * 0.4;
+        var wavyBx = bx + wave1 + wave2 + wave3;
+
+        // Sine waves of wavyBx → wavy vertical folds
+        var f1 = Math.sin(wavyBx * 16.0 + w1 + t * 0.5);
+        var f2 = Math.sin(wavyBx * 8.0 + w2 - t * 0.3) * 0.4;
+        var f3 = Math.sin(wavyBx * 26.0 + w1 * 0.7 + t * 0.7) * 0.1;
+        var f4 = Math.sin(wavyBx * 4.0 + w2 * 1.3 - t * 0.15) * 0.3;
+        var fold = (f1 + f2 + f3 + f4) / 1.8;
+
+        // Derivative for specular (chain rule through wave displacement)
+        var df = (16.0 * Math.cos(wavyBx * 16.0 + w1 + t * 0.5)
+                + 8.0 * Math.cos(wavyBx * 8.0 + w2 - t * 0.3) * 0.4
+                + 26.0 * Math.cos(wavyBx * 26.0 + w1 * 0.7 + t * 0.7) * 0.1
+                + 4.0 * Math.cos(wavyBx * 4.0 + w2 * 1.3 - t * 0.15) * 0.3) / 1.8;
+
+        var sharpness = Math.abs(df);
+        var spec = Math.pow(Math.max(0, 1.0 - sharpness * 0.06), 5.0);
+        spec *= Math.max(0, fold * 0.5 + 0.5);
+
+        var base = (fold + 1) * 0.5;
+        var ct = base * 0.55 + 0.18;
+        var rgb = samplePalette(ct);
+        var sa = spec * 0.6;
+        var r = Math.min(255, rgb[0] + sa * 200);
+        var g = Math.min(255, rgb[1] + sa * 240);
+        var b2 = Math.min(255, rgb[2] + sa * 200);
+        var idx = (y * w + x) * 4;
+        data[idx] = r; data[idx+1] = g; data[idx+2] = b2; data[idx+3] = 255;
+      }
+    }
+  }
+
+  // ── Renderer engine ──
+  var activeConcept = 1;
+  var renderers = [];
+
+  function SilkRenderer(canvas, scaleY) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.scaleY = scaleY || 1.0;
+    this.isVisible = false;
+    this.renderW = 0;
+    this.renderH = 0;
+  }
+
+  SilkRenderer.prototype.resize = function() {
+    var rect = this.canvas.getBoundingClientRect();
+    var w = Math.max(1, ~~(rect.width / 3.5));
+    var h = Math.max(1, ~~(rect.height / 3.5));
+    if (this.renderW !== w || this.renderH !== h) {
+      this.renderW = w;
+      this.renderH = h;
+      this.canvas.width = w;
+      this.canvas.height = h;
+    }
+  };
+
+  SilkRenderer.prototype.render = function(t) {
+    if (!this.isVisible) return;
+    this.resize();
+    var w = this.renderW, h = this.renderH;
+    if (w < 1 || h < 1) return;
+    var imgData = this.ctx.createImageData(w, h);
+    var d = imgData.data;
+    if (activeConcept === 1) renderA(d, w, h, t, this.scaleY);
+    else renderB(d, w, h, t, this.scaleY);
+    this.ctx.putImageData(imgData, 0, 0);
+  };
+
+  var canvases = document.querySelectorAll('[data-silk]');
+  for (var i = 0; i < canvases.length; i++) {
+    var type = canvases[i].getAttribute('data-silk');
+    var sy = 1.0;
+    if (type.indexOf('divider') === 0) sy = 12.0;
+    else if (type === 'hero' || type === 'cta') sy = 3.5;
+    else if (type === 'pricing') sy = 3.8;
+    renderers.push(new SilkRenderer(canvases[i], sy));
+  }
+
+  if ('IntersectionObserver' in window) {
+    var obs = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) {
+        for (var j = 0; j < renderers.length; j++) {
+          if (renderers[j].canvas === e.target) {
+            renderers[j].isVisible = e.isIntersecting;
+            break;
+          }
+        }
+      });
+    }, { rootMargin: '120px' });
+    for (var k = 0; k < canvases.length; k++) obs.observe(canvases[k]);
+  } else {
+    for (var m = 0; m < renderers.length; m++) renderers[m].isVisible = true;
+  }
+
+  var startTime = performance.now();
+  function animate() {
+    var t = (performance.now() - startTime) / 1000.0;
+    for (var i = 0; i < renderers.length; i++) renderers[i].render(t * 0.7);
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+
+  var labels = [
+    '<strong>Concept A — Straight Vertical Pleats</strong><br>Layered sine waves of x-coordinate create parallel vertical folds. Noise warps for organic irregularity. Clean, structured drape.',
+    '<strong>Concept B — Wavy Vertical Pleats</strong><br>Same vertical folds but with big sinusoidal displacement — the lines undulate like curtains in wind. Three wave layers at different speeds for organic flow.'
+  ];
+
+  window.switchConcept = function(n) {
+    activeConcept = n;
+    document.getElementById('conceptLabel').innerHTML = labels[n-1];
+    var btns = document.querySelectorAll('.concept-switcher button');
+    for (var i = 0; i < btns.length; i++) btns[i].classList.toggle('active', i===n-1);
+  };
+})();
+</script>
+</body>
+</html>

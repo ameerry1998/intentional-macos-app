@@ -1,0 +1,2043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intentional — Focus That Actually Works</title>
+<style>
+/* ── Reset & Base ── */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --silk-highlight: #d1fae5;
+  --silk-mid: #34d399;
+  --silk-shadow: #059669;
+  --silk-deep: #047857;
+  --bg-dark: #0a0a0b;
+  --bg-section: #0d0d0f;
+  --bg-card: rgba(255,255,255,0.04);
+  --text-primary: rgba(255,255,255,0.95);
+  --text-secondary: rgba(255,255,255,0.6);
+  --text-muted: rgba(255,255,255,0.4);
+  --accent: #34d399;
+  --accent-glow: rgba(52, 211, 153, 0.15);
+
+  --bg: #0a0a0b;
+  --bg-elevated: #111113;
+  --bg-card-hover: rgba(255,255,255,0.07);
+  --border: rgba(255,255,255,0.08);
+  --border-hover: rgba(255,255,255,0.15);
+  --text-tertiary: rgba(255,255,255,0.35);
+
+  --amber: #fbbf24;
+  --amber-glow: rgba(251, 191, 36, 0.15);
+  --emerald: #34d399;
+  --emerald-dim: #2a9d6f;
+  --emerald-glow: rgba(52, 211, 153, 0.15);
+  --violet: #8b5cf6;
+  --violet-glow: rgba(139, 92, 246, 0.15);
+  --red: #ef4444;
+  --red-glow: rgba(239, 68, 68, 0.15);
+
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, monospace;
+
+  --max-width: 1100px;
+  --section-gap: 140px;
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ── Grain texture overlay ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Silk canvas ── */
+.silk-canvas-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.silk-canvas-wrap canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  opacity: 0.6;
+}
+
+
+/* ── Typography ── */
+h1 { font-size: clamp(42px, 6vw, 72px); font-weight: 800; line-height: 1.05; letter-spacing: -0.03em; }
+h2 { font-size: clamp(32px, 4vw, 48px); font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; }
+h3 { font-size: 22px; font-weight: 700; line-height: 1.3; }
+p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--silk-highlight), var(--emerald), var(--silk-shadow));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.section-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.section-label.amber { color: var(--amber); }
+.section-label.emerald { color: var(--emerald); }
+.section-label.violet { color: var(--violet); }
+.section-label.red { color: var(--red); }
+
+/* ── Scroll reveal ── */
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Buttons ── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 36px;
+  background: var(--emerald);
+  color: #000;
+  font-family: var(--font);
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.25s ease;
+}
+.btn-primary:hover {
+  background: #3fe8a8;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(52, 211, 153, 0.3);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 36px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.25s ease;
+}
+.btn-ghost:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.btn-small {
+  padding: 10px 24px;
+  font-size: 14px;
+  border-radius: 10px;
+}
+
+/* ── Nav ── */
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(10, 10, 11, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.nav-logo-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--emerald);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-logo-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.nav-logo span {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.nav-links a {
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--text-primary); }
+
+.nav-cta {
+  padding: 8px 20px !important;
+  font-size: 14px !important;
+  border-radius: 8px !important;
+}
+
+/* ── HERO ── */
+.hero {
+  padding: 160px 0 100px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Dark overlay to make text readable over the silk */
+.hero .silk-canvas-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(10,10,11,0.55) 0%, rgba(10,10,11,0.88) 70%);
+  pointer-events: none;
+}
+
+.hero > .container {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 32px;
+}
+
+.hero-badge .pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--emerald);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(52, 211, 153, 0); }
+}
+
+.hero h1 {
+  max-width: 900px;
+  margin: 0 auto 24px;
+}
+
+.hero-sub {
+  max-width: 680px;
+  margin: 0 auto 48px;
+  font-size: 19px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+/* ── Video placeholder ── */
+.video-placeholder {
+  position: relative;
+  max-width: 900px;
+  margin: 0 auto 40px;
+  aspect-ratio: 16 / 9;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.video-placeholder:hover {
+  border-color: rgba(52, 211, 153, 0.3);
+  box-shadow: 0 0 60px rgba(52, 211, 153, 0.08);
+}
+
+.video-placeholder .play-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--emerald);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.video-placeholder:hover .play-btn {
+  transform: translate(-50%, -50%) scale(1.1);
+  box-shadow: 0 0 40px rgba(52, 211, 153, 0.4);
+}
+
+.play-btn .triangle {
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 12px 0 12px 22px;
+  border-color: transparent transparent transparent #000;
+  margin-left: 4px;
+}
+
+.video-label {
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-tertiary);
+  margin-top: 16px;
+}
+
+.hero-ctas {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.hero-note {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+/* ── Stats section ── */
+.stats-section {
+  padding: 80px 0;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+
+.stats-section > .container {
+  position: relative;
+  z-index: 1;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  align-items: center;
+  gap: 0;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 0 24px;
+}
+
+.stat-number {
+  font-family: var(--font-mono);
+  font-size: clamp(60px, 10vw, 96px);
+  font-weight: 800;
+  color: var(--emerald);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.stat-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-top: 12px;
+  line-height: 1.5;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 80px;
+  background: var(--border);
+}
+
+.stats-source {
+  text-align: center;
+  margin-top: 32px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.section-header {
+  text-align: center;
+  max-width: 680px;
+  margin: 0 auto 60px;
+}
+
+.section-header p {
+  margin-top: 16px;
+}
+
+/* ── Pivot section ── */
+.pivot-section {
+  padding: 80px 0;
+  text-align: center;
+}
+
+.pivot-section .pivot-sub {
+  max-width: 580px;
+  margin: 16px auto 32px;
+  font-size: 18px;
+}
+
+.pivot-cta {
+  font-size: 16px;
+  color: var(--emerald);
+  text-decoration: none;
+  font-weight: 600;
+  transition: opacity 0.2s;
+}
+.pivot-cta:hover { opacity: 0.8; }
+
+/* ── Testimonials ── */
+.testimonials-section {
+  padding: var(--section-gap) 0;
+}
+
+.testimonial-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.testimonial-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+.testimonial-card:hover {
+  border-color: rgba(52, 211, 153, 0.2);
+  transform: translateY(-4px);
+}
+
+.testimonial-video {
+  aspect-ratio: 16 / 9;
+  background: var(--bg-elevated);
+  position: relative;
+  cursor: pointer;
+}
+
+.testimonial-video .play-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--emerald);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s ease;
+}
+
+.testimonial-video:hover .play-btn {
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.testimonial-video .play-btn .triangle {
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 9px 0 9px 16px;
+  border-color: transparent transparent transparent #000;
+  margin-left: 3px;
+}
+
+.testimonial-info {
+  padding: 16px 20px;
+}
+
+.testimonial-info .name {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.testimonial-info .role {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.testimonials-note {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+/* ── How it works ── */
+.how-section {
+  padding: var(--section-gap) 0;
+}
+
+/* Stacked layout: big text first, then visual below */
+.how-step {
+  margin-bottom: 120px;
+  text-align: center;
+}
+.how-step:last-child { margin-bottom: 0; }
+
+.how-step-num {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--emerald);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.how-text {
+  max-width: 640px;
+  margin: 0 auto 48px;
+}
+
+.how-text h2 {
+  font-size: clamp(32px, 4vw, 48px);
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.how-text > p {
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.how-bullets {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+  max-width: 420px;
+  margin: 24px auto 0;
+}
+
+.how-bullets li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.how-bullets .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.dot.red { background: var(--red); }
+.dot.violet { background: var(--violet); }
+.dot.green { background: var(--emerald); }
+
+.how-visual {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.how-visual img {
+  width: 100%;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255,255,255,0.12);
+  filter: brightness(1.15) contrast(1.05);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+
+/* ── Browser mockup ── */
+.browser-mockup {
+  background: #1a1a1e;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  position: relative;
+}
+
+.browser-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #222228;
+  border-bottom: 1px solid var(--border);
+}
+
+.browser-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.browser-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.browser-dots span:nth-child(1) { background: #ff5f57; }
+.browser-dots span:nth-child(2) { background: #febc2e; }
+.browser-dots span:nth-child(3) { background: #28c840; }
+
+.browser-url {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.browser-content {
+  position: relative;
+  min-height: 280px;
+  background: #1a1a1e;
+}
+
+.browser-page {
+  padding: 24px;
+  opacity: 0.15;
+}
+
+.browser-page .fake-heading {
+  height: 18px;
+  width: 60%;
+  background: rgba(255,255,255,0.3);
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.browser-page .fake-text {
+  height: 10px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 3px;
+  margin-bottom: 8px;
+}
+
+.browser-page .fake-text:nth-child(3) { width: 85%; }
+.browser-page .fake-text:nth-child(4) { width: 70%; }
+.browser-page .fake-text:nth-child(5) { width: 90%; }
+.browser-page .fake-text:nth-child(6) { width: 50%; }
+
+/* Dimmer overlay */
+.browser-dimmer {
+  position: absolute;
+  inset: 0;
+  top: 0;
+  background: rgba(0,0,0,0.55);
+}
+
+/* Nudge toast inside browser mockup */
+.nudge-toast {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1c1c20;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 14px;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  white-space: nowrap;
+}
+
+.nudge-toast-text {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.nudge-toast-btn {
+  padding: 6px 16px;
+  background: var(--red);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Floating pill above the browser */
+.mockup-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(20, 20, 24, 0.95);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.mockup-pill .pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  animation: pulse-red 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
+}
+
+.mockup-pill .pill-time {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* ── Earned browse mockup ── */
+.earn-mockup {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  max-width: 360px;
+}
+
+.earn-mockup-header {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 16px;
+}
+
+.earn-bar-track {
+  height: 20px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden;
+  display: flex;
+  margin-bottom: 8px;
+}
+
+.earn-bar-green {
+  width: 60%;
+  background: var(--emerald);
+  border-radius: 10px 0 0 10px;
+}
+
+.earn-bar-red {
+  width: 22%;
+  background: var(--red);
+}
+
+.earn-bar-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.earn-bar-labels span:first-child { color: var(--emerald); font-weight: 600; }
+.earn-bar-labels span:last-child { color: var(--red); font-weight: 600; }
+
+.earn-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.earn-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.earn-row .positive { color: var(--emerald); font-family: var(--font-mono); font-weight: 600; }
+.earn-row .negative { color: var(--red); font-family: var(--font-mono); font-weight: 600; }
+
+/* ── Features / Value grid ── */
+.features-section, .value-section {
+  padding: var(--section-gap) 0;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.feature-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  transition: all 0.3s ease;
+}
+.feature-card:hover {
+  background: var(--bg-card-hover);
+  border-color: rgba(52, 211, 153, 0.2);
+  transform: translateY(-4px);
+}
+
+.feature-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.feature-tag.violet { background: var(--violet-glow); color: var(--violet); }
+.feature-tag.amber { background: var(--amber-glow); color: var(--amber); }
+.feature-tag.red { background: var(--red-glow); color: var(--red); }
+.feature-tag.emerald { background: var(--emerald-glow); color: var(--emerald); }
+
+.feature-card h3 { margin-bottom: 10px; font-size: 18px; }
+
+.feature-card p { font-size: 14px; line-height: 1.65; }
+
+/* ── Comparison table ── */
+.comparison-section {
+  padding: var(--section-gap) 0;
+}
+
+.comparison-table-wrap {
+  overflow-x: auto;
+  margin-top: 48px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+.comparison-table th,
+.comparison-table td {
+  padding: 16px 20px;
+  text-align: center;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.comparison-table th {
+  font-weight: 700;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.comparison-table th.highlight {
+  color: var(--emerald);
+}
+
+.comparison-table td:first-child {
+  text-align: left;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.comparison-table .col-highlight {
+  background: rgba(52, 211, 153, 0.04);
+}
+
+.comparison-table .check { color: var(--emerald); font-size: 18px; }
+.comparison-table .cross { color: var(--text-tertiary); font-size: 18px; opacity: 0.5; }
+.comparison-table .partial { color: var(--amber); font-size: 18px; }
+
+/* ── Accountability section ── */
+.accountability-section {
+  padding: var(--section-gap) 0;
+  text-align: center;
+}
+
+.accountability-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 60px;
+  align-items: center;
+}
+
+.accountability-text {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.accountability-text h2 {
+  margin-bottom: 20px;
+}
+
+.accountability-text p {
+  font-size: 17px;
+  line-height: 1.8;
+  color: var(--text-secondary);
+}
+
+.accountability-contrast {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  max-width: 600px;
+  margin: 32px auto 40px;
+}
+
+.acc-card {
+  padding: 20px 24px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
+
+.acc-card.before {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.acc-card.after {
+  background: rgba(52, 211, 153, 0.08);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+}
+
+.acc-card .acc-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.acc-card.before .acc-label { color: var(--red); }
+.acc-card.after .acc-label { color: var(--emerald); }
+
+.acc-card p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.accountability-visual {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.accountability-visual img {
+  width: 100%;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255,255,255,0.12);
+  filter: brightness(1.15) contrast(1.05);
+  box-shadow: 0 8px 40px rgba(52, 211, 153, 0.1), 0 0 80px rgba(52, 211, 153, 0.05);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+
+/* ── Pricing ── */
+.pricing-section {
+  padding: var(--section-gap) 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Dark overlay for pricing silk */
+.pricing-section .silk-canvas-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(10,10,11,0.7) 0%, rgba(10,10,11,0.92) 70%);
+  pointer-events: none;
+}
+
+.pricing-section > .container {
+  position: relative;
+  z-index: 1;
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  max-width: 720px;
+  margin: 48px auto 0;
+}
+
+.pricing-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 36px;
+  text-align: center;
+  position: relative;
+  transition: all 0.3s ease;
+}
+.pricing-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-hover);
+}
+
+.pricing-card.featured {
+  border-color: var(--emerald);
+  box-shadow: 0 0 40px rgba(52, 211, 153, 0.1);
+}
+
+.pricing-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--emerald);
+  color: #000;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 16px;
+  border-radius: 100px;
+}
+
+.pricing-plan {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.pricing-price {
+  font-size: 48px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-bottom: 4px;
+}
+
+.pricing-price span {
+  font-size: 18px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.pricing-note {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin-bottom: 28px;
+}
+
+.pricing-features {
+  list-style: none;
+  text-align: left;
+  margin-bottom: 28px;
+}
+
+.pricing-features li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  padding: 6px 0;
+}
+
+.pricing-features li::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--emerald-glow);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%2334d399' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 10px;
+}
+
+.pricing-guarantee {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 14px;
+  color: var(--text-tertiary);
+}
+
+/* ── FAQ ── */
+.faq-section {
+  padding: var(--section-gap) 0;
+}
+
+.faq-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-top: 48px;
+}
+
+.faq-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  transition: all 0.3s ease;
+}
+.faq-item:hover {
+  border-color: rgba(52, 211, 153, 0.2);
+}
+
+.faq-item h3 {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.faq-item p {
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+/* ── Final CTA ── */
+.final-cta {
+  padding: var(--section-gap) 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Dark overlay for final CTA silk */
+.final-cta .silk-canvas-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(10,10,11,0.5) 0%, rgba(10,10,11,0.88) 70%);
+  pointer-events: none;
+}
+
+.final-cta > .container {
+  position: relative;
+  z-index: 1;
+}
+
+.final-cta h2 {
+  margin-bottom: 16px;
+}
+
+.final-cta p {
+  max-width: 560px;
+  margin: 0 auto 36px;
+}
+
+.final-cta .sys-req {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+/* ── Footer ── */
+.footer {
+  padding: 48px 0;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin-bottom: 20px;
+}
+
+.footer-links a {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.footer-links a:hover { color: var(--text-secondary); }
+
+.footer-copy {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .nav-links { display: none; }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+
+  .stat-divider {
+    width: 60px;
+    height: 1px;
+    margin: 0 auto;
+  }
+
+  .features-grid,
+  .testimonial-grid {
+    grid-template-columns: 1fr;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .how-step {
+    margin-bottom: 80px;
+  }
+
+  .accountability-contrast {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .pricing-grid {
+    grid-template-columns: 1fr;
+    max-width: 400px;
+  }
+
+  .faq-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .comparison-table-wrap {
+    margin-left: -16px;
+    margin-right: -16px;
+    padding: 0 16px;
+  }
+}
+
+@media (max-width: 600px) {
+  :root {
+    --section-gap: 80px;
+  }
+
+  .container { padding: 0 20px; }
+  .nav { padding: 12px 20px; }
+
+  .hero { padding: 120px 0 60px; }
+  .hero-ctas { flex-direction: column; align-items: center; }
+  .btn-primary, .btn-ghost { width: 100%; max-width: 300px; justify-content: center; }
+
+  .nudge-toast {
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+
+  .stats-section { padding: 48px 0; }
+  .stat-number { font-size: 56px; }
+
+  .footer-links { flex-wrap: wrap; gap: 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════ NAV ════════════════════════ -->
+<nav class="nav">
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12 6 12 12 16 14"/>
+      </svg>
+    </div>
+    <span>Intentional</span>
+  </a>
+  <div class="nav-links">
+    <a href="#how-it-works">How It Works</a>
+    <a href="#features">Features</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#faq">FAQ</a>
+    <a href="#download" class="btn-primary nav-cta btn-small">Download Free</a>
+  </div>
+</nav>
+
+<!-- ════════════════════════ HERO ════════════════════════ -->
+<section class="hero">
+  <div class="silk-canvas-wrap">
+    <canvas data-silk="hero"></canvas>
+  </div>
+  <div class="container">
+    <div class="reveal">
+      <div class="hero-badge">
+        <span class="pulse-dot"></span>
+        For developers, writers, founders &amp; students who've tried everything
+      </div>
+    </div>
+
+    <h1 class="reveal">You know you're<br><span class="gradient-text">wasting time.</span></h1>
+
+    <p class="hero-sub reveal">The average knowledge worker is genuinely productive for <strong style="color: var(--text-primary);">2 hours and 53 minutes</strong> per day. The rest is noise. Intentional fixes that.</p>
+
+    <div class="reveal">
+      <div class="video-placeholder">
+        <div class="play-btn">
+          <div class="triangle"></div>
+        </div>
+      </div>
+      <p class="video-label">Watch the 60-second demo</p>
+    </div>
+
+    <div class="hero-ctas reveal">
+      <a href="#download" class="btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download Free for macOS
+      </a>
+      <a href="#how-it-works" class="btn-ghost">See How It Works</a>
+    </div>
+
+    <p class="hero-note reveal">macOS 13+ &middot; Free to try &middot; No account required</p>
+  </div>
+</section>
+
+<!-- ════════════════════════ BIG STATS ════════════════════════ -->
+<section class="stats-section">
+  <div class="container">
+    <div class="stats-grid reveal">
+      <div class="stat-item">
+        <div class="stat-number">23m</div>
+        <div class="stat-label">To refocus after<br>a single interruption</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="stat-number">1,200</div>
+        <div class="stat-label">App switches<br>per day</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="stat-number">720h</div>
+        <div class="stat-label">Lost to distraction<br>every year</div>
+      </div>
+    </div>
+    <p class="stats-source reveal">Sources: UC Irvine, Harvard Business Review, Zippia Workplace Research</p>
+  </div>
+</section>
+
+<!-- ════════════════════════ PIVOT ════════════════════════ -->
+<section class="pivot-section">
+  <div class="container reveal">
+    <h2>You've tried willpower. You've tried blockers.<br><span class="gradient-text">You need an AI coach.</span></h2>
+    <p class="pivot-sub">Screen Time is a joke. Freedom uses dumb blocklists. Cold Turkey blocks sites you actually need for work. You bypass all of them in 30 seconds. Intentional is different &mdash; it understands what you're working on and adapts in real time.</p>
+    <a href="#how-it-works" class="pivot-cta">See the 3-step system &#8595;</a>
+  </div>
+</section>
+
+<!-- ════════════════════════ TESTIMONIALS ════════════════════════ -->
+<section class="testimonials-section" id="testimonials">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label amber">REAL PEOPLE</div>
+      <h2>They tried everything else first.</h2>
+    </div>
+
+    <div class="testimonial-grid">
+      <div class="testimonial-card reveal">
+        <div class="testimonial-video">
+          <div class="play-btn"><div class="triangle"></div></div>
+        </div>
+        <div class="testimonial-info">
+          <div class="name">Alex K.</div>
+          <div class="role">Software Engineer</div>
+        </div>
+      </div>
+
+      <div class="testimonial-card reveal">
+        <div class="testimonial-video">
+          <div class="play-btn"><div class="triangle"></div></div>
+        </div>
+        <div class="testimonial-info">
+          <div class="name">Priya R.</div>
+          <div class="role">Grad Student, Neuroscience</div>
+        </div>
+      </div>
+
+      <div class="testimonial-card reveal">
+        <div class="testimonial-video">
+          <div class="play-btn"><div class="triangle"></div></div>
+        </div>
+        <div class="testimonial-info">
+          <div class="name">Marcus T.</div>
+          <div class="role">Freelance Designer</div>
+        </div>
+      </div>
+    </div>
+
+    <p class="testimonials-note reveal">Video testimonials &mdash; coming soon</p>
+  </div>
+</section>
+
+<!-- ════════════════════════ HOW IT WORKS ════════════════════════ -->
+<section class="how-section" id="how-it-works">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label emerald">HOW IT WORKS</div>
+      <h2>Three steps to 5 extra hours a day.</h2>
+    </div>
+
+    <!-- Step 1 -->
+    <div class="how-step reveal">
+      <div class="how-text">
+        <div class="how-step-num">Step 01</div>
+        <h2>Tell it what you're doing.</h2>
+        <p>Type "Build React dashboard" or hit Quick Plan and the AI builds your entire day in 60 seconds. Three modes:</p>
+        <ul class="how-bullets">
+          <li>
+            <span class="dot red"></span>
+            <span><strong>Deep Work</strong> &mdash; Zero social media. AI blocks aggressively.</span>
+          </li>
+          <li>
+            <span class="dot violet"></span>
+            <span><strong>Focus Hours</strong> &mdash; Gentle nudges. You stay in control.</span>
+          </li>
+          <li>
+            <span class="dot green"></span>
+            <span><strong>Free Time</strong> &mdash; Browse freely. Earn bonus minutes.</span>
+          </li>
+        </ul>
+      </div>
+      <div class="how-visual">
+        <img src="screenshots/Planning view.png" alt="Intentional planning view with Quick Plan and AI coach">
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="how-step reveal">
+      <div class="how-text">
+        <div class="how-step-num">Step 02</div>
+        <h2>Drift off-task? It catches you.</h2>
+        <p>On-device AI scores every tab against your task. Stack Overflow while coding? Fine. Reddit rabbit hole? Caught instantly. Same site, different verdict.</p>
+        <p style="margin-top: 8px;"><strong style="color: var(--text-primary);">First a nudge. Then grayscale. Then blocked.</strong> You always get a warning first.</p>
+      </div>
+      <div class="how-visual" style="max-width: 600px;">
+        <div class="mockup-pill" style="margin: 0 auto 12px; display: flex; width: fit-content;">
+          <span class="pill-dot"></span>
+          <span>Vibe coding</span>
+          <span class="pill-time">32:14</span>
+        </div>
+        <div class="browser-mockup">
+          <div class="browser-toolbar">
+            <div class="browser-dots">
+              <span></span><span></span><span></span>
+            </div>
+            <div class="browser-url">reddit.com/r/programming</div>
+          </div>
+          <div class="browser-content">
+            <div class="browser-page">
+              <div class="fake-heading"></div>
+              <div class="fake-text"></div>
+              <div class="fake-text"></div>
+              <div class="fake-text"></div>
+              <div class="fake-text"></div>
+              <div class="fake-text"></div>
+              <div class="fake-text" style="width: 40%"></div>
+              <div style="height: 16px"></div>
+              <div class="fake-heading" style="width: 45%"></div>
+              <div class="fake-text"></div>
+              <div class="fake-text" style="width: 75%"></div>
+              <div class="fake-text"></div>
+            </div>
+            <div class="browser-dimmer"></div>
+            <div class="nudge-toast">
+              <span class="nudge-toast-text">Not related to your task</span>
+              <button class="nudge-toast-btn">&#8592; Back to Task</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="how-step reveal">
+      <div class="how-text">
+        <div class="how-step-num">Step 03</div>
+        <h2>Focus earns you social media time.</h2>
+        <p>Every 5 minutes of real work earns 1 minute of guilt-free scrolling. Deep Work earns even faster. You literally watch the green bar grow &mdash; then spend it whenever you want.</p>
+        <p style="margin-top: 8px;"><strong style="color: var(--text-primary);">This is why it sticks.</strong> Other blockers punish you. This one rewards you.</p>
+      </div>
+      <div class="how-visual" style="max-width: 440px;">
+        <div class="earn-mockup" style="max-width: 100%;">
+          <div class="earn-mockup-header">Earned Browse</div>
+          <div class="earn-bar-track">
+            <div class="earn-bar-green"></div>
+            <div class="earn-bar-red"></div>
+          </div>
+          <div class="earn-bar-labels">
+            <span>5 min available</span>
+            <span>2 min used</span>
+          </div>
+          <div class="earn-rows">
+            <div class="earn-row">
+              <span>Focus work (1h 20m)</span>
+              <span class="positive">+7 min</span>
+            </div>
+            <div class="earn-row">
+              <span>Welcome credit</span>
+              <span class="positive">+5 min</span>
+            </div>
+            <div class="earn-row">
+              <span>Instagram (12m)</span>
+              <span class="negative">-2 min</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ MID-PAGE CTA ════════════════════════ -->
+<section style="padding: 60px 0; text-align: center;">
+  <div class="container reveal">
+    <a href="#download" class="btn-primary" style="font-size: 16px; padding: 16px 40px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Start Focusing &mdash; Free
+    </a>
+    <p style="margin-top: 12px; font-size: 13px; color: var(--text-tertiary);">Free 7-day trial &middot; No credit card required</p>
+  </div>
+</section>
+
+<!-- ════════════════════════ VALUE MATH ════════════════════════ -->
+<section class="value-section" id="features">
+  <div class="container">
+    <div class="section-header reveal">
+      <h2>Do the math on your lost time.</h2>
+      <p>The average developer bills $100/hr. The average person is productive 2h53m/day. That's <strong style="color: var(--text-primary);">5 hours of wasted time every single day.</strong></p>
+    </div>
+
+    <div class="value-math reveal" style="text-align: center; margin-bottom: 60px;">
+      <div style="font-size: clamp(28px, 4vw, 42px); font-weight: 800; color: var(--text-primary); line-height: 1.3;">
+        5 lost hours &times; $100/hr &times; 250 days =<br>
+        <span class="gradient-text" style="font-size: clamp(36px, 5vw, 56px);">$125,000/year</span>
+      </div>
+      <p style="margin-top: 16px;">Intentional costs $6/month. You do the math.</p>
+    </div>
+
+    <div class="section-header reveal" style="margin-bottom: 40px;">
+      <div class="section-label violet">WHY THIS ONE ACTUALLY STICKS</div>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card reveal">
+        <div class="feature-tag violet">AI That Gets Context</div>
+        <h3>Stack Overflow is fine. Reddit isn't.</h3>
+        <p>The AI scores every tab against your actual task. No blocklists to maintain. It just knows.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-tag amber">Three Warnings First</div>
+        <h3>Nudge. Grayscale. Then blocked.</h3>
+        <p>You always get a chance to come back on your own. No surprise blackouts.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-tag emerald">Earned Social Media</div>
+        <h3>Your focus literally pays for scrolling.</h3>
+        <p>5 min of deep work = 1 min of guilt-free Instagram. The first blocker that rewards you instead of punishing you.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-tag red">Tamper-Proof</div>
+        <h3>Survives Cmd+Q. Relaunches on reboot.</h3>
+        <p>Strict Mode + accountability partner = a Ulysses pact. Your 3 PM self can't undo it. You need their code.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-tag violet">60-Second Planning</div>
+        <h3>AI builds your schedule. You just work.</h3>
+        <p>Say what you're doing. Quick Plan maps your blocks. The AI coach remembers what you worked on yesterday.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-tag emerald">Every App. Every Browser.</div>
+        <h3>Chrome, Safari, Arc, Brave + desktop apps</h3>
+        <p>8 browsers plus native app monitoring. One tool, total coverage. Nothing slips through.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ COMPARISON ════════════════════════ -->
+<section class="comparison-section" id="comparison">
+  <div class="container">
+    <div class="section-header reveal">
+      <h2>Why other tools don't stick</h2>
+      <p>Blocklists treat every website the same. Intentional understands context.</p>
+    </div>
+
+    <div class="comparison-table-wrap reveal">
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th class="highlight col-highlight">Intentional</th>
+            <th>Freedom</th>
+            <th>Cold Turkey</th>
+            <th>one sec</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>AI relevance scoring</td>
+            <td class="col-highlight"><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+          </tr>
+          <tr>
+            <td>Earned browse system</td>
+            <td class="col-highlight"><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+          </tr>
+          <tr>
+            <td>Progressive enforcement</td>
+            <td class="col-highlight"><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+            <td><span class="partial">~</span></td>
+            <td><span class="check">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>AI schedule builder</td>
+            <td class="col-highlight"><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+          </tr>
+          <tr>
+            <td>Survives force-quit</td>
+            <td class="col-highlight"><span class="check">&#10003;</span></td>
+            <td><span class="partial">~</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+          </tr>
+          <tr>
+            <td>All data on-device</td>
+            <td class="col-highlight"><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+          </tr>
+          <tr>
+            <td>Accountability partner</td>
+            <td class="col-highlight"><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+            <td><span class="partial">~</span></td>
+            <td><span class="cross">&#10005;</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ ACCOUNTABILITY ════════════════════════ -->
+<section class="accountability-section" id="accountability">
+  <div class="container">
+    <div class="accountability-content reveal">
+      <div class="accountability-text">
+        <div class="section-label red">ACCOUNTABILITY</div>
+        <h2>Built for the 3 PM<br>version of you</h2>
+        <p>Every other blocker trusts the tempted version of you to be reasonable. Intentional doesn't.</p>
+      </div>
+
+      <div class="accountability-contrast">
+        <div class="acc-card before">
+          <div class="acc-label">Without Strict Mode</div>
+          <p>You Cmd+Q the app in 30 seconds. Back on Twitter by 3:01.</p>
+        </div>
+        <div class="acc-card after">
+          <div class="acc-label">With Strict Mode</div>
+          <p>Survives force-quit. Relaunches on reboot. Needs your partner's 6-digit code to disable.</p>
+        </div>
+      </div>
+
+      <div class="accountability-visual">
+        <img src="screenshots/Accountability view.png" alt="Intentional accountability partner setup screen">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ PRICING ════════════════════════ -->
+<section class="pricing-section" id="pricing">
+  <div class="silk-canvas-wrap">
+    <canvas data-silk="pricing"></canvas>
+  </div>
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label emerald">PRICING</div>
+      <h2>Less than the cost of<br>one lost afternoon</h2>
+      <p>720 hours lost per year &times; your hourly rate. Intentional costs $0.20/day.</p>
+    </div>
+
+    <div class="pricing-grid reveal">
+      <!-- Monthly -->
+      <div class="pricing-card">
+        <div class="pricing-plan">Monthly</div>
+        <div class="pricing-price">$6<span>/mo</span></div>
+        <div class="pricing-note">$0.20/day</div>
+        <ul class="pricing-features">
+          <li>On-device AI scoring</li>
+          <li>Earned browse system</li>
+          <li>Progressive enforcement</li>
+          <li>AI day planner</li>
+          <li>Cross-browser support</li>
+          <li>Accountability partner</li>
+        </ul>
+        <a href="#download" class="btn-ghost btn-small" style="width: 100%; justify-content: center;">Start 7-Day Free Trial</a>
+      </div>
+
+      <!-- Lifetime -->
+      <div class="pricing-card featured">
+        <div class="pricing-badge">Best Value</div>
+        <div class="pricing-plan">Lifetime</div>
+        <div class="pricing-price">$79</div>
+        <div class="pricing-note">Pay once. Focus forever.</div>
+        <ul class="pricing-features">
+          <li>Everything in Monthly</li>
+          <li>All future updates</li>
+          <li>Priority support</li>
+          <li>Early access to new features</li>
+          <li>Strict Mode</li>
+          <li>Support indie development</li>
+        </ul>
+        <a href="#download" class="btn-primary btn-small" style="width: 100%; justify-content: center;">Get Lifetime Access</a>
+      </div>
+    </div>
+
+    <p class="pricing-guarantee reveal">7-day free trial. 30-day money-back guarantee. No questions asked.</p>
+  </div>
+</section>
+
+<!-- ════════════════════════ FAQ ════════════════════════ -->
+<section class="faq-section" id="faq">
+  <div class="container">
+    <div class="section-header reveal">
+      <h2>Frequently asked questions</h2>
+    </div>
+
+    <div class="faq-grid">
+      <div class="faq-item reveal">
+        <h3>What if I need YouTube for work?</h3>
+        <p>That's exactly the problem this solves. The AI scores each page against your task. A React tutorial? Relevant. A compilation video? Nudged back. Same site, different verdicts.</p>
+      </div>
+
+      <div class="faq-item reveal">
+        <h3>Can I really not turn it off?</h3>
+        <p>With Strict Mode, the app survives Cmd+Q, relaunches on reboot, and needs your partner's 6-digit code to disable. Without it, you can quit anytime.</p>
+      </div>
+
+      <div class="faq-item reveal">
+        <h3>Is my data private?</h3>
+        <p>Completely. All AI runs on-device. Your page titles, URLs, and usage data never leave your Mac.</p>
+      </div>
+
+      <div class="faq-item reveal">
+        <h3>Which browsers work?</h3>
+        <p>Chrome, Safari, Arc, Brave, Edge, Firefox, Opera, and Vivaldi. Desktop apps are monitored natively too.</p>
+      </div>
+
+      <div class="faq-item reveal">
+        <h3>Does it slow down my Mac?</h3>
+        <p>No. AI runs on Apple's Neural Engine. Tab polling is every 10 seconds. You won't notice it.</p>
+      </div>
+
+      <div class="faq-item reveal">
+        <h3>How is this different from Freedom?</h3>
+        <p>Freedom uses blocklists &mdash; every site is allowed or blocked. Intentional uses AI to understand context, plus earned browse rewards and progressive enforcement. It's not a wall. It's a system.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ FINAL CTA ════════════════════════ -->
+<section class="final-cta" id="download">
+  <div class="silk-canvas-wrap">
+    <canvas data-silk="final"></canvas>
+  </div>
+  <div class="container reveal">
+    <h2>5 lost hours a day. 720 hours a year.<br>You know what that's costing you.</h2>
+    <p>One download. Two minutes to set up. Your AI accountability coach starts working today.</p>
+    <a href="#" class="btn-primary" style="font-size: 18px; padding: 18px 48px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download Intentional Free
+    </a>
+    <p class="sys-req">macOS 13+ &middot; Apple Silicon &amp; Intel &middot; Free 7-day trial</p>
+  </div>
+</section>
+
+<!-- ════════════════════════ FOOTER ════════════════════════ -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-links">
+      <a href="#">Privacy</a>
+      <a href="#">Support</a>
+      <a href="#">Twitter</a>
+      <a href="#">GitHub</a>
+    </div>
+    <p class="footer-copy">&copy; 2026 Intentional. Built with too much screen time.</p>
+  </div>
+</footer>
+
+<!-- ════════════════════════ SILK RENDERER (Subtle, Performant) ════════════════════════ -->
+<script>
+(function() {
+  'use strict';
+
+  // ── Emerald palette ──
+  var P = [
+    [5,10,8],[8,50,40],[12,80,65],[20,120,100],
+    [34,160,135],[52,211,153],[110,231,183],[167,243,208],[220,252,238]
+  ];
+  var PL = P.length - 1;
+
+  function sampleP(t) {
+    if (t <= 0) return P[0];
+    if (t >= 1) return P[PL];
+    var s = t * PL, i = ~~s, f = s - i;
+    var a = P[i], b = P[i+1];
+    return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f];
+  }
+
+  // ── Fast value noise (2 octaves only) ──
+  function hash(x, y) {
+    var n = Math.sin(x*127.1+y*311.7)*43758.5453;
+    return n - ~~n;
+  }
+  function noise(x, y) {
+    var ix = x < 0 ? ~~x-1 : ~~x, iy = y < 0 ? ~~y-1 : ~~y;
+    var fx = x-ix, fy = y-iy;
+    var ux = fx*fx*(3-2*fx), uy = fy*fy*(3-2*fy);
+    var a = hash(ix,iy), b = hash(ix+1,iy), c = hash(ix,iy+1), d = hash(ix+1,iy+1);
+    return a+(b-a)*ux+(c-a)*uy+(a-b-c+d)*ux*uy;
+  }
+  function fbm2(x, y) {
+    return noise(x,y)*0.5 + noise(x*2,y*2)*0.25;
+  }
+
+  // ── Renderer ──
+  function Silk(canvas, speed, sy) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.speed = speed;
+    this.sy = sy;
+    this.vis = false;
+    this.rw = 0;
+    this.rh = 0;
+  }
+
+  Silk.prototype.resize = function() {
+    var r = this.canvas.getBoundingClientRect();
+    // Render at 1/5 resolution — big perf win, CSS upscales smoothly
+    var w = Math.max(1, ~~(r.width / 5));
+    var h = Math.max(1, ~~(r.height / 5));
+    if (this.rw !== w || this.rh !== h) {
+      this.rw = w; this.rh = h;
+      this.canvas.width = w;
+      this.canvas.height = h;
+    }
+  };
+
+  Silk.prototype.render = function(t) {
+    if (!this.vis) return;
+    this.resize();
+    var w = this.rw, h = this.rh;
+    if (w < 1 || h < 1) return;
+    var img = this.ctx.createImageData(w, h);
+    var d = img.data;
+    var sp = t * this.speed;
+    var sy = this.sy;
+
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        var nx = x * 0.004, ny = y * 0.004 * sy;
+
+        // Slight rotation
+        var bx = nx*0.985 + ny*0.174;
+
+        // Lightweight domain warp (2 octaves, not 3)
+        var w1 = fbm2(nx*0.5 + sp*0.2, ny*0.7 + sp*0.06) * 1.8;
+        var w2 = fbm2(nx*0.7 + 5.0, ny*0.5 - sp*0.05) * 1.0;
+
+        // Just 2 sine layers — simpler, subtler folds
+        var f1 = Math.sin(bx*14.0 + w1 + sp*0.3);
+        var f2 = Math.sin(bx*7.0 + w2 - sp*0.18) * 0.45;
+        var fold = (f1 + f2) / 1.45;
+
+        // Analytical derivative for specular
+        var df = (14.0*Math.cos(bx*14.0 + w1 + sp*0.3)
+                + 7.0*Math.cos(bx*7.0 + w2 - sp*0.18)*0.45) / 1.45;
+        var sh = Math.abs(df);
+        var spec = Math.pow(Math.max(0, 1.0 - sh*0.07), 5.0);
+        spec *= Math.max(0, fold*0.5 + 0.5);
+
+        var base = (fold+1)*0.5;
+        var rgb = sampleP(base*0.55 + 0.18);
+        var sa = spec * 0.45;
+        var idx = (y*w+x)*4;
+        d[idx]   = Math.min(255, rgb[0] + sa*180);
+        d[idx+1] = Math.min(255, rgb[1] + sa*220);
+        d[idx+2] = Math.min(255, rgb[2] + sa*180);
+        d[idx+3] = 255;
+      }
+    }
+    this.ctx.putImageData(img, 0, 0);
+  };
+
+  // ── Init ──
+  function init() {
+    var els = document.querySelectorAll('[data-silk]');
+    var silks = [];
+    for (var i = 0; i < els.length; i++) {
+      var type = els[i].getAttribute('data-silk');
+      var speed = 0.5, sy = 3.5;
+      if (type === 'pricing') { speed = 0.35; sy = 3.8; }
+      else if (type === 'final') { speed = 0.4; sy = 3.5; }
+      silks.push(new Silk(els[i], speed, sy));
+    }
+
+    // Visibility observer
+    if ('IntersectionObserver' in window) {
+      var obs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e) {
+          for (var j = 0; j < silks.length; j++) {
+            if (silks[j].canvas === e.target) { silks[j].vis = e.isIntersecting; break; }
+          }
+        });
+      }, { rootMargin: '120px' });
+      for (var k = 0; k < els.length; k++) obs.observe(els[k]);
+    } else {
+      for (var m = 0; m < silks.length; m++) silks[m].vis = true;
+    }
+
+    // Throttled animation — target ~20fps for smooth-enough motion
+    var t0 = performance.now();
+    var lastFrame = 0;
+    function loop(now) {
+      if (now - lastFrame > 48) { // ~20fps
+        var t = (now - t0) / 1000.0;
+        for (var i = 0; i < silks.length; i++) silks[i].render(t);
+        lastFrame = now;
+      }
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+
+<!-- ════════════════════════ SCROLL REVEAL ════════════════════════ -->
+<script>
+(function() {
+  var obs = new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        obs.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.reveal').forEach(function(el) {
+    obs.observe(el);
+  });
+})();
+</script>
+
+</body>
+</html>

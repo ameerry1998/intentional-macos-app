@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How It Works — Version Comparison</title>
+<style>
+/* ── Reset & Base ── */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0a0b;
+  --bg-elevated: #111113;
+  --bg-card: rgba(255,255,255,0.04);
+  --border: rgba(255,255,255,0.08);
+  --border-hover: rgba(255,255,255,0.15);
+  --text-primary: rgba(255,255,255,0.95);
+  --text-secondary: rgba(255,255,255,0.6);
+  --text-tertiary: rgba(255,255,255,0.35);
+  --emerald: #34d399;
+  --amber: #fbbf24;
+  --violet: #8b5cf6;
+  --red: #ef4444;
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, monospace;
+  --max-width: 1200px;
+  --radius: 16px;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+}
+
+h2 { font-size: 36px; font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; }
+p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
+
+.container { max-width: var(--max-width); margin: 0 auto; padding: 0 32px; }
+
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+  50% { box-shadow: 0 0 0 4px rgba(239,68,68,0); }
+}
+@keyframes pulse-violet {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(139,92,246,0.5); }
+  50% { box-shadow: 0 0 0 5px rgba(139,92,246,0); }
+}
+@keyframes pulse-emerald {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52,211,153,0.5); }
+  50% { box-shadow: 0 0 0 4px rgba(52,211,153,0); }
+}
+
+/* ── Version Switcher ── */
+.version-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(10,10,11,0.92);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+.version-nav-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  margin-right: 12px;
+}
+.version-btn {
+  padding: 8px 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: all 0.2s;
+}
+.version-btn:hover {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+.version-btn.active {
+  background: rgba(52,211,153,0.1);
+  border-color: rgba(52,211,153,0.3);
+  color: var(--emerald);
+}
+
+.version-panel { display: none; }
+.version-panel.active { display: block; }
+
+.section-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+.section-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  color: var(--emerald);
+}
+
+/* ════════════════════════════════════════════════════
+   SHARED — Card color themes
+   ════════════════════════════════════════════════════ */
+.how-card-emerald {
+  background: linear-gradient(180deg, #0a1210 0%, #0d1f18 40%, #0f2e22 100%);
+  border-color: rgba(52,211,153,0.15);
+}
+.how-card-emerald:hover { border-color: rgba(52,211,153,0.3); }
+
+.how-card-red {
+  background: linear-gradient(180deg, #120a0a 0%, #1f0d0d 40%, #2e0f0f 100%);
+  border-color: rgba(239,68,68,0.15);
+}
+.how-card-red:hover { border-color: rgba(239,68,68,0.3); }
+
+.how-card-violet {
+  background: linear-gradient(180deg, #0f0a14 0%, #160d22 40%, #1f0f38 100%);
+  border-color: rgba(139,92,246,0.15);
+}
+.how-card-violet:hover { border-color: rgba(139,92,246,0.3); }
+
+/* ════════════════════════════════════════════════════
+   VERSION A — Original
+   ════════════════════════════════════════════════════ */
+.va .how-bento {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 16px;
+}
+.va .how-card {
+  border-radius: var(--radius);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  overflow: hidden;
+  border: 1px solid;
+}
+.va .how-card:hover { box-shadow: 0 12px 48px rgba(0,0,0,0.4); }
+.va .how-card-main { grid-row: 1 / 3; }
+
+.va .how-card-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.va .how-card-emerald .how-card-label { color: var(--emerald); }
+.va .how-card-red .how-card-label { color: var(--red); }
+.va .how-card-violet .how-card-label { color: var(--violet); }
+
+.va .how-card h3 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.va .how-card-desc { font-size: 14px; line-height: 1.6; color: var(--text-secondary); margin-bottom: 16px; }
+.va .how-card-mockup { flex: 1; display: flex; align-items: flex-end; }
+
+/* Slider */
+.va .plan-slider-wrap {
+  width: 100%; position: relative; border-radius: 12px; overflow: hidden;
+  border: 1px solid rgba(52,211,153,0.12); user-select: none;
+}
+.va .plan-slider-before { position: relative; z-index: 1; }
+.va .plan-slider-after {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 50%; overflow: hidden; z-index: 2;
+}
+.va .plan-slider-after-inner {
+  position: absolute; top: 0; right: 0; width: 200%; height: 100%;
+}
+.va .plan-slider-handle {
+  position: absolute; top: 0; bottom: 0; left: 50%; width: 3px;
+  background: var(--emerald); z-index: 4; cursor: ew-resize; transform: translateX(-50%);
+  box-shadow: 0 0 12px rgba(52,211,153,0.4);
+}
+.va .plan-slider-handle::after {
+  content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 28px; height: 28px; border-radius: 50%; background: var(--emerald);
+  box-shadow: 0 2px 12px rgba(52,211,153,0.5);
+}
+.va .plan-slider-handle::before {
+  content: '⟨  ⟩'; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  color: #000; font-size: 12px; font-weight: 800; z-index: 5; letter-spacing: 2px;
+}
+.va .plan-slider-labels {
+  display: flex; justify-content: space-between; padding: 6px 12px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-tertiary); position: absolute; bottom: 0; left: 0; right: 0; z-index: 5; pointer-events: none;
+}
+
+/* Chat mockup */
+.chat-mockup { background: #0d1210; padding: 16px; min-height: 320px; }
+.chat-bubble {
+  max-width: 85%; padding: 10px 14px; border-radius: 12px;
+  font-size: 12px; line-height: 1.5; margin-bottom: 8px;
+}
+.chat-bubble.ai {
+  background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.15);
+  color: rgba(255,255,255,0.85); border-bottom-left-radius: 4px;
+}
+.chat-ai-label {
+  font-size: 9px; font-weight: 700; color: var(--emerald);
+  letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 4px;
+}
+.chat-bubble.user {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.85); margin-left: auto; border-bottom-right-radius: 4px;
+}
+.chat-mini-blocks { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.chat-mini-block {
+  display: flex; align-items: center; gap: 6px; padding: 5px 8px;
+  border-radius: 6px; font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.8);
+}
+.chat-mini-block.c-deep { background: rgba(239,68,68,0.1); border-left: 2px solid #ef4444; }
+.chat-mini-block.c-focus { background: rgba(139,92,246,0.1); border-left: 2px solid #8b5cf6; }
+.chat-mini-block.c-free { background: rgba(52,211,153,0.08); border-left: 2px solid #34d399; }
+.chat-confirm { margin-top: 10px; font-size: 10px; color: var(--emerald); font-weight: 600; }
+
+/* Schedule mockup */
+.sched-mockup { background: #0f1512; min-height: 320px; }
+.sched-mockup-header {
+  padding: 10px 14px; border-bottom: 1px solid rgba(52,211,153,0.08);
+  font-size: 11px; font-weight: 600; color: var(--text-tertiary);
+}
+.sched-mockup-body { display: flex; }
+.sched-time-col {
+  padding: 10px 6px; display: flex; flex-direction: column;
+  min-width: 38px; border-right: 1px solid rgba(255,255,255,0.04);
+}
+.sched-time-label {
+  font-size: 8px; font-family: var(--font-mono); color: var(--text-tertiary);
+  height: 44px; display: flex; align-items: flex-start; padding-top: 2px;
+}
+.sched-blocks-col {
+  flex: 1; padding: 10px 10px 10px 6px;
+  display: flex; flex-direction: column; gap: 3px; position: relative;
+}
+.sched-block { border-radius: 6px; padding: 6px 8px; border-left: 3px solid; }
+.sched-block-title { font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.85); }
+.sched-block-time { font-size: 8px; color: rgba(255,255,255,0.35); margin-top: 1px; }
+.sched-block-badge { float: right; font-size: 7px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.sched-block.s-deep { background: rgba(239,68,68,0.12); border-left-color: #ef4444; min-height: 68px; }
+.sched-block.s-deep .sched-block-badge { color: #f87171; }
+.sched-block.s-focus { background: rgba(139,92,246,0.12); border-left-color: #8b5cf6; min-height: 52px; }
+.sched-block.s-focus .sched-block-badge { color: #a78bfa; }
+.sched-block.s-free { background: rgba(52,211,153,0.08); border-left-color: #34d399; min-height: 32px; }
+.sched-block.s-free .sched-block-badge { color: #34d399; }
+.sched-now-line {
+  position: absolute; left: 0; right: 0; height: 2px; background: var(--emerald); top: 35%; z-index: 2;
+}
+.sched-now-line::before {
+  content: ''; position: absolute; left: -3px; top: -3px;
+  width: 8px; height: 8px; border-radius: 50%; background: var(--emerald);
+}
+
+/* Pill states */
+.pill-states { display: flex; flex-direction: column; gap: 14px; width: 100%; }
+.pill-state-row { display: flex; align-items: center; gap: 12px; }
+.pill-state-tag {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  width: 62px; flex-shrink: 0; text-align: right;
+}
+.pill-state-tag.on-task { color: var(--emerald); }
+.pill-state-tag.off-task { color: var(--red); }
+
+.pill-mock {
+  display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+  background: rgba(15,15,18,0.95); border: 1px solid var(--border);
+  border-radius: 100px; font-size: 12px; color: var(--text-primary); flex: 1;
+  transition: all 0.3s ease;
+}
+.pill-mock:hover { transform: translateY(-2px); }
+.pill-mock .p-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.pill-mock .p-dot.indigo { background: #818cf8; box-shadow: 0 0 8px rgba(129,140,248,0.5); }
+.pill-mock .p-dot.red { background: var(--red); animation: pulse-red 1.5s ease-in-out infinite; }
+.pill-mock .p-label { flex: 1; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pill-mock .p-time { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.pill-mock-distracted { border-color: rgba(239,68,68,0.2); }
+.pill-mock-distracted .p-label { color: var(--red); font-weight: 600; }
+
+.va .pill-nudge-card {
+  display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+  background: rgba(15,15,18,0.95); border: 1px solid rgba(239,68,68,0.25);
+  border-radius: 12px; font-size: 11px; color: var(--text-primary);
+  margin-left: 74px; margin-top: -6px;
+}
+.pill-nudge-btn {
+  padding: 4px 10px; background: var(--red); color: #fff;
+  font-size: 10px; font-weight: 700; border-radius: 6px; border: none; white-space: nowrap;
+}
+
+/* Unlock visual */
+.va .unlock-visual { width: 100%; text-align: center; }
+.va .unlock-timer {
+  display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px;
+  background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.25);
+  border-radius: 100px; margin-bottom: 16px;
+}
+.unlock-timer-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--violet);
+  box-shadow: 0 0 8px rgba(139,92,246,0.5); animation: pulse-violet 1.5s ease-in-out infinite;
+}
+.unlock-timer-text { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.unlock-timer-sub { font-size: 11px; color: var(--violet); font-weight: 600; }
+
+.va .unlock-apps { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+.va .unlock-app {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 14px 12px; background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; width: 72px;
+  transition: all 0.3s ease;
+}
+.va .unlock-app:hover {
+  transform: translateY(-6px); background: rgba(139,92,246,0.08);
+  border-color: rgba(139,92,246,0.25); box-shadow: 0 8px 24px rgba(139,92,246,0.15);
+}
+.unlock-app svg { width: 28px; height: 28px; opacity: 0.9; }
+.unlock-app-name { font-size: 9px; font-weight: 600; color: var(--text-secondary); }
+.u-yt { fill: #ff0000; } .u-ig { fill: #e4405f; } .u-tt { fill: #fff; } .u-rd { fill: #ff4500; }
+
+.va .unlock-badge {
+  display: inline-block; margin-top: 14px; padding: 4px 12px; border-radius: 20px;
+  font-size: 10px; font-weight: 700; color: var(--emerald);
+  background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.2);
+}
+
+/* ════════════════════════════════════════════════════
+   VERSION B — Polished Fix
+   ════════════════════════════════════════════════════ */
+.vb .how-bento {
+  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 16px;
+}
+.vb .how-card {
+  border-radius: var(--radius); padding: 28px; display: flex; flex-direction: column;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease; overflow: hidden; border: 1px solid;
+}
+.vb .how-card:hover { box-shadow: 0 12px 48px rgba(0,0,0,0.4); }
+.vb .how-card-main { grid-row: 1 / 3; }
+.vb .how-card-label {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 10px;
+}
+.vb .how-card-emerald .how-card-label { color: var(--emerald); }
+.vb .how-card-red .how-card-label { color: var(--red); }
+.vb .how-card-violet .how-card-label { color: var(--violet); }
+.vb .how-card h3 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.vb .how-card-desc { font-size: 14px; line-height: 1.6; color: var(--text-secondary); margin-bottom: 16px; }
+.vb .how-card-mockup { flex: 1; display: flex; align-items: center; }
+
+/* B: Slider — solid opaque schedule */
+.vb .plan-slider-wrap {
+  width: 100%; position: relative; border-radius: 12px; overflow: hidden;
+  border: 1px solid rgba(52,211,153,0.15); user-select: none;
+}
+.vb .plan-slider-before { position: relative; z-index: 1; }
+.vb .plan-slider-after {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 50%; overflow: hidden; z-index: 2;
+  border-left: 1px solid rgba(52,211,153,0.2);
+}
+.vb .plan-slider-after-inner {
+  position: absolute; top: 0; right: 0; width: 200%; height: 100%;
+}
+.vb .sched-mockup {
+  background: #0a1210;
+}
+.vb .plan-slider-handle {
+  position: absolute; top: 0; bottom: 0; left: 50%; width: 3px;
+  background: var(--emerald); z-index: 4; cursor: ew-resize; transform: translateX(-50%);
+  box-shadow: 0 0 16px rgba(52,211,153,0.5);
+}
+.vb .plan-slider-handle::after {
+  content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 32px; height: 32px; border-radius: 50%; background: var(--emerald);
+  box-shadow: 0 2px 16px rgba(52,211,153,0.6);
+}
+.vb .plan-slider-handle::before {
+  content: '⟨ ⟩'; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  color: #000; font-size: 13px; font-weight: 800; z-index: 5; letter-spacing: 4px;
+}
+.vb .plan-slider-labels {
+  display: flex; justify-content: space-between; padding: 8px 14px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-tertiary); position: absolute; bottom: 0; left: 0; right: 0; z-index: 5;
+  pointer-events: none; background: linear-gradient(transparent, rgba(10,18,16,0.8));
+}
+
+/* B: Pill states — with background panels */
+.vb .pill-states { display: flex; flex-direction: column; gap: 16px; width: 100%; }
+.vb .pill-state-card {
+  padding: 16px; border-radius: 12px; border: 1px solid;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.vb .pill-state-card:hover {
+  transform: translateY(-3px);
+}
+.vb .pill-state-card.card-focused {
+  background: rgba(52,211,153,0.04);
+  border-color: rgba(52,211,153,0.12);
+}
+.vb .pill-state-card.card-focused:hover {
+  box-shadow: 0 8px 28px rgba(52,211,153,0.1);
+}
+.vb .pill-state-card.card-distracted {
+  background: rgba(239,68,68,0.04);
+  border-color: rgba(239,68,68,0.12);
+}
+.vb .pill-state-card.card-distracted:hover {
+  box-shadow: 0 8px 28px rgba(239,68,68,0.1);
+}
+.vb .pill-state-card-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.vb .card-focused .pill-state-card-label { color: var(--emerald); }
+.vb .card-distracted .pill-state-card-label { color: var(--red); }
+
+.vb .pill-nudge-card {
+  display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+  background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2);
+  border-radius: 10px; font-size: 11px; color: var(--text-primary); margin-top: 10px;
+}
+
+/* B: Unlock — larger icons with glow */
+.vb .unlock-visual { width: 100%; text-align: center; }
+.vb .unlock-timer {
+  display: inline-flex; align-items: center; gap: 10px; padding: 12px 24px;
+  background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.25);
+  border-radius: 100px; margin-bottom: 20px;
+}
+.vb .unlock-apps { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
+.vb .unlock-app {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 16px 14px; background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; width: 80px;
+  transition: all 0.3s ease; position: relative;
+}
+.vb .unlock-app::before {
+  content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 44px; height: 44px; border-radius: 50%; opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.vb .unlock-app:hover {
+  transform: translateY(-6px);
+  border-color: rgba(139,92,246,0.3);
+  box-shadow: 0 8px 28px rgba(139,92,246,0.15);
+}
+.vb .unlock-app:hover::before { opacity: 1; }
+.vb .unlock-app.app-yt:hover::before { background: radial-gradient(circle, rgba(255,0,0,0.15), transparent 70%); }
+.vb .unlock-app.app-ig:hover::before { background: radial-gradient(circle, rgba(228,64,95,0.15), transparent 70%); }
+.vb .unlock-app.app-tt:hover::before { background: radial-gradient(circle, rgba(255,255,255,0.08), transparent 70%); }
+.vb .unlock-app.app-rd:hover::before { background: radial-gradient(circle, rgba(255,69,0,0.15), transparent 70%); }
+.vb .unlock-app svg { width: 34px; height: 34px; position: relative; z-index: 1; }
+.vb .unlock-app .unlock-app-name { position: relative; z-index: 1; }
+.vb .unlock-badge {
+  display: inline-block; margin-top: 16px; padding: 5px 14px; border-radius: 20px;
+  font-size: 11px; font-weight: 700; color: var(--emerald);
+  background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.2);
+}
+
+/* ════════════════════════════════════════════════════
+   VERSION C — Tabs + Side-by-Side
+   ════════════════════════════════════════════════════ */
+.vc .how-bento {
+  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 16px;
+}
+.vc .how-card {
+  border-radius: var(--radius); padding: 28px; display: flex; flex-direction: column;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease; overflow: hidden; border: 1px solid;
+}
+.vc .how-card:hover { box-shadow: 0 12px 48px rgba(0,0,0,0.4); }
+.vc .how-card-main { grid-row: 1 / 3; }
+.vc .how-card-label {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 10px;
+}
+.vc .how-card-emerald .how-card-label { color: var(--emerald); }
+.vc .how-card-red .how-card-label { color: var(--red); }
+.vc .how-card-violet .how-card-label { color: var(--violet); }
+.vc .how-card h3 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.vc .how-card-desc { font-size: 14px; line-height: 1.6; color: var(--text-secondary); margin-bottom: 16px; }
+.vc .how-card-mockup { flex: 1; display: flex; align-items: center; }
+
+/* C: Tabbed switcher instead of slider */
+.plan-tabs {
+  width: 100%; border-radius: 12px; overflow: hidden;
+  border: 1px solid rgba(52,211,153,0.15);
+}
+.plan-tab-bar {
+  display: flex; background: rgba(52,211,153,0.04);
+  border-bottom: 1px solid rgba(52,211,153,0.1);
+}
+.plan-tab-btn {
+  flex: 1; padding: 10px 16px; border: none; background: transparent;
+  font-family: var(--font); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-tertiary); cursor: pointer; transition: all 0.2s;
+  position: relative;
+}
+.plan-tab-btn:hover { color: var(--text-secondary); }
+.plan-tab-btn.active {
+  color: var(--emerald); background: rgba(52,211,153,0.06);
+}
+.plan-tab-btn.active::after {
+  content: ''; position: absolute; bottom: 0; left: 20%; right: 20%;
+  height: 2px; background: var(--emerald); border-radius: 1px;
+}
+
+.plan-tab-content { position: relative; min-height: 320px; }
+.plan-tab-panel {
+  opacity: 0; position: absolute; inset: 0; transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+.plan-tab-panel.active { opacity: 1; position: relative; pointer-events: auto; }
+
+/* C: Side-by-side pill comparison */
+.vc .pill-compare {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%;
+}
+.vc .pill-compare-card {
+  padding: 16px 14px; border-radius: 12px; border: 1px solid;
+  display: flex; flex-direction: column; gap: 10px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.vc .pill-compare-card:hover { transform: translateY(-3px); }
+.vc .pill-compare-card.pcc-focused {
+  background: rgba(52,211,153,0.03); border-color: rgba(52,211,153,0.12);
+}
+.vc .pill-compare-card.pcc-focused:hover { box-shadow: 0 8px 24px rgba(52,211,153,0.1); }
+.vc .pill-compare-card.pcc-distracted {
+  background: rgba(239,68,68,0.03); border-color: rgba(239,68,68,0.12);
+}
+.vc .pill-compare-card.pcc-distracted:hover { box-shadow: 0 8px 24px rgba(239,68,68,0.1); }
+
+.vc .pcc-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+}
+.vc .pcc-focused .pcc-label { color: var(--emerald); }
+.vc .pcc-distracted .pcc-label { color: var(--red); }
+
+.vc .pcc-pill {
+  display: flex; align-items: center; gap: 6px; padding: 8px 12px;
+  background: rgba(15,15,18,0.95); border: 1px solid var(--border);
+  border-radius: 100px; font-size: 11px;
+}
+.vc .pcc-distracted .pcc-pill {
+  border-color: rgba(239,68,68,0.2);
+}
+.vc .pcc-pill .p-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.vc .pcc-pill .p-label { flex: 1; font-weight: 500; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vc .pcc-distracted .pcc-pill .p-label { color: var(--red); font-weight: 600; }
+.vc .pcc-pill .p-time { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--text-secondary); }
+
+.vc .pcc-nudge {
+  display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+  background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.15);
+  border-radius: 8px; font-size: 10px; color: var(--text-secondary);
+}
+.vc .pcc-nudge-btn {
+  padding: 3px 8px; background: var(--red); color: #fff;
+  font-size: 9px; font-weight: 700; border-radius: 5px; border: none; margin-left: auto;
+}
+.vc .pcc-focused-msg {
+  font-size: 10px; color: var(--emerald); font-weight: 600;
+  display: flex; align-items: center; gap: 4px;
+}
+
+/* C: Reward — bigger with glow halos */
+.vc .unlock-visual { width: 100%; text-align: center; }
+.vc .unlock-timer {
+  display: inline-flex; align-items: center; gap: 10px; padding: 12px 28px;
+  background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.3);
+  border-radius: 100px; margin-bottom: 20px;
+  box-shadow: 0 0 30px rgba(139,92,246,0.1);
+}
+.vc .unlock-apps { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
+.vc .unlock-app {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 16px; border-radius: 18px; width: 84px;
+  transition: all 0.3s ease; position: relative; background: transparent; border: none;
+}
+.vc .unlock-app::before {
+  content: ''; position: absolute; inset: 4px; border-radius: 16px; z-index: 0;
+  transition: all 0.3s ease; opacity: 0;
+}
+.vc .unlock-app:hover { transform: translateY(-8px) scale(1.05); }
+.vc .unlock-app:hover::before { opacity: 1; }
+.vc .unlock-app.app-yt::before { background: radial-gradient(circle at center, rgba(255,0,0,0.12), transparent 70%); box-shadow: 0 0 20px rgba(255,0,0,0.1); }
+.vc .unlock-app.app-ig::before { background: radial-gradient(circle at center, rgba(228,64,95,0.12), transparent 70%); box-shadow: 0 0 20px rgba(228,64,95,0.1); }
+.vc .unlock-app.app-tt::before { background: radial-gradient(circle at center, rgba(255,255,255,0.05), transparent 70%); box-shadow: 0 0 20px rgba(255,255,255,0.05); }
+.vc .unlock-app.app-rd::before { background: radial-gradient(circle at center, rgba(255,69,0,0.12), transparent 70%); box-shadow: 0 0 20px rgba(255,69,0,0.1); }
+
+.vc .unlock-app svg { width: 38px; height: 38px; position: relative; z-index: 1; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3)); }
+.vc .unlock-app .unlock-app-name { position: relative; z-index: 1; font-size: 10px; }
+.vc .unlock-badge {
+  display: inline-block; margin-top: 16px; padding: 6px 16px; border-radius: 20px;
+  font-size: 11px; font-weight: 700; color: var(--emerald);
+  background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.2);
+}
+
+@media (max-width: 900px) {
+  .va .how-bento, .vb .how-bento, .vc .how-bento {
+    grid-template-columns: 1fr; grid-template-rows: auto;
+  }
+  .va .how-card-main, .vb .how-card-main, .vc .how-card-main { grid-row: auto; }
+  .vc .pill-compare { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- Version Switcher -->
+<div class="version-nav">
+  <span class="version-nav-label">Compare:</span>
+  <button class="version-btn active" onclick="switchVersion('a')">A — Original</button>
+  <button class="version-btn" onclick="switchVersion('b')">B — Polished</button>
+  <button class="version-btn" onclick="switchVersion('c')">C — Tabs + Side-by-Side</button>
+</div>
+
+<!-- ═══════════════ VERSION A — Original ═══════════════ -->
+<div class="version-panel va active" id="version-a">
+  <div style="padding: 80px 0;">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-label">HOW IT WORKS</div>
+        <h2>How it works</h2>
+      </div>
+      <div class="how-bento">
+
+        <div class="how-card how-card-main how-card-emerald">
+          <div class="how-card-label">Step 01</div>
+          <h3>Tell the AI what you're working on</h3>
+          <div class="how-card-desc">It builds your schedule in under a minute. Drag the slider to see the result.</div>
+          <div class="how-card-mockup">
+            <div class="plan-slider-wrap" id="sliderA">
+              <div class="plan-slider-layer plan-slider-before">
+                <div class="chat-mockup">
+                  <div class="chat-bubble ai"><div class="chat-ai-label">Planning Coach</div>What are you working on today?</div>
+                  <div class="chat-bubble user">Shipping the landing page this morning, then reviewing PRs after lunch</div>
+                  <div class="chat-bubble ai">
+                    <div class="chat-ai-label">Planning Coach</div>Got it! Here's your plan:
+                    <div class="chat-mini-blocks">
+                      <div class="chat-mini-block c-deep">Ship landing page · 9–11 AM</div>
+                      <div class="chat-mini-block c-free">Break · 11–11:30</div>
+                      <div class="chat-mini-block c-focus">Review PRs · 11:30–1 PM</div>
+                      <div class="chat-mini-block c-free">Lunch · 1–2 PM</div>
+                      <div class="chat-mini-block c-deep">API integration · 2–4 PM</div>
+                    </div>
+                    <div class="chat-confirm">&#10003; 5 blocks · 4.5 hrs of focus time</div>
+                  </div>
+                </div>
+              </div>
+              <div class="plan-slider-after">
+                <div class="plan-slider-after-inner">
+                  <div class="sched-mockup">
+                    <div class="sched-mockup-header">Today's Schedule</div>
+                    <div class="sched-mockup-body">
+                      <div class="sched-time-col">
+                        <div class="sched-time-label">9 AM</div><div class="sched-time-label">10 AM</div>
+                        <div class="sched-time-label">11 AM</div><div class="sched-time-label">12 PM</div>
+                        <div class="sched-time-label">1 PM</div><div class="sched-time-label">2 PM</div>
+                        <div class="sched-time-label">3 PM</div>
+                      </div>
+                      <div class="sched-blocks-col">
+                        <div class="sched-now-line"></div>
+                        <div class="sched-block s-deep"><div class="sched-block-badge">DEEP WORK</div><div class="sched-block-title">Ship landing page</div><div class="sched-block-time">9:00 – 11:00 AM</div></div>
+                        <div class="sched-block s-free"><div class="sched-block-badge">FREE TIME</div><div class="sched-block-title">Break</div><div class="sched-block-time">11:00 – 11:30 AM</div></div>
+                        <div class="sched-block s-focus"><div class="sched-block-badge">FOCUS</div><div class="sched-block-title">Review PRs + respond</div><div class="sched-block-time">11:30 AM – 1:00 PM</div></div>
+                        <div class="sched-block s-free"><div class="sched-block-badge">FREE TIME</div><div class="sched-block-title">Lunch</div><div class="sched-block-time">1:00 – 2:00 PM</div></div>
+                        <div class="sched-block s-deep"><div class="sched-block-badge">DEEP WORK</div><div class="sched-block-title">API integration</div><div class="sched-block-time">2:00 – 4:00 PM</div></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="plan-slider-handle" id="handleA"></div>
+              <div class="plan-slider-labels"><span>AI conversation</span><span>Your schedule</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="how-card how-card-red">
+          <div class="how-card-label">Step 02</div>
+          <h3>It knows when you drift</h3>
+          <div class="how-card-desc">A floating pill tracks your focus in real time.</div>
+          <div class="how-card-mockup">
+            <div class="pill-states">
+              <div>
+                <div class="pill-state-row">
+                  <div class="pill-state-tag on-task">On task</div>
+                  <div class="pill-mock"><span class="p-dot indigo"></span><span class="p-label">Vibe coding</span><span class="p-time">32:14</span></div>
+                </div>
+              </div>
+              <div>
+                <div class="pill-state-row">
+                  <div class="pill-state-tag off-task">Drifted</div>
+                  <div class="pill-mock pill-mock-distracted"><span class="p-dot red"></span><span class="p-label">Not related to your task</span><span class="p-time">32:14</span></div>
+                </div>
+                <div class="pill-nudge-card"><span>&#8592; Back to Task</span><button class="pill-nudge-btn">Go back</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="how-card how-card-violet">
+          <div class="how-card-label">Step 03</div>
+          <h3>Earn your scroll</h3>
+          <div class="how-card-desc">5 min focus = 1 min guilt-free browsing.</div>
+          <div class="how-card-mockup">
+            <div class="unlock-visual">
+              <div class="unlock-timer"><span class="unlock-timer-dot"></span><span class="unlock-timer-text">12 min</span><span class="unlock-timer-sub">earned</span></div>
+              <div class="unlock-apps">
+                <div class="unlock-app"><svg viewBox="0 0 24 24"><path class="u-yt" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.9 31.9 0 0 0 0 12a31.9 31.9 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1c.5-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.5 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg><span class="unlock-app-name">YouTube</span></div>
+                <div class="unlock-app"><svg viewBox="0 0 24 24"><path class="u-ig" d="M12 2.2c2.7 0 3 0 4.1.1 1 0 1.5.2 1.9.4.5.2.8.4 1.1.7.3.3.5.7.7 1.1.1.4.3.9.4 1.9 0 1 .1 1.4.1 4.1s0 3-.1 4.1c0 1-.2 1.5-.4 1.9-.2.5-.4.8-.7 1.1-.3.3-.7.5-1.1.7-.4.1-.9.3-1.9.4-1 0-1.4.1-4.1.1s-3 0-4.1-.1c-1 0-1.5-.2-1.9-.4a3.1 3.1 0 0 1-1.1-.7c-.3-.3-.5-.7-.7-1.1-.1-.4-.3-.9-.4-1.9 0-1-.1-1.4-.1-4.1s0-3 .1-4.1c0-1 .2-1.5.4-1.9.2-.5.4-.8.7-1.1.3-.3.7-.5 1.1-.7.4-.1.9-.3 1.9-.4 1 0 1.4-.1 4.1-.1zM12 0C9.3 0 8.9 0 7.9.1 6.8.1 6 .3 5.4.5c-.7.3-1.3.6-1.9 1.2S2.5 2.9 2.2 3.5c-.3.7-.5 1.4-.6 2.5C1.5 7 1.5 7.4 1.5 12s0 5 .1 6c.1 1.1.3 1.9.6 2.5.3.7.6 1.3 1.2 1.9s1.2.9 1.9 1.2c.7.3 1.4.5 2.5.6 1 0 1.4.1 6 .1s5 0 6-.1c1.1-.1 1.9-.3 2.5-.6.7-.3 1.3-.6 1.9-1.2s.9-1.2 1.2-1.9c.3-.7.5-1.4.6-2.5 0-1 .1-1.4.1-6s0-5-.1-6c-.1-1.1-.3-1.9-.6-2.5-.3-.7-.6-1.3-1.2-1.9S19.1.8 18.5.5C17.8.3 17.1.1 16 0 15 0 14.7 0 12 0zm0 5.8a6.2 6.2 0 1 0 0 12.4 6.2 6.2 0 0 0 0-12.4zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.4-11.8a1.4 1.4 0 1 0 0 2.9 1.4 1.4 0 0 0 0-2.9z"/></svg><span class="unlock-app-name">Instagram</span></div>
+                <div class="unlock-app"><svg viewBox="0 0 24 24"><path class="u-tt" d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.88-2.89 2.89 2.89 0 0 1 2.88-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 0 0-.79-.05 6.34 6.34 0 0 0-6.33 6.34 6.34 6.34 0 0 0 6.33 6.34A6.34 6.34 0 0 0 15.82 15.3V8.73a8.19 8.19 0 0 0 4.77 1.53V6.81a4.83 4.83 0 0 1-1-.12z"/></svg><span class="unlock-app-name">TikTok</span></div>
+                <div class="unlock-app"><svg viewBox="0 0 24 24"><path class="u-rd" d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 13.28c.03.2.04.4.04.6 0 3.07-3.58 5.57-8 5.57-4.42 0-8-2.5-8-5.57 0-.2.01-.4.04-.6A1.52 1.52 0 0 1 .5 12.2a1.5 1.5 0 0 1 2.56-1.07 7.33 7.33 0 0 1 3.99-1.26l.74-3.49a.32.32 0 0 1 .38-.25l2.42.52a1.06 1.06 0 1 1-.12.56l-2.17-.46-.66 3.12a7.29 7.29 0 0 1 3.89 1.25 1.5 1.5 0 1 1 1.64 2.45 1.52 1.52 0 0 1-1.16-.19zM9.5 13a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5zm5 0a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5zm-4.74 3.78c-.07-.07-.07-.18 0-.25a.18.18 0 0 1 .25 0c.6.6 1.49.92 2.49.92s1.89-.32 2.49-.92a.18.18 0 0 1 .25 0c.07.07.07.18 0 .25-.7.7-1.67 1.05-2.74 1.05s-2.04-.35-2.74-1.05z"/></svg><span class="unlock-app-name">Reddit</span></div>
+              </div>
+              <div class="unlock-badge">Earned from 1h of focus</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ VERSION B — Polished ═══════════════ -->
+<div class="version-panel vb" id="version-b">
+  <div style="padding: 80px 0;">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-label">HOW IT WORKS</div>
+        <h2>How it works</h2>
+      </div>
+      <div class="how-bento">
+
+        <div class="how-card how-card-main how-card-emerald">
+          <div class="how-card-label">Step 01</div>
+          <h3>Tell the AI what you're working on</h3>
+          <div class="how-card-desc">It builds your schedule in under a minute. Drag to see the result.</div>
+          <div class="how-card-mockup">
+            <div class="plan-slider-wrap" id="sliderB">
+              <div class="plan-slider-layer plan-slider-before">
+                <div class="chat-mockup">
+                  <div class="chat-bubble ai"><div class="chat-ai-label">Planning Coach</div>What are you working on today?</div>
+                  <div class="chat-bubble user">Shipping the landing page this morning, then reviewing PRs after lunch</div>
+                  <div class="chat-bubble ai">
+                    <div class="chat-ai-label">Planning Coach</div>Got it! Here's your plan:
+                    <div class="chat-mini-blocks">
+                      <div class="chat-mini-block c-deep">Ship landing page · 9–11 AM</div>
+                      <div class="chat-mini-block c-free">Break · 11–11:30</div>
+                      <div class="chat-mini-block c-focus">Review PRs · 11:30–1 PM</div>
+                      <div class="chat-mini-block c-free">Lunch · 1–2 PM</div>
+                      <div class="chat-mini-block c-deep">API integration · 2–4 PM</div>
+                    </div>
+                    <div class="chat-confirm">&#10003; 5 blocks · 4.5 hrs of focus time</div>
+                  </div>
+                </div>
+              </div>
+              <div class="plan-slider-after">
+                <div class="plan-slider-after-inner">
+                  <div class="sched-mockup">
+                    <div class="sched-mockup-header">Today's Schedule</div>
+                    <div class="sched-mockup-body">
+                      <div class="sched-time-col">
+                        <div class="sched-time-label">9 AM</div><div class="sched-time-label">10 AM</div>
+                        <div class="sched-time-label">11 AM</div><div class="sched-time-label">12 PM</div>
+                        <div class="sched-time-label">1 PM</div><div class="sched-time-label">2 PM</div>
+                        <div class="sched-time-label">3 PM</div>
+                      </div>
+                      <div class="sched-blocks-col">
+                        <div class="sched-now-line"></div>
+                        <div class="sched-block s-deep"><div class="sched-block-badge">DEEP WORK</div><div class="sched-block-title">Ship landing page</div><div class="sched-block-time">9:00 – 11:00 AM</div></div>
+                        <div class="sched-block s-free"><div class="sched-block-badge">FREE TIME</div><div class="sched-block-title">Break</div><div class="sched-block-time">11:00 – 11:30 AM</div></div>
+                        <div class="sched-block s-focus"><div class="sched-block-badge">FOCUS</div><div class="sched-block-title">Review PRs + respond</div><div class="sched-block-time">11:30 AM – 1:00 PM</div></div>
+                        <div class="sched-block s-free"><div class="sched-block-badge">FREE TIME</div><div class="sched-block-title">Lunch</div><div class="sched-block-time">1:00 – 2:00 PM</div></div>
+                        <div class="sched-block s-deep"><div class="sched-block-badge">DEEP WORK</div><div class="sched-block-title">API integration</div><div class="sched-block-time">2:00 – 4:00 PM</div></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="plan-slider-handle" id="handleB"></div>
+              <div class="plan-slider-labels"><span>AI conversation</span><span>Your schedule</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="how-card how-card-red">
+          <div class="how-card-label">Step 02</div>
+          <h3>It knows when you drift</h3>
+          <div class="how-card-desc">A floating pill tracks your focus in real time.</div>
+          <div class="how-card-mockup">
+            <div class="pill-states">
+              <div class="pill-state-card card-focused">
+                <div class="pill-state-card-label">Focused</div>
+                <div class="pill-mock"><span class="p-dot indigo"></span><span class="p-label">Vibe coding</span><span class="p-time">32:14</span></div>
+              </div>
+              <div class="pill-state-card card-distracted">
+                <div class="pill-state-card-label">Distracted</div>
+                <div class="pill-mock pill-mock-distracted"><span class="p-dot red"></span><span class="p-label">Not related to your task</span><span class="p-time">32:14</span></div>
+                <div class="pill-nudge-card"><span>&#8592; Back to Task</span><button class="pill-nudge-btn">Go back</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="how-card how-card-violet">
+          <div class="how-card-label">Step 03</div>
+          <h3>Earn your scroll</h3>
+          <div class="how-card-desc">5 min focus = 1 min guilt-free browsing.</div>
+          <div class="how-card-mockup">
+            <div class="unlock-visual">
+              <div class="unlock-timer"><span class="unlock-timer-dot"></span><span class="unlock-timer-text">12 min</span><span class="unlock-timer-sub">earned</span></div>
+              <div class="unlock-apps">
+                <div class="unlock-app app-yt"><svg viewBox="0 0 24 24"><path class="u-yt" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.9 31.9 0 0 0 0 12a31.9 31.9 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1c.5-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.5 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg><span class="unlock-app-name">YouTube</span></div>
+                <div class="unlock-app app-ig"><svg viewBox="0 0 24 24"><path class="u-ig" d="M12 2.2c2.7 0 3 0 4.1.1 1 0 1.5.2 1.9.4.5.2.8.4 1.1.7.3.3.5.7.7 1.1.1.4.3.9.4 1.9 0 1 .1 1.4.1 4.1s0 3-.1 4.1c0 1-.2 1.5-.4 1.9-.2.5-.4.8-.7 1.1-.3.3-.7.5-1.1.7-.4.1-.9.3-1.9.4-1 0-1.4.1-4.1.1s-3 0-4.1-.1c-1 0-1.5-.2-1.9-.4a3.1 3.1 0 0 1-1.1-.7c-.3-.3-.5-.7-.7-1.1-.1-.4-.3-.9-.4-1.9 0-1-.1-1.4-.1-4.1s0-3 .1-4.1c0-1 .2-1.5.4-1.9.2-.5.4-.8.7-1.1.3-.3.7-.5 1.1-.7.4-.1.9-.3 1.9-.4 1 0 1.4-.1 4.1-.1zM12 0C9.3 0 8.9 0 7.9.1 6.8.1 6 .3 5.4.5c-.7.3-1.3.6-1.9 1.2S2.5 2.9 2.2 3.5c-.3.7-.5 1.4-.6 2.5C1.5 7 1.5 7.4 1.5 12s0 5 .1 6c.1 1.1.3 1.9.6 2.5.3.7.6 1.3 1.2 1.9s1.2.9 1.9 1.2c.7.3 1.4.5 2.5.6 1 0 1.4.1 6 .1s5 0 6-.1c1.1-.1 1.9-.3 2.5-.6.7-.3 1.3-.6 1.9-1.2s.9-1.2 1.2-1.9c.3-.7.5-1.4.6-2.5 0-1 .1-1.4.1-6s0-5-.1-6c-.1-1.1-.3-1.9-.6-2.5-.3-.7-.6-1.3-1.2-1.9S19.1.8 18.5.5C17.8.3 17.1.1 16 0 15 0 14.7 0 12 0zm0 5.8a6.2 6.2 0 1 0 0 12.4 6.2 6.2 0 0 0 0-12.4zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.4-11.8a1.4 1.4 0 1 0 0 2.9 1.4 1.4 0 0 0 0-2.9z"/></svg><span class="unlock-app-name">Instagram</span></div>
+                <div class="unlock-app app-tt"><svg viewBox="0 0 24 24"><path class="u-tt" d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.88-2.89 2.89 2.89 0 0 1 2.88-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 0 0-.79-.05 6.34 6.34 0 0 0-6.33 6.34 6.34 6.34 0 0 0 6.33 6.34A6.34 6.34 0 0 0 15.82 15.3V8.73a8.19 8.19 0 0 0 4.77 1.53V6.81a4.83 4.83 0 0 1-1-.12z"/></svg><span class="unlock-app-name">TikTok</span></div>
+                <div class="unlock-app app-rd"><svg viewBox="0 0 24 24"><path class="u-rd" d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 13.28c.03.2.04.4.04.6 0 3.07-3.58 5.57-8 5.57-4.42 0-8-2.5-8-5.57 0-.2.01-.4.04-.6A1.52 1.52 0 0 1 .5 12.2a1.5 1.5 0 0 1 2.56-1.07 7.33 7.33 0 0 1 3.99-1.26l.74-3.49a.32.32 0 0 1 .38-.25l2.42.52a1.06 1.06 0 1 1-.12.56l-2.17-.46-.66 3.12a7.29 7.29 0 0 1 3.89 1.25 1.5 1.5 0 1 1 1.64 2.45 1.52 1.52 0 0 1-1.16-.19zM9.5 13a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5zm5 0a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5zm-4.74 3.78c-.07-.07-.07-.18 0-.25a.18.18 0 0 1 .25 0c.6.6 1.49.92 2.49.92s1.89-.32 2.49-.92a.18.18 0 0 1 .25 0c.07.07.07.18 0 .25-.7.7-1.67 1.05-2.74 1.05s-2.04-.35-2.74-1.05z"/></svg><span class="unlock-app-name">Reddit</span></div>
+              </div>
+              <div class="unlock-badge">Earned from 1h of focus</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ VERSION C — Tabs + Side-by-Side ═══════════════ -->
+<div class="version-panel vc" id="version-c">
+  <div style="padding: 80px 0;">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-label">HOW IT WORKS</div>
+        <h2>How it works</h2>
+      </div>
+      <div class="how-bento">
+
+        <div class="how-card how-card-main how-card-emerald">
+          <div class="how-card-label">Step 01</div>
+          <h3>Tell the AI what you're working on</h3>
+          <div class="how-card-desc">It builds your schedule in under a minute.</div>
+          <div class="how-card-mockup">
+            <div class="plan-tabs">
+              <div class="plan-tab-bar">
+                <button class="plan-tab-btn active" onclick="switchPlanTab('chat')">AI Conversation</button>
+                <button class="plan-tab-btn" onclick="switchPlanTab('sched')">Your Schedule</button>
+              </div>
+              <div class="plan-tab-content">
+                <div class="plan-tab-panel active" id="tab-chat">
+                  <div class="chat-mockup">
+                    <div class="chat-bubble ai"><div class="chat-ai-label">Planning Coach</div>What are you working on today?</div>
+                    <div class="chat-bubble user">Shipping the landing page this morning, then reviewing PRs after lunch</div>
+                    <div class="chat-bubble ai">
+                      <div class="chat-ai-label">Planning Coach</div>Got it! Here's your plan:
+                      <div class="chat-mini-blocks">
+                        <div class="chat-mini-block c-deep">Ship landing page · 9–11 AM</div>
+                        <div class="chat-mini-block c-free">Break · 11–11:30</div>
+                        <div class="chat-mini-block c-focus">Review PRs · 11:30–1 PM</div>
+                        <div class="chat-mini-block c-free">Lunch · 1–2 PM</div>
+                        <div class="chat-mini-block c-deep">API integration · 2–4 PM</div>
+                      </div>
+                      <div class="chat-confirm">&#10003; 5 blocks · 4.5 hrs of focus time</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="plan-tab-panel" id="tab-sched">
+                  <div class="sched-mockup">
+                    <div class="sched-mockup-header">Today's Schedule</div>
+                    <div class="sched-mockup-body">
+                      <div class="sched-time-col">
+                        <div class="sched-time-label">9 AM</div><div class="sched-time-label">10 AM</div>
+                        <div class="sched-time-label">11 AM</div><div class="sched-time-label">12 PM</div>
+                        <div class="sched-time-label">1 PM</div><div class="sched-time-label">2 PM</div>
+                        <div class="sched-time-label">3 PM</div>
+                      </div>
+                      <div class="sched-blocks-col">
+                        <div class="sched-now-line"></div>
+                        <div class="sched-block s-deep"><div class="sched-block-badge">DEEP WORK</div><div class="sched-block-title">Ship landing page</div><div class="sched-block-time">9:00 – 11:00 AM</div></div>
+                        <div class="sched-block s-free"><div class="sched-block-badge">FREE TIME</div><div class="sched-block-title">Break</div><div class="sched-block-time">11:00 – 11:30 AM</div></div>
+                        <div class="sched-block s-focus"><div class="sched-block-badge">FOCUS</div><div class="sched-block-title">Review PRs + respond</div><div class="sched-block-time">11:30 AM – 1:00 PM</div></div>
+                        <div class="sched-block s-free"><div class="sched-block-badge">FREE TIME</div><div class="sched-block-title">Lunch</div><div class="sched-block-time">1:00 – 2:00 PM</div></div>
+                        <div class="sched-block s-deep"><div class="sched-block-badge">DEEP WORK</div><div class="sched-block-title">API integration</div><div class="sched-block-time">2:00 – 4:00 PM</div></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="how-card how-card-red">
+          <div class="how-card-label">Step 02</div>
+          <h3>It knows when you drift</h3>
+          <div class="how-card-desc">A floating pill tracks your focus in real time.</div>
+          <div class="how-card-mockup">
+            <div class="pill-compare">
+              <div class="pill-compare-card pcc-focused">
+                <div class="pcc-label">Focused</div>
+                <div class="pcc-pill"><span class="p-dot indigo"></span><span class="p-label">Vibe coding</span><span class="p-time">32:14</span></div>
+                <div class="pcc-focused-msg">&#10003; Earning browse time</div>
+              </div>
+              <div class="pill-compare-card pcc-distracted">
+                <div class="pcc-label">Distracted</div>
+                <div class="pcc-pill"><span class="p-dot red"></span><span class="p-label">Off task</span><span class="p-time">32:14</span></div>
+                <div class="pcc-nudge"><span>&#8592; Back to Task</span><button class="pcc-nudge-btn">Go back</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="how-card how-card-violet">
+          <div class="how-card-label">Step 03</div>
+          <h3>Earn your scroll</h3>
+          <div class="how-card-desc">5 min focus = 1 min guilt-free browsing.</div>
+          <div class="how-card-mockup">
+            <div class="unlock-visual">
+              <div class="unlock-timer"><span class="unlock-timer-dot"></span><span class="unlock-timer-text">12 min</span><span class="unlock-timer-sub">earned</span></div>
+              <div class="unlock-apps">
+                <div class="unlock-app app-yt"><svg viewBox="0 0 24 24"><path class="u-yt" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.9 31.9 0 0 0 0 12a31.9 31.9 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1c.5-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.5 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg><span class="unlock-app-name">YouTube</span></div>
+                <div class="unlock-app app-ig"><svg viewBox="0 0 24 24"><path class="u-ig" d="M12 2.2c2.7 0 3 0 4.1.1 1 0 1.5.2 1.9.4.5.2.8.4 1.1.7.3.3.5.7.7 1.1.1.4.3.9.4 1.9 0 1 .1 1.4.1 4.1s0 3-.1 4.1c0 1-.2 1.5-.4 1.9-.2.5-.4.8-.7 1.1-.3.3-.7.5-1.1.7-.4.1-.9.3-1.9.4-1 0-1.4.1-4.1.1s-3 0-4.1-.1c-1 0-1.5-.2-1.9-.4a3.1 3.1 0 0 1-1.1-.7c-.3-.3-.5-.7-.7-1.1-.1-.4-.3-.9-.4-1.9 0-1-.1-1.4-.1-4.1s0-3 .1-4.1c0-1 .2-1.5.4-1.9.2-.5.4-.8.7-1.1.3-.3.7-.5 1.1-.7.4-.1.9-.3 1.9-.4 1 0 1.4-.1 4.1-.1zM12 0C9.3 0 8.9 0 7.9.1 6.8.1 6 .3 5.4.5c-.7.3-1.3.6-1.9 1.2S2.5 2.9 2.2 3.5c-.3.7-.5 1.4-.6 2.5C1.5 7 1.5 7.4 1.5 12s0 5 .1 6c.1 1.1.3 1.9.6 2.5.3.7.6 1.3 1.2 1.9s1.2.9 1.9 1.2c.7.3 1.4.5 2.5.6 1 0 1.4.1 6 .1s5 0 6-.1c1.1-.1 1.9-.3 2.5-.6.7-.3 1.3-.6 1.9-1.2s.9-1.2 1.2-1.9c.3-.7.5-1.4.6-2.5 0-1 .1-1.4.1-6s0-5-.1-6c-.1-1.1-.3-1.9-.6-2.5-.3-.7-.6-1.3-1.2-1.9S19.1.8 18.5.5C17.8.3 17.1.1 16 0 15 0 14.7 0 12 0zm0 5.8a6.2 6.2 0 1 0 0 12.4 6.2 6.2 0 0 0 0-12.4zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.4-11.8a1.4 1.4 0 1 0 0 2.9 1.4 1.4 0 0 0 0-2.9z"/></svg><span class="unlock-app-name">Instagram</span></div>
+                <div class="unlock-app app-tt"><svg viewBox="0 0 24 24"><path class="u-tt" d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.88-2.89 2.89 2.89 0 0 1 2.88-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 0 0-.79-.05 6.34 6.34 0 0 0-6.33 6.34 6.34 6.34 0 0 0 6.33 6.34A6.34 6.34 0 0 0 15.82 15.3V8.73a8.19 8.19 0 0 0 4.77 1.53V6.81a4.83 4.83 0 0 1-1-.12z"/></svg><span class="unlock-app-name">TikTok</span></div>
+                <div class="unlock-app app-rd"><svg viewBox="0 0 24 24"><path class="u-rd" d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 13.28c.03.2.04.4.04.6 0 3.07-3.58 5.57-8 5.57-4.42 0-8-2.5-8-5.57 0-.2.01-.4.04-.6A1.52 1.52 0 0 1 .5 12.2a1.5 1.5 0 0 1 2.56-1.07 7.33 7.33 0 0 1 3.99-1.26l.74-3.49a.32.32 0 0 1 .38-.25l2.42.52a1.06 1.06 0 1 1-.12.56l-2.17-.46-.66 3.12a7.29 7.29 0 0 1 3.89 1.25 1.5 1.5 0 1 1 1.64 2.45 1.52 1.52 0 0 1-1.16-.19zM9.5 13a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5zm5 0a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5zm-4.74 3.78c-.07-.07-.07-.18 0-.25a.18.18 0 0 1 .25 0c.6.6 1.49.92 2.49.92s1.89-.32 2.49-.92a.18.18 0 0 1 .25 0c.07.07.07.18 0 .25-.7.7-1.67 1.05-2.74 1.05s-2.04-.35-2.74-1.05z"/></svg><span class="unlock-app-name">Reddit</span></div>
+              </div>
+              <div class="unlock-badge">Earned from 1h of focus</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // Version switcher
+  window.switchVersion = function(v) {
+    document.querySelectorAll('.version-panel').forEach(function(p) { p.classList.remove('active'); });
+    document.querySelectorAll('.version-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.getElementById('version-' + v).classList.add('active');
+    event.target.classList.add('active');
+    // Re-init sliders for the newly visible panel
+    initAllSliders();
+  };
+
+  // Plan tab switcher (Version C)
+  window.switchPlanTab = function(tab) {
+    document.querySelectorAll('.plan-tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('.plan-tab-panel').forEach(function(p) { p.classList.remove('active'); });
+    event.target.classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+  };
+
+  // Generic slider init
+  function initSlider(wrapId, handleId) {
+    var wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    var handle = document.getElementById(handleId);
+    var afterEl = wrap.querySelector('.plan-slider-after');
+    var dragging = false;
+
+    function setPosition(pct) {
+      pct = Math.max(5, Math.min(95, pct));
+      handle.style.left = pct + '%';
+      afterEl.style.width = (100 - pct) + '%';
+    }
+    function getPercent(e) {
+      var rect = wrap.getBoundingClientRect();
+      var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      return ((clientX - rect.left) / rect.width) * 100;
+    }
+
+    handle.addEventListener('mousedown', function(e) { dragging = true; e.preventDefault(); });
+    handle.addEventListener('touchstart', function() { dragging = true; }, { passive: true });
+    document.addEventListener('mousemove', function(e) { if (dragging) setPosition(getPercent(e)); });
+    document.addEventListener('touchmove', function(e) { if (dragging) setPosition(getPercent(e)); }, { passive: true });
+    document.addEventListener('mouseup', function() { dragging = false; });
+    document.addEventListener('touchend', function() { dragging = false; });
+    wrap.addEventListener('click', function(e) { if (e.target !== handle) setPosition(getPercent(e)); });
+    setPosition(50);
+  }
+
+  function initAllSliders() {
+    initSlider('sliderA', 'handleA');
+    initSlider('sliderB', 'handleB');
+  }
+
+  initAllSliders();
+})();
+</script>
+</body>
+</html>

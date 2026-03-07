@@ -1,0 +1,2989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intentional — Focus That Actually Works</title>
+<style>
+/* ── Reset & Base ── */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0a0b;
+  --bg-elevated: #111113;
+  --bg-card: rgba(255,255,255,0.04);
+  --bg-card-hover: rgba(255,255,255,0.07);
+  --border: rgba(255,255,255,0.08);
+  --border-hover: rgba(255,255,255,0.15);
+  --text-primary: rgba(255,255,255,0.95);
+  --text-secondary: rgba(255,255,255,0.6);
+  --text-tertiary: rgba(255,255,255,0.35);
+
+  --emerald: #34d399;
+  --emerald-glow: rgba(52, 211, 153, 0.15);
+  --amber: #fbbf24;
+  --amber-glow: rgba(251, 191, 36, 0.15);
+  --violet: #8b5cf6;
+  --violet-glow: rgba(139, 92, 246, 0.15);
+  --red: #ef4444;
+  --red-glow: rgba(239, 68, 68, 0.15);
+
+  --silk-highlight: #d1fae5;
+  --silk-mid: #34d399;
+  --silk-shadow: #059669;
+  --silk-deep: #047857;
+
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, monospace;
+
+  --max-width: 1200px;
+  --section-gap: 140px;
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ── Grain texture ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Silk canvas ── */
+.silk-canvas-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.silk-canvas-wrap canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  opacity: 0.6;
+}
+
+/* ── Typography ── */
+h1 { font-size: clamp(42px, 6vw, 72px); font-weight: 800; line-height: 1.05; letter-spacing: -0.03em; }
+h2 { font-size: clamp(32px, 4vw, 48px); font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; }
+h3 { font-size: 22px; font-weight: 700; line-height: 1.3; }
+p { color: var(--text-secondary); font-size: 18px; line-height: 1.7; }
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--silk-highlight), var(--emerald), var(--silk-shadow));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.section-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.section-label.emerald { color: var(--emerald); }
+.section-label.amber { color: var(--amber); }
+.section-label.violet { color: var(--violet); }
+.section-label.red { color: var(--red); }
+
+/* ── Scroll reveal ── */
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Buttons ── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 36px;
+  background: var(--emerald);
+  color: #000;
+  font-family: var(--font);
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.25s ease;
+}
+.btn-primary:hover {
+  background: #3fe8a8;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(52, 211, 153, 0.3);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 36px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.25s ease;
+}
+.btn-ghost:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.btn-small {
+  padding: 10px 24px;
+  font-size: 14px;
+  border-radius: 10px;
+}
+
+/* ── Nav ── */
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(10, 10, 11, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.nav-logo-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--emerald);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.nav-logo-icon svg { width: 18px; height: 18px; }
+
+.nav-logo span {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.nav-links a {
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--text-primary); }
+
+.nav-cta {
+  padding: 8px 20px !important;
+  font-size: 14px !important;
+  border-radius: 8px !important;
+}
+
+/* ── HERO ── */
+.hero {
+  padding: 160px 0 100px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero .silk-canvas-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(10,10,11,0.55) 0%, rgba(10,10,11,0.88) 70%);
+  pointer-events: none;
+}
+
+.hero > .container {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 32px;
+}
+
+.hero-badge .pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--emerald);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(52, 211, 153, 0); }
+}
+
+.hero h1 {
+  max-width: 900px;
+  margin: 0 auto 24px;
+}
+
+.hero-sub {
+  max-width: 580px;
+  margin: 0 auto 48px;
+  font-size: 20px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.video-placeholder {
+  position: relative;
+  max-width: 900px;
+  margin: 0 auto 40px;
+  aspect-ratio: 16 / 9;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.video-placeholder:hover {
+  border-color: rgba(52, 211, 153, 0.3);
+  box-shadow: 0 0 60px rgba(52, 211, 153, 0.08);
+}
+
+.video-placeholder .play-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--emerald);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.video-placeholder:hover .play-btn {
+  transform: translate(-50%, -50%) scale(1.1);
+  box-shadow: 0 0 40px rgba(52, 211, 153, 0.4);
+}
+
+.play-btn .triangle {
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 12px 0 12px 22px;
+  border-color: transparent transparent transparent #000;
+  margin-left: 4px;
+}
+
+.video-label {
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-tertiary);
+  margin-top: 16px;
+}
+
+.hero-ctas {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.hero-note {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+/* ── Section header ── */
+.section-header {
+  text-align: center;
+  max-width: 680px;
+  margin: 0 auto 60px;
+}
+.section-header p {
+  margin-top: 16px;
+}
+
+/* ── Benefits (2x2 rich cards) ── */
+.benefits-section {
+  padding: var(--section-gap) 0;
+}
+
+.benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.benefit-card {
+  border-radius: 18px;
+  padding: 24px 20px 0;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s ease;
+  display: flex;
+  flex-direction: column;
+  min-height: 380px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.benefit-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(255,255,255,0.12);
+}
+
+/* Per-card gradient backgrounds */
+.benefit-card.card-violet {
+  background: linear-gradient(180deg, #13111a 0%, #1a1230 40%, #2d1b5e 100%);
+}
+.benefit-card.card-violet:hover {
+  box-shadow: 0 20px 60px rgba(139, 92, 246, 0.15);
+}
+
+.benefit-card.card-amber {
+  background: linear-gradient(180deg, #151210 0%, #1f1810 40%, #3d2a0a 100%);
+}
+.benefit-card.card-amber:hover {
+  box-shadow: 0 20px 60px rgba(251, 191, 36, 0.12);
+}
+
+.benefit-card.card-emerald {
+  background: linear-gradient(180deg, #0d1412 0%, #0f1f1a 40%, #0a3328 100%);
+}
+.benefit-card.card-emerald:hover {
+  box-shadow: 0 20px 60px rgba(52, 211, 153, 0.12);
+}
+
+.benefit-card.card-red {
+  background: linear-gradient(180deg, #151011 0%, #1f1012 40%, #3d1419 100%);
+}
+.benefit-card.card-red:hover {
+  box-shadow: 0 20px 60px rgba(239, 68, 68, 0.12);
+}
+
+.benefit-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  width: fit-content;
+}
+.benefit-tag.violet { background: var(--violet-glow); color: var(--violet); }
+.benefit-tag.amber { background: var(--amber-glow); color: var(--amber); }
+.benefit-tag.red { background: var(--red-glow); color: var(--red); }
+.benefit-tag.emerald { background: var(--emerald-glow); color: var(--emerald); }
+
+.benefit-text {
+  margin-bottom: 28px;
+}
+
+.benefit-card h3 {
+  font-size: 18px;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.benefit-card .benefit-desc {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+/* ── Benefit card mockups ── */
+.benefit-mockup {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 0;
+  position: relative;
+}
+
+/* Card 1: AI verdict mockup — two mini tabs */
+.ai-verdict-mockup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding-bottom: 24px;
+}
+
+.verdict-tab {
+  flex: 1;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 12px 14px;
+  backdrop-filter: blur(10px);
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  cursor: default;
+}
+.verdict-tab:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.5);
+  border-color: rgba(255,255,255,0.15);
+}
+
+.verdict-tab-url {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.verdict-tab-title {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 600;
+  margin-bottom: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.verdict-result {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.verdict-result.relevant { color: var(--emerald); }
+.verdict-result.irrelevant { color: var(--red); }
+
+.verdict-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.verdict-result.relevant .verdict-dot { background: var(--emerald); box-shadow: 0 0 8px rgba(52,211,153,0.5); }
+.verdict-result.irrelevant .verdict-dot { background: var(--red); box-shadow: 0 0 8px rgba(239,68,68,0.5); }
+
+/* Card 2: Escalation steps mockup */
+.escalation-mockup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding-bottom: 24px;
+}
+
+.escalation-step {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  backdrop-filter: blur(10px);
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.escalation-step:hover {
+  transform: translateY(-8px) scale(1.02);
+}
+
+.escalation-step.step-nudge:hover {
+  box-shadow: 0 12px 28px rgba(52, 211, 153, 0.2);
+  border-color: rgba(52, 211, 153, 0.4);
+}
+.escalation-step.step-tint:hover {
+  box-shadow: 0 12px 28px rgba(251, 191, 36, 0.2);
+  border-color: rgba(251, 191, 36, 0.4);
+}
+.escalation-step.step-block:hover {
+  box-shadow: 0 12px 28px rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* Color-coded escalation */
+.escalation-step.step-nudge {
+  border-left: 3px solid var(--emerald);
+}
+.escalation-step.step-tint {
+  border-left: 3px solid var(--amber);
+}
+.escalation-step.step-block {
+  border-left: 3px solid var(--red);
+}
+
+.escalation-step.step-nudge .escalation-label { color: var(--emerald); }
+.escalation-step.step-tint .escalation-label { color: var(--amber); }
+.escalation-step.step-block .escalation-label { color: var(--red); }
+
+.escalation-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.escalation-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.escalation-sub {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.escalation-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.escalation-arrow {
+  display: none;
+}
+
+/* Card 3: Earn bar mockup */
+.earn-card-mockup {
+  width: 100%;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px 12px 0 0;
+  padding: 16px;
+  backdrop-filter: blur(10px);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.earn-card-mockup:hover {
+  transform: translateY(-10px) scale(1.02);
+  box-shadow: 0 16px 36px rgba(0,0,0,0.5);
+  border-color: rgba(52, 211, 153, 0.2);
+}
+
+/* Distraction logos row */
+.distraction-logos {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  justify-content: center;
+}
+
+.distraction-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  cursor: default;
+}
+
+.distraction-logo:hover {
+  transform: translateY(-4px) scale(1.1);
+}
+
+.distraction-logo svg {
+  width: 18px;
+  height: 18px;
+}
+
+.distraction-logo.yt {
+  background: rgba(255, 0, 0, 0.15);
+  border: 1px solid rgba(255, 0, 0, 0.2);
+}
+.distraction-logo.yt:hover { box-shadow: 0 6px 16px rgba(255, 0, 0, 0.25); }
+.distraction-logo.yt svg { fill: #ff0000; }
+
+.distraction-logo.ig {
+  background: linear-gradient(135deg, rgba(252, 175, 69, 0.15), rgba(188, 42, 141, 0.15));
+  border: 1px solid rgba(225, 48, 108, 0.2);
+}
+.distraction-logo.ig:hover { box-shadow: 0 6px 16px rgba(225, 48, 108, 0.25); }
+.distraction-logo.ig svg { fill: #e1306c; }
+
+.distraction-logo.rd {
+  background: rgba(255, 69, 0, 0.12);
+  border: 1px solid rgba(255, 69, 0, 0.2);
+}
+.distraction-logo.rd:hover { box-shadow: 0 6px 16px rgba(255, 69, 0, 0.25); }
+.distraction-logo.rd svg { fill: #ff4500; }
+
+.distraction-logo.tt {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.distraction-logo.tt:hover { box-shadow: 0 6px 16px rgba(0, 242, 234, 0.2); }
+.distraction-logo.tt svg { fill: #fff; }
+
+.distraction-logo.tw {
+  background: rgba(29, 161, 242, 0.12);
+  border: 1px solid rgba(29, 161, 242, 0.2);
+}
+.distraction-logo.tw:hover { box-shadow: 0 6px 16px rgba(29, 161, 242, 0.25); }
+.distraction-logo.tw svg { fill: #1da1f2; }
+
+.earn-card-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 14px;
+}
+
+.earn-card-big {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.earn-card-big .earn-num {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--emerald);
+  font-family: var(--font-mono);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.earn-card-big .earn-unit {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.earn-card-bar {
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.earn-card-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  background: linear-gradient(90deg, var(--emerald), #6ee7b7);
+  width: 65%;
+  transition: width 1s ease;
+}
+
+.earn-card-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.earn-card-stats .earned { color: var(--emerald); font-weight: 600; }
+.earn-card-stats .used { color: var(--text-tertiary); }
+
+/* Card 4: Lock / partner mockup */
+.lock-mockup {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 24px;
+  gap: 16px;
+  transition: transform 0.3s ease;
+}
+.lock-mockup:hover {
+  transform: translateY(-10px);
+}
+
+.lock-icon-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: rgba(239, 68, 68, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  transition: box-shadow 0.3s ease;
+}
+.lock-mockup:hover .lock-icon-wrap {
+  box-shadow: 0 0 24px rgba(239, 68, 68, 0.4);
+}
+
+.lock-icon-wrap svg {
+  width: 24px;
+  height: 24px;
+  stroke: var(--red);
+}
+
+.code-input-row {
+  display: flex;
+  gap: 6px;
+}
+
+.code-digit {
+  width: 32px;
+  height: 40px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.code-digit.empty {
+  color: rgba(255,255,255,0.15);
+}
+
+.lock-status {
+  font-size: 12px;
+  color: var(--red);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ── Comparison table ── */
+.comparison-section {
+  padding: var(--section-gap) 0;
+}
+
+.comparison-table-wrap {
+  overflow-x: auto;
+  margin-top: 48px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+.comparison-table th,
+.comparison-table td {
+  padding: 16px 20px;
+  text-align: center;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.comparison-table th {
+  font-weight: 700;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.comparison-table th.highlight {
+  color: var(--emerald);
+}
+
+.comparison-table td:first-child {
+  text-align: left;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.comparison-table .col-highlight {
+  background: rgba(52, 211, 153, 0.04);
+}
+
+.comparison-table .check { color: var(--emerald); font-size: 18px; }
+.comparison-table .cross { color: var(--text-tertiary); font-size: 18px; opacity: 0.5; }
+.comparison-table .partial { color: var(--amber); font-size: 18px; }
+
+/* ── How it works (bento grid) ── */
+.how-section {
+  padding: 64px 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.how-section .silk-canvas-wrap canvas {
+  opacity: 0.85;
+}
+.how-section .silk-canvas-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(10,10,11,0.25) 0%, rgba(10,10,11,0.82) 70%);
+  pointer-events: none;
+}
+
+.how-section > .container {
+  position: relative;
+  z-index: 1;
+}
+
+.how-section .section-header {
+  margin-bottom: 0;
+}
+.how-section .section-header h2 {
+  margin-bottom: 0;
+}
+
+.how-bento {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.how-card {
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+  overflow: hidden;
+  border: 1px solid;
+  backdrop-filter: blur(8px);
+}
+.how-card:hover {
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  transform: translateY(-4px);
+}
+
+/* Card color themes */
+.how-card-emerald {
+  background: linear-gradient(180deg, rgba(10,18,16,0.9) 0%, rgba(13,31,24,0.9) 40%, rgba(15,46,34,0.9) 100%);
+  border-color: rgba(52, 211, 153, 0.15);
+}
+.how-card-emerald:hover { border-color: rgba(52, 211, 153, 0.35); box-shadow: 0 16px 48px rgba(52,211,153,0.08); }
+
+.how-card-red {
+  background: linear-gradient(180deg, rgba(18,10,10,0.9) 0%, rgba(31,13,13,0.9) 40%, rgba(46,15,15,0.9) 100%);
+  border-color: rgba(239, 68, 68, 0.15);
+}
+.how-card-red:hover { border-color: rgba(239, 68, 68, 0.35); box-shadow: 0 16px 48px rgba(239,68,68,0.08); }
+
+.how-card-violet {
+  background: linear-gradient(180deg, rgba(15,10,20,0.9) 0%, rgba(22,13,34,0.9) 40%, rgba(31,15,56,0.9) 100%);
+  border-color: rgba(139, 92, 246, 0.15);
+}
+.how-card-violet:hover { border-color: rgba(139, 92, 246, 0.35); box-shadow: 0 16px 48px rgba(139,92,246,0.08); }
+
+.how-card-main {
+  grid-row: 1 / 3;
+}
+
+.how-card-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.how-card-emerald .how-card-label { color: var(--emerald); }
+.how-card-red .how-card-label { color: var(--red); }
+.how-card-violet .how-card-label { color: var(--violet); }
+
+.how-card h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+
+.how-card-desc {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.how-card-mockup {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-height: 0;
+}
+
+/* Shimmer on hover for card labels */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.how-card:hover .how-card-label {
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 2s linear infinite;
+}
+.how-card-emerald:hover .how-card-label {
+  background-image: linear-gradient(90deg, var(--emerald), #a7f3d0, var(--emerald));
+}
+.how-card-red:hover .how-card-label {
+  background-image: linear-gradient(90deg, var(--red), #fca5a5, var(--red));
+}
+.how-card-violet:hover .how-card-label {
+  background-image: linear-gradient(90deg, var(--violet), #c4b5fd, var(--violet));
+}
+
+/* ── Plan slider (before/after) ── */
+.plan-slider {
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(52, 211, 153, 0.15);
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: ew-resize;
+}
+
+.plan-slider-layer {
+  width: 100%;
+  min-height: 240px;
+}
+
+/* Schedule = base layer (always visible behind) */
+.plan-slider-after {
+  position: relative;
+  z-index: 0;
+}
+.plan-slider-after .sched-mockup {
+  min-height: 240px;
+}
+
+/* Chat = overlay layer (clipped from right) */
+.plan-slider-before {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  clip-path: inset(0 50% 0 0);
+  overflow: hidden;
+}
+.plan-slider-before .chat-mockup {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Divider handle */
+.plan-slider-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  background: var(--emerald);
+  z-index: 3;
+  transform: translateX(-50%);
+  pointer-events: none;
+  box-shadow: 0 0 12px rgba(52,211,153,0.3);
+}
+
+.plan-slider-grip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--emerald);
+  border: 2px solid rgba(255,255,255,0.9);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4), 0 0 20px rgba(52,211,153,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: ew-resize;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.plan-slider-grip:hover {
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 2px 16px rgba(0,0,0,0.5), 0 0 28px rgba(52,211,153,0.4);
+}
+.plan-slider-grip::before {
+  content: '‹›';
+  font-size: 11px;
+  font-weight: 700;
+  color: #0a0a0b;
+  letter-spacing: 1px;
+  line-height: 1;
+}
+
+/* Floating labels */
+.plan-slider-label {
+  position: absolute;
+  top: 7px;
+  z-index: 4;
+  font-family: var(--font);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 5px;
+  pointer-events: none;
+  color: var(--emerald);
+  background: rgba(10,10,11,0.75);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(52,211,153,0.15);
+  transition: opacity 0.3s ease;
+}
+.plan-slider-label-left {
+  left: 7px;
+}
+.plan-slider-label-right {
+  right: 7px;
+}
+
+/* AI Chat mockup */
+.chat-mockup {
+  background: #0d1210;
+  padding: 10px 12px;
+  min-height: 240px;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.chat-bubble {
+  max-width: 85%;
+  padding: 7px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.45;
+  margin-bottom: 5px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.chat-bubble:hover {
+  transform: translateX(3px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.chat-bubble.user:hover {
+  transform: translateX(-3px);
+}
+
+.chat-bubble.ai {
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.15);
+  color: rgba(255,255,255,0.85);
+  border-bottom-left-radius: 4px;
+}
+.chat-bubble.ai .chat-ai-label {
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--emerald);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.chat-bubble.user {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.85);
+  margin-left: auto;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-confirm {
+  margin-top: 6px;
+  font-size: 9px;
+  color: var(--emerald);
+  font-weight: 600;
+}
+
+/* Schedule mockup (after side) */
+.sched-mockup {
+  background: #0f1512;
+  min-height: 240px;
+  padding: 0;
+}
+
+.sched-mockup-header {
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(52,211,153,0.08);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  letter-spacing: 0.05em;
+}
+
+.sched-mockup-body {
+  display: flex;
+}
+
+.sched-time-col {
+  padding: 6px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 32px;
+  border-right: 1px solid rgba(255,255,255,0.04);
+}
+
+.sched-time-label {
+  font-size: 7px;
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+  height: 34px;
+  display: flex;
+  align-items: flex-start;
+  padding-top: 2px;
+}
+
+.sched-blocks-col {
+  flex: 1;
+  padding: 6px 8px 6px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: relative;
+}
+
+.sched-block {
+  border-radius: 5px;
+  padding: 4px 6px;
+  border-left: 3px solid;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: default;
+}
+.sched-block:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.sched-block-title {
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.85);
+}
+.sched-block-time {
+  font-size: 7px;
+  color: rgba(255,255,255,0.35);
+  margin-top: 1px;
+}
+.sched-block-badge {
+  float: right;
+  font-size: 6px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sched-block.s-deep {
+  background: rgba(239,68,68,0.12);
+  border-left-color: #ef4444;
+  min-height: 50px;
+}
+.sched-block.s-deep:hover { background: rgba(239,68,68,0.18); }
+.sched-block.s-deep .sched-block-badge { color: #f87171; }
+
+.sched-block.s-focus {
+  background: rgba(139,92,246,0.12);
+  border-left-color: #8b5cf6;
+  min-height: 38px;
+}
+.sched-block.s-focus:hover { background: rgba(139,92,246,0.18); }
+.sched-block.s-focus .sched-block-badge { color: #a78bfa; }
+
+.sched-block.s-free {
+  background: rgba(52,211,153,0.08);
+  border-left-color: #34d399;
+  min-height: 24px;
+}
+.sched-block.s-free:hover { background: rgba(52,211,153,0.14); }
+.sched-block.s-free .sched-block-badge { color: #34d399; }
+
+.sched-now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--emerald);
+  top: 35%;
+  z-index: 2;
+}
+.sched-now-line::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--emerald);
+}
+
+/* ── Pill side-by-side comparison ── */
+.pill-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+}
+.pill-compare-card {
+  padding: 12px 10px;
+  border-radius: 10px;
+  border: 1px solid;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.pill-compare-card:hover { transform: translateY(-3px); }
+.pill-compare-card.pcc-focused {
+  background: rgba(52,211,153,0.03);
+  border-color: rgba(52,211,153,0.12);
+}
+.pill-compare-card.pcc-focused:hover { box-shadow: 0 8px 24px rgba(52,211,153,0.12); border-color: rgba(52,211,153,0.3); }
+.pill-compare-card.pcc-distracted {
+  background: rgba(239,68,68,0.03);
+  border-color: rgba(239,68,68,0.12);
+}
+.pill-compare-card.pcc-distracted:hover { box-shadow: 0 8px 24px rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.3); }
+
+.pcc-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.pcc-focused .pcc-label { color: var(--emerald); }
+.pcc-distracted .pcc-label { color: var(--red); }
+
+.pcc-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  background: rgba(15,15,18,0.95);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  font-size: 10px;
+}
+.pcc-distracted .pcc-pill { border-color: rgba(239,68,68,0.2); }
+.pcc-pill .p-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.pcc-pill .p-dot.indigo { background: #818cf8; box-shadow: 0 0 8px rgba(129,140,248,0.5); }
+.pcc-pill .p-dot.red { background: var(--red); animation: pulse-red 1.5s ease-in-out infinite; }
+.pcc-pill .p-label { flex: 1; font-weight: 500; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pcc-distracted .pcc-pill .p-label { color: var(--red); font-weight: 600; }
+.pcc-pill .p-time { font-family: var(--font-mono); font-size: 10px; font-weight: 600; color: var(--text-secondary); }
+
+.pcc-nudge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  background: rgba(239,68,68,0.06);
+  border: 1px solid rgba(239,68,68,0.15);
+  border-radius: 7px;
+  font-size: 9px;
+  color: var(--text-secondary);
+}
+.pcc-nudge-btn {
+  padding: 2px 7px;
+  background: var(--red);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  border-radius: 4px;
+  border: none;
+  margin-left: auto;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+}
+.pcc-nudge-btn:hover { transform: scale(1.08); box-shadow: 0 2px 8px rgba(239,68,68,0.3); }
+.pcc-focused-msg {
+  font-size: 9px;
+  color: var(--emerald);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Unlocked social media ── */
+.unlock-visual {
+  width: 100%;
+  text-align: center;
+}
+
+.unlock-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  background: rgba(139,92,246,0.12);
+  border: 1px solid rgba(139,92,246,0.3);
+  border-radius: 100px;
+  margin-bottom: 14px;
+  box-shadow: 0 0 30px rgba(139,92,246,0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.unlock-timer:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 40px rgba(139,92,246,0.2);
+}
+.unlock-timer-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--violet);
+  box-shadow: 0 0 8px rgba(139,92,246,0.5);
+  animation: pulse-violet 1.5s ease-in-out infinite;
+}
+@keyframes pulse-violet {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(139,92,246,0.5); }
+  50% { box-shadow: 0 0 0 5px rgba(139,92,246,0); }
+}
+.unlock-timer-text { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.unlock-timer-sub { font-size: 10px; color: var(--violet); font-weight: 600; }
+
+.unlock-apps {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.unlock-app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 14px;
+  width: 68px;
+  transition: all 0.3s ease;
+  position: relative;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.unlock-app::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 16px;
+  z-index: 0;
+  transition: all 0.3s ease;
+  opacity: 0;
+}
+.unlock-app:hover { transform: translateY(-8px) scale(1.05); }
+.unlock-app:hover::before { opacity: 1; }
+.unlock-app.app-yt::before { background: radial-gradient(circle, rgba(255,0,0,0.12), transparent 70%); box-shadow: 0 0 20px rgba(255,0,0,0.1); }
+.unlock-app.app-ig::before { background: radial-gradient(circle, rgba(228,64,95,0.12), transparent 70%); box-shadow: 0 0 20px rgba(228,64,95,0.1); }
+.unlock-app.app-tt::before { background: radial-gradient(circle, rgba(255,255,255,0.05), transparent 70%); box-shadow: 0 0 20px rgba(255,255,255,0.05); }
+.unlock-app.app-rd::before { background: radial-gradient(circle, rgba(255,69,0,0.12), transparent 70%); box-shadow: 0 0 20px rgba(255,69,0,0.1); }
+
+.unlock-app svg {
+  width: 32px;
+  height: 32px;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
+  transition: transform 0.3s ease;
+}
+.unlock-app:hover svg {
+  transform: scale(1.15) rotate(-3deg);
+}
+.unlock-app-name {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  position: relative;
+  z-index: 1;
+}
+
+.unlock-badge {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--emerald);
+  background: rgba(52,211,153,0.08);
+  border: 1px solid rgba(52,211,153,0.2);
+}
+
+/* Browser mockup */
+.browser-mockup {
+  background: #1a1a1e;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.browser-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid var(--border);
+}
+
+.browser-dots {
+  display: flex;
+  gap: 6px;
+}
+.browser-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+}
+
+.browser-url {
+  flex: 1;
+  background: rgba(255,255,255,0.05);
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.browser-content {
+  position: relative;
+  padding: 24px;
+  min-height: 200px;
+}
+
+.browser-page {}
+.fake-heading {
+  height: 20px;
+  width: 60%;
+  background: rgba(255,255,255,0.08);
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+.fake-text {
+  height: 12px;
+  width: 90%;
+  background: rgba(255,255,255,0.04);
+  border-radius: 3px;
+  margin-bottom: 8px;
+}
+
+.browser-dimmer {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+}
+
+.nudge-toast {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1c1c20;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 14px;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  white-space: nowrap;
+}
+
+.nudge-toast-text {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.nudge-toast-btn {
+  padding: 6px 16px;
+  background: var(--red);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+.mockup-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(20, 20, 24, 0.95);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.mockup-pill .pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  animation: pulse-red 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
+}
+@keyframes pulse-indigo {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(129,140,248,0.5); }
+  50% { box-shadow: 0 0 0 4px rgba(129,140,248,0); }
+}
+.pcc-pill .p-dot.indigo { animation: pulse-indigo 2s ease-in-out infinite; }
+
+.mockup-pill .pill-time {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* Earned browse mockup */
+.earn-mockup {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  max-width: 360px;
+}
+
+.earn-mockup-header {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 16px;
+}
+
+.earn-bar-track {
+  height: 20px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden;
+  display: flex;
+  margin-bottom: 8px;
+}
+
+.earn-bar-green {
+  width: 60%;
+  background: var(--emerald);
+  border-radius: 10px 0 0 10px;
+}
+
+.earn-bar-red {
+  width: 22%;
+  background: var(--red);
+}
+
+.earn-bar-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.earn-bar-labels span:first-child { color: var(--emerald); font-weight: 600; }
+.earn-bar-labels span:last-child { color: var(--red); font-weight: 600; }
+
+.earn-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.earn-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.earn-row .positive { color: var(--emerald); font-family: var(--font-mono); font-weight: 600; }
+.earn-row .negative { color: var(--red); font-family: var(--font-mono); font-weight: 600; }
+
+/* ── Social proof (tweet-style) ── */
+.social-section {
+  padding: var(--section-gap) 0;
+}
+
+.tweet-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.tweet-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  transition: all 0.3s ease;
+}
+.tweet-card:hover {
+  border-color: rgba(52, 211, 153, 0.2);
+  transform: translateY(-3px);
+}
+
+.tweet-handle {
+  font-size: 13px;
+  color: var(--emerald);
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.tweet-text {
+  font-size: 15px;
+  color: var(--text-primary);
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+/* Masonry-like: span last card across if odd */
+.tweet-card.span-full {
+  grid-column: 1 / -1;
+  max-width: calc(33.333% - 14px);
+  margin: 0 auto;
+}
+
+/* ── Pricing ── */
+.pricing-section {
+  padding: var(--section-gap) 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.pricing-section .silk-canvas-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(10,10,11,0.7) 0%, rgba(10,10,11,0.92) 70%);
+  pointer-events: none;
+}
+
+.pricing-section > .container {
+  position: relative;
+  z-index: 1;
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  max-width: 720px;
+  margin: 48px auto 0;
+}
+
+.pricing-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 36px;
+  text-align: center;
+  position: relative;
+  transition: all 0.3s ease;
+}
+.pricing-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-hover);
+}
+
+.pricing-card.featured {
+  border-color: var(--emerald);
+  box-shadow: 0 0 40px rgba(52, 211, 153, 0.1);
+}
+
+.pricing-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--emerald);
+  color: #000;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 16px;
+  border-radius: 100px;
+}
+
+.pricing-plan {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.pricing-price {
+  font-size: 48px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-bottom: 4px;
+}
+
+.pricing-price span {
+  font-size: 18px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.pricing-note {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin-bottom: 28px;
+}
+
+.pricing-features {
+  list-style: none;
+  text-align: left;
+  margin-bottom: 28px;
+}
+
+.pricing-features li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  padding: 6px 0;
+}
+
+.pricing-features li::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--emerald-glow);
+  flex-shrink: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%2334d399' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 10px;
+}
+
+.pricing-guarantee {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 14px;
+  color: var(--text-tertiary);
+}
+
+/* ── FAQ ── */
+.faq-section {
+  padding: var(--section-gap) 0;
+}
+
+.faq-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-top: 48px;
+}
+
+.faq-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  transition: all 0.3s ease;
+}
+.faq-item:hover {
+  border-color: rgba(52, 211, 153, 0.2);
+}
+
+.faq-item h3 {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.faq-item p {
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+/* ── Final CTA ── */
+.final-cta {
+  padding: var(--section-gap) 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.final-cta .silk-canvas-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(10,10,11,0.5) 0%, rgba(10,10,11,0.88) 70%);
+  pointer-events: none;
+}
+
+.final-cta > .container {
+  position: relative;
+  z-index: 1;
+}
+
+.final-cta h2 {
+  margin-bottom: 16px;
+}
+
+.final-cta p {
+  max-width: 560px;
+  margin: 0 auto 36px;
+}
+
+.final-cta .sys-req {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+/* ── Get Started (download + setup) ── */
+.get-started-section {
+  padding: 80px 0 64px;
+  border-top: 1px solid var(--border);
+}
+
+.get-started-section .section-header {
+  margin-bottom: 40px;
+}
+
+.download-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  max-width: 720px;
+  margin: 0 auto 48px;
+}
+
+.dl-card {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 24px;
+  text-align: center;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+}
+.dl-card:hover {
+  border-color: rgba(52,211,153,0.3);
+  box-shadow: 0 12px 36px rgba(0,0,0,0.3);
+  transform: translateY(-3px);
+}
+
+.dl-card-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+  line-height: 1;
+}
+
+.dl-card h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+}
+
+.dl-card-sub {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.dl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+.dl-btn-primary {
+  background: var(--emerald);
+  color: #0a0a0b;
+}
+.dl-btn-primary:hover {
+  background: #6ee7b7;
+  box-shadow: 0 4px 16px rgba(52,211,153,0.3);
+}
+.dl-btn-chrome {
+  background: rgba(255,255,255,0.08);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+.dl-btn-chrome:hover {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.2);
+}
+
+.dl-card-meta {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* Setup steps */
+.setup-steps {
+  max-width: 720px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  text-align: center;
+}
+
+.setup-step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(52,211,153,0.1);
+  border: 1px solid rgba(52,211,153,0.25);
+  color: var(--emerald);
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 10px;
+}
+
+.setup-step h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.setup-step p {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+
+.setup-note {
+  max-width: 720px;
+  margin: 28px auto 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.6;
+  padding: 12px 20px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.setup-note strong {
+  color: var(--text-secondary);
+}
+
+/* ── Footer ── */
+.footer {
+  padding: 48px 0;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin-bottom: 20px;
+}
+
+.footer-links a {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.footer-links a:hover { color: var(--text-secondary); }
+
+.footer-copy {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .nav-links { display: none; }
+
+  .benefits-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .benefit-card { min-height: 340px; }
+
+  .tweet-grid {
+    grid-template-columns: 1fr;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .tweet-card.span-full {
+    max-width: 100%;
+  }
+
+  .pricing-grid {
+    grid-template-columns: 1fr;
+    max-width: 400px;
+  }
+
+  .faq-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .how-bento {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+  .how-card-main {
+    grid-row: auto;
+  }
+  .pill-compare {
+    grid-template-columns: 1fr;
+  }
+
+  .comparison-table-wrap {
+    margin-left: -16px;
+    margin-right: -16px;
+    padding: 0 16px;
+  }
+
+  .download-cards {
+    grid-template-columns: 1fr;
+    max-width: 400px;
+  }
+
+  .setup-steps {
+    grid-template-columns: 1fr;
+    max-width: 400px;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 600px) {
+  :root {
+    --section-gap: 80px;
+  }
+
+  .container { padding: 0 20px; }
+  .nav { padding: 12px 20px; }
+
+  .hero { padding: 120px 0 60px; }
+  .hero-ctas { flex-direction: column; align-items: center; }
+  .btn-primary, .btn-ghost { width: 100%; max-width: 300px; justify-content: center; }
+
+  .benefits-grid {
+    grid-template-columns: 1fr;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .nudge-toast {
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+
+  .footer-links { flex-wrap: wrap; gap: 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════ NAV ════════════════════════ -->
+<nav class="nav">
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12 6 12 12 16 14"/>
+      </svg>
+    </div>
+    <span>Intentional</span>
+  </a>
+  <div class="nav-links">
+    <a href="#how-it-works">How It Works</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#faq">FAQ</a>
+    <a href="#download" class="btn-primary nav-cta btn-small">Download Free</a>
+  </div>
+</nav>
+
+<!-- ════════════════════════ HERO ════════════════════════ -->
+<section class="hero">
+  <div class="silk-canvas-wrap">
+    <canvas data-silk="hero"></canvas>
+  </div>
+  <div class="container">
+    <div class="reveal">
+      <div class="hero-badge">
+        <span class="pulse-dot"></span>
+        Focus in the brain rot era
+      </div>
+    </div>
+
+    <h1 class="reveal">You know you're<br><span class="gradient-text">wasting time.</span></h1>
+
+    <p class="hero-sub reveal">Every app steals your time. This is the first one that gives it back.</p>
+
+    <div class="reveal">
+      <div class="video-placeholder">
+        <div class="play-btn">
+          <div class="triangle"></div>
+        </div>
+      </div>
+      <p class="video-label">Watch the 60-second demo</p>
+    </div>
+
+    <div class="hero-ctas reveal">
+      <a href="#download" class="btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Try Intentional Free
+      </a>
+      <a href="#how-it-works" class="btn-ghost">See how it works</a>
+    </div>
+
+    <p class="hero-note reveal">macOS 13+ &middot; Free 7-day trial &middot; No account required</p>
+  </div>
+</section>
+
+<!-- ════════════════════════ BENEFITS ════════════════════════ -->
+<section class="benefits-section" id="benefits">
+  <div class="container">
+    <div class="section-header reveal">
+      <h2>Why this one actually works.</h2>
+    </div>
+
+    <div class="benefits-grid">
+
+      <!-- Card 1: AI Understanding -->
+      <div class="benefit-card card-violet reveal">
+        <div class="benefit-tag violet">On-Device AI</div>
+        <div class="benefit-text">
+          <h3>It actually understands your work</h3>
+          <p class="benefit-desc">On-device AI that knows the difference between research and a rabbit hole. Same site, different verdicts. No blocklist required.</p>
+        </div>
+        <div class="benefit-mockup">
+          <div class="ai-verdict-mockup">
+            <div class="verdict-tab">
+              <div class="verdict-tab-url">youtube.com</div>
+              <div class="verdict-tab-title">Design tutorial &mdash; Figma</div>
+              <div class="verdict-result relevant">
+                <span class="verdict-dot"></span>
+                Relevant to your task
+              </div>
+            </div>
+            <div class="verdict-tab">
+              <div class="verdict-tab-url">youtube.com</div>
+              <div class="verdict-tab-title">Funny fails compilation</div>
+              <div class="verdict-result irrelevant">
+                <span class="verdict-dot"></span>
+                Not related
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Progressive Enforcement -->
+      <div class="benefit-card card-amber reveal">
+        <div class="benefit-tag amber">Progressive</div>
+        <div class="benefit-text">
+          <h3>It warns you before it blocks you</h3>
+          <p class="benefit-desc">Every other app punishes you without warning. This one gives you three chances to come back.</p>
+        </div>
+        <div class="benefit-mockup">
+          <div class="escalation-mockup">
+            <div class="escalation-step step-nudge">
+              <div class="escalation-icon">&#128276;</div>
+              <div class="escalation-text">
+                <div class="escalation-label">Nudge</div>
+                <div class="escalation-sub">Gentle reminder</div>
+              </div>
+            </div>
+            <div class="escalation-step step-tint">
+              <div class="escalation-icon">&#127761;</div>
+              <div class="escalation-text">
+                <div class="escalation-label">Screen tint</div>
+                <div class="escalation-sub">Color drains away</div>
+              </div>
+            </div>
+            <div class="escalation-step step-block">
+              <div class="escalation-icon">&#128721;</div>
+              <div class="escalation-text">
+                <div class="escalation-label">Block</div>
+                <div class="escalation-sub">Full redirect</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Earn Your Scroll -->
+      <div class="benefit-card card-emerald reveal">
+        <div class="benefit-tag emerald">Rewards</div>
+        <div class="benefit-text">
+          <h3>Earn your scroll</h3>
+          <p class="benefit-desc">Set your distractions. The AI measures your focus. The harder you work, the more you get to indulge. Your doom-scrolling, earned.</p>
+        </div>
+        <div class="benefit-mockup">
+          <div class="earn-card-mockup">
+            <div class="distraction-logos">
+              <!-- YouTube -->
+              <div class="distraction-logo yt">
+                <svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.9 31.9 0 0 0 0 12a31.9 31.9 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1c.5-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.5 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
+              </div>
+              <!-- Instagram -->
+              <div class="distraction-logo ig">
+                <svg viewBox="0 0 24 24"><path d="M12 2.2c2.7 0 3 0 4.1.1 1 0 1.5.2 1.9.4.5.2.8.4 1.1.7.3.3.5.7.7 1.1.1.4.3.9.4 1.9 0 1 .1 1.4.1 4.1s0 3-.1 4.1c0 1-.2 1.5-.4 1.9-.2.5-.4.8-.7 1.1-.3.3-.7.5-1.1.7-.4.1-.9.3-1.9.4-1 0-1.4.1-4.1.1s-3 0-4.1-.1c-1 0-1.5-.2-1.9-.4a3.1 3.1 0 0 1-1.1-.7c-.3-.3-.5-.7-.7-1.1-.1-.4-.3-.9-.4-1.9 0-1-.1-1.4-.1-4.1s0-3 .1-4.1c0-1 .2-1.5.4-1.9.2-.5.4-.8.7-1.1.3-.3.7-.5 1.1-.7.4-.1.9-.3 1.9-.4 1 0 1.4-.1 4.1-.1zM12 0C9.3 0 8.9 0 7.9.1 6.8.1 6 .3 5.4.5c-.7.3-1.3.6-1.9 1.2S2.5 2.9 2.2 3.5c-.3.7-.5 1.4-.6 2.5C1.5 7 1.5 7.4 1.5 12s0 5 .1 6c.1 1.1.3 1.9.6 2.5.3.7.6 1.3 1.2 1.9s1.2.9 1.9 1.2c.7.3 1.4.5 2.5.6 1 0 1.4.1 6 .1s5 0 6-.1c1.1-.1 1.9-.3 2.5-.6.7-.3 1.3-.6 1.9-1.2s.9-1.2 1.2-1.9c.3-.7.5-1.4.6-2.5 0-1 .1-1.4.1-6s0-5-.1-6c-.1-1.1-.3-1.9-.6-2.5-.3-.7-.6-1.3-1.2-1.9S19.1.8 18.5.5C17.8.3 17.1.1 16 0 15 0 14.7 0 12 0zm0 5.8a6.2 6.2 0 1 0 0 12.4 6.2 6.2 0 0 0 0-12.4zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.4-11.8a1.4 1.4 0 1 0 0 2.9 1.4 1.4 0 0 0 0-2.9z"/></svg>
+              </div>
+              <!-- Reddit -->
+              <div class="distraction-logo rd">
+                <svg viewBox="0 0 24 24"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.74c.69 0 1.25.56 1.25 1.25a1.25 1.25 0 0 1-2.13.89l-2.91.68a.37.37 0 0 0-.28.28L12 10.5a5.56 5.56 0 0 1 3.13.75 2.15 2.15 0 0 1 3.58 1.41 2.16 2.16 0 0 1-.86 1.72c.04.24.06.49.06.74 0 2.65-3.04 4.8-6.8 4.8s-6.8-2.15-6.8-4.8c0-.25.02-.5.06-.74a2.16 2.16 0 0 1-.86-1.72 2.16 2.16 0 0 1 3.58-1.4 5.56 5.56 0 0 1 3.13-.76l.94-2.66-2.27-.53a1.25 1.25 0 0 1-1.14.74 1.25 1.25 0 1 1 .88-2.13l2.77.65a.37.37 0 0 0 .43-.27l.67-1.89a1.25 1.25 0 0 1 .57-1.55zM9.5 12.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm5 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-5.58 5.13a.3.3 0 0 1 .42-.42c.73.52 1.63.78 2.66.78s1.93-.26 2.66-.78a.3.3 0 0 1 .42.42c-.86.62-1.9.93-3.08.93s-2.22-.31-3.08-.93z"/></svg>
+              </div>
+              <!-- TikTok -->
+              <div class="distraction-logo tt">
+                <svg viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1 0-5.78c.27 0 .54.04.79.1v-3.5a6.37 6.37 0 0 0-.79-.05A6.34 6.34 0 0 0 3.15 15.2a6.34 6.34 0 0 0 10.86 4.43V13a8.16 8.16 0 0 0 5.58 2.18v-3.45a4.85 4.85 0 0 1-3.77-1.27V6.69h3.77z" fill="#fff"/></svg>
+              </div>
+              <!-- Twitter/X -->
+              <div class="distraction-logo tw">
+                <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+              </div>
+            </div>
+            <div class="earn-card-label">Earned Browse</div>
+            <div class="earn-card-big">
+              <span class="earn-num">12</span>
+              <span class="earn-unit">min available</span>
+            </div>
+            <div class="earn-card-bar">
+              <div class="earn-card-bar-fill"></div>
+            </div>
+            <div class="earn-card-stats">
+              <span class="earned">+14 min earned</span>
+              <span class="used">2 min used</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 4: Accountability Partner -->
+      <div class="benefit-card card-red reveal">
+        <div class="benefit-tag red">Support</div>
+        <div class="benefit-text">
+          <h3>Accountability partner</h3>
+          <p class="benefit-desc">Focus is easier with someone in your corner. Pick someone you trust &mdash; they hold the only code that can disable the app. Your 3pm self can beg. They decide.</p>
+        </div>
+        <div class="benefit-mockup">
+          <div class="lock-mockup">
+            <div class="lock-icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            </div>
+            <div class="code-input-row">
+              <div class="code-digit">4</div>
+              <div class="code-digit">7</div>
+              <div class="code-digit">2</div>
+              <div class="code-digit empty">_</div>
+              <div class="code-digit empty">_</div>
+              <div class="code-digit empty">_</div>
+            </div>
+            <div class="lock-status">Partner code required</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ COMPARISON ════════════════════════ -->
+<section class="comparison-section" id="comparison">
+  <div class="container">
+    <div class="section-header reveal">
+      <h2>Nothing else comes close.</h2>
+    </div>
+
+    <div class="comparison-table-wrap reveal">
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th class="highlight col-highlight">Intentional</th>
+            <th>Freedom</th>
+            <th>Cold Turkey</th>
+            <th>one sec</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>AI relevance scoring</td>
+            <td class="col-highlight"><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+          </tr>
+          <tr>
+            <td>Earned browse system</td>
+            <td class="col-highlight"><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+          </tr>
+          <tr>
+            <td>Progressive enforcement</td>
+            <td class="col-highlight"><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+            <td><span class="partial">~</span></td>
+            <td><span class="check">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>AI schedule builder</td>
+            <td class="col-highlight"><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+          </tr>
+          <tr>
+            <td>Survives force-quit</td>
+            <td class="col-highlight"><span class="check">&#10003;</span></td>
+            <td><span class="partial">~</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+          </tr>
+          <tr>
+            <td>All data on-device</td>
+            <td class="col-highlight"><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+            <td><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+          </tr>
+          <tr>
+            <td>Accountability partner</td>
+            <td class="col-highlight"><span class="check">&#10003;</span></td>
+            <td><span class="cross">&#10005;</span></td>
+            <td><span class="partial">~</span></td>
+            <td><span class="cross">&#10005;</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ HOW IT WORKS ════════════════════════ -->
+<section class="how-section" id="how-it-works">
+  <div class="silk-canvas-wrap">
+    <canvas data-silk="how"></canvas>
+  </div>
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label emerald">HOW IT WORKS</div>
+      <h2>How it works</h2>
+    </div>
+
+    <div class="how-bento">
+
+      <!-- Card 1 — Large left: Tell the AI, get a schedule -->
+      <div class="how-card how-card-main how-card-emerald reveal">
+        <div class="how-card-label">Step 01</div>
+        <h3>Tell the AI what you're working on</h3>
+        <div class="how-card-desc">It builds your schedule in under a minute.</div>
+        <div class="how-card-mockup">
+          <div class="plan-slider" id="plan-slider">
+            <!-- Base layer: Schedule (visible on right) -->
+            <div class="plan-slider-layer plan-slider-after">
+              <div class="sched-mockup">
+                <div class="sched-mockup-header">Today's Schedule</div>
+                <div class="sched-mockup-body">
+                  <div class="sched-time-col">
+                    <div class="sched-time-label">9 AM</div>
+                    <div class="sched-time-label">10 AM</div>
+                    <div class="sched-time-label">11 AM</div>
+                    <div class="sched-time-label">12 PM</div>
+                    <div class="sched-time-label">1 PM</div>
+                    <div class="sched-time-label">2 PM</div>
+                    <div class="sched-time-label">3 PM</div>
+                  </div>
+                  <div class="sched-blocks-col">
+                    <div class="sched-now-line"></div>
+                    <div class="sched-block s-deep"><div class="sched-block-badge">DEEP WORK</div><div class="sched-block-title">Ship landing page</div><div class="sched-block-time">9:00 – 11:00 AM</div></div>
+                    <div class="sched-block s-free"><div class="sched-block-badge">FREE TIME</div><div class="sched-block-title">Break</div><div class="sched-block-time">11:00 – 11:30 AM</div></div>
+                    <div class="sched-block s-focus"><div class="sched-block-badge">FOCUS</div><div class="sched-block-title">Review PRs + respond</div><div class="sched-block-time">11:30 AM – 1:00 PM</div></div>
+                    <div class="sched-block s-free"><div class="sched-block-badge">FREE TIME</div><div class="sched-block-title">Lunch</div><div class="sched-block-time">1:00 – 2:00 PM</div></div>
+                    <div class="sched-block s-deep"><div class="sched-block-badge">DEEP WORK</div><div class="sched-block-title">API integration</div><div class="sched-block-time">2:00 – 4:00 PM</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Overlay: Chat (clipped from right, visible on left) -->
+            <div class="plan-slider-layer plan-slider-before">
+              <div class="chat-mockup">
+                <div class="chat-bubble ai">
+                  <div class="chat-ai-label">Planning Coach</div>
+                  Hey! What are you working on today?
+                </div>
+                <div class="chat-bubble user">
+                  Need to ship the landing page this morning. Then code reviews after lunch. Probably some API work in the afternoon.
+                </div>
+                <div class="chat-bubble ai">
+                  <div class="chat-ai-label">Planning Coach</div>
+                  Sounds like a solid day. Want me to block off the landing page as Deep Work so nothing interrupts you?
+                </div>
+                <div class="chat-bubble user">
+                  Yeah, Deep Work for the morning. And I'll need a break around 11.
+                </div>
+                <div class="chat-bubble ai">
+                  <div class="chat-ai-label">Planning Coach</div>
+                  Done. I've set up 5 blocks with 4.5 hours of focus time. You can tweak anything — just drag the handle.
+                </div>
+                <div class="chat-confirm">&#10003; Schedule ready &middot; drag to reveal &rarr;</div>
+              </div>
+            </div>
+            <!-- Handle -->
+            <div class="plan-slider-handle">
+              <div class="plan-slider-grip"></div>
+            </div>
+            <!-- Labels -->
+            <div class="plan-slider-label plan-slider-label-left">AI Conversation</div>
+            <div class="plan-slider-label plan-slider-label-right">Your Schedule</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2 — Top right: Distraction detection -->
+      <div class="how-card how-card-red reveal">
+        <div class="how-card-label">Step 02</div>
+        <h3>It knows when you drift</h3>
+        <div class="how-card-desc">A floating pill tracks your focus in real time.</div>
+        <div class="how-card-mockup">
+          <div class="pill-compare">
+            <div class="pill-compare-card pcc-focused">
+              <div class="pcc-label">Focused</div>
+              <div class="pcc-pill"><span class="p-dot indigo"></span><span class="p-label">Vibe coding</span><span class="p-time">32:14</span></div>
+              <div class="pcc-focused-msg">&#10003; Earning browse time</div>
+            </div>
+            <div class="pill-compare-card pcc-distracted">
+              <div class="pcc-label">Distracted</div>
+              <div class="pcc-pill"><span class="p-dot red"></span><span class="p-label">Off task</span><span class="p-time">32:14</span></div>
+              <div class="pcc-nudge"><span>&#8592; Back to Task</span><button class="pcc-nudge-btn">Go back</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3 — Bottom right: Reward unlock -->
+      <div class="how-card how-card-violet reveal">
+        <div class="how-card-label">Step 03</div>
+        <h3>Earn your scroll</h3>
+        <div class="how-card-desc">5 min focus = 1 min guilt-free browsing.</div>
+        <div class="how-card-mockup">
+          <div class="unlock-visual">
+            <div class="unlock-timer">
+              <span class="unlock-timer-dot"></span>
+              <span class="unlock-timer-text">12 min</span>
+              <span class="unlock-timer-sub">earned</span>
+            </div>
+            <div class="unlock-apps">
+              <!-- YouTube -->
+              <div class="unlock-app app-yt">
+                <svg viewBox="0 0 24 24"><path fill="#FF0000" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.9 31.9 0 0 0 0 12a31.9 31.9 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.9 31.9 0 0 0 24 12a31.9 31.9 0 0 0-.5-5.8z"/><path fill="#FFF" d="M9.6 15.6V8.4l6.4 3.6z"/></svg>
+                <span class="unlock-app-name">YouTube</span>
+              </div>
+              <!-- Instagram -->
+              <div class="unlock-app app-ig">
+                <svg viewBox="0 0 24 24">
+                  <defs><linearGradient id="ig-g" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#FFDC80"/><stop offset="25%" stop-color="#F77737"/><stop offset="50%" stop-color="#E1306C"/><stop offset="75%" stop-color="#C13584"/><stop offset="100%" stop-color="#405DE6"/></linearGradient></defs>
+                  <rect x="1" y="1" width="22" height="22" rx="6" fill="url(#ig-g)"/>
+                  <circle cx="12" cy="12" r="4.5" fill="none" stroke="#fff" stroke-width="2"/>
+                  <circle cx="17.8" cy="6.2" r="1.3" fill="#fff"/>
+                </svg>
+                <span class="unlock-app-name">Instagram</span>
+              </div>
+              <!-- TikTok -->
+              <div class="unlock-app app-tt">
+                <svg viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#010101"/><path fill="#25F4EE" d="M16.6 5.8c-.7-.5-1.2-1.3-1.4-2.1h.01c-.1-.4-.1-.7-.1-1h-2.8v10.5c0 .2 0 .3 0 .5a2.3 2.3 0 0 1-2.3 2 2.3 2.3 0 0 1-1.6-.6 2.3 2.3 0 0 1 1.6-3.9c.2 0 .5 0 .7.1V8.4c-.2 0-.5 0-.7 0a5.1 5.1 0 0 0-3.6 8.7 5.1 5.1 0 0 0 8.1-4.1V8.4a6.5 6.5 0 0 0 3.8 1.2V6.8c-.8 0-1.5-.4-2.1-.8z"/><path fill="#FE2C55" d="M17.4 6.8v2.8a6.5 6.5 0 0 1-3.8-1.2V13a5.1 5.1 0 0 1-5.1 5.1 5.1 5.1 0 0 1-3-1A5.1 5.1 0 0 0 10 18.1a5.1 5.1 0 0 0 5.1-5.1V8.4a6.5 6.5 0 0 0 3.8 1.2V6.8c-.5 0-1-.1-1.5-.3z"/><path fill="#FFF" d="M13.6 13V8.4a6.5 6.5 0 0 0 3.8 1.2V7c-.8-.2-1.5-.6-2-1.2-.7-.5-1.2-1.3-1.4-2.1h-2.2v10.5a2.3 2.3 0 0 1-2.3 2.2 2.3 2.3 0 0 1-2-1.1 2.3 2.3 0 0 1 2.2-3.4c.2 0 .5 0 .7.1V9.1c-.2 0-.5 0-.7 0A5.1 5.1 0 0 0 5.6 17a5.1 5.1 0 0 0 3 1 5.1 5.1 0 0 0 5-5.1z"/></svg>
+                <span class="unlock-app-name">TikTok</span>
+              </div>
+              <!-- Reddit -->
+              <div class="unlock-app app-rd">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#FF4500"/><ellipse cx="12" cy="14" rx="6" ry="4" fill="#fff"/><circle cx="9.5" cy="13" r="1" fill="#FF4500"/><circle cx="14.5" cy="13" r="1" fill="#FF4500"/><path d="M9.8 16c.8.6 1.4.7 2.2.7s1.4-.1 2.2-.7" fill="none" stroke="#FF4500" stroke-width=".8" stroke-linecap="round"/><circle cx="19" cy="7" r="1.5" fill="#fff"/><path d="M14 3.5l1.5 3.5" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/><circle cx="14" cy="3.5" r="1" fill="#fff"/><ellipse cx="7" cy="10.5" rx="2" ry="1.8" fill="#fff"/><ellipse cx="17" cy="10.5" rx="2" ry="1.8" fill="#fff"/></svg>
+                <span class="unlock-app-name">Reddit</span>
+              </div>
+            </div>
+            <div class="unlock-badge">Earned from 1h of focus</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ SOCIAL PROOF ════════════════════════ -->
+<section class="social-section" id="testimonials">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label amber">BETA TESTERS</div>
+      <h2>What beta testers are saying</h2>
+    </div>
+
+    <div class="tweet-grid">
+      <div class="tweet-card reveal">
+        <div class="tweet-handle">@jamescode</div>
+        <div class="tweet-text">"the earned browse thing is lowkey addictive. i'm gaming my own focus score now"</div>
+      </div>
+
+      <div class="tweet-card reveal">
+        <div class="tweet-handle">@lex_codes</div>
+        <div class="tweet-text">"this app knows the difference between me researching and me procrastinating and that's terrifying"</div>
+      </div>
+
+      <div class="tweet-card reveal">
+        <div class="tweet-handle">@noor.writes</div>
+        <div class="tweet-text">"intentional has mass-cured my screen time bypass addiction. the accountability partner thing is undefeated"</div>
+      </div>
+
+      <div class="tweet-card reveal">
+        <div class="tweet-handle">@priya_dev</div>
+        <div class="tweet-text">"the grayscale thing is so smart. by the time my screen dims i'm already back in vs code"</div>
+      </div>
+
+      <div class="tweet-card reveal">
+        <div class="tweet-handle">@amira.creates</div>
+        <div class="tweet-text">"i literally earned 20 minutes of instagram today and it felt like a treat instead of a guilt spiral"</div>
+      </div>
+
+      <div class="tweet-card reveal">
+        <div class="tweet-handle">@dev_marcus</div>
+        <div class="tweet-text">"my manager asked why i'm shipping so much faster. it's literally just not opening reddit during standup anymore"</div>
+      </div>
+
+      <div class="tweet-card span-full reveal">
+        <div class="tweet-handle">@jakeinthecode</div>
+        <div class="tweet-text">"told my girlfriend to be my accountability partner. she's way too into it. no regrets though"</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ PRICING ════════════════════════ -->
+<section class="pricing-section" id="pricing">
+  <div class="silk-canvas-wrap">
+    <canvas data-silk="pricing"></canvas>
+  </div>
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label emerald">PRICING</div>
+      <h2>Simple pricing, try for free</h2>
+    </div>
+
+    <div class="pricing-grid reveal">
+      <!-- Monthly -->
+      <div class="pricing-card">
+        <div class="pricing-plan">Monthly</div>
+        <div class="pricing-price">$6<span>/mo</span></div>
+        <div class="pricing-note">$0.20/day</div>
+        <ul class="pricing-features">
+          <li>AI that understands your work</li>
+          <li>Warns before it blocks</li>
+          <li>Earned browse rewards</li>
+          <li>Plan your day in 60 seconds</li>
+          <li>Chrome, Safari, Arc + 5 more</li>
+          <li>Accountability partner</li>
+        </ul>
+        <a href="#download" class="btn-ghost btn-small" style="width: 100%; justify-content: center;">Start 7-Day Free Trial</a>
+      </div>
+
+      <!-- Lifetime -->
+      <div class="pricing-card featured">
+        <div class="pricing-badge">Best Value</div>
+        <div class="pricing-plan">Lifetime</div>
+        <div class="pricing-price">$79</div>
+        <div class="pricing-note">Pay once. Focus forever.</div>
+        <ul class="pricing-features">
+          <li>Everything in Monthly</li>
+          <li>Strict Mode (survives force-quit)</li>
+          <li>All future updates</li>
+          <li>Priority support</li>
+          <li>Early access to new features</li>
+          <li>Support indie development</li>
+        </ul>
+        <a href="#download" class="btn-primary btn-small" style="width: 100%; justify-content: center;">Get Lifetime Access</a>
+      </div>
+    </div>
+
+    <p class="pricing-guarantee reveal">7-day free trial. 30-day money-back guarantee. No questions asked.</p>
+  </div>
+</section>
+
+<!-- ════════════════════════ FAQ ════════════════════════ -->
+<section class="faq-section" id="faq">
+  <div class="container">
+    <div class="section-header reveal">
+      <h2>Frequently asked questions</h2>
+    </div>
+
+    <div class="faq-grid">
+      <div class="faq-item reveal">
+        <h3>Can I really not turn it off?</h3>
+        <p>Up to you. Without Strict Mode, quit whenever you want. With it on? It survives Cmd+Q, relaunches on reboot, and needs your partner's 6-digit code to disable. You pick which version of yourself makes the rules.</p>
+      </div>
+
+      <div class="faq-item reveal">
+        <h3>Is my data private?</h3>
+        <p>Everything stays on your Mac. The AI runs locally on Apple's Neural Engine. Your URLs, page titles, and browsing data never leave the device. No cloud. No account. No tracking.</p>
+      </div>
+
+      <div class="faq-item reveal">
+        <h3>Which browsers does it work with?</h3>
+        <p>Chrome, Safari, Arc, Brave, Edge, Firefox, Opera, and Vivaldi. Desktop apps &mdash; Slack, Figma, Xcode, whatever &mdash; are tracked natively too.</p>
+      </div>
+
+      <div class="faq-item reveal">
+        <h3>Does it slow down my Mac?</h3>
+        <p>Nope. AI runs on Apple's Neural Engine. Tab checks happen every 10 seconds. You'll forget it's running.</p>
+      </div>
+
+      <div class="faq-item reveal">
+        <h3>How does the AI know what's relevant?</h3>
+        <p>It reads your tab title and checks it against whatever you said you're working on. Figma tutorial while you're designing? Fine. Figma tutorial while you're supposed to be writing? Caught. It runs entirely on your Mac &mdash; no cloud, no one watching.</p>
+      </div>
+
+      <div class="faq-item reveal">
+        <h3>What if I work from multiple devices?</h3>
+        <p>Right now, Intentional is macOS only. Your Mac is where the deep work happens &mdash; and where the distractions live. iOS and Windows are on the roadmap, but we're focused on making one platform bulletproof before we spread thin.</p>
+      </div>
+
+      <div class="faq-item reveal">
+        <h3>What happens if I need to take a break?</h3>
+        <p>Schedule a Free Time block. Your earned browse balance carries over, social media is unlocked, and nothing gets flagged. Intentional knows the difference between a break and a spiral. You planned the break &mdash; enjoy it.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ FINAL CTA ════════════════════════ -->
+<section class="final-cta" id="download">
+  <div class="silk-canvas-wrap">
+    <canvas data-silk="final"></canvas>
+  </div>
+  <div class="container reveal">
+    <h2>Still scrolling?</h2>
+    <p>You could've already installed it. One afternoon of focus and you'll wonder why you waited.</p>
+    <a href="/downloads/Intentional-1.0.dmg" class="btn-primary" style="font-size: 18px; padding: 18px 48px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download Intentional Free
+    </a>
+    <p class="sys-req">macOS 13+ &middot; Apple Silicon &amp; Intel &middot; Free 7-day trial</p>
+    <a href="#get-started" style="display:inline-block;margin-top:12px;font-size:13px;color:var(--text-tertiary);text-decoration:none;transition:color 0.2s;">Also need the Chrome extension? &darr;</a>
+  </div>
+</section>
+
+<!-- ════════════════════════ GET STARTED ════════════════════════ -->
+<section class="get-started-section" id="get-started">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label emerald">GET STARTED</div>
+      <h2>Download both. Connect in seconds.</h2>
+    </div>
+
+    <div class="download-cards reveal">
+      <div class="dl-card">
+        <div class="dl-card-icon">&#xF8FF;</div>
+        <h3>macOS App</h3>
+        <div class="dl-card-sub">Focus enforcement, schedule builder, earned browse tracking</div>
+        <a href="/downloads/Intentional-1.0.dmg" class="dl-btn dl-btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download for Mac
+        </a>
+        <div class="dl-card-meta">macOS 13+ &middot; Apple Silicon &amp; Intel &middot; 273 MB</div>
+      </div>
+      <div class="dl-card">
+        <div class="dl-card-icon">&#x1F310;</div>
+        <h3>Chrome Extension</h3>
+        <div class="dl-card-sub">In-browser content filtering, intent prompts, session management</div>
+        <a href="/downloads/Intentional-Extension.zip" class="dl-btn dl-btn-chrome">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Extension
+        </a>
+        <div class="dl-card-meta">Chrome &middot; Chromium browsers &middot; 11 MB</div>
+      </div>
+    </div>
+
+    <div class="setup-steps reveal">
+      <div class="setup-step">
+        <div class="setup-step-num">1</div>
+        <h4>Install the app</h4>
+        <p>Open the .dmg, drag to Applications, launch. Grant accessibility permissions when prompted.</p>
+      </div>
+      <div class="setup-step">
+        <div class="setup-step-num">2</div>
+        <h4>Load the extension</h4>
+        <p>Unzip, open <strong>chrome://extensions</strong>, enable Developer Mode, click "Load unpacked" and select the folder.</p>
+      </div>
+      <div class="setup-step">
+        <div class="setup-step-num">3</div>
+        <h4>They auto-connect</h4>
+        <p>The extension detects the running app automatically. You'll see a green dot in the extension popup.</p>
+      </div>
+    </div>
+
+    <div class="setup-note reveal">
+      <strong>Heads up:</strong> The app is signed but not yet notarized — macOS will ask you to confirm via System Settings &rarr; Privacy &amp; Security &rarr; "Open Anyway." The extension is sideloaded, so Chrome will show a developer mode banner on launch — just dismiss it. Both are temporary during beta.
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ FOOTER ════════════════════════ -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-links">
+      <a href="#">Privacy</a>
+      <a href="#">Support</a>
+      <a href="#">Twitter</a>
+      <a href="#">GitHub</a>
+    </div>
+    <p class="footer-copy">&copy; 2026 Intentional. Built with too much screen time.</p>
+  </div>
+</footer>
+
+<!-- ════════════════════════ SILK RENDERER ════════════════════════ -->
+<script>
+(function() {
+  'use strict';
+
+  var P = [
+    [5,10,8],[8,50,40],[12,80,65],[20,120,100],
+    [34,160,135],[52,211,153],[110,231,183],[167,243,208],[220,252,238]
+  ];
+  var PL = P.length - 1;
+
+  function sampleP(t) {
+    if (t <= 0) return P[0];
+    if (t >= 1) return P[PL];
+    var s = t * PL, i = ~~s, f = s - i;
+    var a = P[i], b = P[i+1];
+    return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f];
+  }
+
+  function hash(x, y) {
+    var n = Math.sin(x*127.1+y*311.7)*43758.5453;
+    return n - ~~n;
+  }
+  function noise(x, y) {
+    var ix = x < 0 ? ~~x-1 : ~~x, iy = y < 0 ? ~~y-1 : ~~y;
+    var fx = x-ix, fy = y-iy;
+    var ux = fx*fx*(3-2*fx), uy = fy*fy*(3-2*fy);
+    var a = hash(ix,iy), b = hash(ix+1,iy);
+    var c = hash(ix,iy+1), d = hash(ix+1,iy+1);
+    return a + (b-a)*ux + (c-a)*uy + (a-b-c+d)*ux*uy;
+  }
+  function fbm(x, y) {
+    return noise(x,y)*0.7 + noise(x*2.1,y*2.1)*0.3;
+  }
+
+  function initSilk(canvas) {
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    var W, H, imgData, buf;
+    var time = Math.random() * 1000;
+    var speed = 0.0003;
+    var raf;
+
+    function resize() {
+      var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      var rect = canvas.parentElement.getBoundingClientRect();
+      W = Math.round(rect.width * dpr * 0.25);
+      H = Math.round(rect.height * dpr * 0.25);
+      if (W < 1) W = 1;
+      if (H < 1) H = 1;
+      canvas.width = W;
+      canvas.height = H;
+      canvas.style.imageRendering = 'auto';
+      imgData = ctx.createImageData(W, H);
+      buf = imgData.data;
+    }
+
+    function render() {
+      time += speed;
+      var inv_w = 3.5 / W, inv_h = 3.5 / H;
+      for (var y = 0; y < H; y++) {
+        var ny = y * inv_h;
+        for (var x = 0; x < W; x++) {
+          var nx = x * inv_w;
+          var v = fbm(nx + time * 80, ny + time * 40);
+          var c = sampleP(v);
+          var idx = (y * W + x) * 4;
+          buf[idx] = c[0];
+          buf[idx+1] = c[1];
+          buf[idx+2] = c[2];
+          buf[idx+3] = 255;
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+      raf = requestAnimationFrame(render);
+    }
+
+    resize();
+    render();
+
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(resize, 200);
+    });
+  }
+
+  document.querySelectorAll('canvas[data-silk]').forEach(initSilk);
+
+  // Scroll reveal
+  var reveals = document.querySelectorAll('.reveal');
+  var observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  reveals.forEach(function(el) { observer.observe(el); });
+
+  // Plan before/after slider
+  (function() {
+    var slider = document.getElementById('plan-slider');
+    if (!slider) return;
+    var before = slider.querySelector('.plan-slider-before');
+    var handle = slider.querySelector('.plan-slider-handle');
+    var labelL = slider.querySelector('.plan-slider-label-left');
+    var labelR = slider.querySelector('.plan-slider-label-right');
+    var dragging = false;
+
+    function setPosition(pct) {
+      pct = Math.max(8, Math.min(92, pct));
+      before.style.clipPath = 'inset(0 ' + (100 - pct) + '% 0 0)';
+      handle.style.left = pct + '%';
+      // Fade labels when slider is near them
+      labelL.style.opacity = pct < 20 ? '0' : '1';
+      labelR.style.opacity = pct > 80 ? '0' : '1';
+    }
+
+    function getPct(e) {
+      var rect = slider.getBoundingClientRect();
+      var x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+      return (x / rect.width) * 100;
+    }
+
+    // Click anywhere on slider to jump
+    slider.addEventListener('mousedown', function(e) {
+      dragging = true;
+      setPosition(getPct(e));
+    });
+    slider.addEventListener('touchstart', function(e) {
+      dragging = true;
+      setPosition(getPct(e));
+    }, { passive: true });
+
+    window.addEventListener('mousemove', function(e) {
+      if (!dragging) return;
+      e.preventDefault();
+      setPosition(getPct(e));
+    });
+    window.addEventListener('touchmove', function(e) {
+      if (!dragging) return;
+      setPosition(getPct(e));
+    }, { passive: true });
+
+    window.addEventListener('mouseup', function() { dragging = false; });
+    window.addEventListener('touchend', function() { dragging = false; });
+
+    // Initialize at 50%
+    setPosition(50);
+  })();
+})();
+</script>
+
+</body>
+</html>

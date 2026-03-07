@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blitzit Theme Preview — Before / After</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #111;
+  color: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== Layout ===== */
+.preview-header {
+  text-align: center;
+  padding: 32px 20px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.preview-header h1 { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+.preview-header p { font-size: 14px; color: rgba(255,255,255,0.5); }
+
+.tab-bar {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.02);
+}
+.tab-btn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255,255,255,0.5);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.tab-btn:hover { color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.04); }
+.tab-btn.active { color: #fff; background: rgba(255,255,255,0.08); }
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+.compare-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  min-height: 100vh;
+}
+.compare-col {
+  padding: 32px;
+  position: relative;
+}
+.compare-col.before { background: #0a0a0a; border-right: 1px solid rgba(255,255,255,0.08); }
+.compare-col.after { background: #1a1a1e; }
+
+.col-label {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 24px;
+  text-align: center;
+  width: fit-content;
+}
+.col-label.before-label { background: rgba(99,102,241,0.15); color: #818cf8; }
+.col-label.after-label { background: rgba(52,211,153,0.15); color: #34d399; }
+
+/* ===== Component Styles ===== */
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 24px 0 12px;
+}
+.section-label:first-of-type { margin-top: 0; }
+
+/* --- Sidebar --- */
+.demo-sidebar {
+  border-radius: 12px;
+  padding: 16px 0;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.demo-sidebar.before { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); }
+.demo-sidebar.after { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); }
+
+.demo-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  font-size: 14px;
+  color: rgba(255,255,255,0.5);
+  border-left: 3px solid transparent;
+}
+.demo-sidebar-item.active-before {
+  color: #fff;
+  background: rgba(99,102,241,0.1);
+  border-left-color: #6366f1;
+}
+.demo-sidebar-item.active-after {
+  color: #fff;
+  background: rgba(52,211,153,0.1);
+  border-left-color: #34d399;
+}
+
+/* --- Cards --- */
+.demo-card {
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.demo-card.before { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); }
+.demo-card.after { background: #242428; border: 1px solid rgba(255,255,255,0.06); }
+
+.demo-card-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+/* --- Buttons --- */
+.demo-btn-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.demo-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.demo-btn.primary-before { background: #6366f1; color: #fff; }
+.demo-btn.primary-before:hover { background: #5558e6; }
+.demo-btn.primary-after { background: #34d399; color: #111; }
+.demo-btn.primary-after:hover { background: #2bc48c; }
+
+.demo-btn.secondary { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); }
+.demo-btn.danger { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #ef4444; }
+
+/* --- CTA Gradient Buttons --- */
+.demo-btn.cta-before {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  padding: 14px 28px;
+  font-size: 16px;
+  border-radius: 12px;
+}
+.demo-btn.cta-after {
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  color: #fff;
+  padding: 14px 28px;
+  font-size: 16px;
+  border-radius: 12px;
+}
+
+/* --- Toggle --- */
+.demo-toggle {
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  position: relative;
+  cursor: pointer;
+  display: inline-block;
+  margin-right: 12px;
+}
+.demo-toggle.off { background: rgba(255,255,255,0.12); }
+.demo-toggle.on-before { background: #6366f1; }
+.demo-toggle.on-after { background: #34d399; }
+.demo-toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+}
+.demo-toggle.off::after { left: 2px; }
+.demo-toggle.on-before::after, .demo-toggle.on-after::after { left: 20px; }
+
+/* --- Calendar Blocks --- */
+.demo-cal-block {
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-left: 3px solid;
+  position: relative;
+}
+.demo-cal-block .block-title { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.85); }
+.demo-cal-block .block-time { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+.demo-cal-block .block-badge {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Before calendar colors */
+.cal-deep-before { background: rgba(220,38,38,0.2); border-left-color: #dc2626; }
+.cal-deep-before .block-badge { color: #f87171; }
+.cal-focus-before { background: rgba(99,102,241,0.2); border-left-color: #6366f1; }
+.cal-focus-before .block-badge { color: #a5b4fc; }
+.cal-free-before { background: rgba(52,211,153,0.12); border-left-color: #34d399; }
+.cal-free-before .block-badge { color: #34d399; }
+
+/* After calendar colors */
+.cal-deep-after { background: rgba(239,68,68,0.15); border-left-color: #ef4444; }
+.cal-deep-after .block-badge { color: #f87171; }
+.cal-focus-after { background: rgba(139,92,246,0.15); border-left-color: #8b5cf6; }
+.cal-focus-after .block-badge { color: #c4b5fd; }
+.cal-free-after { background: rgba(52,211,153,0.12); border-left-color: #34d399; }
+.cal-free-after .block-badge { color: #34d399; }
+
+/* --- Earned Browse Bar --- */
+.demo-eb-bar {
+  height: 20px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  margin: 8px 0;
+}
+.demo-eb-avail { border-radius: 4px 0 0 4px; transition: width 0.3s; }
+.demo-eb-used { transition: width 0.3s; }
+.demo-eb-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+/* --- Status Badges --- */
+.demo-badge {
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 16px;
+  margin-bottom: 8px;
+}
+.demo-badge::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.demo-badge.connected { color: #34d399; }
+.demo-badge.connected::before { background: #34d399; }
+.demo-badge.error { color: #ef4444; }
+.demo-badge.error::before { background: #ef4444; }
+.demo-badge.warning { color: #f59e0b; }
+.demo-badge.warning::before { background: #f59e0b; }
+
+/* --- Inputs --- */
+.demo-input {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  width: 100%;
+  margin-bottom: 8px;
+  font-family: inherit;
+}
+.demo-input:focus { outline: none; }
+.demo-input.focus-before { border-color: #6366f1; }
+.demo-input.focus-after { border-color: #34d399; }
+
+/* --- Chip --- */
+.demo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 13px;
+  margin-right: 6px;
+  margin-bottom: 6px;
+}
+.demo-chip.before {
+  background: rgba(99,102,241,0.15);
+  border: 1px solid rgba(99,102,241,0.3);
+  color: rgba(255,255,255,0.85);
+}
+.demo-chip.after {
+  background: rgba(52,211,153,0.15);
+  border: 1px solid rgba(52,211,153,0.3);
+  color: rgba(255,255,255,0.85);
+}
+
+/* --- Weekly Bar Chart --- */
+.demo-weekly {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 80px;
+  margin: 8px 0;
+}
+.demo-weekly-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+.demo-weekly-bar {
+  width: 100%;
+  max-width: 28px;
+  border-radius: 4px;
+  min-height: 4px;
+}
+.demo-weekly-label { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 4px; }
+
+/* --- Toast --- */
+.demo-toast {
+  display: inline-block;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  margin-right: 8px;
+  margin-bottom: 8px;
+}
+
+/* --- Onboarding Card --- */
+.demo-onboarding {
+  border-radius: 16px;
+  padding: 32px;
+  text-align: center;
+}
+.demo-onboarding.before {
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.demo-onboarding.after {
+  background: linear-gradient(135deg, #1a1a1e 0%, #242428 50%, #1e1e22 100%);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.demo-onboarding h2 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.demo-onboarding p {
+  font-size: 14px;
+  color: rgba(255,255,255,0.5);
+  margin-bottom: 20px;
+}
+
+/* --- Danger chips (onboarding) --- */
+.demo-danger-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  gap: 4px;
+  margin: 4px;
+}
+.demo-danger-chip.unselected {
+  background: rgba(255,255,255,0.05);
+  border: 2px solid transparent;
+}
+.demo-danger-chip.selected-before {
+  background: rgba(99,102,241,0.15);
+  border: 2px solid #6366f1;
+}
+.demo-danger-chip.selected-after {
+  background: rgba(52,211,153,0.15);
+  border: 2px solid #34d399;
+}
+.demo-danger-chip .icon { font-size: 20px; }
+.demo-danger-chip .label { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.9); }
+
+/* --- Progress dots --- */
+.demo-dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 16px;
+}
+.demo-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+}
+.demo-dot.active-before { background: #6366f1; width: 24px; border-radius: 5px; }
+.demo-dot.active-after { background: #34d399; width: 24px; border-radius: 5px; }
+
+/* --- Selected tag (onboarding) --- */
+.demo-selected-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #fff;
+  margin: 3px;
+}
+.demo-selected-tag.before { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+.demo-selected-tag.after { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
+
+/* --- Focus score ring --- */
+.demo-focus-ring {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 8px;
+}
+.demo-focus-ring svg { width: 80px; height: 80px; }
+
+/* --- Modal --- */
+.demo-modal {
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 12px;
+}
+.demo-modal.before { background: #1a1a2e; }
+.demo-modal.after { background: #242428; }
+.demo-modal h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+.demo-modal p { font-size: 13px; color: rgba(255,255,255,0.5); }
+
+/* --- Block Type Add Buttons --- */
+.demo-add-btns {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.demo-add-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* --- Color swatch grid --- */
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.swatch {
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+.swatch-color {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  margin: 0 auto 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.swatch-label { font-size: 11px; color: rgba(255,255,255,0.6); }
+.swatch-hex { font-size: 10px; color: rgba(255,255,255,0.35); font-family: "SF Mono", Menlo, monospace; }
+</style>
+</head>
+<body>
+
+<div class="preview-header">
+  <h1>Blitzit Theme Migration Preview</h1>
+  <p>Side-by-side comparison of the current (indigo) palette vs. the proposed Blitzit (mint/violet) palette</p>
+</div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="showTab('palette')">Color Palette</button>
+  <button class="tab-btn" onclick="showTab('dashboard')">Dashboard UI</button>
+  <button class="tab-btn" onclick="showTab('calendar')">Calendar + Earned</button>
+  <button class="tab-btn" onclick="showTab('onboarding')">Onboarding</button>
+  <button class="tab-btn" onclick="showTab('components')">Components</button>
+</div>
+
+<!-- ===== TAB: Color Palette ===== -->
+<div class="tab-content active" id="tab-palette">
+  <div class="compare-row">
+    <div class="compare-col before">
+      <div class="col-label before-label">Current Palette</div>
+
+      <div class="section-label">Backgrounds</div>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-color" style="background:#0a0a0a;"></div><div class="swatch-label">Base</div><div class="swatch-hex">#0a0a0a</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#1a1a2e;"></div><div class="swatch-label">Elevated / Modal</div><div class="swatch-hex">#1a1a2e</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);"></div><div class="swatch-label">Card</div><div class="swatch-hex">rgba(255,255,255,0.03)</div></div>
+      </div>
+
+      <div class="section-label">Primary Accent</div>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-color" style="background:#6366f1;"></div><div class="swatch-label">Primary</div><div class="swatch-hex">#6366f1 (indigo)</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#5558e6;"></div><div class="swatch-label">Primary Hover</div><div class="swatch-hex">#5558e6</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#8b5cf6;"></div><div class="swatch-label">Secondary</div><div class="swatch-hex">#8b5cf6 (violet)</div></div>
+      </div>
+
+      <div class="section-label">Block Types</div>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-color" style="background:#dc2626;"></div><div class="swatch-label">Deep Work</div><div class="swatch-hex">#dc2626</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#6366f1;"></div><div class="swatch-label">Focus Hours</div><div class="swatch-hex">#6366f1 (= primary)</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#34d399;"></div><div class="swatch-label">Free Time</div><div class="swatch-hex">#34d399</div></div>
+      </div>
+
+      <div class="section-label">CTA Gradient</div>
+      <div style="height:48px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px;margin-bottom:16px;">Get Started</div>
+
+      <div class="section-label">Semantic</div>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-color" style="background:#34d399;"></div><div class="swatch-label">Success</div><div class="swatch-hex">#34d399</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#ef4444;"></div><div class="swatch-label">Error</div><div class="swatch-hex">#ef4444</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#f59e0b;"></div><div class="swatch-label">Warning</div><div class="swatch-hex">#f59e0b</div></div>
+      </div>
+    </div>
+    <div class="compare-col after">
+      <div class="col-label after-label">Blitzit Palette</div>
+
+      <div class="section-label">Backgrounds</div>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-color" style="background:#1a1a1e;"></div><div class="swatch-label">Base</div><div class="swatch-hex">#1a1a1e (warm charcoal)</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#242428;"></div><div class="swatch-label">Elevated / Modal</div><div class="swatch-hex">#242428 (neutral dark)</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#2a2a2e;border:1px solid rgba(255,255,255,0.06);"></div><div class="swatch-label">Card</div><div class="swatch-hex">#2a2a2e</div></div>
+      </div>
+
+      <div class="section-label">Primary Accent</div>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-color" style="background:#34d399;"></div><div class="swatch-label">Primary</div><div class="swatch-hex">#34d399 (mint green)</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#2bc48c;"></div><div class="swatch-label">Primary Hover</div><div class="swatch-hex">#2bc48c</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#8b5cf6;"></div><div class="swatch-label">Secondary</div><div class="swatch-hex">#8b5cf6 (violet)</div></div>
+      </div>
+
+      <div class="section-label">Block Types</div>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-color" style="background:#ef4444;"></div><div class="swatch-label">Deep Work</div><div class="swatch-hex">#ef4444</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#8b5cf6;"></div><div class="swatch-label">Focus Hours</div><div class="swatch-hex">#8b5cf6 (violet, distinct!)</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#34d399;"></div><div class="swatch-label">Free Time</div><div class="swatch-hex">#34d399</div></div>
+      </div>
+
+      <div class="section-label">CTA Gradient</div>
+      <div style="height:48px;border-radius:12px;background:linear-gradient(135deg,#8b5cf6,#ec4899);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px;margin-bottom:16px;">Get Started</div>
+
+      <div class="section-label">Semantic (Unchanged)</div>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-color" style="background:#34d399;"></div><div class="swatch-label">Success</div><div class="swatch-hex">#34d399</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#ef4444;"></div><div class="swatch-label">Error</div><div class="swatch-hex">#ef4444</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#f59e0b;"></div><div class="swatch-label">Warning</div><div class="swatch-hex">#f59e0b</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: Dashboard ===== -->
+<div class="tab-content" id="tab-dashboard">
+  <div class="compare-row">
+    <div class="compare-col before">
+      <div class="col-label before-label">Current Dashboard</div>
+
+      <div class="section-label">Sidebar</div>
+      <div class="demo-sidebar before">
+        <div class="demo-sidebar-item active-before"><span>&#128200;</span> Today</div>
+        <div class="demo-sidebar-item"><span>&#9881;</span> Settings</div>
+        <div class="demo-sidebar-item"><span>&#128274;</span> Lock</div>
+        <div class="demo-sidebar-item"><span>&#128736;</span> Advanced</div>
+      </div>
+
+      <div class="section-label">Buttons</div>
+      <div class="demo-btn-row">
+        <button class="demo-btn primary-before">Save Settings</button>
+        <button class="demo-btn secondary">Cancel</button>
+        <button class="demo-btn danger">Remove</button>
+      </div>
+
+      <div class="section-label">Toggles</div>
+      <div style="margin-bottom: 16px;">
+        <span class="demo-toggle off"></span>
+        <span class="demo-toggle on-before"></span>
+        <span style="font-size: 13px; color: rgba(255,255,255,0.6); margin-left: 8px;">Focus enabled</span>
+      </div>
+
+      <div class="section-label">Inputs (focused)</div>
+      <input class="demo-input focus-before" placeholder="Enter work profile..." value="Software engineer">
+
+      <div class="section-label">Chips / Tags</div>
+      <div>
+        <span class="demo-chip before">youtube.com <span style="opacity:0.5;cursor:pointer;">✕</span></span>
+        <span class="demo-chip before">instagram.com <span style="opacity:0.5;cursor:pointer;">✕</span></span>
+      </div>
+
+      <div class="section-label">Toasts</div>
+      <div>
+        <span class="demo-toast" style="background:#6366f1;">Settings saved</span>
+        <span class="demo-toast" style="background:#ef4444;">Error occurred</span>
+        <span class="demo-toast" style="background:#f59e0b;color:#000;">Warning</span>
+      </div>
+
+      <div class="section-label">Status Badges</div>
+      <div>
+        <span class="demo-badge connected">Connected</span>
+        <span class="demo-badge error">Locked</span>
+        <span class="demo-badge warning">Pending</span>
+      </div>
+
+      <div class="section-label">Modals</div>
+      <div class="demo-modal before">
+        <h3>Add Distracting App</h3>
+        <p>Search for applications to mark as distracting during work blocks.</p>
+        <input class="demo-input focus-before" placeholder="Search apps..." style="margin-top:12px;">
+      </div>
+    </div>
+
+    <div class="compare-col after">
+      <div class="col-label after-label">Blitzit Dashboard</div>
+
+      <div class="section-label">Sidebar</div>
+      <div class="demo-sidebar after">
+        <div class="demo-sidebar-item active-after"><span>&#128200;</span> Today</div>
+        <div class="demo-sidebar-item"><span>&#9881;</span> Settings</div>
+        <div class="demo-sidebar-item"><span>&#128274;</span> Lock</div>
+        <div class="demo-sidebar-item"><span>&#128736;</span> Advanced</div>
+      </div>
+
+      <div class="section-label">Buttons</div>
+      <div class="demo-btn-row">
+        <button class="demo-btn primary-after">Save Settings</button>
+        <button class="demo-btn secondary">Cancel</button>
+        <button class="demo-btn danger">Remove</button>
+      </div>
+
+      <div class="section-label">Toggles</div>
+      <div style="margin-bottom: 16px;">
+        <span class="demo-toggle off"></span>
+        <span class="demo-toggle on-after"></span>
+        <span style="font-size: 13px; color: rgba(255,255,255,0.6); margin-left: 8px;">Focus enabled</span>
+      </div>
+
+      <div class="section-label">Inputs (focused)</div>
+      <input class="demo-input focus-after" placeholder="Enter work profile..." value="Software engineer">
+
+      <div class="section-label">Chips / Tags</div>
+      <div>
+        <span class="demo-chip after">youtube.com <span style="opacity:0.5;cursor:pointer;">✕</span></span>
+        <span class="demo-chip after">instagram.com <span style="opacity:0.5;cursor:pointer;">✕</span></span>
+      </div>
+
+      <div class="section-label">Toasts</div>
+      <div>
+        <span class="demo-toast" style="background:#34d399;color:#111;">Settings saved</span>
+        <span class="demo-toast" style="background:#ef4444;">Error occurred</span>
+        <span class="demo-toast" style="background:#f59e0b;color:#000;">Warning</span>
+      </div>
+
+      <div class="section-label">Status Badges</div>
+      <div>
+        <span class="demo-badge connected">Connected</span>
+        <span class="demo-badge error">Locked</span>
+        <span class="demo-badge warning">Pending</span>
+      </div>
+
+      <div class="section-label">Modals</div>
+      <div class="demo-modal after">
+        <h3>Add Distracting App</h3>
+        <p>Search for applications to mark as distracting during work blocks.</p>
+        <input class="demo-input focus-after" placeholder="Search apps..." style="margin-top:12px;">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: Calendar + Earned ===== -->
+<div class="tab-content" id="tab-calendar">
+  <div class="compare-row">
+    <div class="compare-col before">
+      <div class="col-label before-label">Current Calendar</div>
+
+      <div class="section-label">Add Block Buttons</div>
+      <div class="demo-add-btns">
+        <button class="demo-add-btn" style="background:rgba(220,38,38,0.15);color:#f87171;">+ Deep Work</button>
+        <button class="demo-add-btn" style="background:rgba(99,102,241,0.15);color:#a5b4fc;">+ Focus Hours</button>
+        <button class="demo-add-btn" style="background:rgba(52,211,153,0.15);color:#6ee7b7;">+ Free Time</button>
+      </div>
+
+      <div class="section-label">Calendar Blocks</div>
+      <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;">
+        <div class="demo-cal-block cal-deep-before">
+          <div class="block-title">Deep Focus Session</div>
+          <div class="block-time">9:00 AM - 11:00 AM</div>
+          <div class="block-badge">DEEP WORK</div>
+        </div>
+        <div class="demo-cal-block cal-focus-before">
+          <div class="block-title">Code Review & Planning</div>
+          <div class="block-time">11:00 AM - 12:30 PM</div>
+          <div class="block-badge">FOCUS</div>
+        </div>
+        <div class="demo-cal-block cal-free-before">
+          <div class="block-title">Lunch Break</div>
+          <div class="block-time">12:30 PM - 1:30 PM</div>
+          <div class="block-badge">FREE</div>
+        </div>
+        <div class="demo-cal-block cal-deep-before">
+          <div class="block-title">Afternoon Deep Work</div>
+          <div class="block-time">2:00 PM - 4:00 PM</div>
+          <div class="block-badge">DEEP WORK</div>
+        </div>
+        <div class="demo-cal-block cal-focus-before">
+          <div class="block-title">Emails & Admin</div>
+          <div class="block-time">4:00 PM - 5:00 PM</div>
+          <div class="block-badge">FOCUS</div>
+        </div>
+      </div>
+
+      <div class="section-label">Active Block Highlight</div>
+      <div style="border:1px solid rgba(99,102,241,0.4);box-shadow:0 0 12px rgba(99,102,241,0.12);border-radius:8px;padding:10px 12px;margin-bottom:12px;background:rgba(99,102,241,0.08);">
+        <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.85);">Currently active block glow</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:2px;">Indigo border + shadow</div>
+      </div>
+
+      <div class="section-label">Focus Score Ring</div>
+      <div class="demo-focus-ring">
+        <svg viewBox="0 0 36 36">
+          <circle cx="18" cy="18" r="16" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="3"/>
+          <circle cx="18" cy="18" r="16" fill="none" stroke="#6366f1" stroke-width="3" stroke-linecap="round" stroke-dasharray="100.53" stroke-dashoffset="20" transform="rotate(-90 18 18)"/>
+          <text x="18" y="20" text-anchor="middle" fill="white" font-size="10" font-weight="700">82%</text>
+        </svg>
+      </div>
+
+      <div class="section-label">Weekly Chart Bars</div>
+      <div class="demo-weekly">
+        <div class="demo-weekly-col"><div class="demo-weekly-bar" style="height:40%;background:linear-gradient(to top,#6366f1,#818cf8);"></div><div class="demo-weekly-label">M</div></div>
+        <div class="demo-weekly-col"><div class="demo-weekly-bar" style="height:60%;background:linear-gradient(to top,#6366f1,#818cf8);"></div><div class="demo-weekly-label">T</div></div>
+        <div class="demo-weekly-col"><div class="demo-weekly-bar" style="height:30%;background:linear-gradient(to top,#6366f1,#818cf8);"></div><div class="demo-weekly-label">W</div></div>
+        <div class="demo-weekly-col"><div class="demo-weekly-bar" style="height:55%;background:linear-gradient(to top,#6366f1,#818cf8);"></div><div class="demo-weekly-label">T</div></div>
+        <div class="demo-weekly-col"><div class="demo-weekly-bar" style="height:75%;background:linear-gradient(to top,#6366f1,#a78bfa);"></div><div class="demo-weekly-label" style="color:#fff;font-weight:600;">F</div></div>
+        <div class="demo-weekly-col"><div class="demo-weekly-bar" style="height:20%;background:linear-gradient(to top,#6366f1,#818cf8);"></div><div class="demo-weekly-label">S</div></div>
+        <div class="demo-weekly-col"><div class="demo-weekly-bar" style="height:10%;background:linear-gradient(to top,#6366f1,#818cf8);"></div><div class="demo-weekly-label">S</div></div>
+      </div>
+
+      <div class="section-label">Earned Browse</div>
+      <div class="demo-card before">
+        <div class="demo-card-title">Earned Browse</div>
+        <div class="demo-eb-bar">
+          <div class="demo-eb-avail" style="width:65%;background:#34d399;"></div>
+          <div class="demo-eb-used" style="width:25%;background:#f87171;"></div>
+        </div>
+        <div class="demo-eb-labels">
+          <span style="color:#34d399;">32 min available</span>
+          <span style="color:#f87171;">12 min used</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="compare-col after">
+      <div class="col-label after-label">Blitzit Calendar</div>
+
+      <div class="section-label">Add Block Buttons</div>
+      <div class="demo-add-btns">
+        <button class="demo-add-btn" style="background:rgba(239,68,68,0.15);color:#f87171;">+ Deep Work</button>
+        <button class="demo-add-btn" style="background:rgba(139,92,246,0.15);color:#c4b5fd;">+ Focus Hours</button>
+        <button class="demo-add-btn" style="background:rgba(52,211,153,0.15);color:#6ee7b7;">+ Free Time</button>
+      </div>
+
+      <div class="section-label">Calendar Blocks</div>
+      <div style="background:#242428;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:16px;">
+        <div class="demo-cal-block cal-deep-after">
+          <div class="block-title">Deep Focus Session</div>
+          <div class="block-time">9:00 AM - 11:00 AM</div>
+          <div class="block-badge">DEEP WORK</div>
+        </div>
+        <div class="demo-cal-block cal-focus-after">
+          <div class="block-title">Code Review & Planning</div>
+          <div class="block-time">11:00 AM - 12:30 PM</div>
+          <div class="block-badge">FOCUS</div>
+        </div>
+        <div class="demo-cal-block cal-free-after">
+          <div class="block-title">Lunch Break</div>
+          <div class="block-time">12:30 PM - 1:30 PM</div>
+          <div class="block-badge">FREE</div>
+        </div>
+        <div class="demo-cal-block cal-deep-after">
+          <div class="block-title">Afternoon Deep Work</div>
+          <div class="block-time">2:00 PM - 4:00 PM</div>
+          <div class="block-badge">DEEP WORK</div>
+        </div>
+        <div class="demo-cal-block cal-focus-after">
+          <div class="block-title">Emails & Admin</div>
+          <div class="block-time">4:00 PM - 5:00 PM</div>
+          <div class="block-badge">FOCUS</div>
+        </div>
+      </div>
+
+      <div class="section-label">Active Block Highlight</div>
+      <div style="border:1px solid rgba(52,211,153,0.4);box-shadow:0 0 12px rgba(52,211,153,0.12);border-radius:8px;padding:10px 12px;margin-bottom:12px;background:rgba(52,211,153,0.06);">
+        <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.85);">Currently active block glow</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:2px;">Mint border + shadow</div>
+      </div>
+
+      <div class="section-label">Focus Score Ring</div>
+      <div class="demo-focus-ring">
+        <svg viewBox="0 0 36 36">
+          <circle cx="18" cy="18" r="16" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="3"/>
+          <circle cx="18" cy="18" r="16" fill="none" stroke="#34d399" stroke-width="3" stroke-linecap="round" stroke-dasharray="100.53" stroke-dashoffset="20" transform="rotate(-90 18 18)"/>
+          <text x="18" y="20" text-anchor="middle" fill="white" font-size="10" font-weight="700">82%</text>
+        </svg>
+      </div>
+
+      <div class="section-label">Weekly Chart Bars</div>
+      <div class="demo-weekly">
+        <div class="demo-weekly-col"><div class="demo-weekly-bar" style="height:40%;background:linear-gradient(to top,#34d399,#6ee7b7);"></div><div class="demo-weekly-label">M</div></div>
+        <div class="demo-weekly-col"><div class="demo-weekly-bar" style="height:60%;background:linear-gradient(to top,#34d399,#6ee7b7);"></div><div class="demo-weekly-label">T</div></div>
+        <div class="demo-weekly-col"><div class="demo-weekly-bar" style="height:30%;background:linear-gradient(to top,#34d399,#6ee7b7);"></div><div class="demo-weekly-label">W</div></div>
+        <div class="demo-weekly-col"><div class="demo-weekly-bar" style="height:55%;background:linear-gradient(to top,#34d399,#6ee7b7);"></div><div class="demo-weekly-label">T</div></div>
+        <div class="demo-weekly-col"><div class="demo-weekly-bar" style="height:75%;background:linear-gradient(to top,#34d399,#a7f3d0);"></div><div class="demo-weekly-label" style="color:#fff;font-weight:600;">F</div></div>
+        <div class="demo-weekly-col"><div class="demo-weekly-bar" style="height:20%;background:linear-gradient(to top,#34d399,#6ee7b7);"></div><div class="demo-weekly-label">S</div></div>
+        <div class="demo-weekly-col"><div class="demo-weekly-bar" style="height:10%;background:linear-gradient(to top,#34d399,#6ee7b7);"></div><div class="demo-weekly-label">S</div></div>
+      </div>
+
+      <div class="section-label">Earned Browse</div>
+      <div class="demo-card after">
+        <div class="demo-card-title">Earned Browse</div>
+        <div class="demo-eb-bar">
+          <div class="demo-eb-avail" style="width:65%;background:#34d399;"></div>
+          <div class="demo-eb-used" style="width:25%;background:#f87171;"></div>
+        </div>
+        <div class="demo-eb-labels">
+          <span style="color:#34d399;">32 min available</span>
+          <span style="color:#f87171;">12 min used</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: Onboarding ===== -->
+<div class="tab-content" id="tab-onboarding">
+  <div class="compare-row">
+    <div class="compare-col before">
+      <div class="col-label before-label">Current Onboarding</div>
+
+      <div class="section-label">Welcome Screen</div>
+      <div class="demo-onboarding before">
+        <div style="font-size:56px;margin-bottom:16px;">&#128161;</div>
+        <h2>Intentional</h2>
+        <p>Take control of your digital habits</p>
+        <button class="demo-btn cta-before" style="margin-top:8px;">Get Started</button>
+        <div class="demo-dots">
+          <div class="demo-dot active-before"></div>
+          <div class="demo-dot"></div>
+          <div class="demo-dot"></div>
+          <div class="demo-dot"></div>
+        </div>
+      </div>
+
+      <div class="section-label">Platform Selection</div>
+      <div class="demo-onboarding before" style="margin-top:12px;">
+        <h2 style="font-size:22px;">Your danger zones</h2>
+        <p>Select the platforms you want to manage</p>
+        <div>
+          <span class="demo-danger-chip selected-before"><span class="icon">&#128250;</span><span class="label">YouTube</span></span>
+          <span class="demo-danger-chip selected-before"><span class="icon">&#128247;</span><span class="label">Instagram</span></span>
+          <span class="demo-danger-chip unselected"><span class="icon">&#128279;</span><span class="label">Facebook</span></span>
+          <span class="demo-danger-chip unselected"><span class="icon">&#128172;</span><span class="label">Twitter</span></span>
+        </div>
+        <div style="margin-top:12px;">
+          <span class="demo-selected-tag before">&#128250; YouTube ✕</span>
+          <span class="demo-selected-tag before">&#128247; Instagram ✕</span>
+        </div>
+      </div>
+
+      <div class="section-label">Checkbox (checked)</div>
+      <div class="demo-onboarding before" style="margin-top:12px;">
+        <div style="display:flex;align-items:center;gap:12px;justify-content:center;">
+          <div style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:14px;color:white;">&#10003;</div>
+          <span style="font-size:14px;color:rgba(255,255,255,0.8);">Enable daily focus reminders</span>
+        </div>
+      </div>
+
+      <div class="section-label">Background Glow</div>
+      <div style="height:100px;border-radius:12px;background:radial-gradient(ellipse at center, rgba(99,102,241,0.15), transparent 60%);border:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font-size:12px;color:rgba(255,255,255,0.35);">Indigo ambient glow</div>
+    </div>
+
+    <div class="compare-col after">
+      <div class="col-label after-label">Blitzit Onboarding</div>
+
+      <div class="section-label">Welcome Screen</div>
+      <div class="demo-onboarding after">
+        <div style="font-size:56px;margin-bottom:16px;">&#128161;</div>
+        <h2>Intentional</h2>
+        <p>Take control of your digital habits</p>
+        <button class="demo-btn cta-after" style="margin-top:8px;">Get Started</button>
+        <div class="demo-dots">
+          <div class="demo-dot active-after"></div>
+          <div class="demo-dot"></div>
+          <div class="demo-dot"></div>
+          <div class="demo-dot"></div>
+        </div>
+      </div>
+
+      <div class="section-label">Platform Selection</div>
+      <div class="demo-onboarding after" style="margin-top:12px;">
+        <h2 style="font-size:22px;">Your danger zones</h2>
+        <p>Select the platforms you want to manage</p>
+        <div>
+          <span class="demo-danger-chip selected-after"><span class="icon">&#128250;</span><span class="label">YouTube</span></span>
+          <span class="demo-danger-chip selected-after"><span class="icon">&#128247;</span><span class="label">Instagram</span></span>
+          <span class="demo-danger-chip unselected"><span class="icon">&#128279;</span><span class="label">Facebook</span></span>
+          <span class="demo-danger-chip unselected"><span class="icon">&#128172;</span><span class="label">Twitter</span></span>
+        </div>
+        <div style="margin-top:12px;">
+          <span class="demo-selected-tag after">&#128250; YouTube ✕</span>
+          <span class="demo-selected-tag after">&#128247; Instagram ✕</span>
+        </div>
+      </div>
+
+      <div class="section-label">Checkbox (checked)</div>
+      <div class="demo-onboarding after" style="margin-top:12px;">
+        <div style="display:flex;align-items:center;gap:12px;justify-content:center;">
+          <div style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#8b5cf6,#ec4899);display:flex;align-items:center;justify-content:center;font-size:14px;color:white;">&#10003;</div>
+          <span style="font-size:14px;color:rgba(255,255,255,0.8);">Enable daily focus reminders</span>
+        </div>
+      </div>
+
+      <div class="section-label">Background Glow</div>
+      <div style="height:100px;border-radius:12px;background:radial-gradient(ellipse at center, rgba(52,211,153,0.12), transparent 60%);border:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font-size:12px;color:rgba(255,255,255,0.35);">Mint ambient glow</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: Components ===== -->
+<div class="tab-content" id="tab-components">
+  <div class="compare-row">
+    <div class="compare-col before">
+      <div class="col-label before-label">Current Components</div>
+
+      <div class="section-label">Lock Mode Radio</div>
+      <div class="demo-card before">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 0;">
+          <div style="width:16px;height:16px;border-radius:50%;border:2px solid #6366f1;position:relative;">
+            <div style="position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:#6366f1;"></div>
+          </div>
+          <span style="font-size:13px;">Timed lock (recommended)</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid rgba(255,255,255,0.05);">
+          <div style="width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,0.2);"></div>
+          <span style="font-size:13px;color:rgba(255,255,255,0.5);">No lock</span>
+        </div>
+      </div>
+
+      <div class="section-label">Confirmation Modal</div>
+      <div class="demo-modal before" style="text-align:center;">
+        <div style="font-size:32px;margin-bottom:8px;">&#9888;&#65039;</div>
+        <h3>Enable strict mode?</h3>
+        <p>This will prevent the app from being quit.</p>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:16px;">
+          <button class="demo-btn secondary" style="padding:8px 20px;font-size:13px;">Cancel</button>
+          <button class="demo-btn" style="padding:8px 20px;font-size:13px;background:rgba(99,102,241,0.3);border:1px solid rgba(99,102,241,0.5);color:#fff;">Enable</button>
+        </div>
+      </div>
+
+      <div class="section-label">Browser Install Button</div>
+      <div class="demo-card before">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-size:20px;">&#127760;</span>
+          <span style="font-size:14px;font-weight:500;">Chrome</span>
+          <span class="demo-badge connected" style="margin:0;">Connected</span>
+          <button class="demo-btn primary-before" style="padding:5px 14px;font-size:12px;margin-left:auto;">Install</button>
+        </div>
+      </div>
+
+      <div class="section-label">Block Editor Modal</div>
+      <div class="demo-modal before">
+        <h3>Edit Block</h3>
+        <div style="margin-top:12px;">
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:4px;">Block title</div>
+          <input class="demo-input focus-before" value="Deep Focus Session">
+        </div>
+        <div style="margin-top:8px;">
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:4px;">Description</div>
+          <input class="demo-input" placeholder="What will you work on?">
+        </div>
+      </div>
+
+      <div class="section-label">Unlock Code Input</div>
+      <div class="demo-card before" style="text-align:center;">
+        <div style="font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:8px;">Enter code from partner</div>
+        <input class="demo-input focus-before" style="width:180px;text-align:center;font-size:24px;font-weight:700;letter-spacing:8px;display:inline-block;" value="483291">
+      </div>
+
+      <div class="section-label">Slider Thumb</div>
+      <div class="demo-card before">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-size:13px;">Session limit</span>
+          <div style="flex:1;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;position:relative;">
+            <div style="position:absolute;left:60%;top:-6px;width:16px;height:16px;background:#6366f1;border-radius:50%;transform:translateX(-50%);"></div>
+          </div>
+          <span style="font-size:13px;color:rgba(255,255,255,0.5);">30 min</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="compare-col after">
+      <div class="col-label after-label">Blitzit Components</div>
+
+      <div class="section-label">Lock Mode Radio</div>
+      <div class="demo-card after">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 0;">
+          <div style="width:16px;height:16px;border-radius:50%;border:2px solid #34d399;position:relative;">
+            <div style="position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:#34d399;"></div>
+          </div>
+          <span style="font-size:13px;">Timed lock (recommended)</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid rgba(255,255,255,0.05);">
+          <div style="width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,0.2);"></div>
+          <span style="font-size:13px;color:rgba(255,255,255,0.5);">No lock</span>
+        </div>
+      </div>
+
+      <div class="section-label">Confirmation Modal</div>
+      <div class="demo-modal after" style="text-align:center;">
+        <div style="font-size:32px;margin-bottom:8px;">&#9888;&#65039;</div>
+        <h3>Enable strict mode?</h3>
+        <p>This will prevent the app from being quit.</p>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:16px;">
+          <button class="demo-btn secondary" style="padding:8px 20px;font-size:13px;">Cancel</button>
+          <button class="demo-btn" style="padding:8px 20px;font-size:13px;background:rgba(52,211,153,0.2);border:1px solid rgba(52,211,153,0.4);color:#fff;">Enable</button>
+        </div>
+      </div>
+
+      <div class="section-label">Browser Install Button</div>
+      <div class="demo-card after">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-size:20px;">&#127760;</span>
+          <span style="font-size:14px;font-weight:500;">Chrome</span>
+          <span class="demo-badge connected" style="margin:0;">Connected</span>
+          <button class="demo-btn primary-after" style="padding:5px 14px;font-size:12px;margin-left:auto;">Install</button>
+        </div>
+      </div>
+
+      <div class="section-label">Block Editor Modal</div>
+      <div class="demo-modal after">
+        <h3>Edit Block</h3>
+        <div style="margin-top:12px;">
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:4px;">Block title</div>
+          <input class="demo-input focus-after" value="Deep Focus Session">
+        </div>
+        <div style="margin-top:8px;">
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:4px;">Description</div>
+          <input class="demo-input" placeholder="What will you work on?">
+        </div>
+      </div>
+
+      <div class="section-label">Unlock Code Input</div>
+      <div class="demo-card after" style="text-align:center;">
+        <div style="font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:8px;">Enter code from partner</div>
+        <input class="demo-input focus-after" style="width:180px;text-align:center;font-size:24px;font-weight:700;letter-spacing:8px;display:inline-block;" value="483291">
+      </div>
+
+      <div class="section-label">Slider Thumb</div>
+      <div class="demo-card after">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-size:13px;">Session limit</span>
+          <div style="flex:1;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;position:relative;">
+            <div style="position:absolute;left:60%;top:-6px;width:16px;height:16px;background:#34d399;border-radius:50%;transform:translateX(-50%);"></div>
+          </div>
+          <span style="font-size:13px;color:rgba(255,255,255,0.5);">30 min</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showTab(id) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

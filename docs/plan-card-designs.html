@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan Your Day Card — Design Options</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #1a1a2e;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+    color: #fff;
+    min-height: 100vh;
+    padding: 40px;
+  }
+
+  h1 {
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  .section-note {
+    font-size: 12px;
+    color: rgba(255,255,255,0.25);
+    text-align: center;
+    margin-bottom: 40px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.5;
+  }
+
+  .designs {
+    display: flex;
+    gap: 50px;
+    justify-content: center;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .design-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .design-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+  }
+
+  .design-sublabel {
+    font-size: 12px;
+    color: rgba(255,255,255,0.25);
+    margin-top: -8px;
+    margin-bottom: 4px;
+    text-align: center;
+    max-width: 300px;
+  }
+
+  /* ── Shared card base ── */
+  .card {
+    background: rgba(30, 30, 38, 0.95);
+    border-radius: 18px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+    overflow: hidden;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  /* ── Colors ── */
+  :root {
+    --amber: #f2bf40;
+    --go-green: #40c773;
+    --go-green-bright: #4de085;
+    --focus-hours: #7375ff;
+    --deep-work: #f25959;
+    --free-time: #59d98d;
+    --text-primary: rgba(255,255,255,0.92);
+    --text-secondary: rgba(255,255,255,0.55);
+    --text-tertiary: rgba(255,255,255,0.35);
+    --separator: rgba(255,255,255,0.08);
+    --border: rgba(255,255,255,0.12);
+  }
+
+  .amber-border { border: 1.5px solid rgba(242, 191, 64, 0.35); }
+
+  /* ── Shared elements ── */
+  .header-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px 8px;
+  }
+  .header-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--amber);
+    flex-shrink: 0;
+  }
+  .header-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--amber);
+    letter-spacing: 0.8px;
+  }
+  .header-spacer { flex: 1; }
+  .separator {
+    height: 1px;
+    background: var(--separator);
+    margin: 0 14px;
+  }
+
+  .plan-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 8px 0;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(90deg, var(--go-green), var(--go-green-bright));
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .plan-btn:hover { opacity: 0.9; }
+
+  .plan-btn-small {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 16px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(90deg, var(--go-green), var(--go-green-bright));
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .plan-btn-small:hover { opacity: 0.9; }
+
+  .ghost-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 14px;
+    border: 1.5px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .ghost-btn:hover { border-color: rgba(255,255,255,0.25); color: var(--text-primary); }
+
+  .snooze-link {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 6px 0 0;
+  }
+  .snooze-link:hover { color: var(--text-primary); }
+
+  .open-link {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--go-green);
+    cursor: pointer;
+    background: none;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .open-link:hover { opacity: 0.8; }
+
+  /* ── Divider ── */
+  .vs-divider {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin: 40px 0;
+    padding: 0 40px;
+  }
+  .vs-divider .line {
+    flex: 1;
+    height: 1px;
+    background: rgba(255,255,255,0.08);
+  }
+  .vs-divider .label {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.2);
+    letter-spacing: 1px;
+  }
+
+  /* ───────────────────────────────────────────
+     DESIGN A — Mini Timeline
+     ─────────────────────────────────────────── */
+  .card-a { width: 320px; }
+  .card-a .timeline { padding: 0 14px 8px; }
+  .card-a .timeline-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding-bottom: 6px;
+  }
+  .card-a .timeline-item:last-child { padding-bottom: 0; }
+  .card-a .timeline-track {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding-top: 2px;
+  }
+  .card-a .timeline-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .card-a .timeline-line {
+    width: 1.5px;
+    flex: 1;
+    min-height: 12px;
+    background: var(--separator);
+  }
+  .card-a .timeline-content { flex: 1; min-width: 0; }
+  .card-a .timeline-block-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-a .timeline-block-meta {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    margin-top: 1px;
+  }
+  .card-a .timeline-time {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+    padding-top: 1px;
+  }
+  .card-a .now-marker {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0 4px;
+  }
+  .card-a .now-line { flex: 1; height: 1px; background: var(--amber); opacity: 0.4; }
+  .card-a .now-label { font-size: 9px; font-weight: 600; color: var(--amber); letter-spacing: 0.5px; opacity: 0.7; }
+  .card-a .footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px 10px;
+    gap: 10px;
+  }
+
+  /* ───────────────────────────────────────────
+     DESIGN B — Schedule Preview Bars
+     ─────────────────────────────────────────── */
+  .card-b { width: 320px; }
+  .card-b .title { font-size: 14px; font-weight: 700; color: var(--text-primary); padding: 10px 14px 3px; }
+  .card-b .subtitle { font-size: 11px; font-weight: 500; color: var(--text-secondary); padding: 0 14px 10px; }
+  .card-b .schedule-bar-container { padding: 0 14px; margin-bottom: 10px; }
+  .card-b .time-labels { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .card-b .time-label { font-size: 9px; font-weight: 500; color: var(--text-tertiary); }
+  .card-b .schedule-track {
+    height: 20px; border-radius: 6px;
+    background: rgba(255,255,255,0.04);
+    display: flex; overflow: hidden; position: relative;
+  }
+  .card-b .schedule-segment { height: 100%; }
+  .card-b .schedule-segment.gap { background: transparent; }
+  .card-b .schedule-segment.deep-work { background: var(--deep-work); opacity: 0.7; }
+  .card-b .schedule-segment.focus-hours { background: var(--focus-hours); opacity: 0.7; }
+  .card-b .schedule-segment.free-time { background: var(--free-time); opacity: 0.7; }
+  .card-b .now-indicator {
+    position: absolute; top: -3px; bottom: -3px; width: 2px;
+    background: var(--amber); border-radius: 1px; z-index: 2;
+  }
+  .card-b .block-legend { padding: 2px 14px 8px; }
+  .card-b .legend-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
+  .card-b .legend-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .card-b .legend-title { font-size: 11px; font-weight: 500; color: var(--text-secondary); flex: 1; }
+  .card-b .legend-time { font-size: 10px; font-weight: 500; color: var(--text-tertiary); }
+  .card-b .footer { padding: 0 14px 10px; }
+
+  /* ───────────────────────────────────────────
+     DESIGN C — Minimal Next Block
+     ─────────────────────────────────────────── */
+  .card-c { width: 300px; }
+  .card-c .content { padding: 10px 14px; }
+  .card-c .title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .card-c .title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .card-c .next-block {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; background: rgba(255,255,255,0.04);
+    border-radius: 10px; margin-bottom: 6px;
+  }
+  .card-c .next-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .card-c .next-info { flex: 1; min-width: 0; }
+  .card-c .next-title { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+  .card-c .next-meta { font-size: 10px; font-weight: 500; color: var(--text-tertiary); margin-top: 1px; }
+  .card-c .next-time { font-size: 11px; font-weight: 600; color: var(--text-secondary); flex-shrink: 0; }
+  .card-c .after-that { display: flex; align-items: center; gap: 8px; padding: 0 10px; }
+  .card-c .after-dot { width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0; opacity: 0.6; }
+  .card-c .after-title { font-size: 10px; font-weight: 500; color: var(--text-tertiary); flex: 1; }
+  .card-c .after-time { font-size: 10px; font-weight: 500; color: var(--text-tertiary); opacity: 0.6; }
+
+  /* ───────────────────────────────────────────
+     DESIGN D — Countdown to Next
+     ─────────────────────────────────────────── */
+  .card-d { width: 300px; }
+  .card-d .content { padding: 10px 14px 12px; }
+  .card-d .countdown-hero {
+    text-align: center;
+    padding: 8px 0 10px;
+  }
+  .card-d .countdown-label {
+    font-size: 10px; font-weight: 600;
+    color: var(--text-tertiary);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .card-d .countdown-value {
+    font-size: 28px; font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+  .card-d .countdown-unit {
+    font-size: 13px; font-weight: 500;
+    color: var(--text-tertiary);
+    margin-left: 2px;
+  }
+  .card-d .next-block-compact {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+  .card-d .next-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .card-d .next-label { font-size: 11px; font-weight: 500; color: var(--text-secondary); flex: 1; }
+  .card-d .next-time { font-size: 10px; font-weight: 500; color: var(--text-tertiary); }
+
+  /* ───────────────────────────────────────────
+     DESIGN E — Stacked Blocks
+     ─────────────────────────────────────────── */
+  .card-e { width: 300px; }
+  .card-e .content { padding: 8px 12px 10px; }
+  .card-e .block-card {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    margin-bottom: 4px;
+    position: relative;
+  }
+  .card-e .block-card .accent-bar {
+    width: 3px; height: 100%;
+    border-radius: 2px;
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+  }
+  .card-e .block-card.next-up {
+    background: rgba(255,255,255,0.06);
+  }
+  .card-e .block-card.later {
+    background: transparent;
+    opacity: 0.6;
+  }
+  .card-e .block-info { flex: 1; min-width: 0; padding-left: 4px; }
+  .card-e .block-name {
+    font-size: 12px; font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .card-e .block-meta {
+    font-size: 10px; font-weight: 500;
+    color: var(--text-tertiary); margin-top: 1px;
+  }
+  .card-e .block-time-right {
+    font-size: 10px; font-weight: 600;
+    color: var(--text-secondary); flex-shrink: 0;
+  }
+  .card-e .block-tag {
+    font-size: 9px; font-weight: 600;
+    color: var(--amber);
+    background: rgba(242, 191, 64, 0.12);
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+  }
+  .card-e .footer {
+    display: flex; align-items: center; justify-content: center;
+    padding: 4px 12px 6px;
+  }
+
+  /* ───────────────────────────────────────────
+     DESIGN F — Pill-Width Ticker
+     ─────────────────────────────────────────── */
+  .card-f { width: 300px; }
+  .card-f .ticker-row {
+    display: flex; align-items: center;
+    padding: 8px 14px;
+    gap: 10px;
+  }
+  .card-f .ticker-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .card-f .ticker-text {
+    font-size: 12px; font-weight: 500;
+    color: var(--text-secondary);
+    flex: 1;
+  }
+  .card-f .ticker-text strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+  .card-f .ticker-time {
+    font-size: 11px; font-weight: 600;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+  .card-f .action-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 14px 10px;
+  }
+  .card-f .action-row .open-link {
+    flex: 1;
+    justify-content: center;
+  }
+
+  /* ───────────────────────────────────────────
+     DESIGN G — Info-Dense Compact
+     ─────────────────────────────────────────── */
+  .card-g { width: 340px; }
+  .card-g .content { padding: 8px 14px 10px; }
+  .card-g .status-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 10px;
+  }
+  .card-g .status-text {
+    font-size: 13px; font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+  }
+  .card-g .status-countdown {
+    font-size: 13px; font-weight: 700;
+    color: var(--amber);
+    font-variant-numeric: tabular-nums;
+  }
+  .card-g .mini-schedule {
+    display: flex; gap: 3px;
+    margin-bottom: 10px;
+    height: 6px;
+  }
+  .card-g .mini-seg {
+    border-radius: 3px;
+    height: 100%;
+    opacity: 0.7;
+  }
+  .card-g .mini-seg.gap { background: rgba(255,255,255,0.04); }
+  .card-g .mini-seg.deep-work { background: var(--deep-work); }
+  .card-g .mini-seg.focus-hours { background: var(--focus-hours); }
+  .card-g .mini-seg.free-time { background: var(--free-time); }
+  .card-g .blocks-list { margin-bottom: 8px; }
+  .card-g .block-row-compact {
+    display: flex; align-items: center; gap: 6px;
+    padding: 3px 0;
+  }
+  .card-g .block-row-compact .dot {
+    width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
+  }
+  .card-g .block-row-compact .name {
+    font-size: 11px; font-weight: 500; color: var(--text-secondary);
+    flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .card-g .block-row-compact .time-range {
+    font-size: 10px; font-weight: 500; color: var(--text-tertiary); flex-shrink: 0;
+  }
+  .card-g .footer {
+    display: flex; align-items: center; gap: 10px;
+    padding-top: 2px;
+  }
+
+  /* ── Current card for reference ── */
+  .card-current { width: 380px; }
+  .card-current .title { font-size: 16px; font-weight: 700; color: var(--text-primary); padding: 10px 14px 3px; }
+  .card-current .subtitle { font-size: 12px; font-weight: 500; color: var(--text-secondary); padding: 0 14px 10px; }
+  .card-current .footer { padding: 0 14px 10px; }
+  .block-row-inline { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+  .block-row-inline .block-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .block-row-inline .block-title { font-size: 11px; font-weight: 500; color: var(--text-secondary); flex: 1; }
+  .block-row-inline .block-time { font-size: 10px; font-weight: 500; color: var(--text-tertiary); flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<h1>Unscheduled Time Card — Design Options</h1>
+<div class="section-note">
+  Two states: <strong>"NO PLAN"</strong> (no blocks today) → button says "Plan My Day"<br>
+  <strong>"UNSCHEDULED"</strong> (blocks exist but gap right now) → button says "Edit Schedule" / "Open Schedule"
+</div>
+
+<!-- ═══════════════════════════════════════════
+     ROW 1: Current + A + B + C (from before)
+     ═══════════════════════════════════════════ -->
+
+<div style="display:flex; justify-content:center; margin-bottom: 20px;">
+  <div class="design-col">
+    <div class="design-label">Current (380×220)</div>
+    <div class="card card-current amber-border">
+      <div class="header-row">
+        <div class="header-dot"></div>
+        <div class="header-label">UNSCHEDULED</div>
+      </div>
+      <div class="separator"></div>
+      <div class="title">This time isn't scheduled</div>
+      <div class="subtitle">Add a block to your schedule or take a planned break.</div>
+      <div style="padding: 0 14px 10px;">
+        <div class="block-row-inline">
+          <div class="block-dot" style="background: var(--focus-hours);"></div>
+          <div class="block-title">Next: software engineering</div>
+          <div class="block-time">11:12 PM</div>
+        </div>
+      </div>
+      <div class="footer">
+        <button class="plan-btn">Plan My Day</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="vs-divider">
+  <div class="line"></div>
+  <div class="label">DESIGNS A – C (FROM BEFORE)</div>
+  <div class="line"></div>
+</div>
+
+<div class="designs">
+
+  <!-- ═══ A: Mini Timeline ═══ -->
+  <div class="design-col">
+    <div class="design-label">A — Mini Timeline</div>
+    <div class="design-sublabel">320px · Vertical timeline of upcoming blocks</div>
+    <div class="card card-a amber-border">
+      <div class="header-row">
+        <div class="header-dot"></div>
+        <div class="header-label">UNSCHEDULED</div>
+        <div class="header-spacer"></div>
+        <button class="open-link">Edit Schedule →</button>
+      </div>
+      <div class="separator"></div>
+      <div style="padding: 4px 14px 0;">
+        <div class="card-a now-marker">
+          <div class="now-line"></div>
+          <div class="now-label">NOW</div>
+          <div class="now-line"></div>
+        </div>
+      </div>
+      <div class="timeline" style="padding-top: 2px;">
+        <div class="timeline-item">
+          <div class="timeline-track">
+            <div class="timeline-dot" style="background: var(--focus-hours);"></div>
+            <div class="timeline-line"></div>
+          </div>
+          <div class="timeline-content">
+            <div class="timeline-block-title">Software engineering</div>
+            <div class="timeline-block-meta">Focus Hours · 2h</div>
+          </div>
+          <div class="timeline-time">11:12 PM</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-track">
+            <div class="timeline-dot" style="background: var(--free-time);"></div>
+            <div class="timeline-line"></div>
+          </div>
+          <div class="timeline-content">
+            <div class="timeline-block-title">Break</div>
+            <div class="timeline-block-meta">Free Time · 30m</div>
+          </div>
+          <div class="timeline-time">1:12 AM</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-track">
+            <div class="timeline-dot" style="background: var(--deep-work);"></div>
+          </div>
+          <div class="timeline-content">
+            <div class="timeline-block-title">Research paper</div>
+            <div class="timeline-block-meta">Deep Work · 1h 30m</div>
+          </div>
+          <div class="timeline-time">1:42 AM</div>
+        </div>
+      </div>
+      <div class="separator" style="margin-bottom: 8px;"></div>
+      <div class="footer">
+        <button class="snooze-link" style="padding-top:0;">Snooze 30 min</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ B: Schedule Preview Bars ═══ -->
+  <div class="design-col">
+    <div class="design-label">B — Schedule Preview Bars</div>
+    <div class="design-sublabel">320px · Horizontal bar of today's blocks</div>
+    <div class="card card-b amber-border">
+      <div class="header-row">
+        <div class="header-dot"></div>
+        <div class="header-label">UNSCHEDULED</div>
+      </div>
+      <div class="separator"></div>
+      <div class="title">This time isn't scheduled</div>
+      <div class="subtitle">Your upcoming blocks:</div>
+      <div class="schedule-bar-container">
+        <div class="time-labels">
+          <div class="time-label">9 AM</div>
+          <div class="time-label">12 PM</div>
+          <div class="time-label">3 PM</div>
+          <div class="time-label">6 PM</div>
+          <div class="time-label">9 PM</div>
+        </div>
+        <div class="schedule-track">
+          <div class="schedule-segment deep-work" style="width: 12.5%; border-radius: 4px 0 0 4px;"></div>
+          <div class="schedule-segment gap" style="width: 4.2%;"></div>
+          <div class="schedule-segment focus-hours" style="width: 16.7%;"></div>
+          <div class="schedule-segment free-time" style="width: 8.3%;"></div>
+          <div class="schedule-segment gap" style="width: 8.3%;"></div>
+          <div class="schedule-segment focus-hours" style="width: 20.8%;"></div>
+          <div class="schedule-segment gap" style="width: 29.2%;"></div>
+          <div class="now-indicator" style="left: 58.3%;"></div>
+        </div>
+      </div>
+      <div class="block-legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--focus-hours);"></div>
+          <div class="legend-title">Software engineering</div>
+          <div class="legend-time">11:12 PM · 2h</div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--free-time);"></div>
+          <div class="legend-title">Break</div>
+          <div class="legend-time">1:12 AM · 30m</div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--deep-work);"></div>
+          <div class="legend-title">Research paper</div>
+          <div class="legend-time">1:42 AM · 1h 30m</div>
+        </div>
+      </div>
+      <div class="separator" style="margin-bottom: 10px;"></div>
+      <div class="footer">
+        <button class="plan-btn">Edit Schedule</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ C: Minimal Next Block ═══ -->
+  <div class="design-col">
+    <div class="design-label">C — Minimal Next Block</div>
+    <div class="design-sublabel">300px · Smallest footprint, just what's next</div>
+    <div class="card card-c amber-border">
+      <div class="header-row">
+        <div class="header-dot"></div>
+        <div class="header-label">UNSCHEDULED</div>
+      </div>
+      <div class="separator"></div>
+      <div class="content">
+        <div class="title-row">
+          <div class="title">Coming up</div>
+          <button class="open-link">Edit Schedule →</button>
+        </div>
+        <div class="next-block">
+          <div class="next-dot" style="background: var(--focus-hours);"></div>
+          <div class="next-info">
+            <div class="next-title">Software engineering</div>
+            <div class="next-meta">Focus Hours · 2h</div>
+          </div>
+          <div class="next-time">11:12 PM</div>
+        </div>
+        <div class="after-that">
+          <div class="after-dot" style="background: var(--free-time);"></div>
+          <div class="after-title">Break · 30m</div>
+          <div class="after-time">1:12 AM</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="vs-divider">
+  <div class="line"></div>
+  <div class="label">NEW DESIGNS D – G</div>
+  <div class="line"></div>
+</div>
+
+<div class="designs">
+
+  <!-- ═══ D: Countdown to Next ═══ -->
+  <div class="design-col">
+    <div class="design-label">D — Countdown to Next</div>
+    <div class="design-sublabel">300px · Big countdown timer as hero element</div>
+    <div class="card card-d amber-border">
+      <div class="header-row">
+        <div class="header-dot"></div>
+        <div class="header-label">UNSCHEDULED</div>
+        <div class="header-spacer"></div>
+        <button class="open-link">Edit →</button>
+      </div>
+      <div class="separator"></div>
+      <div class="content">
+        <div class="countdown-hero">
+          <div class="countdown-label">Next block in</div>
+          <div class="countdown-value">47<span class="countdown-unit">min</span></div>
+        </div>
+        <div class="next-block-compact">
+          <div class="next-dot" style="background: var(--focus-hours);"></div>
+          <div class="next-label">Software engineering · Focus Hours</div>
+          <div class="next-time">11:12 PM</div>
+        </div>
+        <div class="next-block-compact" style="opacity: 0.5;">
+          <div class="next-dot" style="background: var(--free-time);"></div>
+          <div class="next-label">Break · Free Time</div>
+          <div class="next-time">1:12 AM</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- noPlan variant -->
+    <div style="height: 16px;"></div>
+    <div class="design-sublabel">noPlan variant</div>
+    <div class="card card-d amber-border">
+      <div class="header-row">
+        <div class="header-dot"></div>
+        <div class="header-label">NO PLAN</div>
+      </div>
+      <div class="separator"></div>
+      <div class="content">
+        <div class="countdown-hero">
+          <div class="countdown-label" style="color: var(--amber);">No blocks scheduled</div>
+          <div style="font-size: 11px; font-weight: 500; color: var(--text-tertiary); margin-top: 4px;">
+            Plan your day to track focus and earn browse time.
+          </div>
+        </div>
+        <button class="plan-btn">Plan My Day</button>
+        <div style="text-align: center;">
+          <button class="snooze-link">Snooze 30 min</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ E: Stacked Blocks ═══ -->
+  <div class="design-col">
+    <div class="design-label">E — Stacked Blocks</div>
+    <div class="design-sublabel">300px · Card-within-card stack, accent bars</div>
+    <div class="card card-e amber-border">
+      <div class="header-row">
+        <div class="header-dot"></div>
+        <div class="header-label">UNSCHEDULED</div>
+        <div class="header-spacer"></div>
+        <button class="open-link">Edit Schedule →</button>
+      </div>
+      <div class="separator"></div>
+      <div class="content">
+        <!-- Next up block -->
+        <div class="block-card next-up">
+          <div class="accent-bar" style="background: var(--focus-hours);"></div>
+          <div class="block-info">
+            <div class="block-name">Software engineering</div>
+            <div class="block-meta">Focus Hours · 2h</div>
+          </div>
+          <div class="block-tag">NEXT</div>
+          <div class="block-time-right">11:12 PM</div>
+        </div>
+
+        <!-- Later blocks -->
+        <div class="block-card later">
+          <div class="accent-bar" style="background: var(--free-time);"></div>
+          <div class="block-info">
+            <div class="block-name">Break</div>
+            <div class="block-meta">Free Time · 30m</div>
+          </div>
+          <div class="block-time-right">1:12 AM</div>
+        </div>
+
+        <div class="block-card later">
+          <div class="accent-bar" style="background: var(--deep-work);"></div>
+          <div class="block-info">
+            <div class="block-name">Research paper</div>
+            <div class="block-meta">Deep Work · 1h 30m</div>
+          </div>
+          <div class="block-time-right">1:42 AM</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ F: Pill-Width Ticker ═══ -->
+  <div class="design-col">
+    <div class="design-label">F — Pill-Width Ticker</div>
+    <div class="design-sublabel">300px · Same width as timer pill, ultra-compact</div>
+    <div class="card card-f amber-border">
+      <div class="header-row" style="padding-bottom: 6px;">
+        <div class="header-dot"></div>
+        <div class="header-label">UNSCHEDULED</div>
+      </div>
+      <div class="separator"></div>
+      <div class="ticker-row">
+        <div class="ticker-dot" style="background: var(--focus-hours);"></div>
+        <div class="ticker-text">Next: <strong>Software engineering</strong></div>
+        <div class="ticker-time">in 47m</div>
+      </div>
+      <div class="action-row">
+        <button class="ghost-btn" style="flex: 1;">Edit Schedule</button>
+      </div>
+    </div>
+
+    <!-- noPlan variant -->
+    <div style="height: 16px;"></div>
+    <div class="design-sublabel">noPlan variant</div>
+    <div class="card card-f amber-border">
+      <div class="header-row" style="padding-bottom: 6px;">
+        <div class="header-dot"></div>
+        <div class="header-label">NO PLAN</div>
+      </div>
+      <div class="separator"></div>
+      <div class="ticker-row">
+        <div class="ticker-text" style="text-align: center; width: 100%;">No blocks scheduled today</div>
+      </div>
+      <div class="action-row">
+        <button class="plan-btn-small" style="flex: 1;">Plan My Day</button>
+      </div>
+    </div>
+
+    <!-- Also: what it looks like with no next block -->
+    <div style="height: 16px;"></div>
+    <div class="design-sublabel">unscheduled, no upcoming blocks</div>
+    <div class="card card-f amber-border">
+      <div class="header-row" style="padding-bottom: 6px;">
+        <div class="header-dot"></div>
+        <div class="header-label">UNSCHEDULED</div>
+      </div>
+      <div class="separator"></div>
+      <div class="ticker-row">
+        <div class="ticker-text" style="text-align: center; width: 100;">No more blocks today</div>
+      </div>
+      <div class="action-row">
+        <button class="ghost-btn" style="flex: 1;">Edit Schedule</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ G: Info-Dense Compact ═══ -->
+  <div class="design-col">
+    <div class="design-label">G — Info-Dense Compact</div>
+    <div class="design-sublabel">340px · Mini schedule bar + block list + countdown</div>
+    <div class="card card-g amber-border">
+      <div class="header-row">
+        <div class="header-dot"></div>
+        <div class="header-label">UNSCHEDULED</div>
+      </div>
+      <div class="separator"></div>
+      <div class="content">
+        <div class="status-row">
+          <div class="status-text">Next block in</div>
+          <div class="status-countdown">47 min</div>
+        </div>
+
+        <!-- Mini schedule bar -->
+        <div class="mini-schedule">
+          <div class="mini-seg deep-work" style="flex: 1.5;"></div>
+          <div class="mini-seg gap" style="flex: 0.5;"></div>
+          <div class="mini-seg focus-hours" style="flex: 2;"></div>
+          <div class="mini-seg free-time" style="flex: 0.5;"></div>
+          <div class="mini-seg gap" style="flex: 1;"></div>
+          <div class="mini-seg focus-hours" style="flex: 2.5;"></div>
+          <div class="mini-seg gap" style="flex: 4; opacity: 0.3;"></div>
+        </div>
+
+        <div class="blocks-list">
+          <div class="block-row-compact">
+            <div class="dot" style="background: var(--focus-hours);"></div>
+            <div class="name">Software engineering</div>
+            <div class="time-range">11:12 – 1:12</div>
+          </div>
+          <div class="block-row-compact">
+            <div class="dot" style="background: var(--free-time);"></div>
+            <div class="name">Break</div>
+            <div class="time-range">1:12 – 1:42</div>
+          </div>
+          <div class="block-row-compact">
+            <div class="dot" style="background: var(--deep-work);"></div>
+            <div class="name">Research paper</div>
+            <div class="time-range">1:42 – 3:12</div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <button class="ghost-btn">Edit Schedule</button>
+          <div style="flex: 1;"></div>
+          <button class="snooze-link" style="padding-top: 0;">Snooze 30 min</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- noPlan variant -->
+    <div style="height: 16px;"></div>
+    <div class="design-sublabel">noPlan variant</div>
+    <div class="card card-g amber-border">
+      <div class="header-row">
+        <div class="header-dot"></div>
+        <div class="header-label">NO PLAN</div>
+      </div>
+      <div class="separator"></div>
+      <div class="content">
+        <div class="status-row">
+          <div class="status-text">No blocks scheduled</div>
+        </div>
+        <div style="font-size: 11px; color: var(--text-tertiary); margin-bottom: 10px;">
+          Plan your day to track focus and earn browse time.
+        </div>
+        <button class="plan-btn">Plan My Day</button>
+        <div style="text-align: center;">
+          <button class="snooze-link">Snooze 30 min</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="height: 80px;"></div>
+
+</body>
+</html>

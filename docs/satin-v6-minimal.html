@@ -1,0 +1,1742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intentional — Focus That Actually Works</title>
+<style>
+/* ── Reset & Base ── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0a0b;
+  --bg-elevated: #111113;
+  --bg-card: rgba(255,255,255,0.04);
+  --border: rgba(255,255,255,0.08);
+  --border-hover: rgba(52, 211, 153, 0.3);
+  --text-primary: rgba(255,255,255,0.95);
+  --text-secondary: rgba(255,255,255,0.6);
+  --text-muted: rgba(255,255,255,0.35);
+  --emerald: #34d399;
+  --emerald-bright: #6ee7b7;
+  --emerald-glow: rgba(52, 211, 153, 0.15);
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+  --max-width: 1100px;
+  --section-gap: 120px;
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ── Subtle grain texture ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Typography ── */
+h1 { font-size: clamp(40px, 5.5vw, 68px); font-weight: 800; line-height: 1.06; letter-spacing: -0.03em; }
+h2 { font-size: clamp(30px, 4vw, 46px); font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; }
+h3 { font-size: 19px; font-weight: 700; line-height: 1.3; }
+p { color: var(--text-secondary); font-size: 17px; line-height: 1.75; }
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--emerald) 0%, var(--emerald-bright) 50%, #a7f3d0 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+/* ── CSS-only animated silk divider ── */
+.silk-divider {
+  height: 3px;
+  margin: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(52, 211, 153, 0.0) 10%,
+    rgba(52, 211, 153, 0.4) 30%,
+    rgba(110, 231, 183, 0.6) 50%,
+    rgba(52, 211, 153, 0.4) 70%,
+    rgba(52, 211, 153, 0.0) 90%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: silk-shimmer 4s ease-in-out infinite;
+}
+
+@keyframes silk-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Navigation ── */
+.nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  padding: 18px 0;
+  background: rgba(10,10,11,0.85);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  transition: border-color 0.3s;
+}
+
+.nav-inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-logo {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+
+.nav-logo span {
+  display: inline-block;
+  width: 8px; height: 8px;
+  background: var(--emerald);
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
+  box-shadow: 0 0 8px rgba(52,211,153,0.6);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 600;
+  padding: 10px 22px;
+  border-radius: 10px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--emerald);
+  color: #052e16;
+  border-color: var(--emerald);
+}
+
+.btn-primary:hover {
+  background: var(--emerald-bright);
+  border-color: var(--emerald-bright);
+  box-shadow: 0 0 24px rgba(52,211,153,0.3);
+  transform: translateY(-1px);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+
+.btn-ghost:hover {
+  color: var(--text-primary);
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52,211,153,0.05);
+}
+
+.btn-large {
+  font-size: 16px;
+  padding: 14px 32px;
+  border-radius: 12px;
+}
+
+/* ── Hero ── */
+.hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  padding-top: 100px;
+  overflow: hidden;
+}
+
+.hero-canvas-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.hero-canvas-wrap canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  opacity: 0.18;
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(10,10,11,0) 0%, rgba(10,10,11,0.7) 100%);
+  z-index: 1;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  padding: 80px 0 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+}
+
+.hero-eyebrow {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--emerald);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 24px;
+  opacity: 0.85;
+}
+
+.hero h1 {
+  max-width: 820px;
+  margin-bottom: 24px;
+}
+
+.hero-sub {
+  font-size: 19px;
+  color: var(--text-secondary);
+  max-width: 560px;
+  line-height: 1.7;
+  margin-bottom: 52px;
+}
+
+.video-placeholder {
+  width: 100%;
+  max-width: 780px;
+  aspect-ratio: 16/9;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 48px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s, box-shadow 0.3s;
+  cursor: pointer;
+}
+
+.video-placeholder:hover {
+  border-color: rgba(52,211,153,0.25);
+  box-shadow: 0 0 40px rgba(52,211,153,0.06);
+}
+
+.video-placeholder::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(52,211,153,0.03) 0%, transparent 60%);
+}
+
+.play-btn {
+  width: 64px; height: 64px;
+  background: rgba(52,211,153,0.12);
+  border: 1px solid rgba(52,211,153,0.3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  position: relative;
+  z-index: 1;
+}
+
+.video-placeholder:hover .play-btn {
+  background: rgba(52,211,153,0.2);
+  box-shadow: 0 0 24px rgba(52,211,153,0.2);
+  transform: scale(1.06);
+}
+
+.play-btn svg {
+  width: 22px; height: 22px;
+  fill: var(--emerald);
+  margin-left: 3px;
+}
+
+.video-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  position: relative;
+  z-index: 1;
+}
+
+.hero-ctas {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.hero-note {
+  font-size: 13px;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+}
+
+/* ── Stats ── */
+.stats-section {
+  background: var(--bg-elevated);
+  padding: 72px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 48px;
+  text-align: center;
+}
+
+.stat-num {
+  font-size: clamp(36px, 5vw, 60px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.stat-num span {
+  color: var(--emerald);
+}
+
+.stat-label {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-width: 200px;
+  margin: 0 auto;
+}
+
+.stats-attribution {
+  text-align: center;
+  margin-top: 40px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── Section labels ── */
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--emerald);
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+
+/* ── Sections ── */
+section {
+  padding: var(--section-gap) 0;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 64px;
+}
+
+.section-header h2 {
+  margin-bottom: 16px;
+}
+
+.section-header p {
+  max-width: 540px;
+  margin: 0 auto;
+  font-size: 18px;
+}
+
+/* ── Cards ── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px;
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s;
+}
+
+.card:hover {
+  border-color: var(--border-hover);
+  box-shadow: 0 0 30px rgba(52, 211, 153, 0.08);
+  transform: translateY(-2px);
+}
+
+.card-icon {
+  font-size: 28px;
+  margin-bottom: 16px;
+  display: block;
+}
+
+.card h3 {
+  margin-bottom: 10px;
+  font-size: 18px;
+}
+
+.card p {
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+/* ── Problem ── */
+.problem-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.problem-card {
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 36px 32px;
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s;
+}
+
+.problem-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: 0 0 30px rgba(52, 211, 153, 0.08);
+  transform: translateY(-2px);
+}
+
+.problem-stat {
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--emerald);
+  margin-bottom: 8px;
+  line-height: 1;
+}
+
+.problem-card h3 {
+  margin-bottom: 12px;
+  font-size: 18px;
+}
+
+/* ── Pivot ── */
+.pivot-section {
+  text-align: center;
+  padding: var(--section-gap) 0;
+}
+
+.pivot-section h2 {
+  max-width: 680px;
+  margin: 0 auto 20px;
+}
+
+.pivot-section p {
+  max-width: 500px;
+  margin: 0 auto;
+  font-size: 18px;
+}
+
+/* ── Testimonials ── */
+.testimonials-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.testimonial-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s;
+  cursor: pointer;
+}
+
+.testimonial-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: 0 0 30px rgba(52, 211, 153, 0.08);
+  transform: translateY(-2px);
+}
+
+.testimonial-video {
+  width: 100%;
+  aspect-ratio: 9/7;
+  background: rgba(255,255,255,0.03);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  position: relative;
+}
+
+.testimonial-play {
+  width: 44px; height: 44px;
+  background: rgba(52,211,153,0.1);
+  border: 1px solid rgba(52,211,153,0.25);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.testimonial-card:hover .testimonial-play {
+  background: rgba(52,211,153,0.18);
+  box-shadow: 0 0 16px rgba(52,211,153,0.2);
+}
+
+.testimonial-play svg {
+  width: 14px; height: 14px;
+  fill: var(--emerald);
+  margin-left: 2px;
+}
+
+.testimonial-coming {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.testimonial-info {
+  padding: 20px 24px;
+  border-top: 1px solid var(--border);
+}
+
+.testimonial-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+
+.testimonial-role {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.testimonials-note {
+  text-align: center;
+  margin-top: 28px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ── How It Works ── */
+.hiw-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 80px;
+}
+
+.hiw-step {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 72px;
+  align-items: center;
+}
+
+.hiw-step.reverse {
+  direction: rtl;
+}
+
+.hiw-step.reverse > * {
+  direction: ltr;
+}
+
+.hiw-step-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--emerald);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  opacity: 0.8;
+}
+
+.hiw-step h3 {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.25;
+  margin-bottom: 14px;
+  letter-spacing: -0.02em;
+}
+
+.hiw-step p {
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+.hiw-mockup {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  aspect-ratio: 4/3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.hiw-mockup:hover {
+  border-color: rgba(52,211,153,0.2);
+  box-shadow: 0 0 40px rgba(52,211,153,0.06);
+}
+
+.hiw-mockup::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(52,211,153,0.04) 0%, transparent 70%);
+}
+
+.hiw-mockup-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Mid CTA ── */
+.mid-cta {
+  text-align: center;
+  padding: 80px 0;
+}
+
+/* ── Features ── */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+/* ── Comparison Table ── */
+.comparison-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius);
+}
+
+.comparison-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.comparison-table th,
+.comparison-table td {
+  padding: 16px 20px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.comparison-table th {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.02);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.comparison-table th.highlight,
+.comparison-table td.highlight {
+  background: rgba(52,211,153,0.05);
+  color: var(--text-primary);
+}
+
+.comparison-table th.highlight {
+  color: var(--emerald);
+}
+
+.comparison-table td:first-child {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.comparison-table tr:last-child td {
+  border-bottom: none;
+}
+
+.comparison-table tr:hover td {
+  background: rgba(255,255,255,0.015);
+}
+
+.comparison-table tr:hover td.highlight {
+  background: rgba(52,211,153,0.07);
+}
+
+.check { color: var(--emerald); font-size: 16px; }
+.cross { color: rgba(255,255,255,0.2); font-size: 16px; }
+
+/* ── Accountability ── */
+.accountability-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 72px;
+  align-items: center;
+}
+
+.accountability-mockup {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  aspect-ratio: 4/3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s;
+}
+
+.accountability-mockup:hover {
+  border-color: rgba(52,211,153,0.2);
+}
+
+.accountability-mockup::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(52,211,153,0.04) 0%, transparent 60%);
+}
+
+.accountability-mockup-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  position: relative;
+  z-index: 1;
+}
+
+.accountability-text h2 {
+  margin-bottom: 20px;
+}
+
+.accountability-text p {
+  font-size: 16px;
+}
+
+/* ── Pricing ── */
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  max-width: 740px;
+  margin: 0 auto;
+}
+
+.pricing-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 40px 36px;
+  text-align: center;
+  position: relative;
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+
+.pricing-card.featured {
+  border-color: rgba(52,211,153,0.35);
+  box-shadow: 0 0 40px rgba(52,211,153,0.1);
+}
+
+.pricing-badge {
+  position: absolute;
+  top: -1px; right: 24px;
+  background: var(--emerald);
+  color: #052e16;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 0 0 8px 8px;
+}
+
+.pricing-plan {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 20px;
+}
+
+.pricing-price {
+  font-size: 48px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.pricing-price sup {
+  font-size: 22px;
+  vertical-align: super;
+  font-weight: 600;
+}
+
+.pricing-period {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 28px;
+}
+
+.pricing-features {
+  list-style: none;
+  margin-bottom: 32px;
+  text-align: left;
+}
+
+.pricing-features li {
+  font-size: 14px;
+  color: var(--text-secondary);
+  padding: 7px 0;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.pricing-features li:last-child {
+  border-bottom: none;
+}
+
+.pricing-features li::before {
+  content: '✓';
+  color: var(--emerald);
+  font-size: 13px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.pricing-guarantee {
+  text-align: center;
+  margin-top: 36px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* ── FAQ ── */
+.faq-list {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.faq-item {
+  border-bottom: 1px solid var(--border);
+}
+
+.faq-item:last-child {
+  border-bottom: none;
+}
+
+.faq-question {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 22px 28px;
+  font-family: var(--font);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  transition: background 0.2s;
+}
+
+.faq-question:hover {
+  background: rgba(255,255,255,0.025);
+}
+
+.faq-question[aria-expanded="true"] {
+  color: var(--emerald);
+}
+
+.faq-chevron {
+  width: 18px; height: 18px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.3s ease, color 0.2s;
+}
+
+.faq-question[aria-expanded="true"] .faq-chevron {
+  transform: rotate(180deg);
+  color: var(--emerald);
+}
+
+.faq-answer {
+  display: none;
+  padding: 0 28px 22px;
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.75;
+}
+
+.faq-answer.open {
+  display: block;
+}
+
+/* ── Final CTA ── */
+.final-cta {
+  text-align: center;
+  padding: 120px 0 100px;
+  position: relative;
+  overflow: hidden;
+}
+
+.final-cta::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 50% 60% at 50% 50%, rgba(52,211,153,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.final-cta h2 {
+  max-width: 600px;
+  margin: 0 auto 20px;
+}
+
+.final-cta p {
+  max-width: 440px;
+  margin: 0 auto 40px;
+  font-size: 18px;
+}
+
+/* ── Footer ── */
+.footer {
+  padding: 36px 0;
+  border-top: 1px solid var(--border);
+}
+
+.footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.footer-logo {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.footer-links {
+  display: flex;
+  gap: 28px;
+}
+
+.footer-links a {
+  font-size: 14px;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-links a:hover {
+  color: var(--emerald);
+}
+
+/* ── Scroll reveal ── */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+.reveal-delay-5 { transition-delay: 0.5s; }
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  :root { --section-gap: 80px; }
+  .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .problem-grid { grid-template-columns: 1fr; gap: 16px; }
+  .features-grid { grid-template-columns: repeat(2, 1fr); }
+  .hiw-step { grid-template-columns: 1fr; gap: 32px; }
+  .hiw-step.reverse { direction: ltr; }
+  .testimonials-grid { grid-template-columns: 1fr; }
+  .accountability-inner { grid-template-columns: 1fr; gap: 40px; }
+  .pricing-grid { grid-template-columns: 1fr; max-width: 400px; }
+  .comparison-table th, .comparison-table td { padding: 12px 14px; font-size: 13px; }
+}
+
+@media (max-width: 600px) {
+  .container { padding: 0 20px; }
+  .stats-grid { grid-template-columns: 1fr; gap: 36px; }
+  .features-grid { grid-template-columns: 1fr; }
+  .hero-ctas { flex-direction: column; width: 100%; }
+  .hero-ctas .btn-large { width: 100%; justify-content: center; }
+  .footer-inner { flex-direction: column; text-align: center; }
+  .footer-links { justify-content: center; }
+  .nav-inner { padding: 0 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Navigation ── -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-logo"><span></span>Intentional</a>
+    <a href="#pricing" class="btn btn-primary">Download Free</a>
+  </div>
+</nav>
+
+<!-- ── Hero ── -->
+<section class="hero">
+  <div class="hero-canvas-wrap">
+    <canvas id="heroCanvas"></canvas>
+  </div>
+  <div class="hero-overlay"></div>
+
+  <div class="container">
+    <div class="hero-content">
+      <p class="hero-eyebrow reveal">For developers, writers, founders &amp; students who've tried everything</p>
+
+      <h1 class="reveal reveal-delay-1">You know you're <br><span class="gradient-text">wasting time.</span></h1>
+
+      <p class="hero-sub reveal reveal-delay-2">
+        The average knowledge worker is genuinely productive for 2 hours and 53 minutes per day.
+        The rest is noise. Intentional fixes that.
+      </p>
+
+      <div class="video-placeholder reveal reveal-delay-3">
+        <div class="play-btn">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+        </div>
+        <span class="video-label">Watch 90-second overview</span>
+      </div>
+
+      <div class="hero-ctas reveal reveal-delay-4">
+        <a href="#pricing" class="btn btn-primary btn-large">Download Free for macOS</a>
+        <a href="#how-it-works" class="btn btn-ghost btn-large">See How It Works</a>
+      </div>
+
+      <p class="hero-note reveal reveal-delay-5">macOS 13+ &nbsp;&middot;&nbsp; Free to try &nbsp;&middot;&nbsp; No account required</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── Stats ── -->
+<section class="stats-section">
+  <div class="container">
+    <div class="stats-grid">
+      <div class="reveal">
+        <div class="stat-num"><span>23</span>m</div>
+        <p class="stat-label">Average time to refocus after a single distraction</p>
+      </div>
+      <div class="reveal reveal-delay-1">
+        <div class="stat-num"><span>1,200</span></div>
+        <p class="stat-label">Hours lost to distraction per year for the average worker</p>
+      </div>
+      <div class="reveal reveal-delay-2">
+        <div class="stat-num"><span>720</span>h</div>
+        <p class="stat-label">Hours of deep work you're leaving on the table annually</p>
+      </div>
+    </div>
+    <p class="stats-attribution reveal">Sources: Gloria Mark (UCI), RescueTime 2023 Productivity Report, Atlassian State of Teams</p>
+  </div>
+</section>
+
+<!-- ── Silk divider ── -->
+<div class="silk-divider"></div>
+
+<!-- ── Problem ── -->
+<section>
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="section-label">The Real Cost</p>
+      <h2>Every distraction is bigger than you think.</h2>
+    </div>
+
+    <div class="problem-grid">
+      <div class="problem-card reveal">
+        <div class="problem-stat">23m</div>
+        <h3>The 23-minute trap</h3>
+        <p>A single Twitter check doesn't cost 30 seconds. It costs the 23 minutes it takes your prefrontal cortex to re-establish deep focus. Every distraction is a tax on your entire afternoon.</p>
+      </div>
+      <div class="problem-card reveal reveal-delay-1">
+        <div class="problem-stat">∞</div>
+        <h3>The guilt spiral</h3>
+        <p>You meant to work. You ended up on YouTube. Now you feel terrible — and that shame makes you want to escape again. Traditional blockers trigger this cycle instead of breaking it.</p>
+      </div>
+      <div class="problem-card reveal reveal-delay-2">
+        <div class="problem-stat">✗</div>
+        <h3>Blockers don't work</h3>
+        <p>You've tried Freedom. Cold Turkey. Site blockers. They don't understand context. They can't tell whether you're researching or procrastinating. So you whitelist everything, or you rage-quit them entirely.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Pivot ── -->
+<section class="pivot-section">
+  <div class="container">
+    <div class="reveal">
+      <h2>It's not a discipline problem.<br><span class="gradient-text">It's a tools problem.</span></h2>
+    </div>
+    <p class="reveal reveal-delay-1">Apps are engineered to steal your attention. You need a tool that's smarter than your impulses.</p>
+  </div>
+</section>
+
+<!-- ── Silk divider ── -->
+<div class="silk-divider"></div>
+
+<!-- ── Testimonials ── -->
+<section>
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="section-label">Real People</p>
+      <h2>They tried everything else first.</h2>
+    </div>
+
+    <div class="testimonials-grid">
+      <div class="testimonial-card reveal">
+        <div class="testimonial-video">
+          <div class="testimonial-play">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+          </div>
+          <span class="testimonial-coming">Coming soon</span>
+        </div>
+        <div class="testimonial-info">
+          <div class="testimonial-name">Alex K.</div>
+          <div class="testimonial-role">Software Engineer</div>
+        </div>
+      </div>
+      <div class="testimonial-card reveal reveal-delay-1">
+        <div class="testimonial-video">
+          <div class="testimonial-play">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+          </div>
+          <span class="testimonial-coming">Coming soon</span>
+        </div>
+        <div class="testimonial-info">
+          <div class="testimonial-name">Priya R.</div>
+          <div class="testimonial-role">Grad Student</div>
+        </div>
+      </div>
+      <div class="testimonial-card reveal reveal-delay-2">
+        <div class="testimonial-video">
+          <div class="testimonial-play">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+          </div>
+          <span class="testimonial-coming">Coming soon</span>
+        </div>
+        <div class="testimonial-info">
+          <div class="testimonial-name">Marcus T.</div>
+          <div class="testimonial-role">Freelance Designer</div>
+        </div>
+      </div>
+    </div>
+    <p class="testimonials-note reveal">Video testimonials — coming soon</p>
+  </div>
+</section>
+
+<!-- ── How It Works ── -->
+<section id="how-it-works">
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="section-label">How It Works</p>
+      <h2>Plan. Focus. Earn.</h2>
+    </div>
+
+    <div class="hiw-steps">
+      <div class="hiw-step reveal">
+        <div class="hiw-text">
+          <p class="hiw-step-label">Step 01</p>
+          <h3>Set your intention</h3>
+          <p>Start each block with a clear goal and an if-then plan. Intentional's AI day planner helps you design a realistic schedule, not an aspirational fantasy. When you know exactly what you're doing and why, distraction loses its grip.</p>
+        </div>
+        <div class="hiw-mockup">
+          <span class="hiw-mockup-label">Planning screenshot</span>
+        </div>
+      </div>
+
+      <div class="hiw-step reverse reveal">
+        <div class="hiw-text">
+          <p class="hiw-step-label">Step 02</p>
+          <h3>AI guards your focus</h3>
+          <p>On-device AI reads your intention and scores every tab and app in real time. Drifting to something irrelevant? A gentle nudge appears inside the floating pill timer. Persistent distraction escalates — progressively, intelligently, without killing your flow.</p>
+        </div>
+        <div class="hiw-mockup">
+          <span class="hiw-mockup-label">Browser mockup — pill timer + nudge toast</span>
+        </div>
+      </div>
+
+      <div class="hiw-step reveal">
+        <div class="hiw-text">
+          <p class="hiw-step-label">Step 03</p>
+          <h3>Earn your scroll</h3>
+          <p>Deep work earns browse minutes at a 3:1 ratio. Your earned pool is visible at all times. This turns "I deserve a break" from a vague feeling into a real currency — one you actually worked for. Social media becomes a reward, not a theft.</p>
+        </div>
+        <div class="hiw-mockup">
+          <span class="hiw-mockup-label">Earned browse mockup</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Mid-page CTA ── -->
+<div class="mid-cta">
+  <a href="#pricing" class="btn btn-primary btn-large reveal">Start Focusing — Free</a>
+</div>
+
+<!-- ── Features ── -->
+<section>
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="section-label">What Makes It Different</p>
+      <h2>Not a blocklist. Intelligence.</h2>
+    </div>
+
+    <div class="features-grid">
+      <div class="card reveal">
+        <span class="card-icon">🧠</span>
+        <h3>On-Device AI</h3>
+        <p>Apple Foundation Models and MLX Qwen3-4B run entirely on your Mac. Your intentions and browsing patterns never leave your machine.</p>
+      </div>
+      <div class="card reveal reveal-delay-1">
+        <span class="card-icon">📈</span>
+        <h3>Progressive Enforcement</h3>
+        <p>Gentle nudge → grayscale → intervention. Enforcement scales with how long you've been distracted — not a blunt on/off switch that you immediately disable.</p>
+      </div>
+      <div class="card reveal reveal-delay-2">
+        <span class="card-icon">🤝</span>
+        <h3>Accountability Partner</h3>
+        <p>Lock the app behind a partner's 6-digit code. They get an email before you can disable enforcement. The 3 PM version of you can't override the 9 AM version.</p>
+      </div>
+      <div class="card reveal reveal-delay-3">
+        <span class="card-icon">📅</span>
+        <h3>AI Day Planner</h3>
+        <p>Build a realistic daily schedule with AI coaching. Each block gets a ritual — an intention and an if-then plan — before the timer starts.</p>
+      </div>
+      <div class="card reveal reveal-delay-4">
+        <span class="card-icon">🌐</span>
+        <h3>Cross-Browser</h3>
+        <p>Chrome, Safari, Arc, Firefox, Brave, Edge — Intentional works across all of them simultaneously. Switch browsers to dodge enforcement? It follows you.</p>
+      </div>
+      <div class="card reveal reveal-delay-5">
+        <span class="card-icon">⏱</span>
+        <h3>Earned Browse</h3>
+        <p>Deep work earns social media time at a 3:1 ratio. Distraction costs double during focus hours. Your phone's screen time feature wishes it worked this way.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Silk divider ── -->
+<div class="silk-divider"></div>
+
+<!-- ── Comparison ── -->
+<section>
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="section-label">The Comparison</p>
+      <h2>See how it stacks up.</h2>
+    </div>
+
+    <div class="comparison-wrap reveal">
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th style="text-align:left">Feature</th>
+            <th class="highlight">Intentional</th>
+            <th>Freedom</th>
+            <th>Cold Turkey</th>
+            <th>one sec</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>AI relevance scoring</td>
+            <td class="highlight"><span class="check">✓</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+          </tr>
+          <tr>
+            <td>Earned browse system</td>
+            <td class="highlight"><span class="check">✓</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+          </tr>
+          <tr>
+            <td>Progressive enforcement</td>
+            <td class="highlight"><span class="check">✓</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+            <td>partial</td>
+          </tr>
+          <tr>
+            <td>AI schedule builder</td>
+            <td class="highlight"><span class="check">✓</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+          </tr>
+          <tr>
+            <td>Survives force-quit</td>
+            <td class="highlight"><span class="check">✓</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">—</span></td>
+          </tr>
+          <tr>
+            <td>All data on-device</td>
+            <td class="highlight"><span class="check">✓</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr>
+            <td>Accountability partner</td>
+            <td class="highlight"><span class="check">✓</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ── Accountability ── -->
+<section style="background: var(--bg-elevated); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+  <div class="container">
+    <div class="accountability-inner">
+      <div class="accountability-mockup reveal">
+        <span class="accountability-mockup-label">Screenshot placeholder</span>
+      </div>
+      <div class="accountability-text reveal reveal-delay-1">
+        <p class="section-label">Accountability</p>
+        <h2>Built for the 3 PM version of you</h2>
+        <p style="margin-top:16px;">When willpower is depleted and the afternoon slump hits, Intentional holds the line. Your accountability partner gets an email before you can disable enforcement. Strict mode survives force-quit. The system is designed by your best self, for your worst moments.</p>
+        <p style="margin-top:14px;">Lock it with a 6-digit code. Only your partner can disable it. No workarounds, no escape hatches.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Pricing ── -->
+<section id="pricing">
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="section-label">Pricing</p>
+      <h2>Less than the cost of one lost afternoon</h2>
+      <p>720 hours lost per year &times; your hourly rate. Intentional costs $0.20/day.</p>
+    </div>
+
+    <div class="pricing-grid">
+      <div class="pricing-card reveal">
+        <div class="pricing-plan">Monthly</div>
+        <div class="pricing-price"><sup>$</sup>6</div>
+        <div class="pricing-period">per month</div>
+        <ul class="pricing-features">
+          <li>All core features</li>
+          <li>AI relevance scoring</li>
+          <li>Earned browse system</li>
+          <li>Cross-browser enforcement</li>
+          <li>7-day free trial</li>
+        </ul>
+        <a href="#" class="btn btn-ghost" style="width:100%;justify-content:center;">Start Free Trial</a>
+      </div>
+
+      <div class="pricing-card featured reveal reveal-delay-1">
+        <div class="pricing-badge">Best Value</div>
+        <div class="pricing-plan">Lifetime</div>
+        <div class="pricing-price"><sup>$</sup>79</div>
+        <div class="pricing-period">one-time, forever</div>
+        <ul class="pricing-features">
+          <li>Everything in Monthly</li>
+          <li>Accountability partner</li>
+          <li>Strict mode (survives force-quit)</li>
+          <li>All future updates included</li>
+          <li>Priority support</li>
+        </ul>
+        <a href="#" class="btn btn-primary" style="width:100%;justify-content:center;">Get Lifetime Access</a>
+      </div>
+    </div>
+
+    <p class="pricing-guarantee reveal">7-day free trial. 30-day money-back guarantee.</p>
+  </div>
+</section>
+
+<!-- ── FAQ ── -->
+<section>
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="section-label">FAQ</p>
+      <h2>Still have questions?</h2>
+    </div>
+
+    <div class="faq-list reveal">
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          Will it actually stop me if I really want to get around it?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div class="faq-answer">
+          <p>With strict mode and an accountability partner enabled: yes. The app runs as a system service, survives force-quit, and requires a 6-digit code from your partner to disable. Short of reinstalling macOS, there's no quick escape. Without those features, it's like any other tool — but the progressive enforcement and earned browse system create strong psychological friction even without hard locks.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          How does the AI scoring work? Is my data sent anywhere?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div class="faq-answer">
+          <p>All AI runs entirely on your Mac — either via Apple Foundation Models (macOS 26+) or MLX Qwen3-4B. Your browsing habits, block intentions, and focus profile never leave your device. The only external calls are to our backend for account management, partner notifications, and sync. All local data is stored in ~/Library/Application Support/Intentional/.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          What if I need to access a "distraction" site for legitimate work?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div class="faq-answer">
+          <p>The AI scores context, not domains. If YouTube is relevant to your current block — say you're researching a topic — it reads the page title and scores it against your intention. You can also click "This is relevant" on the nudge to grant a 3-minute suppression window. The system is designed to understand your work, not blindly block everything.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          Does it work with Safari? Arc? Firefox?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div class="faq-answer">
+          <p>Yes. The Chrome extension provides the richest experience (in-browser session UI, AI content filtering). For browsers without the extension, Intentional uses AppleScript to monitor and redirect tabs — this covers Chrome, Safari, Arc, Firefox, Brave, Edge, Opera, and Vivaldi. Cross-browser usage is tracked and deduplicated regardless of which browser you use.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          What macOS version do I need?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div class="faq-answer">
+          <p>macOS 13 Ventura or later for core functionality. On-device AI via Apple Foundation Models requires macOS 26 (Tahoe). MLX Qwen3-4B serves as the AI fallback on macOS 13–25. Apple Silicon recommended for best performance; Intel Macs are supported.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false">
+          Can I use it without an accountability partner?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div class="faq-answer">
+          <p>Absolutely. The core focus system — AI scoring, earned browse, progressive enforcement, block rituals, the pill timer — all work without a partner. Accountability partner and strict mode are opt-in features for people who want the hardest-mode option. Most users start without them and add them once they've experienced the baseline.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Final CTA ── -->
+<section class="final-cta">
+  <div class="container">
+    <h2 class="reveal">You've read this far. You know what's costing you.</h2>
+    <p class="reveal reveal-delay-1">The person you want to be is on the other side of one download.</p>
+    <a href="#" class="btn btn-primary btn-large reveal reveal-delay-2">Download Intentional Free</a>
+  </div>
+</section>
+
+<!-- ── Footer ── -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-inner">
+      <span class="footer-logo">Intentional</span>
+      <div class="footer-links">
+        <a href="#">Privacy</a>
+        <a href="#">Support</a>
+        <a href="#">Twitter</a>
+        <a href="#">GitHub</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── Hero canvas: warped sine wave fabric folds ──────────────────────────────
+(function () {
+  const canvas = document.getElementById('heroCanvas');
+  if (!canvas) return;
+
+  const DOWNSCALE = 4;
+  let w, h, rw, rh, ctx, t = 0, rafId;
+
+  // Simplex noise (lightweight 2D implementation)
+  const perm = new Uint8Array(512);
+  const grad2 = [[1,1],[-1,1],[1,-1],[-1,-1],[1,0],[-1,0],[0,1],[0,-1]];
+
+  (function buildPerm() {
+    const p = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) p[i] = i;
+    for (let i = 255; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [p[i], p[j]] = [p[j], p[i]];
+    }
+    for (let i = 0; i < 512; i++) perm[i] = p[i & 255];
+  })();
+
+  function dot2(g, x, y) { return g[0]*x + g[1]*y; }
+
+  function snoise2(x, y) {
+    const F2 = 0.5*(Math.sqrt(3)-1);
+    const G2 = (3-Math.sqrt(3))/6;
+    const s = (x+y)*F2;
+    const i = Math.floor(x+s), j = Math.floor(y+s);
+    const t2 = (i+j)*G2;
+    const X0=i-t2, Y0=j-t2;
+    const x0=x-X0, y0=y-Y0;
+    let i1, j1;
+    if (x0>y0) { i1=1; j1=0; } else { i1=0; j1=1; }
+    const x1=x0-i1+G2, y1=y0-j1+G2;
+    const x2=x0-1+2*G2, y2=y0-1+2*G2;
+    const ii=i&255, jj=j&255;
+    const gi0=perm[ii+perm[jj]]%8;
+    const gi1=perm[ii+i1+perm[jj+j1]]%8;
+    const gi2=perm[ii+1+perm[jj+1]]%8;
+    let n0,n1,n2;
+    let t0=0.5-x0*x0-y0*y0; if(t0<0)n0=0;else{t0*=t0;n0=t0*t0*dot2(grad2[gi0],x0,y0);}
+    let t1=0.5-x1*x1-y1*y1; if(t1<0)n1=0;else{t1*=t1;n1=t1*t1*dot2(grad2[gi1],x1,y1);}
+    let t2b=0.5-x2*x2-y2*y2;if(t2b<0)n2=0;else{t2b*=t2b;n2=t2b*t2b*dot2(grad2[gi2],x2,y2);}
+    return 70*(n0+n1+n2);
+  }
+
+  function resize() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    w = rect.width || window.innerWidth;
+    h = rect.height || window.innerHeight;
+    rw = Math.ceil(w / DOWNSCALE);
+    rh = Math.ceil(h / DOWNSCALE);
+    canvas.width = rw;
+    canvas.height = rh;
+    ctx = canvas.getContext('2d');
+  }
+
+  function render() {
+    if (!ctx) return;
+    const imageData = ctx.createImageData(rw, rh);
+    const data = imageData.data;
+    const scaleX = 1.0 / rw;
+    const scaleY = 1.0 / rh;
+
+    for (let py = 0; py < rh; py++) {
+      const fy = py * scaleY;
+      for (let px = 0; px < rw; px++) {
+        const fx = px * scaleX;
+
+        // Domain warp with simplex noise
+        const warpScale = 2.2;
+        const warpAmt = 0.28;
+        const wx = fx * warpScale + t * 0.08;
+        const wy = fy * warpScale + t * 0.05;
+        const nx = snoise2(wx, wy) * warpAmt;
+        const ny = snoise2(wx + 5.3, wy + 4.7) * warpAmt;
+
+        // Sine wave fold pattern
+        const foldFreqX = 5.5;
+        const foldFreqY = 3.2;
+        const foldAmt = 0.6;
+        const fold = Math.sin((fx + nx) * Math.PI * foldFreqX + t * 0.18) * foldAmt
+                   + Math.sin((fy + ny) * Math.PI * foldFreqY + t * 0.12) * (foldAmt * 0.5);
+
+        // Derivative for specular highlight
+        const eps = 0.008;
+        const foldDx = Math.sin((fx + eps + nx) * Math.PI * foldFreqX + t * 0.18) * foldAmt
+                     - Math.sin((fx - eps + nx) * Math.PI * foldFreqX + t * 0.18) * foldAmt;
+        const foldDy = Math.sin((fx + nx) * Math.PI * foldFreqX + t * 0.18) * foldAmt
+                     + Math.sin((fy + eps + ny) * Math.PI * foldFreqY + t * 0.12) * (foldAmt * 0.5)
+                     - (Math.sin((fx + nx) * Math.PI * foldFreqX + t * 0.18) * foldAmt
+                     + Math.sin((fy - eps + ny) * Math.PI * foldFreqY + t * 0.12) * (foldAmt * 0.5));
+        const slope = Math.sqrt(foldDx*foldDx + foldDy*foldDy) * 60;
+        const specular = Math.pow(Math.max(0, 1 - slope), 6) * 0.7;
+
+        // Map fold value to dark emerald palette
+        const v = (fold + 1) * 0.5; // 0..1
+
+        // Very dark emerald shadows → emerald mid → mint specular highlights
+        const r = Math.round((v * 20 + specular * 110) * 255 / 255);
+        const g = Math.round((v * 80 + specular * 200) * 255 / 255);
+        const b = Math.round((v * 40 + specular * 140) * 255 / 255);
+
+        const idx = (py * rw + px) * 4;
+        data[idx]   = Math.min(255, r);
+        data[idx+1] = Math.min(255, g);
+        data[idx+2] = Math.min(255, b);
+        data[idx+3] = 255;
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+    t += 0.012;
+  }
+
+  function loop() {
+    render();
+    rafId = requestAnimationFrame(loop);
+  }
+
+  // Pause when not visible
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { cancelAnimationFrame(rafId); }
+    else { loop(); }
+  });
+
+  // Scroll-based pause: only render hero canvas when in view
+  let heroVisible = true;
+  const heroObs = new IntersectionObserver(entries => {
+    heroVisible = entries[0].isIntersecting;
+    if (heroVisible && !document.hidden) loop();
+    else cancelAnimationFrame(rafId);
+  }, { threshold: 0 });
+  heroObs.observe(canvas.parentElement);
+
+  window.addEventListener('resize', () => {
+    resize();
+    render();
+  });
+
+  resize();
+  loop();
+})();
+
+// ── Scroll reveal ────────────────────────────────────────────────────────────
+(function () {
+  const els = document.querySelectorAll('.reveal');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        obs.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+  els.forEach(el => obs.observe(el));
+})();
+
+// ── FAQ accordion ────────────────────────────────────────────────────────────
+(function () {
+  const questions = document.querySelectorAll('.faq-question');
+  questions.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const expanded = btn.getAttribute('aria-expanded') === 'true';
+      const answer = btn.nextElementSibling;
+
+      // Close all others
+      questions.forEach(other => {
+        if (other !== btn) {
+          other.setAttribute('aria-expanded', 'false');
+          other.nextElementSibling.classList.remove('open');
+        }
+      });
+
+      // Toggle this one
+      btn.setAttribute('aria-expanded', String(!expanded));
+      answer.classList.toggle('open', !expanded);
+    });
+  });
+})();
+</script>
+</body>
+</html>
