@@ -82,6 +82,7 @@ class EarnedBrowseManager {
         var earnedMinutes: Double = 0
         var nudgeCount: Int = 0
         var recoveryCount: Int = 0     // Distraction→focus transitions this block
+        var overridesUsed: Int = 0     // AI overrides used this block (budget: 2 per block)
         /// Focus score: percentage of ticks that were relevant (0-100)
         var focusScore: Int { totalTicks > 0 ? Int(round(Double(relevantTicks) / Double(totalTicks) * 100)) : 0 }
     }
@@ -90,6 +91,11 @@ class EarnedBrowseManager {
     private(set) var blockFocusStats: [String: BlockFocusStats] = [:]
     /// ID of the currently active block (set by FocusMonitor on block change)
     private(set) var activeBlockId: String?
+
+    // MARK: - Yesterday Summary (archived before daily reset)
+
+    /// Yesterday's summary, archived before ensureToday() wipes blockFocusStats.
+    private(set) var yesterdaySummary: (blockCount: Int, focusedMinutes: Double, avgFocusScore: Int)?
 
     // MARK: - Last Active App (reported by FocusMonitor)
 
@@ -179,6 +185,25 @@ class EarnedBrowseManager {
         appDelegate?.postLog("💰 EarnedBrowseManager: block changed → \(blockTitle ?? "none")")
     }
 
+    // MARK: - AI Override Budget
+
+    /// Returns how many AI overrides remain for the given block.
+    /// If partner approval is required (and a partner is configured), returns unlimited (Int.max).
+    func overridesRemaining(for blockId: String, partnerApprovalRequired: Bool) -> Int {
+        if partnerApprovalRequired { return Int.max }  // unlimited with partner
+        let used = blockFocusStats[blockId]?.overridesUsed ?? 0
+        return max(0, 2 - used)
+    }
+
+    /// Consume one AI override for the given block.
+    func useOverride(for blockId: String) {
+        if var stats = blockFocusStats[blockId] {
+            stats.overridesUsed += 1
+            blockFocusStats[blockId] = stats
+            save()
+        }
+    }
+
     // MARK: - Deep Work Assessment
 
     /// Record a relevance assessment for deep work tracking.
@@ -234,8 +259,16 @@ class EarnedBrowseManager {
         let today = todayString()
         guard currentDate != today else { return }
 
-        // New day — reset
+        // New day — archive yesterday's summary before wiping
         let hadPreviousDate = !currentDate.isEmpty
+        if hadPreviousDate && !blockFocusStats.isEmpty {
+            yesterdaySummary = todaySummary()
+            appDelegate?.postLog("💰 Archived yesterday: \(yesterdaySummary!.blockCount) blocks, \(String(format: "%.0f", yesterdaySummary!.focusedMinutes))m focused, \(yesterdaySummary!.avgFocusScore)% avg")
+        } else {
+            yesterdaySummary = nil
+        }
+
+        // Reset for new day
         currentDate = today
         earnedMinutes = welcomeCredit
         usedMinutes = 0
@@ -339,7 +372,8 @@ class EarnedBrowseManager {
                 "totalTicks": stats.totalTicks,
                 "earnedMinutes": stats.earnedMinutes,
                 "nudgeCount": stats.nudgeCount,
-                "recoveryCount": stats.recoveryCount
+                "recoveryCount": stats.recoveryCount,
+                "overridesUsed": stats.overridesUsed
             ]
             blockStatsArray.append(entry)
         }
@@ -399,6 +433,7 @@ class EarnedBrowseManager {
                         stats.earnedMinutes = entry["earnedMinutes"] as? Double ?? 0
                         stats.nudgeCount = entry["nudgeCount"] as? Int ?? 0
                         stats.recoveryCount = entry["recoveryCount"] as? Int ?? 0
+                        stats.overridesUsed = entry["overridesUsed"] as? Int ?? 0
                         blockFocusStats[blockId] = stats
                     }
                 }
@@ -428,6 +463,13 @@ class EarnedBrowseManager {
     // MARK: - Helpers
 
     private func todayString() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
+    }
+
+    /// Static version for cross-class use (e.g., FocusMonitor date checks).
+    static func todayDateString() -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: Date())

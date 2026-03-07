@@ -387,6 +387,93 @@ class BackendClient {
         return ExtraTimeVerifyResult(success: false, message: "Unknown error", addedMinutes: 0, statusCode: 0, verifiedToday: 0, remainingToday: 2)
     }
 
+    // MARK: - AI Override
+
+    struct OverrideRequestResult {
+        let success: Bool
+        let message: String
+        let requestId: String?
+        let partnerName: String?
+    }
+
+    struct OverrideVerifyResult {
+        let success: Bool
+        let message: String
+    }
+
+    /// Request an AI override from accountability partner
+    func requestOverride(blockType: String, pageTitle: String, intention: String) async -> OverrideRequestResult {
+        let endpoint = "\(baseURL)/override/request"
+
+        guard let url = URL(string: endpoint) else {
+            return OverrideRequestResult(success: false, message: "Invalid URL", requestId: nil, partnerName: nil)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: [
+                "block_type": blockType,
+                "page_title": pageTitle,
+                "intention": intention
+            ])
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse {
+                let json = parseJSON(data)
+                let msg = (json?["message"] as? String) ?? errorMessage(from: data)
+                let requestId = json?["request_id"] as? String
+                let partnerName = json?["partner_name"] as? String
+                if isSuccess(httpResponse.statusCode) {
+                    return OverrideRequestResult(success: true, message: msg, requestId: requestId, partnerName: partnerName)
+                } else {
+                    return OverrideRequestResult(success: false, message: msg, requestId: nil, partnerName: partnerName)
+                }
+            }
+        } catch {
+            return OverrideRequestResult(success: false, message: error.localizedDescription, requestId: nil, partnerName: nil)
+        }
+        return OverrideRequestResult(success: false, message: "Unknown error", requestId: nil, partnerName: nil)
+    }
+
+    /// Verify an AI override code with the backend
+    func verifyOverride(code: String, requestId: String) async -> OverrideVerifyResult {
+        let endpoint = "\(baseURL)/override/verify"
+
+        guard let url = URL(string: endpoint) else {
+            return OverrideVerifyResult(success: false, message: "Invalid URL")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: ["code": code, "request_id": requestId])
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse {
+                let json = parseJSON(data)
+                let msg = (json?["message"] as? String) ?? errorMessage(from: data)
+                let success = json?["success"] as? Bool ?? false
+                if isSuccess(httpResponse.statusCode) && success {
+                    return OverrideVerifyResult(success: true, message: msg)
+                } else {
+                    return OverrideVerifyResult(success: false, message: msg)
+                }
+            }
+        } catch {
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            appDelegate?.postLog("❌ Verify override error: \(error.localizedDescription)")
+            return OverrideVerifyResult(success: false, message: error.localizedDescription)
+        }
+        return OverrideVerifyResult(success: false, message: "Unknown error")
+    }
+
     // MARK: - Relock
 
     /// Re-lock settings by re-applying the current lock mode (clears temporary_unlock_until on backend)

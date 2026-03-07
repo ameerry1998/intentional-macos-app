@@ -75,6 +75,9 @@ class RelevanceScorer {
     "Organic Chemistry Lecture - YouTube" IS relevant. \
     Similarly, "Reddit" is NOT relevant to "Learning Python" — but \
     "r/learnpython - How to use decorators" IS relevant.
+    Use all available context (title, URL path, page description) to determine relevance. \
+    A generic title like "Reddit" with URL path "/r/learnpython" IS relevant to "Learning Python". \
+    A generic title like "Home - GitHub" with URL path "/myorg/myapp/pull/234" IS relevant to working on that project.
     The task title is what the user EXPLICITLY chose to work on right now. \
     If the activity clearly matches what the block title literally describes, it IS relevant. \
     For example, if the block is "watching YouTube" then YouTube videos are relevant. \
@@ -147,19 +150,29 @@ class RelevanceScorer {
         intentionDescription: String = "",
         profile: String,
         dailyPlan: String,
+        url: String = "",
+        pageDescription: String = "",
         contentType: ContentType = .webpage
     ) async -> Result {
-        let cacheKey = "\(intention)|\(pageTitle)"
+        // Include URL path in cache key so same-title pages on different URLs get scored separately
+        let urlPath = URL(string: url)?.path ?? ""
+        let cacheKey = "\(intention)|\(pageTitle)|\(urlPath)"
 
         // Keyword overlap: catch obvious matches without hitting the LLM
-        if hasKeywordOverlap(intention: intention, pageTitle: pageTitle) {
-            let result = Result(relevant: true, confidence: 95, reason: "Keyword match with task")
+        let urlSegments = urlPathSegments(url)
+        let titleMatch = hasKeywordOverlap(intention: intention, pageTitle: pageTitle)
+        let urlMatch = !url.isEmpty && hasKeywordOverlap(intention: intention, pageTitle: urlSegments)
+        if titleMatch || urlMatch {
+            let matchSource = titleMatch ? "title" : "URL path"
+            appDelegate?.postLog("🧠 [Keyword] Match in \(matchSource): \"\(pageTitle)\" url=\(url.isEmpty ? "(none)" : url)")
+            let result = Result(relevant: true, confidence: 95, reason: "Keyword match with task (\(matchSource))")
             cache[cacheKey] = result
             return result
         }
 
-        // User-approved whitelist (from justification)
-        if userApproved.contains(cacheKey) {
+        // User-approved whitelist (from justification) — keyed by title only (no URL)
+        let approvalKey = "\(intention)|\(pageTitle)"
+        if userApproved.contains(approvalKey) {
             return Result(relevant: true, confidence: 100, reason: "User-approved")
         }
 
@@ -186,6 +199,10 @@ class RelevanceScorer {
                         pageTitle: pageTitle,
                         intention: intention,
                         intentionDescription: intentionDescription,
+                        profile: profile,
+                        dailyPlan: dailyPlan,
+                        url: url,
+                        pageDescription: pageDescription,
                         contentType: contentType
                     )
                     cache[cacheKey] = result
@@ -206,6 +223,8 @@ class RelevanceScorer {
                     intentionDescription: intentionDescription,
                     profile: profile,
                     dailyPlan: dailyPlan,
+                    url: url,
+                    pageDescription: pageDescription,
                     contentType: contentType
                 )
                 cache[cacheKey] = result
@@ -245,6 +264,17 @@ class RelevanceScorer {
             .filter { $0.count >= 3 && !Self.stopWords.contains($0) }
     }
 
+    /// Extract readable words from a URL path (split on /, -, _, %20).
+    /// e.g. "https://reddit.com/r/learnpython/comments/abc" → "r learnpython comments abc"
+    private func urlPathSegments(_ url: String) -> String {
+        guard let parsed = URL(string: url) else { return "" }
+        let path = parsed.path + (parsed.query.map { "?\($0)" } ?? "")
+        return path
+            .replacingOccurrences(of: "%20", with: " ")
+            .components(separatedBy: CharacterSet(charactersIn: "/-_"))
+            .joined(separator: " ")
+    }
+
     #if canImport(FoundationModels)
     @available(macOS 26.0, *)
     private func scoreWithFoundationModels(
@@ -253,10 +283,14 @@ class RelevanceScorer {
         intentionDescription: String = "",
         profile: String,
         dailyPlan: String,
+        url: String = "",
+        pageDescription: String = "",
         contentType: ContentType = .webpage
     ) async throws -> Result {
         let contentLabel = contentType == .webpage ? "Webpage title" : "Application in use"
         let descLine = intentionDescription.isEmpty ? "" : "\nBlock description: \(intentionDescription)"
+        let urlLine = url.isEmpty ? "" : "\nURL path: \(URL(string: url)?.path ?? url)"
+        let pageDescLine = pageDescription.isEmpty ? "" : "\nPage description: \(pageDescription)"
         // Clean page title: strip HTML entities and non-ASCII punctuation that confuse the model
         let cleanTitle = pageTitle
             .replacingOccurrences(of: #"&[a-zA-Z0-9#]+;"#, with: " ", options: .regularExpression)
@@ -265,8 +299,10 @@ class RelevanceScorer {
             .trimmingCharacters(in: .whitespaces)
         let userMessage = """
         Current time block task: "\(intention)"\(descLine)
-        \(contentLabel): "\(cleanTitle)"
+        \(contentLabel): "\(cleanTitle)"\(urlLine)\(pageDescLine)
         """
+
+        appDelegate?.postLog("🧠 [Prompt] Foundation Models input:\n\(userMessage)")
 
         let response = try await session.respond(to: userMessage, generating: RelevanceOutput.self)
         let output = response.content
@@ -309,6 +345,10 @@ class RelevanceScorer {
         pageTitle: String,
         intention: String,
         intentionDescription: String,
+        profile: String,
+        dailyPlan: String,
+        url: String = "",
+        pageDescription: String = "",
         contentType: ContentType
     ) async throws -> Result {
         guard let session = mlxSession else {
@@ -318,17 +358,25 @@ class RelevanceScorer {
 
         let contentLabel = contentType == .webpage ? "Webpage title" : "Application in use"
         let descLine = intentionDescription.isEmpty ? "" : "\nBlock description: \(intentionDescription)"
+        let urlLine = url.isEmpty ? "" : "\nURL path: \(URL(string: url)?.path ?? url)"
+        let pageDescLine = pageDescription.isEmpty ? "" : "\nPage description: \(pageDescription)"
         let cleanTitle = pageTitle
             .replacingOccurrences(of: #"&[a-zA-Z0-9#]+;"#, with: " ", options: .regularExpression)
             .replacingOccurrences(of: "®", with: "")
             .replacingOccurrences(of: "™", with: "")
             .trimmingCharacters(in: .whitespaces)
 
+        let userPart = """
+        Current time block task: "\(intention)"\(descLine)
+        \(contentLabel): "\(cleanTitle)"\(urlLine)\(pageDescLine)
+        """
+
+        appDelegate?.postLog("🧠 [Prompt] MLX input:\n\(userPart)")
+
         let prompt = """
         \(systemPrompt)
 
-        Current time block task: "\(intention)"\(descLine)
-        \(contentLabel): "\(cleanTitle)"
+        \(userPart)
 
         Respond with ONLY a JSON object: {"reason":"...","relevant":true/false,"confidence":0-100}
         """

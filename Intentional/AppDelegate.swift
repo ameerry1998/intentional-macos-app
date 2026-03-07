@@ -303,10 +303,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let settingsURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
             .appendingPathComponent("Intentional").appendingPathComponent("onboarding_settings.json")
         if let data = try? Data(contentsOf: settingsURL),
-           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let apps = json["distractingApps"] as? [[String: Any]] {
-            focusMonitor?.distractingAppBundleIds = Set(apps.compactMap { $0["bundleId"] as? String })
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let apps = json["distractingApps"] as? [[String: Any]] {
+                focusMonitor?.distractingAppBundleIds = Set(apps.compactMap { $0["bundleId"] as? String })
+            }
+            if let sites = json["alwaysRelevantSites"] as? [String] {
+                focusMonitor?.alwaysRelevantHostnames = Set(sites.map { $0.lowercased() })
+                postLog("👁️ Loaded \(sites.count) always-relevant site(s): \(sites)")
+            }
+            // Load AI override settings
+            focusMonitor?.overridePartnerApprovalRequired = json["overridePartnerRequired"] as? Bool ?? false
+            let partnerEmail = json["partnerEmail"] as? String ?? ""
+            focusMonitor?.hasConfiguredPartner = !partnerEmail.isEmpty
         }
+        focusMonitor?.morningPlanOverlay = MorningPlanOverlayController()
         focusMonitor?.start()
         postLog("👁️ FocusMonitor + NudgeWindowController + FocusOverlayWindow + InterventionOverlay initialized")
 
@@ -628,6 +638,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 let bundleIds = Set(apps.compactMap { $0["bundleId"] as? String })
                 focusMonitor?.distractingAppBundleIds = bundleIds
                 postLog("☁️ Settings restore: updated FocusMonitor with \(bundleIds.count) distracting app(s)")
+            }
+
+            // Restore always-relevant sites into FocusMonitor
+            if let sites = backendSettings["alwaysRelevantSites"] as? [String] {
+                focusMonitor?.alwaysRelevantHostnames = Set(sites.map { $0.lowercased() })
+                postLog("☁️ Settings restore: updated FocusMonitor with \(sites.count) always-relevant site(s)")
             }
 
             // Broadcast restored settings to connected browser extensions

@@ -83,9 +83,8 @@ struct StartRitualData {
 struct NoPlanData {
     enum CardState {
         case noPlan        // No schedule today
-        case gap           // Between blocks, more coming
-        case allCaughtUp   // All blocks done but early in the day — offer to plan more
-        case doneForDay    // All blocks complete (evening)
+        case gap           // Between blocks (or all blocks done but before evening)
+        case doneForDay    // All blocks complete (evening, 9pm+)
     }
     let state: CardState
     let isAfternoon: Bool
@@ -261,10 +260,11 @@ class DeepWorkTimerController {
 
     /// Show an in-pill "Not related to your task" card with a "Back to Task" button.
     /// Auto-dismisses after 8 seconds. Replaces the separate nudge toast for level-1 nudges.
-    func showDistractionCard() {
+    func showDistractionCard(explanation: String? = nil) {
         guard let vm = viewModel, vm.mode == .timer, !vm.isRecovering else { return }
         // Reset timer if already showing
         distractionCardTimer?.invalidate()
+        vm.distractionExplanation = explanation
         vm.isShowingDistractionCard = true
 
         distractionCardTimer = Timer.scheduledTimer(withTimeInterval: 8.0, repeats: false) { [weak self] _ in
@@ -278,6 +278,42 @@ class DeepWorkTimerController {
         distractionCardTimer?.invalidate()
         distractionCardTimer = nil
         viewModel?.isShowingDistractionCard = false
+    }
+
+    // MARK: - Break
+
+    private var breakTimer: Timer?
+    private var breakEndTime: Date?
+
+    /// Start a 5-minute break. Pill shows "On Break" with countdown. One break per block.
+    func startBreak() {
+        guard let vm = viewModel, !vm.breakUsedThisBlock else { return }
+        vm.isOnBreak = true
+        vm.breakUsedThisBlock = true
+        breakEndTime = Date().addingTimeInterval(5 * 60)
+
+        // Update break countdown every second
+        breakTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            guard let self, let end = self.breakEndTime else { return }
+            let remaining = max(0, end.timeIntervalSinceNow)
+            if remaining <= 0 {
+                self.endBreak()
+            } else {
+                let mins = Int(remaining) / 60
+                let secs = Int(remaining) % 60
+                self.viewModel?.breakTimeRemaining = String(format: "%d:%02d", mins, secs)
+            }
+        }
+        Self.playSound("Blow")
+    }
+
+    /// End the break and return to normal timer state.
+    func endBreak() {
+        breakTimer?.invalidate()
+        breakTimer = nil
+        breakEndTime = nil
+        viewModel?.isOnBreak = false
+        Self.playSound("Tink")
     }
 
     private static let recoveryMessages = [
@@ -300,6 +336,28 @@ class DeepWorkTimerController {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
             self?.viewModel?.isRecovering = false
+        }
+    }
+
+    private static let celebrationMessages = [
+        "Locked in",
+        "Crushing it",
+        "Deep in the zone",
+        "Flow state",
+        "On fire",
+        "Dialed in",
+        "In the groove",
+        "Unstoppable",
+    ]
+
+    /// Brief mid-block celebration — subtle text swap in the pill to acknowledge sustained focus.
+    func flashCelebration() {
+        guard let vm = viewModel, vm.mode == .timer, !vm.isRecovering, !vm.isCelebrating, !vm.isShowingDistractionCard else { return }
+        vm.celebrationMessage = Self.celebrationMessages.randomElement() ?? "Locked in"
+        vm.isCelebrating = true
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+            self?.viewModel?.isCelebrating = false
         }
     }
 
@@ -389,9 +447,14 @@ class DeepWorkTimerController {
         let windowWidth: CGFloat = 310
         let windowHeight: CGFloat
         switch data.state {
-        case .noPlan:       windowHeight = 270
-        case .gap:          windowHeight = CGFloat(130 + min(data.remainingBlocks.count, 3) * 36)
-        case .allCaughtUp:  windowHeight = 195
+        case .noPlan:       windowHeight = 310
+        case .gap:
+            if data.remainingBlocks.isEmpty {
+                // All blocks done — show stats + schedule actions
+                windowHeight = 195
+            } else {
+                windowHeight = CGFloat(130 + min(data.remainingBlocks.count, 3) * 36)
+            }
         case .doneForDay:   windowHeight = 155
         }
         hostingView.frame = NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight)
@@ -419,9 +482,9 @@ class DeepWorkTimerController {
         timerWindow = window
         startTrackingPosition()
 
-        // Auto-dismiss for doneForDay and allCaughtUp states
+        // Auto-dismiss for doneForDay and gap-with-no-blocks (all done) states
         autoDismissTimer?.invalidate()
-        if data.state == .doneForDay || data.state == .allCaughtUp {
+        if data.state == .doneForDay || (data.state == .gap && data.remainingBlocks.isEmpty) {
             autoDismissTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: false) { [weak self] _ in
                 self?.dismiss()
             }
@@ -444,6 +507,9 @@ class DeepWorkTimerController {
         countdownTimer = nil
         autoDismissTimer?.invalidate()
         autoDismissTimer = nil
+        breakTimer?.invalidate()
+        breakTimer = nil
+        breakEndTime = nil
         stopTrackingPosition()
         viewModel?.stopAutoAdvance()
         viewModel?.stopAutoStartTimer()
@@ -489,6 +555,9 @@ class DeepWorkTimerViewModel: ObservableObject {
     @Published var isDistracted: Bool = false
     @Published var isRecovering: Bool = false
     @Published var recoveryMessage: String = "Welcome back"
+    @Published var isCelebrating: Bool = false
+    @Published var celebrationMessage: String = ""
+    @Published var distractionExplanation: String? = nil
     @Published var isShowingDistractionCard: Bool = false
     @Published var isMuted: Bool = false
     @Published var focusPercent: Int = 0
@@ -496,6 +565,21 @@ class DeepWorkTimerViewModel: ObservableObject {
     @Published var focusGoal: Int = 80
     @Published var isApproachingEnd: Bool = false
     @Published var isHovered: Bool = false
+    @Published var isOnBreak: Bool = false
+    @Published var breakTimeRemaining: String = ""
+    @Published var breakUsedThisBlock: Bool = false
+
+    // AI Override
+    @Published var overridesRemaining: Int = 2
+    @Published var partnerApprovalRequired: Bool = false
+
+    var overridesAvailable: Bool { partnerApprovalRequired || overridesRemaining > 0 }
+
+    var overrideLabel: String {
+        if partnerApprovalRequired { return "Override AI" }
+        if overridesRemaining > 0 { return "Override AI (\(overridesRemaining) left)" }
+        return "Override AI (none left)"
+    }
 
     // Mode
     @Published var mode: PillMode = .timer
@@ -746,7 +830,7 @@ struct DeepWorkTimerView: View {
     // MARK: - Timer Mode (normal pill)
 
     private var timerBody: some View {
-        let showTakeover = viewModel.isRecovering || viewModel.isShowingDistractionCard
+        let showTakeover = viewModel.isRecovering || viewModel.isShowingDistractionCard || viewModel.isCelebrating
         return ZStack {
             // Normal timer content — hidden during takeover states
             normalTimerContent
@@ -758,9 +842,21 @@ struct DeepWorkTimerView: View {
                     .transition(.opacity)
             }
 
+            // Mid-block celebration — brief motivational message for sustained focus
+            if viewModel.isCelebrating && !viewModel.isRecovering {
+                celebrationTakeover
+                    .transition(.opacity)
+            }
+
             // Distraction takeover — "Not related to your task" + Back to Task button
-            if viewModel.isShowingDistractionCard && !viewModel.isRecovering {
+            if viewModel.isShowingDistractionCard && !viewModel.isRecovering && !viewModel.isCelebrating {
                 distractionTakeover
+                    .transition(.opacity)
+            }
+
+            // Break takeover — "On Break" with countdown
+            if viewModel.isOnBreak && !viewModel.isRecovering {
+                breakTakeover
                     .transition(.opacity)
             }
         }
@@ -777,6 +873,9 @@ struct DeepWorkTimerView: View {
                 }
                 if viewModel.isShowingDistractionCard && !viewModel.isRecovering {
                     distractedColor.opacity(0.15)
+                }
+                if viewModel.isOnBreak && !viewModel.isRecovering {
+                    Color.blue.opacity(0.15)
                 }
             }
             .cornerRadius(18)
@@ -803,7 +902,23 @@ struct DeepWorkTimerView: View {
             }
         )
         .animation(.easeInOut(duration: 0.4), value: viewModel.isRecovering)
+        .animation(.easeInOut(duration: 0.3), value: viewModel.isCelebrating)
         .animation(.easeInOut(duration: 0.3), value: viewModel.isShowingDistractionCard)
+        .animation(.easeInOut(duration: 0.3), value: viewModel.isOnBreak)
+    }
+
+    /// Break takeover: "On Break" with countdown timer.
+    private var breakTakeover: some View {
+        VStack(spacing: 4) {
+            Text("☕ On Break")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.white.opacity(0.9))
+            Text(viewModel.breakTimeRemaining)
+                .font(.system(size: 11, weight: .medium).monospacedDigit())
+                .foregroundColor(.white.opacity(0.5))
+        }
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// Full-pill recovery takeover: large motivational message centered in the pill.
@@ -823,28 +938,75 @@ struct DeepWorkTimerView: View {
         .padding(.vertical, 14)
     }
 
+    /// Mid-block celebration: subtle motivational message acknowledging sustained focus.
+    private var celebrationTakeover: some View {
+        VStack(spacing: 4) {
+            Text(viewModel.celebrationMessage)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(focusColor.opacity(0.9))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Text(viewModel.timeDisplay)
+                .font(.system(size: 11, weight: .medium).monospacedDigit())
+                .foregroundColor(.white.opacity(0.5))
+        }
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.vertical, 14)
+    }
+
     /// In-pill distraction card: "Not related to your task" + "Back to Task" button.
     private var distractionTakeover: some View {
-        HStack(spacing: 8) {
-            Text("Not related to your task")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(distractedColor)
-                .lineLimit(1)
+        VStack(spacing: 4) {
+            HStack(spacing: 8) {
+                Text("Not related to your task")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(distractedColor)
+                    .lineLimit(1)
 
-            Spacer(minLength: 4)
+                Spacer(minLength: 4)
 
+                Button(action: {
+                    NotificationCenter.default.post(name: .pillBackToTaskTapped, object: nil)
+                }) {
+                    Text("Back to Task")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(distractedColor.opacity(0.7))
+                        .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+            }
+            if let explanation = viewModel.distractionExplanation {
+                Text(explanation)
+                    .font(.system(size: 10))
+                    .foregroundColor(.white.opacity(0.5))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+            }
+            // "This is relevant" link — lets user dispute false positives
             Button(action: {
-                NotificationCenter.default.post(name: .pillBackToTaskTapped, object: nil)
+                NotificationCenter.default.post(name: .pillThisIsRelevantTapped, object: nil)
             }) {
-                Text("Back to Task")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(distractedColor.opacity(0.7))
-                    .cornerRadius(8)
+                Text("This is relevant")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.white.opacity(0.5))
+                    .underline()
             }
             .buttonStyle(.plain)
+            // "Override AI" link — hard bypass with budget limit
+            Button(action: {
+                NotificationCenter.default.post(name: .pillOverrideAITapped, object: nil)
+            }) {
+                Text(viewModel.overrideLabel)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(viewModel.overridesAvailable ? .white.opacity(0.5) : .white.opacity(0.25))
+                    .underline()
+            }
+            .buttonStyle(.plain)
+            .disabled(!viewModel.overridesAvailable)
         }
         .padding(.horizontal, 14)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -910,20 +1072,38 @@ struct DeepWorkTimerView: View {
                 .padding(.horizontal, 14)
 
             if viewModel.isHovered {
-                // Hover: show End Block button
-                Button(action: {
-                    // Post notification — FocusMonitor will handle
-                    NotificationCenter.default.post(name: .pillEndBlockTapped, object: nil)
-                }) {
-                    Text("End Block")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 5)
-                        .background(amberColor.opacity(0.8))
-                        .cornerRadius(6)
+                // Hover: show Break + End Block buttons
+                HStack(spacing: 6) {
+                    // Take a Break — only if not already used this block and not currently on break
+                    if !viewModel.breakUsedThisBlock && !viewModel.isOnBreak {
+                        Button(action: {
+                            NotificationCenter.default.post(name: .pillBreakTapped, object: nil)
+                        }) {
+                            Text("Break")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 5)
+                                .background(Color.blue.opacity(0.6))
+                                .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    Button(action: {
+                        // Post notification — FocusMonitor will handle
+                        NotificationCenter.default.post(name: .pillEndBlockTapped, object: nil)
+                    }) {
+                        Text("End Block")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 5)
+                            .background(amberColor.opacity(0.8))
+                            .cornerRadius(6)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
                 .padding(.horizontal, 10)
                 .padding(.top, 5)
                 .padding(.bottom, 6)
@@ -1633,7 +1813,8 @@ struct DeepWorkTimerView: View {
     private var noPlanBorderColor: Color {
         guard let data = viewModel.noPlanData else { return amberColor }
         switch data.state {
-        case .doneForDay, .allCaughtUp: return goGreen
+        case .doneForDay: return goGreen
+        case .gap where data.remainingBlocks.isEmpty: return goGreen
         default: return amberColor
         }
     }
@@ -1643,12 +1824,13 @@ struct DeepWorkTimerView: View {
         switch data.state {
         case .noPlan:       noPlanCTA(data: data)
         case .gap:          gapPreview(data: data)
-        case .allCaughtUp:  allCaughtUp(data: data)
         case .doneForDay:   doneForDay(data: data)
         }
     }
 
-    // MARK: - noPlan CTA: "What are you working on?"
+    // MARK: - noPlan CTA: Split Choice Cards (Plan Your Day + Quick Block)
+
+    @State private var quickBlockExpanded = false
 
     private func noPlanCTA(data: NoPlanData) -> some View {
         VStack(spacing: 0) {
@@ -1667,61 +1849,102 @@ struct DeepWorkTimerView: View {
 
             Rectangle().fill(separatorColor).frame(height: 1).padding(.horizontal, 14)
 
-            // Title
-            Text(data.isAfternoon ? "Start a quick block?" : "What are you working on?")
+            // Greeting
+            Text(data.isAfternoon ? "Good afternoon" : "Good morning")
                 .font(.system(size: 14, weight: .bold))
                 .foregroundColor(textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 14)
                 .padding(.top, 10)
-                .padding(.bottom, 2)
-
-            // Subtitle
-            Text(data.isAfternoon
-                 ? "Even a short session helps build momentum."
-                 : "Pick a quick block or plan your full day.")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(textSecondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 14)
                 .padding(.bottom, 10)
 
-            // Quick block buttons
-            HStack(spacing: 6) {
-                quickBlockButton(
-                    label: "Deep Work",
-                    duration: data.isAfternoon ? "1 hour" : "2 hours",
-                    color: deepWorkColor,
-                    action: { data.onQuickBlock?(.deepWork, data.isAfternoon ? 60 : 120) }
-                )
-                quickBlockButton(
-                    label: "Focus",
-                    duration: data.isAfternoon ? "45 min" : "1 hour",
-                    color: focusHoursColor,
-                    action: { data.onQuickBlock?(.focusHours, data.isAfternoon ? 45 : 60) }
-                )
-                quickBlockButton(
-                    label: "Free Time",
-                    duration: "30 min",
-                    color: freeTimeColor,
-                    action: { data.onQuickBlock?(.freeTime, 30) }
-                )
-            }
-            .padding(.horizontal, 14)
-            .padding(.bottom, 10)
-
-            // Plan Full Day link
+            // Plan Your Day card — prominent
             Button(action: { data.onPlanDay() }) {
-                HStack(spacing: 2) {
-                    Text("Plan Full Day")
-                        .font(.system(size: 11, weight: .medium))
+                HStack(spacing: 8) {
+                    Text("\u{2600}\u{FE0F}")
+                        .font(.system(size: 14))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Plan Your Day")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(textPrimary)
+                        Text("Review yesterday & plan today")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(textSecondary)
+                    }
+                    Spacer()
                     Text("\u{2192}")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(textSecondary)
                 }
-                .foregroundColor(textSecondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(Color.white.opacity(0.04))
+                .cornerRadius(10)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.purple.opacity(0.6), lineWidth: 1.5)
+                )
             }
             .buttonStyle(.plain)
-            .padding(.bottom, data.canSnooze ? 4 : 8)
+            .padding(.horizontal, 14)
+            .padding(.bottom, 8)
+
+            // Start a Quick Block card — muted, expandable
+            VStack(spacing: 0) {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) { quickBlockExpanded.toggle() }
+                }) {
+                    HStack(spacing: 8) {
+                        Text("\u{26A1}")
+                            .font(.system(size: 14))
+                        Text("Start a Quick Block")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(textSecondary)
+                        Spacer()
+                        Text("\u{25B8}")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(textSecondary.opacity(0.6))
+                            .rotationEffect(.degrees(quickBlockExpanded ? 90 : 0))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                }
+                .buttonStyle(.plain)
+
+                if quickBlockExpanded {
+                    HStack(spacing: 6) {
+                        quickBlockButton(
+                            label: "Deep Focus",
+                            duration: data.isAfternoon ? "30 min" : "1 hour",
+                            color: deepWorkColor,
+                            action: { data.onQuickBlock?(.deepWork, data.isAfternoon ? 30 : 60) }
+                        )
+                        quickBlockButton(
+                            label: "Focus",
+                            duration: "30 min",
+                            color: focusHoursColor,
+                            action: { data.onQuickBlock?(.focusHours, 30) }
+                        )
+                        quickBlockButton(
+                            label: "Free Time",
+                            duration: "30 min",
+                            color: freeTimeColor,
+                            action: { data.onQuickBlock?(.freeTime, 30) }
+                        )
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 10)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
+            .background(Color.white.opacity(0.04))
+            .cornerRadius(10)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.white.opacity(0.06), lineWidth: 1)
+            )
+            .padding(.horizontal, 14)
+            .padding(.bottom, 8)
 
             // Snooze link
             if data.canSnooze {
@@ -1762,11 +1985,15 @@ struct DeepWorkTimerView: View {
     private func gapPreview(data: NoPlanData) -> some View {
         VStack(spacing: 0) {
             // Header
+            let allDone = data.remainingBlocks.isEmpty
+            let headerColor = allDone ? goGreen : amberColor
+            let headerLabel = allDone ? "UNSCHEDULED" : "UNSCHEDULED"
+
             HStack(spacing: 6) {
-                Circle().fill(amberColor).frame(width: 7, height: 7)
-                Text("UNSCHEDULED")
+                Circle().fill(headerColor).frame(width: 7, height: 7)
+                Text(headerLabel)
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(amberColor)
+                    .foregroundColor(headerColor)
                     .tracking(0.8)
                 Spacer()
                 // Minimize button
@@ -1783,42 +2010,78 @@ struct DeepWorkTimerView: View {
 
             Rectangle().fill(separatorColor).frame(height: 1).padding(.horizontal, 14)
 
-            // "Up next" + countdown
-            HStack {
-                Text("Up next")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(textPrimary)
-                Spacer()
-                if let countdown = data.nextBlockCountdown {
-                    Text(countdown)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(amberColor)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.top, 10)
-            .padding(.bottom, 8)
+            if allDone {
+                // All blocks done — show stats + actions to schedule more
+                Text("\(data.completedBlockCount) block\(data.completedBlockCount == 1 ? "" : "s") done \u{00B7} \(data.totalFocusedTime) focused")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(textSecondary)
+                    .padding(.top, 10)
+                    .padding(.bottom, 10)
 
-            // Block list (up to 3)
-            let blocks = Array(data.remainingBlocks.prefix(3))
-            ForEach(Array(blocks.enumerated()), id: \.offset) { index, block in
-                gapBlockRow(block: block, isFirst: index == 0)
-            }
-            .padding(.bottom, 6)
+                HStack(spacing: 12) {
+                    Button(action: { data.onScheduleNow?() }) {
+                        HStack(spacing: 2) {
+                            Text("Schedule More")
+                                .font(.system(size: 11, weight: .medium))
+                            Text("\u{2192}")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .foregroundColor(goGreen)
+                    }
+                    .buttonStyle(.plain)
 
-            // Schedule Now link
-            Button(action: { data.onScheduleNow?() }) {
-                HStack(spacing: 2) {
-                    Text("Schedule Now")
-                        .font(.system(size: 11, weight: .medium))
-                    Text("\u{2192}")
-                        .font(.system(size: 11, weight: .medium))
+                    Text("\u{00B7}").foregroundColor(textSecondary.opacity(0.4))
+
+                    Button(action: { data.onPlanDay() }) {
+                        HStack(spacing: 2) {
+                            Text("Plan Full Day")
+                                .font(.system(size: 11, weight: .medium))
+                            Text("\u{2192}")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .foregroundColor(textSecondary.opacity(0.6))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .foregroundColor(goGreen)
+                .padding(.bottom, 12)
+            } else {
+                // "Up next" + countdown
+                HStack {
+                    Text("Up next")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(textPrimary)
+                    Spacer()
+                    if let countdown = data.nextBlockCountdown {
+                        Text(countdown)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(amberColor)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 10)
+                .padding(.bottom, 8)
+
+                // Block list (up to 3)
+                let blocks = Array(data.remainingBlocks.prefix(3))
+                ForEach(Array(blocks.enumerated()), id: \.offset) { index, block in
+                    gapBlockRow(block: block, isFirst: index == 0)
+                }
+                .padding(.bottom, 6)
+
+                // Schedule Now link
+                Button(action: { data.onScheduleNow?() }) {
+                    HStack(spacing: 2) {
+                        Text("Schedule Now")
+                            .font(.system(size: 11, weight: .medium))
+                        Text("\u{2192}")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundColor(goGreen)
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.bottom, 10)
             }
-            .buttonStyle(.plain)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.bottom, 10)
         }
     }
 
@@ -1826,7 +2089,7 @@ struct DeepWorkTimerView: View {
         let color = blockTypeColor(block.blockType)
         let typeLabel: String = {
             switch block.blockType {
-            case .deepWork: return "Deep Work"
+            case .deepWork: return "Deep Focus"
             case .focusHours: return "Focus"
             case .freeTime: return "Free Time"
             }
@@ -1866,71 +2129,7 @@ struct DeepWorkTimerView: View {
         .opacity(isFirst ? 1.0 : 0.45)
     }
 
-    // MARK: - Done For Day: "Nice work today"
-
-    // MARK: - All Caught Up: finished scheduled blocks but early in the day
-
-    private func allCaughtUp(data: NoPlanData) -> some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack(spacing: 6) {
-                Circle().fill(goGreen).frame(width: 7, height: 7)
-                Text("ALL CAUGHT UP")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(goGreen)
-                    .tracking(0.8)
-                Spacer()
-                Button(action: { data.onDismiss?() }) {
-                    Text("\u{2212}")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(textSecondary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 14)
-            .padding(.top, 10)
-            .padding(.bottom, 8)
-
-            Rectangle().fill(separatorColor).frame(height: 1).padding(.horizontal, 14)
-
-            // Stats
-            Text("\(data.completedBlockCount) block\(data.completedBlockCount == 1 ? "" : "s") done \u{00B7} \(data.totalFocusedTime) focused")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(textSecondary)
-                .padding(.top, 10)
-                .padding(.bottom, 10)
-
-            // Actions
-            HStack(spacing: 12) {
-                Button(action: { data.onScheduleNow?() }) {
-                    HStack(spacing: 2) {
-                        Text("Schedule More")
-                            .font(.system(size: 11, weight: .medium))
-                        Text("\u{2192}")
-                            .font(.system(size: 11, weight: .medium))
-                    }
-                    .foregroundColor(goGreen)
-                }
-                .buttonStyle(.plain)
-
-                Text("\u{00B7}").foregroundColor(textSecondary.opacity(0.4))
-
-                Button(action: { data.onPlanDay() }) {
-                    HStack(spacing: 2) {
-                        Text("Plan Full Day")
-                            .font(.system(size: 11, weight: .medium))
-                        Text("\u{2192}")
-                            .font(.system(size: 11, weight: .medium))
-                    }
-                    .foregroundColor(textSecondary.opacity(0.6))
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.bottom, 12)
-        }
-    }
-
-    // MARK: - Done For Day: all blocks complete (evening)
+    // MARK: - Done For Day: all blocks complete (evening, 9pm+)
 
     private func doneForDay(data: NoPlanData) -> some View {
         VStack(spacing: 0) {
@@ -2049,8 +2248,8 @@ struct DeepWorkTimerView: View {
 
                 // Block type toggle
                 HStack(spacing: 8) {
-                    startRitualTypePill(.deepWork, label: "Deep Work", color: deepWorkColor)
-                    startRitualTypePill(.focusHours, label: "Focus Hours", color: focusHoursColor)
+                    startRitualTypePill(.deepWork, label: "Deep Focus", color: deepWorkColor)
+                    startRitualTypePill(.focusHours, label: "Focus", color: focusHoursColor)
                 }
                 .padding(.bottom, 16)
 
@@ -2149,8 +2348,8 @@ struct DeepWorkTimerView: View {
         let color = blockTypeColor(next.blockType)
         let typeLabel: String = {
             switch next.blockType {
-            case .deepWork: return "Deep Work"
-            case .focusHours: return "Focus Hours"
+            case .deepWork: return "Deep Focus"
+            case .focusHours: return "Focus"
             case .freeTime: return "Free Time"
             }
         }()
@@ -2193,8 +2392,8 @@ struct DeepWorkTimerView: View {
 
     private func blockTypeLabel(_ type: ScheduleManager.BlockType) -> String {
         switch type {
-        case .deepWork: return "DEEP WORK"
-        case .focusHours: return "FOCUS HOURS"
+        case .deepWork: return "DEEP FOCUS"
+        case .focusHours: return "FOCUS"
         case .freeTime: return "FREE TIME"
         }
     }
@@ -2292,4 +2491,7 @@ extension Notification.Name {
     static let pillEnterEditMode = Notification.Name("pillEnterEditMode")
     static let pillExitEditMode = Notification.Name("pillExitEditMode")
     static let pillBackToTaskTapped = Notification.Name("pillBackToTaskTapped")
+    static let pillThisIsRelevantTapped = Notification.Name("pillThisIsRelevantTapped")
+    static let pillOverrideAITapped = Notification.Name("pillOverrideAITapped")
+    static let pillBreakTapped = Notification.Name("pillBreakTapped")
 }

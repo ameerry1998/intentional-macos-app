@@ -176,7 +176,7 @@ class ScheduleManager {
     // MARK: - State
 
     /// Whether Daily Focus Plan is enabled (opt-in toggle)
-    private(set) var isEnabled: Bool = false
+    private(set) var isEnabled: Bool = true
 
     /// User profile (set once during opt-in, persisted)
     private(set) var profile: String = ""
@@ -475,6 +475,16 @@ class ScheduleManager {
         }
 
         // Check if plan exists for today
+        // If todaySchedule holds a stale date (app stayed open past midnight),
+        // archive it and clear so dashboard shows empty for today.
+        if let stale = todaySchedule, stale.date != Self.todayString() {
+            archiveSchedule(stale)
+            todaySchedule = nil
+            snoozeUntil = nil
+            snoozeCount = 0
+            appDelegate?.postLog("📋 Day transition: archived stale schedule for \(stale.date)")
+        }
+
         guard let schedule = todaySchedule, schedule.date == Self.todayString() else {
             // No plan — check snooze
             if let snooze = snoozeUntil, Date() < snooze {
@@ -531,7 +541,7 @@ class ScheduleManager {
         do {
             let data = try Data(contentsOf: settingsFileURL)
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                isEnabled = json["enabled"] as? Bool ?? false
+                isEnabled = json["enabled"] as? Bool ?? true
                 focusEnforcement = json["focusEnforcement"] as? String ?? "block"
                 aiModel = json["aiModel"] as? String ?? "apple"
                 calendarZoom = json["calendarZoom"] as? Int ?? 42
@@ -709,5 +719,12 @@ class ScheduleManager {
         let calendar = Calendar.current
         let components = calendar.dateComponents([.hour, .minute], from: Date())
         return (components.hour ?? 0) * 60 + (components.minute ?? 0)
+    }
+
+    /// Returns yesterday's date string in yyyy-MM-dd format.
+    static func yesterdayDateString() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Calendar.current.date(byAdding: .day, value: -1, to: Date())!)
     }
 }

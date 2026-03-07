@@ -313,6 +313,14 @@ class NativeMessagingHost {
             // Extension verifying partner extra time code
             handleVerifyExtraTimeCode(message)
 
+        case "REQUEST_OVERRIDE":
+            // Extension requesting partner AI override
+            handleRequestOverride(message)
+
+        case "VERIFY_OVERRIDE_CODE":
+            // Extension verifying partner AI override code
+            handleVerifyOverrideCode(message)
+
         default:
             appDelegate?.postLog("⚠️ Native Messaging: Unknown message type: \(type)")
         }
@@ -578,7 +586,7 @@ class NativeMessagingHost {
     private func sendSettingsSync() {
         guard let delegate = appDelegate else { return }
         let settingsFileURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("Intentional/settings.json")
+            .appendingPathComponent("Intentional/onboarding_settings.json")
 
         guard FileManager.default.fileExists(atPath: settingsFileURL.path),
               let data = try? Data(contentsOf: settingsFileURL),
@@ -640,6 +648,7 @@ class NativeMessagingHost {
         ]
 
         let distractingSites = (settings["distractingSites"] as? [String]) ?? [String]()
+        let alwaysRelevantSites = (settings["alwaysRelevantSites"] as? [String]) ?? [String]()
 
         let message: [String: Any] = [
             "type": "SETTINGS_SYNC",
@@ -648,7 +657,8 @@ class NativeMessagingHost {
             "facebook": fbSettings,
             "lockMode": lockMode,
             "maxPerPeriod": maxPerPeriod,
-            "distractingSites": distractingSites
+            "distractingSites": distractingSites,
+            "alwaysRelevantSites": alwaysRelevantSites
         ]
 
         sendMessage(message)
@@ -754,6 +764,31 @@ class NativeMessagingHost {
         }
 
         let hostname = message["hostname"] as? String
+        let url = message["url"] as? String ?? ""
+        let pageDescription = message["pageDescription"] as? String ?? ""
+
+        // Always-relevant whitelist: skip AI scoring for user-whitelisted sites
+        if let host = hostname, let monitor = appDelegate?.focusMonitor,
+           (monitor.alwaysRelevantHostnames.contains(host.lowercased()) ||
+            monitor.alwaysRelevantHostnames.contains(where: { host.lowercased().hasSuffix(".\($0)") })) {
+            appDelegate?.postLog("👁️ Whitelist bypass (extension): \"\(pageTitle)\" (\(host)) — skipping AI, treating as relevant")
+            var response: [String: Any] = [
+                "type": "RELEVANCE_RESULT",
+                "relevant": true,
+                "confidence": 100,
+                "reason": "Whitelisted site",
+                "pageTitle": pageTitle,
+                "intention": block.title
+            ]
+            if let id = requestId { response["requestId"] = id }
+            sendMessage(response)
+            DispatchQueue.main.async {
+                self.appDelegate?.focusMonitor?.reportBrowserTabScored(
+                    relevant: true, confidence: 100, pageTitle: pageTitle, hostname: hostname
+                )
+            }
+            return
+        }
 
         // Score asynchronously — Foundation Models call can take ~500-1000ms
         Task {
@@ -761,7 +796,9 @@ class NativeMessagingHost {
                 pageTitle: pageTitle,
                 intention: block.title,
                 profile: manager.profile,
-                dailyPlan: manager.todaySchedule?.dailyPlan ?? ""
+                dailyPlan: manager.todaySchedule?.dailyPlan ?? "",
+                url: url,
+                pageDescription: pageDescription
             )
 
             var response: [String: Any] = [
@@ -991,6 +1028,64 @@ class NativeMessagingHost {
                 }
             }
             self.appDelegate?.postLog("💰 Extra time verify: code=\(code.prefix(2))*** → \(result.success ? "+\(result.addedMinutes) min" : result.message)")
+        }
+    }
+
+    // MARK: - AI Override
+
+    /// Handle AI override request from extension — sends code to partner via backend.
+    private func handleRequestOverride(_ message: [String: Any]) {
+        let blockType = message["blockType"] as? String ?? "focusHours"
+        let pageTitle = message["pageTitle"] as? String ?? ""
+        let intention = message["intention"] as? String ?? ""
+
+        guard let backendClient = appDelegate?.backendClient else {
+            sendMessage([
+                "type": "OVERRIDE_REQUEST_RESULT",
+                "success": false,
+                "message": "Backend client not available"
+            ])
+            return
+        }
+
+        Task {
+            let result = await backendClient.requestOverride(blockType: blockType, pageTitle: pageTitle, intention: intention)
+            await MainActor.run {
+                self.sendMessage([
+                    "type": "OVERRIDE_REQUEST_RESULT",
+                    "success": result.success,
+                    "message": result.message,
+                    "requestId": result.requestId ?? "",
+                    "partnerName": result.partnerName ?? ""
+                ])
+            }
+            self.appDelegate?.postLog("🔓 Override request: \(blockType) → \(result.success ? "sent" : result.message)")
+        }
+    }
+
+    /// Handle AI override code verification from extension.
+    private func handleVerifyOverrideCode(_ message: [String: Any]) {
+        guard let code = message["code"] as? String,
+              let requestId = (message["requestId"] as? String) ?? (message["request_id"] as? String) else {
+            sendMessage(["type": "OVERRIDE_VERIFY_RESULT", "success": false, "message": "Missing code or requestId"])
+            return
+        }
+
+        guard let backendClient = appDelegate?.backendClient else {
+            sendMessage(["type": "OVERRIDE_VERIFY_RESULT", "success": false, "message": "Backend client not available"])
+            return
+        }
+
+        Task {
+            let result = await backendClient.verifyOverride(code: code, requestId: requestId)
+            await MainActor.run {
+                self.sendMessage([
+                    "type": "OVERRIDE_VERIFY_RESULT",
+                    "success": result.success,
+                    "message": result.message
+                ])
+            }
+            self.appDelegate?.postLog("🔓 Override verify: code=\(code.prefix(2))*** → \(result.success ? "verified" : result.message)")
         }
     }
 }

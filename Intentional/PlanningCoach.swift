@@ -39,7 +39,7 @@ class PlanningCoach {
     struct PlanningMemory: Codable {
         var lastUpdated: String = ""
         var insights: [String] = []             // max 8, LLM-curated observations
-        var preferredBlockDuration: Int = 75    // rolling average in minutes
+        var preferredBlockDuration: Int = 45    // rolling average in minutes
 
         // Migration: gracefully handle old format with recurringTasks
         enum CodingKeys: String, CodingKey {
@@ -51,7 +51,7 @@ class PlanningCoach {
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             lastUpdated = (try? c.decode(String.self, forKey: .lastUpdated)) ?? ""
-            preferredBlockDuration = (try? c.decode(Int.self, forKey: .preferredBlockDuration)) ?? 75
+            preferredBlockDuration = (try? c.decode(Int.self, forKey: .preferredBlockDuration)) ?? 45
             if let new = try? c.decode([String].self, forKey: .insights) {
                 insights = new
             } else if let old = try? c.decode([String].self, forKey: .recurringTasks), !old.isEmpty {
@@ -363,7 +363,7 @@ class PlanningCoach {
         let todayContext = buildTodayContext(existingBlocks: existingBlocks)
 
         return """
-        You are a focused productivity coach. Warm, brief, evidence-based.
+        You are a friendly productivity coach helping plan the user's day. Be warm and brief.
 
         \(userContext)
 
@@ -372,52 +372,41 @@ class PlanningCoach {
         \(yesterdayContext)
 
         \(todayContext)
-        Current time: \(timeStr)
+        Current time: \(timeStr) (\(hour):\(String(format: "%02d", minute)))
 
-        COACHING APPROACH:
-        - Reference past wins to build confidence: "You hit 85% focus on coding yesterday"
-        - Suggest continuing unfinished tasks from yesterday (Zeigarnik effect)
-        - Front-load demanding/creative work in morning, admin/lighter tasks after 2pm
-        - Default 60-90 min work blocks with 15-min freeTime breaks
-        - If the user's input is vague (e.g., "plan my day" with no tasks), ask ONE clarifying question like "What's the ONE thing that would make today a win?"
-        - If the user gives tasks but no timing info, ask briefly about their schedule: "When do you want to start? Any fixed commitments?" — then generate blocks.
-        - If the user gives tasks WITH times (e.g., "code my app then groceries at 10"), generate blocks IMMEDIATELY — do not ask clarifying questions. You already have what you need.
-        - Never ask more than ONE question per response. Get to blocks as fast as possible.
-        - Keep responses concise (2-3 sentences max for the message)
-        - If the user message starts with "[PRIORITIES]", generate a full day schedule immediately — do NOT ask clarifying questions. Include 3-5 blocks with breaks. Keep the message to one encouraging sentence.
+        WHEN TO ASK vs GENERATE:
+        - If the user mentions tasks, generate blocks. Do NOT ask more questions.
+        - Only ask a question if the user says something vague like "plan my day" with zero tasks. Ask ONE short question, then stop.
+        - If the message starts with "[PRIORITIES]", generate blocks immediately with one encouraging sentence.
+        - Never ask more than one question. Get to blocks fast.
 
-        RULES:
-        - BLOCK TITLES MUST USE THE USER'S OWN WORDS. If they say "coding my app", title it "Coding my app". If they say "groceries", title it "Groceries". NEVER invent specific sub-tasks, project names, or technical details the user didn't say. Wrong: user says "work on my app" → "Implement authentication flow". Right: user says "work on my app" → "Work on my app".
-        - Suggest 3-5 blocks covering the remaining hours of the day
-        - Include breaks (freeTime blocks) between work sessions
-        - Work blocks should be 45-120 minutes
-        - Don't schedule blocks before the current time (\(hour):\(String(format: "%02d", minute)))
-        - NEVER generate overlapping blocks. Each block must end at or before the next block starts. Verify this before returning.
-        - When the user states a specific time (e.g., "groceries at 10 pm"), treat it as a hard constraint — schedule surrounding blocks to end before that time.
-        - Blocks must be in chronological order in the array.
+        BLOCK TYPES — pick the right one:
+        - "deepWork" (Deep Focus): Hard creative/technical work (coding, writing, design). Distractions aggressively blocked.
+        - "focusHours" (Focus): Moderate focus work (emails, reviews, meetings, calls, planning). Gentle nudges only.
+        - "freeTime" (Free Time): Breaks, meals, errands, exercise, appointments, personal tasks. No enforcement.
 
-        RESPONSE FORMAT (always valid JSON):
-        {
-          "message": "Your conversational response here",
-          "blocks": [
-            {
-              "title": "Block title",
-              "description": "What to focus on",
-              "startHour": 9, "startMinute": 0,
-              "endHour": 10, "endMinute": 30,
-              "blockType": "focusHours"
-            }
-          ]
-        }
+        TITLES — use the user's exact words:
+        - Copy the user's words directly. "coding my app" → "Coding my app". "chem hw" → "Chem hw".
+        - Do NOT rephrase, expand abbreviations, or invent details. NEVER add tasks the user didn't mention.
+        - Do NOT split one task into multiple blocks like "Continue X". If a task is long, make one longer block.
 
-        blockType must be one of: "focusHours", "deepWork", "freeTime"
+        SCHEDULING RULES:
+        - One block per task mentioned, plus freeTime breaks between work sessions.
+        - Work blocks: 30-90 min. Breaks: 10-15 min.
+        - No blocks before \(hour):\(String(format: "%02d", minute)). No overlapping blocks. Chronological order.
+        - Specific times are hard constraints (e.g., "gym at 5" means gym starts at 5).
+        - All blocks must end by midnight (no overnight blocks).
+        \(existingBlocks.isEmpty ? "" : "- Only schedule blocks for unscheduled time. Do not duplicate existing blocks.")
 
-        If you're asking questions and not yet suggesting blocks, return "blocks": [].
+        RESPONSE — always valid JSON, nothing else:
+        {"message":"your short response","blocks":[{"title":"user's words","startHour":9,"startMinute":0,"endHour":10,"endMinute":30,"blockType":"focusHours"}]}
+
+        If asking a question: {"message":"your question","blocks":[]}
         """
     }
 
     private func buildUserContext(profile: String) -> String {
-        var lines: [String] = ["ABOUT THIS USER:"]
+        var lines: [String] = ["ABOUT THIS USER (for coaching tone only — do NOT put these details in block titles):"]
         if !profile.isEmpty {
             lines.append("- Work profile: \(profile)")
         }
@@ -555,13 +544,14 @@ class PlanningCoach {
                           userInfo: [NSLocalizedDescriptionKey: "MLX session not initialized"])
         }
 
-        // First message includes system prompt; subsequent messages are just user text
+        // First message includes system prompt; subsequent messages append a format reminder
         let prompt: String
         if !mlxSystemPromptSent {
             prompt = buildSystemPrompt() + "\n\nUser: " + userMessage
             mlxSystemPromptSent = true
         } else {
-            prompt = userMessage
+            // Re-inject format reminder to prevent context degradation on multi-turn
+            prompt = userMessage + "\n\n(Respond with JSON: {\"message\":\"...\",\"blocks\":[...]})"
         }
 
         let response = try await session.respond(to: prompt)
@@ -571,35 +561,79 @@ class PlanningCoach {
 
     // MARK: - Response Parsing
 
-    /// Parse JSON response from LLM. Graceful degradation: if JSON parsing fails,
-    /// return the raw text as the message with no blocks.
+    /// Parse JSON response from LLM. Includes JSON repair for common small-model errors
+    /// (trailing commas, string numbers, missing fields). Graceful degradation to raw text.
     private func parseResponse(_ text: String) -> PlanResponse {
+        let cleaned = cleanMessage(text)
+
         // Try to find JSON object in response
-        guard let jsonStart = text.firstIndex(of: "{"),
-              let jsonEnd = text[jsonStart...].lastIndex(of: "}") else {
-            // No JSON found — treat entire response as message
-            return PlanResponse(message: cleanMessage(text), blocks: [])
+        guard let jsonStart = cleaned.firstIndex(of: "{"),
+              let jsonEnd = cleaned[jsonStart...].lastIndex(of: "}") else {
+            return PlanResponse(message: cleaned, blocks: [])
         }
 
-        let jsonString = String(text[jsonStart...jsonEnd])
+        var jsonString = String(cleaned[jsonStart...jsonEnd])
+
+        // JSON repair: fix common small-model errors
+        // 1. Trailing commas before } or ]
+        jsonString = jsonString.replacingOccurrences(
+            of: ",\\s*([\\]\\}])",
+            with: "$1",
+            options: .regularExpression
+        )
+        // 2. Single quotes to double quotes (but not inside strings)
+        // Simple heuristic: replace ' used as JSON delimiters
+        if !jsonString.contains("\"") && jsonString.contains("'") {
+            jsonString = jsonString.replacingOccurrences(of: "'", with: "\"")
+        }
+
         guard let data = jsonString.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return PlanResponse(message: cleanMessage(text), blocks: [])
+            appDelegate?.postLog("⚠️ PlanningCoach: JSON parse failed, attempting line-by-line repair")
+            // Fallback: try to extract message via regex
+            if let msgRange = cleaned.range(of: "\"message\"\\s*:\\s*\"([^\"]+)\"", options: .regularExpression) {
+                let msgMatch = String(cleaned[msgRange])
+                let msgValue = msgMatch.components(separatedBy: "\"").dropFirst(3).first ?? ""
+                return PlanResponse(message: msgValue.isEmpty ? cleaned : msgValue, blocks: [])
+            }
+            return PlanResponse(message: cleaned, blocks: [])
         }
 
-        let message = (json["message"] as? String) ?? cleanMessage(text)
+        let message = (json["message"] as? String) ?? cleaned
         var blocks: [SuggestedBlock] = []
 
         if let blocksArray = json["blocks"] as? [[String: Any]] {
             for b in blocksArray {
-                guard let title = b["title"] as? String,
-                      let startHour = b["startHour"] as? Int,
-                      let startMinute = b["startMinute"] as? Int,
-                      let endHour = b["endHour"] as? Int,
-                      let endMinute = b["endMinute"] as? Int else {
+                guard let title = b["title"] as? String else { continue }
+
+                // Coerce string numbers to Int (common small-model error)
+                let startHour = asInt(b["startHour"]) ?? 0
+                let startMinute = asInt(b["startMinute"]) ?? 0
+                let endHour = asInt(b["endHour"]) ?? 0
+                let endMinute = asInt(b["endMinute"]) ?? 0
+
+                // Validate time ranges
+                guard startHour >= 0, startHour <= 23,
+                      endHour >= 0, endHour <= 23,
+                      startMinute >= 0, startMinute <= 59,
+                      endMinute >= 0, endMinute <= 59 else {
                     continue
                 }
-                let blockType = (b["blockType"] as? String) ?? "focusHours"
+
+                // Skip blocks with zero or negative duration
+                let startTotal = startHour * 60 + startMinute
+                let endTotal = endHour * 60 + endMinute
+                guard endTotal > startTotal else { continue }
+
+                let blockType = (b["blockType"] as? String) ?? (b["type"] as? String) ?? "focusHours"
+                // Normalize blockType to valid values
+                let validType: String
+                switch blockType.lowercased() {
+                case "deepwork", "deep_work", "deep work": validType = "deepWork"
+                case "freetime", "free_time", "free time", "break": validType = "freeTime"
+                default: validType = "focusHours"
+                }
+
                 let description = (b["description"] as? String) ?? ""
                 blocks.append(SuggestedBlock(
                     title: title,
@@ -608,12 +642,20 @@ class PlanningCoach {
                     startMinute: startMinute,
                     endHour: endHour,
                     endMinute: endMinute,
-                    blockType: blockType
+                    blockType: validType
                 ))
             }
         }
 
         return PlanResponse(message: message, blocks: blocks)
+    }
+
+    /// Helper: coerce Any to Int (handles both Int and String numbers from JSON)
+    private func asInt(_ value: Any?) -> Int? {
+        if let i = value as? Int { return i }
+        if let d = value as? Double { return Int(d) }
+        if let s = value as? String { return Int(s) }
+        return nil
     }
 
     /// Strip markdown artifacts and thinking tags from LLM output.

@@ -145,8 +145,8 @@ class BlockRitualViewModel: ObservableObject {
 
     var blockTypeLabel: String {
         switch blockType {
-        case .deepWork: return "DEEP WORK"
-        case .focusHours: return "FOCUS HOURS"
+        case .deepWork: return "DEEP FOCUS"
+        case .focusHours: return "FOCUS"
         case .freeTime: return "FREE TIME"
         }
     }
@@ -964,8 +964,8 @@ struct BlockRitualView: View {
 
             Text("Block type").font(.system(size: 12, weight: .medium)).foregroundColor(textTertiary).padding(.bottom, 8)
             HStack(spacing: 8) {
-                typePill(.deepWork, label: "Deep Work", color: deepWorkColor)
-                typePill(.focusHours, label: "Focus Hours", color: accentStart)
+                typePill(.deepWork, label: "Deep Focus", color: deepWorkColor)
+                typePill(.focusHours, label: "Focus", color: accentStart)
             }
             .padding(.bottom, 24)
 

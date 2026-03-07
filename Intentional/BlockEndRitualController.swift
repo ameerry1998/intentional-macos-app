@@ -185,8 +185,8 @@ class BlockEndRitualViewModel: ObservableObject {
 
     var blockTypeLabel: String {
         switch blockType {
-        case .deepWork: return "DEEP WORK"
-        case .focusHours: return "FOCUS HOURS"
+        case .deepWork: return "DEEP FOCUS"
+        case .focusHours: return "FOCUS"
         case .freeTime: return "FREE TIME"
         }
     }
@@ -678,8 +678,8 @@ struct BlockEndRitualView: View {
 
         let typeLabel: String = {
             switch blockType {
-            case .deepWork: return "Deep Work"
-            case .focusHours: return "Focus Hours"
+            case .deepWork: return "Deep Focus"
+            case .focusHours: return "Focus"
             case .freeTime: return "Free Time"
             case .none: return ""
             }

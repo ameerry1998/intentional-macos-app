@@ -52,6 +52,9 @@
 
   /* Iridescent highlight gradient (for card top edges) */
   --highlight-edge: linear-gradient(90deg, transparent, rgba(6,182,212,0.4), rgba(139,92,246,0.4), rgba(236,72,153,0.3), transparent);
+
+  /* Sidebar fabric hue shift (green base image) */
+  --sidebar-fabric-hue: 140deg;
 }
 
 /* ===== Theme: Classic ===== */
@@ -67,6 +70,7 @@
   --block-focus: #6366f1;
   --block-focus-secondary: #818cf8;
   --highlight-edge: transparent;
+  --sidebar-fabric-hue: 120deg;
 }
 
 /* ===== Theme: Emerald ===== */
@@ -82,6 +86,7 @@
   --block-focus: #34d399;
   --block-focus-secondary: #6ee7b7;
   --highlight-edge: transparent;
+  --sidebar-fabric-hue: 0deg;
 }
 
 /* ===== Theme: Warm Iridescent ===== */
@@ -97,6 +102,7 @@
   --block-focus: #8b5cf6;
   --block-focus-secondary: #fbbf24;
   --highlight-edge: linear-gradient(90deg, transparent, rgba(251,191,36,0.4), rgba(52,211,153,0.4), rgba(139,92,246,0.3), transparent);
+  --sidebar-fabric-hue: -30deg;
 }
 
 /* ===== Theme: Light ===== */
@@ -235,6 +241,28 @@ body.theme-effects-warm::after {
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   padding: 20px 0;
   flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+.sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('sidebar-fabric.png') center/cover no-repeat;
+  opacity: 0.25;
+  z-index: 0;
+  filter: hue-rotate(var(--sidebar-fabric-hue, 0deg));
+  animation: fabric-drift 30s ease-in-out infinite;
+}
+@keyframes fabric-drift {
+  0%   { transform: scale(1.3) translate(0, 0); }
+  33%  { transform: scale(1.3) translate(-5%, -3%); }
+  66%  { transform: scale(1.3) translate(3%, -5%); }
+  100% { transform: scale(1.3) translate(0, 0); }
+}
+.sidebar > * {
+  position: relative;
+  z-index: 1;
 }
 
 .sidebar-header {
@@ -459,6 +487,10 @@ body.theme-effects-warm::after {
 .distracting-site-badge.custom {
   color: rgba(245,158,11,0.9);
   background: rgba(245,158,11,0.1);
+}
+.distracting-site-badge.whitelist {
+  color: rgba(34,197,94,0.9);
+  background: rgba(34,197,94,0.1);
 }
 .distracting-site-remove {
   background: none;
@@ -2628,9 +2660,15 @@ body.theme-effects-warm::after {
 }
 
 /* ===== Light Theme: Selector Overrides ===== */
+[data-theme="light"] {
+  --sidebar-fabric-hue: 140deg;
+}
 [data-theme="light"] .sidebar {
   background: rgba(0, 0, 0, 0.02);
   border-right-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .sidebar::before {
+  opacity: 0.15;
 }
 [data-theme="light"] .sidebar-header {
   border-bottom-color: rgba(0, 0, 0, 0.06);
@@ -3089,6 +3127,91 @@ body.theme-effects-warm::after {
   color: rgba(255,255,255,0.45);
   cursor: pointer;
   transition: all 0.15s;
+}
+
+/* ===== Plan Landing ===== */
+#plan-landing {
+  text-align: center;
+  padding: 40px 20px 20px;
+}
+.plan-landing-greeting {
+  margin-bottom: 28px;
+}
+.plan-landing-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.plan-landing-date {
+  font-size: 14px;
+  color: rgba(255,255,255,0.4);
+}
+.plan-landing-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  max-width: 460px;
+  margin: 0 auto 20px;
+}
+.plan-landing-card {
+  background: rgba(255,255,255,0.03);
+  border: 2px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 22px 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+.plan-landing-card:hover {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.15);
+}
+.plan-landing-card.selected {
+  border-color: var(--accent-primary);
+  background: rgba(52,211,153,0.06);
+}
+.plan-landing-card-icon {
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+.plan-landing-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.plan-landing-card-desc {
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
+  line-height: 1.4;
+}
+.plan-landing-go {
+  margin-bottom: 20px;
+}
+#plan-landing-yesterday {
+  max-width: 460px;
+  margin: 0 auto;
+  text-align: left;
+}
+#plan-landing-yesterday .plan-chips-row {
+  justify-content: center;
+}
+[data-theme="light"] .plan-landing-card {
+  background: rgba(0,0,0,0.02);
+  border-color: rgba(0,0,0,0.08);
+}
+[data-theme="light"] .plan-landing-card:hover {
+  background: rgba(0,0,0,0.04);
+  border-color: rgba(0,0,0,0.15);
+}
+[data-theme="light"] .plan-landing-card.selected {
+  border-color: var(--accent-primary);
+  background: rgba(52,211,153,0.06);
+}
+[data-theme="light"] .plan-landing-date {
+  color: rgba(0,0,0,0.4);
+}
+[data-theme="light"] .plan-landing-card-desc {
+  color: rgba(0,0,0,0.4);
 }
 
 /* ===== Plan Wizard ===== */
@@ -3732,10 +3855,10 @@ body.theme-effects-warm::after {
         </div>
       </div>
       <div class="focus-calendar-header-right" id="calendar-add-buttons">
-        <button class="btn-small btn-small-deep" onclick="addFocusBlock('deepWork')">+ Deep Work</button>
-        <button class="btn-small" onclick="addFocusBlock('focusHours')">+ Focus Hours</button>
+        <button class="btn-small btn-small-deep" onclick="addFocusBlock('deepWork')">+ Deep Focus</button>
+        <button class="btn-small" onclick="addFocusBlock('focusHours')">+ Focus</button>
         <button class="btn-small btn-small-free" onclick="addFocusBlock('freeTime')">+ Free Time</button>
-        <button onclick="navigateToEnforcementSection()" title="Enforcement settings" style="background:none;border:none;color:rgba(255,255,255,0.4);font-size:16px;cursor:pointer;padding:2px 6px;margin-left:2px;">&#x2026;</button>
+        <button onclick="navigateToScheduleSettings()" title="Schedule settings" style="background:none;border:none;color:rgba(255,255,255,0.4);font-size:16px;cursor:pointer;padding:2px 6px;margin-left:2px;">&#x2026;</button>
       </div>
     </div>
     <div class="calendar-container" id="calendar-container"></div>
@@ -3912,6 +4035,17 @@ body.theme-effects-warm::after {
         </div>
         <input type="text" class="app-picker-search" id="app-picker-search" placeholder="Search apps..." oninput="filterAppPicker()">
         <div class="app-picker-list" id="app-picker-list"></div>
+      </div>
+    </div>
+
+    <!-- ===== Always-Relevant Sites (Whitelist) ===== -->
+    <div class="settings-card" style="margin-top: 16px;">
+      <div class="settings-card-title">Always-Relevant Sites</div>
+      <div class="setting-desc" style="padding: 2px 20px 8px;">These sites are always counted as productive during work blocks. Use for tools like email or chat where the AI can't tell if you're working.</div>
+      <div class="distracting-sites-list" id="always-relevant-sites-list"></div>
+      <div class="distracting-sites-add" id="always-relevant-sites-add">
+        <input type="text" id="always-relevant-site-input" placeholder="e.g. gmail.com, slack.com, notion.so">
+        <button type="button" onclick="addAlwaysRelevantSite()">Add</button>
       </div>
     </div>
 
@@ -4287,8 +4421,11 @@ body.theme-effects-warm::after {
 
     <!-- Browsers Card -->
     <div class="settings-card" style="padding: 0; overflow: hidden;">
-      <div class="settings-card-title" style="padding: 16px 20px 12px;">Browsers</div>
-      <div class="browser-card" id="browser-card" style="border: none; border-radius: 0;">
+      <div class="settings-card-title" style="padding: 16px 20px 12px; cursor: pointer; display: flex; align-items: center; justify-content: space-between;" onclick="toggleBrowserCard()">
+        <span id="browser-card-title">Browsers</span>
+        <span id="browser-card-chevron" style="font-size: 11px; color: var(--text-tertiary); transition: transform 0.2s;">▶</span>
+      </div>
+      <div class="browser-card" id="browser-card" style="border: none; border-radius: 0; display: none;">
         <div class="empty-state" id="browser-empty" style="padding: 20px;">
           <div class="empty-state-text" style="font-size: 13px;">Loading browser status...</div>
         </div>
@@ -4296,7 +4433,7 @@ body.theme-effects-warm::after {
     </div>
 
     <!-- Focus Plan Card -->
-    <div class="settings-card">
+    <div class="settings-card" id="focus-plan-card">
       <div class="settings-card-title">Focus Plan</div>
       <div class="setting-row">
         <div>
@@ -4334,6 +4471,16 @@ body.theme-effects-warm::after {
           <div class="setting-desc">Describes your work so we can judge relevance</div>
         </div>
         <button class="btn-small" onclick="navigateTo('today')" style="white-space:nowrap;">Edit profile</button>
+      </div>
+      <div class="setting-row" id="morning-plan-row">
+        <div>
+          <div class="setting-label">Morning planning screen</div>
+          <div class="setting-desc">Full-screen prompt to plan your day each morning</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="morning-plan-toggle" onchange="saveMorningPlanSetting(this.checked)">
+          <span class="toggle-track"></span>
+        </label>
       </div>
     </div>
 
@@ -4377,8 +4524,8 @@ body.theme-effects-warm::after {
       </style>
       <div class="enf-grid">
         <div></div>
-        <div class="enf-header" style="color: #f87171;">Deep Work</div>
-        <div class="enf-header" style="color: #a78bfa;">Focus Hours</div>
+        <div class="enf-header" style="color: #f87171;">Deep Focus</div>
+        <div class="enf-header" style="color: #a78bfa;">Focus</div>
 
         <div class="enf-row">
           <div class="enf-label">Nudge notifications</div>
@@ -4418,54 +4565,6 @@ body.theme-effects-warm::after {
       </div>
     </div>
 
-    <!-- Time Limits Card -->
-    <div class="settings-card">
-      <div class="settings-card-title">Time Limits</div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Per-period limit</div>
-          <div class="setting-desc">Max time within a rolling period</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="adv-period-enabled" onchange="onSettingChange()">
-          <span class="toggle-track"></span>
-        </label>
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Period minutes</div>
-          <div class="setting-desc">Max minutes per period</div>
-        </div>
-        <input type="number" class="setting-number" id="adv-period-minutes" value="20" min="1" max="120" onchange="onSettingChange()">
-        <span class="setting-value">min</span>
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Period length</div>
-          <div class="setting-desc">Rolling period in hours</div>
-        </div>
-        <input type="number" class="setting-number" id="adv-period-hours" value="1" min="1" max="24" onchange="onSettingChange()">
-        <span class="setting-value">hr</span>
-      </div>
-    </div>
-
-    <!-- Device Card -->
-    <div class="settings-card">
-      <div class="settings-card-title">Device</div>
-      <div class="info-row">
-        <span class="info-label">Device ID</span>
-        <span class="info-value" id="adv-device-id">-</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Backend</span>
-        <span class="info-value">api.intentional.social</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Version</span>
-        <span class="info-value">1.0</span>
-      </div>
-    </div>
-
     <!-- Reset & Delete Card -->
     <div class="settings-card">
       <div class="settings-card-title">Reset & Delete</div>
@@ -4490,8 +4589,36 @@ body.theme-effects-warm::after {
   <!-- Page: Plan (AI Day Planning) -->
   <div class="page" id="page-plan">
 
+    <!-- Landing: Choose planning method -->
+    <div id="plan-landing">
+      <div class="plan-landing-greeting">
+        <div class="plan-landing-title">Plan your day</div>
+        <div class="plan-landing-date" id="plan-landing-date"></div>
+      </div>
+      <div class="plan-landing-cards">
+        <div class="plan-landing-card" id="plan-card-guided" onclick="selectPlanMethod('guided', true)">
+          <div class="plan-landing-card-icon">📋</div>
+          <div class="plan-landing-card-title">Quick Plan</div>
+          <div class="plan-landing-card-desc">List your priorities, AI builds the schedule. 3 steps, under a minute.</div>
+        </div>
+        <div class="plan-landing-card" id="plan-card-chat" onclick="selectPlanMethod('chat', true)">
+          <div class="plan-landing-card-icon">💬</div>
+          <div class="plan-landing-card-title">Talk it Out</div>
+          <div class="plan-landing-card-desc">Chat with the AI coach. Great when you're unsure where to start.</div>
+        </div>
+      </div>
+      <div class="plan-landing-go">
+        <button class="plan-wizard-btn primary" id="plan-landing-go-btn" onclick="planLandingGo()">Let's go</button>
+      </div>
+      <div id="plan-landing-yesterday" style="display:none;">
+        <div class="plan-chips-label">Yesterday you worked on</div>
+        <div class="plan-chips-row" id="plan-landing-chips"></div>
+      </div>
+      <div class="plan-wizard-link" onclick="showPlanMemories()" style="font-size:11px;opacity:0.5;margin-top:12px;">View coaching memories</div>
+    </div>
+
     <!-- Step indicator bar -->
-    <div id="plan-wizard-steps">
+    <div id="plan-wizard-steps" style="display:none;">
       <div class="plan-step active" data-step="1">
         <div class="plan-step-num">1</div>
         <div class="plan-step-label">Priorities</div>
@@ -4509,7 +4636,7 @@ body.theme-effects-warm::after {
     </div>
 
     <!-- Step 1: Priorities -->
-    <div id="plan-step-1" class="plan-wizard-content">
+    <div id="plan-step-1" class="plan-wizard-content" style="display:none">
       <div class="plan-wizard-title">What matters today?</div>
       <div class="plan-wizard-subtitle">Name your top priorities — the AI will build a schedule around them.</div>
       <div class="plan-priority-row">
@@ -4532,8 +4659,7 @@ body.theme-effects-warm::after {
         <div></div>
         <button class="plan-wizard-btn primary" id="plan-build-btn" onclick="planWizardBuildSchedule()">Build my schedule</button>
       </div>
-      <div class="plan-wizard-link" onclick="planWizardShowChat()">Or chat with coach</div>
-      <div class="plan-wizard-link" onclick="showPlanMemories()" style="font-size:11px;opacity:0.5;margin-top:4px;">View coaching memories</div>
+      <div class="plan-wizard-link" onclick="showPlanLanding()">Back to method picker</div>
     </div>
 
     <!-- Step 2: Time Blocks -->
@@ -4544,7 +4670,7 @@ body.theme-effects-warm::after {
         <div class="proj-icon">+</div>
         <div class="proj-text" id="plan-projection-text">This plan earns ~<strong>0</strong> min browse time</div>
       </div>
-      <div class="plan-warning-card" id="plan-deep-warning">Heads up: more than 3 hours of Deep Work scheduled. Consider mixing in some Focus Hours for sustainable energy.</div>
+      <div class="plan-warning-card" id="plan-deep-warning">Heads up: more than 3 hours of Deep Focus scheduled. Consider mixing in some Focus blocks for sustainable energy.</div>
       <div class="plan-step2-blocks" id="plan-step2-blocks"></div>
       <div class="plan-adjust-bar">
         <input class="plan-adjust-input" id="plan-adjust-input" placeholder="Adjust: Move deep work earlier, add a lunch break..." onkeydown="if(event.key==='Enter')planWizardAdjust()" />
@@ -4590,7 +4716,7 @@ body.theme-effects-warm::after {
         <textarea id="plan-input" placeholder="What do you want to accomplish today?" rows="1" onkeydown="planInputKeydown(event)" oninput="planInputAutoResize(this)"></textarea>
         <button id="plan-send-btn" onclick="sendPlanMessage()">Send</button>
       </div>
-      <div class="plan-wizard-link" onclick="planWizardShowGuided()">Back to guided</div>
+      <div class="plan-wizard-link" onclick="showPlanLanding()">Back to method picker</div>
     </div>
 
   </div>
@@ -4628,6 +4754,7 @@ var settings = {
   lockMode: 'none',
   partnerEmail: '',
   partnerName: '',
+  userEmail: '',
   consentStatus: 'none',
   maxPerPeriod: { enabled: false, minutes: 20, periodHours: 1 },
   temporaryUnlockUntil: null,
@@ -4675,16 +4802,14 @@ function navigateTo(pageId) {
     loadAccountPage();
     sendMessage({ type: 'GET_EXTENSION_STATUS' });
     sendMessage({ type: 'GET_SCHEDULE_STATE' });
+    sendMessage({ type: 'GET_SETTINGS' });
   }
 
-  // Reset wizard when viewing Plan page
+  // Show plan landing when viewing Plan page
   if (pageId === 'plan') {
-    planWizardShowGuided();
+    showPlanLanding();
     planWizardLoadYesterday();
-    setTimeout(function() {
-      var input = document.getElementById('plan-pri-1');
-      if (input) input.focus();
-    }, 100);
+    initPlanLanding();
   }
 
   // Load all data when viewing Today page
@@ -4840,6 +4965,7 @@ var PINNED_SITES = [
 ];
 var customDistractingSites = [];
 var disabledPlatforms = [];
+var alwaysRelevantSites = [];
 
 function renderDistractingSites() {
   var list = document.getElementById('distracting-sites-list');
@@ -4966,6 +5092,65 @@ function removeDistractingSite(domain) {
   renderDistractingSites();
   clearTimeout(settingSaveTimer);
   saveAllSettings();  // Immediate save — sites must persist before app close
+}
+
+// ===== Always-Relevant Sites Management =====
+
+function renderAlwaysRelevantSites() {
+  var list = document.getElementById('always-relevant-sites-list');
+  if (!list) return;
+  list.innerHTML = '';
+  var locked = typeof isSettingsLocked === 'function' && isSettingsLocked();
+  alwaysRelevantSites.forEach(function(domain) {
+    var div = document.createElement('div');
+    div.className = 'distracting-site custom';
+
+    var icon = document.createElement('span');
+    icon.className = 'distracting-site-icon';
+    icon.textContent = '✅';
+    div.appendChild(icon);
+
+    var domainEl = document.createElement('span');
+    domainEl.className = 'distracting-site-domain';
+    domainEl.textContent = domain;
+    div.appendChild(domainEl);
+
+    var badge = document.createElement('span');
+    badge.className = 'distracting-site-badge whitelist';
+    badge.textContent = 'Always relevant';
+    div.appendChild(badge);
+
+    if (!locked) {
+      var removeBtn = document.createElement('button');
+      removeBtn.className = 'distracting-site-remove';
+      removeBtn.title = 'Remove';
+      removeBtn.textContent = '×';
+      removeBtn.addEventListener('click', function() { removeAlwaysRelevantSite(domain); });
+      div.appendChild(removeBtn);
+    }
+
+    list.appendChild(div);
+  });
+}
+
+function addAlwaysRelevantSite() {
+  var input = document.getElementById('always-relevant-site-input');
+  if (!input) return;
+  var domain = normalizeDomain(input.value);
+  if (!domain) { input.value = ''; return; }
+  if (alwaysRelevantSites.indexOf(domain) !== -1) { input.value = ''; return; }
+  alwaysRelevantSites.push(domain);
+  input.value = '';
+  renderAlwaysRelevantSites();
+  clearTimeout(settingSaveTimer);
+  saveAllSettings();
+}
+
+function removeAlwaysRelevantSite(domain) {
+  alwaysRelevantSites = alwaysRelevantSites.filter(function(d) { return d !== domain; });
+  renderAlwaysRelevantSites();
+  clearTimeout(settingSaveTimer);
+  saveAllSettings();
 }
 
 // ===== Distracting Apps Management =====
@@ -5212,8 +5397,10 @@ function saveAllSettings() {
       distractingSites: customDistractingSites,
       disabledPlatforms: disabledPlatforms,
       distractingApps: distractingApps.map(function(a) { return { name: a.name, bundleId: a.bundleId }; }),
+      alwaysRelevantSites: alwaysRelevantSites,
       soundTone: selectedSoundTone,
-      theme: selectedTheme
+      theme: selectedTheme,
+      overridePartnerRequired: document.getElementById('override-partner-required') ? document.getElementById('override-partner-required').checked : false
     }
   });
 }
@@ -5273,6 +5460,10 @@ function populateSettingsUI(data) {
   disabledPlatforms = data.disabledPlatforms || [];
   renderDistractingSites();
 
+  // Load always-relevant sites whitelist
+  alwaysRelevantSites = data.alwaysRelevantSites || [];
+  renderAlwaysRelevantSites();
+
   // Load distracting apps
   distractingApps = data.distractingApps || [];
   renderDistractingApps();
@@ -5286,6 +5477,9 @@ function populateSettingsUI(data) {
 
   // Sync platform collapse states after populating checkboxes
   syncAllPlatformCollapses();
+
+  // Load morning plan setting
+  sendMessage({ type: 'GET_MORNING_PLAN_SETTING' });
 }
 
 // ===== Theme Picker =====
@@ -5712,6 +5906,22 @@ function renderLockState() {
       stopConsentPolling();
   }
 
+  // Append AI Override toggle
+  var overridePartnerRequired = settings.overridePartnerRequired || false;
+  el.innerHTML +=
+    '<div class="settings-card" style="margin-top:10px;">' +
+      '<div class="setting-row">' +
+        '<div>' +
+          '<div class="setting-label">Require partner for AI overrides</div>' +
+          '<div class="setting-desc">During work blocks, overriding AI requires your partner\'s approval code</div>' +
+        '</div>' +
+        '<label class="toggle">' +
+          '<input type="checkbox" id="override-partner-required" ' + (overridePartnerRequired ? 'checked' : '') + ' onchange="onSettingChange()">' +
+          '<span class="toggle-track"></span>' +
+        '</label>' +
+      '</div>' +
+    '</div>';
+
   // Append strict mode (app persistence) card
   var strictEnabled = settings.strictModeEnabled || false;
   var hasPartner = settings.consentStatus === 'confirmed';
@@ -5848,7 +6058,8 @@ var LOCKED_INPUT_IDS = [
   'yt-hide-sponsored',
   'adv-period-enabled', 'adv-period-minutes', 'adv-period-hours',
   'enf-dw-nudge', 'enf-dw-redshift', 'enf-dw-redirect', 'enf-dw-overlay', 'enf-dw-intervention',
-  'enf-fh-nudge', 'enf-fh-redshift', 'enf-fh-redirect', 'enf-fh-overlay', 'enf-fh-intervention'
+  'enf-fh-nudge', 'enf-fh-redshift', 'enf-fh-redirect', 'enf-fh-overlay', 'enf-fh-intervention',
+  'morning-plan-toggle'
 ];
 
 // Descriptions for the lock confirmation modal
@@ -6062,6 +6273,12 @@ function saveLockSettings() {
     return;
   }
 
+  // Prevent using own email as accountability partner
+  if (email && settings.userEmail && email.toLowerCase() === settings.userEmail.toLowerCase()) {
+    showToast('Your partner should be someone else — a friend, family member, or colleague', 'error');
+    return;
+  }
+
   setButtonLoading('save-lock-btn', 'Saving...');
   settings.partnerEmail = email;
   settings.partnerName = name;
@@ -6167,7 +6384,7 @@ function stopConsentPolling() {
 
 // ===== Callbacks from Swift =====
 
-// Settings loaded
+// Settings loaded (full data from GET_SETTINGS)
 window._settingsResult = function(data) {
   if (data.lockMode !== undefined) settings.lockMode = data.lockMode;
   if (data.partnerEmail !== undefined) settings.partnerEmail = data.partnerEmail || '';
@@ -6176,8 +6393,20 @@ window._settingsResult = function(data) {
   if (data.temporaryUnlockUntil !== undefined) settings.temporaryUnlockUntil = data.temporaryUnlockUntil;
   if (data.selfUnlockAvailableAt !== undefined) settings.selfUnlockAvailableAt = data.selfUnlockAvailableAt;
   if (data.deviceId !== undefined) settings.deviceId = data.deviceId;
+  if (data.userEmail !== undefined) settings.userEmail = data.userEmail || '';
 
-  populateSettingsUI(data);
+  try { populateSettingsUI(data); } catch(e) { console.error('populateSettingsUI error:', e); }
+  renderLockState();
+};
+
+// Lock state only (from syncStateFromBackend — partial data, no UI clobbering)
+window._lockStateResult = function(data) {
+  if (data.lockMode !== undefined) settings.lockMode = data.lockMode;
+  if (data.partnerEmail !== undefined) settings.partnerEmail = data.partnerEmail || '';
+  if (data.partnerName !== undefined) settings.partnerName = data.partnerName || '';
+  if (data.consentStatus !== undefined) settings.consentStatus = data.consentStatus;
+  if (data.temporaryUnlockUntil !== undefined) settings.temporaryUnlockUntil = data.temporaryUnlockUntil;
+  if (data.selfUnlockAvailableAt !== undefined) settings.selfUnlockAvailableAt = data.selfUnlockAvailableAt;
   renderLockState();
 };
 
@@ -6379,6 +6608,16 @@ window._dashboardDataResult = function(data) {
   }
 };
 
+// Browser card toggle
+var browserCardExpanded = false;
+function toggleBrowserCard() {
+  browserCardExpanded = !browserCardExpanded;
+  var card = document.getElementById('browser-card');
+  var chevron = document.getElementById('browser-card-chevron');
+  if (card) card.style.display = browserCardExpanded ? '' : 'none';
+  if (chevron) chevron.style.transform = browserCardExpanded ? 'rotate(90deg)' : '';
+}
+
 // Browser status
 window._extensionStatusResult = function(data) {
   var card = document.getElementById('browser-card');
@@ -6387,6 +6626,7 @@ window._extensionStatusResult = function(data) {
   // Update monitoring indicator in header
   var dot = document.getElementById('monitoring-dot');
   var text = document.getElementById('monitoring-text');
+  var titleEl = document.getElementById('browser-card-title');
   if (data.browsers && data.browsers.length > 0) {
     var connectedBrowsers = data.browsers.filter(function(b) { return b.hasExtension && b.isEnabled; });
     if (connectedBrowsers.length > 0) {
@@ -6395,13 +6635,16 @@ window._extensionStatusResult = function(data) {
         var names = connectedBrowsers.map(function(b) { return b.name; });
         text.textContent = names.length === 1 ? names[0] + ' connected' : names.length + ' browsers connected';
       }
+      if (titleEl) titleEl.textContent = 'Browsers (' + connectedBrowsers.length + ' connected)';
     } else {
       if (dot) dot.className = 'status-dot inactive';
       if (text) text.textContent = 'No extension connected';
+      if (titleEl) titleEl.textContent = 'Browsers (0 connected)';
     }
   } else {
     if (dot) dot.className = 'status-dot inactive';
     if (text) text.textContent = 'No browsers detected';
+    if (titleEl) titleEl.textContent = 'Browsers';
   }
 
   if (!data.browsers || data.browsers.length === 0) {
@@ -6762,6 +7005,20 @@ window._aiModelResult = function(data) {
   if (data.success) showToast(data.model === 'qwen' ? 'Using Qwen3 4B (MLX)' : 'Using Apple Foundation Models');
 };
 
+function saveMorningPlanSetting(enabled) {
+  if (isSettingsLocked()) {
+    document.getElementById('morning-plan-toggle').checked = !enabled;
+    showToast('Settings are locked');
+    return;
+  }
+  sendMessage({ type: 'SAVE_MORNING_PLAN_SETTING', enabled: enabled });
+}
+
+window._morningPlanSettingResult = function(data) {
+  var toggle = document.getElementById('morning-plan-toggle');
+  if (toggle) toggle.checked = data.enabled === true;
+};
+
 // ===== Enforcement Settings =====
 var enforcementSaveTimer = null;
 
@@ -6822,10 +7079,10 @@ window._enforcementSettingsResult = function(data) {
   }
 };
 
-function navigateToEnforcementSection() {
+function navigateToScheduleSettings() {
   navigateTo('settings');
   setTimeout(function() {
-    var card = document.getElementById('enforcement-settings-card');
+    var card = document.getElementById('focus-plan-card');
     if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, 150);
 }
@@ -7707,7 +7964,7 @@ function onCalendarHourClick(event, hour) {
   var yOffset = event.clientY - rect.top;
   var minuteInHour = Math.round((yOffset / CALENDAR_HOUR_HEIGHT) * 60 / 15) * 15;
   var startMin = hour * 60 + minuteInHour;
-  var endMin = Math.min(startMin + 60, CALENDAR_END_HOUR * 60);
+  var endMin = Math.min(startMin + 30, CALENDAR_END_HOUR * 60);
   if (endMin - startMin < 2) return;
   if (hasBlockOverlap(startMin, endMin, null)) return;
 
@@ -7749,13 +8006,13 @@ function addFocusBlock(blockType) {
     }
   }
 
-  var endMin = startMin + 60;
+  var endMin = startMin + 30;
 
-  // If the 1-hour slot still overlaps with later blocks, shrink or skip forward
+  // If the 30-min slot still overlaps with later blocks, shrink or skip forward
   for (var attempt = 0; attempt < 48; attempt++) {
     if (!hasBlockOverlap(startMin, endMin, null)) break;
     startMin += 15;
-    endMin = Math.min(startMin + 60, CALENDAR_END_HOUR * 60);
+    endMin = Math.min(startMin + 30, CALENDAR_END_HOUR * 60);
   }
 
   if (startMin >= CALENDAR_END_HOUR * 60 || endMin - startMin < 2) {
@@ -7789,7 +8046,7 @@ function addFocusBlock(blockType) {
 function openNewBlockDraft() {
   var now = new Date();
   var startMin = now.getHours() * 60 + now.getMinutes();
-  var endMin = Math.min(startMin + 60, CALENDAR_END_HOUR * 60);
+  var endMin = Math.min(startMin + 30, CALENDAR_END_HOUR * 60);
   if (endMin - startMin < 2) return;
 
   var newBlock = {
@@ -7842,8 +8099,8 @@ function openBlockEditor(blockId, event) {
     '<div class="block-editor-row">' +
     '<label style="color:rgba(255,255,255,0.5);font-size:12px;margin-bottom:4px;">Block Type</label>' +
     '<div class="block-type-selector" id="editor-block-type">' +
-    '<button class="block-type-btn' + (editorBlockType === 'deepWork' ? ' selected type-deep' : '') + '" data-type="deepWork" onclick="selectBlockType(this)">Deep Work</button>' +
-    '<button class="block-type-btn' + (editorBlockType === 'focusHours' ? ' selected' : '') + '" data-type="focusHours" onclick="selectBlockType(this)">Focus Hours</button>' +
+    '<button class="block-type-btn' + (editorBlockType === 'deepWork' ? ' selected type-deep' : '') + '" data-type="deepWork" onclick="selectBlockType(this)">Deep Focus</button>' +
+    '<button class="block-type-btn' + (editorBlockType === 'focusHours' ? ' selected' : '') + '" data-type="focusHours" onclick="selectBlockType(this)">Focus</button>' +
     '<button class="block-type-btn' + (editorBlockType === 'freeTime' ? ' selected type-free' : '') + '" data-type="freeTime" onclick="selectBlockType(this)">Free Time</button>' +
     '</div>' +
     '</div>' +
@@ -8148,8 +8405,7 @@ function renderEmptyState() {
 }
 
 function onPlanYourDay() {
-  scrollCalendarToTime();
-  addFocusBlock('focusHours');
+  navigateTo('plan');
 }
 
 // ---- Block Resize ----
@@ -8438,15 +8694,10 @@ window._earnedStatusResult = function(data) {
 var extraTimeState = { step: null, selectedMinutes: null, requestId: null, partnerName: '' };
 
 function updateExtraTimeRemaining(verifiedToday, remainingToday) {
+  // No daily limit — partner approval is the rate limiter.
+  // Keep function signature for backward compat but clear any stale text.
   var el = document.getElementById('extra-time-remaining');
-  if (!el) return;
-  if (remainingToday <= 0) {
-    el.textContent = 'Maximum 2 completed requests per day (limit reached)';
-    el.style.color = 'rgba(var(--color-error-rgb), 0.7)';
-  } else {
-    el.textContent = remainingToday + ' of 2 extra time requests remaining today';
-    el.style.color = 'rgba(255, 255, 255, 0.35)';
-  }
+  if (el) el.textContent = '';
 }
 
 function initExtraTimeFlow() {
@@ -8848,8 +9099,8 @@ function renderPlanBlockPreviews(blocks) {
                 'var(--block-focus)';
     card.style.borderLeftColor = color;
 
-    var typeLabel = block.blockType === 'deepWork' ? 'Deep Work' :
-                    block.blockType === 'freeTime' ? 'Free Time' : 'Focus Hours';
+    var typeLabel = block.blockType === 'deepWork' ? 'Deep Focus' :
+                    block.blockType === 'freeTime' ? 'Free Time' : 'Focus';
     var typeCls = block.blockType === 'deepWork' ? 'deep-work' :
                   block.blockType === 'freeTime' ? 'free-time' : 'focus-hours';
 
@@ -8935,8 +9186,8 @@ function editPlanBlock(btn) {
       '<span style="color:rgba(255,255,255,0.3)">\u2013</span>' +
       '<input type="time" class="plan-edit-end" value="' + padTime(block.endHour) + ':' + padTime(block.endMinute) + '" />' +
       '<select class="plan-edit-type">' +
-        '<option value="focusHours"' + (block.blockType === 'focusHours' ? ' selected' : '') + '>Focus Hours</option>' +
-        '<option value="deepWork"' + (block.blockType === 'deepWork' ? ' selected' : '') + '>Deep Work</option>' +
+        '<option value="focusHours"' + (block.blockType === 'focusHours' ? ' selected' : '') + '>Focus</option>' +
+        '<option value="deepWork"' + (block.blockType === 'deepWork' ? ' selected' : '') + '>Deep Focus</option>' +
         '<option value="freeTime"' + (block.blockType === 'freeTime' ? ' selected' : '') + '>Free Time</option>' +
       '</select>' +
     '</div>' +
@@ -8978,8 +9229,8 @@ function savePlanEdit(btn) {
               'var(--block-focus)';
   card.style.borderLeftColor = color;
 
-  var typeLabel = block.blockType === 'deepWork' ? 'Deep Work' :
-                  block.blockType === 'freeTime' ? 'Free Time' : 'Focus Hours';
+  var typeLabel = block.blockType === 'deepWork' ? 'Deep Focus' :
+                  block.blockType === 'freeTime' ? 'Free Time' : 'Focus';
   var typeCls = block.blockType === 'deepWork' ? 'deep-work' :
                 block.blockType === 'freeTime' ? 'free-time' : 'focus-hours';
 
@@ -9014,8 +9265,8 @@ function copyPlanChat() {
       var b = card._blockData;
       if (b) text += '- ' + b.title + ' (' + formatPlanTime(b.startHour, b.startMinute) +
                       ' - ' + formatPlanTime(b.endHour, b.endMinute) + ', ' +
-                      (b.blockType === 'deepWork' ? 'Deep Work' :
-                       b.blockType === 'freeTime' ? 'Free Time' : 'Focus Hours') + ')\n';
+                      (b.blockType === 'deepWork' ? 'Deep Focus' :
+                       b.blockType === 'freeTime' ? 'Free Time' : 'Focus') + ')\n';
     });
   }
   navigator.clipboard.writeText(text.trim());
@@ -9083,8 +9334,26 @@ function copyPlanMemories() {
   showToast('Copied to clipboard');
 }
 
+function fixBlockTypes(blocks) {
+  var freeTimeKeywords = /\b(break|lunch|dinner|breakfast|gym|dentist|doctor|pick up|pickup|grocery|groceries|errand|appointment|walk|nap|rest|yoga|shower|commute|drive|cook|clean|laundry)\b/i;
+  var focusKeywords = /\b(meeting|standup|stand-up|call|1:1|one-on-one|sync|check-in|checkin|interview|review meeting)\b/i;
+  blocks.forEach(function(block) {
+    var t = block.title || '';
+    if (freeTimeKeywords.test(t)) {
+      block.blockType = 'freeTime';
+    } else if (focusKeywords.test(t) && block.blockType === 'deepWork') {
+      block.blockType = 'focusHours';
+    }
+  });
+  return blocks;
+}
+
 function fixBlockOverlaps(blocks) {
   if (!blocks || blocks.length === 0) return { blocks: blocks, warnings: [] };
+
+  // Fix block types first
+  fixBlockTypes(blocks);
+
   var sorted = blocks.slice().sort(function(a, b) {
     var aStart = a.startHour * 60 + a.startMinute;
     var bStart = b.startHour * 60 + b.startMinute;
@@ -9129,7 +9398,9 @@ var planWizardState = {
 };
 
 function planWizardGoToStep(n) {
-  // Hide all steps
+  // Hide landing and all steps
+  var landing = document.getElementById('plan-landing');
+  if (landing) landing.style.display = 'none';
   ['plan-step-1', 'plan-step-2', 'plan-step-3', 'plan-step-chat'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
@@ -9152,8 +9423,98 @@ function planWizardGoToStep(n) {
   if (stepBar) stepBar.style.display = (planWizardState.mode === 'chat') ? 'none' : '';
 }
 
+// ===== Plan Landing =====
+
+var planSelectedMethod = localStorage.getItem('planMethod') || 'guided';
+
+function initPlanLanding() {
+  // Set date
+  var dateEl = document.getElementById('plan-landing-date');
+  if (dateEl) {
+    var d = new Date();
+    var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    dateEl.textContent = days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate();
+  }
+  // Highlight last-used method
+  selectPlanMethod(planSelectedMethod);
+}
+
+function selectPlanMethod(method, autoEnter) {
+  // If clicking already-selected card, go straight in (but not on initial highlight)
+  if (autoEnter && planSelectedMethod === method) {
+    planLandingGo();
+    return;
+  }
+  planSelectedMethod = method;
+  var guided = document.getElementById('plan-card-guided');
+  var chat = document.getElementById('plan-card-chat');
+  if (guided) guided.classList.toggle('selected', method === 'guided');
+  if (chat) chat.classList.toggle('selected', method === 'chat');
+}
+
+function planLandingGo() {
+  localStorage.setItem('planMethod', planSelectedMethod);
+  var landing = document.getElementById('plan-landing');
+  if (landing) landing.style.display = 'none';
+  if (planSelectedMethod === 'chat') {
+    planWizardShowChat();
+  } else {
+    planWizardShowGuided();
+  }
+}
+
+function showPlanLanding() {
+  // Hide everything else
+  ['plan-step-1', 'plan-step-2', 'plan-step-3', 'plan-step-chat'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  var stepBar = document.getElementById('plan-wizard-steps');
+  if (stepBar) stepBar.style.display = 'none';
+  // Show landing
+  var landing = document.getElementById('plan-landing');
+  if (landing) landing.style.display = '';
+  // Populate yesterday chips on the landing
+  planLandingLoadYesterday();
+  selectPlanMethod(planSelectedMethod);
+}
+
+function planLandingLoadYesterday() {
+  // Reuse the yesterday data if already loaded
+  if (planWizardState.yesterdayGoals && planWizardState.yesterdayGoals.length > 0) {
+    renderLandingYesterdayChips(planWizardState.yesterdayGoals);
+  }
+}
+
+function renderLandingYesterdayChips(titles) {
+  var section = document.getElementById('plan-landing-yesterday');
+  var row = document.getElementById('plan-landing-chips');
+  if (!section || !row) return;
+  if (!titles || titles.length === 0) { section.style.display = 'none'; return; }
+  // Deduplicate (case-insensitive)
+  var seen = {};
+  var unique = titles.filter(function(t) {
+    var key = t.toLowerCase().trim();
+    if (seen[key]) return false;
+    seen[key] = true;
+    return true;
+  });
+  row.innerHTML = '';
+  unique.forEach(function(t) {
+    var chip = document.createElement('div');
+    chip.className = 'plan-chip';
+    chip.textContent = t;
+    row.appendChild(chip);
+  });
+  section.style.display = '';
+}
+
 function planWizardShowChat() {
   planWizardState.mode = 'chat';
+  // Hide landing and all guided steps
+  var landing = document.getElementById('plan-landing');
+  if (landing) landing.style.display = 'none';
   ['plan-step-1', 'plan-step-2', 'plan-step-3'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
@@ -9162,6 +9523,7 @@ function planWizardShowChat() {
   if (chat) chat.style.display = '';
   var stepBar = document.getElementById('plan-wizard-steps');
   if (stepBar) stepBar.style.display = 'none';
+  localStorage.setItem('planMethod', 'chat');
   setTimeout(function() {
     var input = document.getElementById('plan-input');
     if (input) input.focus();
@@ -9173,6 +9535,9 @@ function planWizardShowGuided() {
   planWizardState.step = 1;
   planWizardState.generatedBlocks = [];
   planWizardState.acceptedBlocks = [];
+  // Hide landing
+  var landing = document.getElementById('plan-landing');
+  if (landing) landing.style.display = 'none';
   // Clear priority inputs
   for (var i = 1; i <= 3; i++) {
     var inp = document.getElementById('plan-pri-' + i);
@@ -9180,6 +9545,7 @@ function planWizardShowGuided() {
   }
   var buildBtn = document.getElementById('plan-build-btn');
   if (buildBtn) { buildBtn.disabled = false; buildBtn.textContent = 'Build my schedule'; }
+  localStorage.setItem('planMethod', 'guided');
   planWizardGoToStep(1);
 }
 
@@ -9225,8 +9591,8 @@ function planWizardRenderStep2Blocks(blocks) {
                 'var(--block-focus)';
     card.style.borderLeftColor = color;
 
-    var typeLabel = block.blockType === 'deepWork' ? 'Deep Work' :
-                    block.blockType === 'freeTime' ? 'Free Time' : 'Focus Hours';
+    var typeLabel = block.blockType === 'deepWork' ? 'Deep Focus' :
+                    block.blockType === 'freeTime' ? 'Free Time' : 'Focus';
     var typeCls = block.blockType === 'deepWork' ? 'deep-work' :
                   block.blockType === 'freeTime' ? 'free-time' : 'focus-hours';
 
@@ -9297,6 +9663,16 @@ function planWizardAdjust() {
   var typing = document.getElementById('plan-step2-typing');
   if (typing) typing.style.display = '';
 
+  // Re-inject current blocks as context so the model can modify them
+  var currentBlocks = planWizardState.generatedBlocks;
+  if (currentBlocks && currentBlocks.length > 0) {
+    var blocksDesc = currentBlocks.map(function(b) {
+      var type = b.blockType === 'deepWork' ? 'Deep Focus' : (b.blockType === 'freeTime' ? 'Free Time' : 'Focus');
+      return b.title + ' (' + b.startHour + ':' + String(b.startMinute).padStart(2,'0') + '-' + b.endHour + ':' + String(b.endMinute).padStart(2,'0') + ', ' + type + ')';
+    }).join(', ');
+    msg = '[CURRENT BLOCKS: ' + blocksDesc + '] Adjustment: ' + msg;
+  }
+
   sendMessage({ type: 'PLAN_DAY_CHAT', message: msg });
 }
 
@@ -9355,8 +9731,8 @@ function planWizardPopulateStep3() {
   var firstBlock = blocks[0];
   var previewEl = document.getElementById('plan-first-block-preview');
   if (previewEl && firstBlock) {
-    var typeLabel = firstBlock.blockType === 'deepWork' ? 'Deep Work' :
-                    firstBlock.blockType === 'freeTime' ? 'Free Time' : 'Focus Hours';
+    var typeLabel = firstBlock.blockType === 'deepWork' ? 'Deep Focus' :
+                    firstBlock.blockType === 'freeTime' ? 'Free Time' : 'Focus';
     var timeStr = formatPlanTime(firstBlock.startHour, firstBlock.startMinute) + ' – ' +
                   formatPlanTime(firstBlock.endHour, firstBlock.endMinute);
     previewEl.innerHTML =
@@ -9461,6 +9837,9 @@ window._planDayYesterdayResult = function(data) {
   }
   planWizardState.yesterdayGoals = items;
 
+  // Also populate landing page chips
+  renderLandingYesterdayChips(items);
+
   var section = document.getElementById('plan-chips-section');
   var row = document.getElementById('plan-chips-row');
   if (!section || !row) return;
@@ -9493,6 +9872,8 @@ function planWizardFillPriority(text) {
 }
 
 // ===== Init =====
+// Render theme picker immediately (will update selection when settings arrive)
+renderThemePicker('iridescent');
 sendMessage({ type: 'GET_SETTINGS' });
 sendMessage({ type: 'GET_PARTNER_STATUS' });
 refresh();

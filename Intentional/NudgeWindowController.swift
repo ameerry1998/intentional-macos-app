@@ -16,8 +16,10 @@ import SwiftUI
 class NudgeWindowController {
 
     weak var appDelegate: AppDelegate?
-    private var nudgeWindow: NSWindow?
+    private var nudgeWindow: KeyablePanel?
     private var autoDismissTimer: Timer?
+    /// The current NudgeViewModel — stored so FocusMonitor can update override state after creation.
+    private(set) var viewModel: NudgeViewModel?
 
     /// The pill window — nudge is added as a child so it moves with dragging
     weak var pillWindow: NSWindow?
@@ -40,16 +42,18 @@ class NudgeWindowController {
     ///   - distractionMinutes: Cumulative distraction time (shown in level 2)
     ///   - warning: If true, shows red warning style (pre-intervention)
     func showNudge(intention: String, appOrPage: String, escalated: Bool = false,
-                   distractionMinutes: Int = 0, warning: Bool = false) {
+                   distractionMinutes: Int = 0, warning: Bool = false,
+                   showJustificationExpanded: Bool = false) {
         // Close any existing nudge first
         dismiss()
 
-        let viewModel = NudgeViewModel(
+        let vm = NudgeViewModel(
             intention: intention,
             appOrPage: appOrPage,
             escalated: escalated,
             distractionMinutes: distractionMinutes,
             warning: warning,
+            showJustificationExpanded: showJustificationExpanded,
             onGotIt: { [weak self] in
                 self?.onGotIt?()
                 self?.dismiss()
@@ -59,8 +63,9 @@ class NudgeWindowController {
                 self?.dismiss()
             }
         )
+        self.viewModel = vm
 
-        let view = NudgeView(viewModel: viewModel)
+        let view = NudgeView(viewModel: vm)
         let hostingView = NSHostingView(rootView: view)
         let windowWidth: CGFloat = 300
         hostingView.frame = NSRect(x: 0, y: 0, width: windowWidth, height: 10)
@@ -68,12 +73,15 @@ class NudgeWindowController {
         let windowHeight = max(fittingSize.height, 40)
         hostingView.frame = NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight)
 
-        let window = NSWindow(
+        let window = KeyablePanel(
             contentRect: NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight),
-            styleMask: [.borderless],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
+
+        // Enable keyboard input if justification field is pre-expanded
+        window.allowKeyboardInput = showJustificationExpanded
 
         window.contentView = hostingView
         window.backgroundColor = .clear
@@ -104,7 +112,7 @@ class NudgeWindowController {
         }
 
         // Wire up resize callback: when justification field appears, grow downward from top-right
-        viewModel.onNeedsResize = { [weak hostingView, weak window, weak self] in
+        vm.onNeedsResize = { [weak hostingView, weak window, weak self] in
             guard let hv = hostingView, let w = window else { return }
             DispatchQueue.main.async {
                 let newSize = hv.fittingSize
@@ -120,13 +128,20 @@ class NudgeWindowController {
         }
 
         // Wire up auto-dismiss cancellation: stop timer when user clicks "This is relevant"
-        viewModel.onCancelAutoDismiss = { [weak self] in
+        vm.onCancelAutoDismiss = { [weak self, weak window] in
             self?.autoDismissTimer?.invalidate()
             self?.autoDismissTimer = nil
+            // Enable keyboard input for the justification text field
+            window?.allowKeyboardInput = true
         }
 
         window.orderFrontRegardless()
         nudgeWindow = window
+
+        // If justification is pre-expanded, trigger a resize now that callbacks are wired
+        if showJustificationExpanded {
+            vm.onNeedsResize?()
+        }
 
         // Level 1: auto-dismiss after 8s. Level 2: stays until user interacts.
         if !escalated {
@@ -148,6 +163,7 @@ class NudgeWindowController {
             nw.close()
         }
         nudgeWindow = nil
+        viewModel = nil
     }
 
     /// Whether a nudge is currently visible.
@@ -183,12 +199,48 @@ class NudgeViewModel: ObservableObject {
     @Published var justificationText: String = ""
     @Published var isChecking: Bool = false
 
+    // AI Override
+    var onOverrideAI: (() -> Void)?
+    @Published var overridesRemaining: Int = 2
+    @Published var partnerApprovalRequired: Bool = false
+    @Published var showOverrideCodeEntry: Bool = false {
+        didSet {
+            if showOverrideCodeEntry {
+                onCancelAutoDismiss?()
+            }
+            onNeedsResize?()
+        }
+    }
+    @Published var overrideRequestId: String = ""
+    @Published var overridePartnerName: String = ""
+    @Published var overrideCodeDigits: [String] = Array(repeating: "", count: 6)
+    @Published var overrideCodeError: String = ""
+    var onVerifyOverrideCode: ((String, String) -> Void)?  // (code, requestId)
+
+    var overridesAvailable: Bool { partnerApprovalRequired || overridesRemaining > 0 }
+
+    var overrideLabel: String {
+        if partnerApprovalRequired { return "Override AI" }
+        if overridesRemaining > 0 { return "Override AI (\(overridesRemaining) left)" }
+        return "Override AI (none left)"
+    }
+
     var canSubmit: Bool {
         justificationText.trimmingCharacters(in: .whitespacesAndNewlines).count >= 5
     }
 
+    var canSubmitOverrideCode: Bool {
+        overrideCodeDigits.allSatisfy { $0.count == 1 }
+    }
+
+    func submitOverrideCode() {
+        let code = overrideCodeDigits.joined()
+        guard code.count == 6 else { return }
+        onVerifyOverrideCode?(code, overrideRequestId)
+    }
+
     init(intention: String, appOrPage: String, escalated: Bool, distractionMinutes: Int,
-         warning: Bool = false,
+         warning: Bool = false, showJustificationExpanded: Bool = false,
          onGotIt: @escaping () -> Void, onThisIsRelevant: @escaping (String) -> Void) {
         self.intention = intention
         self.appOrPage = appOrPage
@@ -197,6 +249,10 @@ class NudgeViewModel: ObservableObject {
         self.warning = warning
         self.onGotIt = onGotIt
         self.onThisIsRelevant = onThisIsRelevant
+        // Pre-expand justification field if requested (e.g., from pill "This is relevant" link)
+        if showJustificationExpanded {
+            self.showJustificationField = true
+        }
     }
 
     func submitJustification() {
@@ -260,21 +316,78 @@ struct NudgeView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
 
-            // "This is relevant" secondary link (below main row)
-            if !viewModel.showJustificationField {
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        viewModel.showJustificationField = true
+            // "This is relevant" + "Override AI" links (below main row)
+            if !viewModel.showJustificationField && !viewModel.showOverrideCodeEntry {
+                VStack(spacing: 4) {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            viewModel.showJustificationField = true
+                        }
+                    }) {
+                        Text("This is relevant")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(textTertiary)
+                            .underline()
                     }
-                }) {
-                    Text("This is relevant")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(textTertiary)
-                        .underline()
+                    .buttonStyle(.plain)
+
+                    // "Override AI" link
+                    Button(action: { viewModel.onOverrideAI?() }) {
+                        Text(viewModel.overrideLabel)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(viewModel.overridesAvailable ? textTertiary : textTertiary.opacity(0.4))
+                            .underline()
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!viewModel.overridesAvailable)
                 }
-                .buttonStyle(.plain)
                 .padding(.horizontal, 14)
                 .padding(.bottom, 8)
+            }
+
+            // Partner override code entry (shown when partner approval required)
+            if viewModel.showOverrideCodeEntry {
+                VStack(spacing: 8) {
+                    Text("Code sent to \(viewModel.overridePartnerName)")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(textSecondary)
+
+                    HStack(spacing: 4) {
+                        ForEach(0..<6, id: \.self) { i in
+                            TextField("", text: Binding(
+                                get: { viewModel.overrideCodeDigits[i] },
+                                set: { newVal in
+                                    let filtered = String(newVal.filter { $0.isNumber }.prefix(1))
+                                    viewModel.overrideCodeDigits[i] = filtered
+                                }
+                            ))
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 16, weight: .bold, design: .monospaced))
+                            .foregroundColor(textPrimary)
+                            .multilineTextAlignment(.center)
+                            .frame(width: 28, height: 32)
+                            .background(Color.white.opacity(0.12))
+                            .cornerRadius(6)
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.2), lineWidth: 1))
+                        }
+                    }
+
+                    if !viewModel.overrideCodeError.isEmpty {
+                        Text(viewModel.overrideCodeError)
+                            .font(.system(size: 10))
+                            .foregroundColor(.red.opacity(0.9))
+                    }
+
+                    Button(action: { viewModel.submitOverrideCode() }) {
+                        Text("Verify")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(viewModel.canSubmitOverrideCode ? textPrimary : textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!viewModel.canSubmitOverrideCode)
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 10)
             }
 
             // Justification field (expanded when "This is relevant" tapped)

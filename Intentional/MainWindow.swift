@@ -363,6 +363,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 UserDefaults.standard.set(planIndex, forKey: "defaultIfThenPlan")
             }
 
+        case "SAVE_MORNING_PLAN_SETTING":
+            if let enabled = body["enabled"] as? Bool {
+                UserDefaults.standard.set(enabled, forKey: "morningPlanOverlay")
+            }
+
+        case "GET_MORNING_PLAN_SETTING":
+            let enabled = UserDefaults.standard.bool(forKey: "morningPlanOverlay")
+            callJSCallback("_morningPlanSettingResult", data: ["enabled": enabled])
+
         default:
             appDelegate?.postLog("⚠️ WKWebView: Unknown message type: \(type)")
         }
@@ -776,16 +785,22 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         result["distractingSites"] = (savedSettings["distractingSites"] as? [String]) ?? [String]()
         result["disabledPlatforms"] = (savedSettings["disabledPlatforms"] as? [String]) ?? [String]()
         result["distractingApps"] = (savedSettings["distractingApps"] as? [[String: Any]]) ?? [[String: Any]]()
+        result["alwaysRelevantSites"] = (savedSettings["alwaysRelevantSites"] as? [String]) ?? [String]()
         result["soundTone"] = (savedSettings["soundTone"] as? String) ?? "Glass"
         result["theme"] = (savedSettings["theme"] as? String) ?? "iridescent"
         result["strictModeEnabled"] = UserDefaults.standard.bool(forKey: "strictModeEnabled")
+        result["userEmail"] = appDelegate?.backendClient?.storedEmail ?? ""
+        result["overridePartnerRequired"] = (savedSettings["overridePartnerRequired"] as? Bool) ?? false
         if let tuu = temporaryUnlockUntil { result["temporaryUnlockUntil"] = tuu }
         if let sua = selfUnlockAvailableAt { result["selfUnlockAvailableAt"] = sua }
 
         do {
             let data = try JSONSerialization.data(withJSONObject: result)
             if let json = String(data: data, encoding: .utf8) {
+                appDelegate?.postLog("📋 GET_SETTINGS: Sending \(json.prefix(200))...")
                 callJS("window._settingsResult && window._settingsResult(\(json))")
+            } else {
+                appDelegate?.postLog("⚠️ GET_SETTINGS: JSON string conversion returned nil")
             }
         } catch {
             appDelegate?.postLog("⚠️ GET_SETTINGS: JSON serialization failed: \(error)")
@@ -910,8 +925,10 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let distractingSites = settings["distractingSites"] as? [String]
         let disabledPlatforms = settings["disabledPlatforms"] as? [String]
         let distractingApps = settings["distractingApps"] as? [[String: Any]]
+        let alwaysRelevantSites = settings["alwaysRelevantSites"] as? [String]
         let soundTone = settings["soundTone"] as? String
         let theme = settings["theme"] as? String
+        let overridePartnerRequired = settings["overridePartnerRequired"] as? Bool
         let platforms: [String: Any] = ["youtube": ytSettings, "instagram": igSettings, "facebook": fbSettings]
 
         saveSettingsToFile(
@@ -924,9 +941,20 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             distractingSites: distractingSites,
             disabledPlatforms: disabledPlatforms,
             distractingApps: distractingApps,
+            alwaysRelevantSites: alwaysRelevantSites,
             soundTone: soundTone,
-            theme: theme
+            theme: theme,
+            overridePartnerRequired: overridePartnerRequired
         )
+
+        // Update FocusMonitor with override partner approval setting
+        if let opr = overridePartnerRequired {
+            appDelegate?.focusMonitor?.overridePartnerApprovalRequired = opr
+        }
+
+        // Update FocusMonitor with partner state
+        let hasPartner = !(partnerEmail ?? "").isEmpty
+        appDelegate?.focusMonitor?.hasConfiguredPartner = hasPartner
 
         // Persist sound tone to UserDefaults for DeepWorkTimerController
         if let tone = soundTone {
@@ -949,6 +977,12 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             appDelegate?.focusMonitor?.distractingAppBundleIds = bundleIds
         }
 
+        // Update FocusMonitor with always-relevant sites whitelist
+        if let sites = alwaysRelevantSites {
+            appDelegate?.focusMonitor?.alwaysRelevantHostnames = Set(sites.map { $0.lowercased() })
+            appDelegate?.postLog("👁️ Updated always-relevant sites: \(sites)")
+        }
+
         broadcastSettingsToExtensions(settings)
         callJS("window._saveSettingsResult && window._saveSettingsResult({ success: true })")
         appDelegate?.postLog("💾 SAVE_SETTINGS: Settings saved and broadcast")
@@ -960,6 +994,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             if let ds = distractingSites { payload["distractingSites"] = ds }
             if let dp = disabledPlatforms { payload["disabledPlatforms"] = dp }
             if let da = distractingApps { payload["distractingApps"] = da }
+            if let ars = alwaysRelevantSites { payload["alwaysRelevantSites"] = ars }
             if let cats = settings["blockedCategories"] as? [String] { payload["blockedCategories"] = cats }
             if let mpp = settings["maxPerPeriod"] as? [String: Any] { payload["maxPerPeriod"] = mpp }
             return payload
@@ -989,8 +1024,10 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         distractingSites: [String]? = nil,
         disabledPlatforms: [String]? = nil,
         distractingApps: [[String: Any]]? = nil,
+        alwaysRelevantSites: [String]? = nil,
         soundTone: String? = nil,
-        theme: String? = nil
+        theme: String? = nil,
+        overridePartnerRequired: Bool? = nil
     ) {
         updateSettingsFile { settings in
             var existingPlatforms = settings["platforms"] as? [String: Any] ?? [:]
@@ -1011,8 +1048,10 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             if let ds = distractingSites { settings["distractingSites"] = ds }
             if let dp = disabledPlatforms { settings["disabledPlatforms"] = dp }
             if let da = distractingApps { settings["distractingApps"] = da }
+            if let ars = alwaysRelevantSites { settings["alwaysRelevantSites"] = ars }
             if let st = soundTone { settings["soundTone"] = st }
             if let th = theme { settings["theme"] = th }
+            if let opr = overridePartnerRequired { settings["overridePartnerRequired"] = opr }
             settings["lastModified"] = ISO8601DateFormatter().string(from: Date())
         }
     }
@@ -1166,7 +1205,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             jsFields += ", unlockRequested: false"
         }
         jsFields += ", autoRelockEnabled: \(status.autoRelock ? "true" : "false")"
-        callJS("if (window._settingsResult) { window._settingsResult({ \(jsFields) }); }")
+        callJS("if (window._lockStateResult) { window._lockStateResult({ \(jsFields) }); }")
     }
 
     // MARK: - Save Lock Settings (Pessimistic)
@@ -2188,7 +2227,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
     private func handleGetPlanMemories() {
         guard let coach = appDelegate?.planningCoach else {
-            callJSCallback("_planMemoriesResult", data: ["insights": [], "preferredBlockDuration": 75, "lastUpdated": ""])
+            callJSCallback("_planMemoriesResult", data: ["insights": [], "preferredBlockDuration": 45, "lastUpdated": ""])
             return
         }
         let mem = coach.currentMemory
