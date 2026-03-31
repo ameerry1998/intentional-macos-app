@@ -40,20 +40,6 @@ class FocusMonitor {
     var deepWorkTimerController: DeepWorkTimerController?
     var ritualController: BlockRitualController?
     var endRitualController: BlockEndRitualController?
-    var morningPlanOverlay: MorningPlanOverlayController?
-
-    // MARK: - Morning Plan Overlay
-
-    /// Whether the morning overlay has been shown today (reset on date change)
-    private var morningOverlayShownToday = false
-    /// Date string when morningOverlayShownToday was last set
-    private var lastMorningOverlayDate: String = ""
-    /// Snooze-until date for the morning overlay
-    private var morningOverlaySnoozeUntil: Date?
-    /// Whether morning plan overlay is enabled (UserDefaults toggle)
-    private var morningPlanOverlayEnabled: Bool {
-        UserDefaults.standard.bool(forKey: "morningPlanOverlay")
-    }
 
     /// Whether the block start ritual is showing (enforcement paused)
     private var awaitingRitual = false
@@ -625,7 +611,6 @@ class FocusMonitor {
         grayscaleController?.dismiss()
         deepWorkTimerController?.dismiss()
         endRitualController?.dismiss()
-        morningPlanOverlay?.dismiss()
         appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
         appDelegate?.postLog("👁️ FocusMonitor stopped")
     }
@@ -1444,26 +1429,6 @@ class FocusMonitor {
             }
 
             let isNoPlan = state == .noPlan
-
-            // Morning plan overlay (full-screen, once per day, only for .noPlan)
-            if isNoPlan && morningPlanOverlayEnabled {
-                // Reset shown flag on date change
-                let todayStr = EarnedBrowseManager.todayDateString()
-                if lastMorningOverlayDate != todayStr {
-                    morningOverlayShownToday = false
-                    lastMorningOverlayDate = todayStr
-                }
-                if !morningOverlayShownToday {
-                    if let snoozeUntil = morningOverlaySnoozeUntil, Date() < snoozeUntil {
-                        // Still snoozed — fall through to pill
-                    } else {
-                        morningOverlayShownToday = true
-                        showMorningPlanOverlay()
-                        stopBrowserPolling()
-                        return
-                    }
-                }
-            }
 
             // If pill is already showing noPlan, skip
             if deepWorkTimerController?.viewModel?.mode == .noPlan {
@@ -2881,56 +2846,21 @@ class FocusMonitor {
         appDelegate?.postLog("💬 'Open Intentional' — opening main window")
     }
 
-    /// Handle "Plan My Day" — open the guided planning wizard in the dashboard.
+    /// Handle "Plan My Day" — open the dashboard.
     private func handlePlanDay() {
         overlayController?.dismiss()
-        appDelegate?.showDashboardPage("plan")
+        appDelegate?.showDashboardPage("today")
         stopLingerTimer()
         isCurrentlyIrrelevant = false
-        appDelegate?.postLog("💬 'Plan My Day' — opening plan page")
-    }
-
-    // MARK: - Morning Plan Overlay
-
-    /// Show the full-screen morning plan overlay with yesterday's stats.
-    private func showMorningPlanOverlay() {
-        let yesterday = appDelegate?.earnedBrowseManager?.yesterdaySummary
-        let yesterdaySchedule = appDelegate?.scheduleManager?.getScheduleForDate(
-            ScheduleManager.yesterdayDateString()
-        )
-
-        let focusedTime: String = {
-            let mins = yesterday?.focusedMinutes ?? 0
-            let h = Int(mins) / 60, m = Int(mins) % 60
-            if h > 0 && m > 0 { return "\(h)h \(m)m" }
-            return h > 0 ? "\(h)h" : "\(m)m"
-        }()
-
-        let vm = MorningPlanViewModel(
-            yesterdayBlockCount: yesterday?.blockCount ?? 0,
-            yesterdayFocusedTime: focusedTime,
-            yesterdayAvgFocusScore: yesterday?.avgFocusScore ?? 0,
-            yesterdayHadSchedule: yesterdaySchedule != nil && !(yesterdaySchedule!.blocks.isEmpty),
-            onPlan: { [weak self] in
-                self?.morningPlanOverlay?.dismiss()
-                self?.handleNoPlanPlanDay()
-            },
-            onSnooze: { [weak self] in
-                self?.morningPlanOverlay?.dismiss()
-                self?.morningOverlaySnoozeUntil = Date().addingTimeInterval(60 * 60)
-                self?.appDelegate?.postLog("☀️ Morning overlay: snoozed 1 hour")
-            }
-        )
-        morningPlanOverlay?.show(data: vm)
-        appDelegate?.postLog("☀️ Morning plan overlay shown")
+        appDelegate?.postLog("💬 'Plan My Day' — opening dashboard")
     }
 
     /// Handle "Plan My Day" from noPlan pill card.
     private func handleNoPlanPlanDay() {
         deepWorkTimerController?.dismiss()
-        appDelegate?.showDashboardPage("plan")
+        appDelegate?.showDashboardPage("today")
         isCurrentlyIrrelevant = false
-        appDelegate?.postLog("💬 noPlan pill: 'Plan My Day' — opening plan page")
+        appDelegate?.postLog("💬 noPlan pill: opening dashboard")
     }
 
     /// Handle "Schedule Now" from gap pill card — open dashboard with new block prefilled.

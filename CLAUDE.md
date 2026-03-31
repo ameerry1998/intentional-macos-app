@@ -56,6 +56,7 @@ intentional-macos-app/
     DeepWorkTimerController.swift     # Floating pill timer + celebration cards + start ritual + confetti
     BlockRitualController.swift       # Block start ritual overlay (intent + if-then plan)
     BlockEndRitualController.swift    # Block end ritual overlay (reflection + self-assessment)
+    ContentSafetyMonitor.swift  # On-device explicit content detection (SensitiveContentAnalysis)
     RelevanceScorer.swift       # AI scoring (Apple Foundation Models + MLX Qwen3-4B)
     SocketRelayServer.swift     # Unix socket server for extension communication
     NativeMessagingHost.swift   # Chrome native messaging protocol (4-byte length + JSON)
@@ -172,6 +173,7 @@ Order matters. Components have dependencies that must be wired in sequence.
 15. FocusMonitor            → Desktop monitoring (refs: ScheduleManager, RelevanceScorer)
 15a. BlockRitualController   → Wired to FocusMonitor.ritualController
 15b. BlockEndRitualController → Wired to FocusMonitor.endRitualController
+15c. ContentSafetyMonitor     → Load enabled from settings, start if enabled
 16. Wire ScheduleManager.onBlockChanged callback  ← MUST be after all managers
 17. Manual activeBlockId sync                      ← Catches app-started-during-block
 18. NativeMessagingHost (template)
@@ -390,6 +392,49 @@ Terminals, IDEs, code editors, password managers, system utilities. Auto-earn wo
 ### Fail-Closed Policy
 On LLM parse error: `relevant = false`, `confidence = 0`. This ensures broken AI doesn't silently allow everything.
 
+## Content Safety (ContentSafetyMonitor)
+
+Opt-in on-device screen monitoring for explicit/nude content. Independent of the focus schedule — always-on when enabled.
+
+### How It Works
+1. Polls every 10s: `CGWindowListCreateImage(CGRect.null, ...)` captures ALL screens as one composite
+2. Downscales to max 1920px (CILanczosScaleTransform) for memory efficiency
+3. Classifies via `SensitiveContentAnalysis` framework (macOS 14+, Apple's on-device classifier)
+4. On detection: blocks all screens with overlay, blurs screenshot, emails partner
+
+### Requirements
+- **Screen Recording permission** — requested via `CGRequestScreenCaptureAccess()` when user enables the feature
+- **Sensitive Content Warning** — user must enable in System Settings > Privacy & Security for analysis to work
+- `analyzer.analysisPolicy != .disabled` is checked before each analysis
+
+### Enforcement
+- Full-screen blocking overlay on ALL monitors (`NSScreen.screens` loop, `.screenSaver` level)
+- 10-second mandatory wait before "I understand" dismiss button activates
+- 30-second grace period after dismiss (no scanning, let user close content)
+- 5-minute email cooldown between partner notifications
+
+### Settings
+- Stored in `onboarding_settings.json` under `contentSafety.enabled`
+- Dashboard toggle in Settings tab with confirmation dialog
+- Cannot be disabled when settings are locked (same pattern as strict mode)
+- Status pushed to dashboard via `pushContentSafetyStatus()` on MainWindow
+
+### Backend Integration
+- `POST /content-safety/report` with `{ timestamp, blurred_image_base64 }` + `X-Device-ID` header
+- Rate limited: max 10 reports per device per hour (429 if exceeded)
+- Partner email includes blurred screenshot as inline base64 image
+- `content_safety_reports` table for audit trail (no image stored server-side)
+
+### Persistence
+- Local log: `~/Library/Application Support/Intentional/content_safety_log.jsonl`
+- Entries: `{ timestamp, emailSent, screenCount }`
+
+### Integration Points
+- **AppDelegate**: init at step ~15.5 (after FocusMonitor, before SocketRelayServer)
+- **SleepWakeMonitor**: calls `onSleep()`/`onWake()` to pause/resume polling
+- **MainWindow**: `handleGetSettings`/`handleSaveSettings` include `contentSafety` key
+- **BackendClient**: `reportContentSafety(blurredImageBase64:timestamp:)` method
+
 ## Extension Communication
 
 ### Socket Architecture
@@ -529,6 +574,7 @@ All stored in `~/Library/Application Support/Intentional/`:
 | `platform_sessions.json` | Canonical sessions per platform (cross-browser) |
 | `earned_browse.json` | Pool state + blockFocusStats |
 | `relevance_log.jsonl` | Assessment log (append-only, queryable by time range) |
+| `content_safety_log.jsonl` | Content safety detection log (timestamp, emailSent, screenCount) |
 | `strict-mode` | Flag file (presence = strict mode active) |
 
 Temporary files in `/tmp/`:

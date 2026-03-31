@@ -3814,9 +3814,6 @@ body.theme-effects-warm::after {
   <div class="sidebar-item active" data-page="today" onclick="navigateTo('today')">
     <span class="sidebar-item-icon">📋</span> Today
   </div>
-  <div class="sidebar-item" data-page="plan" onclick="navigateTo('plan')">
-    <span class="sidebar-item-icon">💬</span> Plan
-  </div>
   <div class="sidebar-item" data-page="distractions" onclick="navigateTo('distractions')">
     <span class="sidebar-item-icon">🚫</span> Distractions
   </div>
@@ -4472,16 +4469,6 @@ body.theme-effects-warm::after {
         </div>
         <button class="btn-small" onclick="navigateTo('today')" style="white-space:nowrap;">Edit profile</button>
       </div>
-      <div class="setting-row" id="morning-plan-row">
-        <div>
-          <div class="setting-label">Morning planning screen</div>
-          <div class="setting-desc">Full-screen prompt to plan your day each morning</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="morning-plan-toggle" onchange="saveMorningPlanSetting(this.checked)">
-          <span class="toggle-track"></span>
-        </label>
-      </div>
     </div>
 
     <!-- Enforcement Settings Card -->
@@ -4565,6 +4552,24 @@ body.theme-effects-warm::after {
       </div>
     </div>
 
+    <!-- Content Safety Card -->
+    <div class="settings-card" id="content-safety-card">
+      <div class="settings-card-title">Content Safety</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Screen monitoring</div>
+          <div class="setting-desc">Scans all screens for explicit content every 10 seconds. Blocks screens and notifies your accountability partner on detection.</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="content-safety-enabled" onchange="onContentSafetyToggle(this.checked)">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div id="content-safety-status" style="display:none; padding: 8px 14px 12px; font-size: 12px; color: rgba(255,255,255,0.5);">
+        <span id="content-safety-status-text"></span>
+      </div>
+    </div>
+
     <!-- Reset & Delete Card -->
     <div class="settings-card">
       <div class="settings-card-title">Reset & Delete</div>
@@ -4584,141 +4589,6 @@ body.theme-effects-warm::after {
       </div>
       <p id="auth-delete-msg" class="setting-desc" style="display: none; padding: 0 20px 12px;"></p>
     </div>
-  </div>
-
-  <!-- Page: Plan (AI Day Planning) -->
-  <div class="page" id="page-plan">
-
-    <!-- Landing: Choose planning method -->
-    <div id="plan-landing">
-      <div class="plan-landing-greeting">
-        <div class="plan-landing-title">Plan your day</div>
-        <div class="plan-landing-date" id="plan-landing-date"></div>
-      </div>
-      <div class="plan-landing-cards">
-        <div class="plan-landing-card" id="plan-card-guided" onclick="selectPlanMethod('guided', true)">
-          <div class="plan-landing-card-icon">📋</div>
-          <div class="plan-landing-card-title">Quick Plan</div>
-          <div class="plan-landing-card-desc">List your priorities, AI builds the schedule. 3 steps, under a minute.</div>
-        </div>
-        <div class="plan-landing-card" id="plan-card-chat" onclick="selectPlanMethod('chat', true)">
-          <div class="plan-landing-card-icon">💬</div>
-          <div class="plan-landing-card-title">Talk it Out</div>
-          <div class="plan-landing-card-desc">Chat with the AI coach. Great when you're unsure where to start.</div>
-        </div>
-      </div>
-      <div class="plan-landing-go">
-        <button class="plan-wizard-btn primary" id="plan-landing-go-btn" onclick="planLandingGo()">Let's go</button>
-      </div>
-      <div id="plan-landing-yesterday" style="display:none;">
-        <div class="plan-chips-label">Yesterday you worked on</div>
-        <div class="plan-chips-row" id="plan-landing-chips"></div>
-      </div>
-      <div class="plan-wizard-link" onclick="showPlanMemories()" style="font-size:11px;opacity:0.5;margin-top:12px;">View coaching memories</div>
-    </div>
-
-    <!-- Step indicator bar -->
-    <div id="plan-wizard-steps" style="display:none;">
-      <div class="plan-step active" data-step="1">
-        <div class="plan-step-num">1</div>
-        <div class="plan-step-label">Priorities</div>
-      </div>
-      <div class="plan-step-line"></div>
-      <div class="plan-step" data-step="2">
-        <div class="plan-step-num">2</div>
-        <div class="plan-step-label">Time Blocks</div>
-      </div>
-      <div class="plan-step-line"></div>
-      <div class="plan-step" data-step="3">
-        <div class="plan-step-num">3</div>
-        <div class="plan-step-label">Commit</div>
-      </div>
-    </div>
-
-    <!-- Step 1: Priorities -->
-    <div id="plan-step-1" class="plan-wizard-content" style="display:none">
-      <div class="plan-wizard-title">What matters today?</div>
-      <div class="plan-wizard-subtitle">Name your top priorities — the AI will build a schedule around them.</div>
-      <div class="plan-priority-row">
-        <div class="plan-priority-num">1</div>
-        <input class="plan-priority-input" id="plan-pri-1" placeholder="Most important task today..." />
-      </div>
-      <div class="plan-priority-row">
-        <div class="plan-priority-num">2</div>
-        <input class="plan-priority-input" id="plan-pri-2" placeholder="Second priority (optional)" />
-      </div>
-      <div class="plan-priority-row">
-        <div class="plan-priority-num">3</div>
-        <input class="plan-priority-input" id="plan-pri-3" placeholder="Third priority (optional)" />
-      </div>
-      <div id="plan-chips-section" class="plan-chips-section" style="display:none;">
-        <div class="plan-chips-label">From yesterday</div>
-        <div class="plan-chips-row" id="plan-chips-row"></div>
-      </div>
-      <div class="plan-wizard-nav">
-        <div></div>
-        <button class="plan-wizard-btn primary" id="plan-build-btn" onclick="planWizardBuildSchedule()">Build my schedule</button>
-      </div>
-      <div class="plan-wizard-link" onclick="showPlanLanding()">Back to method picker</div>
-    </div>
-
-    <!-- Step 2: Time Blocks -->
-    <div id="plan-step-2" class="plan-wizard-content" style="display:none;">
-      <div class="plan-wizard-title">Your time blocks</div>
-      <div class="plan-wizard-subtitle" id="plan-step2-subtitle"></div>
-      <div class="plan-projection-card" id="plan-projection">
-        <div class="proj-icon">+</div>
-        <div class="proj-text" id="plan-projection-text">This plan earns ~<strong>0</strong> min browse time</div>
-      </div>
-      <div class="plan-warning-card" id="plan-deep-warning">Heads up: more than 3 hours of Deep Focus scheduled. Consider mixing in some Focus blocks for sustainable energy.</div>
-      <div class="plan-step2-blocks" id="plan-step2-blocks"></div>
-      <div class="plan-adjust-bar">
-        <input class="plan-adjust-input" id="plan-adjust-input" placeholder="Adjust: Move deep work earlier, add a lunch break..." onkeydown="if(event.key==='Enter')planWizardAdjust()" />
-        <button class="plan-wizard-btn primary" onclick="planWizardAdjust()" style="padding:8px 14px;font-size:13px;">Send</button>
-      </div>
-      <div class="plan-typing" id="plan-step2-typing" style="display:none;"><span>.</span><span>.</span><span>.</span> Adjusting</div>
-      <div class="plan-wizard-nav">
-        <button class="plan-wizard-btn secondary" onclick="planWizardGoToStep(1)">Back</button>
-        <button class="plan-wizard-btn primary" id="plan-accept-btn" onclick="planWizardAcceptAll()">Accept all &amp; continue</button>
-      </div>
-    </div>
-
-    <!-- Step 3: Commit -->
-    <div id="plan-step-3" class="plan-wizard-content" style="display:none;">
-      <div class="plan-wizard-title">Ready to start</div>
-      <div class="plan-wizard-subtitle">Here's your plan for today. Set your distraction strategy and go.</div>
-      <div class="plan-summary-card" id="plan-summary-card"></div>
-      <div id="plan-first-block-preview"></div>
-      <div class="plan-intention-label">When I get distracted, I will...</div>
-      <div id="plan-intention-options"></div>
-      <div class="plan-wizard-nav">
-        <button class="plan-wizard-btn secondary" onclick="planWizardGoToStep(2)">Back</button>
-        <button class="plan-wizard-btn commit" onclick="planWizardCommit()">Start my day</button>
-      </div>
-    </div>
-
-    <!-- Chat mode (freeform) -->
-    <div id="plan-step-chat" style="display:none;">
-      <div id="plan-header">
-        <div class="section-title">Plan Your Day</div>
-        <div style="display:flex;gap:8px;">
-          <button id="plan-copy-btn" onclick="copyPlanChat()">Copy</button>
-          <button id="plan-memories-btn" onclick="showPlanMemories()">Memories</button>
-          <button id="plan-reset-btn" onclick="resetPlanChat()">New conversation</button>
-          <button id="plan-clear-memory-btn" onclick="clearPlanMemory()" style="opacity:0.6;">Clear memories</button>
-        </div>
-      </div>
-      <div id="plan-chat-container">
-        <div class="plan-msg ai">What would you like to accomplish today?</div>
-      </div>
-      <div class="plan-typing" id="plan-typing"><span>.</span><span>.</span><span>.</span> Thinking</div>
-      <div id="plan-input-bar">
-        <textarea id="plan-input" placeholder="What do you want to accomplish today?" rows="1" onkeydown="planInputKeydown(event)" oninput="planInputAutoResize(this)"></textarea>
-        <button id="plan-send-btn" onclick="sendPlanMessage()">Send</button>
-      </div>
-      <div class="plan-wizard-link" onclick="showPlanLanding()">Back to method picker</div>
-    </div>
-
   </div>
 
 </div>
@@ -4803,13 +4673,6 @@ function navigateTo(pageId) {
     sendMessage({ type: 'GET_EXTENSION_STATUS' });
     sendMessage({ type: 'GET_SCHEDULE_STATE' });
     sendMessage({ type: 'GET_SETTINGS' });
-  }
-
-  // Show plan landing when viewing Plan page
-  if (pageId === 'plan') {
-    showPlanLanding();
-    planWizardLoadYesterday();
-    initPlanLanding();
   }
 
   // Load all data when viewing Today page
@@ -5400,10 +5263,45 @@ function saveAllSettings() {
       alwaysRelevantSites: alwaysRelevantSites,
       soundTone: selectedSoundTone,
       theme: selectedTheme,
-      overridePartnerRequired: document.getElementById('override-partner-required') ? document.getElementById('override-partner-required').checked : false
+      overridePartnerRequired: document.getElementById('override-partner-required') ? document.getElementById('override-partner-required').checked : false,
+      contentSafety: {
+        enabled: document.getElementById('content-safety-enabled') ? document.getElementById('content-safety-enabled').checked : false
+      }
     }
   });
 }
+
+function onContentSafetyToggle(enabled) {
+  if (enabled) {
+    if (!confirm('This will request Screen Recording permission and monitor all screens for explicit content every 10 seconds. Your accountability partner will be notified of any detections.\n\nYou also need to enable "Sensitive Content Warning" in System Settings > Privacy & Security.\n\nContinue?')) {
+      document.getElementById('content-safety-enabled').checked = false;
+      return;
+    }
+  }
+  onSettingChange();
+}
+
+window._contentSafetyStatus = function(status) {
+  var statusEl = document.getElementById('content-safety-status');
+  var textEl = document.getElementById('content-safety-status-text');
+  if (!statusEl || !textEl) return;
+
+  if (!status.isEnabled) {
+    statusEl.style.display = 'none';
+    return;
+  }
+
+  statusEl.style.display = 'block';
+  if (!status.isAnalysisAvailable) {
+    textEl.innerHTML = '<span style="color:#f59e0b;">Sensitive Content Warning not enabled.</span> Go to System Settings > Privacy & Security > Sensitive Content Warning.';
+  } else if (!status.hasPermission) {
+    textEl.innerHTML = '<span style="color:#f59e0b;">Waiting for Screen Recording permission...</span> Check System Settings > Privacy & Security > Screen Recording.';
+  } else if (status.isMonitoring) {
+    textEl.innerHTML = '<span style="color:#34d399;">Monitoring active</span>';
+  } else {
+    textEl.innerHTML = 'Starting...';
+  }
+};
 
 // Populate settings UI from loaded data
 function populateSettingsUI(data) {
@@ -5480,6 +5378,11 @@ function populateSettingsUI(data) {
 
   // Load morning plan setting
   sendMessage({ type: 'GET_MORNING_PLAN_SETTING' });
+
+  // Load content safety setting
+  var cs = data.contentSafety || {};
+  var csToggle = document.getElementById('content-safety-enabled');
+  if (csToggle) csToggle.checked = cs.enabled === true;
 }
 
 // ===== Theme Picker =====
@@ -6058,8 +5961,7 @@ var LOCKED_INPUT_IDS = [
   'yt-hide-sponsored',
   'adv-period-enabled', 'adv-period-minutes', 'adv-period-hours',
   'enf-dw-nudge', 'enf-dw-redshift', 'enf-dw-redirect', 'enf-dw-overlay', 'enf-dw-intervention',
-  'enf-fh-nudge', 'enf-fh-redshift', 'enf-fh-redirect', 'enf-fh-overlay', 'enf-fh-intervention',
-  'morning-plan-toggle'
+  'enf-fh-nudge', 'enf-fh-redshift', 'enf-fh-redirect', 'enf-fh-overlay', 'enf-fh-intervention'
 ];
 
 // Descriptions for the lock confirmation modal
@@ -7003,20 +6905,6 @@ function onAIModelChange() {
 
 window._aiModelResult = function(data) {
   if (data.success) showToast(data.model === 'qwen' ? 'Using Qwen3 4B (MLX)' : 'Using Apple Foundation Models');
-};
-
-function saveMorningPlanSetting(enabled) {
-  if (isSettingsLocked()) {
-    document.getElementById('morning-plan-toggle').checked = !enabled;
-    showToast('Settings are locked');
-    return;
-  }
-  sendMessage({ type: 'SAVE_MORNING_PLAN_SETTING', enabled: enabled });
-}
-
-window._morningPlanSettingResult = function(data) {
-  var toggle = document.getElementById('morning-plan-toggle');
-  if (toggle) toggle.checked = data.enabled === true;
 };
 
 // ===== Enforcement Settings =====
@@ -8967,909 +8855,6 @@ function formatFocusDuration(minutes) {
   return Math.floor(minutes / 60) + 'h ' + (minutes % 60) + 'm';
 }
 
-// ===== Plan Chat =====
-
-var planChatHistory = [];
-var planSending = false;
-
-function planInputKeydown(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendPlanMessage();
-  }
-}
-
-function planInputAutoResize(el) {
-  el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-  el.style.overflowY = el.scrollHeight > 120 ? 'auto' : 'hidden';
-}
-
-function sendPlanMessage() {
-  var input = document.getElementById('plan-input');
-  var msg = input.value.trim();
-  if (!msg || planSending) return;
-  input.value = '';
-  input.style.height = 'auto';
-  planSending = true;
-  document.getElementById('plan-send-btn').disabled = true;
-
-  appendPlanMessage('user', msg);
-  showPlanTyping(true);
-
-  sendMessage({ type: 'PLAN_DAY_CHAT', message: msg });
-}
-
-window._planDayChatResult = function(data) {
-  // Guided wizard mode handling
-  if (planWizardState.mode === 'guided') {
-    // Step 1: AI returned blocks from priorities
-    var step1 = document.getElementById('plan-step-1');
-    var step2 = document.getElementById('plan-step-2');
-    if (step1 && step1.style.display !== 'none' && data.blocks && data.blocks.length > 0) {
-      var fixed1 = fixBlockOverlaps(data.blocks);
-      if (fixed1.warnings.length > 0) showToast('Auto-fixed overlapping blocks');
-      planWizardState.generatedBlocks = fixed1.blocks;
-      if (data.message) {
-        document.getElementById('plan-step2-subtitle').textContent = data.message;
-      }
-      planWizardRenderStep2Blocks(fixed1.blocks);
-      planWizardGoToStep(2);
-      var buildBtn = document.getElementById('plan-build-btn');
-      if (buildBtn) { buildBtn.disabled = false; buildBtn.textContent = 'Build my schedule'; }
-      return;
-    }
-    // Step 2: AI returned adjusted blocks
-    if (step2 && step2.style.display !== 'none' && data.blocks && data.blocks.length > 0) {
-      var fixed2 = fixBlockOverlaps(data.blocks);
-      if (fixed2.warnings.length > 0) showToast('Auto-fixed overlapping blocks');
-      planWizardState.generatedBlocks = fixed2.blocks;
-      if (data.message) {
-        document.getElementById('plan-step2-subtitle').textContent = data.message;
-      }
-      planWizardRenderStep2Blocks(fixed2.blocks);
-      var typing2 = document.getElementById('plan-step2-typing');
-      if (typing2) typing2.style.display = 'none';
-      return;
-    }
-    // AI asked a question instead of returning blocks — show as toast, re-enable
-    if (step1 && step1.style.display !== 'none' && data.message) {
-      showToast(data.message);
-      var buildBtn2 = document.getElementById('plan-build-btn');
-      if (buildBtn2) { buildBtn2.disabled = false; buildBtn2.textContent = 'Build my schedule'; }
-      return;
-    }
-    if (step2 && step2.style.display !== 'none' && data.message) {
-      showToast(data.message);
-      var typing2b = document.getElementById('plan-step2-typing');
-      if (typing2b) typing2b.style.display = 'none';
-      return;
-    }
-  }
-
-  // Chat mode fallback (original behavior)
-  planSending = false;
-  var sendBtn = document.getElementById('plan-send-btn');
-  if (sendBtn) sendBtn.disabled = false;
-  showPlanTyping(false);
-
-  if (data.message) {
-    appendPlanMessage('ai', data.message);
-  }
-
-  if (data.blocks && data.blocks.length > 0) {
-    var fixed3 = fixBlockOverlaps(data.blocks);
-    if (fixed3.warnings.length > 0) showToast('Auto-fixed overlapping blocks');
-    renderPlanBlockPreviews(fixed3.blocks);
-  }
-};
-
-function appendPlanMessage(role, text) {
-  var container = document.getElementById('plan-chat-container');
-  var div = document.createElement('div');
-  div.className = 'plan-msg ' + role;
-  div.textContent = text;
-  container.appendChild(div);
-  planChatHistory.push({ role: role, text: text });
-  scrollPlanToBottom();
-}
-
-function showPlanTyping(visible) {
-  var el = document.getElementById('plan-typing');
-  if (el) el.classList.toggle('visible', visible);
-  if (visible) scrollPlanToBottom();
-}
-
-function scrollPlanToBottom() {
-  var container = document.getElementById('plan-chat-container');
-  setTimeout(function() { container.scrollTop = container.scrollHeight; }, 50);
-}
-
-function renderPlanBlockPreviews(blocks) {
-  var container = document.getElementById('plan-chat-container');
-  var wrapper = document.createElement('div');
-  wrapper.className = 'plan-block-previews';
-
-  blocks.forEach(function(block, i) {
-    var card = document.createElement('div');
-    card.className = 'plan-block-card';
-
-    var color = block.blockType === 'deepWork' ? 'var(--block-deep-work)' :
-                block.blockType === 'freeTime' ? 'var(--block-free-time)' :
-                'var(--block-focus)';
-    card.style.borderLeftColor = color;
-
-    var typeLabel = block.blockType === 'deepWork' ? 'Deep Focus' :
-                    block.blockType === 'freeTime' ? 'Free Time' : 'Focus';
-    var typeCls = block.blockType === 'deepWork' ? 'deep-work' :
-                  block.blockType === 'freeTime' ? 'free-time' : 'focus-hours';
-
-    var timeStr = formatPlanTime(block.startHour, block.startMinute) + ' \u2013 ' +
-                  formatPlanTime(block.endHour, block.endMinute);
-
-    card.innerHTML =
-      '<div class="plan-card-header">' +
-        '<div class="plan-card-info">' +
-          '<span class="plan-card-title">' + escapeHtml(block.title) + '</span>' +
-          '<span class="plan-card-time">' + timeStr + '</span>' +
-          '<span class="plan-card-type ' + typeCls + '">' + typeLabel + '</span>' +
-        '</div>' +
-        '<div class="plan-card-actions">' +
-          '<button class="plan-action edit" onclick="editPlanBlock(this)" title="Edit">\u270F</button>' +
-          '<button class="plan-action accept" onclick="acceptPlanBlock(this)" title="Accept">\u2713</button>' +
-          '<button class="plan-action dismiss" onclick="dismissPlanBlock(this)" title="Dismiss">\u2717</button>' +
-        '</div>' +
-      '</div>';
-
-    card._blockData = JSON.parse(JSON.stringify(block));
-    wrapper.appendChild(card);
-  });
-
-  container.appendChild(wrapper);
-  scrollPlanToBottom();
-}
-
-function formatPlanTime(h, m) {
-  var ampm = h >= 12 ? 'PM' : 'AM';
-  var h12 = h % 12 || 12;
-  return h12 + ':' + (m < 10 ? '0' : '') + m + ' ' + ampm;
-}
-
-function acceptPlanBlock(btn) {
-  var card = btn.closest('.plan-block-card');
-  if (!card || !card._blockData) return;
-  var block = card._blockData;
-
-  var newBlock = {
-    id: generateFocusUUID(),
-    title: block.title,
-    description: block.description || '',
-    startHour: block.startHour,
-    startMinute: block.startMinute,
-    endHour: block.endHour,
-    endMinute: block.endMinute,
-    blockType: block.blockType,
-    isFree: block.blockType === 'freeTime'
-  };
-
-  focusState.blocks.push(newBlock);
-  markFocusDirty();
-  renderCalendarBlocks();
-
-  card.classList.add('accepted');
-  var actions = card.querySelector('.plan-card-actions');
-  if (actions) actions.innerHTML = '<span class="plan-card-accepted">Added \u2713</span>';
-}
-
-function dismissPlanBlock(btn) {
-  var card = btn.closest('.plan-block-card');
-  if (!card) return;
-  card.classList.add('dismissed');
-  setTimeout(function() { card.remove(); }, 300);
-}
-
-function editPlanBlock(btn) {
-  var card = btn.closest('.plan-block-card');
-  if (!card || !card._blockData) return;
-  var block = card._blockData;
-
-  var header = card.querySelector('.plan-card-header');
-  if (!header) return;
-  header.style.display = 'none';
-
-  var editDiv = document.createElement('div');
-  editDiv.className = 'plan-card-edit';
-  editDiv.innerHTML =
-    '<input type="text" class="plan-edit-title" value="' + escapeHtml(block.title) + '" placeholder="Block title" />' +
-    '<div class="plan-card-edit-row">' +
-      '<input type="time" class="plan-edit-start" value="' + padTime(block.startHour) + ':' + padTime(block.startMinute) + '" />' +
-      '<span style="color:rgba(255,255,255,0.3)">\u2013</span>' +
-      '<input type="time" class="plan-edit-end" value="' + padTime(block.endHour) + ':' + padTime(block.endMinute) + '" />' +
-      '<select class="plan-edit-type">' +
-        '<option value="focusHours"' + (block.blockType === 'focusHours' ? ' selected' : '') + '>Focus</option>' +
-        '<option value="deepWork"' + (block.blockType === 'deepWork' ? ' selected' : '') + '>Deep Focus</option>' +
-        '<option value="freeTime"' + (block.blockType === 'freeTime' ? ' selected' : '') + '>Free Time</option>' +
-      '</select>' +
-    '</div>' +
-    '<div class="plan-card-edit-actions">' +
-      '<button class="plan-edit-cancel" onclick="cancelPlanEdit(this)">Cancel</button>' +
-      '<button class="plan-edit-save" onclick="savePlanEdit(this)">Save</button>' +
-    '</div>';
-  card.appendChild(editDiv);
-}
-
-function padTime(n) { return n < 10 ? '0' + n : '' + n; }
-
-function savePlanEdit(btn) {
-  var card = btn.closest('.plan-block-card');
-  if (!card) return;
-  var editDiv = card.querySelector('.plan-card-edit');
-  var title = editDiv.querySelector('.plan-edit-title').value.trim();
-  if (!title) { editDiv.querySelector('.plan-edit-title').style.borderColor = '#ef4444'; return; }
-
-  var startParts = editDiv.querySelector('.plan-edit-start').value.split(':');
-  var endParts = editDiv.querySelector('.plan-edit-end').value.split(':');
-  var blockType = editDiv.querySelector('.plan-edit-type').value;
-
-  card._blockData.title = title;
-  card._blockData.startHour = parseInt(startParts[0]);
-  card._blockData.startMinute = parseInt(startParts[1]);
-  card._blockData.endHour = parseInt(endParts[0]);
-  card._blockData.endMinute = parseInt(endParts[1]);
-  card._blockData.blockType = blockType;
-
-  // Re-render card
-  editDiv.remove();
-  var header = card.querySelector('.plan-card-header');
-  header.style.display = '';
-
-  var block = card._blockData;
-  var color = block.blockType === 'deepWork' ? 'var(--block-deep-work)' :
-              block.blockType === 'freeTime' ? 'var(--block-free-time)' :
-              'var(--block-focus)';
-  card.style.borderLeftColor = color;
-
-  var typeLabel = block.blockType === 'deepWork' ? 'Deep Focus' :
-                  block.blockType === 'freeTime' ? 'Free Time' : 'Focus';
-  var typeCls = block.blockType === 'deepWork' ? 'deep-work' :
-                block.blockType === 'freeTime' ? 'free-time' : 'focus-hours';
-
-  var timeStr = formatPlanTime(block.startHour, block.startMinute) + ' \u2013 ' +
-                formatPlanTime(block.endHour, block.endMinute);
-
-  var info = header.querySelector('.plan-card-info');
-  info.innerHTML =
-    '<span class="plan-card-title">' + escapeHtml(block.title) + '</span>' +
-    '<span class="plan-card-time">' + timeStr + '</span>' +
-    '<span class="plan-card-type ' + typeCls + '">' + typeLabel + '</span>';
-}
-
-function cancelPlanEdit(btn) {
-  var card = btn.closest('.plan-block-card');
-  if (!card) return;
-  var editDiv = card.querySelector('.plan-card-edit');
-  if (editDiv) editDiv.remove();
-  var header = card.querySelector('.plan-card-header');
-  if (header) header.style.display = '';
-}
-
-function copyPlanChat() {
-  var text = '';
-  planChatHistory.forEach(function(msg) {
-    text += (msg.role === 'user' ? 'Me: ' : 'Coach: ') + msg.text + '\n\n';
-  });
-  var accepted = document.querySelectorAll('.plan-block-card.accepted');
-  if (accepted.length > 0) {
-    text += '--- Accepted Blocks ---\n';
-    accepted.forEach(function(card) {
-      var b = card._blockData;
-      if (b) text += '- ' + b.title + ' (' + formatPlanTime(b.startHour, b.startMinute) +
-                      ' - ' + formatPlanTime(b.endHour, b.endMinute) + ', ' +
-                      (b.blockType === 'deepWork' ? 'Deep Focus' :
-                       b.blockType === 'freeTime' ? 'Free Time' : 'Focus') + ')\n';
-    });
-  }
-  navigator.clipboard.writeText(text.trim());
-  showToast('Copied to clipboard');
-}
-
-function resetPlanChat() {
-  planChatHistory = [];
-  var container = document.getElementById('plan-chat-container');
-  container.innerHTML = '<div class="plan-msg ai">What would you like to accomplish today?</div>';
-  sendMessage({ type: 'PLAN_DAY_RESET' });
-}
-
-function clearPlanMemory() {
-  if (confirm('Clear all coaching memories? The coach will start fresh with no history of your preferences.')) {
-    sendMessage({ type: 'PLAN_DAY_CLEAR_MEMORY' });
-    showToast('Coaching memories cleared');
-  }
-}
-
-function showPlanMemories() {
-  sendMessage({ type: 'GET_PLAN_MEMORIES' });
-}
-
-window._planMemoriesResult = function(data) {
-  var meta = document.getElementById('plan-memories-meta');
-  var list = document.getElementById('plan-memories-list');
-  var parts = [];
-  if (data.lastUpdated) parts.push('Last updated: ' + data.lastUpdated);
-  if (data.preferredBlockDuration) parts.push('Preferred block length: ~' + data.preferredBlockDuration + ' min');
-  meta.textContent = parts.join(' · ') || '';
-
-  list.innerHTML = '';
-  if (!data.insights || data.insights.length === 0) {
-    list.innerHTML = '<div class="plan-memories-empty">No coaching memories yet. Chat with the coach to build up insights about your work style.</div>';
-  } else {
-    data.insights.forEach(function(insight) {
-      var card = document.createElement('div');
-      card.className = 'plan-memories-insight';
-      card.textContent = insight;
-      list.appendChild(card);
-    });
-  }
-  document.getElementById('plan-memories-modal').style.display = '';
-};
-
-function hidePlanMemories() {
-  document.getElementById('plan-memories-modal').style.display = 'none';
-}
-
-function copyPlanMemories() {
-  var list = document.getElementById('plan-memories-list');
-  var insights = list.querySelectorAll('.plan-memories-insight');
-  if (insights.length === 0) {
-    showToast('No memories to copy');
-    return;
-  }
-  var text = 'Coaching Memories\n\n';
-  insights.forEach(function(el) {
-    text += '- ' + el.textContent + '\n';
-  });
-  var meta = document.getElementById('plan-memories-meta').textContent;
-  if (meta) text += '\n' + meta;
-  navigator.clipboard.writeText(text.trim());
-  showToast('Copied to clipboard');
-}
-
-function fixBlockTypes(blocks) {
-  var freeTimeKeywords = /\b(break|lunch|dinner|breakfast|gym|dentist|doctor|pick up|pickup|grocery|groceries|errand|appointment|walk|nap|rest|yoga|shower|commute|drive|cook|clean|laundry)\b/i;
-  var focusKeywords = /\b(meeting|standup|stand-up|call|1:1|one-on-one|sync|check-in|checkin|interview|review meeting)\b/i;
-  blocks.forEach(function(block) {
-    var t = block.title || '';
-    if (freeTimeKeywords.test(t)) {
-      block.blockType = 'freeTime';
-    } else if (focusKeywords.test(t) && block.blockType === 'deepWork') {
-      block.blockType = 'focusHours';
-    }
-  });
-  return blocks;
-}
-
-function fixBlockOverlaps(blocks) {
-  if (!blocks || blocks.length === 0) return { blocks: blocks, warnings: [] };
-
-  // Fix block types first
-  fixBlockTypes(blocks);
-
-  var sorted = blocks.slice().sort(function(a, b) {
-    var aStart = a.startHour * 60 + a.startMinute;
-    var bStart = b.startHour * 60 + b.startMinute;
-    return aStart - bStart;
-  });
-  var warnings = [];
-  var result = [];
-  for (var i = 0; i < sorted.length; i++) {
-    var block = Object.assign({}, sorted[i]);
-    if (i > 0) {
-      var prev = result[result.length - 1];
-      var prevEnd = prev.endHour * 60 + prev.endMinute;
-      var curStart = block.startHour * 60 + block.startMinute;
-      if (prevEnd > curStart) {
-        warnings.push('Trimmed "' + prev.title + '" to avoid overlap with "' + block.title + '"');
-        prev.endHour = block.startHour;
-        prev.endMinute = block.startMinute;
-        var prevDur = (prev.endHour * 60 + prev.endMinute) - (prev.startHour * 60 + prev.startMinute);
-        if (prevDur < 5) {
-          warnings[warnings.length - 1] = 'Removed "' + prev.title + '" (too short after overlap fix)';
-          result.pop();
-        }
-      }
-    }
-    var dur = (block.endHour * 60 + block.endMinute) - (block.startHour * 60 + block.startMinute);
-    if (dur >= 5) {
-      result.push(block);
-    }
-  }
-  return { blocks: result, warnings: warnings };
-}
-
-// ===== Plan Wizard =====
-
-var planWizardState = {
-  step: 1,
-  priorities: [],
-  generatedBlocks: [],
-  acceptedBlocks: [],
-  yesterdayGoals: [],
-  mode: 'guided'  // 'guided' or 'chat'
-};
-
-function planWizardGoToStep(n) {
-  // Hide landing and all steps
-  var landing = document.getElementById('plan-landing');
-  if (landing) landing.style.display = 'none';
-  ['plan-step-1', 'plan-step-2', 'plan-step-3', 'plan-step-chat'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
-  // Show target step
-  var target = document.getElementById('plan-step-' + n);
-  if (target) target.style.display = '';
-  planWizardState.step = n;
-
-  // Update step indicators
-  document.querySelectorAll('#plan-wizard-steps .plan-step').forEach(function(step) {
-    var stepNum = parseInt(step.dataset.step);
-    step.classList.remove('active', 'completed');
-    if (stepNum === n) step.classList.add('active');
-    else if (stepNum < n) step.classList.add('completed');
-  });
-
-  // Show/hide step bar
-  var stepBar = document.getElementById('plan-wizard-steps');
-  if (stepBar) stepBar.style.display = (planWizardState.mode === 'chat') ? 'none' : '';
-}
-
-// ===== Plan Landing =====
-
-var planSelectedMethod = localStorage.getItem('planMethod') || 'guided';
-
-function initPlanLanding() {
-  // Set date
-  var dateEl = document.getElementById('plan-landing-date');
-  if (dateEl) {
-    var d = new Date();
-    var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    dateEl.textContent = days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate();
-  }
-  // Highlight last-used method
-  selectPlanMethod(planSelectedMethod);
-}
-
-function selectPlanMethod(method, autoEnter) {
-  // If clicking already-selected card, go straight in (but not on initial highlight)
-  if (autoEnter && planSelectedMethod === method) {
-    planLandingGo();
-    return;
-  }
-  planSelectedMethod = method;
-  var guided = document.getElementById('plan-card-guided');
-  var chat = document.getElementById('plan-card-chat');
-  if (guided) guided.classList.toggle('selected', method === 'guided');
-  if (chat) chat.classList.toggle('selected', method === 'chat');
-}
-
-function planLandingGo() {
-  localStorage.setItem('planMethod', planSelectedMethod);
-  var landing = document.getElementById('plan-landing');
-  if (landing) landing.style.display = 'none';
-  if (planSelectedMethod === 'chat') {
-    planWizardShowChat();
-  } else {
-    planWizardShowGuided();
-  }
-}
-
-function showPlanLanding() {
-  // Hide everything else
-  ['plan-step-1', 'plan-step-2', 'plan-step-3', 'plan-step-chat'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
-  var stepBar = document.getElementById('plan-wizard-steps');
-  if (stepBar) stepBar.style.display = 'none';
-  // Show landing
-  var landing = document.getElementById('plan-landing');
-  if (landing) landing.style.display = '';
-  // Populate yesterday chips on the landing
-  planLandingLoadYesterday();
-  selectPlanMethod(planSelectedMethod);
-}
-
-function planLandingLoadYesterday() {
-  // Reuse the yesterday data if already loaded
-  if (planWizardState.yesterdayGoals && planWizardState.yesterdayGoals.length > 0) {
-    renderLandingYesterdayChips(planWizardState.yesterdayGoals);
-  }
-}
-
-function renderLandingYesterdayChips(titles) {
-  var section = document.getElementById('plan-landing-yesterday');
-  var row = document.getElementById('plan-landing-chips');
-  if (!section || !row) return;
-  if (!titles || titles.length === 0) { section.style.display = 'none'; return; }
-  // Deduplicate (case-insensitive)
-  var seen = {};
-  var unique = titles.filter(function(t) {
-    var key = t.toLowerCase().trim();
-    if (seen[key]) return false;
-    seen[key] = true;
-    return true;
-  });
-  row.innerHTML = '';
-  unique.forEach(function(t) {
-    var chip = document.createElement('div');
-    chip.className = 'plan-chip';
-    chip.textContent = t;
-    row.appendChild(chip);
-  });
-  section.style.display = '';
-}
-
-function planWizardShowChat() {
-  planWizardState.mode = 'chat';
-  // Hide landing and all guided steps
-  var landing = document.getElementById('plan-landing');
-  if (landing) landing.style.display = 'none';
-  ['plan-step-1', 'plan-step-2', 'plan-step-3'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
-  var chat = document.getElementById('plan-step-chat');
-  if (chat) chat.style.display = '';
-  var stepBar = document.getElementById('plan-wizard-steps');
-  if (stepBar) stepBar.style.display = 'none';
-  localStorage.setItem('planMethod', 'chat');
-  setTimeout(function() {
-    var input = document.getElementById('plan-input');
-    if (input) input.focus();
-  }, 100);
-}
-
-function planWizardShowGuided() {
-  planWizardState.mode = 'guided';
-  planWizardState.step = 1;
-  planWizardState.generatedBlocks = [];
-  planWizardState.acceptedBlocks = [];
-  // Hide landing
-  var landing = document.getElementById('plan-landing');
-  if (landing) landing.style.display = 'none';
-  // Clear priority inputs
-  for (var i = 1; i <= 3; i++) {
-    var inp = document.getElementById('plan-pri-' + i);
-    if (inp) { inp.value = ''; inp.classList.remove('error'); }
-  }
-  var buildBtn = document.getElementById('plan-build-btn');
-  if (buildBtn) { buildBtn.disabled = false; buildBtn.textContent = 'Build my schedule'; }
-  localStorage.setItem('planMethod', 'guided');
-  planWizardGoToStep(1);
-}
-
-function planWizardBuildSchedule() {
-  // Validate at least one priority
-  var pri1 = (document.getElementById('plan-pri-1').value || '').trim();
-  var pri2 = (document.getElementById('plan-pri-2').value || '').trim();
-  var pri3 = (document.getElementById('plan-pri-3').value || '').trim();
-
-  if (!pri1) {
-    document.getElementById('plan-pri-1').classList.add('error');
-    document.getElementById('plan-pri-1').focus();
-    return;
-  }
-  document.getElementById('plan-pri-1').classList.remove('error');
-
-  var priorities = [pri1];
-  if (pri2) priorities.push(pri2);
-  if (pri3) priorities.push(pri3);
-  planWizardState.priorities = priorities;
-
-  // Disable button
-  var btn = document.getElementById('plan-build-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Building...'; }
-
-  // Send to AI with [PRIORITIES] prefix
-  var msg = '[PRIORITIES] My priorities for today are: ' + priorities.join(', ');
-  sendMessage({ type: 'PLAN_DAY_CHAT', message: msg });
-}
-
-function planWizardRenderStep2Blocks(blocks) {
-  var container = document.getElementById('plan-step2-blocks');
-  if (!container) return;
-  container.innerHTML = '';
-
-  blocks.forEach(function(block, i) {
-    var card = document.createElement('div');
-    card.className = 'plan-block-card';
-    card.dataset.wizardIdx = i;
-
-    var color = block.blockType === 'deepWork' ? 'var(--block-deep-work)' :
-                block.blockType === 'freeTime' ? 'var(--block-free-time)' :
-                'var(--block-focus)';
-    card.style.borderLeftColor = color;
-
-    var typeLabel = block.blockType === 'deepWork' ? 'Deep Focus' :
-                    block.blockType === 'freeTime' ? 'Free Time' : 'Focus';
-    var typeCls = block.blockType === 'deepWork' ? 'deep-work' :
-                  block.blockType === 'freeTime' ? 'free-time' : 'focus-hours';
-
-    var timeStr = formatPlanTime(block.startHour, block.startMinute) + ' – ' +
-                  formatPlanTime(block.endHour, block.endMinute);
-
-    card.innerHTML =
-      '<div class="plan-card-header">' +
-        '<div class="plan-card-info">' +
-          '<span class="plan-card-title">' + escapeHtml(block.title) + '</span>' +
-          '<span class="plan-card-time">' + timeStr + '</span>' +
-          '<span class="plan-card-type ' + typeCls + '">' + typeLabel + '</span>' +
-        '</div>' +
-        '<div class="plan-card-actions">' +
-          '<button class="plan-action edit" onclick="editPlanBlock(this)" title="Edit">✏</button>' +
-          '<button class="plan-action dismiss" onclick="planWizardDismissBlock(this)" title="Dismiss">✗</button>' +
-        '</div>' +
-      '</div>';
-
-    card._blockData = JSON.parse(JSON.stringify(block));
-    container.appendChild(card);
-  });
-
-  planWizardUpdateProjections();
-}
-
-function planWizardDismissBlock(btn) {
-  var card = btn.closest('.plan-block-card');
-  if (!card) return;
-  card.classList.add('dismissed');
-  setTimeout(function() {
-    card.remove();
-    planWizardUpdateProjections();
-  }, 300);
-}
-
-function planWizardUpdateProjections() {
-  var container = document.getElementById('plan-step2-blocks');
-  if (!container) return;
-  var cards = container.querySelectorAll('.plan-block-card:not(.dismissed)');
-  var deepWorkMins = 0;
-  var focusHoursMins = 0;
-
-  cards.forEach(function(card) {
-    var b = card._blockData;
-    if (!b) return;
-    var dur = (b.endHour * 60 + b.endMinute) - (b.startHour * 60 + b.startMinute);
-    if (dur < 0) dur = 0;
-    if (b.blockType === 'deepWork') deepWorkMins += dur;
-    else if (b.blockType === 'focusHours') focusHoursMins += dur;
-  });
-
-  var earned = 5 + (deepWorkMins * 0.3) + (focusHoursMins * 0.2);
-  var projText = document.getElementById('plan-projection-text');
-  if (projText) projText.innerHTML = 'This plan earns ~<strong>' + Math.round(earned) + '</strong> min browse time';
-
-  var warning = document.getElementById('plan-deep-warning');
-  if (warning) warning.style.display = deepWorkMins > 180 ? '' : 'none';
-}
-
-function planWizardAdjust() {
-  var input = document.getElementById('plan-adjust-input');
-  if (!input) return;
-  var msg = input.value.trim();
-  if (!msg) return;
-  input.value = '';
-
-  var typing = document.getElementById('plan-step2-typing');
-  if (typing) typing.style.display = '';
-
-  // Re-inject current blocks as context so the model can modify them
-  var currentBlocks = planWizardState.generatedBlocks;
-  if (currentBlocks && currentBlocks.length > 0) {
-    var blocksDesc = currentBlocks.map(function(b) {
-      var type = b.blockType === 'deepWork' ? 'Deep Focus' : (b.blockType === 'freeTime' ? 'Free Time' : 'Focus');
-      return b.title + ' (' + b.startHour + ':' + String(b.startMinute).padStart(2,'0') + '-' + b.endHour + ':' + String(b.endMinute).padStart(2,'0') + ', ' + type + ')';
-    }).join(', ');
-    msg = '[CURRENT BLOCKS: ' + blocksDesc + '] Adjustment: ' + msg;
-  }
-
-  sendMessage({ type: 'PLAN_DAY_CHAT', message: msg });
-}
-
-function planWizardAcceptAll() {
-  var container = document.getElementById('plan-step2-blocks');
-  if (!container) return;
-  var cards = container.querySelectorAll('.plan-block-card:not(.dismissed)');
-  var blocks = [];
-  cards.forEach(function(card) {
-    if (card._blockData) blocks.push(JSON.parse(JSON.stringify(card._blockData)));
-  });
-
-  if (blocks.length === 0) {
-    showToast('No blocks to accept');
-    return;
-  }
-
-  planWizardState.acceptedBlocks = blocks;
-  planWizardPopulateStep3();
-  planWizardGoToStep(3);
-}
-
-function planWizardPopulateStep3() {
-  var blocks = planWizardState.acceptedBlocks;
-  var workBlocks = blocks.filter(function(b) { return b.blockType !== 'freeTime'; });
-  var freeBlocks = blocks.filter(function(b) { return b.blockType === 'freeTime'; });
-
-  // Total work minutes
-  var workMins = 0;
-  workBlocks.forEach(function(b) {
-    workMins += (b.endHour * 60 + b.endMinute) - (b.startHour * 60 + b.startMinute);
-  });
-  var deepMins = 0;
-  var focusMins = 0;
-  blocks.forEach(function(b) {
-    var dur = (b.endHour * 60 + b.endMinute) - (b.startHour * 60 + b.startMinute);
-    if (b.blockType === 'deepWork') deepMins += dur;
-    else if (b.blockType === 'focusHours') focusMins += dur;
-  });
-  var earned = 5 + (deepMins * 0.3) + (focusMins * 0.2);
-
-  var workH = Math.floor(workMins / 60);
-  var workM = workMins % 60;
-  var workStr = workH > 0 ? workH + 'h ' + (workM > 0 ? workM + 'm' : '') : workM + 'm';
-
-  // Summary card
-  var summary = document.getElementById('plan-summary-card');
-  if (summary) {
-    summary.innerHTML =
-      '<div class="plan-summary-row"><span class="plan-summary-label">Blocks</span><span class="plan-summary-value">' + blocks.length + ' total (' + workBlocks.length + ' work, ' + freeBlocks.length + ' break)</span></div>' +
-      '<div class="plan-summary-row"><span class="plan-summary-label">Work time</span><span class="plan-summary-value">' + workStr.trim() + '</span></div>' +
-      '<div class="plan-summary-row"><span class="plan-summary-label">Earned browse</span><span class="plan-summary-value">~' + Math.round(earned) + ' min</span></div>';
-  }
-
-  // First block preview
-  var firstBlock = blocks[0];
-  var previewEl = document.getElementById('plan-first-block-preview');
-  if (previewEl && firstBlock) {
-    var typeLabel = firstBlock.blockType === 'deepWork' ? 'Deep Focus' :
-                    firstBlock.blockType === 'freeTime' ? 'Free Time' : 'Focus';
-    var timeStr = formatPlanTime(firstBlock.startHour, firstBlock.startMinute) + ' – ' +
-                  formatPlanTime(firstBlock.endHour, firstBlock.endMinute);
-    previewEl.innerHTML =
-      '<div class="plan-first-block">' +
-        '<div class="plan-first-block-label">Starting with</div>' +
-        '<div class="plan-first-block-title">' + escapeHtml(firstBlock.title) + '</div>' +
-        '<div class="plan-first-block-time">' + timeStr + ' · ' + typeLabel + '</div>' +
-      '</div>';
-  }
-
-  // If-then intention options
-  var ifThenPlans = [
-    'Close the tab and return to my task',
-    'Pause, re-read my intention, and start again',
-    'Write down what pulled me away for later, then refocus'
-  ];
-  var savedPlan = parseInt(localStorage.getItem('defaultIfThenPlan') || '0');
-  var optionsEl = document.getElementById('plan-intention-options');
-  if (optionsEl) {
-    var html = '';
-    ifThenPlans.forEach(function(plan, i) {
-      var checked = (i === savedPlan) ? ' checked' : '';
-      html +=
-        '<div class="plan-intention-option" onclick="document.getElementById(\'plan-itp-' + i + '\').checked=true;">' +
-          '<input type="radio" name="plan-intention" id="plan-itp-' + i + '" value="' + i + '"' + checked + ' />' +
-          '<label for="plan-itp-' + i + '">' + escapeHtml(plan) + '</label>' +
-        '</div>';
-    });
-    // Custom option
-    html +=
-      '<div class="plan-intention-option" onclick="document.getElementById(\'plan-itp-custom\').checked=true;document.getElementById(\'plan-itp-custom-text\').focus();">' +
-        '<input type="radio" name="plan-intention" id="plan-itp-custom" value="custom" />' +
-        '<label for="plan-itp-custom">Something else...</label>' +
-      '</div>' +
-      '<div class="plan-intention-custom"><input type="text" id="plan-itp-custom-text" placeholder="Type your strategy..." onfocus="document.getElementById(\'plan-itp-custom\').checked=true;" /></div>';
-    optionsEl.innerHTML = html;
-  }
-}
-
-function planWizardCommit() {
-  var blocks = planWizardState.acceptedBlocks;
-  if (!blocks || blocks.length === 0) return;
-
-  // Save if-then plan
-  var selectedRadio = document.querySelector('input[name="plan-intention"]:checked');
-  if (selectedRadio) {
-    var val = selectedRadio.value;
-    if (val !== 'custom') {
-      sendMessage({ type: 'SAVE_IF_THEN_PLAN', planIndex: parseInt(val) });
-      localStorage.setItem('defaultIfThenPlan', val);
-    }
-  }
-
-  // Push blocks to focusState
-  blocks.forEach(function(block) {
-    var newBlock = {
-      id: generateFocusUUID(),
-      title: block.title,
-      description: block.description || '',
-      startHour: block.startHour,
-      startMinute: block.startMinute,
-      endHour: block.endHour,
-      endMinute: block.endMinute,
-      blockType: block.blockType,
-      isFree: block.blockType === 'freeTime'
-    };
-    focusState.blocks.push(newBlock);
-  });
-
-  // Set goals from priorities
-  focusState.goals = planWizardState.priorities.concat(['', '', '']).slice(0, 3);
-
-  // Save and render
-  markFocusDirty();
-  renderCalendarBlocks();
-
-  // Play sound
-  sendMessage({ type: 'PREVIEW_SOUND', sound: 'Glass' });
-
-  // Toast + navigate
-  showToast('Plan saved — ' + blocks.length + ' blocks added');
-  navigateTo('today');
-
-  // Reset wizard state
-  planWizardState.generatedBlocks = [];
-  planWizardState.acceptedBlocks = [];
-}
-
-function planWizardLoadYesterday() {
-  sendMessage({ type: 'PLAN_DAY_GET_YESTERDAY' });
-}
-
-window._planDayYesterdayResult = function(data) {
-  var items = [];
-  if (data.goals && data.goals.length) {
-    data.goals.forEach(function(g) { if (g && g.trim()) items.push(g.trim()); });
-  }
-  if (data.blockTitles && data.blockTitles.length) {
-    data.blockTitles.forEach(function(t) {
-      if (t && t.trim() && items.indexOf(t.trim()) === -1) items.push(t.trim());
-    });
-  }
-  planWizardState.yesterdayGoals = items;
-
-  // Also populate landing page chips
-  renderLandingYesterdayChips(items);
-
-  var section = document.getElementById('plan-chips-section');
-  var row = document.getElementById('plan-chips-row');
-  if (!section || !row) return;
-
-  if (items.length === 0) {
-    section.style.display = 'none';
-    return;
-  }
-
-  section.style.display = '';
-  row.innerHTML = '';
-  items.forEach(function(item) {
-    var chip = document.createElement('span');
-    chip.className = 'plan-chip';
-    chip.textContent = item;
-    chip.onclick = function() { planWizardFillPriority(item); };
-    row.appendChild(chip);
-  });
-};
-
-function planWizardFillPriority(text) {
-  for (var i = 1; i <= 3; i++) {
-    var inp = document.getElementById('plan-pri-' + i);
-    if (inp && !inp.value.trim()) {
-      inp.value = text;
-      inp.classList.remove('error');
-      return;
-    }
-  }
-}
 
 // ===== Init =====
 // Render theme picker immediately (will update selection when settings arrive)

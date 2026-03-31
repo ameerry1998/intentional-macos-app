@@ -73,6 +73,7 @@ class SleepWakeMonitor {
         }
 
         appDelegate?.postEventNotification(type: "computer_sleeping")
+        appDelegate?.contentSafetyMonitor?.onSleep()
     }
 
     private func computerDidWake() {
@@ -85,6 +86,7 @@ class SleepWakeMonitor {
         }
 
         appDelegate?.postEventNotification(type: "computer_waking")
+        appDelegate?.contentSafetyMonitor?.onWake()
     }
 
     private func screenDidLock() {

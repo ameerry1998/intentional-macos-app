@@ -343,34 +343,10 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "SAVE_STRICT_MODE":
             handleSaveStrictMode(body)
 
-        case "PLAN_DAY_CHAT":
-            handlePlanDayChat(body)
-
-        case "PLAN_DAY_RESET":
-            appDelegate?.planningCoach?.reset()
-
-        case "PLAN_DAY_CLEAR_MEMORY":
-            appDelegate?.planningCoach?.clearMemory()
-
-        case "GET_PLAN_MEMORIES":
-            handleGetPlanMemories()
-
-        case "PLAN_DAY_GET_YESTERDAY":
-            handlePlanDayGetYesterday()
-
         case "SAVE_IF_THEN_PLAN":
             if let planIndex = body["planIndex"] as? Int {
                 UserDefaults.standard.set(planIndex, forKey: "defaultIfThenPlan")
             }
-
-        case "SAVE_MORNING_PLAN_SETTING":
-            if let enabled = body["enabled"] as? Bool {
-                UserDefaults.standard.set(enabled, forKey: "morningPlanOverlay")
-            }
-
-        case "GET_MORNING_PLAN_SETTING":
-            let enabled = UserDefaults.standard.bool(forKey: "morningPlanOverlay")
-            callJSCallback("_morningPlanSettingResult", data: ["enabled": enabled])
 
         default:
             appDelegate?.postLog("⚠️ WKWebView: Unknown message type: \(type)")
@@ -791,6 +767,11 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         result["strictModeEnabled"] = UserDefaults.standard.bool(forKey: "strictModeEnabled")
         result["userEmail"] = appDelegate?.backendClient?.storedEmail ?? ""
         result["overridePartnerRequired"] = (savedSettings["overridePartnerRequired"] as? Bool) ?? false
+        // Content Safety settings
+        let csSettings = savedSettings["contentSafety"] as? [String: Any]
+        result["contentSafety"] = [
+            "enabled": (csSettings?["enabled"] as? Bool) ?? false
+        ]
         if let tuu = temporaryUnlockUntil { result["temporaryUnlockUntil"] = tuu }
         if let sua = selfUnlockAvailableAt { result["selfUnlockAvailableAt"] = sua }
 
@@ -880,6 +861,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                         violation = "Cannot disable Suggested content blocking while settings are locked"
                     }
 
+                    // Content Safety: can't disable while locked
+                    if violation == nil, let csNew = settings["contentSafety"] as? [String: Any] {
+                        let curCS = json["contentSafety"] as? [String: Any] ?? [:]
+                        if (csNew["enabled"] as? Bool) == false && (curCS["enabled"] as? Bool) == true {
+                            violation = "Cannot disable Content Safety while settings are locked"
+                        }
+                    }
+
                     // Distracting sites: can't remove sites while locked (adding is OK)
                     if violation == nil, let newSites = settings["distractingSites"] as? [String] {
                         let currentSites = (json["distractingSites"] as? [String]) ?? []
@@ -929,6 +918,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let soundTone = settings["soundTone"] as? String
         let theme = settings["theme"] as? String
         let overridePartnerRequired = settings["overridePartnerRequired"] as? Bool
+        let contentSafety = settings["contentSafety"] as? [String: Any]
         let platforms: [String: Any] = ["youtube": ytSettings, "instagram": igSettings, "facebook": fbSettings]
 
         saveSettingsToFile(
@@ -944,7 +934,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             alwaysRelevantSites: alwaysRelevantSites,
             soundTone: soundTone,
             theme: theme,
-            overridePartnerRequired: overridePartnerRequired
+            overridePartnerRequired: overridePartnerRequired,
+            contentSafety: contentSafety
         )
 
         // Update FocusMonitor with override partner approval setting
@@ -975,6 +966,12 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         if let apps = distractingApps {
             let bundleIds = Set(apps.compactMap { $0["bundleId"] as? String })
             appDelegate?.focusMonitor?.distractingAppBundleIds = bundleIds
+        }
+
+        // Update Content Safety Monitor
+        if let cs = contentSafety {
+            let csEnabled = cs["enabled"] as? Bool ?? false
+            appDelegate?.contentSafetyMonitor?.onSettingsChanged(enabled: csEnabled)
         }
 
         // Update FocusMonitor with always-relevant sites whitelist
@@ -1027,7 +1024,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         alwaysRelevantSites: [String]? = nil,
         soundTone: String? = nil,
         theme: String? = nil,
-        overridePartnerRequired: Bool? = nil
+        overridePartnerRequired: Bool? = nil,
+        contentSafety: [String: Any]? = nil
     ) {
         updateSettingsFile { settings in
             var existingPlatforms = settings["platforms"] as? [String: Any] ?? [:]
@@ -1052,6 +1050,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             if let st = soundTone { settings["soundTone"] = st }
             if let th = theme { settings["theme"] = th }
             if let opr = overridePartnerRequired { settings["overridePartnerRequired"] = opr }
+            if let cs = contentSafety { settings["contentSafety"] = cs }
             settings["lastModified"] = ISO8601DateFormatter().string(from: Date())
         }
     }
@@ -2195,73 +2194,12 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         handleGetEarnedStatus()
     }
 
-    // MARK: - Plan Day Chat
-
-    private func handlePlanDayChat(_ body: [String: Any]) {
-        guard let userMessage = body["message"] as? String else { return }
-        Task {
-            let response = await appDelegate?.planningCoach?.chat(userMessage: userMessage)
-            await MainActor.run {
-                let blocksArray: [[String: Any]] = (response?.blocks ?? []).map { b in
-                    [
-                        "title": b.title,
-                        "description": b.description,
-                        "startHour": b.startHour,
-                        "startMinute": b.startMinute,
-                        "endHour": b.endHour,
-                        "endMinute": b.endMinute,
-                        "blockType": b.blockType
-                    ]
-                }
-                var data: [String: Any] = [
-                    "message": response?.message ?? "Something went wrong.",
-                    "blocks": blocksArray
-                ]
-                if let error = response?.error {
-                    data["error"] = error
-                }
-                self.callJSCallback("_planDayChatResult", data: data)
-            }
+    /// Push content safety status to dashboard (permission state, monitoring state).
+    func pushContentSafetyStatus(_ status: [String: Any]) {
+        if let data = try? JSONSerialization.data(withJSONObject: status),
+           let json = String(data: data, encoding: .utf8) {
+            callJS("window._contentSafetyStatus && window._contentSafetyStatus(\(json))")
         }
-    }
-
-    private func handleGetPlanMemories() {
-        guard let coach = appDelegate?.planningCoach else {
-            callJSCallback("_planMemoriesResult", data: ["insights": [], "preferredBlockDuration": 45, "lastUpdated": ""])
-            return
-        }
-        let mem = coach.currentMemory
-        callJSCallback("_planMemoriesResult", data: [
-            "insights": mem.insights,
-            "preferredBlockDuration": mem.preferredBlockDuration,
-            "lastUpdated": mem.lastUpdated
-        ])
-    }
-
-    private func handlePlanDayGetYesterday() {
-        let cal = Calendar.current
-        guard let yesterday = cal.date(byAdding: .day, value: -1, to: Date()) else {
-            callJSCallback("_planDayYesterdayResult", data: ["goals": [], "blockTitles": []])
-            return
-        }
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        let yesterdayStr = df.string(from: yesterday)
-
-        guard let schedule = appDelegate?.scheduleManager?.getScheduleForDate(yesterdayStr) else {
-            callJSCallback("_planDayYesterdayResult", data: ["goals": [], "blockTitles": []])
-            return
-        }
-
-        let workBlockTitles = schedule.blocks
-            .filter { !$0.isFree }
-            .map { $0.title }
-
-        let data: [String: Any] = [
-            "goals": schedule.goals,
-            "blockTitles": workBlockTitles
-        ]
-        callJSCallback("_planDayYesterdayResult", data: data)
     }
 
     // MARK: - JS Helpers

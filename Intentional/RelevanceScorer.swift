@@ -40,7 +40,7 @@ class RelevanceScorer {
     private var mlxModelLoading = false
     private(set) var mlxModelLoaded = false
 
-    /// Expose MLX model context for reuse by other components (e.g., PlanningCoach)
+    /// Expose MLX model context for reuse by other components
     var modelContext: ModelContext? { mlxContext }
 
     // User-approved pages (survives cache clears within a block, cleared on block change)
@@ -321,7 +321,7 @@ class RelevanceScorer {
     // MARK: - MLX (Qwen3-4B)
 
     /// Lazily load the MLX Qwen3-4B model on first use.
-    /// Ensure the MLX model is loaded (called internally + by PlanningCoach).
+    /// Ensure the MLX model is loaded (called internally).
     func loadMLXModelIfNeeded() async {
         guard !mlxModelLoaded && !mlxModelLoading else { return }
         mlxModelLoading = true

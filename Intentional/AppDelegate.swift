@@ -37,8 +37,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Earn Your Browse budget system
     var earnedBrowseManager: EarnedBrowseManager?
 
-    // LLM-powered day planning coach
-    var planningCoach: PlanningCoach?
+    // Content Safety — on-device screen monitoring for explicit content
+    var contentSafetyMonitor: ContentSafetyMonitor?
 
     // Native app heartbeat timer (Phase 2: Tamper Detection)
     var heartbeatTimer: Timer?
@@ -192,6 +192,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Create menu bar icon
         setupMenuBar()
+        setupMainMenu()
         postLog("🔝 Menu bar icon added")
 
         // Start permission monitoring
@@ -284,9 +285,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         scheduleManager = ScheduleManager(appDelegate: self)
         relevanceScorer = RelevanceScorer(appDelegate: self)
 
-        // Initialize LLM-powered planning coach (reuses models from RelevanceScorer)
-        planningCoach = PlanningCoach(appDelegate: self)
-
         // Initialize focus monitor and nudge window (V2: desktop app monitoring)
         nudgeController = NudgeWindowController(appDelegate: self)
         let focusOverlayController = FocusOverlayWindowController(appDelegate: self)
@@ -316,7 +314,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let partnerEmail = json["partnerEmail"] as? String ?? ""
             focusMonitor?.hasConfiguredPartner = !partnerEmail.isEmpty
         }
-        focusMonitor?.morningPlanOverlay = MorningPlanOverlayController()
         focusMonitor?.start()
         postLog("👁️ FocusMonitor + NudgeWindowController + FocusOverlayWindow + InterventionOverlay initialized")
 
@@ -367,6 +364,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // Also sync focusMonitor so the floating timer shows immediately on startup mid-block
             focusMonitor?.onBlockChanged()
         }
+
+        // Content Safety Monitor — on-device screen monitoring for explicit content
+        contentSafetyMonitor = ContentSafetyMonitor(appDelegate: self)
+        // Load enabled state from persisted settings
+        let csSettingsURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("Intentional/onboarding_settings.json")
+        if let csData = try? Data(contentsOf: csSettingsURL),
+           let csJSON = try? JSONSerialization.jsonObject(with: csData) as? [String: Any],
+           let csSettings = csJSON["contentSafety"] as? [String: Any],
+           let csEnabled = csSettings["enabled"] as? Bool, csEnabled {
+            contentSafetyMonitor?.onSettingsChanged(enabled: true)
+        }
+        postLog("🛡️ ContentSafetyMonitor initialized")
 
         // All extension connections come through the socket relay server.
         // Chrome-launched processes are thin relays (in main.swift) that forward
@@ -473,6 +483,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         extensionRescanTimer?.invalidate()
         extensionRescanTimer = nil
 
+        // Stop content safety monitor
+        contentSafetyMonitor?.stop()
+
         // Stop focus monitor
         focusMonitor?.stop()
 
@@ -538,6 +551,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: "Quit Intentional", action: #selector(quitApp), keyEquivalent: "q"))
 
         statusBarItem?.menu = menu
+    }
+
+    /// Set up the main menu bar with an Edit menu so Cmd+C/V/X work in WKWebView text fields.
+    func setupMainMenu() {
+        let mainMenu = NSMenu()
+
+        // App menu (required as first item)
+        let appMenuItem = NSMenuItem()
+        let appMenu = NSMenu()
+        appMenu.addItem(NSMenuItem(title: "Quit Intentional", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        appMenuItem.submenu = appMenu
+        mainMenu.addItem(appMenuItem)
+
+        // Edit menu — enables Cmd+C, Cmd+V, Cmd+X, Cmd+A, Cmd+Z in WKWebView
+        let editMenuItem = NSMenuItem()
+        let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(NSMenuItem(title: "Undo", action: Selector(("undo:")), keyEquivalent: "z"))
+        editMenu.addItem(NSMenuItem(title: "Redo", action: Selector(("redo:")), keyEquivalent: "Z"))
+        editMenu.addItem(NSMenuItem.separator())
+        editMenu.addItem(NSMenuItem(title: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x"))
+        editMenu.addItem(NSMenuItem(title: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c"))
+        editMenu.addItem(NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v"))
+        editMenu.addItem(NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"))
+        editMenuItem.submenu = editMenu
+        mainMenu.addItem(editMenuItem)
+
+        NSApp.mainMenu = mainMenu
     }
 
     @objc func showMainWindow() {

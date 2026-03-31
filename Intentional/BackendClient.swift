@@ -1092,4 +1092,53 @@ class BackendClient {
         }
         return AuthResult(success: false, message: "Unknown error", data: nil)
     }
+
+    // MARK: - Content Safety
+
+    /// Report a content safety detection to the backend.
+    /// The backend sends a blurred screenshot to the accountability partner.
+    /// Returns true if the report was accepted (email may or may not have been sent).
+    func reportContentSafety(blurredImageBase64: String, timestamp: String) async -> Bool {
+        let endpoint = "\(baseURL)/content-safety/report"
+
+        guard let url = URL(string: endpoint) else { return false }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        // Longer timeout for large base64 payloads
+        request.timeoutInterval = 30
+
+        let payload: [String: Any] = [
+            "timestamp": timestamp,
+            "blurred_image_base64": blurredImageBase64
+        ]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 200 {
+                    appDelegate?.postLog("🛡️ Content safety report accepted")
+                    return true
+                } else if httpResponse.statusCode == 429 {
+                    appDelegate?.postLog("🛡️ Content safety report rate-limited (429)")
+                    return false
+                } else {
+                    if let body = String(data: data, encoding: .utf8) {
+                        appDelegate?.postLog("⚠️ Content safety report failed (\(httpResponse.statusCode)): \(body)")
+                    }
+                    return false
+                }
+            }
+        } catch {
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            appDelegate?.postLog("❌ Content safety report error: \(error.localizedDescription)")
+        }
+
+        return false
+    }
 }
