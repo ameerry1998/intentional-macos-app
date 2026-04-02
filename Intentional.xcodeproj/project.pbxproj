@@ -41,13 +41,27 @@
 		A1000062000000000000024 /* DeepWorkTimerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000063000000000000024 /* DeepWorkTimerController.swift */; };
 		A1000064000000000000025 /* BlockRitualController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000065000000000000025 /* BlockRitualController.swift */; };
 		A1000066000000000000026 /* BlockEndRitualController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000067000000000000026 /* BlockEndRitualController.swift */; };
-		A100F0C0000000000000001 /* focus-blocked.html in Resources */ = {isa = PBXBuildFile; fileRef = A100F0C1000000000000001 /* focus-blocked.html */; };
 		A1000070000000000000028 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000071000000000000028 /* Assets.xcassets */; };
 		A1000072000000000000029 /* sidebar-fabric.png in Resources */ = {isa = PBXBuildFile; fileRef = A1000073000000000000029 /* sidebar-fabric.png */; };
 		A1000076000000000000031 /* ContentSafetyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000077000000000000031 /* ContentSafetyMonitor.swift */; };
+		A100F0C0000000000000001 /* focus-blocked.html in Resources */ = {isa = PBXBuildFile; fileRef = A100F0C1000000000000001 /* focus-blocked.html */; };
 		A2000001000000000000001 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = A2000003000000000000001 /* MLXLLM */; };
 		A2000002000000000000001 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = A2000004000000000000001 /* MLXLMCommon */; };
+		FE000001000000000000001 /* FilterDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE000003000000000000001 /* FilterDataProvider.swift */; };
+		FE000010000000000000001 /* FilterExtension.appex in Embed System Extensions */ = {isa = PBXBuildFile; fileRef = FE000002000000000000001 /* FilterExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FE000012000000000000001 /* FilterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE000011000000000000001 /* FilterManager.swift */; };
+		FE000013000000000000001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE000014000000000000001 /* main.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FE00000E000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1000018000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FE000007000000000000001;
+			remoteInfo = FilterExtension;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		343A70EE2F4713E600030ED8 /* CopyFiles */ = {
@@ -58,6 +72,17 @@
 			files = (
 				343A70EF2F47140400030ED8 /* com.intentional.watchdog.plist in CopyFiles */,
 			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE00000F000000000000001 /* Embed System Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(SYSTEM_EXTENSIONS_FOLDER_PATH)";
+			dstSubfolderSpec = 16;
+			files = (
+				FE000010000000000000001 /* FilterExtension.appex in Embed System Extensions */,
+			);
+			name = "Embed System Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -98,10 +123,16 @@
 		A1000063000000000000024 /* DeepWorkTimerController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepWorkTimerController.swift; sourceTree = "<group>"; };
 		A1000065000000000000025 /* BlockRitualController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockRitualController.swift; sourceTree = "<group>"; };
 		A1000067000000000000026 /* BlockEndRitualController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockEndRitualController.swift; sourceTree = "<group>"; };
-		A100F0C1000000000000001 /* focus-blocked.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "focus-blocked.html"; sourceTree = "<group>"; };
 		A1000071000000000000028 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A1000073000000000000029 /* sidebar-fabric.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "sidebar-fabric.png"; sourceTree = "<group>"; };
 		A1000077000000000000031 /* ContentSafetyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentSafetyMonitor.swift; sourceTree = "<group>"; };
+		A100F0C1000000000000001 /* focus-blocked.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "focus-blocked.html"; sourceTree = "<group>"; };
+		FE000002000000000000001 /* FilterExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = FilterExtension.appex; path = FilterExtension.systemextension; sourceTree = BUILT_PRODUCTS_DIR; };
+		FE000003000000000000001 /* FilterDataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterDataProvider.swift; sourceTree = "<group>"; };
+		FE000004000000000000001 /* FilterExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FilterExtension.entitlements; sourceTree = "<group>"; };
+		FE000005000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		FE000011000000000000001 /* FilterManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterManager.swift; sourceTree = "<group>"; };
+		FE000014000000000000001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -114,6 +145,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FE000009000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -121,6 +159,7 @@
 			isa = PBXGroup;
 			children = (
 				A1000012000000000000001 /* Intentional */,
+				FE000006000000000000001 /* FilterExtension */,
 				A1000013000000000000001 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -166,6 +205,7 @@
 				A1000073000000000000029 /* sidebar-fabric.png */,
 				A1000009000000000000001 /* Info.plist */,
 				A1000071000000000000028 /* Assets.xcassets */,
+				FE000011000000000000001 /* FilterManager.swift */,
 			);
 			path = Intentional;
 			sourceTree = "<group>";
@@ -174,8 +214,20 @@
 			isa = PBXGroup;
 			children = (
 				A1000000000000000000001 /* Intentional.app */,
+				FE000002000000000000001 /* FilterExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		FE000006000000000000001 /* FilterExtension */ = {
+			isa = PBXGroup;
+			children = (
+				FE000014000000000000001 /* main.swift */,
+				FE000003000000000000001 /* FilterDataProvider.swift */,
+				FE000004000000000000001 /* FilterExtension.entitlements */,
+				FE000005000000000000001 /* Info.plist */,
+			);
+			path = FilterExtension;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -189,10 +241,12 @@
 				A1000010000000000000001 /* Frameworks */,
 				A1000017000000000000001 /* Resources */,
 				343A70EE2F4713E600030ED8 /* CopyFiles */,
+				FE00000F000000000000001 /* Embed System Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				FE00000D000000000000001 /* PBXTargetDependency */,
 			);
 			name = Intentional;
 			packageProductDependencies = (
@@ -202,6 +256,22 @@
 			productName = Intentional;
 			productReference = A1000000000000000000001 /* Intentional.app */;
 			productType = "com.apple.product-type.application";
+		};
+		FE000007000000000000001 /* FilterExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FE00000C000000000000001 /* Build configuration list for PBXNativeTarget "FilterExtension" */;
+			buildPhases = (
+				FE000008000000000000001 /* Sources */,
+				FE000009000000000000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FilterExtension;
+			productName = FilterExtension;
+			productReference = FE000002000000000000001 /* FilterExtension.appex */;
+			productType = "com.apple.product-type.system-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -235,6 +305,7 @@
 			projectRoot = "";
 			targets = (
 				A1000014000000000000001 /* Intentional */,
+				FE000007000000000000001 /* FilterExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -291,10 +362,28 @@
 				A1000066000000000000026 /* BlockEndRitualController.swift in Sources */,
 				A1000076000000000000031 /* ContentSafetyMonitor.swift in Sources */,
 				A1000046000000000000016 /* LegacyMonitorView.swift in Sources */,
+				FE000012000000000000001 /* FilterManager.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE000008000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FE000013000000000000001 /* main.swift in Sources */,
+				FE000001000000000000001 /* FilterDataProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		FE00000D000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FE000007000000000000001 /* FilterExtension */;
+			targetProxy = FE00000E000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A1000020000000000000001 /* Debug */ = {
@@ -421,7 +510,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Intentional/Intentional.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -437,8 +526,9 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.intentional.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arayan.intentional;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -450,7 +540,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Intentional/Intentional.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -466,8 +556,59 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.intentional.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arayan.intentional;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		FE00000A000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FilterExtension/FilterExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = B7B67856A7;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FilterExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arayan.intentional.filter;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		FE00000B000000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FilterExtension/FilterExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = B7B67856A7;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FilterExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arayan.intentional.filter;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -490,6 +631,15 @@
 			buildConfigurations = (
 				A1000020000000000000001 /* Debug */,
 				A1000021000000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FE00000C000000000000001 /* Build configuration list for PBXNativeTarget "FilterExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE00000A000000000000001 /* Debug */,
+				FE00000B000000000000001 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

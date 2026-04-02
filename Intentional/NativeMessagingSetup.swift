@@ -62,11 +62,21 @@ class NativeMessagingSetup {
 
     // MARK: - Logging Helper
 
-    /// Log to both stdout and debug file
-    private func log(_ message: String) {
-        print(message)  // Still print to stdout for debugging
+    private var initialScanComplete = false
 
-        // Also write to debug log file
+    /// Log to both stdout and debug file. After initial scan, suppress verbose browser discovery logs.
+    private func log(_ message: String) {
+        // After first scan, suppress the noisy per-browser/per-profile logs
+        if initialScanComplete && (message.contains("🔍") || message.contains("📁") || message.contains("👤") ||
+            message.contains("📊") || message.contains("📋") || message.contains("✅ Found browser") ||
+            message.contains("✅ Installed manifest") || message.contains("📦 Installed manifests") ||
+            message.contains("Profiles:") || message.contains("Data path:") || message.contains("Extensions folder") ||
+            message.contains("Preferences has") || message.contains("extension files") || message.contains("⏭️ Skipping") ||
+            message.contains("⚠️ Could not determine") || message.contains("⚠️ No data path") ||
+            message.contains("extension scanning requires")) {
+            return
+        }
+        print(message)
         if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
             appDelegate.postLog(message)
         }
@@ -262,6 +272,8 @@ class NativeMessagingSetup {
             hasCompletedInitialScan = true
             initialScanCompletedAt = Date()
             log("[NativeMessagingSetup] ✅ Initial extension scan complete")
+            initialScanComplete = true
+            BrowserDiscovery.verbose = false
         }
 
         return newlyDiscovered.count

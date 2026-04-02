@@ -485,12 +485,14 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
                 unprotectedBrowserNames.append(browserInfo.name)
             }
 
-            // Log on every check (verbose, but needed for debugging timing)
-            switch status {
-            case .protected(let reason):
-                appDelegate?.postLog("🛡️ \(browserInfo.name): PROTECTED — \(reason)")
-            case .unprotected(let reason):
-                appDelegate?.postLog("⚠️ \(browserInfo.name): UNPROTECTED — \(reason)")
+            // Only log when status changes
+            if lastProtectionDecisions[bundleId] != decisionKey {
+                switch status {
+                case .protected(let reason):
+                    appDelegate?.postLog("🛡️ \(browserInfo.name): PROTECTED — \(reason)")
+                case .unprotected(let reason):
+                    appDelegate?.postLog("⚠️ \(browserInfo.name): UNPROTECTED — \(reason)")
+                }
             }
             lastProtectionDecisions[bundleId] = decisionKey
         }

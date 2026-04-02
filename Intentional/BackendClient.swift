@@ -13,6 +13,7 @@ class BackendClient {
 
     private let baseURL: String
     private let deviceId: String
+    private static var loggedFailures: Set<String> = []
 
     init(baseURL: String) {
         self.baseURL = baseURL
@@ -66,20 +67,21 @@ class BackendClient {
 
             let (data, response) = try await URLSession.shared.data(for: request)
 
-            if let httpResponse = response as? HTTPURLResponse {
-                let appDelegate = NSApplication.shared.delegate as? AppDelegate
-                if httpResponse.statusCode == 200 {
-                    appDelegate?.postLog("✅ Event sent: \(type)")
-                } else {
-                    appDelegate?.postLog("⚠️ Event failed: \(type) - Status \(httpResponse.statusCode)")
-                    if let body = String(data: data, encoding: .utf8) {
-                        appDelegate?.postLog("   Response: \(body)")
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+                let statusCode = httpResponse.statusCode
+                await MainActor.run {
+                    if !Self.loggedFailures.contains(type) {
+                        Self.loggedFailures.insert(type)
+                        let appDelegate = NSApplication.shared.delegate as? AppDelegate
+                        appDelegate?.postLog("⚠️ Event failed: \(type) - Status \(statusCode)")
                     }
                 }
             }
         } catch {
-            if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
-                appDelegate.postLog("❌ Network error sending event \(type): \(error.localizedDescription)")
+            await MainActor.run {
+                if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+                    appDelegate.postLog("❌ Network error sending event \(type): \(error.localizedDescription)")
+                }
             }
         }
     }

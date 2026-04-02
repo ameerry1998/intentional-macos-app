@@ -14,6 +14,74 @@ Keep updates minimal and precise — just add/modify the relevant sections. Do n
 
 ---
 
+## Product Vision — Puck Integration
+
+Puck is the physical product. Intentional is the software. Together they form one system.
+
+### Two-Device Philosophy
+
+**Phone (Puck iOS):** Simple on/off blocker. Tap Puck → distracting apps blocked. Tap again → unblocked. No AI, no scheduling. The phone is a distraction machine — Puck just limits how much of it you get.
+
+**Laptop (Intentional macOS):** Smart focus enforcement. Tap Puck (or toggle in app) → blocking mode starts. Optionally set an intention ("What are you working on?") for AI-powered relevance scoring. The laptop is a work tool — Intentional keeps you on task.
+
+### Core Interaction
+
+The Puck is a two-feature device:
+1. **Alarm clock** — tap phone on Puck to dismiss the alarm
+2. **Blocker toggle** — tap to start blocking, tap again to stop
+
+The macOS app mirrors this simplicity: one toggle between blocking ON and blocking OFF.
+
+### Blocking Modes
+
+| Mode | With Intention Set | Without Intention |
+|------|-------------------|-------------------|
+| Blocking ON | Smart blocking — AI scores relevance. Educational YouTube? Allowed. YouTube Shorts? Blocked + nudge. | Dumb blocking — all distracting sites blocked, no exceptions. |
+| Blocking OFF | Everything open, no monitoring. | Everything open. |
+
+Setting an intention is optional but upgrades blocking from dumb to smart.
+
+### What to Keep (Puck Branch)
+
+- **ScheduleManager** — daily planning, time blocks, schedule states
+- **Block rituals (start/end)** — intention setting + reflection ceremonies
+- **"NO PLAN" pill state** — nudges user to plan if they haven't
+- **Dashboard calendar** — visual schedule management
+- **DeepWorkTimerController** — floating pill timer during focus blocks
+- **GrayscaleOverlayController** — progressive desaturation during distraction
+- **RelevanceScorer** — AI focus scoring during smart blocking
+- **FocusMonitor** — enforcement during blocking (nudges, red screen, overlays)
+- **ContentSafetyMonitor** — explicit content detection (always-on, independent of blocking)
+- **WebsiteBlocker / NEFilterDataProvider** — site blocking
+- **Distracting sites/apps list** — user-configured
+- **Accountability partner** — locking, notifications
+- **Browser extension** — sensing only (page content for AI scoring), NOT blocking
+
+### What to Strip (Puck Branch)
+
+- **EarnedBrowseManager** — the "earn screen time" mechanic doesn't fit Puck's simple on/off model
+- **TimeTracker** — its main job was feeding the earned browse pool, which is gone
+
+### Extension Role Change (Puck Branch)
+
+The extension's role changes significantly:
+- **Keeps:** Reading page titles/content and sending to the macOS app for AI relevance scoring
+- **Loses:** All in-browser blocking logic. NEFilterDataProvider handles blocking at the network level now.
+- NEFilterDataProvider = hard blocks for always-bad sites (porn, TikTok). Binary block/allow per domain.
+- Extension = sensing layer for gray-area sites (YouTube, Reddit, Twitter) where AI needs page content to judge relevance.
+- ContentSafetyMonitor = catches explicit images that slip through on allowed sites.
+
+### Puck Tap → Both Devices
+
+When the user taps the Puck, both devices respond simultaneously:
+
+| | Phone | Laptop |
+|---|---|---|
+| **Tap ON** | Distracting apps locked | Distracting sites blocked + optional AI focus |
+| **Tap OFF** | Everything open | Everything open |
+
+---
+
 ## Parallel Development (Worktree Workflow)
 
 This repo uses git worktrees for parallel feature development. Multiple Claude Code agents may be working on different features simultaneously in separate worktrees.
@@ -609,3 +677,41 @@ Sent every 2 minutes via `BackendClient.sendEvent(type: "heartbeat")`. Includes 
 4. **Chrome blocked by WebsiteBlocker with extension active**: `BrowserMonitor` now cross-checks socket connection status (definitive) with file-based detection, instead of immediately marking browser as unprotected on socket disconnect.
 
 5. **Extension-launched process killing the app**: Chrome SIGTERMs then SIGKILLs native messaging hosts. Fixed by relay architecture: extension-launched processes are always thin relays, primary app is launched independently via `NSWorkspace`.
+
+6. **Settings 800ms debounce losing changes**: `onSettingChange()` in dashboard.html uses an 800ms debounce before calling `saveAllSettings()`. If the user quits the app within 800ms of toggling, settings are lost. Fixed for Content Safety toggle (now saves immediately). Consider fixing for all toggles.
+
+---
+
+## Priority TODOs
+
+### Content Safety: Permission Monitoring & Partner Notification
+The Content Safety Monitor requires TWO macOS system permissions:
+1. **Screen Recording** — System Settings > Privacy & Security > Screen & System Audio Recording
+2. **Sensitive Content Warning** — System Settings > Privacy & Security > Sensitive Content Warning
+
+**Current problem**: If either permission is missing or revoked, the feature silently does nothing. No user feedback.
+
+**Required behavior**:
+- **On toggle enable**: Check both permissions. If either is missing, show a clear prompt explaining which permission is needed and how to enable it (with a button to open the relevant System Settings pane). Don't just silently fail.
+- **Continuous monitoring**: Poll permission status periodically while Content Safety is enabled. If a previously-granted permission is revoked, show an in-app alert.
+- **Partner notification on revocation**: If the user HAD both permissions granted (i.e., Content Safety was fully active) and then revokes either permission, notify the accountability partner via the backend API. This is a tamper detection signal.
+- **Do NOT notify partner if permissions were never granted** — only notify on revocation of previously-active permissions.
+- **Track permission state**: Store `contentSafety.permissionsGrantedAt` timestamp in settings when both permissions are first confirmed. Use this to distinguish "never granted" from "revoked."
+
+**Implementation notes**:
+- `CGPreflightScreenCaptureAccess()` checks Screen Recording permission
+- `SCSensitivityAnalyzer().analysisPolicy != .disabled` checks Sensitive Content Warning
+- Open Screen Recording settings: `NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)`
+- ContentSafetyMonitor.swift already has `pushPermissionStatus()` that sends status to the dashboard — extend this to also check for revocation
+
+### Settings Persistence: Remove Global Debounce
+The 800ms debounce on `onSettingChange()` causes settings to be lost if the user navigates away or quits quickly. Options:
+- Reduce debounce to 100ms (less likely to lose changes, still batches rapid toggles)
+- Save immediately on every toggle change (most reliable, slightly more disk writes)
+- Add `beforeunload` / page visibility change handler that flushes pending saves immediately
+
+### Network Extension (NEFilterDataProvider) Integration
+- FilterExtension target and FilterManager.swift are created but not yet wired into AppDelegate
+- Need to call `filterManager.activateFilter()` on app launch to install the System Extension
+- Need to connect the distracting sites blocklist to the filter's App Group shared container
+- This replaces the AppleScript-based WebsiteBlocker with system-level blocking across all browsers

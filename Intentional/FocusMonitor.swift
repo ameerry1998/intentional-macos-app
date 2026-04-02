@@ -1402,7 +1402,7 @@ class FocusMonitor {
         //    Do NOT dismiss it — let the buttons inside the overlay handle the interaction.
         // 2. Overlay is NOT showing → user switched to the Intentional dashboard.
         //    Allow freely, but preserve grace timer.
-        if bid == "com.intentional.app" || bid == Bundle.main.bundleIdentifier {
+        if bid == "com.arayan.intentional" || bid == Bundle.main.bundleIdentifier {
             if overlayController?.isShowing == true || interventionController?.isShowing == true {
                 debugLog("👁️ EXIT: own app activated by overlay click — keeping overlay")
                 return

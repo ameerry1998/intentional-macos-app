@@ -217,6 +217,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "GET_SETTINGS":
             handleGetSettings()
 
+        case "TEST_CONTENT_SAFETY":
+            appDelegate?.contentSafetyMonitor?.triggerTestDetection()
+
         case "SAVE_LOCK_SETTINGS":
             handleSaveLockSettings(body)
 
@@ -1085,7 +1088,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             // Bundle IDs to exclude (system utilities, Intentional itself, always-allowed productivity apps)
             let excludedPrefixes = ["com.apple."]
             let excludedBundleIds: Set<String> = [
-                "com.intentional.app",
+                "com.arayan.intentional",
                 Bundle.main.bundleIdentifier ?? ""
             ]
 

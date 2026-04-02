@@ -16,13 +16,16 @@ struct InstalledBrowser {
 
 struct BrowserDiscovery {
 
+    /// Set to false after first scan to suppress verbose logging
+    static var verbose = true
+
     // MARK: - Main Discovery Method
 
     /// Discovers all installed browsers from our known browser database
     static func findInstalledBrowsers() -> [InstalledBrowser] {
         var installedBrowsers: [InstalledBrowser] = []
 
-        print("[BrowserDiscovery] 🔍 Checking \(BrowserDatabase.allBrowsers.count) known browsers...")
+        if verbose { print("[BrowserDiscovery] 🔍 Checking \(BrowserDatabase.allBrowsers.count) known browsers...") }
 
         // Only check browsers we KNOW about (prevents iTerm2 false positive)
         for knownBrowser in BrowserDatabase.allBrowsers {
@@ -30,23 +33,23 @@ struct BrowserDiscovery {
             if let appURL = NSWorkspace.shared.urlForApplication(
                 withBundleIdentifier: knownBrowser.bundleId
             ) {
-                print("[BrowserDiscovery] ✅ \(knownBrowser.name) is installed at: \(appURL.path)")
+                if verbose { print("[BrowserDiscovery] ✅ \(knownBrowser.name) is installed at: \(appURL.path)") }
 
                 // Browser is installed! Now discover its data path dynamically
                 let dataPath = discoverDataPath(for: knownBrowser)
 
                 if let dataPath = dataPath {
-                    print("[BrowserDiscovery]    📁 Data path found: \(dataPath.path)")
+                    if verbose { print("[BrowserDiscovery]    📁 Data path found: \(dataPath.path)") }
                 } else {
-                    print("[BrowserDiscovery]    ⚠️ No data path found for \(knownBrowser.name)")
+                    if verbose { print("[BrowserDiscovery]    ⚠️ No data path found for \(knownBrowser.name)") }
                 }
 
                 let profiles = dataPath != nil ? findProfiles(in: dataPath!, for: knownBrowser) : []
 
                 if !profiles.isEmpty {
-                    print("[BrowserDiscovery]    👤 Found \(profiles.count) profile(s)")
+                    if verbose { print("[BrowserDiscovery]    👤 Found \(profiles.count) profile(s)") }
                     for profile in profiles {
-                        print("[BrowserDiscovery]       - \(profile.lastPathComponent)")
+                        if verbose { print("[BrowserDiscovery]       - \(profile.lastPathComponent)") }
                     }
                 }
 
@@ -63,7 +66,7 @@ struct BrowserDiscovery {
             }
         }
 
-        print("[BrowserDiscovery] 📊 Total installed browsers found: \(installedBrowsers.count)")
+        if verbose { print("[BrowserDiscovery] 📊 Total installed browsers found: \(installedBrowsers.count)") }
         return installedBrowsers
     }
 
@@ -105,10 +108,10 @@ struct BrowserDiscovery {
             candidates.insert(safariDir, at: 0)
         }
 
-        print("[BrowserDiscovery]    🔎 Checking \(candidates.count) candidate paths for \(browser.name):")
+        if verbose { print("[BrowserDiscovery]    🔎 Checking \(candidates.count) candidate paths for \(browser.name):") }
         for candidate in candidates {
             let exists = directoryExists(at: candidate)
-            print("[BrowserDiscovery]       \(exists ? "✅" : "❌") \(candidate.path)")
+            if verbose { print("[BrowserDiscovery]       \(exists ? "✅" : "❌") \(candidate.path)") }
             if exists {
                 return candidate
             }

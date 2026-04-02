@@ -33,7 +33,7 @@ class ContentSafetyMonitor {
     // MARK: - Polling
 
     private var pollTimer: Timer?
-    private let pollInterval: TimeInterval = 10.0
+    private let pollInterval: TimeInterval = 2.0
 
     /// Permission recheck timer (when permission not yet granted)
     private var permissionCheckTimer: Timer?
@@ -105,6 +105,34 @@ class ContentSafetyMonitor {
         }
     }
 
+    /// Trigger a test detection — captures screen, blurs it, shows overlay.
+    /// Skips the SensitiveContentAnalysis check. Used from dashboard "Test" button.
+    func triggerTestDetection() {
+        appDelegate?.postLog("🛡️ Content Safety: TEST detection triggered")
+        Task { @MainActor in
+            // Capture and blur
+            guard let screenshot = captureAllScreens() else {
+                appDelegate?.postLog("⚠️ Content Safety TEST: screenshot capture failed")
+                return
+            }
+            let downscaled = downscale(screenshot, maxDimension: 1920)
+            let blurredData = blurImage(downscaled, radius: 40)
+
+            // Show overlay
+            showBlockingOverlay()
+
+            // Report to partner if we have blurred data
+            if let data = blurredData {
+                let emailSent = await reportToPartner(blurredImageData: data)
+                logDetection(emailSent: emailSent)
+                appDelegate?.postLog("🛡️ Content Safety TEST: overlay shown, emailSent=\(emailSent), blurSize=\(data.count) bytes")
+            } else {
+                logDetection(emailSent: false)
+                appDelegate?.postLog("🛡️ Content Safety TEST: overlay shown, blur failed")
+            }
+        }
+    }
+
     /// Begin monitoring (checks permission first)
     func start() {
         guard isEnabled else { return }
@@ -114,7 +142,6 @@ class ContentSafetyMonitor {
         // Check if Sensitive Content Warning is enabled in System Settings
         if !isAnalysisAvailable {
             appDelegate?.postLog("🛡️ Content Safety: Sensitive Content Warning not enabled in System Settings")
-            pushPermissionStatus()
         }
 
         if hasScreenRecordingPermission {
@@ -127,6 +154,9 @@ class ContentSafetyMonitor {
             // Start checking for permission grant
             startPermissionCheckTimer()
         }
+
+        // Always push status so dashboard shows current state
+        pushPermissionStatus()
     }
 
     /// Stop monitoring
@@ -308,10 +338,15 @@ class ContentSafetyMonitor {
     /// Returns true if the image is flagged as sensitive (explicit/nude content).
     /// Uses completion handler API wrapped in async continuation.
     private func analyzeImage(_ image: CGImage) async -> Bool {
-        guard let analyzer = self.analyzer else { return false }
+        guard let analyzer = self.analyzer else {
+            appDelegate?.postLog("⚠️ Content Safety: analyzer is nil")
+            return false
+        }
 
-        // Ensure Sensitive Content Warning is enabled in System Settings
-        guard analyzer.analysisPolicy != .disabled else { return false }
+        // Log policy but don't bail — try analysis anyway (debug builds may report .disabled incorrectly)
+        if analyzer.analysisPolicy == .disabled {
+            appDelegate?.postLog("⚠️ Content Safety: analysisPolicy=disabled, attempting analysis anyway")
+        }
 
         do {
             let result: SCSensitivityAnalysis = try await withCheckedThrowingContinuation { continuation in
@@ -329,10 +364,12 @@ class ContentSafetyMonitor {
                     }
                 }
             }
+            if result.isSensitive {
+                appDelegate?.postLog("🛡️ Content Safety: SENSITIVE content detected!")
+            }
             return result.isSensitive
         } catch {
             appDelegate?.postLog("⚠️ Content Safety: analysis error: \(error.localizedDescription)")
-            // Fail open on errors — don't spam false positives
             return false
         }
     }

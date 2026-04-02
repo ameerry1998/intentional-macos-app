@@ -248,7 +248,10 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
 
     func updateBlockedBrowsers(browsers: [String]) {
         // Called by BrowserMonitor when unprotected browsers detected
-        appDelegate?.postLog("📣 updateBlockedBrowsers called with: \(browsers)")
+        // Only log changes, not repeated states
+        if Set(browsers) != activeBrowsers {
+            appDelegate?.postLog("📣 updateBlockedBrowsers: \(browsers)")
+        }
 
         activeBrowsers = Set(browsers)
 
@@ -258,7 +261,7 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         } else if browsers.isEmpty && isBlocking {
             stopBlocking()
         } else if !browsers.isEmpty && isBlocking {
-            appDelegate?.postLog("🔄 Blocking already active, updated browsers to: \(browsers)")
+            // Quiet: don't log repeated "already active" messages
         }
     }
 
@@ -1056,7 +1059,10 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
             }
 
             DispatchQueue.main.async {
-                self.appDelegate?.postLog("⏱️ \(browserName) script took \(String(format: "%.1f", elapsed))s")
+                // Quiet: script timing logged only for slow scripts
+                if elapsed > 5.0 {
+                    self.appDelegate?.postLog("⏱️ \(browserName) script took \(String(format: "%.1f", elapsed))s")
+                }
             }
 
             if let urlString = output.stringValue, !urlString.isEmpty {
