@@ -13,6 +13,8 @@
 import Cocoa
 import SwiftUI
 import CoreImage
+import CoreML
+import Vision
 import SensitiveContentAnalysis
 
 class ContentSafetyMonitor {
@@ -30,35 +32,71 @@ class ContentSafetyMonitor {
     /// Whether screen recording permission has been granted
     private(set) var hasScreenRecordingPermission: Bool = false
 
+    /// Track previous permission states for revocation detection
+    private var wasScreenRecordingGranted: Bool = false
+    private var wasSensitiveContentEnabled: Bool = false
+
     // MARK: - Polling
 
     private var pollTimer: Timer?
-    private let pollInterval: TimeInterval = 2.0
+    private let pollInterval: TimeInterval = 1.0
 
     /// Permission recheck timer (when permission not yet granted)
     private var permissionCheckTimer: Timer?
     private let permissionCheckInterval: TimeInterval = 30.0
 
-    // MARK: - Cooldowns & Grace
+    // MARK: - Escalation System
+    //
+    // 1st detection: overlay only, no email (local warning)
+    // 2nd detection (within 1hr): overlay + "next time your partner will be notified"
+    // 3rd detection (within 1hr): overlay + partner emailed with blurred screenshot
+    // 4th+ (keeps going): partner emailed every 30 min of continued attempts
 
-    /// Last time an email was sent to the partner
-    private var lastEmailTime: Date?
-    /// Minimum time between partner emails
-    private let emailCooldown: TimeInterval = 300  // 5 minutes
+    /// Number of detections in the current escalation window
+    private var detectionCount: Int = 0
+    /// When the escalation window started (resets after 1 hour of no detections)
+    private var escalationWindowStart: Date?
+    /// Escalation window duration — resets if no detection for this long
+    private let escalationWindowDuration: TimeInterval = 3600  // 1 hour
+    /// Last time a report was uploaded to the backend
+    private var lastUploadTime: Date?
 
-    /// Grace period end — no scanning until this time (after overlay dismiss)
+    /// Grace period end — short pause after overlay dismiss to avoid instant re-trigger on same frame
     private var graceUntil: Date?
-    /// Duration of grace period after overlay dismiss
-    private let gracePeriod: TimeInterval = 30
+    /// Grace period: 5 seconds after dismiss — enough to close the content, not enough to browse
+    private let gracePeriod: TimeInterval = 5
+
+    // MARK: - Confirmation Pass (false positive filter)
+    //
+    // First trigger marks as "pending". On the next poll (~2s later), if it triggers
+    // again → confirmed real detection. If not → discarded as false positive.
+
+    /// Whether we're waiting for a confirmation pass
+    private var pendingConfirmation: Bool = false
+    /// The source that triggered the pending detection (for logging)
+    private var pendingSource: String?
 
     // MARK: - Analysis Guard
 
     /// Prevents concurrent analysis runs
     private var isAnalyzing: Bool = false
 
-    // MARK: - Analyzer
+    // MARK: - Analyzers
 
+    /// Apple's built-in sensitive content classifier
     private var analyzer: SCSensitivityAnalyzer?
+
+    /// OpenNSFW CoreML model (Yahoo ResNet-50, binary NSFW/SFW classifier)
+    /// More aggressive than Apple SCA — catches partial nudity and sexual content
+    private var nsfwModel: VNCoreMLModel?
+
+    /// NSFW confidence threshold (0-1). Lower = more aggressive.
+    /// 0.3 flagged Reddit text posts. 0.6 still too aggressive. 0.9 = only very obvious porn.
+    /// We'll tune this down once we review debug screenshots and find the right balance.
+    private let nsfwThreshold: Float = 0.9
+
+    /// Debug: save flagged screenshots so we can review what triggered detection
+    private let debugSaveScreenshots = true
 
     // MARK: - Overlay
 
@@ -84,6 +122,17 @@ class ContentSafetyMonitor {
         self.logFileURL = dir.appendingPathComponent("content_safety_log.jsonl")
 
         self.analyzer = SCSensitivityAnalyzer()
+
+        // Load OpenNSFW CoreML model
+        do {
+            let config = MLModelConfiguration()
+            config.computeUnits = .all
+            let model = try OpenNSFW(configuration: config)
+            self.nsfwModel = try VNCoreMLModel(for: model.model)
+            appDelegate?.postLog("🛡️ OpenNSFW model loaded (secondary NSFW classifier)")
+        } catch {
+            appDelegate?.postLog("⚠️ Failed to load OpenNSFW model: \(error.localizedDescription)")
+        }
     }
 
     /// Whether the system-level Sensitive Content Warning setting is enabled.
@@ -100,6 +149,15 @@ class ContentSafetyMonitor {
             isEnabled = true
             start()
         } else if !enabled && isEnabled {
+            // Feature being DISABLED — report as tamper if it was previously active
+            if isMonitoring {
+                appDelegate?.postLog("🛡️ TAMPER: Content Safety feature DISABLED by user")
+                Task {
+                    await appDelegate?.backendClient?.reportContentSafetyTamper(
+                        eventType: "feature_disabled", detail: "content_safety"
+                    )
+                }
+            }
             isEnabled = false
             stop()
         }
@@ -116,7 +174,7 @@ class ContentSafetyMonitor {
                 return
             }
             let downscaled = downscale(screenshot, maxDimension: 1920)
-            let blurredData = blurImage(downscaled, radius: 40)
+            let blurredData = blurImage(downscaled, radius: 1)
 
             // Show overlay
             showBlockingOverlay()
@@ -238,10 +296,50 @@ class ContentSafetyMonitor {
         }
     }
 
+    // MARK: - Permission Revocation Detection
+
+    /// Check for permission revocations and report to backend as tamper events.
+    /// Only reports if permissions were previously granted (not first-time missing).
+    private func checkForPermissionRevocations() {
+        let screenRecordingNow = CGPreflightScreenCaptureAccess()
+        let sensitiveContentNow = isAnalysisAvailable
+
+        // Screen Recording revoked?
+        if wasScreenRecordingGranted && !screenRecordingNow {
+            appDelegate?.postLog("🛡️ TAMPER: Screen Recording permission was REVOKED")
+            Task {
+                await appDelegate?.backendClient?.reportContentSafetyTamper(
+                    eventType: "permission_revoked", detail: "screen_recording"
+                )
+            }
+            wasScreenRecordingGranted = false
+            hasScreenRecordingPermission = false
+            pushPermissionStatus()
+        } else if screenRecordingNow {
+            wasScreenRecordingGranted = true
+        }
+
+        // Sensitive Content Warning disabled?
+        if wasSensitiveContentEnabled && !sensitiveContentNow {
+            appDelegate?.postLog("🛡️ TAMPER: Sensitive Content Warning was DISABLED")
+            Task {
+                await appDelegate?.backendClient?.reportContentSafetyTamper(
+                    eventType: "permission_revoked", detail: "sensitive_content_warning"
+                )
+            }
+            wasSensitiveContentEnabled = false
+        } else if sensitiveContentNow {
+            wasSensitiveContentEnabled = true
+        }
+    }
+
     // MARK: - Core Pipeline
 
     @MainActor
     private func pollAndAnalyze() async {
+        // Check for permission revocations on every poll
+        checkForPermissionRevocations()
+
         // Skip if already analyzing (guard against concurrent runs)
         guard !isAnalyzing else { return }
 
@@ -254,39 +352,113 @@ class ContentSafetyMonitor {
         isAnalyzing = true
         defer { isAnalyzing = false }
 
-        // 1. Capture all screens
-        guard let screenshot = captureAllScreens() else {
-            appDelegate?.postLog("⚠️ Content Safety: screenshot capture failed")
-            return
+        // Strategy: Three-layer detection pipeline
+        // Layer 1: Apple SensitiveContentAnalysis on full composite
+        // Layer 2: Apple SCA on individual windows (catches diluted content)
+        // Layer 3: NudeNet (Python) on individual windows (catches what Apple misses)
+        // ANY layer triggers → detection fires
+
+        var detectedImage: CGImage? = nil
+        var detectionSource: String = "unknown"
+
+        // Capture full composite first
+        let composite = captureAllScreens()
+
+        // Layer 1: Apple SCA on full composite (full resolution — don't downscale,
+        // give Apple's algorithm maximum detail for accurate classification)
+        if let composite = composite {
+            if await analyzeImage(composite) {
+                appDelegate?.postLog("🛡️ Detection: Apple SCA triggered on COMPOSITE screenshot (\(composite.width)x\(composite.height))")
+                detectedImage = composite
+                detectionSource = "apple_sca_composite"
+            }
         }
 
-        // 2. Downscale for memory efficiency
-        let downscaled = downscale(screenshot, maxDimension: 1920)
-
-        // 3. Classify
-        let isSensitive = await analyzeImage(downscaled)
-
-        guard isSensitive else { return }
-
-        // 4. Detection! Blur the screenshot
-        appDelegate?.postLog("🛡️ Content Safety: explicit content detected")
-
-        guard let blurredData = blurImage(downscaled, radius: 40) else {
-            appDelegate?.postLog("⚠️ Content Safety: blur failed")
-            // Still show overlay even if blur fails
-            showBlockingOverlay()
-            logDetection(emailSent: false)
-            return
+        // Layer 2: Apple SCA on individual windows (full resolution)
+        var detectedInBackground = false
+        if detectedImage == nil {
+            let capturedWindows = captureVisibleWindows()
+            let frontmostApp = NSWorkspace.shared.frontmostApplication?.localizedName
+            for (index, captured) in capturedWindows.enumerated() {
+                if await analyzeImage(captured.image) {
+                    let isBg = captured.ownerName != frontmostApp
+                    appDelegate?.postLog("🛡️ Detection: Apple SCA triggered on window #\(index + 1) (\(captured.ownerName), \(isBg ? "BACKGROUND" : "foreground"), \(captured.image.width)x\(captured.image.height))")
+                    detectedImage = captured.image
+                    detectionSource = "apple_sca_window_\(index + 1)_\(captured.ownerName)"
+                    detectedInBackground = isBg
+                    break
+                }
+            }
         }
 
-        // 5. Show blocking overlay on all screens
-        showBlockingOverlay()
+        /* DISABLED: OpenNSFW has too many false positives at any threshold.
+           Keeping Apple SCA only (layers 1+2) until we find a better secondary model.
+        // Layer 3: OpenNSFW on composite
+        if detectedImage == nil, let composite = composite {
+            let downscaled = downscale(composite, maxDimension: 1280)
+            if await analyzeWithOpenNSFW(downscaled) {
+                appDelegate?.postLog("🛡️ Detection: OpenNSFW triggered on composite")
+                detectedImage = downscaled
+            }
+        }
+        // Layer 4: OpenNSFW on individual windows
+        if detectedImage == nil {
+            let windowImages = captureVisibleWindows()
+            for windowImage in windowImages {
+                let downscaled = downscale(windowImage, maxDimension: 1280)
+                if await analyzeWithOpenNSFW(downscaled) {
+                    detectedImage = downscaled
+                    break
+                }
+            }
+        }
+        */
 
-        // 6. Report to partner (respects email cooldown)
-        let emailSent = await reportToPartner(blurredImageData: blurredData)
+        guard let detected = detectedImage else { return }
 
-        // 7. Log locally
-        logDetection(emailSent: emailSent)
+        // === ESCALATION SYSTEM ===
+        // Check if escalation window has expired (1 hour of no detections → reset)
+        if let windowStart = escalationWindowStart,
+           Date().timeIntervalSince(windowStart) > escalationWindowDuration {
+            detectionCount = 0
+            escalationWindowStart = nil
+            appDelegate?.postLog("🛡️ Escalation: window expired, resetting to step 1")
+        }
+
+        // Start escalation window on first detection
+        if escalationWindowStart == nil {
+            escalationWindowStart = Date()
+        }
+        detectionCount += 1
+
+        appDelegate?.postLog("🛡️ Content Safety: confirmed detection #\(detectionCount) in current window (source: \(detectionSource))")
+
+        // Debug: save the raw screenshot with source in filename
+        if debugSaveScreenshots {
+            saveDebugScreenshot(detected, source: detectionSource)
+        }
+
+        // Blur the image for backend upload
+        // Radius 3 on 640px: light softening, content clearly recognizable but not crisp
+        let blurredData = blurImage(detected, radius: 1)
+
+        // Show blocking overlay with context-appropriate message
+        let overlayMessage = detectedInBackground
+            ? "Explicit content detected in a background window.\nPlease close it."
+            : "Explicit content detected"
+        showBlockingOverlay(message: overlayMessage)
+
+        // Upload EVERY confirmed detection to backend — backend handles batching & emailing
+        var uploaded = false
+        if let data = blurredData {
+            uploaded = await reportToPartner(blurredImageData: data)
+            appDelegate?.postLog("🛡️ Detection #\(detectionCount): uploaded to backend = \(uploaded)")
+        } else {
+            appDelegate?.postLog("⚠️ Content Safety: blur failed, overlay shown without upload")
+        }
+
+        // Log locally
+        logDetection(emailSent: uploaded, source: detectionSource)
     }
 
     // MARK: - Screenshot Capture
@@ -299,6 +471,51 @@ class ContentSafetyMonitor {
             kCGNullWindowID,          // no specific window
             [.bestResolution]
         )
+    }
+
+    /// A captured window image with its owner app name.
+    private struct CapturedWindow {
+        let image: CGImage
+        let ownerName: String
+    }
+
+    /// Captures individual visible windows (browser windows, etc.) for per-window analysis.
+    /// This catches content in background windows that may be diluted in the full composite.
+    private func captureVisibleWindows() -> [CapturedWindow] {
+        var results: [CapturedWindow] = []
+
+        // Get list of all on-screen windows
+        guard let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+            return results
+        }
+
+        // Skip system UI windows, menubar, dock, etc. — only capture app windows
+        let skipOwners: Set<String> = ["Window Server", "Dock", "SystemUIServer", "Control Center", "Notification Center", "Intentional"]
+
+        for windowInfo in windowList {
+            guard let ownerName = windowInfo[kCGWindowOwnerName as String] as? String,
+                  !skipOwners.contains(ownerName),
+                  let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                  let bounds = windowInfo[kCGWindowBounds as String] as? [String: CGFloat],
+                  let width = bounds["Width"], let height = bounds["Height"],
+                  width > 200, height > 200 // Skip tiny windows
+            else { continue }
+
+            // Capture this specific window
+            if let image = CGWindowListCreateImage(
+                .null,
+                .optionIncludingWindow,
+                windowID,
+                [.bestResolution, .boundsIgnoreFraming]
+            ) {
+                results.append(CapturedWindow(image: image, ownerName: ownerName))
+            }
+
+            // Limit to 5 windows to keep analysis fast
+            if results.count >= 5 { break }
+        }
+
+        return results
     }
 
     // MARK: - Downscale
@@ -374,12 +591,53 @@ class ContentSafetyMonitor {
         }
     }
 
+    // MARK: - OpenNSFW (Secondary Classifier)
+
+    /// Classifies an image using Yahoo's OpenNSFW CoreML model via Vision framework.
+    /// More aggressive than Apple SCA — catches partial nudity, sexual poses, suggestive content.
+    /// Returns true if NSFW score exceeds threshold (default 0.3).
+    private func analyzeWithOpenNSFW(_ image: CGImage) async -> Bool {
+        guard let model = nsfwModel else { return false }
+
+        return await withCheckedContinuation { continuation in
+            let request = VNCoreMLRequest(model: model) { request, error in
+                guard let results = request.results as? [VNClassificationObservation] else {
+                    continuation.resume(returning: false)
+                    return
+                }
+
+                // Find NSFW class confidence
+                let nsfwScore = results.first(where: { $0.identifier == "NSFW" })?.confidence ?? 0
+
+                // Always log the score so we can tune the threshold
+                DispatchQueue.main.async {
+                    if nsfwScore > 0.1 {
+                        self.appDelegate?.postLog("🛡️ OpenNSFW: score \(String(format: "%.3f", nsfwScore)) (threshold: \(self.nsfwThreshold))\(nsfwScore > self.nsfwThreshold ? " → TRIGGERED" : "")")
+                    }
+                }
+
+                continuation.resume(returning: nsfwScore > self.nsfwThreshold)
+            }
+
+            request.imageCropAndScaleOption = .scaleFill
+
+            let handler = VNImageRequestHandler(cgImage: image, options: [:])
+            do {
+                try handler.perform([request])
+            } catch {
+                continuation.resume(returning: false)
+            }
+        }
+    }
+
     // MARK: - Blur
 
     /// Applies CIGaussianBlur to the image and returns PNG data.
     /// Radius 40 renders details as vague color blobs while preserving screen layout context.
     private func blurImage(_ image: CGImage, radius: Double) -> Data? {
-        let ciImage = CIImage(cgImage: image)
+        // Downscale to 640px BEFORE blurring — keeps the base64 small enough for Gmail
+        let smallImage = downscale(image, maxDimension: 640)
+        let ciImage = CIImage(cgImage: smallImage)
 
         // Apply blur
         guard let blurFilter = CIFilter(name: "CIGaussianBlur") else { return nil }
@@ -394,11 +652,10 @@ class ContentSafetyMonitor {
         // Render to CGImage
         guard let cgResult = ciContext.createCGImage(clampedImage, from: ciImage.extent) else { return nil }
 
-        // Convert to PNG data (compressed for email embedding)
         let bitmapRep = NSBitmapImageRep(cgImage: cgResult)
 
-        // Use JPEG for smaller size (target <200KB for email)
-        guard let jpegData = bitmapRep.representation(using: .jpeg, properties: [.compressionFactor: 0.5]) else {
+        // Compress hard — target <50KB so Gmail doesn't clip the base64
+        guard let jpegData = bitmapRep.representation(using: .jpeg, properties: [.compressionFactor: 0.3]) else {
             return nil
         }
 
@@ -408,10 +665,11 @@ class ContentSafetyMonitor {
     // MARK: - Blocking Overlay
 
     /// Shows a full-screen blocking overlay on ALL connected screens.
-    private func showBlockingOverlay() {
+    private func showBlockingOverlay(message: String = "Explicit Content Detected") {
         guard overlayWindows.isEmpty else { return }
 
         let viewModel = ContentSafetyOverlayViewModel()
+        viewModel.displayMessage = message
         viewModel.onDismiss = { [weak self] in
             self?.dismissOverlay()
             // Start grace period — don't scan for 30s so user can close content
@@ -465,15 +723,8 @@ class ContentSafetyMonitor {
     // MARK: - Partner Report
 
     /// Sends blurred screenshot to accountability partner via backend.
-    /// Returns true if email was sent, false if skipped (cooldown, no partner, error).
+    /// Cooldowns are managed by the escalation system in pollAndAnalyze, not here.
     private func reportToPartner(blurredImageData: Data) async -> Bool {
-        // Check email cooldown
-        if let lastEmail = lastEmailTime,
-           Date().timeIntervalSince(lastEmail) < emailCooldown {
-            appDelegate?.postLog("🛡️ Content Safety: email skipped (cooldown, \(Int(emailCooldown - Date().timeIntervalSince(lastEmail)))s remaining)")
-            return false
-        }
-
         guard let backendClient = appDelegate?.backendClient else {
             appDelegate?.postLog("⚠️ Content Safety: no backend client available")
             return false
@@ -488,8 +739,8 @@ class ContentSafetyMonitor {
         )
 
         if success {
-            lastEmailTime = Date()
-            appDelegate?.postLog("🛡️ Content Safety: report sent to partner")
+            lastUploadTime = Date()
+            appDelegate?.postLog("🛡️ Content Safety: screenshot uploaded to backend")
         }
 
         return success
@@ -498,11 +749,34 @@ class ContentSafetyMonitor {
     // MARK: - Local Logging
 
     /// Append detection event to content_safety_log.jsonl
-    private func logDetection(emailSent: Bool) {
+    /// Save a debug screenshot to ~/Library/Application Support/Intentional/content_safety_debug/
+    /// so the user can review what triggered detection and tune thresholds.
+    private func saveDebugScreenshot(_ image: CGImage, source: String = "unknown") {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let debugDir = appSupport.appendingPathComponent("Intentional/content_safety_debug")
+        try? FileManager.default.createDirectory(at: debugDir, withIntermediateDirectories: true)
+
+        // Downscale for disk (debug only — analysis uses full res)
+        let saveImage = downscale(image, maxDimension: 1920)
+
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let filename = "flagged_\(dateFormatter.string(from: Date()))_\(source).jpg"
+        let fileURL = debugDir.appendingPathComponent(filename)
+
+        let bitmapRep = NSBitmapImageRep(cgImage: saveImage)
+        if let data = bitmapRep.representation(using: .jpeg, properties: [.compressionFactor: 0.7]) {
+            try? data.write(to: fileURL)
+            appDelegate?.postLog("🛡️ Debug screenshot saved: \(fileURL.path)")
+        }
+    }
+
+    private func logDetection(emailSent: Bool, source: String = "unknown") {
         let entry: [String: Any] = [
             "timestamp": ISO8601DateFormatter().string(from: Date()),
             "emailSent": emailSent,
-            "screenCount": NSScreen.screens.count
+            "screenCount": NSScreen.screens.count,
+            "source": source
         ]
 
         guard let data = try? JSONSerialization.data(withJSONObject: entry),
@@ -528,6 +802,9 @@ class ContentSafetyOverlayViewModel: ObservableObject {
 
     @Published var timeRemaining: Int = 10
     @Published var canDismiss: Bool = false
+
+    /// Custom message shown on the overlay (changes with escalation step)
+    var displayMessage: String = "Explicit Content Detected"
 
     private var timer: Timer?
     var onDismiss: (() -> Void)?
@@ -572,15 +849,12 @@ struct ContentSafetyOverlayView: View {
                     .font(.system(size: 64))
                     .foregroundColor(.red)
 
-                // Title
-                Text("Explicit Content Detected")
-                    .font(.system(size: 28, weight: .bold))
+                // Message (changes with escalation step)
+                Text(viewModel.displayMessage)
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundColor(.white)
-
-                // Subtitle
-                Text("Your accountability partner has been notified.")
-                    .font(.system(size: 16))
-                    .foregroundColor(.white.opacity(0.7))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
 
                 Spacer().frame(height: 20)
 

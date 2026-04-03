@@ -4686,11 +4686,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ===== Distracting Sites Management =====
-var PINNED_SITES = [
-  { domain: 'youtube.com', icon: '▶️', badge: 'Filtering' },
-  { domain: 'instagram.com', icon: '📷', badge: 'Filtering' },
-  { domain: 'facebook.com', icon: '👤', badge: 'Filtering' }
-];
+/* PUCK BRANCH: No pinned sites — everything is user-configured via customDistractingSites */
+var PINNED_SITES = [];
 var customDistractingSites = [];
 var disabledPlatforms = [];
 var alwaysRelevantSites = [];
@@ -4700,37 +4697,7 @@ function renderDistractingSites() {
   if (!list) return;
   list.innerHTML = '';
   var locked = typeof isSettingsLocked === 'function' && isSettingsLocked();
-  PINNED_SITES.forEach(function(site) {
-    if (disabledPlatforms.indexOf(site.domain) !== -1) return; // Skip disabled platforms
-    var div = document.createElement('div');
-    div.className = 'distracting-site pinned';
-
-    var icon = document.createElement('span');
-    icon.className = 'distracting-site-icon';
-    icon.textContent = site.icon;
-    div.appendChild(icon);
-
-    var domainEl = document.createElement('span');
-    domainEl.className = 'distracting-site-domain';
-    domainEl.textContent = site.domain;
-    div.appendChild(domainEl);
-
-    var badge = document.createElement('span');
-    badge.className = 'distracting-site-badge';
-    badge.textContent = site.badge;
-    div.appendChild(badge);
-
-    if (!locked) {
-      var removeBtn = document.createElement('button');
-      removeBtn.className = 'distracting-site-remove';
-      removeBtn.title = 'Remove';
-      removeBtn.textContent = '×';
-      removeBtn.addEventListener('click', function() { disablePinnedSite(site.domain); });
-      div.appendChild(removeBtn);
-    }
-
-    list.appendChild(div);
-  });
+  /* PUCK BRANCH: PINNED_SITES rendering stripped — all sites are user-configurable */
   customDistractingSites.forEach(function(domain) {
     var div = document.createElement('div');
     div.className = 'distracting-site custom';
@@ -5049,13 +5016,14 @@ function syncAllPlatformCollapses() {
   ['yt', 'ig', 'fb'].forEach(togglePlatformSettings);
 }
 
-// ===== Setting Change Handler (debounced save) =====
+// ===== Setting Change Handler =====
+var _settingsLoaded = false; // Set to true after first GET_SETTINGS populates UI — prevents saving HTML defaults over real settings
 var _lockInterceptActive = false; // Set by lock interceptor to suppress normal save
 
 function onSettingChange() {
   if (_lockInterceptActive) return; // Lock interceptor is handling this change
   clearTimeout(settingSaveTimer);
-  settingSaveTimer = setTimeout(saveAllSettings, 800);
+  saveAllSettings();
   // Reset save buttons to "Save" when settings change
   document.querySelectorAll('.save-btn').forEach(function(btn) {
     btn.textContent = 'Save';
@@ -5076,6 +5044,7 @@ function _checked(id, fallback) { var e = _el(id); return e ? e.checked : (fallb
 function _val(id, fallback) { var e = _el(id); return e ? e.value : (fallback !== undefined ? fallback : ''); }
 
 function saveAllSettings() {
+  if (!_settingsLoaded) return; // Don't save until GET_SETTINGS has populated the UI
   // PUCK BRANCH: Platform filtering UI is commented out — use safe defaults
   var ytSettings = {
     enabled: _checked('yt-enabled', false),
@@ -5154,6 +5123,10 @@ function onContentSafetyToggle(enabled) {
 }
 
 window._contentSafetyStatus = function(status) {
+  // Sync toggle to match actual monitor state (authoritative — fixes UI drift)
+  var csToggle = document.getElementById('content-safety-enabled');
+  if (csToggle) csToggle.checked = status.isEnabled;
+
   var statusEl = document.getElementById('content-safety-status');
   var textEl = document.getElementById('content-safety-status-text');
   var testRow = document.getElementById('content-safety-test-row');
@@ -5338,7 +5311,7 @@ function selectTheme(themeId) {
   });
   // Auto-save
   clearTimeout(settingSaveTimer);
-  settingSaveTimer = setTimeout(saveAllSettings, 600);
+  saveAllSettings();
 }
 
 // ===== Sound Tone Picker =====
@@ -5366,7 +5339,7 @@ function selectSoundTone(name) {
   sendMessage({ type: 'PREVIEW_SOUND', sound: name });
   // Auto-save
   clearTimeout(settingSaveTimer);
-  settingSaveTimer = setTimeout(saveAllSettings, 600);
+  saveAllSettings();
 }
 
 // ===== Lock State Machine =====
@@ -6171,6 +6144,7 @@ window._settingsResult = function(data) {
   if (data.userEmail !== undefined) settings.userEmail = data.userEmail || '';
 
   try { populateSettingsUI(data); } catch(e) { console.error('populateSettingsUI error:', e); }
+  _settingsLoaded = true;
   renderLockState();
 };
 
@@ -6824,7 +6798,7 @@ function populateEnforcementSettingsUI(enf) {
 
 function onEnforcementSettingChange() {
   if (enforcementSaveTimer) clearTimeout(enforcementSaveTimer);
-  enforcementSaveTimer = setTimeout(saveEnforcementSettings, 300);
+  saveEnforcementSettings();
 }
 
 function saveEnforcementSettings() {
@@ -6909,7 +6883,7 @@ function renderFocusPage() {
 
 function onGoalBlur() {
   clearTimeout(goalSaveTimer);
-  goalSaveTimer = setTimeout(saveGoals, 500);
+  saveGoals();
 }
 
 function saveGoals() {

@@ -789,6 +789,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         } catch {
             appDelegate?.postLog("⚠️ GET_SETTINGS: JSON serialization failed: \(error)")
         }
+
+        // Also push content safety monitor status so the toggle reflects actual state
+        appDelegate?.contentSafetyMonitor?.pushPermissionStatus()
     }
 
     // MARK: - Save Settings
