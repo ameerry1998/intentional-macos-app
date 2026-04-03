@@ -22,11 +22,72 @@ Focus and productivity app that blocks distracting websites and apps on macOS. C
 - Requires `com.apple.developer.endpoint-security.client` entitlement (2-4 week Apple review)
 - Interim: process monitoring via `NSWorkspace` launch notifications + kill
 
-### Anti-Bypass Strategy
-- **Privileged LaunchDaemon** (root): auto-respawns, survives app deletion, re-applies pf rules
-- **pf firewall rules**: IP-level blocking that persists even if Network Extension is toggled off
-- **Standard user account**: recommended setup — no sudo means no easy bypass of system-level blocks
-- **Screen Time passcode**: held by accountability partner (girlfriend, friend, etc.)
+### Anti-Bypass: Root Daemon Architecture
+
+The app alone can be killed in seconds. To make it tamper-resistant, we use a **root daemon** installed via a PKG installer. Here's how it works:
+
+#### The Revival Chain: `launchd → daemon → app`
+
+```
+launchd (PID 1, unkillable)
+    │
+    │  KeepAlive: true — restarts daemon instantly if killed
+    ▼
+syspolicyd_helper (root daemon at /usr/local/libexec/)
+    │
+    │  Watchdog — checks every 5s, relaunches app if killed
+    ▼
+Intentional.app (user-facing GUI app)
+```
+
+- **`launchd`** is macOS's process manager (PID 1). It cannot be killed. It starts at boot before anything else.
+- **`syspolicyd_helper`** is our daemon, registered with `launchd` via a `LaunchDaemon` plist with `KeepAlive: true`. If someone kills it, `launchd` restarts it within milliseconds. The binary lives at `/usr/local/libexec/syspolicyd_helper` — root-owned, standard users can't touch it.
+- **`Intentional.app`** is the GUI app. If someone force-quits it, the daemon detects this within 5 seconds and relaunches it.
+
+#### What the Daemon Does
+
+| Responsibility | How |
+|---|---|
+| **Watchdog** | If strict mode ON and app not running → restart it |
+| **Config ownership** | Strict mode state stored in `/private/var/intentional/config.json` (root:wheel 700). Standard users can't even read it, let alone modify it. |
+| **Independent heartbeat** | Sends heartbeat to backend every 60s. If heartbeats stop, the backend knows the daemon was killed and alerts the partner. |
+| **Hosts file monitoring** | Watches `/etc/hosts` for DNS tampering (e.g., blocking `api.intentional.social`). Reports to backend immediately. |
+| **Tamper reporting** | Reports app deletion, config tampering, and its own termination to the backend. |
+| **XPC server** | The app communicates with the daemon via XPC (inter-process communication). The app asks the daemon "is strict mode on?" instead of checking UserDefaults (which users can modify). |
+
+#### Why You Can't Bypass It (on a standard account)
+
+| Attack | What Happens |
+|---|---|
+| Kill the app (`pkill`, `kill -9`, force quit) | Daemon restarts it within 5 seconds |
+| Kill the daemon | `launchd` restarts it within milliseconds |
+| Delete the flag file / change UserDefaults | Doesn't matter — daemon owns the config in `/private/var/` |
+| Unload the daemon (`launchctl bootout`) | Requires `sudo` (admin password) |
+| Delete the daemon binary | Requires `sudo` |
+| Edit `/etc/hosts` to block API | Requires `sudo`, AND daemon detects it and reports to backend |
+| Uninstall the app | Use the Uninstaller app, which requires your accountability partner's 6-digit code |
+
+**The key insight:** Every bypass requires `sudo` (the admin password). On a **standard macOS account**, `sudo` is not available. The recommended setup: use a standard account for daily use, with the admin password held by someone else (partner, parent, IT admin).
+
+#### How the PKG Installer Works
+
+Users download a `.pkg` file and double-click it. macOS prompts for an admin password (normal for any Mac software install). The installer:
+
+1. Copies `syspolicyd_helper` to `/usr/local/libexec/` (root-owned)
+2. Installs the LaunchDaemon plist to `/Library/LaunchDaemons/` (root-owned)
+3. Installs a LaunchAgent plist to `/Library/LaunchAgents/` (auto-starts the app on login)
+4. Creates `/private/var/intentional/` for root-owned config
+5. Loads the daemon — it starts immediately and runs forever
+
+#### Implementation Status
+
+| Phase | Status | Description |
+|---|---|---|
+| Phase 1: Daemon binary | **Done** | Xcode target `syspolicyd_helper` — builds, has XPC listener, watchdog, heartbeat, hosts watcher |
+| Phase 2: Wire app to daemon | Next | App asks daemon for strict mode state via XPC, falls back to UserDefaults if daemon not running |
+| Phase 3: PKG build script | Not started | `pkgbuild` + `productbuild` + code signing + notarization |
+| Phase 4: Uninstaller app | Not started | Separate app that requires partner's 6-digit code to remove everything |
+| Phase 5: Testing | Not started | Test all attack vectors on a standard account |
 
 ## Entitlements & Permissions
 

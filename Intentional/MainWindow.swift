@@ -1371,13 +1371,13 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             }
         }
 
-        // Save preference
+        // Save to UserDefaults (fallback) and settings file
         UserDefaults.standard.set(enabled, forKey: "strictModeEnabled")
         updateSettingsFile { settings in
             settings["strictModeEnabled"] = enabled
         }
 
-        // Apply strict mode (login item, watchdog, flag file)
+        // Apply strict mode — syncs to daemon (if available) + fallback mechanisms
         appDelegate?.updateStrictMode()
 
         callJS("window._strictModeResult && window._strictModeResult({ success: true, enabled: \(enabled) })")

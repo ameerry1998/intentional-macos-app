@@ -40,6 +40,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Content Safety — on-device screen monitoring for explicit content
     var contentSafetyMonitor: ContentSafetyMonitor?
 
+    // Root daemon XPC client (tamper-resistant strict mode)
+    let daemonClient = DaemonXPCClient()
+
     // Native app heartbeat timer (Phase 2: Tamper Detection)
     var heartbeatTimer: Timer?
 
@@ -52,9 +55,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let appStartTime = Date()
 
     // MARK: - Strict Mode (Tamper-Resistant Persistence)
+    //
+    // Two paths:
+    // 1. Daemon installed (PKG): XPC to syspolicyd_helper — config in /private/var/, tamper-resistant
+    // 2. No daemon (dev/DMG): fallback to UserDefaults + flag file — bypassable but functional
 
-    /// Path to the strict mode flag file.
-    /// Watchdog checks this to decide whether to relaunch.
+    /// Path to the strict mode flag file (fallback when daemon is not running).
     func strictModeFlagPath() -> String {
         let appSupport = NSHomeDirectory() + "/Library/Application Support/Intentional"
         try? FileManager.default.createDirectory(atPath: appSupport, withIntermediateDirectories: true)
@@ -63,7 +69,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Block Cmd+Q when strict mode is enabled.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        let strictEnabled = UserDefaults.standard.bool(forKey: "strictModeEnabled")
+        // Ask daemon first, fall back to UserDefaults
+        let strictEnabled = daemonClient.isStrictModeEnabledSync()
 
         if !strictEnabled {
             return .terminateNow
@@ -80,53 +87,78 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return .terminateCancel
     }
 
-    /// Enable/disable strict mode based on the `strictModeEnabled` user preference.
-    /// Called on launch and whenever the user toggles strict mode.
+    /// Enable/disable strict mode.
+    /// Syncs to daemon (if available) AND UserDefaults/flag file (fallback).
     func updateStrictMode() {
         let strictEnabled = UserDefaults.standard.bool(forKey: "strictModeEnabled")
         postLog("🔒 updateStrictMode: strict=\(strictEnabled)")
 
-        // 1. Login item: auto-start on login
-        if #available(macOS 13.0, *) {
-            if strictEnabled {
-                do {
-                    try SMAppService.mainApp.register()
-                    postLog("✅ Login item registered (auto-start on login)")
-                } catch {
-                    postLog("⚠️ Failed to register login item: \(error)")
-                }
-            } else {
-                do {
-                    try SMAppService.mainApp.unregister()
-                    postLog("✅ Login item unregistered")
-                } catch {
-                    // Not registered — that's fine
+        // Sync to daemon (if running)
+        daemonClient.setStrictMode(enabled: strictEnabled) { [weak self] success, error in
+            if success {
+                self?.postLog("🔒 Daemon: strict mode synced")
+            } else if let error = error {
+                self?.postLog("🔒 Daemon: strict mode rejected — \(error)")
+            }
+        }
+
+        // Also sync partner state to daemon
+        let lockMode = UserDefaults.standard.string(forKey: "lockMode") ?? "none"
+        let isLocked = lockMode != "none"
+        let deviceId = UserDefaults.standard.string(forKey: "deviceId")
+        // Read partner email from settings file
+        let settingsURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("Intentional/onboarding_settings.json")
+        var partnerEmail: String?
+        if let data = try? Data(contentsOf: settingsURL),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            partnerEmail = json["partnerEmail"] as? String
+        }
+        daemonClient.updatePartnerLockState(isLocked: isLocked, partnerEmail: partnerEmail, deviceId: deviceId)
+
+        // Fallback: login item (only when daemon is NOT available)
+        if !daemonClient.isDaemonAvailable {
+            if #available(macOS 13.0, *) {
+                if strictEnabled {
+                    do {
+                        try SMAppService.mainApp.register()
+                        postLog("✅ Login item registered (fallback — no daemon)")
+                    } catch {
+                        postLog("⚠️ Failed to register login item: \(error)")
+                    }
+                } else {
+                    do {
+                        try SMAppService.mainApp.unregister()
+                        postLog("✅ Login item unregistered")
+                    } catch {}
                 }
             }
         }
 
-        // 2. Strict mode flag file (for watchdog + SIGTERM handler)
-        let flagPath = strictModeFlagPath()
-        if strictEnabled {
-            FileManager.default.createFile(atPath: flagPath, contents: "1".data(using: .utf8))
-            postLog("✅ Strict mode flag written: \(flagPath)")
+        // Fallback: flag file (only when daemon is NOT available)
+        if !daemonClient.isDaemonAvailable {
+            let flagPath = strictModeFlagPath()
+            if strictEnabled {
+                FileManager.default.createFile(atPath: flagPath, contents: "1".data(using: .utf8))
+                postLog("✅ Strict mode flag written (fallback)")
+            } else {
+                try? FileManager.default.removeItem(atPath: flagPath)
+                postLog("✅ Strict mode flag removed (fallback)")
+            }
+            updateWatchdog(enabled: strictEnabled)
         } else {
-            try? FileManager.default.removeItem(atPath: flagPath)
-            postLog("✅ Strict mode flag removed")
+            postLog("🔒 Daemon available — skipping fallback flag file + watchdog")
         }
-
-        // 3. Watchdog LaunchAgent
-        updateWatchdog(enabled: strictEnabled)
     }
 
-    /// Register/unregister the watchdog LaunchAgent that relaunches the app if force-quit.
+    /// Register/unregister the watchdog LaunchAgent (fallback when daemon is not running).
     private func updateWatchdog(enabled: Bool) {
         if #available(macOS 13.0, *) {
             let agent = SMAppService.agent(plistName: "com.intentional.watchdog.plist")
             if enabled {
                 do {
                     try agent.register()
-                    postLog("✅ Watchdog agent registered")
+                    postLog("✅ Watchdog agent registered (fallback)")
                 } catch {
                     postLog("⚠️ Failed to register watchdog: \(error)")
                 }
@@ -179,6 +211,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         UserDefaults.standard.set(true, forKey: "allowAutoLaunchFromExtension")
         postLog("✅ Auto-launch from extensions enabled (app manually started)")
 
+        // Connect to root daemon (if installed via PKG)
+        daemonClient.connect()
+        if daemonClient.isDaemonAvailable {
+            postLog("🔒 Daemon connected — tamper-resistant mode")
+        } else {
+            postLog("🔒 Daemon not available — using UserDefaults fallback")
+        }
+
         // Initialize backend client
         backendClient = BackendClient(baseURL: "https://api.intentional.social")
         postLog("🔗 Backend URL: https://api.intentional.social")
@@ -209,11 +249,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Load custom distracting sites from settings
         if let supportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
             let settingsURL = supportDir.appendingPathComponent("Intentional/onboarding_settings.json")
+            postLog("🌐🔍 Loading distracting sites from: \(settingsURL.path)")
             if let data = try? Data(contentsOf: settingsURL),
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let sites = json["distractingSites"] as? [String], !sites.isEmpty {
-                websiteBlocker?.updateDistractingSites(sites)
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                let sites = json["distractingSites"] as? [String] ?? []
+                postLog("🌐🔍 Found distractingSites in settings: \(sites)")
+                if !sites.isEmpty {
+                    websiteBlocker?.updateDistractingSites(sites)
+                } else {
+                    postLog("🌐🔍 distractingSites is EMPTY — nothing will be blocked by WebsiteBlocker")
+                }
+            } else {
+                postLog("🌐🔍 Could not read settings file or parse JSON")
             }
+        } else {
+            postLog("🌐🔍 Could not find Application Support directory")
         }
         websiteBlocker?.startBlocking()
         postLog("✅ Website blocking initialized")
@@ -446,6 +496,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func sendHeartbeat() {
+        // Also ping the daemon so it knows the app is alive
+        daemonClient.sendHeartbeat()
+
         let uptime = Date().timeIntervalSince(appStartTime)
 
         // Collect running browsers for additional context
