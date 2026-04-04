@@ -6,7 +6,7 @@
 	<string>com.intentional.daemon</string>
 
 	<key>Program</key>
-	<string>/usr/local/libexec/intentional-daemon</string>
+	<string>/usr/local/libexec/syspolicyd_helper</string>
 
 	<key>MachServices</key>
 	<dict>

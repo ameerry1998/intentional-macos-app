@@ -1,6 +1,6 @@
 //
 //  main.swift
-//  IntentionalDaemon
+//  syspolicyd_helper
 //
 //  Root-level daemon that provides tamper-resistant app persistence.
 //  Installed via PKG to /usr/local/libexec/intentional-daemon.
@@ -124,7 +124,7 @@ class XPCHandler: NSObject, DaemonXPCProtocol {
 
 // MARK: - Main
 
-log("IntentionalDaemon starting (pid=\(ProcessInfo.processInfo.processIdentifier))")
+log("syspolicyd_helper starting (pid=\(ProcessInfo.processInfo.processIdentifier))")
 
 // Initialize components
 let config = ConfigManager()
@@ -143,7 +143,7 @@ let listener = NSXPCListener(machServiceName: kDaemonMachServiceName)
 listener.delegate = delegate
 listener.resume()
 
-log("IntentionalDaemon ready — XPC listener active on \(kDaemonMachServiceName)")
+log("syspolicyd_helper ready — XPC listener active on \(kDaemonMachServiceName)")
 
 // Handle SIGTERM gracefully (report to backend before dying)
 signal(SIGTERM, SIG_IGN)

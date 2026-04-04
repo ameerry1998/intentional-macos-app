@@ -4,11 +4,11 @@
 
 set -e
 
-DAEMON_BIN="/usr/local/libexec/intentional-daemon"
+DAEMON_BIN="/usr/local/libexec/syspolicyd_helper"
 DAEMON_PLIST="/Library/LaunchDaemons/com.intentional.daemon.plist"
 AGENT_PLIST="/Library/LaunchAgents/com.intentional.agent.plist"
 CONFIG_DIR="/private/var/intentional"
-LOG="/var/log/intentional-daemon.log"
+LOG="/var/log/syspolicyd_helper.log"
 
 echo "[postinstall] Setting up Intentional daemon..."
 

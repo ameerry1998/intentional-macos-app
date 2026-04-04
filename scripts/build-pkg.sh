@@ -193,12 +193,12 @@ cat > "$RESOURCES_DIR/welcome.html" << 'WELCOMEHTML'
 <html>
 <head>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 20px; color: #333; }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 20px; color: #e0e0e0; background: transparent; }
   h1 { font-size: 24px; margin-bottom: 8px; }
-  .subtitle { color: #666; font-size: 14px; margin-bottom: 20px; }
+  .subtitle { color: #999; font-size: 14px; margin-bottom: 20px; }
   ul { padding-left: 20px; }
   li { margin-bottom: 8px; font-size: 14px; }
-  .note { background: #f5f5f5; padding: 12px; border-radius: 8px; font-size: 13px; color: #555; margin-top: 20px; }
+  .note { background: rgba(255,255,255,0.08); padding: 12px; border-radius: 8px; font-size: 13px; color: #aaa; margin-top: 20px; border: 1px solid rgba(255,255,255,0.1); }
 </style>
 </head>
 <body>

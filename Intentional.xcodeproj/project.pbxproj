@@ -3,13 +3,14 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		343A70ED2F4713C200030ED8 /* com.intentional.watchdog.plist in Resources */ = {isa = PBXBuildFile; fileRef = 343A70EC2F4713C100030ED8 /* com.intentional.watchdog.plist */; };
 		343A70EF2F47140400030ED8 /* com.intentional.watchdog.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 343A70EC2F4713C100030ED8 /* com.intentional.watchdog.plist */; };
 		343A70F32F4AA13800030ED8 /* EarnedBrowseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 343A70F22F4AA13800030ED8 /* EarnedBrowseManager.swift */; };
+		34BADA5F2F8088BA009A82C6 /* DaemonXPCClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34BADA5E2F8088BA009A82C6 /* DaemonXPCClient.swift */; };
 		A1000001000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000001 /* AppDelegate.swift */; };
 		A1000003000000000000001 /* SleepWakeMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000004000000000000001 /* SleepWakeMonitor.swift */; };
 		A1000005000000000000001 /* ProcessMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000006000000000000001 /* ProcessMonitor.swift */; };
@@ -44,6 +45,7 @@
 		A1000070000000000000028 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000071000000000000028 /* Assets.xcassets */; };
 		A1000072000000000000029 /* sidebar-fabric.png in Resources */ = {isa = PBXBuildFile; fileRef = A1000073000000000000029 /* sidebar-fabric.png */; };
 		A1000076000000000000031 /* ContentSafetyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000077000000000000031 /* ContentSafetyMonitor.swift */; };
+		A1000081000000000000033 /* OpenNSFW.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = A1000080000000000000033 /* OpenNSFW.mlmodel */; };
 		A100F0C0000000000000001 /* focus-blocked.html in Resources */ = {isa = PBXBuildFile; fileRef = A100F0C1000000000000001 /* focus-blocked.html */; };
 		A2000001000000000000001 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = A2000003000000000000001 /* MLXLLM */; };
 		A2000002000000000000001 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = A2000004000000000000001 /* MLXLMCommon */; };
@@ -74,6 +76,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		34BADA452F807629009A82C6 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		FE00000F000000000000001 /* Embed System Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -90,6 +101,8 @@
 /* Begin PBXFileReference section */
 		343A70EC2F4713C100030ED8 /* com.intentional.watchdog.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.intentional.watchdog.plist; sourceTree = "<group>"; };
 		343A70F22F4AA13800030ED8 /* EarnedBrowseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EarnedBrowseManager.swift; sourceTree = "<group>"; };
+		34BADA472F807629009A82C6 /* syspolicyd_helper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = syspolicyd_helper; sourceTree = BUILT_PRODUCTS_DIR; };
+		34BADA5E2F8088BA009A82C6 /* DaemonXPCClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonXPCClient.swift; sourceTree = "<group>"; };
 		A1000000000000000000001 /* Intentional.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Intentional.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000002000000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A1000004000000000000001 /* SleepWakeMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepWakeMonitor.swift; sourceTree = "<group>"; };
@@ -126,6 +139,7 @@
 		A1000071000000000000028 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A1000073000000000000029 /* sidebar-fabric.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "sidebar-fabric.png"; sourceTree = "<group>"; };
 		A1000077000000000000031 /* ContentSafetyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentSafetyMonitor.swift; sourceTree = "<group>"; };
+		A1000080000000000000033 /* OpenNSFW.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = OpenNSFW.mlmodel; sourceTree = "<group>"; };
 		A100F0C1000000000000001 /* focus-blocked.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "focus-blocked.html"; sourceTree = "<group>"; };
 		FE000002000000000000001 /* FilterExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = FilterExtension.appex; path = FilterExtension.systemextension; sourceTree = BUILT_PRODUCTS_DIR; };
 		FE000003000000000000001 /* FilterDataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterDataProvider.swift; sourceTree = "<group>"; };
@@ -135,7 +149,28 @@
 		FE000014000000000000001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		34BADA5D2F8087D1009A82C6 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				DaemonXPCProtocol.swift,
+			);
+			target = A1000014000000000000001 /* Intentional */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		34BADA482F807629009A82C6 /* syspolicyd_helper */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (34BADA5D2F8087D1009A82C6 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = syspolicyd_helper; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
 /* Begin PBXFrameworksBuildPhase section */
+		34BADA442F807629009A82C6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A1000010000000000000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -160,6 +195,7 @@
 			children = (
 				A1000012000000000000001 /* Intentional */,
 				FE000006000000000000001 /* FilterExtension */,
+				34BADA482F807629009A82C6 /* syspolicyd_helper */,
 				A1000013000000000000001 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -170,6 +206,7 @@
 				343A70EC2F4713C100030ED8 /* com.intentional.watchdog.plist */,
 				A1000012000000000000002 /* main.swift */,
 				A1000002000000000000001 /* AppDelegate.swift */,
+				34BADA5E2F8088BA009A82C6 /* DaemonXPCClient.swift */,
 				A1000011000000000000002 /* MainWindow.swift */,
 				A1000004000000000000001 /* SleepWakeMonitor.swift */,
 				A1000006000000000000001 /* ProcessMonitor.swift */,
@@ -195,6 +232,7 @@
 				A1000065000000000000025 /* BlockRitualController.swift */,
 				A1000067000000000000026 /* BlockEndRitualController.swift */,
 				A1000077000000000000031 /* ContentSafetyMonitor.swift */,
+				A1000080000000000000033 /* OpenNSFW.mlmodel */,
 				A1000047000000000000016 /* LegacyMonitorView.swift */,
 				A1000018000000000000004 /* blocked.html */,
 				A100F0C1000000000000001 /* focus-blocked.html */,
@@ -215,6 +253,7 @@
 			children = (
 				A1000000000000000000001 /* Intentional.app */,
 				FE000002000000000000001 /* FilterExtension.appex */,
+				34BADA472F807629009A82C6 /* syspolicyd_helper */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -233,6 +272,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		34BADA462F807629009A82C6 /* syspolicyd_helper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 34BADA4D2F807629009A82C6 /* Build configuration list for PBXNativeTarget "syspolicyd_helper" */;
+			buildPhases = (
+				34BADA432F807629009A82C6 /* Sources */,
+				34BADA442F807629009A82C6 /* Frameworks */,
+				34BADA452F807629009A82C6 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				34BADA482F807629009A82C6 /* syspolicyd_helper */,
+			);
+			name = syspolicyd_helper;
+			packageProductDependencies = (
+			);
+			productName = syspolicyd_helper;
+			productReference = 34BADA472F807629009A82C6 /* syspolicyd_helper */;
+			productType = "com.apple.product-type.tool";
+		};
 		A1000014000000000000001 /* Intentional */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A1000015000000000000001 /* Build configuration list for PBXNativeTarget "Intentional" */;
@@ -280,9 +341,13 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1500;
+				LastSwiftUpdateCheck = 2600;
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
+					34BADA462F807629009A82C6 = {
+						CreatedOnToolsVersion = 26.0.1;
+						LastSwiftMigration = 2600;
+					};
 					A1000014000000000000001 = {
 						CreatedOnToolsVersion = 15.0;
 					};
@@ -306,6 +371,7 @@
 			targets = (
 				A1000014000000000000001 /* Intentional */,
 				FE000007000000000000001 /* FilterExtension */,
+				34BADA462F807629009A82C6 /* syspolicyd_helper */,
 			);
 		};
 /* End PBXProject section */
@@ -330,6 +396,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		34BADA432F807629009A82C6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A1000016000000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -347,6 +420,7 @@
 				343A70F32F4AA13800030ED8 /* EarnedBrowseManager.swift in Sources */,
 				A1000007000000000000001 /* BackendClient.swift in Sources */,
 				A1000031000000000000008 /* NativeMessagingHost.swift in Sources */,
+				34BADA5F2F8088BA009A82C6 /* DaemonXPCClient.swift in Sources */,
 				A1000033000000000000009 /* NativeMessagingSetup.swift in Sources */,
 				A1000035000000000000010 /* TimeTracker.swift in Sources */,
 				A1000040000000000000013 /* SocketRelayServer.swift in Sources */,
@@ -361,6 +435,7 @@
 				A1000064000000000000025 /* BlockRitualController.swift in Sources */,
 				A1000066000000000000026 /* BlockEndRitualController.swift in Sources */,
 				A1000076000000000000031 /* ContentSafetyMonitor.swift in Sources */,
+				A1000081000000000000033 /* OpenNSFW.mlmodel in Sources */,
 				A1000046000000000000016 /* LegacyMonitorView.swift in Sources */,
 				FE000012000000000000001 /* FilterManager.swift in Sources */,
 			);
@@ -386,6 +461,39 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		34BADA4B2F807629009A82C6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = B7B67856A7;
+				ENABLE_HARDENED_RUNTIME = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "syspolicyd_helper/syspolicyd_helper-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		34BADA4C2F807629009A82C6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = B7B67856A7;
+				ENABLE_HARDENED_RUNTIME = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "syspolicyd_helper/syspolicyd_helper-Bridging-Header.h";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 		A1000020000000000000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -617,6 +725,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		34BADA4D2F807629009A82C6 /* Build configuration list for PBXNativeTarget "syspolicyd_helper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				34BADA4B2F807629009A82C6 /* Debug */,
+				34BADA4C2F807629009A82C6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		A1000015000000000000001 /* Build configuration list for PBXNativeTarget "Intentional" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

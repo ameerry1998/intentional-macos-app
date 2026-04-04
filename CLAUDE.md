@@ -465,10 +465,23 @@ On LLM parse error: `relevant = false`, `confidence = 0`. This ensures broken AI
 Opt-in on-device screen monitoring for explicit/nude content. Independent of the focus schedule — always-on when enabled.
 
 ### How It Works
-1. Polls every 10s: `CGWindowListCreateImage(CGRect.null, ...)` captures ALL screens as one composite
-2. Downscales to max 1920px (CILanczosScaleTransform) for memory efficiency
+1. Polls every 10s via Timer
+2. **Two-pass capture strategy:**
+   - **Pass 1**: `CGWindowListCreateImage(CGRect.null, ...)` captures ALL screens as one composite → downscale to 1920px → classify
+   - **Pass 2**: If composite doesn't trigger, captures up to 5 individual visible windows via `CGWindowListCreateImage(.optionIncludingWindow, windowID)` → downscale to 1280px → classify each. This catches content in background windows that gets diluted in the full composite.
 3. Classifies via `SensitiveContentAnalysis` framework (macOS 14+, Apple's on-device classifier)
 4. On detection: blocks all screens with overlay, blurs screenshot, emails partner
+
+### Detection Limitations & Improvement Plan
+**Apple's `SensitiveContentAnalysis` has a HIGH threshold** — designed for Communication Safety (kids), not aggressive porn detection. It misses:
+- Sexual content where nudity isn't full-frontal
+- Partially clothed sexual content
+- Small images in large composite screenshots (mitigated by per-window capture)
+
+**Planned improvements:**
+- **Secondary CoreML NSFW model** (e.g., OpenNSFW ~5MB) as a second classifier. Either model triggers → detection fires.
+- **Porn domain blocklist** — URL-level blocking of known adult domains (catches 90% before screenshot analysis needed)
+- **Incognito window detection** — detect when Chrome opens incognito (AppleScript can read window properties)
 
 ### Requirements
 - **Screen Recording permission** — requested via `CGRequestScreenCaptureAccess()` when user enables the feature
@@ -478,7 +491,7 @@ Opt-in on-device screen monitoring for explicit/nude content. Independent of the
 ### Enforcement
 - Full-screen blocking overlay on ALL monitors (`NSScreen.screens` loop, `.screenSaver` level)
 - 10-second mandatory wait before "I understand" dismiss button activates
-- 30-second grace period after dismiss (no scanning, let user close content)
+- 3-second grace period after dismiss (prevents instant re-trigger, not enough to browse)
 - 5-minute email cooldown between partner notifications
 
 ### Settings
@@ -715,3 +728,44 @@ The 800ms debounce on `onSettingChange()` causes settings to be lost if the user
 - Need to call `filterManager.activateFilter()` on app launch to install the System Extension
 - Need to connect the distracting sites blocklist to the filter's App Group shared container
 - This replaces the AppleScript-based WebsiteBlocker with system-level blocking across all browsers
+
+### Content Safety: Secondary NSFW Classifier
+Apple's `SensitiveContentAnalysis` has a high threshold and misses a lot of sexual content. Need a secondary classifier:
+- **CoreML NSFW model** (OpenNSFW or similar, ~5MB) as second pass
+- Either classifier triggers → detection fires
+- Specifically trained for adult content detection, much more sensitive than Apple's general-purpose classifier
+
+### Content Safety: Porn Domain Blocklist
+URL-level blocking of known adult domains — catches 90% of porn before screenshot analysis is needed:
+- Maintain a blocklist of known adult domains (thousands of entries)
+- Block at WebsiteBlocker/NEFilterDataProvider level
+- Update periodically from a maintained list
+
+### Anti-Tamper: MUST FIX BEFORE SHIPPING (Inspired by Covenant Eyes)
+
+**Current vulnerability:** Strict mode can be bypassed in 3 Terminal commands:
+1. `rm ~/Library/Application Support/Intentional/strict-mode` (removes flag file)
+2. `defaults write ... strictModeEnabled false` (flips UserDefaults)
+3. `pkill Intentional` (kills the app, watchdog won't relaunch without flag file)
+
+**Root cause:** Flag file and UserDefaults are in user-writable paths. Watchdog is a LaunchAgent (user-level), not a LaunchDaemon (root-level).
+
+**Required fix (pre-ship):**
+1. **PKG installer** — installs to `/Library/LaunchDaemons/` and `/usr/local/libexec/` (system paths, requires admin password to modify). Runs for ALL macOS user accounts.
+2. **LaunchDaemon** (root) with `KeepAlive: true` — replaces the current LaunchAgent watchdog. `launchd` restarts the process instantly if killed (not 10s polling).
+3. **Flag file in `/private/var/`** — root-owned, user can't delete without `sudo`.
+4. **Hosts file watcher** — detects if someone adds `127.0.0.1 api.intentional.social` to `/etc/hosts` to bypass backend.
+5. **Uninstall requires partner code** — PKG uninstaller app (like CE's) that requires the accountability partner's approval code.
+
+**Reference implementation:** Covenant Eyes VictoryShield DMG analyzed — see their LaunchDaemon plists:
+- `com.Cvnt.daemon.plist`: root daemon with `KeepAlive` + `WatchPaths`
+- `com.Cvnt.start.plist`: LaunchAgent with `KeepAlive: true` + `RunAtLoad: true`
+- `com.cvnt.ceclassifierd.plist`: separate root classifier Mach service
+- `com.cvnt.cehostsd.plist`: watches `/etc/hosts` for DNS tampering
+
+### Puck Branch: Website Blocking Changes
+- **No hardcoded blocked domains** — `WebsiteBlocker.coreDomains` removed. Entirely user-configured via dashboard Distracting Websites list.
+- **No PINNED_SITES in dashboard** — all sites shown in one flat user-editable list
+- **BrowserMonitor reports ALL browsers** to WebsiteBlocker — extension-installed browsers are NOT exempt from blocking (extension is sensing-only in puck branch)
+- **blocked.html** shows "This site is blocked during focus time" instead of "Install Extension" nag
+- **Extension puck branch** — ~3,890 lines of blocking code commented out. Keeps ML classification, DOM extraction, native messaging. Strips all UI overlays, session timers, intent prompts, zen screens.

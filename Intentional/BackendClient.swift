@@ -1143,4 +1143,36 @@ class BackendClient {
 
         return false
     }
+
+    /// Report a tamper event (permission revoked or feature disabled).
+    /// Backend notifies the accountability partner.
+    func reportContentSafetyTamper(eventType: String, detail: String) async {
+        let endpoint = "\(baseURL)/content-safety/tamper"
+
+        guard let url = URL(string: endpoint) else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        let payload: [String: Any] = [
+            "event_type": eventType,
+            "detail": detail,
+            "timestamp": ISO8601DateFormatter().string(from: Date())
+        ]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (_, response) = try await URLSession.shared.data(for: request)
+
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                appDelegate?.postLog("🛡️ Tamper event reported: \(eventType)/\(detail)")
+            }
+        } catch {
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            appDelegate?.postLog("⚠️ Tamper report error: \(error.localizedDescription)")
+        }
+    }
 }

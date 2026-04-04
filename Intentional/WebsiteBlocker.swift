@@ -19,20 +19,10 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     private var monitorTimer: Timer?
     private let checkInterval: TimeInterval = 0.5  // Check every 0.5 seconds for faster blocking
 
-    // Core domains (always blocked when pool exhausted)
-    private let coreDomains = [
-        "youtube.com",
-        "www.youtube.com",
-        "m.youtube.com",
-        "instagram.com",
-        "www.instagram.com",
-        "m.instagram.com",
-        "facebook.com",
-        "www.facebook.com",
-        "m.facebook.com"
-    ]
+    // PUCK BRANCH: No hardcoded core domains — entirely user-configured via Distracting Websites list.
+    // Default suggestions are pre-populated in the dashboard UI, but the user controls the list.
 
-    // Dynamic blocked domains (core + custom distracting sites)
+    // Blocked domains (fully user-configured via dashboard Distracting Websites list)
     private var blockedDomains: [String]
 
     // Custom blocking page URL (will be in app bundle)
@@ -80,14 +70,18 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     init(backendClient: BackendClient, appDelegate: AppDelegate) {
         self.backendClient = backendClient
         self.appDelegate = appDelegate
-        self.blockedDomains = coreDomains
+        self.blockedDomains = []
         super.init()
+        appDelegate.postLog("🌐🔍 WebsiteBlocker.init: blockedDomains is EMPTY (waiting for updateDistractingSites call)")
         setupNotifications()
     }
 
-    /// Update blocked domains with custom distracting sites (in addition to core domains)
+    /// Update blocked domains — this is the sole source of truth.
+    /// Called from MainWindow.handleSaveSettings when user updates their Distracting Websites list.
+    /// Also called from AppDelegate on launch when loading from settings file.
     func updateDistractingSites(_ sites: [String]) {
-        var allDomains = coreDomains
+        appDelegate?.postLog("🌐🔍 updateDistractingSites CALLED with \(sites.count) sites: \(sites)")
+        var allDomains: [String] = []
         for site in sites {
             let base = site.lowercased()
             if !allDomains.contains(base) {
@@ -96,8 +90,20 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
                 allDomains.append("m." + base)
             }
         }
+        let oldCount = blockedDomains.count
         blockedDomains = allDomains
-        appDelegate?.postLog("🌐 WebsiteBlocker: Updated domains (\(allDomains.count) total, \(sites.count) custom)")
+        appDelegate?.postLog("🌐🔍 WebsiteBlocker: blockedDomains updated: \(oldCount) → \(allDomains.count) domains from \(sites.count) user sites")
+        appDelegate?.postLog("🌐🔍 WebsiteBlocker: full domain list: \(allDomains)")
+    }
+
+    /// Log current blocking state (for debugging)
+    func logBlockingState() {
+        appDelegate?.postLog("🌐🔍 === WebsiteBlocker STATE ===")
+        appDelegate?.postLog("🌐🔍   isBlocking: \(isBlocking)")
+        appDelegate?.postLog("🌐🔍   blockedDomains count: \(blockedDomains.count)")
+        appDelegate?.postLog("🌐🔍   blockedDomains: \(blockedDomains)")
+        appDelegate?.postLog("🌐🔍   activeBrowsers: \(activeBrowsers)")
+        appDelegate?.postLog("🌐🔍 === END STATE ===")
     }
 
     // MARK: - Notifications Setup
@@ -213,6 +219,7 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
 
     func startBlocking() {
         appDelegate?.postLog("🛡️ Starting website blocking via AppleScript...")
+        logBlockingState()
 
         // Start tab monitoring
         monitorTimer = Timer.scheduledTimer(withTimeInterval: checkInterval, repeats: true) { [weak self] _ in
@@ -980,7 +987,6 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
 
     private func shouldBlock(url: String) -> Bool {
         // Don't block our own blocking page (prevents infinite recursion)
-        // Check for file:// scheme, blocked.html, blocked= query param, or /Contents/Resources/ path
         let lowercasedURL = url.lowercased()
         if lowercasedURL.hasPrefix("file://") ||
            lowercasedURL.contains("blocked.html") ||
@@ -989,21 +995,29 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
             return false
         }
 
-        // Parse URL to extract just the host (not query params)
-        // This prevents matching "youtube.com" in query strings
-        guard let urlObj = URL(string: url),
-              let host = urlObj.host?.lowercased() else {
-            // Fallback: if URL parsing fails, do simple check but exclude query strings
-            let urlWithoutQuery = url.components(separatedBy: "?").first ?? url
-            return blockedDomains.contains { domain in
-                urlWithoutQuery.lowercased().contains(domain)
-            }
+        // If no blocked domains configured, never block
+        if blockedDomains.isEmpty {
+            appDelegate?.postLog("🌐🔍 shouldBlock(\(url)): NO — blockedDomains is EMPTY")
+            return false
         }
 
-        // Check if the host matches any blocked domain
-        return blockedDomains.contains { domain in
+        guard let urlObj = URL(string: url),
+              let host = urlObj.host?.lowercased() else {
+            let urlWithoutQuery = url.components(separatedBy: "?").first ?? url
+            let result = blockedDomains.contains { domain in
+                urlWithoutQuery.lowercased().contains(domain)
+            }
+            appDelegate?.postLog("🌐🔍 shouldBlock(\(url)): \(result ? "YES" : "NO") (fallback parse, host=nil, \(blockedDomains.count) domains)")
+            return result
+        }
+
+        let result = blockedDomains.contains { domain in
             host == domain || host.hasSuffix("." + domain)
         }
+        if result {
+            appDelegate?.postLog("🌐🔍 shouldBlock(\(url)): YES — host '\(host)' matched in \(blockedDomains.count) domains")
+        }
+        return result
     }
 
     private func getSafeDomain(from url: String) -> String {

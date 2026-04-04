@@ -44,10 +44,18 @@ class PermissionManager: NSObject {
         // Check immediately
         checkAllPermissions()
 
-        // Prompt for Accessibility if not granted (needed for AppleScript + grayscale)
+        // Only prompt for Accessibility if not granted AND we haven't prompted this session
         if !AXIsProcessTrusted() {
-            appDelegate?.postLog("⚠️ Accessibility permission not granted — prompting user")
-            requestAccessibilityPermission()
+            let lastPrompt = UserDefaults.standard.double(forKey: "lastAccessibilityPrompt")
+            let now = Date().timeIntervalSince1970
+            // Don't re-prompt more than once per hour
+            if now - lastPrompt > 3600 {
+                appDelegate?.postLog("⚠️ Accessibility permission not granted — prompting user")
+                UserDefaults.standard.set(now, forKey: "lastAccessibilityPrompt")
+                requestAccessibilityPermission()
+            } else {
+                appDelegate?.postLog("⚠️ Accessibility permission not granted (already prompted recently)")
+            }
         }
 
         // Check every 30 seconds
