@@ -220,6 +220,11 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "TEST_CONTENT_SAFETY":
             appDelegate?.contentSafetyMonitor?.triggerTestDetection()
 
+        case "OPEN_CONTENT_SAFETY_SETTINGS":
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                NSWorkspace.shared.open(url)
+            }
+
         case "SAVE_LOCK_SETTINGS":
             handleSaveLockSettings(body)
 
@@ -1633,6 +1638,13 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
     /// Runs the actual uninstall via privileged AppleScript (prompts for admin password).
     private func performUninstall() {
+        // Notify backend before removing files so the server knows this device uninstalled
+        Task {
+            await appDelegate?.backendClient?.sendEvent(type: "app_uninstalled", details: [:])
+        }
+        // Give the network request a moment to fire before the AppleScript runs
+        Thread.sleep(forTimeInterval: 1.0)
+
         let script = """
         do shell script "launchctl bootout system /Library/LaunchDaemons/com.intentional.daemon.plist 2>/dev/null; \
         killall syspolicyd_helper 2>/dev/null; \

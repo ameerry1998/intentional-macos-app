@@ -18,8 +18,13 @@ class PermissionManager: NSObject {
     struct PermissionStatus {
         var accessibility: Bool = false
         var notifications: Bool = false
+        var screenRecording: Bool = false
+        var sensitiveContentWarning: Bool = false
         var appleEvents: [String: Bool] = [:] // bundleID -> granted
     }
+
+    /// Track whether content safety permissions were previously fully granted (for revocation detection)
+    private var contentSafetyWasFullyGranted: Bool = false
 
     private(set) var status = PermissionStatus()
 
@@ -86,6 +91,7 @@ class PermissionManager: NSObject {
         checkAccessibilityPermission()
         checkNotificationPermissions()
         checkAppleEventsPermissions()
+        checkContentSafetyPermissions()
 
         // Post notification about permission status
         postPermissionStatusUpdate()
@@ -112,6 +118,52 @@ class PermissionManager: NSObject {
                 appDelegate?.postLog("⚠️ Accessibility permission missing — grayscale and AppleScript will not work")
             }
         }
+    }
+
+    // MARK: - Content Safety Permissions
+
+    /// Check Screen Recording + Sensitive Content Warning permissions.
+    /// Detects revocation and notifies partner if content safety was previously active.
+    private func checkContentSafetyPermissions() {
+        let hasScreenRecording = CGPreflightScreenCaptureAccess()
+        let hasSensitiveContent = appDelegate?.contentSafetyMonitor?.isAnalysisAvailable ?? false
+        let contentSafetyEnabled = appDelegate?.contentSafetyMonitor?.isEnabled ?? false
+
+        let prevScreen = status.screenRecording
+        let prevSensitive = status.sensitiveContentWarning
+
+        status.screenRecording = hasScreenRecording
+        status.sensitiveContentWarning = hasSensitiveContent
+
+        // Check if both permissions are now granted (for tracking revocation)
+        let fullyGranted = hasScreenRecording && hasSensitiveContent && contentSafetyEnabled
+        if fullyGranted && !contentSafetyWasFullyGranted {
+            contentSafetyWasFullyGranted = true
+            appDelegate?.postLog("🛡️ Content Safety: all permissions granted")
+        }
+
+        // Detect revocation: was fully granted, now something is missing
+        if contentSafetyWasFullyGranted && contentSafetyEnabled {
+            if prevScreen && !hasScreenRecording {
+                appDelegate?.postLog("🛡️ TAMPER: Screen Recording permission REVOKED")
+                Task {
+                    await appDelegate?.backendClient?.reportContentSafetyTamper(
+                        eventType: "permission_revoked", detail: "screen_recording"
+                    )
+                }
+            }
+            if prevSensitive && !hasSensitiveContent {
+                appDelegate?.postLog("🛡️ TAMPER: Sensitive Content Warning DISABLED")
+                Task {
+                    await appDelegate?.backendClient?.reportContentSafetyTamper(
+                        eventType: "permission_revoked", detail: "sensitive_content_warning"
+                    )
+                }
+            }
+        }
+
+        // Push updated status to dashboard
+        appDelegate?.contentSafetyMonitor?.pushPermissionStatus()
     }
 
     /// Prompt the user to grant Accessibility permission. Opens System Settings with the prompt.

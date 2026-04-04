@@ -4416,15 +4416,20 @@ body.theme-effects-warm::after {
       <div class="setting-row">
         <div>
           <div class="setting-label">Screen monitoring</div>
-          <div class="setting-desc">Scans all screens for explicit content every 10 seconds. Blocks screens and notifies your accountability partner on detection.</div>
+          <div class="setting-desc">Scans all screens for explicit content every 2 seconds. Blocks screens and notifies your accountability partner on detection.</div>
         </div>
         <label class="toggle">
           <input type="checkbox" id="content-safety-enabled" onchange="onContentSafetyToggle(this.checked)">
           <span class="toggle-track"></span>
         </label>
       </div>
-      <div id="content-safety-status" style="display:none; padding: 8px 14px 12px; font-size: 12px; color: rgba(255,255,255,0.5);">
-        <span id="content-safety-status-text"></span>
+      <div id="content-safety-status" style="display:none; padding: 0 14px 12px;">
+        <div id="content-safety-status-text" style="font-size: 12px; color: rgba(255,255,255,0.5);"></div>
+        <div id="content-safety-permission-banner" style="display:none; margin-top: 8px; padding: 10px 14px; border-radius: 8px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3);">
+          <div style="font-size: 13px; font-weight: 500; color: #f59e0b; margin-bottom: 6px;">Permissions Required</div>
+          <div id="content-safety-permission-list" style="font-size: 12px; color: rgba(255,255,255,0.6); line-height: 1.6;"></div>
+          <button onclick="openContentSafetySettings()" style="margin-top: 8px; padding: 6px 14px; border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-size: 12px; cursor: pointer;">Open System Settings</button>
+        </div>
       </div>
       <div class="setting-row" id="content-safety-test-row" style="display:none;">
         <div>
@@ -5132,7 +5137,7 @@ function saveAllSettings() {
 
 function onContentSafetyToggle(enabled) {
   if (enabled) {
-    if (!confirm('This will request Screen Recording permission and monitor all screens for explicit content every 10 seconds. Your accountability partner will be notified of any detections.\n\nYou also need to enable "Sensitive Content Warning" in System Settings > Privacy & Security.\n\nContinue?')) {
+    if (!confirm('This will request Screen Recording permission and monitor all screens for explicit content every 2 seconds. Your accountability partner will be notified of any detections.\n\nYou also need to enable "Sensitive Content Warning" in System Settings > Privacy & Security.\n\nContinue?')) {
       document.getElementById('content-safety-enabled').checked = false;
       return;
     }
@@ -5160,16 +5165,35 @@ window._contentSafetyStatus = function(status) {
   if (testRow) testRow.style.display = status.isMonitoring ? '' : 'none';
 
   statusEl.style.display = 'block';
-  if (!status.isAnalysisAvailable) {
-    textEl.innerHTML = '<span style="color:#f59e0b;">Sensitive Content Warning not enabled.</span> Go to System Settings > Privacy & Security > Sensitive Content Warning.';
-  } else if (!status.hasPermission) {
-    textEl.innerHTML = '<span style="color:#f59e0b;">Waiting for Screen Recording permission...</span> Check System Settings > Privacy & Security > Screen Recording.';
-  } else if (status.isMonitoring) {
+  var banner = document.getElementById('content-safety-permission-banner');
+  var permList = document.getElementById('content-safety-permission-list');
+
+  if (status.isMonitoring && status.hasPermission && status.isAnalysisAvailable) {
+    // All good
     textEl.innerHTML = '<span style="color:#34d399;">Monitoring active</span>';
+    if (banner) banner.style.display = 'none';
   } else {
-    textEl.innerHTML = 'Starting...';
+    // Build list of missing permissions
+    var missing = [];
+    if (!status.hasPermission) missing.push('Screen Recording — Privacy & Security > Screen & System Audio Recording');
+    if (!status.isAnalysisAvailable) missing.push('Sensitive Content Warning — Privacy & Security > Sensitive Content Warning');
+
+    if (missing.length > 0) {
+      textEl.innerHTML = '<span style="color:#f59e0b;">Missing permissions — monitoring inactive</span>';
+      if (banner && permList) {
+        banner.style.display = 'block';
+        permList.innerHTML = missing.map(function(m) { return '• ' + m; }).join('<br>');
+      }
+    } else {
+      textEl.innerHTML = 'Starting...';
+      if (banner) banner.style.display = 'none';
+    }
   }
 };
+
+function openContentSafetySettings() {
+  sendMessage({ type: 'OPEN_CONTENT_SAFETY_SETTINGS' });
+}
 
 // Populate settings UI from loaded data
 function populateSettingsUI(data) {

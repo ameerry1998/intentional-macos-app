@@ -465,7 +465,7 @@ On LLM parse error: `relevant = false`, `confidence = 0`. This ensures broken AI
 Opt-in on-device screen monitoring for explicit/nude content. Independent of the focus schedule — always-on when enabled.
 
 ### How It Works
-1. Polls every 10s via Timer
+1. Polls every 2s via Timer
 2. **Two-pass capture strategy:**
    - **Pass 1**: `CGWindowListCreateImage(CGRect.null, ...)` captures ALL screens as one composite → downscale to 1920px → classify
    - **Pass 2**: If composite doesn't trigger, captures up to 5 individual visible windows via `CGWindowListCreateImage(.optionIncludingWindow, windowID)` → downscale to 1280px → classify each. This catches content in background windows that gets diluted in the full composite.

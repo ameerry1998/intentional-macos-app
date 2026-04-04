@@ -13,8 +13,6 @@
 import Cocoa
 import SwiftUI
 import CoreImage
-import CoreML
-import Vision
 import SensitiveContentAnalysis
 
 class ContentSafetyMonitor {
@@ -39,7 +37,7 @@ class ContentSafetyMonitor {
     // MARK: - Polling
 
     private var pollTimer: Timer?
-    private let pollInterval: TimeInterval = 1.0
+    private let pollInterval: TimeInterval = 2.0
 
     /// Permission recheck timer (when permission not yet granted)
     private var permissionCheckTimer: Timer?
@@ -86,15 +84,6 @@ class ContentSafetyMonitor {
     /// Apple's built-in sensitive content classifier
     private var analyzer: SCSensitivityAnalyzer?
 
-    /// OpenNSFW CoreML model (Yahoo ResNet-50, binary NSFW/SFW classifier)
-    /// More aggressive than Apple SCA — catches partial nudity and sexual content
-    private var nsfwModel: VNCoreMLModel?
-
-    /// NSFW confidence threshold (0-1). Lower = more aggressive.
-    /// 0.3 flagged Reddit text posts. 0.6 still too aggressive. 0.9 = only very obvious porn.
-    /// We'll tune this down once we review debug screenshots and find the right balance.
-    private let nsfwThreshold: Float = 0.9
-
     /// Debug: save flagged screenshots so we can review what triggered detection
     private let debugSaveScreenshots = true
 
@@ -122,17 +111,6 @@ class ContentSafetyMonitor {
         self.logFileURL = dir.appendingPathComponent("content_safety_log.jsonl")
 
         self.analyzer = SCSensitivityAnalyzer()
-
-        // Load OpenNSFW CoreML model
-        do {
-            let config = MLModelConfiguration()
-            config.computeUnits = .all
-            let model = try OpenNSFW(configuration: config)
-            self.nsfwModel = try VNCoreMLModel(for: model.model)
-            appDelegate?.postLog("🛡️ OpenNSFW model loaded (secondary NSFW classifier)")
-        } catch {
-            appDelegate?.postLog("⚠️ Failed to load OpenNSFW model: \(error.localizedDescription)")
-        }
     }
 
     /// Whether the system-level Sensitive Content Warning setting is enabled.
@@ -391,29 +369,6 @@ class ContentSafetyMonitor {
             }
         }
 
-        /* DISABLED: OpenNSFW has too many false positives at any threshold.
-           Keeping Apple SCA only (layers 1+2) until we find a better secondary model.
-        // Layer 3: OpenNSFW on composite
-        if detectedImage == nil, let composite = composite {
-            let downscaled = downscale(composite, maxDimension: 1280)
-            if await analyzeWithOpenNSFW(downscaled) {
-                appDelegate?.postLog("🛡️ Detection: OpenNSFW triggered on composite")
-                detectedImage = downscaled
-            }
-        }
-        // Layer 4: OpenNSFW on individual windows
-        if detectedImage == nil {
-            let windowImages = captureVisibleWindows()
-            for windowImage in windowImages {
-                let downscaled = downscale(windowImage, maxDimension: 1280)
-                if await analyzeWithOpenNSFW(downscaled) {
-                    detectedImage = downscaled
-                    break
-                }
-            }
-        }
-        */
-
         guard let detected = detectedImage else { return }
 
         // === ESCALATION SYSTEM ===
@@ -588,45 +543,6 @@ class ContentSafetyMonitor {
         } catch {
             appDelegate?.postLog("⚠️ Content Safety: analysis error: \(error.localizedDescription)")
             return false
-        }
-    }
-
-    // MARK: - OpenNSFW (Secondary Classifier)
-
-    /// Classifies an image using Yahoo's OpenNSFW CoreML model via Vision framework.
-    /// More aggressive than Apple SCA — catches partial nudity, sexual poses, suggestive content.
-    /// Returns true if NSFW score exceeds threshold (default 0.3).
-    private func analyzeWithOpenNSFW(_ image: CGImage) async -> Bool {
-        guard let model = nsfwModel else { return false }
-
-        return await withCheckedContinuation { continuation in
-            let request = VNCoreMLRequest(model: model) { request, error in
-                guard let results = request.results as? [VNClassificationObservation] else {
-                    continuation.resume(returning: false)
-                    return
-                }
-
-                // Find NSFW class confidence
-                let nsfwScore = results.first(where: { $0.identifier == "NSFW" })?.confidence ?? 0
-
-                // Always log the score so we can tune the threshold
-                DispatchQueue.main.async {
-                    if nsfwScore > 0.1 {
-                        self.appDelegate?.postLog("🛡️ OpenNSFW: score \(String(format: "%.3f", nsfwScore)) (threshold: \(self.nsfwThreshold))\(nsfwScore > self.nsfwThreshold ? " → TRIGGERED" : "")")
-                    }
-                }
-
-                continuation.resume(returning: nsfwScore > self.nsfwThreshold)
-            }
-
-            request.imageCropAndScaleOption = .scaleFill
-
-            let handler = VNImageRequestHandler(cgImage: image, options: [:])
-            do {
-                try handler.perform([request])
-            } catch {
-                continuation.resume(returning: false)
-            }
         }
     }
 
