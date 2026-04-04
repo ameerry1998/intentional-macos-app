@@ -4453,6 +4453,26 @@ body.theme-effects-warm::after {
         <button class="btn-danger" id="auth-delete-btn" onclick="authDeleteAccount()">Delete</button>
       </div>
       <p id="auth-delete-msg" class="setting-desc" style="display: none; padding: 0 20px 12px;"></p>
+
+      <!-- Uninstall Intentional -->
+      <div class="setting-row" style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 4px; padding-top: 12px;">
+        <div>
+          <div class="setting-label">Uninstall Intentional</div>
+          <div class="setting-desc">Remove app, background service, and all data from this Mac</div>
+        </div>
+        <button class="btn-danger" id="uninstall-btn" onclick="startUninstall()">Uninstall</button>
+      </div>
+      <div id="uninstall-code-row" style="display: none; padding: 8px 20px 12px;">
+        <div class="setting-desc" style="margin-bottom: 8px;">Enter the 6-digit code from your accountability partner:</div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input type="text" id="uninstall-code" maxlength="6" placeholder="000000"
+                 style="width: 120px; text-align: center; font-size: 18px; font-family: monospace; padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: white;"
+                 oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6)">
+          <button class="btn-danger" id="uninstall-verify-btn" onclick="verifyUninstallCode()" disabled>Verify & Uninstall</button>
+          <button class="btn-secondary" onclick="cancelUninstall()">Cancel</button>
+        </div>
+        <p id="uninstall-msg" class="setting-desc" style="margin-top: 6px; display: none;"></p>
+      </div>
     </div>
   </div>
 
@@ -6087,6 +6107,61 @@ function confirmReset() {
     sendMessage({ type: 'RESET_SETTINGS' });
   }
 }
+
+// ===== Uninstall =====
+
+function startUninstall() {
+  // If partner is configured, require code. Otherwise, confirm and proceed.
+  if (settings.partnerEmail && settings.consentStatus === 'confirmed') {
+    // Request code from partner
+    sendMessage({ type: 'REQUEST_UNLOCK' });
+    document.getElementById('uninstall-btn').style.display = 'none';
+    document.getElementById('uninstall-code-row').style.display = 'block';
+    var codeInput = document.getElementById('uninstall-code');
+    codeInput.value = '';
+    codeInput.focus();
+    codeInput.oninput = function() {
+      this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);
+      document.getElementById('uninstall-verify-btn').disabled = this.value.length !== 6;
+    };
+  } else {
+    // No partner — just confirm
+    if (confirm('Uninstall Intentional? This will remove the app, background service, and all data.')) {
+      sendMessage({ type: 'UNINSTALL_APP' });
+    }
+  }
+}
+
+function cancelUninstall() {
+  document.getElementById('uninstall-code-row').style.display = 'none';
+  document.getElementById('uninstall-btn').style.display = '';
+  document.getElementById('uninstall-msg').style.display = 'none';
+}
+
+function verifyUninstallCode() {
+  var code = document.getElementById('uninstall-code').value;
+  if (code.length !== 6) return;
+
+  var msg = document.getElementById('uninstall-msg');
+  msg.textContent = 'Verifying...';
+  msg.style.display = 'block';
+  msg.style.color = 'rgba(255,255,255,0.5)';
+
+  sendMessage({ type: 'VERIFY_UNINSTALL', code: code });
+}
+
+window._uninstallResult = function(result) {
+  var msg = document.getElementById('uninstall-msg');
+  if (result.success) {
+    msg.textContent = 'Code verified. Uninstalling...';
+    msg.style.color = '#34d399';
+    // The app will handle the actual uninstall via Swift
+  } else {
+    msg.textContent = result.message || 'Invalid code. Please try again.';
+    msg.style.color = '#f87171';
+    msg.style.display = 'block';
+  }
+};
 
 function copyStoreUrl(el, url) {
   navigator.clipboard.writeText(url).then(function() {

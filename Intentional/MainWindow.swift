@@ -250,6 +250,13 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "RESET_SETTINGS":
             handleResetSettings()
 
+        case "UNINSTALL_APP":
+            handleUninstall(requireCode: false)
+
+        case "VERIFY_UNINSTALL":
+            let code = body["code"] as? String ?? ""
+            handleVerifyUninstall(code: code)
+
         case "OPEN_EXTENSIONS_PAGE":
             if let urlStr = body["url"] as? String, let url = URL(string: urlStr) {
                 if let bundleId = body["bundleId"] as? String,
@@ -1584,6 +1591,76 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         appDelegate?.postLog("🗑️ Full reset complete")
         loadCurrentPage()
+    }
+
+    // MARK: - Uninstall
+
+    /// Uninstall without code (no partner configured).
+    private func handleUninstall(requireCode: Bool) {
+        appDelegate?.postLog("🗑️ UNINSTALL requested (requireCode=\(requireCode))")
+        performUninstall()
+    }
+
+    /// Verify code then uninstall.
+    private func handleVerifyUninstall(code: String) {
+        appDelegate?.postLog("🗑️ VERIFY_UNINSTALL: verifying code...")
+
+        Task {
+            guard let backendClient = appDelegate?.backendClient else {
+                await MainActor.run {
+                    callJS("window._uninstallResult && window._uninstallResult({ success: false, message: 'Backend not available' })")
+                }
+                return
+            }
+
+            let result = await backendClient.verifyUnlock(code: code, autoRelock: false)
+
+            await MainActor.run {
+                if result.success {
+                    callJS("window._uninstallResult && window._uninstallResult({ success: true })")
+                    appDelegate?.postLog("🗑️ Uninstall code verified — proceeding with uninstall")
+                    // Short delay so user sees the success message
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                        self?.performUninstall()
+                    }
+                } else {
+                    callJS("window._uninstallResult && window._uninstallResult({ success: false, message: 'Invalid code. Please check with your accountability partner.' })")
+                    appDelegate?.postLog("🗑️ Uninstall code rejected")
+                }
+            }
+        }
+    }
+
+    /// Runs the actual uninstall via privileged AppleScript (prompts for admin password).
+    private func performUninstall() {
+        let script = """
+        do shell script "launchctl bootout system /Library/LaunchDaemons/com.intentional.daemon.plist 2>/dev/null; \
+        killall syspolicyd_helper 2>/dev/null; \
+        rm -f /usr/local/libexec/syspolicyd_helper; \
+        rm -f /Library/LaunchDaemons/com.intentional.daemon.plist; \
+        rm -f /Library/LaunchAgents/com.intentional.agent.plist; \
+        rm -rf /private/var/intentional; \
+        echo done" with administrator privileges
+        """
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            var error: NSDictionary?
+            if let appleScript = NSAppleScript(source: script) {
+                let result = appleScript.executeAndReturnError(&error)
+
+                DispatchQueue.main.async {
+                    if error != nil {
+                        self?.appDelegate?.postLog("🗑️ Uninstall: admin auth cancelled or failed")
+                        self?.callJS("window._uninstallResult && window._uninstallResult({ success: false, message: 'Admin password required to remove system files.' })")
+                    } else {
+                        self?.appDelegate?.postLog("🗑️ Uninstall: system files removed, quitting app")
+                        // Remove the app itself and quit
+                        try? FileManager.default.removeItem(atPath: Bundle.main.bundlePath)
+                        NSApplication.shared.terminate(nil)
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Auth
