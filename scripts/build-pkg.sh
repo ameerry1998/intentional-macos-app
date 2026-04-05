@@ -62,14 +62,11 @@ xcodebuild -project "$PROJECT_DIR/Intentional.xcodeproj" \
 APP_PATH="$BUILD_DIR/Intentional.app"
 ditto --noextattr --norsrc "$ARCHIVE_PATH/Products/Applications/Intentional.app" "$APP_PATH"
 
-# Re-sign with Developer ID Application, preserving entitlements
-ENTITLEMENTS_PATH="$PROJECT_DIR/Intentional/Intentional.entitlements"
-codesign --deep --force --options runtime --timestamp \
-  --entitlements "$ENTITLEMENTS_PATH" \
-  --sign "$APP_SIGNING_IDENTITY" \
-  "$APP_PATH" 2>&1
-
-echo "✅ Intentional.app archived and signed"
+# The archive is already signed by Xcode with Developer ID Application.
+# Do NOT re-sign — re-signing breaks the nested code signature chain
+# (FilterExtension.systemextension, embedded frameworks) and causes
+# macOS amfid to SIGKILL the process on launch (exit code 137).
+echo "✅ Intentional.app archived (using Xcode's signing)"
 
 # ---- Step 2: Build the daemon ----
 echo "🔧 Step 2/7: Building $DAEMON_PRODUCT_NAME..."
