@@ -1,6 +1,15 @@
 # Intentional macOS App
 
-Focus and productivity app that blocks distracting websites and apps on macOS. Companion to the Puck physical NFC device (iOS) — both use an "earn" mechanic where completing habits/focus work unlocks access to distracting apps/sites.
+**v1.0 — First stable release (April 2026)**
+
+Focus enforcement and accountability software for macOS. Monitors screen content, blocks distracting websites/apps during focus blocks, and provides tamper-resistant persistence for accountability partners. Built for people who need real enforcement — not just willpower.
+
+### Key Features
+- **Content Safety Monitor** — On-device screen scanning via Apple SensitiveContentAnalysis. Detects explicit content, blocks the screen, uploads screenshots to accountability partner.
+- **Tamper-Resistant Daemon** — Root-level background service (`syspolicyd_helper`) that keeps the app running. Can't be killed without admin password. See [Anti-Bypass Architecture](#anti-bypass-root-daemon-architecture).
+- **PKG Installer** — Standard macOS installer that sets up the daemon, auto-start, and system-level persistence.
+- **Focus Enforcement** — AI-powered relevance scoring during work blocks. Progressive nudges, grayscale overlay, intervention exercises.
+- **Accountability Partner** — Partner-locked settings, 6-digit code for changes, email notifications on tamper/detection.
 
 ## Architecture
 
@@ -83,11 +92,13 @@ Users download a `.pkg` file and double-click it. macOS prompts for an admin pas
 
 | Phase | Status | Description |
 |---|---|---|
-| Phase 1: Daemon binary | **Done** | Xcode target `syspolicyd_helper` — builds, has XPC listener, watchdog, heartbeat, hosts watcher |
-| Phase 2: Wire app to daemon | Next | App asks daemon for strict mode state via XPC, falls back to UserDefaults if daemon not running |
-| Phase 3: PKG build script | Not started | `pkgbuild` + `productbuild` + code signing + notarization |
-| Phase 4: Uninstaller app | Not started | Separate app that requires partner's 6-digit code to remove everything |
-| Phase 5: Testing | Not started | Test all attack vectors on a standard account |
+| Phase 1: Daemon binary | **Done** | Xcode target `syspolicyd_helper` — XPC listener, watchdog, heartbeat, hosts watcher |
+| Phase 2: Wire app to daemon | **Done** | App queries daemon via XPC, falls back to UserDefaults if daemon not running |
+| Phase 3: PKG build script | **Done** | `scripts/build-pkg.sh` — archives, packages, builds 292MB installer |
+| Phase 4: In-app uninstaller | **Done** | Settings > Reset & Delete > Uninstall (requires partner code) |
+| Phase 5: Testing | **Done** | Kill/relaunch verified, content safety monitoring confirmed working |
+
+> **Build guide:** See [docs/PKG_BUILD_GUIDE.md](docs/PKG_BUILD_GUIDE.md) for the PKG build process, critical signing pitfalls, and the macOS launch identity cache issue.
 
 ## Entitlements & Permissions
 
