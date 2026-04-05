@@ -88,9 +88,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Enable/disable strict mode.
-    /// Syncs to daemon (if available) AND UserDefaults/flag file (fallback).
+    /// If daemon is running, it is the AUTHORITY — UserDefaults cannot override it.
+    /// This prevents the `defaults write strictModeEnabled false` bypass.
     func updateStrictMode() {
-        let strictEnabled = UserDefaults.standard.bool(forKey: "strictModeEnabled")
+        var strictEnabled = UserDefaults.standard.bool(forKey: "strictModeEnabled")
+
+        // If daemon is available, check its state FIRST.
+        // If daemon says strict=true but UserDefaults says false, someone tampered
+        // with UserDefaults. Trust the daemon and restore UserDefaults.
+        if daemonClient.isDaemonAvailable {
+            let daemonState = daemonClient.isStrictModeEnabledSync()
+            if daemonState && !strictEnabled {
+                postLog("🔒 TAMPER DETECTED: UserDefaults says strict=false but daemon says true. Restoring.")
+                UserDefaults.standard.set(true, forKey: "strictModeEnabled")
+                strictEnabled = true
+            }
+        }
+
         postLog("🔒 updateStrictMode: strict=\(strictEnabled)")
 
         // Sync to daemon (if running)

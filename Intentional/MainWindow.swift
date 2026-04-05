@@ -755,7 +755,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         let consentStatus = (savedSettings["consentStatus"] as? String) ?? "none"
         let temporaryUnlockUntil = savedSettings["temporaryUnlockUntil"] as? String
-        let selfUnlockAvailableAt = savedSettings["selfUnlockAvailableAt"] as? String
         let unlockRequested = savedSettings["unlockRequested"] as? Bool ?? false
         let autoRelockEnabled = savedSettings["autoRelockEnabled"] as? Bool ?? true
 
@@ -788,7 +787,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             "enabled": (csSettings?["enabled"] as? Bool) ?? false
         ]
         if let tuu = temporaryUnlockUntil { result["temporaryUnlockUntil"] = tuu }
-        if let sua = selfUnlockAvailableAt { result["selfUnlockAvailableAt"] = sua }
 
         do {
             let data = try JSONSerialization.data(withJSONObject: result)
@@ -1192,12 +1190,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
             if status.hasPendingRequest {
                 settings["unlockRequested"] = true
-                if let sua = status.selfUnlockAvailableAt {
-                    settings["selfUnlockAvailableAt"] = sua
-                }
             } else {
                 settings["unlockRequested"] = false
-                settings["selfUnlockAvailableAt"] = nil
             }
         }
 
@@ -1215,9 +1209,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         }
         if status.hasPendingRequest {
             jsFields += ", unlockRequested: true"
-            if let sua = status.selfUnlockAvailableAt {
-                jsFields += ", selfUnlockAvailableAt: '\(sua)'"
-            }
         } else {
             jsFields += ", unlockRequested: false"
         }
@@ -1415,9 +1406,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                     // Persist unlock request state so it survives app restart
                     self.updateSettingsFile { settings in
                         settings["unlockRequested"] = true
-                        if let sua = result.selfUnlockAvailableAt {
-                            settings["selfUnlockAvailableAt"] = sua
-                        }
                     }
                 }
 
@@ -1426,9 +1414,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 var jsResponse = "success: \(result.success), message: '\(escaped)'"
                 if let mode = result.mode {
                     jsResponse += ", mode: '\(mode)'"
-                }
-                if let sua = result.selfUnlockAvailableAt {
-                    jsResponse += ", selfUnlockAvailableAt: '\(sua)'"
                 }
                 self.callJS("window._unlockResult && window._unlockResult({ \(jsResponse) })")
             }
@@ -1463,7 +1448,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                             settings["temporaryUnlockUntil"] = farFuture
                         }
                         settings["autoRelockEnabled"] = result.autoRelock
-                        settings["selfUnlockAvailableAt"] = nil
                     }
 
                     // Build JS response
@@ -1490,7 +1474,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 // Clear all unlock state from settings file
                 self.updateSettingsFile { settings in
                     settings["temporaryUnlockUntil"] = nil
-                    settings["selfUnlockAvailableAt"] = nil
                     settings["unlockRequested"] = false
                 }
                 self.appDelegate?.postLog("🔒 RELOCK_SETTINGS: backend=\(result?.success ?? false)")

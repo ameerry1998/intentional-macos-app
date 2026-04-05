@@ -4518,7 +4518,6 @@ var settings = {
   consentStatus: 'none',
   maxPerPeriod: { enabled: false, minutes: 20, periodHours: 1 },
   temporaryUnlockUntil: null,
-  selfUnlockAvailableAt: null,
   unlockRequested: false,
   youtube: {},
   instagram: {},
@@ -5403,19 +5402,11 @@ function getLockState() {
     }
   }
 
-  // Check self-lock countdown
-  if (mode === 'self' && settings.selfUnlockAvailableAt) {
-    var availAt = new Date(settings.selfUnlockAvailableAt).getTime();
-    if (availAt > Date.now()) return 'self_countdown';
-    // Timer expired but hasn't been verified yet — auto-verify will handle this
-    // Don't fall through to unlock_code_entry (self-mode has no code)
-  }
-
   // Check if we're waiting for unlock code entry (partner mode only)
   if (mode === 'partner' && settings.unlockRequested) return 'unlock_code_entry';
 
   // Consent states take priority over "locked" — if partner hasn't confirmed yet,
-  // showing "locked" is wrong. Only show locked when consent is confirmed (or for self mode).
+  // showing "locked" is wrong. Only show locked when consent is confirmed.
   if (hasPartner && consent === 'pending') return 'pending';
   if (hasPartner && consent === 'declined') return 'declined';
   if (hasPartner && consent === 'expired') return 'expired';
@@ -5493,7 +5484,6 @@ function renderLockState() {
         '<div class="lock-helper-text">Partner is ready. Choose how to lock your settings:</div>' +
         '<div class="lock-btn-row">' +
           '<button class="btn-primary" id="enable-partner-btn" onclick="enableLockMode(\'partner\')">Partner Lock</button>' +
-          '<button class="btn-secondary" id="enable-self-btn" onclick="enableLockMode(\'self\')">24-Hour Delay</button>' +
         '</div>' +
         '<div class="lock-btn-row" style="margin-top:4px;">' +
           '<button class="btn-secondary" onclick="changePartner()">Change</button>' +
@@ -5503,8 +5493,7 @@ function renderLockState() {
       break;
 
     case 'locked':
-      var mode = settings.lockMode || 'partner';
-      var modeLabel = mode === 'partner' ? 'Partner Lock' : '24-Hour Delay';
+      var modeLabel = 'Partner Lock';
       el.innerHTML =
         '<div class="settings-card">' +
           '<div class="setting-row">' +
@@ -5527,10 +5516,7 @@ function renderLockState() {
       break;
 
     case 'unlock_code_entry':
-      var codeMode = settings.lockMode || 'partner';
-      var codeMsg = codeMode === 'partner'
-        ? 'A 6-digit code has been sent to your partner.'
-        : 'Enter the 6-digit code to unlock settings.';
+      var codeMsg = 'A 6-digit code has been sent to your partner.';
       el.innerHTML =
         '<div class="settings-card">' +
           '<div style="padding:16px 14px;text-align:center;">' +
@@ -5546,25 +5532,6 @@ function renderLockState() {
         var inp = document.getElementById('unlock-code');
         if (inp) inp.focus();
       }, 100);
-      stopConsentPolling();
-      break;
-
-    case 'self_countdown':
-      var availAt = new Date(settings.selfUnlockAvailableAt).getTime();
-      el.innerHTML =
-        '<div class="settings-card">' +
-          '<div style="text-align:center;padding:14px;">' +
-            '<div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Time remaining</div>' +
-            '<div class="countdown-display" id="countdown-timer">--:--:--</div>' +
-            '<div class="unlock-timer-bar"><div class="unlock-timer-fill" id="countdown-bar" style="width:100%;background:var(--color-warning);"></div></div>' +
-            '<div class="lock-helper-text" style="padding:0;margin-top:8px;">Unlocks automatically when timer reaches zero.</div>' +
-          '</div>' +
-        '</div>' +
-        '<button class="btn-secondary" onclick="cancelUnlock()" style="width:100%;">Cancel</button>';
-      updateCountdown(availAt);
-      countdownInterval = setInterval(function() {
-        updateCountdown(availAt);
-      }, 1000);
       stopConsentPolling();
       break;
 
@@ -5659,7 +5626,6 @@ function renderLockState() {
     default: // 'setup'
       var noneSelected = selectedLockMode === 'none' || !selectedLockMode ? ' selected' : '';
       var partnerSelected = selectedLockMode === 'partner' ? ' selected' : '';
-      var selfSelected = selectedLockMode === 'self' ? ' selected' : '';
       var showPartner = (selectedLockMode && selectedLockMode !== 'none') ? '' : ' style="display:none"';
       el.innerHTML =
         '<div class="settings-card">' +
@@ -5675,13 +5641,6 @@ function renderLockState() {
             '<div>' +
               '<div class="setting-label">Partner Lock</div>' +
               '<div class="setting-desc">Partner receives unlock codes via email</div>' +
-            '</div>' +
-          '</div>' +
-          '<div class="lock-mode-option' + selfSelected + '" data-mode="self" onclick="selectLockMode(\'self\')">' +
-            '<div class="lock-mode-radio"></div>' +
-            '<div>' +
-              '<div class="setting-label">24-Hour Delay</div>' +
-              '<div class="setting-desc">Cooling period before settings change</div>' +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -5873,7 +5832,7 @@ var LOCK_CONFIRM_INFO = {
 
 function isSettingsLocked() {
   var state = getLockState();
-  return state === 'locked' || state === 'unlock_code_entry' || state === 'self_countdown';
+  return state === 'locked' || state === 'unlock_code_entry';
 }
 
 function enforceLockMode() {
@@ -5980,29 +5939,6 @@ function setupLockInterceptors() {
 }
 
 // ===== Countdown Helpers =====
-function updateCountdown(targetMs) {
-  var el = document.getElementById('countdown-timer');
-  if (!el) return;
-  var diff = targetMs - Date.now();
-  if (diff <= 0) {
-    el.textContent = '00:00:00';
-    // Countdown done - auto-unlock (no code needed for self-mode)
-    if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
-    el.textContent = 'Unlocking...';
-    sendMessage({ type: 'VERIFY_UNLOCK', code: '', auto_relock: false });
-    return;
-  }
-  var hours = Math.floor(diff / 3600000);
-  var mins = Math.floor((diff % 3600000) / 60000);
-  var secs = Math.floor((diff % 60000) / 1000);
-  el.textContent = pad(hours) + ':' + pad(mins) + ':' + pad(secs);
-  // Update progress bar
-  var bar = document.getElementById('countdown-bar');
-  if (bar) {
-    var totalMs = 24 * 3600000;
-    bar.style.width = Math.max(0, (diff / totalMs) * 100) + '%';
-  }
-}
 
 function updateUnlockCountdown(endMs, totalMs) {
   var countdownEl = document.getElementById('unlock-countdown');
@@ -6041,7 +5977,6 @@ function verifyUnlockCode() {
 
 function cancelUnlock() {
   settings.unlockRequested = false;
-  settings.selfUnlockAvailableAt = null;
   renderLockState();
 }
 
@@ -6049,7 +5984,6 @@ function relockSettings() {
   settings.settingsUnlocked = false;
   settings.temporaryUnlockUntil = null;
   settings.unlockRequested = false;
-  settings.selfUnlockAvailableAt = null;
   sendMessage({ type: 'RELOCK_SETTINGS' });
   showToast('Settings re-locked');
   renderLockState();
@@ -6084,8 +6018,7 @@ function saveLockSettings() {
 }
 
 function enableLockMode(mode) {
-  var btnId = mode === 'partner' ? 'enable-partner-btn' : 'enable-self-btn';
-  setButtonLoading(btnId, 'Enabling...');
+  setButtonLoading('enable-partner-btn', 'Enabling...');
   sendMessage({
     type: 'SAVE_LOCK_SETTINGS',
     lockMode: mode,
@@ -6238,7 +6171,6 @@ window._settingsResult = function(data) {
   if (data.partnerName !== undefined) settings.partnerName = data.partnerName || '';
   if (data.consentStatus !== undefined) settings.consentStatus = data.consentStatus;
   if (data.temporaryUnlockUntil !== undefined) settings.temporaryUnlockUntil = data.temporaryUnlockUntil;
-  if (data.selfUnlockAvailableAt !== undefined) settings.selfUnlockAvailableAt = data.selfUnlockAvailableAt;
   if (data.deviceId !== undefined) settings.deviceId = data.deviceId;
   if (data.userEmail !== undefined) settings.userEmail = data.userEmail || '';
 
@@ -6254,7 +6186,6 @@ window._lockStateResult = function(data) {
   if (data.partnerName !== undefined) settings.partnerName = data.partnerName || '';
   if (data.consentStatus !== undefined) settings.consentStatus = data.consentStatus;
   if (data.temporaryUnlockUntil !== undefined) settings.temporaryUnlockUntil = data.temporaryUnlockUntil;
-  if (data.selfUnlockAvailableAt !== undefined) settings.selfUnlockAvailableAt = data.selfUnlockAvailableAt;
   renderLockState();
 };
 
@@ -6337,7 +6268,6 @@ window._removePartnerResult = function(data) {
     settings.consentStatus = 'none';
     settings.lockMode = 'none';
     settings.temporaryUnlockUntil = null;
-    settings.selfUnlockAvailableAt = null;
     settings.unlockRequested = false;
     settings.settingsUnlocked = false;
     settings.strictModeEnabled = false;
@@ -6376,14 +6306,8 @@ window._unlockResult = function(data) {
   }
 
   if (data.success) {
-    // Transition to code entry or countdown state
-    if (settings.lockMode === 'self') {
-      settings.selfUnlockAvailableAt = data.availableAt || new Date(Date.now() + 24 * 3600000).toISOString();
-      showToast(data.message || 'Unlock countdown started');
-    } else {
-      settings.unlockRequested = true;
-      showToast(data.message || 'Unlock code sent to your partner');
-    }
+    settings.unlockRequested = true;
+    showToast(data.message || 'Unlock code sent to your partner');
     renderLockState();
   } else {
     clearButtonLoading('request-unlock-btn');
@@ -6424,7 +6348,6 @@ window._verifyUnlockResult = function(data) {
       settings.temporaryUnlockUntil = data.unlockUntil || new Date(Date.now() + 5 * 60000).toISOString();
     }
     settings.unlockRequested = false;
-    settings.selfUnlockAvailableAt = null;
     renderLockState();
   } else {
     clearButtonLoading('verify-code-btn');

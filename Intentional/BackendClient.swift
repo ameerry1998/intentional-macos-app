@@ -204,7 +204,6 @@ class BackendClient {
         let message: String
         let statusCode: Int
         let mode: String?
-        let selfUnlockAvailableAt: String?
     }
 
     /// Request an unlock code from the backend
@@ -212,7 +211,7 @@ class BackendClient {
         let endpoint = "\(baseURL)/unlock/request"
 
         guard let url = URL(string: endpoint) else {
-            return UnlockResult(success: false, message: "Invalid URL", statusCode: 0, mode: nil, selfUnlockAvailableAt: nil)
+            return UnlockResult(success: false, message: "Invalid URL", statusCode: 0, mode: nil)
         }
 
         var request = URLRequest(url: url)
@@ -228,17 +227,16 @@ class BackendClient {
                 let json = parseJSON(data)
                 let msg = (json?["message"] as? String) ?? errorMessage(from: data)
                 let mode = json?["mode"] as? String
-                let sua = json?["self_unlock_available_at"] as? String
                 if isSuccess(httpResponse.statusCode) {
-                    return UnlockResult(success: true, message: msg, statusCode: httpResponse.statusCode, mode: mode, selfUnlockAvailableAt: sua)
+                    return UnlockResult(success: true, message: msg, statusCode: httpResponse.statusCode, mode: mode)
                 } else {
-                    return UnlockResult(success: false, message: msg, statusCode: httpResponse.statusCode, mode: mode, selfUnlockAvailableAt: nil)
+                    return UnlockResult(success: false, message: msg, statusCode: httpResponse.statusCode, mode: mode)
                 }
             }
         } catch {
-            return UnlockResult(success: false, message: error.localizedDescription, statusCode: 0, mode: nil, selfUnlockAvailableAt: nil)
+            return UnlockResult(success: false, message: error.localizedDescription, statusCode: 0, mode: nil)
         }
-        return UnlockResult(success: false, message: "Unknown error", statusCode: 0, mode: nil, selfUnlockAvailableAt: nil)
+        return UnlockResult(success: false, message: "Unknown error", statusCode: 0, mode: nil)
     }
 
     // MARK: - Verify Unlock Code
@@ -489,8 +487,7 @@ class BackendClient {
             success: result.success,
             message: result.success ? "Settings re-locked" : result.message,
             statusCode: result.statusCode,
-            mode: currentMode,
-            selfUnlockAvailableAt: nil
+            mode: currentMode
         )
     }
 
@@ -506,7 +503,6 @@ class BackendClient {
         let temporaryUnlockUntil: String?
         let autoRelock: Bool
         let hasPendingRequest: Bool
-        let selfUnlockAvailableAt: String?
     }
 
     /// Get current lock/unlock status from backend
@@ -533,8 +529,7 @@ class BackendClient {
                     isTemporarilyUnlocked: json["is_temporarily_unlocked"] as? Bool ?? false,
                     temporaryUnlockUntil: json["temporary_unlock_until"] as? String,
                     autoRelock: json["auto_relock"] as? Bool ?? true,
-                    hasPendingRequest: json["has_pending_request"] as? Bool ?? false,
-                    selfUnlockAvailableAt: json["self_unlock_available_at"] as? String
+                    hasPendingRequest: json["has_pending_request"] as? Bool ?? false
                 )
             }
         } catch {

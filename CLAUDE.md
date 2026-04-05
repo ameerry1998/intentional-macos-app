@@ -43,24 +43,25 @@ Setting an intention is optional but upgrades blocking from dumb to smart.
 
 ### What to Keep (Puck Branch)
 
-- **ScheduleManager** — daily planning, time blocks, schedule states
-- **Block rituals (start/end)** — intention setting + reflection ceremonies
-- **"NO PLAN" pill state** — nudges user to plan if they haven't
-- **Dashboard calendar** — visual schedule management
-- **DeepWorkTimerController** — floating pill timer during focus blocks
-- **GrayscaleOverlayController** — progressive desaturation during distraction
-- **RelevanceScorer** — AI focus scoring during smart blocking
+- **RelevanceScorer** — AI focus scoring (opt-in "AI Coach" feature, toggle on/off)
 - **FocusMonitor** — enforcement during blocking (nudges, red screen, overlays)
-- **ContentSafetyMonitor** — explicit content detection (always-on, independent of blocking)
-- **WebsiteBlocker / NEFilterDataProvider** — site blocking
-- **Distracting sites/apps list** — user-configured
-- **Accountability partner** — locking, notifications
-- **Browser extension** — sensing only (page content for AI scoring), NOT blocking
+- **ContentSafetyMonitor** — NSFW screen detection, blocks screen on explicit content, notifies accountability partner. Like Covenant Eyes but more accurate and blocks in real-time. Polls every 2 seconds.
+- **GrayscaleOverlayController** — progressive desaturation during distraction
+- **NEFilterDataProvider** — system-level site blocking across all browsers (no extension needed)
+- **WebsiteBlocker** — AppleScript fallback for browsers without NE support
+- **Distracting sites/apps list** — user-configured, its own tab
+- **Accountability partner** — for Content Safety notifications and settings locking
+- **Browser extension** — optional sensing layer (page content for AI scoring), NOT required for blocking
 
 ### What to Strip (Puck Branch)
 
-- **EarnedBrowseManager** — the "earn screen time" mechanic doesn't fit Puck's simple on/off model
-- **TimeTracker** — its main job was feeding the earned browse pool, which is gone
+- **ScheduleManager** — no hourly planning, just on/off toggle
+- **EarnedBrowseManager** — no earned screen time mechanic
+- **TimeTracker** — no usage tracking/budgets
+- **Block rituals (start/end)** — no ceremonies
+- **"NO PLAN" pill state** — no schedule states
+- **Dashboard calendar/planner** — replaced with simple toggle
+- **PlanningCoach** — already removed
 
 ### Extension Role Change (Puck Branch)
 
