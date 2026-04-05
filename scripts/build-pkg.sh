@@ -62,8 +62,10 @@ xcodebuild -project "$PROJECT_DIR/Intentional.xcodeproj" \
 APP_PATH="$BUILD_DIR/Intentional.app"
 ditto --noextattr --norsrc "$ARCHIVE_PATH/Products/Applications/Intentional.app" "$APP_PATH"
 
-# Re-sign with Developer ID Application
+# Re-sign with Developer ID Application, preserving entitlements
+ENTITLEMENTS_PATH="$PROJECT_DIR/Intentional/Intentional.entitlements"
 codesign --deep --force --options runtime --timestamp \
+  --entitlements "$ENTITLEMENTS_PATH" \
   --sign "$APP_SIGNING_IDENTITY" \
   "$APP_PATH" 2>&1
 

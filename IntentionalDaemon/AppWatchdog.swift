@@ -82,44 +82,69 @@ class AppWatchdog {
             return
         }
 
-        // Use launchctl kickstart to launch the app's LaunchAgent
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        process.arguments = ["kickstart", "-k", "gui/\(consoleUID)/com.intentional.agent"]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
+        // Try method 1: launchctl kickstart
+        let kickstart = Process()
+        kickstart.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        kickstart.arguments = ["kickstart", "-k", "gui/\(consoleUID)/com.intentional.agent"]
+        kickstart.standardOutput = FileHandle.nullDevice
+        kickstart.standardError = FileHandle.nullDevice
+        try? kickstart.run()
+        kickstart.waitUntilExit()
 
-        do {
-            try process.run()
-            process.waitUntilExit()
+        // Verify the app actually started (kickstart can return 0 but fail to spawn)
+        Thread.sleep(forTimeInterval: 2.0)
+        if isAppRunning() {
+            log("App relaunched via launchctl kickstart (uid=\(consoleUID))")
+            return
+        }
 
-            if process.terminationStatus == 0 {
-                log("App relaunched via launchctl kickstart (uid=\(consoleUID))")
-            } else {
-                // Fallback: try open command
-                log("launchctl kickstart failed, trying open -a")
-                launchViaOpen()
-            }
-        } catch {
-            log("Failed to relaunch via launchctl: \(error.localizedDescription)")
-            launchViaOpen()
+        // Try method 2: open -a
+        log("launchctl kickstart didn't work, trying open -a")
+        let open = Process()
+        open.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        open.arguments = ["-a", appPath]
+        open.standardOutput = FileHandle.nullDevice
+        open.standardError = FileHandle.nullDevice
+        try? open.run()
+        open.waitUntilExit()
+
+        Thread.sleep(forTimeInterval: 2.0)
+        if isAppRunning() {
+            log("App relaunched via open -a")
+            return
+        }
+
+        // Try method 3: launch binary directly as the console user
+        log("open -a didn't work, trying direct binary launch")
+        let direct = Process()
+        direct.executableURL = URL(fileURLWithPath: "/usr/bin/su")
+        direct.arguments = ["-l", getConsoleUserName() ?? "arayan", "-c", "\(appPath)/Contents/MacOS/Intentional &"]
+        direct.standardOutput = FileHandle.nullDevice
+        direct.standardError = FileHandle.nullDevice
+        try? direct.run()
+        direct.waitUntilExit()
+
+        Thread.sleep(forTimeInterval: 2.0)
+        if isAppRunning() {
+            log("App relaunched via direct binary launch")
+        } else {
+            log("ALL relaunch methods failed — app could not be started")
         }
     }
 
-    private func launchViaOpen() {
+    private func getConsoleUserName() -> String? {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = ["-a", appPath]
-        process.standardOutput = FileHandle.nullDevice
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/stat")
+        process.arguments = ["-f", "%Su", "/dev/console"]
+        let pipe = Pipe()
+        process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
-
         do {
             try process.run()
             process.waitUntilExit()
-            log("App relaunched via open -a (exit=\(process.terminationStatus))")
-        } catch {
-            log("Failed to relaunch via open: \(error.localizedDescription)")
-        }
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch { return nil }
     }
 
     private func getConsoleUserUID() -> uid_t? {
