@@ -346,7 +346,7 @@ The coaching mode selector is in Settings, near the top — it's a fundamental c
 
 #### When locked
 
-If the account is locked (partner or self-lock), the coaching mode **cannot be changed**. Whatever the user selected before locking is frozen. This prevents "I'm struggling so I'll switch to Zen mode to avoid enforcement" — the lock applies to the coaching mode too.
+If the account is locked (partner lock), the coaching mode **cannot be changed**. Whatever the user selected before locking is frozen. This prevents "I'm struggling so I'll switch to Zen mode to avoid enforcement" — the lock applies to the coaching mode too.
 
 The three mode cards render as disabled/grayed out with the lock icon. The user can see which mode they're on but can't change it.
 

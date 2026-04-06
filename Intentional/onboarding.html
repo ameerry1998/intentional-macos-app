@@ -1533,13 +1533,6 @@ body {
           <span class="lock-desc">Partner must share unlock code</span>
         </div>
       </button>
-      <button class="lock-option" data-mode="self" id="lock-self">
-        <span class="lock-icon">⏰</span>
-        <div class="lock-info">
-          <span class="lock-title">24-Hour Delay</span>
-          <span class="lock-desc">Changes available after 24 hours</span>
-        </div>
-      </button>
       <button class="lock-option selected" data-mode="none" id="lock-none">
         <span class="lock-icon">🔓</span>
         <div class="lock-info">
@@ -2069,9 +2062,6 @@ function updateLockNote() {
   switch (selectedLockMode) {
     case 'partner':
       note.textContent = 'Your partner will receive an email to confirm.';
-      break;
-    case 'self':
-      note.textContent = 'You\'ll need to wait 24 hours before you can change settings.';
       break;
     default:
       note.textContent = '';

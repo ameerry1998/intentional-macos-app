@@ -117,7 +117,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // Also sync partner state to daemon
-        let lockMode = UserDefaults.standard.string(forKey: "lockMode") ?? "none"
+        var lockMode = UserDefaults.standard.string(forKey: "lockMode") ?? "none"
+        if lockMode == "self" { // "self" lock mode removed — migrate on startup
+            lockMode = "none"
+            UserDefaults.standard.set("none", forKey: "lockMode")
+        }
         let isLocked = lockMode != "none"
         let deviceId = UserDefaults.standard.string(forKey: "deviceId")
         // Read partner email from settings file

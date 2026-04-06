@@ -384,7 +384,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         let partnerEmail = settings["partnerEmail"] as? String
         let partnerName = settings["partnerName"] as? String
-        let lockMode = settings["lockMode"] as? String ?? "none"
+        var lockMode = settings["lockMode"] as? String ?? "none"
+        if lockMode == "self" { lockMode = "none" } // "self" lock mode removed
         let theme = settings["theme"] as? String
 
         appDelegate?.postLog("📋 Saving onboarding: lock=\(lockMode)")
@@ -702,9 +703,19 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let igPlatform = platforms["instagram"] as? [String: Any] ?? [:]
         let fbPlatform = platforms["facebook"] as? [String: Any] ?? [:]
 
-        let lockMode = (savedSettings["lockMode"] as? String)
+        var lockMode = (savedSettings["lockMode"] as? String)
             ?? UserDefaults.standard.string(forKey: "lockMode")
             ?? "none"
+        // Migration: "self" lock mode removed — treat as unlocked
+        if lockMode == "self" {
+            lockMode = "none"
+            UserDefaults.standard.set("none", forKey: "lockMode")
+            updateSettingsFile { settings in
+                settings["lockMode"] = "none"
+                settings["selfUnlockAvailableAt"] = nil
+            }
+            appDelegate?.postLog("🔄 Migrated lockMode from 'self' to 'none'")
+        }
         let partnerEmail = (savedSettings["partnerEmail"] as? String) ?? ""
         let partnerName = (savedSettings["partnerName"] as? String) ?? ""
         let deviceId = UserDefaults.standard.string(forKey: "deviceId") ?? ""
@@ -1169,14 +1180,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     // MARK: - Sync State from Backend
 
     func syncStateFromBackend(_ status: BackendClient.StatusResult) {
-        appDelegate?.postLog("🔄 Syncing state from backend: lockMode=\(status.lockMode), isLocked=\(status.isLocked), isTemporarilyUnlocked=\(status.isTemporarilyUnlocked)")
+        let effectiveLockMode = status.lockMode == "self" ? "none" : status.lockMode // "self" lock mode removed
+        appDelegate?.postLog("🔄 Syncing state from backend: lockMode=\(effectiveLockMode), isLocked=\(status.isLocked), isTemporarilyUnlocked=\(status.isTemporarilyUnlocked)")
 
         // Update UserDefaults with authoritative backend state
-        UserDefaults.standard.set(status.lockMode, forKey: "lockMode")
+        UserDefaults.standard.set(effectiveLockMode, forKey: "lockMode")
 
         // Update settings file with all backend state
         updateSettingsFile { settings in
-            settings["lockMode"] = status.lockMode
+            settings["lockMode"] = effectiveLockMode
             if let email = status.partnerEmail { settings["partnerEmail"] = email }
             if let consent = status.consentStatus { settings["consentStatus"] = consent }
 
@@ -1197,7 +1209,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         // Push updated state to the dashboard JS
         let consent = status.consentStatus ?? "none"
-        var jsFields = "lockMode: '\(status.lockMode)', consentStatus: '\(consent)'"
+        var jsFields = "lockMode: '\(effectiveLockMode)', consentStatus: '\(consent)'"
         // Only include partnerEmail if backend returned a non-empty value (avoid overwriting local data)
         if let pe = status.partnerEmail, !pe.isEmpty {
             let escaped = pe.replacingOccurrences(of: "'", with: "\\'")
@@ -1219,7 +1231,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     // MARK: - Save Lock Settings (Pessimistic)
 
     private func handleSaveLockSettings(_ body: [String: Any]) {
-        let lockMode = body["lockMode"] as? String ?? "none"
+        var lockMode = body["lockMode"] as? String ?? "none"
+        if lockMode == "self" { lockMode = "none" } // "self" lock mode removed
         let partnerEmail = body["partnerEmail"] as? String ?? ""
         let partnerName = body["partnerName"] as? String ?? ""
 
@@ -1311,7 +1324,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                     settings["partnerName"] = ""
                     settings["consentStatus"] = "none"
                     settings["temporaryUnlockUntil"] = nil
-                    settings["selfUnlockAvailableAt"] = nil
                     settings["unlockRequested"] = false
                     settings["settingsUnlocked"] = false
                     settings["strictModeEnabled"] = false
