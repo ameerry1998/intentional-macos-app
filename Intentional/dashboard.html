@@ -4440,6 +4440,61 @@ body.theme-effects-warm::after {
       </div>
     </div>
 
+    <!-- Intentional Mode Card -->
+    <div class="settings-card">
+      <div class="settings-card-title">Intentional Mode</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Screen Lock</div>
+          <div class="setting-desc">Block your screen until you set an intention for your time</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="intentional-mode-enabled" onchange="onIntentionalModeChange()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div id="intentional-mode-options" style="display: none;">
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Schedule</div>
+            <div class="setting-desc">When should Intentional Mode be active?</div>
+          </div>
+          <select id="intentional-mode-schedule" class="setting-select" onchange="onIntentionalModeChange()" style="width: 140px; padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: white; font-size: 13px;">
+            <option value="always">Always</option>
+            <option value="custom">Custom Hours</option>
+            <option value="puckOnly">Puck Only</option>
+          </select>
+        </div>
+        <div id="intentional-mode-custom-hours" style="display: none; padding: 4px 20px 12px;">
+          <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 12px; color: rgba(255,255,255,0.4); width: 70px;">Weekdays</span>
+            <input type="time" id="im-weekday-start" value="08:00" onchange="onIntentionalModeChange()" style="padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: white; font-size: 13px;">
+            <span style="color: rgba(255,255,255,0.3);">to</span>
+            <input type="time" id="im-weekday-end" value="18:00" onchange="onIntentionalModeChange()" style="padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: white; font-size: 13px;">
+          </div>
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: rgba(255,255,255,0.4); width: 70px;">
+              <input type="checkbox" id="im-weekend-enabled" onchange="onIntentionalModeChange()"> Weekends
+            </label>
+            <input type="time" id="im-weekend-start" value="09:00" onchange="onIntentionalModeChange()" style="padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: white; font-size: 13px;">
+            <span style="color: rgba(255,255,255,0.3);">to</span>
+            <input type="time" id="im-weekend-end" value="17:00" onchange="onIntentionalModeChange()" style="padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: white; font-size: 13px;">
+          </div>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Grace Period</div>
+            <div class="setting-desc">Time after a block ends before screen locks</div>
+          </div>
+          <select id="intentional-mode-grace" class="setting-select" onchange="onIntentionalModeChange()" style="width: 90px; padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: white; font-size: 13px;">
+            <option value="1">1 min</option>
+            <option value="3" selected>3 min</option>
+            <option value="5">5 min</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
     <!-- Reset & Delete Card -->
     <div class="settings-card">
       <div class="settings-card-title">Reset & Delete</div>
@@ -6065,6 +6120,68 @@ function confirmReset() {
   }
 }
 
+// ===== Intentional Mode =====
+
+function onIntentionalModeChange() {
+  var enabled = document.getElementById('intentional-mode-enabled').checked;
+  var optionsEl = document.getElementById('intentional-mode-options');
+  optionsEl.style.display = enabled ? '' : 'none';
+
+  var schedule = document.getElementById('intentional-mode-schedule').value;
+  var customEl = document.getElementById('intentional-mode-custom-hours');
+  customEl.style.display = schedule === 'custom' ? '' : 'none';
+
+  var weekdayStart = document.getElementById('im-weekday-start').value || '08:00';
+  var weekdayEnd = document.getElementById('im-weekday-end').value || '18:00';
+  var weekendEnabled = document.getElementById('im-weekend-enabled').checked;
+  var weekendStart = document.getElementById('im-weekend-start').value || '09:00';
+  var weekendEnd = document.getElementById('im-weekend-end').value || '17:00';
+  var grace = parseInt(document.getElementById('intentional-mode-grace').value) || 3;
+
+  var wdsParts = weekdayStart.split(':');
+  var wdeParts = weekdayEnd.split(':');
+  var wesParts = weekendStart.split(':');
+  var weeParts = weekendEnd.split(':');
+
+  sendMessage({
+    type: 'SAVE_INTENTIONAL_MODE',
+    enabled: enabled,
+    schedule: schedule,
+    gracePeriodMinutes: grace,
+    customSchedule: {
+      weekdayStartHour: parseInt(wdsParts[0]) || 8,
+      weekdayStartMinute: parseInt(wdsParts[1]) || 0,
+      weekdayEndHour: parseInt(wdeParts[0]) || 18,
+      weekdayEndMinute: parseInt(wdeParts[1]) || 0,
+      weekendEnabled: weekendEnabled,
+      weekendStartHour: parseInt(wesParts[0]) || 9,
+      weekendStartMinute: parseInt(wesParts[1]) || 0,
+      weekendEndHour: parseInt(weeParts[0]) || 17,
+      weekendEndMinute: parseInt(weeParts[1]) || 0
+    }
+  });
+}
+
+function loadIntentionalModeSettings(s) {
+  var enabled = s.intentionalModeEnabled || false;
+  var schedule = s.intentionalModeSchedule || 'always';
+  var grace = s.intentionalModeGracePeriod || 3;
+  var custom = s.intentionalModeCustomSchedule || {};
+
+  document.getElementById('intentional-mode-enabled').checked = enabled;
+  document.getElementById('intentional-mode-schedule').value = schedule;
+  document.getElementById('intentional-mode-grace').value = String(grace);
+  document.getElementById('intentional-mode-options').style.display = enabled ? '' : 'none';
+  document.getElementById('intentional-mode-custom-hours').style.display = schedule === 'custom' ? '' : 'none';
+
+  var pad = function(n) { return n < 10 ? '0' + n : String(n); };
+  document.getElementById('im-weekday-start').value = pad(custom.weekdayStartHour || 8) + ':' + pad(custom.weekdayStartMinute || 0);
+  document.getElementById('im-weekday-end').value = pad(custom.weekdayEndHour || 18) + ':' + pad(custom.weekdayEndMinute || 0);
+  document.getElementById('im-weekend-enabled').checked = custom.weekendEnabled || false;
+  document.getElementById('im-weekend-start').value = pad(custom.weekendStartHour || 9) + ':' + pad(custom.weekendStartMinute || 0);
+  document.getElementById('im-weekend-end').value = pad(custom.weekendEndHour || 17) + ':' + pad(custom.weekendEndMinute || 0);
+}
+
 // ===== Uninstall =====
 
 function startUninstall() {
@@ -6175,6 +6292,7 @@ window._settingsResult = function(data) {
   if (data.userEmail !== undefined) settings.userEmail = data.userEmail || '';
 
   try { populateSettingsUI(data); } catch(e) { console.error('populateSettingsUI error:', e); }
+  try { loadIntentionalModeSettings(data); } catch(e) { console.error('loadIntentionalModeSettings error:', e); }
   _settingsLoaded = true;
   renderLockState();
 };

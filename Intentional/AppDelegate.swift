@@ -37,6 +37,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Earn Your Browse budget system
     var earnedBrowseManager: EarnedBrowseManager?
 
+    // Intentional Mode — screen lock until you plan
+    var intentionalModeController: IntentionalModeController?
+
     // Content Safety — on-device screen monitoring for explicit content
     var contentSafetyMonitor: ContentSafetyMonitor?
 
@@ -385,6 +388,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         focusMonitor?.start()
         postLog("👁️ FocusMonitor + NudgeWindowController + FocusOverlayWindow + InterventionOverlay initialized")
 
+        // Initialize Intentional Mode (screen lock until you plan)
+        intentionalModeController = IntentionalModeController(appDelegate: self)
+        intentionalModeController?.scheduleManager = scheduleManager
+        intentionalModeController?.loadSettings()
+        intentionalModeController?.recalculateState()
+        intentionalModeController?.start()
+        postLog("🔒 IntentionalModeController initialized (enabled=\(intentionalModeController?.isEnabled ?? false))")
+
         // Wire schedule block changes: when the active block changes,
         // clear the relevance cache, reset focus monitor, and broadcast SCHEDULE_SYNC
         scheduleManager?.onBlockChanged = { [weak self] block, state in
@@ -402,6 +413,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // Set activeBlockId BEFORE focusMonitor re-evaluates (which may call recordWorkTick)
             self.earnedBrowseManager?.onBlockChanged(blockId: block?.id, blockTitle: block?.title)
             self.focusMonitor?.onBlockChanged()
+            self.intentionalModeController?.onBlockChanged(block: block, timeState: state)
             self.socketRelayServer?.broadcastScheduleSync()
             self.mainWindowController?.pushScheduleUpdate()
 

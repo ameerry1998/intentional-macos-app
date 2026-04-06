@@ -363,6 +363,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 UserDefaults.standard.set(planIndex, forKey: "defaultIfThenPlan")
             }
 
+        case "SAVE_INTENTIONAL_MODE":
+            handleSaveIntentionalMode(body)
+
         default:
             appDelegate?.postLog("⚠️ WKWebView: Unknown message type: \(type)")
         }
@@ -790,6 +793,26 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         result["soundTone"] = (savedSettings["soundTone"] as? String) ?? "Glass"
         result["theme"] = (savedSettings["theme"] as? String) ?? "iridescent"
         result["strictModeEnabled"] = UserDefaults.standard.bool(forKey: "strictModeEnabled")
+
+        // Intentional Mode settings
+        let imController = appDelegate?.intentionalModeController
+        result["intentionalModeEnabled"] = imController?.isEnabled ?? false
+        result["intentionalModeSchedule"] = imController?.schedule.rawValue ?? "always"
+        result["intentionalModeGracePeriod"] = imController?.gracePeriodMinutes ?? 3
+        if let cs = imController?.customSchedule {
+            result["intentionalModeCustomSchedule"] = [
+                "weekdayStartHour": cs.weekdayStartHour,
+                "weekdayStartMinute": cs.weekdayStartMinute,
+                "weekdayEndHour": cs.weekdayEndHour,
+                "weekdayEndMinute": cs.weekdayEndMinute,
+                "weekendEnabled": cs.weekendEnabled,
+                "weekendStartHour": cs.weekendStartHour,
+                "weekendStartMinute": cs.weekendStartMinute,
+                "weekendEndHour": cs.weekendEndHour,
+                "weekendEndMinute": cs.weekendEndMinute
+            ] as [String: Any]
+        }
+
         result["userEmail"] = appDelegate?.backendClient?.storedEmail ?? ""
         result["overridePartnerRequired"] = (savedSettings["overridePartnerRequired"] as? Bool) ?? false
         // Content Safety settings
@@ -1396,6 +1419,38 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         appDelegate?.updateStrictMode()
 
         callJS("window._strictModeResult && window._strictModeResult({ success: true, enabled: \(enabled) })")
+    }
+
+    // MARK: - Intentional Mode
+
+    private func handleSaveIntentionalMode(_ body: [String: Any]) {
+        guard let controller = appDelegate?.intentionalModeController else { return }
+
+        let enabled = body["enabled"] as? Bool ?? false
+        let scheduleRaw = body["schedule"] as? String ?? "always"
+        let grace = body["gracePeriodMinutes"] as? Int ?? 3
+
+        controller.isEnabled = enabled
+        controller.schedule = IntentionalModeController.Schedule(rawValue: scheduleRaw) ?? .always
+        controller.gracePeriodMinutes = grace
+
+        if let custom = body["customSchedule"] as? [String: Any] {
+            controller.customSchedule = IntentionalModeController.CustomSchedule(
+                weekdayStartHour: custom["weekdayStartHour"] as? Int ?? 8,
+                weekdayStartMinute: custom["weekdayStartMinute"] as? Int ?? 0,
+                weekdayEndHour: custom["weekdayEndHour"] as? Int ?? 18,
+                weekdayEndMinute: custom["weekdayEndMinute"] as? Int ?? 0,
+                weekendEnabled: custom["weekendEnabled"] as? Bool ?? false,
+                weekendStartHour: custom["weekendStartHour"] as? Int ?? 9,
+                weekendStartMinute: custom["weekendStartMinute"] as? Int ?? 0,
+                weekendEndHour: custom["weekendEndHour"] as? Int ?? 17,
+                weekendEndMinute: custom["weekendEndMinute"] as? Int ?? 0
+            )
+        }
+
+        controller.saveSettings()
+        controller.recalculateState()
+        appDelegate?.postLog("🔒 SAVE_INTENTIONAL_MODE: enabled=\(enabled), schedule=\(scheduleRaw), grace=\(grace)min")
     }
 
     // MARK: - Request Unlock
