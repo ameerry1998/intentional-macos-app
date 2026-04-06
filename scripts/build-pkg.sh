@@ -30,10 +30,7 @@ VERSION=$(grep MARKETING_VERSION "$PROJECT_DIR/Intentional.xcodeproj/project.pbx
 PKG_PATH="$BUILD_DIR/Intentional-${VERSION}.pkg"
 
 APP_SIGNING_IDENTITY="Developer ID Application: Amer Raiyan (B7B67856A7)"
-# Installer cert (optional — set to empty string to skip PKG signing)
-INSTALLER_SIGNING_IDENTITY=""
-# Uncomment when you have the cert:
-# INSTALLER_SIGNING_IDENTITY="Developer ID Installer: Amer Raiyan (B7B67856A7)"
+INSTALLER_SIGNING_IDENTITY="Developer ID Installer: Amer Raiyan (B7B67856A7)"
 
 NOTARY_PROFILE="intentional-notary"
 TEAM_ID="B7B67856A7"
@@ -62,11 +59,36 @@ xcodebuild -project "$PROJECT_DIR/Intentional.xcodeproj" \
 APP_PATH="$BUILD_DIR/Intentional.app"
 ditto --noextattr --norsrc "$ARCHIVE_PATH/Products/Applications/Intentional.app" "$APP_PATH"
 
-# The archive is already signed by Xcode with Developer ID Application.
-# Do NOT re-sign — re-signing breaks the nested code signature chain
-# (FilterExtension.systemextension, embedded frameworks) and causes
-# macOS amfid to SIGKILL the process on launch (exit code 137).
-echo "✅ Intentional.app archived (using Xcode's signing)"
+# Re-sign with Developer ID Application + secure timestamps
+# Sign inside-out: embedded components first, then the main app
+# Each component gets its OWN entitlements (critical — --deep breaks this)
+ENTITLEMENTS_PATH="$PROJECT_DIR/Intentional/Intentional.entitlements"
+
+# Sign FilterExtension with its own entitlements
+FILTER_EXT="$APP_PATH/Contents/Library/SystemExtensions/FilterExtension.systemextension"
+if [ -d "$FILTER_EXT" ]; then
+  FILTER_ENTITLEMENTS="$PROJECT_DIR/FilterExtension/FilterExtension.entitlements"
+  codesign --force --options runtime --timestamp \
+    --entitlements "$FILTER_ENTITLEMENTS" \
+    --sign "$APP_SIGNING_IDENTITY" \
+    "$FILTER_EXT" 2>&1
+  echo "   Signed FilterExtension"
+fi
+
+# Sign all embedded frameworks and bundles (no entitlements needed)
+find "$APP_PATH/Contents" \( -name "*.framework" -o -name "*.dylib" -o -name "*.bundle" \) -maxdepth 3 2>/dev/null | while read component; do
+  codesign --force --options runtime --timestamp \
+    --sign "$APP_SIGNING_IDENTITY" \
+    "$component" 2>&1 || true
+done
+
+# Sign the main app LAST with its entitlements
+codesign --force --options runtime --timestamp \
+  --entitlements "$ENTITLEMENTS_PATH" \
+  --sign "$APP_SIGNING_IDENTITY" \
+  "$APP_PATH" 2>&1
+
+echo "✅ Intentional.app signed with Developer ID (inside-out)"
 
 # ---- Step 2: Build the daemon ----
 echo "🔧 Step 2/7: Building $DAEMON_PRODUCT_NAME..."
