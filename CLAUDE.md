@@ -698,6 +698,20 @@ Sent every 2 minutes via `BackendClient.sendEvent(type: "heartbeat")`. Includes 
 
 ## Priority TODOs
 
+### Intentional Mode (Screen Lock Until You Plan)
+Full-screen blocking overlay when there's no active intention/block. The laptop is unusable until the user plans what they're doing (even "Free Time" counts). See `docs/ROADMAP.md` "Intentional Mode" section for full design.
+
+**Key implementation points:**
+- New `IntentionalModeController` — manages overlay lifecycle and state
+- Uses `KeyableWindow` at `.screenSaver` level (same as BlockRitualController) with interactive SwiftUI planning form
+- Cover ALL screens via `NSScreen.screens` loop (same as ContentSafetyMonitor)
+- Planning form: block type picker (Deep Work/Focus Hours/Free Time), intention text field, duration picker, Start button
+- 3-minute warning in pill when current block is about to end and no next block is scheduled
+- Triggers: always-on, custom schedule, manual toggle, Puck tap (future)
+- Settings: `intentionalModeEnabled`, `intentionalModeSchedule` (always/custom/puck-only), `intentionalModeGracePeriod` (1/3/5 min)
+- Respects partner lock (can't disable when settings locked)
+- **Puck integration is separate** — build with manual/schedule triggers first, wire Puck later
+
 ### Content Safety: Permission Monitoring & Partner Notification
 The Content Safety Monitor requires TWO macOS system permissions:
 1. **Screen Recording** — System Settings > Privacy & Security > Screen & System Audio Recording

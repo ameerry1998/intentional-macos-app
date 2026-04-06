@@ -43,6 +43,114 @@ Let users pick their enforcement style: Coach (warm language, reflection prompts
 
 ---
 
+## Intentional Mode (Screen Lock Until You Plan)
+
+### The Problem
+
+The app currently has lots of enforcement for *during* a focus block — nudges, grayscale, interventions. But it has no enforcement for the gap *between* blocks. If you finish a block and don't plan the next one, you can use the laptop freely with zero accountability. The noPlan pill card nudges you to plan, but it's easy to ignore.
+
+The deeper problem: the laptop is a work tool, but without a forcing function, it becomes a distraction machine the moment you stop being deliberate. "I'll just check one thing" turns into 45 minutes of nothing. The user *wants* to be intentional but needs the system to hold them to it.
+
+### The Idea
+
+**Intentional Mode** = your laptop is blocked unless you have an active intention. No plan = no laptop.
+
+The blocker isn't about specific sites. It's about the entire screen. A full-screen overlay blocks everything until you declare what you're doing for the next chunk of time. The intention can be "Free Time" — you just have to be deliberate about it.
+
+This is the noPlan pill card concept made mandatory and full-screen. Planning becomes the key that unlocks the laptop.
+
+### How It Works
+
+| State | Screen | User Action |
+|-------|--------|-------------|
+| No active intention | Full-screen blocking overlay | Must set an intention (even "Free Time") to unlock |
+| Intention active, block running | Normal enforcement (AI scoring, nudges, etc.) | Work normally |
+| 3 min before block ends | Warning countdown in pill: "Plan your next block" | Set next intention or screen locks when timer hits 0 |
+| Block ended, no next intention | Full-screen blocking overlay again | Must plan to continue using laptop |
+
+### Triggers for Intentional Mode
+
+Intentional Mode can be activated by any of these — they're all just ways to flip the same switch:
+
+- **Always-on** — 24/7 setting for users who want maximum accountability. Laptop is always locked unless there's an active intention.
+- **Schedule-based** — e.g., 8am-6pm weekdays. Outside the schedule, laptop is free. During the schedule, must have an active plan.
+- **Puck tap** — physical toggle. Tap Puck = Intentional Mode on, tap again = off. (Requires Puck iOS backend integration — see below.)
+- **Manual toggle** — button in the app menubar or dashboard.
+
+### The Planning Unlock Screen
+
+Full-screen overlay using `KeyableWindow` at `.screenSaver` level (same architecture as BlockRitualController and InterventionOverlayController). Dark glassmorphic background, centered card.
+
+The card contains:
+- **Block type picker** — Deep Work / Focus Hours / Free Time (three buttons)
+- **Intention text field** — "What are you working on?" (optional for Free Time, required for work blocks)
+- **Duration** — default 60 min, adjustable (30/60/90/120 min quick-pick buttons)
+- **Start button** — dismisses overlay, starts the block, normal enforcement kicks in
+
+This is essentially the noPlan card's quick-block flow but full-screen and mandatory. No dismiss button, no minimize. The only way out is to plan.
+
+### Block End Warning (3-Minute Countdown)
+
+When a block has 3 minutes remaining and no next block is scheduled:
+
+1. Pill shows warning state: "Block ends in 3:00 — plan your next block or screen locks"
+2. Countdown ticks in the pill
+3. If user plans next block before timer expires → seamless transition, no overlay
+4. If timer hits 0:00 with no next block → full-screen planning overlay appears
+
+The 3-minute warning gives users time to wrap up and plan without an abrupt screen lock.
+
+### Settings
+
+New settings in the dashboard (Accountability or Settings tab):
+
+- **Intentional Mode** toggle (on/off)
+- **Schedule** — when Intentional Mode is active:
+  - "Always" (24/7)
+  - "Custom schedule" (weekday/weekend hours picker)
+  - "Puck only" (only active when Puck triggers it)
+- **Grace period** — time after a block ends before the screen locks (default: 3 min, options: 1/3/5 min)
+
+When settings are locked (partner lock), Intentional Mode settings can't be changed.
+
+### Implementation: Apple API
+
+No special Apple API needed. The app already has the exact pattern:
+
+- **`KeyableWindow`** (custom `NSWindow` subclass with `canBecomeKey = true`) — allows text field input in the overlay
+- **`.screenSaver` window level** — above all apps, visible in all spaces
+- **`.canJoinAllSpaces, .fullScreenAuxiliary`** collection behavior — works across desktops and full-screen apps
+- **`ignoresMouseEvents = false`** — interactive (buttons, text fields work)
+- **Cover all screens**: loop over `NSScreen.screens` (ContentSafetyMonitor pattern)
+
+The overlay is a SwiftUI view hosted in `NSHostingView`, same as BlockRitualController and InterventionOverlayController.
+
+### Implementation: State Machine
+
+New state in the app (managed by a new `IntentionalModeController` or integrated into `FocusMonitor`):
+
+```
+intentionalModeEnabled: Bool          — master toggle
+intentionalModeSchedule: Schedule     — when it's active (always, custom, puck-only)
+isIntentionalModeActive: Bool         — computed: enabled AND within schedule AND (no active block OR block ending)
+```
+
+The overlay shows when `isIntentionalModeActive && currentBlock == nil`. The overlay dismisses when the user creates a block (which sets `currentBlock`).
+
+### Puck Integration (Future)
+
+The Puck iOS app (`puck-ios` repo on GitHub) currently has no backend. Plan:
+
+1. Connect Puck iOS to the Intentional backend (`api.intentional.social`)
+2. Shared device registration — Puck and Mac app link via the same user account
+3. Puck tap sends `POST /focus/toggle` to backend
+4. Mac app polls or receives push notification of state change
+5. State change triggers Intentional Mode on/off on the Mac
+
+This is a separate project. The Mac-side Intentional Mode feature should work with manual/schedule triggers first, then Puck wires in as just another trigger.
+
+---
+
 ## Detailed Experience Design for the 5 Core Changes
 
 ### 1. Block Start Ritual — The Experience
