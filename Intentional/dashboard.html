@@ -5651,8 +5651,20 @@ function enforceLockMode() {
     }
   });
 
-  // Add/remove locked banners on platform pages
-  ['page-distractions'].forEach(function(pageId) {
+  // Lock the Intentional Mode options panel when parent toggle is locked
+  var imOptions = document.getElementById('intentional-mode-options');
+  if (imOptions) {
+    if (locked) {
+      imOptions.style.pointerEvents = 'none';
+      imOptions.style.opacity = '0.4';
+    } else {
+      imOptions.style.pointerEvents = '';
+      imOptions.style.opacity = '';
+    }
+  }
+
+  // Add/remove locked banners on settings pages
+  ['page-distractions', 'page-settings'].forEach(function(pageId) {
     var page = document.getElementById(pageId);
     if (!page) return;
     var existingBanner = page.querySelector('.locked-banner');
