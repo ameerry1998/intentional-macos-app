@@ -305,8 +305,8 @@ class IntentionalModeController {
                 defer: false
             )
             window.contentView = hostingView
-            window.backgroundColor = .clear
-            window.isOpaque = false
+            window.backgroundColor = NSColor(white: 0.92, alpha: 1.0)
+            window.isOpaque = true
             window.hasShadow = false
             window.level = .screenSaver
             window.isReleasedWhenClosed = false
@@ -441,157 +441,158 @@ class IntentionalModeViewModel: ObservableObject {
     }
 }
 
-// MARK: - SwiftUI Overlay View
+// MARK: - SwiftUI Overlay View (Apple Downtime aesthetic)
 
 struct IntentionalModeOverlayView: View {
     @ObservedObject var viewModel: IntentionalModeViewModel
 
+    // Apple Downtime palette
+    private let bgColor = Color(white: 0.92)         // Light warm gray
+    private let cardBg = Color.white
+    private let textPrimary = Color(white: 0.1)
+    private let textSecondary = Color(white: 0.45)
+    private let accentBlue = Color(red: 0.0, green: 0.48, blue: 1.0)  // Apple system blue
+    private let divider = Color(white: 0.88)
+
     var body: some View {
         ZStack {
-            // Background — dark blur
-            Color.black.opacity(0.88)
-                .ignoresSafeArea()
+            // Background — light frosted gray (Downtime style)
+            bgColor.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 Spacer()
 
+                // Hourglass icon
+                Image(systemName: "hourglass")
+                    .font(.system(size: 48, weight: .thin))
+                    .foregroundColor(textSecondary)
+                    .padding(.bottom, 16)
+
+                Text("Time to be intentional")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(textPrimary)
+                    .padding(.bottom, 4)
+
+                Text("Set an intention to continue using your Mac")
+                    .font(.system(size: 13))
+                    .foregroundColor(textSecondary)
+                    .padding(.bottom, 28)
+
                 // Card
-                VStack(spacing: 24) {
-                    // Header
-                    VStack(spacing: 8) {
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 32))
-                            .foregroundColor(.white.opacity(0.6))
-
-                        Text("What are you working on?")
-                            .font(.system(size: 24, weight: .semibold))
-                            .foregroundColor(.white)
-
-                        Text("Set an intention to unlock your laptop")
-                            .font(.system(size: 14))
-                            .foregroundColor(.white.opacity(0.4))
-                    }
-                    .padding(.bottom, 8)
-
+                VStack(spacing: 0) {
                     // Block type picker
-                    HStack(spacing: 12) {
-                        blockTypeButton(.deepWork, label: "Deep Work", icon: "flame.fill", color: Color.red)
-                        blockTypeButton(.focusHours, label: "Focus", icon: "eye.fill", color: Color(red: 0.39, green: 0.4, blue: 0.95))
-                        blockTypeButton(.freeTime, label: "Free Time", icon: "cup.and.saucer.fill", color: Color(red: 0.2, green: 0.82, blue: 0.6))
+                    HStack(spacing: 0) {
+                        blockTypeButton(.deepWork, label: "Deep Work", icon: "flame.fill")
+                        dividerLine
+                        blockTypeButton(.focusHours, label: "Focus", icon: "eye.fill")
+                        dividerLine
+                        blockTypeButton(.freeTime, label: "Free Time", icon: "cup.and.saucer.fill")
                     }
+                    .frame(height: 72)
 
-                    // Title field (not required for free time)
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(viewModel.selectedBlockType == .freeTime ? "What are you doing? (optional)" : "What are you working on?")
-                            .font(.system(size: 12))
-                            .foregroundColor(.white.opacity(0.4))
+                    Divider().background(divider)
 
-                        TextField(
-                            viewModel.selectedBlockType == .freeTime ? "e.g., Taking a break" : "e.g., Build auth module",
-                            text: $viewModel.blockTitle
-                        )
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 16))
-                        .foregroundColor(.white)
-                        .padding(12)
-                        .background(Color.white.opacity(0.08))
-                        .cornerRadius(10)
-                    }
+                    // Title field
+                    TextField(
+                        viewModel.selectedBlockType == .freeTime ? "What are you doing? (optional)" : "What are you working on?",
+                        text: $viewModel.blockTitle
+                    )
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 15))
+                    .foregroundColor(textPrimary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+
+                    Divider().background(divider)
 
                     // Duration picker
-                    VStack(alignment: .leading, spacing: 6) {
+                    HStack {
                         Text("Duration")
-                            .font(.system(size: 12))
-                            .foregroundColor(.white.opacity(0.4))
+                            .font(.system(size: 13))
+                            .foregroundColor(textSecondary)
 
-                        HStack(spacing: 10) {
+                        Spacer()
+
+                        HStack(spacing: 6) {
                             ForEach(viewModel.durationOptions, id: \.self) { minutes in
-                                durationButton(minutes)
+                                durationPill(minutes)
                             }
                         }
                     }
-
-                    // Start button
-                    Button(action: { viewModel.startBlock() }) {
-                        Text("Start")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(viewModel.canStart ? .white : .white.opacity(0.3))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 48)
-                            .background(
-                                viewModel.canStart
-                                    ? Color(red: 0.39, green: 0.4, blue: 0.95)
-                                    : Color.white.opacity(0.08)
-                            )
-                            .cornerRadius(12)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!viewModel.canStart)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                 }
-                .padding(32)
-                .frame(width: 420)
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.white.opacity(0.06))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20)
-                                .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+                .background(cardBg)
+                .cornerRadius(12)
+                .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
+                .frame(width: 380)
+                .padding(.bottom, 20)
+
+                // Start button
+                Button(action: { viewModel.startBlock() }) {
+                    Text("Start")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white)
+                        .frame(width: 380, height: 44)
+                        .background(
+                            viewModel.canStart
+                                ? accentBlue
+                                : accentBlue.opacity(0.35)
                         )
-                )
+                        .cornerRadius(10)
+                }
+                .buttonStyle(.plain)
+                .disabled(!viewModel.canStart)
 
                 Spacer()
             }
         }
+    }
+
+    // MARK: - Divider Line (vertical)
+
+    private var dividerLine: some View {
+        Rectangle()
+            .fill(divider)
+            .frame(width: 0.5)
     }
 
     // MARK: - Block Type Button
 
     @ViewBuilder
-    private func blockTypeButton(_ type: ScheduleManager.BlockType, label: String, icon: String, color: Color) -> some View {
+    private func blockTypeButton(_ type: ScheduleManager.BlockType, label: String, icon: String) -> some View {
         let isSelected = viewModel.selectedBlockType == type
 
         Button(action: { viewModel.selectedBlockType = type }) {
-            VStack(spacing: 6) {
+            VStack(spacing: 5) {
                 Image(systemName: icon)
                     .font(.system(size: 18))
                 Text(label)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
             }
-            .foregroundColor(isSelected ? .white : .white.opacity(0.4))
-            .frame(maxWidth: .infinity)
-            .frame(height: 64)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? color.opacity(0.25) : Color.white.opacity(0.04))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .strokeBorder(isSelected ? color.opacity(0.5) : Color.white.opacity(0.08), lineWidth: 1)
-                    )
-            )
+            .foregroundColor(isSelected ? accentBlue : textSecondary)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(isSelected ? accentBlue.opacity(0.08) : Color.clear)
         }
         .buttonStyle(.plain)
     }
 
-    // MARK: - Duration Button
+    // MARK: - Duration Pill
 
     @ViewBuilder
-    private func durationButton(_ minutes: Int) -> some View {
+    private func durationPill(_ minutes: Int) -> some View {
         let isSelected = viewModel.selectedDuration == minutes
-        let label = minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h\(minutes % 60 > 0 ? " \(minutes % 60)m" : "")"
+        let label = minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h\(minutes % 60 > 0 ? "\(minutes % 60)m" : "")"
 
         Button(action: { viewModel.selectedDuration = minutes }) {
             Text(label)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(isSelected ? .white : .white.opacity(0.4))
-                .frame(maxWidth: .infinity)
-                .frame(height: 36)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(isSelected ? .white : textSecondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
                 .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(isSelected ? Color(red: 0.39, green: 0.4, blue: 0.95).opacity(0.3) : Color.white.opacity(0.04))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .strokeBorder(isSelected ? Color(red: 0.39, green: 0.4, blue: 0.95).opacity(0.5) : Color.white.opacity(0.08), lineWidth: 1)
-                        )
+                    Capsule()
+                        .fill(isSelected ? accentBlue : Color(white: 0.93))
                 )
         }
         .buttonStyle(.plain)

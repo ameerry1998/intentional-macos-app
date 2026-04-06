@@ -4046,150 +4046,8 @@ body.theme-effects-warm::after {
       </div>
     </div>
 
-    <!-- PUCK BRANCH: Notification Sound moved to Settings, Content Filtering removed (extension is sensing-only) -->
-    <!--
-    <div class="settings-card" style="margin-top: 16px;">
-      <div class="settings-card-title">Notification Sound</div>
-      <div class="setting-desc" style="padding: 2px 20px 8px;">Sound played during pill transitions.</div>
-      <div class="sound-tone-grid" id="sound-tone-picker"></div>
-    </div>
+    <!-- Platform-specific filtering (YouTube/Instagram/Facebook) removed in Puck branch -->
 
-    <div class="platform-section-title" style="margin-top: 36px;">Content Filtering</div>
-
-    <div class="platform-section-title">YouTube</div>
-    <div class="settings-card">
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Enable YouTube filtering</div>
-          <div class="setting-desc">AI checks video titles against your intent</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="yt-enabled" checked onchange="onSettingChange(); togglePlatformSettings('yt')">
-          <span class="toggle-track"></span>
-        </label>
-      </div>
-    </div>
-    <div class="platform-settings-group" id="yt-settings-group">
-      <div class="settings-card">
-        <div class="settings-card-title">Filtering</div>
-        <div class="setting-row">
-          <div>
-            <div class="setting-label">Relevance threshold</div>
-            <div class="setting-desc">Higher = stricter filtering</div>
-          </div>
-          <input type="range" class="setting-range" id="yt-threshold" min="1" max="100" value="35" oninput="document.getElementById('yt-threshold-val').textContent = this.value + '%'; onSettingChange()">
-          <span class="setting-value" id="yt-threshold-val">35%</span>
-        </div>
-      </div>
-      <div class="settings-card">
-        <div class="settings-card-title">Content Blocking</div>
-        <div class="setting-row">
-          <div>
-            <div class="setting-label">Block Shorts</div>
-            <div class="setting-desc">Remove YouTube Shorts from feed</div>
-          </div>
-          <label class="toggle">
-            <input type="checkbox" id="yt-block-shorts" checked onchange="onSettingChange()">
-            <span class="toggle-track"></span>
-          </label>
-        </div>
-        <div class="setting-row">
-          <div>
-            <div class="setting-label">Hide sponsored content</div>
-            <div class="setting-desc">Remove ads and sponsored videos</div>
-          </div>
-          <label class="toggle">
-            <input type="checkbox" id="yt-hide-sponsored" checked onchange="onSettingChange()">
-            <span class="toggle-track"></span>
-          </label>
-        </div>
-      </div>
-      <div class="settings-card">
-        <div class="settings-card-title">Your Intentions</div>
-        <div class="chip-container">
-          <div class="chip-list" id="yt-categories-list" data-empty="No intentions added"></div>
-          <div class="chip-input-row">
-            <input type="text" id="yt-category-input" placeholder="e.g. AI, cooking, programming..." />
-            <button onclick="addChipItem('yt-categories', 'yt-category-input')">Add</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="platform-section-title">Instagram</div>
-    <div class="settings-card">
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Enable Instagram filtering</div>
-          <div class="setting-desc">AI checks images against your intent</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="ig-enabled" checked onchange="onSettingChange(); togglePlatformSettings('ig')">
-          <span class="toggle-track"></span>
-        </label>
-      </div>
-    </div>
-    <div class="platform-settings-group" id="ig-settings-group">
-      <div class="settings-card">
-        <div class="settings-card-title">Content Blocking</div>
-        <div class="setting-row"><div><div class="setting-label">Block Reels</div><div class="setting-desc">Remove video posts from feed and block /reels/</div></div><label class="toggle"><input type="checkbox" id="ig-block-reels" checked onchange="onSettingChange()"><span class="toggle-track"></span></label></div>
-        <div class="setting-row"><div><div class="setting-label">Block Explore page</div><div class="setting-desc">Block access to /explore/</div></div><label class="toggle"><input type="checkbox" id="ig-block-explore" checked onchange="onSettingChange()"><span class="toggle-track"></span></label></div>
-        <div class="setting-row"><div><div class="setting-label">NSFW filter</div><div class="setting-desc">Block adult content using image classification</div></div><label class="toggle"><input type="checkbox" id="ig-nsfw-filter" checked onchange="onSettingChange()"><span class="toggle-track"></span></label></div>
-        <div class="setting-row"><div><div class="setting-label">Hide sponsored posts</div><div class="setting-desc">Remove ads from feed</div></div><label class="toggle"><input type="checkbox" id="ig-hide-ads" checked onchange="onSettingChange()"><span class="toggle-track"></span></label></div>
-      </div>
-      <div class="settings-card">
-        <div class="settings-card-title">Filtering</div>
-        <div class="setting-row">
-          <div><div class="setting-label">Relevance threshold</div><div class="setting-desc">Higher = stricter filtering</div></div>
-          <input type="range" class="setting-range" id="ig-threshold" min="1" max="100" value="35" oninput="document.getElementById('ig-threshold-val').textContent = this.value + '%'; onSettingChange()">
-          <span class="setting-value" id="ig-threshold-val">35%</span>
-        </div>
-      </div>
-      <div class="settings-card">
-        <div class="settings-card-title">Content to Avoid</div>
-        <div class="chip-container">
-          <div class="chip-list" id="ig-blocked-categories-list" data-empty="No categories added"></div>
-          <div class="chip-input-row"><input type="text" id="ig-blocked-category-input" placeholder="e.g. gossip, fitness, politics..." /><button onclick="addChipItem('ig-blocked-categories', 'ig-blocked-category-input')">Add</button></div>
-        </div>
-      </div>
-      <div class="settings-card">
-        <div class="settings-card-title">Blocked Accounts</div>
-        <div class="chip-container">
-          <div class="chip-list" id="ig-blocked-accounts-list" data-empty="No accounts blocked"></div>
-          <div class="chip-input-row"><input type="text" id="ig-blocked-account-input" placeholder="Instagram username..." /><button onclick="addChipItem('ig-blocked-accounts', 'ig-blocked-account-input')">Add</button></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="platform-section-title">Facebook</div>
-    <div class="settings-card">
-      <div class="setting-row">
-        <div><div class="setting-label">Enable Facebook filtering</div><div class="setting-desc">Route guards and feed filtering</div></div>
-        <label class="toggle"><input type="checkbox" id="fb-enabled" checked onchange="onSettingChange(); togglePlatformSettings('fb')"><span class="toggle-track"></span></label>
-      </div>
-    </div>
-    <div class="platform-settings-group" id="fb-settings-group">
-      <div class="settings-card">
-        <div class="settings-card-title">Content Blocking</div>
-        <div class="setting-row"><div><div class="setting-label">Block Watch videos</div><div class="setting-desc">Block access to Facebook Watch</div></div><label class="toggle"><input type="checkbox" id="fb-block-watch" checked onchange="onSettingChange()"><span class="toggle-track"></span></label></div>
-        <div class="setting-row"><div><div class="setting-label">Block Reels</div><div class="setting-desc">Block Facebook Reels</div></div><label class="toggle"><input type="checkbox" id="fb-block-reels" checked onchange="onSettingChange()"><span class="toggle-track"></span></label></div>
-        <div class="setting-row"><div><div class="setting-label">Block Marketplace</div><div class="setting-desc">Block Facebook Marketplace</div></div><label class="toggle"><input type="checkbox" id="fb-block-marketplace" onchange="onSettingChange()"><span class="toggle-track"></span></label></div>
-        <div class="setting-row"><div><div class="setting-label">Block Gaming</div><div class="setting-desc">Block Facebook Gaming section</div></div><label class="toggle"><input type="checkbox" id="fb-block-gaming" checked onchange="onSettingChange()"><span class="toggle-track"></span></label></div>
-        <div class="setting-row"><div><div class="setting-label">Block Stories</div><div class="setting-desc">Hide Stories from the top of your feed</div></div><label class="toggle"><input type="checkbox" id="fb-block-stories" onchange="onSettingChange()"><span class="toggle-track"></span></label></div>
-      </div>
-      <div class="settings-card">
-        <div class="settings-card-title">Feed Filtering</div>
-        <div class="setting-row"><div><div class="setting-label">Block sponsored posts</div><div class="setting-desc">Remove ads and sponsored content from feed</div></div><label class="toggle"><input type="checkbox" id="fb-block-sponsored" checked onchange="onSettingChange()"><span class="toggle-track"></span></label></div>
-        <div class="setting-row"><div><div class="setting-label">Block suggested content</div><div class="setting-desc">Remove "Suggested for you" and "People you may know"</div></div><label class="toggle"><input type="checkbox" id="fb-block-suggested" checked onchange="onSettingChange()"><span class="toggle-track"></span></label></div>
-        <div class="setting-row"><div><div class="setting-label">Friends-only mode</div><div class="setting-desc">Only show posts from friends in your feed</div></div><label class="toggle"><input type="checkbox" id="fb-friends-only" onchange="onSettingChange()"><span class="toggle-track"></span></label></div>
-        <div class="setting-row"><div><div class="setting-label">Scroll limit</div><div class="setting-desc">Posts before "Time to refocus" wall (0 = off)</div></div><input type="number" class="setting-number" id="fb-scroll-limit" value="50" min="0" max="500" onchange="onSettingChange()"><span class="setting-value">posts</span></div>
-      </div>
-    </div>
-
-    <button class="save-btn" id="distractions-save-btn" onclick="saveSettingsBtn(this)">Save</button>
-    -->
-
-    <button class="save-btn" id="distractions-save-btn" onclick="saveSettingsBtn(this)">Save</button>
   </div>
 
   <!-- Page: Accountability / Lock -->
@@ -5079,22 +4937,6 @@ function filterAppPicker() {
   }
 }
 
-// ===== Platform Settings Collapse =====
-function togglePlatformSettings(platform) {
-  var toggle = document.getElementById(platform + '-enabled');
-  var group = document.getElementById(platform + '-settings-group');
-  if (!toggle || !group) return;
-  if (toggle.checked) {
-    group.classList.remove('collapsed');
-  } else {
-    group.classList.add('collapsed');
-  }
-}
-
-function syncAllPlatformCollapses() {
-  ['yt', 'ig', 'fb'].forEach(togglePlatformSettings);
-}
-
 // ===== Setting Change Handler =====
 var _settingsLoaded = false; // Set to true after first GET_SETTINGS populates UI — prevents saving HTML defaults over real settings
 var _lockInterceptActive = false; // Set by lock interceptor to suppress normal save
@@ -5123,60 +4965,15 @@ function _checked(id, fallback) { var e = _el(id); return e ? e.checked : (fallb
 function _val(id, fallback) { var e = _el(id); return e ? e.value : (fallback !== undefined ? fallback : ''); }
 
 function saveAllSettings() {
-  if (!_settingsLoaded) return; // Don't save until GET_SETTINGS has populated the UI
-  // PUCK BRANCH: Platform filtering UI is commented out — use safe defaults
-  var ytSettings = {
-    enabled: _checked('yt-enabled', false),
-    threshold: parseInt(_val('yt-threshold', '35')) || 35,
-    blockShorts: _checked('yt-block-shorts', true),
-    hideSponsored: _checked('yt-hide-sponsored', true),
-    blockMode: 'hide',
-    zenDuration: 10,
-    categories: getChipItems('yt-categories')
-  };
-
-  var igSettings = {
-    enabled: _checked('ig-enabled', false),
-    threshold: parseInt(_val('ig-threshold', '35')) || 35,
-    blockReels: _checked('ig-block-reels', true),
-    blockExplore: _checked('ig-block-explore', true),
-    nsfwFilter: _checked('ig-nsfw-filter', true),
-    hideAds: _checked('ig-hide-ads', true),
-    blockedCategories: getChipItems('ig-blocked-categories'),
-    blockedAccounts: getChipItems('ig-blocked-accounts')
-  };
-
-  var fbSettings = {
-    enabled: _checked('fb-enabled', true),
-    blockWatch: _checked('fb-block-watch', true),
-    blockReels: _checked('fb-block-reels', true),
-    blockMarketplace: _checked('fb-block-marketplace', false),
-    blockGaming: _checked('fb-block-gaming', true),
-    blockStories: _checked('fb-block-stories', false),
-    blockSponsored: _checked('fb-block-sponsored', true),
-    blockSuggested: _checked('fb-block-suggested', true),
-    scrollLimit: parseInt(_val('fb-scroll-limit', '50')) || 0,
-    friendsOnly: _checked('fb-friends-only', false)
-  };
-
-  var maxPerPeriod = {
-    enabled: _checked('adv-period-enabled', false),
-    minutes: parseInt(_val('adv-period-minutes', '20')) || 20,
-    periodHours: parseInt(_val('adv-period-hours', '1')) || 1
-  };
+  if (!_settingsLoaded) return;
 
   sendMessage({
     type: 'SAVE_SETTINGS',
     settings: {
-      youtube: ytSettings,
-      instagram: igSettings,
-      facebook: fbSettings,
       lockMode: settings.lockMode,
       partnerEmail: settings.partnerEmail,
       partnerName: settings.partnerName,
-      maxPerPeriod: maxPerPeriod,
       distractingSites: customDistractingSites,
-      disabledPlatforms: disabledPlatforms,
       distractingApps: distractingApps.map(function(a) { return { name: a.name, bundleId: a.bundleId }; }),
       alwaysRelevantSites: alwaysRelevantSites,
       soundTone: selectedSoundTone,
@@ -5251,58 +5048,12 @@ function openContentSafetySettings() {
 
 // Populate settings UI from loaded data
 function populateSettingsUI(data) {
-  // PUCK BRANCH: Platform filtering UI is commented out — guard all element access
-  if (data.youtube && _el('yt-enabled')) {
-    var yt = data.youtube;
-    _el('yt-enabled').checked = yt.enabled !== false;
-    if (_el('yt-threshold')) _el('yt-threshold').value = yt.threshold || 35;
-    if (_el('yt-threshold-val')) _el('yt-threshold-val').textContent = (yt.threshold || 35) + '%';
-    if (_el('yt-block-shorts')) _el('yt-block-shorts').checked = yt.blockShorts !== false;
-    if (_el('yt-hide-sponsored')) _el('yt-hide-sponsored').checked = yt.hideSponsored !== false;
-    renderChips('yt-categories', yt.categories || []);
-  }
-
-  if (data.instagram && _el('ig-enabled')) {
-    var ig = data.instagram;
-    _el('ig-enabled').checked = ig.enabled !== false;
-    if (_el('ig-threshold')) _el('ig-threshold').value = ig.threshold || 35;
-    if (_el('ig-threshold-val')) _el('ig-threshold-val').textContent = (ig.threshold || 35) + '%';
-    if (_el('ig-block-reels')) _el('ig-block-reels').checked = ig.blockReels !== false;
-    if (_el('ig-block-explore')) _el('ig-block-explore').checked = ig.blockExplore !== false;
-    if (_el('ig-nsfw-filter')) _el('ig-nsfw-filter').checked = ig.nsfwFilter !== false;
-    if (_el('ig-hide-ads')) _el('ig-hide-ads').checked = ig.hideAds !== false;
-    renderChips('ig-blocked-categories', ig.blockedCategories || []);
-    renderChips('ig-blocked-accounts', ig.blockedAccounts || []);
-  }
-
-  if (data.facebook && _el('fb-enabled')) {
-    var fb = data.facebook;
-    _el('fb-enabled').checked = fb.enabled !== false;
-    if (_el('fb-block-watch')) _el('fb-block-watch').checked = fb.blockWatch !== false;
-    if (_el('fb-block-reels')) _el('fb-block-reels').checked = fb.blockReels !== false;
-    if (_el('fb-block-marketplace')) _el('fb-block-marketplace').checked = fb.blockMarketplace === true;
-    if (_el('fb-block-gaming')) _el('fb-block-gaming').checked = fb.blockGaming !== false;
-    if (_el('fb-block-stories')) _el('fb-block-stories').checked = fb.blockStories === true;
-    if (_el('fb-block-sponsored')) _el('fb-block-sponsored').checked = fb.blockSponsored !== false;
-    if (_el('fb-block-suggested')) _el('fb-block-suggested').checked = fb.blockSuggested !== false;
-    if (_el('fb-scroll-limit')) _el('fb-scroll-limit').value = fb.scrollLimit !== undefined ? fb.scrollLimit : 50;
-    if (_el('fb-friends-only')) _el('fb-friends-only').checked = fb.friendsOnly === true;
-  }
-
-  if (data.maxPerPeriod && _el('adv-period-enabled')) {
-    var mpp = data.maxPerPeriod;
-    _el('adv-period-enabled').checked = mpp.enabled === true;
-    if (_el('adv-period-minutes')) _el('adv-period-minutes').value = mpp.minutes || 20;
-    if (_el('adv-period-hours')) _el('adv-period-hours').value = mpp.periodHours || 1;
-  }
-
   if (data.deviceId) {
     document.getElementById('adv-device-id').textContent = data.deviceId;
   }
 
-  // Load custom distracting sites and disabled platforms
+  // Load custom distracting sites
   customDistractingSites = data.distractingSites || [];
-  disabledPlatforms = data.disabledPlatforms || [];
   renderDistractingSites();
 
   // Load always-relevant sites whitelist
@@ -5319,9 +5070,6 @@ function populateSettingsUI(data) {
 
   // Load sound tone picker
   renderSoundTonePicker(data.soundTone || 'Glass');
-
-  // Sync platform collapse states after populating checkboxes
-  syncAllPlatformCollapses();
 
   // Load content safety setting
   var cs = data.contentSafety || {};
@@ -5856,33 +5604,21 @@ window._strictModeResult = function(result) {
 
 // ===== Lock Enforcement on Settings Pages =====
 var LOCKED_INPUT_IDS = [
-  'yt-enabled', 'ig-enabled', 'fb-enabled',
-  'yt-threshold', 'ig-threshold',
-  'yt-block-shorts', 'ig-block-reels',
-  'fb-block-watch', 'fb-block-reels', 'fb-block-marketplace',
-  'fb-block-gaming', 'fb-block-stories',
-  'fb-block-sponsored', 'fb-block-suggested', 'fb-friends-only',
-  'yt-hide-sponsored',
-  'adv-period-enabled', 'adv-period-minutes', 'adv-period-hours',
-  'enf-dw-nudge', 'enf-dw-redshift', 'enf-dw-redirect', 'enf-dw-overlay', 'enf-dw-intervention',
-  'enf-fh-nudge', 'enf-fh-redshift', 'enf-fh-redirect', 'enf-fh-overlay', 'enf-fh-intervention'
+  // Enforcement settings
+  'enf-dw-nudge', 'enf-dw-redshift', 'enf-dw-redirect', 'enf-dw-overlay', 'enf-dw-intervention', 'enf-dw-audio',
+  'enf-fh-nudge', 'enf-fh-redshift', 'enf-fh-redirect', 'enf-fh-overlay', 'enf-fh-intervention', 'enf-fh-audio',
+  // Core features
+  'focus-enabled', 'focus-enforcement',
+  'content-safety-enabled',
+  'intentional-mode-enabled', 'intentional-mode-schedule', 'intentional-mode-grace'
 ];
 
-// Descriptions for the lock confirmation modal
+// Descriptions for lock confirmation modal (when enabling a locked-off feature)
 var LOCK_CONFIRM_INFO = {
-  'yt-enabled': { name: 'YouTube filtering', desc: 'YouTube videos will be filtered based on your stated intent.' },
-  'ig-enabled': { name: 'Instagram filtering', desc: 'Instagram content will be filtered based on your settings.' },
-  'fb-enabled': { name: 'Facebook filtering', desc: 'Facebook content will be filtered based on your settings.' },
-  'yt-block-shorts': { name: 'Block YouTube Shorts', desc: 'YouTube Shorts will be completely removed from your feed.' },
-  'ig-block-reels': { name: 'Block Instagram Reels', desc: 'Video posts and Reels will be removed from Instagram.' },
-  'fb-block-watch': { name: 'Block Facebook Watch', desc: 'The Facebook Watch video section will be blocked.' },
-  'fb-block-reels': { name: 'Block Facebook Reels', desc: 'Facebook Reels will be blocked.' },
-  'fb-block-marketplace': { name: 'Block Marketplace', desc: 'Facebook Marketplace will be blocked.' },
-  'fb-block-gaming': { name: 'Block Gaming', desc: 'The Facebook Gaming section will be blocked.' },
-  'fb-block-stories': { name: 'Block Stories', desc: 'Facebook Stories will be hidden from the top of your feed.' },
-  'fb-block-sponsored': { name: 'Block sponsored posts', desc: 'Sponsored posts and ads will be removed from your Facebook feed.' },
-  'fb-block-suggested': { name: 'Block suggested content', desc: '"Suggested for you" and "People you may know" content will be removed.' },
-  'fb-friends-only': { name: 'Friends-only mode', desc: 'Only posts from friends will appear in your feed.' }
+  'content-safety-enabled': { name: 'Content Safety', desc: 'Screen monitoring for explicit content will be enabled.' },
+  'intentional-mode-enabled': { name: 'Intentional Mode', desc: 'Screen will be locked until you set an intention.' },
+  'focus-enabled': { name: 'Daily Focus Plan', desc: 'Focus scheduling and enforcement will be enabled.' },
+  'focus-enforcement': { name: 'Focus Enforcement', desc: 'Off-task browser tabs will be redirected during work blocks.' }
 };
 
 function isSettingsLocked() {
