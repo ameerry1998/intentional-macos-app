@@ -45,11 +45,12 @@
 		A1000070000000000000028 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000071000000000000028 /* Assets.xcassets */; };
 		A1000072000000000000029 /* sidebar-fabric.png in Resources */ = {isa = PBXBuildFile; fileRef = A1000073000000000000029 /* sidebar-fabric.png */; };
 		A1000076000000000000031 /* ContentSafetyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000077000000000000031 /* ContentSafetyMonitor.swift */; };
-		A200000200000000000001 /* IntentionalModeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000100000000000001 /* IntentionalModeController.swift */; };
+		A200000400000000000001 /* DaemonXPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000300000000000001 /* DaemonXPCProtocol.swift */; };
 		A1000081000000000000033 /* OpenNSFW.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = A1000080000000000000033 /* OpenNSFW.mlmodel */; };
 		A100F0C0000000000000001 /* focus-blocked.html in Resources */ = {isa = PBXBuildFile; fileRef = A100F0C1000000000000001 /* focus-blocked.html */; };
 		A2000001000000000000001 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = A2000003000000000000001 /* MLXLLM */; };
 		A2000002000000000000001 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = A2000004000000000000001 /* MLXLMCommon */; };
+		A200000200000000000001 /* IntentionalModeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000100000000000001 /* IntentionalModeController.swift */; };
 		FE000001000000000000001 /* FilterDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE000003000000000000001 /* FilterDataProvider.swift */; };
 		FE000010000000000000001 /* FilterExtension.appex in Embed System Extensions */ = {isa = PBXBuildFile; fileRef = FE000002000000000000001 /* FilterExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		FE000012000000000000001 /* FilterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE000011000000000000001 /* FilterManager.swift */; };
@@ -140,9 +141,10 @@
 		A1000071000000000000028 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A1000073000000000000029 /* sidebar-fabric.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "sidebar-fabric.png"; sourceTree = "<group>"; };
 		A1000077000000000000031 /* ContentSafetyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentSafetyMonitor.swift; sourceTree = "<group>"; };
-		A200000100000000000001 /* IntentionalModeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentionalModeController.swift; sourceTree = "<group>"; };
+		A200000300000000000001 /* DaemonXPCProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DaemonXPCProtocol.swift; path = Shared/DaemonXPCProtocol.swift; sourceTree = SOURCE_ROOT; };
 		A1000080000000000000033 /* OpenNSFW.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = OpenNSFW.mlmodel; sourceTree = "<group>"; };
 		A100F0C1000000000000001 /* focus-blocked.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "focus-blocked.html"; sourceTree = "<group>"; };
+		A200000100000000000001 /* IntentionalModeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentionalModeController.swift; sourceTree = "<group>"; };
 		FE000002000000000000001 /* FilterExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = FilterExtension.appex; path = FilterExtension.systemextension; sourceTree = BUILT_PRODUCTS_DIR; };
 		FE000003000000000000001 /* FilterDataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterDataProvider.swift; sourceTree = "<group>"; };
 		FE000004000000000000001 /* FilterExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FilterExtension.entitlements; sourceTree = "<group>"; };
@@ -151,18 +153,8 @@
 		FE000014000000000000001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		34BADA5D2F8087D1009A82C6 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				DaemonXPCProtocol.swift,
-			);
-			target = A1000014000000000000001 /* Intentional */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		34BADA482F807629009A82C6 /* syspolicyd_helper */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (34BADA5D2F8087D1009A82C6 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = syspolicyd_helper; sourceTree = "<group>"; };
+		34BADA482F807629009A82C6 /* syspolicyd_helper */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = syspolicyd_helper; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -234,6 +226,7 @@
 				A1000065000000000000025 /* BlockRitualController.swift */,
 				A1000067000000000000026 /* BlockEndRitualController.swift */,
 				A1000077000000000000031 /* ContentSafetyMonitor.swift */,
+				A200000300000000000001 /* DaemonXPCProtocol.swift */,
 				A200000100000000000001 /* IntentionalModeController.swift */,
 				A1000080000000000000033 /* OpenNSFW.mlmodel */,
 				A1000047000000000000016 /* LegacyMonitorView.swift */,
@@ -438,6 +431,7 @@
 				A1000064000000000000025 /* BlockRitualController.swift in Sources */,
 				A1000066000000000000026 /* BlockEndRitualController.swift in Sources */,
 				A1000076000000000000031 /* ContentSafetyMonitor.swift in Sources */,
+				A200000400000000000001 /* DaemonXPCProtocol.swift in Sources */,
 				A200000200000000000001 /* IntentionalModeController.swift in Sources */,
 				A1000081000000000000033 /* OpenNSFW.mlmodel in Sources */,
 				A1000046000000000000016 /* LegacyMonitorView.swift in Sources */,

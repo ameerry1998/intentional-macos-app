@@ -18,6 +18,7 @@ struct DaemonConfig: Codable {
     var daemonVersion: String = "1.0"
     var lastHeartbeatToBackend: String?
     var lastAppHeartbeat: String?
+    var configuredUserUID: uid_t?  // UID of the user who set up Intentional
 }
 
 class ConfigManager {
@@ -72,6 +73,10 @@ class ConfigManager {
         queue.sync { config.deviceId }
     }
 
+    var configuredUserUID: uid_t? {
+        queue.sync { config.configuredUserUID }
+    }
+
     // MARK: - Mutators
 
     func setStrictMode(enabled: Bool) -> (Bool, String?) {
@@ -94,6 +99,16 @@ class ConfigManager {
             if let id = deviceId { config.deviceId = id }
             save()
             log("Partner lock updated: locked=\(isLocked), email=\(partnerEmail ?? "nil")")
+        }
+    }
+
+    func setConfiguredUserUID(_ uid: uid_t) {
+        queue.sync {
+            if config.configuredUserUID == nil {
+                config.configuredUserUID = uid
+                save()
+                log("Configured user UID set to \(uid)")
+            }
         }
     }
 

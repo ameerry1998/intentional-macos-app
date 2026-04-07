@@ -48,11 +48,44 @@ class AppWatchdog {
             return
         }
 
+        // Check if a different user account is active (bypass attempt)
+        checkUserSession()
+
         // Check if app process is running
         let isRunning = isAppRunning()
         if !isRunning {
             log("App not running while strict mode is ON — relaunching")
             relaunchApp()
+        }
+    }
+
+    // MARK: - User Session Enforcement
+
+    private func checkUserSession() {
+        guard let configuredUID = config.configuredUserUID else { return }
+        guard let activeUID = getConsoleUserUID() else { return }
+
+        if activeUID != configuredUID {
+            log("BYPASS: Different user session detected (active=\(activeUID), configured=\(configuredUID)) — switching back")
+            heartbeat.reportTamper(eventType: "user_switch_bypass", detail: "Switched to user \(activeUID), expected \(configuredUID)")
+            switchToUser(configuredUID)
+        }
+    }
+
+    private func switchToUser(_ uid: uid_t) {
+        // Use CGSession to fast-switch back to the configured user
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/System/Library/CoreServices/Menu Extras/User.menu/Contents/Resources/CGSession")
+        process.arguments = ["-switchToUserID", String(uid)]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+            log("Switched back to configured user (uid=\(uid), exit=\(process.terminationStatus))")
+        } catch {
+            log("Failed to switch user: \(error.localizedDescription)")
         }
     }
 

@@ -34,12 +34,16 @@ class DaemonDelegate: NSObject, NSXPCListenerDelegate {
         connection.exportedInterface = NSXPCInterface(with: DaemonXPCProtocol.self)
         connection.exportedObject = XPCHandler(config: config, heartbeat: heartbeat)
 
+        // Record the connecting user's UID as the configured user (first connection wins)
+        let connectingUID = connection.effectiveUserIdentifier
+        config.setConfiguredUserUID(connectingUID)
+
         connection.invalidationHandler = {
             log("XPC connection invalidated")
         }
 
         connection.resume()
-        log("XPC connection accepted (pid=\(connection.processIdentifier))")
+        log("XPC connection accepted (pid=\(connection.processIdentifier), uid=\(connectingUID))")
         return true
     }
 }
