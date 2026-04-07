@@ -167,10 +167,93 @@ This lets the partner spot configurations like "they added pornhub.com to always
 4. **Heartbeat gap detection**: Backend cron that checks for gaps where computer was awake but no heartbeat, flags them in the timeline
 
 ### Frontend:
-- React or plain HTML/JS (TBD)
-- Hosted at `partner.intentional.social`
+- Next.js (single repo with API routes + React frontend)
+- Hosted at `dashboard.getpuck.co`
 - Mobile-responsive (partner checks from phone)
 - Dark theme matching the app aesthetic
+
+---
+
+## Security
+
+This dashboard handles extremely sensitive data. A breach exposes someone's porn detection history, screen recordings, and detailed computer usage patterns. Security is not optional.
+
+### Threat Model
+
+| Threat | Impact | Mitigation |
+|--------|--------|------------|
+| Unauthorized dashboard access | Someone sees NSFW detections, usage history | Email OTP auth, short sessions, no password to steal |
+| NSFW images leaked/cached | Blurred screenshots exposed | Never store originals. Blurred images served via signed, expiring URLs. No CDN caching. |
+| Man-in-the-middle | Data intercepted in transit | HTTPS everywhere (TLS 1.3). HSTS headers. |
+| Database breach | All user data exposed | Encrypt NSFW images at rest (AES-256). Focus data is less sensitive but still encrypted. |
+| API enumeration | Attacker guesses device IDs | UUIDs (not sequential). Rate limiting on all endpoints. |
+| Session hijacking | Attacker reuses partner's session | HttpOnly + Secure + SameSite=Strict cookies. 30-day expiry. IP binding optional. |
+| XSS | Attacker injects script to exfiltrate data | CSP headers. No inline scripts. Sanitize all rendered data. |
+| Partner email compromised | Attacker logs in as partner | OTP codes expire in 10 min. Email-based login means no persistent credential to steal. |
+| User spoofing events | Fake focus data sent to dashboard | Events authenticated via device_id + HMAC signature from daemon |
+
+### NSFW Image Handling (highest sensitivity)
+
+1. **macOS app** blurs the image locally before sending (already implemented, blur radius = 1 — should increase to make unrecoverable)
+2. **Backend** receives blurred image via `POST /content-safety/report` with `X-Device-ID` header
+3. **Storage**: Blurred images stored in an encrypted S3 bucket (AES-256, SSE-S3 or SSE-KMS). NOT in the database.
+4. **Access**: Dashboard requests image via `GET /partner/dashboard/content-safety/:id/image`
+   - Backend verifies partner auth + partner is linked to this device
+   - Returns a **signed URL** with 5-minute expiry (not the raw image)
+   - Response headers: `Cache-Control: no-store, no-cache`, `X-Content-Type-Options: nosniff`
+5. **Retention**: Images auto-deleted after 30 days (configurable). Partner can delete manually from dashboard.
+6. **Never**: Raw (unblurred) screenshots never leave the Mac. Never stored anywhere.
+
+### Focus Data Handling
+
+Focus session data (block titles, focus scores, app usage, enforcement events) is sensitive but not as critical as NSFW content.
+
+1. **In transit**: HTTPS only. All API calls authenticated.
+2. **At rest**: Database-level encryption (RDS encryption or equivalent).
+3. **Access control**: Partner can ONLY see data for devices they're linked to. Backend enforces this on every query — no client-side filtering.
+4. **Data minimization**: Don't send full app names or URLs to the backend unless needed. Block titles and focus scores are sufficient for the partner view. The partner doesn't need to see "visited pornhub.com at 2:15 PM" — they see "enforcement triggered: overlay at 2:15 PM during Deep Work block."
+
+### Authentication Flow
+
+```
+1. Partner opens dashboard.getpuck.co
+2. Enters email address
+3. Backend sends 6-digit OTP to email (10 min expiry, rate limited: 3 attempts per hour)
+4. Partner enters OTP
+5. Backend verifies → creates session (HttpOnly cookie, 30-day expiry)
+6. All subsequent requests authenticated via session cookie
+7. Session invalidated on: explicit logout, 30 days elapsed, or partner removed by user
+```
+
+No passwords. No OAuth. Just email OTP. Simple and secure — there's no credential to steal or phish.
+
+### API Authentication (macOS App → Backend)
+
+Events from the macOS app are authenticated via:
+- `X-Device-ID` header (64-char hex, stored in UserDefaults)
+- For tamper-critical events (settings changes, feature toggles): add HMAC signature using a shared secret stored in the root-owned daemon config (`/private/var/intentional/config.json`). This prevents someone from spoofing events via curl.
+
+### Headers (all dashboard responses)
+
+```
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+Content-Security-Policy: default-src 'self'; img-src 'self' https://*.s3.amazonaws.com; script-src 'self'
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Cache-Control: no-store
+Referrer-Policy: no-referrer
+```
+
+### Data Retention
+
+| Data Type | Retention | Reason |
+|-----------|-----------|--------|
+| Heartbeat events | 90 days | Enough for trend analysis |
+| Focus events (blocks, scores) | 1 year | Long-term progress tracking |
+| Content Safety detections | 30 days | Sensitive — auto-purge |
+| NSFW blurred images | 30 days | Sensitive — auto-purge |
+| Settings change log | 1 year | Accountability audit trail |
+| Tamper events | 1 year | Accountability audit trail |
 
 ---
 
