@@ -16,6 +16,84 @@ Emails are still sent for urgent events (NSFW detection, tamper alerts, unlock r
 - **User** does NOT see the dashboard (it's for the partner's eyes only)
 - The partner can request features like "send me a weekly summary email" from the dashboard
 
+## Privacy & Display Rules (CRITICAL)
+
+The dashboard is NOT a raw data dump. It's a processed, opinionated view designed for a supporter, not a surveillance operator. Every endpoint should apply these rules server-side — the frontend should never receive data it shouldn't show.
+
+### Guiding Principle
+
+The partner has one question: **"Is everything okay, or do I need to pay attention?"** Design every section to answer that as fast as possible, with the minimum data needed.
+
+### What the Partner Should NEVER See
+
+- Specific URLs visited (no "visited reddit.com/r/whatever at 2:15 PM")
+- Specific app names during distraction (just "distraction detected", not which app)
+- Raw/unblurred screenshots (only blurred, and only from today)
+- The user's intention text or block descriptions (that's personal work context)
+- Exact social media usage times or durations
+- Browsing history in any form
+
+### Content Safety Detections
+
+| Timeframe | What's shown |
+|-----------|-------------|
+| Today | Blurred thumbnails + timestamps. Partner can see the blurred image. |
+| Yesterday and older | **No images.** Just a count: "2 detections on Tuesday." |
+| After 30 days | Purged entirely from database. |
+
+Rationale: the partner needs to know it happened, not build a library. Today's images matter for immediate conversation. Older ones become counts only.
+
+### Heartbeat / App Health
+
+| Timeframe | What's shown |
+|-----------|-------------|
+| Today | Hour-by-hour bars (green=active, gray=asleep, red=suspicious gap) |
+| Past 7 days | One bar per day showing % uptime. No hourly drill-down. |
+| Past 30 days | Single number: "28 of 30 days fully monitored" |
+
+Rationale: yesterday's gaps matter less than today's. Weekly patterns matter more than a specific hour last Thursday.
+
+### Focus Sessions
+
+| Timeframe | What's shown |
+|-----------|-------------|
+| Today | Block list: type (Deep Work/Focus/Free Time), duration, focus score %. No block titles. |
+| Past 7 days | Daily summary only: total focus time, average score, blocks completed |
+| Older | Not shown. |
+
+**Never shown:** block titles, block descriptions, specific app breakdowns, which apps were "distracting." The partner sees "6 hours focused at 82% average" — not "spent 14 minutes on Reddit at 2:15 PM."
+
+### Settings & Tamper Events
+
+| Type | Retention | Detail level |
+|------|-----------|-------------|
+| Tamper events | Always shown (full history) | Full detail — "permissions revoked", "hosts file modified", "app killed" |
+| Dangerous settings changes | 30 days | Highlighted red: "Content Safety disabled", "Strict Mode disabled" |
+| Normal settings changes | 7 days | Brief: "Settings updated" with list of what changed |
+
+### Events Feed
+
+The "recent events" feed on the Today page should show:
+- "Focus block completed — 87% on-task (11:30 AM)" (no block title)
+- "Content Safety: detection blocked (2:15 PM)" (with today's blurred thumbnail)
+- "Unlock code requested (3:00 PM)"
+- "Settings unlocked for 5 min (3:02 PM)"
+- "App restarted by daemon (4:15 PM)" (tamper indicator)
+
+Should NOT show:
+- "Started Deep Work: Build auth module" (block title is private)
+- "Distracted by YouTube.com for 3 minutes" (specific URL is private)
+- "Browsing Instagram during Focus Hours" (specific platform is private)
+
+### Backend Endpoint Rules
+
+Every `/partner/dashboard/*` endpoint must:
+1. Verify the JWT belongs to a confirmed partner
+2. Only return data for devices linked to that partner
+3. Apply the time-based display rules above server-side (don't send today's images for yesterday's detections)
+4. Strip private fields (block titles, URLs, app names) before returning
+5. Aggregate older data into summaries rather than returning raw rows
+
 ## Authentication
 
 Partner logs in via email verification (6-digit code, same flow as the app). No password needed. Session lasts 30 days. The backend already has `partner_email` linked to `device_id`.
@@ -43,16 +121,14 @@ Quick summary of today. Answers: "How's their day going?"
 - **Focus timeline** — horizontal bar showing today's blocks color-coded by type:
   - Deep Work (red), Focus Hours (indigo), Free Time (green), Unscheduled (gray gap)
   - Current block highlighted with a "now" marker
-  - Blocks show title, duration, focus score (% on-task)
+  - Blocks show type, duration, focus score (% on-task). **No block titles** (private).
 - **Stats row:**
   - Total focused time today
   - Average focus score
   - Blocks completed
-  - Earned browse minutes used
 - **Recent events feed** (last 10):
-  - "Started Deep Work: Build auth module (9:00 AM)"
-  - "Block completed: 87% focus score (11:30 AM)"
-  - "Content Safety: detection blocked (2:15 PM)" [with blurred thumbnail]
+  - "Focus block completed — 87% on-task (11:30 AM)"
+  - "Content Safety: detection blocked (2:15 PM)" [with blurred thumbnail — today only]
   - "Unlock code requested (3:00 PM)"
   - "Settings unlocked for 5 min (3:02 PM)"
 
@@ -75,29 +151,27 @@ The distinction between "computer asleep" (gray, fine) and "computer awake but n
 Answers: "How are they doing with focus over time?"
 
 - **Weekly focus chart** — bar chart, average focus score per day, 4-week view
-- **Block breakdown table** — each completed block with:
-  - Date, time, duration
-  - Block title and type
-  - Focus score (% on-task)
-  - Self-rating (the emoji they chose in the end ritual)
-  - Recovery count (how many times they self-corrected from distraction)
-  - Top apps used during the block
+- **Daily summaries** (not per-block breakdowns):
+  - Date, total focus time, average focus score, blocks completed
+  - **No block titles, no app names, no per-block details** for past days
 - **Trends:**
   - Average focus score this week vs last week
   - Most productive time of day
-  - Most common distraction apps
+  - Total hours focused this week/month
 
 ### 5. Content Safety Log
 
 Answers: "Were there any content safety detections?"
 
-- **Detection list** — each event with:
+- **Today's detections** — each event with:
   - Timestamp
   - Blurred screenshot thumbnail (click to expand — still blurred)
   - Whether email was sent
-  - User's dismiss time (how long overlay was shown)
-- **Permission status history** — log of when Screen Recording / Sensitive Content Warning permissions were granted or revoked
+- **Past detections** (yesterday and older) — **no images**, just:
+  - Date and count: "Tuesday Apr 1 — 2 detections"
+  - After 30 days: purged entirely
 - **Feature status** — current on/off state, when it was last toggled
+- **Permission status** — Screen Recording and Sensitive Content Warning granted/revoked
 
 ### 6. Settings & Tamper Log
 
