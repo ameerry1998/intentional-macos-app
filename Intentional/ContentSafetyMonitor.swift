@@ -14,6 +14,8 @@ import Cocoa
 import SwiftUI
 import CoreImage
 import SensitiveContentAnalysis
+import Vision
+import CoreML
 
 class ContentSafetyMonitor {
 
@@ -84,6 +86,17 @@ class ContentSafetyMonitor {
     /// Apple's built-in sensitive content classifier
     private var analyzer: SCSensitivityAnalyzer?
 
+    /// OpenNSFW classifier — binary NSFW score 0-1
+    private var nsfwModel: OpenNSFW?
+
+    /// Temporal voting: require 3 of last 5 frames to trigger
+    private var recentNSFWFrames: [Bool] = []
+    private let temporalWindowSize = 5
+    private let temporalThreshold = 3
+
+    /// NSFW score threshold — only trigger above this (0.90 = very high confidence)
+    private let nsfwScoreThreshold: Float = 0.90
+
     /// Debug: save flagged screenshots so we can review what triggered detection
     private let debugSaveScreenshots = true
 
@@ -111,12 +124,29 @@ class ContentSafetyMonitor {
         self.logFileURL = dir.appendingPathComponent("content_safety_log.jsonl")
 
         self.analyzer = SCSensitivityAnalyzer()
+
+        // NudeNet detector is loaded lazily in start() to avoid competing
+        // with WebKit during initial dashboard render (macOS 26 PAC crash)
     }
 
-    /// Whether the system-level Sensitive Content Warning setting is enabled.
-    /// Users must enable this in System Settings > Privacy & Security > Sensitive Content Warning.
+    /// Whether content safety analysis is available.
     var isAnalysisAvailable: Bool {
-        analyzer?.analysisPolicy != .disabled
+        nsfwModel != nil
+    }
+
+    /// Downscale a CGImage for NSFW classification
+    private func downscaleForNSFW(_ image: CGImage) -> CGImage {
+        let size = 224
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let ctx = CGContext(data: nil, width: size, height: size,
+                                  bitsPerComponent: 8, bytesPerRow: size * 4,
+                                  space: colorSpace,
+                                  bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue) else {
+            return image
+        }
+        ctx.interpolationQuality = .high
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: size, height: size))
+        return ctx.makeImage() ?? image
     }
 
     // MARK: - Public API
@@ -173,11 +203,27 @@ class ContentSafetyMonitor {
     func start() {
         guard isEnabled else { return }
 
+        // CGPreflightScreenCaptureAccess() can return false for Developer ID signed binaries
+        // even when permission is granted. Try an actual capture to verify.
         hasScreenRecordingPermission = CGPreflightScreenCaptureAccess()
+        if !hasScreenRecordingPermission {
+            // Fallback: attempt a real capture — if it returns a non-empty image, we have permission
+            if let img = captureAllScreens(), img.width > 1 {
+                hasScreenRecordingPermission = true
+                appDelegate?.postLog("🛡️ Content Safety: CGPreflight=false but capture succeeded — permission granted")
+            }
+        }
 
-        // Check if Sensitive Content Warning is enabled in System Settings
-        if !isAnalysisAvailable {
-            appDelegate?.postLog("🛡️ Content Safety: Sensitive Content Warning not enabled in System Settings")
+        // Load OpenNSFW model on first start
+        if nsfwModel == nil {
+            do {
+                let config = MLModelConfiguration()
+                config.computeUnits = .cpuAndNeuralEngine
+                self.nsfwModel = try OpenNSFW(configuration: config)
+                appDelegate?.postLog("🛡️ OpenNSFW loaded (threshold=\(nsfwScoreThreshold))")
+            } catch {
+                appDelegate?.postLog("⚠️ OpenNSFW failed: \(error.localizedDescription)")
+            }
         }
 
         if hasScreenRecordingPermission {
@@ -245,7 +291,9 @@ class ContentSafetyMonitor {
         permissionCheckTimer = Timer.scheduledTimer(withTimeInterval: permissionCheckInterval, repeats: true) { [weak self] _ in
             guard let self = self else { return }
 
-            if CGPreflightScreenCaptureAccess() {
+            var granted = CGPreflightScreenCaptureAccess()
+            if !granted, let img = self.captureAllScreens(), img.width > 1 { granted = true }
+            if granted {
                 self.hasScreenRecordingPermission = true
                 self.stopPermissionCheckTimer()
                 self.startPolling()
@@ -279,7 +327,10 @@ class ContentSafetyMonitor {
     /// Check for permission revocations and report to backend as tamper events.
     /// Only reports if permissions were previously granted (not first-time missing).
     private func checkForPermissionRevocations() {
-        let screenRecordingNow = CGPreflightScreenCaptureAccess()
+        // Use actual capture test since CGPreflightScreenCaptureAccess() is unreliable
+        // for Developer ID signed binaries
+        var screenRecordingNow = CGPreflightScreenCaptureAccess()
+        if !screenRecordingNow, let img = captureAllScreens(), img.width > 1 { screenRecordingNow = true }
         let sensitiveContentNow = isAnalysisAvailable
 
         // Screen Recording revoked?
@@ -330,41 +381,63 @@ class ContentSafetyMonitor {
         isAnalyzing = true
         defer { isAnalyzing = false }
 
-        // Strategy: Three-layer detection pipeline
-        // Layer 1: Apple SensitiveContentAnalysis on full composite
-        // Layer 2: Apple SCA on individual windows (catches diluted content)
-        // Layer 3: NudeNet (Python) on individual windows (catches what Apple misses)
-        // ANY layer triggers → detection fires
+        // OpenNSFW binary classifier with temporal voting (3 of 5 frames).
 
         var detectedImage: CGImage? = nil
         var detectionSource: String = "unknown"
+        var detectedInBackground = false
 
-        // Capture full composite first
+        guard let model = nsfwModel else {
+            debugLogToFile("No NSFW model — skipping")
+            return
+        }
+
+        // Capture full composite
         let composite = captureAllScreens()
 
-        // Layer 1: Apple SCA on full composite (full resolution — don't downscale,
-        // give Apple's algorithm maximum detail for accurate classification)
+        // Score composite with OpenNSFW via Vision
+        var nsfwScore: Float = 0
         if let composite = composite {
-            if await analyzeImage(composite) {
-                appDelegate?.postLog("🛡️ Detection: Apple SCA triggered on COMPOSITE screenshot (\(composite.width)x\(composite.height))")
+            nsfwScore = scoreNSFW(image: composite, model: model)
+            let isExplicit = nsfwScore >= nsfwScoreThreshold
+
+            // Record for temporal voting
+            recentNSFWFrames.append(isExplicit)
+            if recentNSFWFrames.count > temporalWindowSize {
+                recentNSFWFrames.removeFirst()
+            }
+            let confirmedCount = recentNSFWFrames.filter { $0 }.count
+            let isConfirmed = confirmedCount >= temporalThreshold
+
+            debugLogToFile("NSFW score=\(String(format: "%.3f", nsfwScore)) threshold=\(nsfwScoreThreshold) explicit=\(isExplicit) confirmed=\(isConfirmed) (\(confirmedCount)/\(recentNSFWFrames.count))")
+
+            if isConfirmed {
+                appDelegate?.postLog("🛡️ Detection: OpenNSFW CONFIRMED (score=\(String(format: "%.2f", nsfwScore)), \(confirmedCount)/\(recentNSFWFrames.count) frames)")
                 detectedImage = composite
-                detectionSource = "apple_sca_composite"
+                detectionSource = "opennsfw_composite_\(String(format: "%.2f", nsfwScore))"
             }
         }
 
-        // Layer 2: Apple SCA on individual windows (full resolution)
-        var detectedInBackground = false
-        if detectedImage == nil {
+        // If composite didn't confirm, check individual windows
+        if detectedImage == nil && nsfwScore < nsfwScoreThreshold {
             let capturedWindows = captureVisibleWindows()
             let frontmostApp = NSWorkspace.shared.frontmostApplication?.localizedName
             for (index, captured) in capturedWindows.enumerated() {
-                if await analyzeImage(captured.image) {
-                    let isBg = captured.ownerName != frontmostApp
-                    appDelegate?.postLog("🛡️ Detection: Apple SCA triggered on window #\(index + 1) (\(captured.ownerName), \(isBg ? "BACKGROUND" : "foreground"), \(captured.image.width)x\(captured.image.height))")
-                    detectedImage = captured.image
-                    detectionSource = "apple_sca_window_\(index + 1)_\(captured.ownerName)"
-                    detectedInBackground = isBg
-                    break
+                let windowScore = scoreNSFW(image: captured.image, model: model)
+                if windowScore >= nsfwScoreThreshold {
+                    recentNSFWFrames[recentNSFWFrames.count - 1] = true  // upgrade this frame
+                    let confirmedCount = recentNSFWFrames.filter { $0 }.count
+                    let isConfirmed = confirmedCount >= temporalThreshold
+
+                    debugLogToFile("NSFW window #\(index+1) (\(captured.ownerName)) score=\(String(format: "%.3f", windowScore)) confirmed=\(isConfirmed)")
+
+                    if isConfirmed {
+                        let isBg = captured.ownerName != frontmostApp
+                        detectedImage = captured.image
+                        detectionSource = "opennsfw_window_\(index+1)_\(captured.ownerName)"
+                        detectedInBackground = isBg
+                        break
+                    }
                 }
             }
         }
@@ -630,6 +703,25 @@ class ContentSafetyMonitor {
         }
         overlayWindows.removeAll()
         overlayViewModel = nil
+        // Reset temporal filter so dismissed content doesn't carry over
+        recentNSFWFrames.removeAll()
+    }
+
+    // MARK: - OpenNSFW Scoring
+
+    /// Score an image using the Xcode-generated OpenNSFW class. Returns 0-1 NSFW probability.
+    private func scoreNSFW(image: CGImage, model: OpenNSFW) -> Float {
+        do {
+            let input = try OpenNSFWInput(dataWith: image)
+            let output = try model.prediction(input: input)
+            let nsfwScore = Float(output.prob["NSFW"] ?? -1)
+            let sfwScore = Float(output.prob["SFW"] ?? -1)
+            debugLogToFile("OpenNSFW: NSFW=\(String(format: "%.4f", nsfwScore)) SFW=\(String(format: "%.4f", sfwScore)) label=\(output.classLabel)")
+            return max(nsfwScore, 0)
+        } catch {
+            debugLogToFile("OpenNSFW ERROR: \(error.localizedDescription)")
+            return 0
+        }
     }
 
     var isShowingOverlay: Bool {
@@ -660,6 +752,26 @@ class ContentSafetyMonitor {
         }
 
         return success
+    }
+
+    // MARK: - Debug File Log
+
+    /// Write debug messages to /tmp/intentional-csm-debug.log (NSLog is privacy-redacted on macOS 26)
+    private func debugLogToFile(_ message: String) {
+        let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
+        let line = "[\(timestamp)] \(message)\n"
+        let path = "/tmp/intentional-csm-debug.log"
+        if let data = line.data(using: .utf8) {
+            if FileManager.default.fileExists(atPath: path) {
+                if let handle = try? FileHandle(forWritingTo: URL(fileURLWithPath: path)) {
+                    handle.seekToEndOfFile()
+                    handle.write(data)
+                    handle.closeFile()
+                }
+            } else {
+                FileManager.default.createFile(atPath: path, contents: data)
+            }
+        }
     }
 
     // MARK: - Local Logging

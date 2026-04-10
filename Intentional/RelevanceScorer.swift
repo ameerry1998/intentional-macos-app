@@ -68,13 +68,17 @@ class RelevanceScorer {
     NOT relevant: entertainment, news, social media, videos, or content that requires \
     creative interpretation to connect to the task. If you have to construct a chain of \
     reasoning to justify relevance, it is NOT relevant.
-    CRITICAL: Judge the ACTUAL page content shown in the title, not the platform's POTENTIAL. \
-    A generic homepage like "YouTube", "Reddit", or "Twitter" is NOT relevant just because \
-    the platform COULD be used for the task. The title must show specific content related to \
-    the task. "YouTube" alone is NOT relevant to "Studying for chemistry exam" — but \
+    CRITICAL: Consider the platform's primary purpose when judging ambiguous titles. \
+    Platforms exist on a spectrum from creation to consumption: \
+    - Creation/productivity tools (document editors, spreadsheets, design tools, IDEs, \
+    project management) are built for work. A generic title like "Untitled document" on a \
+    document editor is likely someone starting work, not procrastinating. Default to relevant \
+    unless the title clearly indicates off-task content. \
+    - Entertainment/consumption platforms (video streaming, social media, forums, news) are \
+    built for browsing. A generic title like "YouTube" or "Reddit" is NOT relevant just \
+    because the platform COULD be used for the task. The title must show specific on-task \
+    content. "YouTube" alone is NOT relevant to "Studying for chemistry" — but \
     "Organic Chemistry Lecture - YouTube" IS relevant. \
-    Similarly, "Reddit" is NOT relevant to "Learning Python" — but \
-    "r/learnpython - How to use decorators" IS relevant.
     Use all available context (title, URL path, page description) to determine relevance. \
     A generic title like "Reddit" with URL path "/r/learnpython" IS relevant to "Learning Python". \
     A generic title like "Home - GitHub" with URL path "/myorg/myapp/pull/234" IS relevant to working on that project.

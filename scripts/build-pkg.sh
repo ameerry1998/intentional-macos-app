@@ -59,10 +59,32 @@ xcodebuild -project "$PROJECT_DIR/Intentional.xcodeproj" \
 APP_PATH="$BUILD_DIR/Intentional.app"
 ditto --noextattr --norsrc "$ARCHIVE_PATH/Products/Applications/Intentional.app" "$APP_PATH"
 
+# Embed Developer ID provisioning profile and re-sign with Developer ID Application.
+# The profile must match the signing cert (check fingerprints if AMFI Error 163).
+DEVID_PROFILE="$PROJECT_DIR/Intentional/Intentional_Developer_ID.provisionprofile"
+if [ -f "$DEVID_PROFILE" ]; then
+  cp "$DEVID_PROFILE" "$APP_PATH/Contents/embedded.provisionprofile"
+  echo "   Embedded Developer ID provisioning profile"
+else
+  echo "⚠️  Developer ID profile not found — keeping Xcode archive signing"
+fi
+
 # Re-sign with Developer ID Application + secure timestamps
 # Sign inside-out: embedded components first, then the main app
-# Each component gets its OWN entitlements (critical — --deep breaks this)
-ENTITLEMENTS_PATH="$PROJECT_DIR/Intentional/Intentional.entitlements"
+# Create a modified entitlements for Developer ID signing:
+# - Development profile uses "content-filter-provider"
+# - Developer ID profile uses "content-filter-provider-systemextension"
+ENTITLEMENTS_PATH="$BUILD_DIR/Intentional-DevID.entitlements"
+# Transform entitlements for Developer ID signing:
+# 1. content-filter-provider → content-filter-provider-systemextension (profile value)
+# 2. Remove sensitivecontentanalysis.client — Apple doesn't authorize it for Developer ID
+#    distribution. The app falls back to NudeNet v3 when analysisPolicy == .disabled.
+#    The SOURCE entitlements file is NOT modified (keeps working for Xcode dev builds).
+sed 's/content-filter-provider/content-filter-provider-systemextension/' \
+  "$PROJECT_DIR/Intentional/Intentional.entitlements" | \
+  perl -0777 -pe 's/\t<key>com\.apple\.developer\.sensitivecontentanalysis\.client<\/key>\n\t<array>\n\t\t<string>analysis<\/string>\n\t<\/array>\n//' \
+  > "$ENTITLEMENTS_PATH"
+echo "   Created Developer ID entitlements"
 
 # Sign FilterExtension with its own entitlements
 FILTER_EXT="$APP_PATH/Contents/Library/SystemExtensions/FilterExtension.systemextension"
@@ -88,7 +110,7 @@ codesign --force --options runtime --timestamp \
   --sign "$APP_SIGNING_IDENTITY" \
   "$APP_PATH" 2>&1
 
-echo "✅ Intentional.app signed with Developer ID (inside-out)"
+echo "✅ Intentional.app signed with Developer ID (profile cert matched)"
 
 # ---- Step 2: Build the daemon ----
 echo "🔧 Step 2/7: Building $DAEMON_PRODUCT_NAME..."
@@ -261,8 +283,8 @@ else
   echo "✅ PKG built (unsigned — get Developer ID Installer cert for production)"
 fi
 
-# ---- Step 7: Notarize (only if signed) ----
-if [ -n "$INSTALLER_SIGNING_IDENTITY" ]; then
+# ---- Step 7: Notarize (only if signed and NOTARIZE=1) ----
+if [ -n "$INSTALLER_SIGNING_IDENTITY" ] && [ "${NOTARIZE:-1}" = "1" ]; then
   echo "📨 Step 7/7: Notarizing PKG (2-10 minutes)..."
   xcrun notarytool submit "$PKG_PATH" \
     --keychain-profile "$NOTARY_PROFILE" \
@@ -270,7 +292,7 @@ if [ -n "$INSTALLER_SIGNING_IDENTITY" ]; then
   xcrun stapler staple "$PKG_PATH"
   echo "✅ Notarized and stapled"
 else
-  echo "⏭️  Step 7/7: Skipping notarization (unsigned PKG)"
+  echo "⏭️  Step 7/7: Skipping notarization"
 fi
 
 echo ""

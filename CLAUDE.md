@@ -694,6 +694,48 @@ Sent every 2 minutes via `BackendClient.sendEvent(type: "heartbeat")`. Includes 
 
 6. **Settings 800ms debounce losing changes**: `onSettingChange()` in dashboard.html uses an 800ms debounce before calling `saveAllSettings()`. If the user quits the app within 800ms of toggling, settings are lost. Fixed for Content Safety toggle (now saves immediately). Consider fixing for all toggles.
 
+7. **PKG build re-signs with Developer ID Application + Developer ID provisioning profile.** The archive is signed with Apple Development, then re-signed inside-out (FilterExtension → frameworks → main app) with Developer ID Application using transformed entitlements. The `sensitivecontentanalysis.client` entitlement is stripped from PKG builds because Apple doesn't support it for Developer ID distribution — the app falls back to OpenNSFW for NSFW detection. The `content-filter-provider` value is changed to `content-filter-provider-systemextension` for Developer ID. The source entitlements file is NOT modified.
+
+8. **NEVER strip or remove entitlements from the source file.** All entitlements exist for a reason. The build script handles transforming them for Developer ID signing. Do not modify `Intentional.entitlements` to remove capabilities.
+
+---
+
+## Build & Distribution
+
+### Development (Xcode)
+Standard `xcodebuild` or Xcode IDE. Debug builds run directly from DerivedData. Uses Apple Development signing with automatic provisioning.
+
+### Production (PKG Installer)
+The app ships as a signed, notarized PKG installer (Developer ID, not App Store). **Every code change that needs to reach the user requires a new PKG build.**
+
+**Build command:** `./scripts/build-pkg.sh`
+
+**What it does (7 steps):**
+1. Archives the app with Xcode (Release)
+2. Embeds Developer ID provisioning profile + re-signs with Developer ID Application
+3. Builds the `syspolicyd_helper` daemon
+4. Creates component payloads (app → /Applications, daemon → /usr/local/libexec, plists → /Library/LaunchDaemons + LaunchAgents)
+5. Builds component packages with pre/post-install scripts
+6. Creates final signed PKG with Distribution.xml + welcome page
+7. Notarizes with Apple and staples the ticket
+
+**Output:** `/tmp/intentional-pkg-build/Intentional-{VERSION}.pkg`
+
+**Environment requirements:**
+- "Developer ID Application" certificate in keychain
+- "Developer ID Installer" certificate in keychain
+- `Intentional_Developer_ID.provisionprofile` in `Intentional/`
+- Notary credentials stored: `xcrun notarytool store-credentials intentional-notary`
+
+**Skip notarization** (for quick testing): `NOTARIZE=0 ./scripts/build-pkg.sh`
+
+### Content Safety: OpenNSFW (Developer ID builds)
+Apple's `SensitiveContentAnalysis` is not available in Developer ID builds. The app uses **OpenNSFW** (Yahoo's binary NSFW classifier, 24MB CoreML model) as the detection backend:
+- Scores images 0-1 (NSFW probability), threshold 0.90
+- Per-window capture catches content in individual app windows (composite full-screen dilutes the signal)
+- Temporal voting: 3 of 5 frames must trigger before showing blocking overlay
+- Model has BGR mean subtraction preprocessing baked into the spec
+
 ---
 
 ## Priority TODOs

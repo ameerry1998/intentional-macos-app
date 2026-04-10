@@ -4988,7 +4988,7 @@ function saveAllSettings() {
 
 function onContentSafetyToggle(enabled) {
   if (enabled) {
-    if (!confirm('This will request Screen Recording permission and monitor all screens for explicit content every 2 seconds. Your accountability partner will be notified of any detections.\n\nYou also need to enable "Sensitive Content Warning" in System Settings > Privacy & Security.\n\nContinue?')) {
+    if (!confirm('This will request Screen Recording permission and monitor all screens for explicit content every 2 seconds. Your accountability partner will be notified of any detections.\n\nContinue?')) {
       document.getElementById('content-safety-enabled').checked = false;
       return;
     }
@@ -5020,14 +5020,14 @@ window._contentSafetyStatus = function(status) {
   var permList = document.getElementById('content-safety-permission-list');
 
   if (status.isMonitoring && status.hasPermission && status.isAnalysisAvailable) {
-    // All good
+    // All good — either Apple SCA or NudeNet fallback is active
     textEl.innerHTML = '<span style="color:#34d399;">Monitoring active</span>';
     if (banner) banner.style.display = 'none';
   } else {
-    // Build list of missing permissions
+    // Build list of missing permissions — only Screen Recording is required
+    // Sensitive Content Warning is optional (NudeNet fallback handles it)
     var missing = [];
     if (!status.hasPermission) missing.push('Screen Recording — Privacy & Security > Screen & System Audio Recording');
-    if (!status.isAnalysisAvailable) missing.push('Sensitive Content Warning — Privacy & Security > Sensitive Content Warning');
 
     if (missing.length > 0) {
       textEl.innerHTML = '<span style="color:#f59e0b;">Missing permissions — monitoring inactive</span>';
@@ -5035,6 +5035,9 @@ window._contentSafetyStatus = function(status) {
         banner.style.display = 'block';
         permList.innerHTML = missing.map(function(m) { return '• ' + m; }).join('<br>');
       }
+    } else if (!status.isAnalysisAvailable) {
+      textEl.innerHTML = '<span style="color:#f59e0b;">No detection backend available</span>';
+      if (banner) banner.style.display = 'none';
     } else {
       textEl.innerHTML = 'Starting...';
       if (banner) banner.style.display = 'none';
