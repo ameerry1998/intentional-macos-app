@@ -5716,15 +5716,18 @@ function setupLockInterceptors() {
     var input = document.getElementById(id);
     if (!input || input.type !== 'checkbox') return;
 
-    input.addEventListener('change', function() {
+    input.addEventListener('change', function(e) {
       if (!isSettingsLocked()) return;
 
+      // Prevent the HTML onchange attribute from firing with wrong state
+      e.stopImmediatePropagation();
       _lockInterceptActive = true;
-      setTimeout(function() { _lockInterceptActive = false; }, 50);
 
       if (input.checked) {
+        // Turning ON while locked — show confirmation
         input.checked = false;
         showLockConfirm(id, function(confirmed) {
+          _lockInterceptActive = false;
           if (confirmed) {
             input.checked = true;
             var row = input.closest('.setting-row');
@@ -5732,12 +5735,20 @@ function setupLockInterceptors() {
               row.classList.add('locked');
               row.classList.remove('lock-confirmable');
             }
-            _lockInterceptActive = false;
-            onSettingChange();
+            // Fire the specific handler for this input
+            if (id === 'intentional-mode-enabled') {
+              onIntentionalModeChange();
+            } else if (id === 'content-safety-enabled') {
+              onSettingChange();
+            } else {
+              onSettingChange();
+            }
           }
         });
       } else {
+        // Turning OFF while locked — block it
         input.checked = true;
+        _lockInterceptActive = false;
       }
     }, true);
   });
