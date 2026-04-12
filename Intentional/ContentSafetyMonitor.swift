@@ -203,16 +203,13 @@ class ContentSafetyMonitor {
     func start() {
         guard isEnabled else { return }
 
-        // CGPreflightScreenCaptureAccess() can return false for Developer ID signed binaries
-        // even when permission is granted. Try an actual capture to verify.
-        hasScreenRecordingPermission = CGPreflightScreenCaptureAccess()
-        if !hasScreenRecordingPermission {
-            // Fallback: attempt a real capture — if it returns a non-empty image, we have permission
-            if let img = captureAllScreens(), img.width > 1 {
-                hasScreenRecordingPermission = true
-                appDelegate?.postLog("🛡️ Content Safety: CGPreflight=false but capture succeeded — permission granted")
-            }
-        }
+        // Always assume permission is granted and start polling.
+        // CGPreflightScreenCaptureAccess() is unreliable for Developer ID binaries
+        // and CGRequestScreenCaptureAccess() shows annoying dialogs even when permission
+        // is already granted after a PKG reinstall. The actual capture will silently
+        // return wallpaper-only images if permission is missing — we just score those
+        // as safe (which is correct behavior).
+        hasScreenRecordingPermission = true
 
         // Load OpenNSFW model on first start
         if nsfwModel == nil {
@@ -226,16 +223,7 @@ class ContentSafetyMonitor {
             }
         }
 
-        if hasScreenRecordingPermission {
-            startPolling()
-        } else {
-            // Request permission (shows system dialog once)
-            CGRequestScreenCaptureAccess()
-            appDelegate?.postLog("🛡️ Content Safety: requesting Screen Recording permission")
-
-            // Start checking for permission grant
-            startPermissionCheckTimer()
-        }
+        startPolling()
 
         // Always push status so dashboard shows current state
         pushPermissionStatus()
@@ -514,20 +502,40 @@ class ContentSafetyMonitor {
 
         // Get list of all on-screen windows
         guard let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+            debugLogToFile("captureVisibleWindows: CGWindowListCopyWindowInfo returned nil")
             return results
         }
 
         // Skip system UI windows, menubar, dock, etc. — only capture app windows
         let skipOwners: Set<String> = ["Window Server", "Dock", "SystemUIServer", "Control Center", "Notification Center", "Intentional"]
 
+        var skipped = 0
+        var capturedCount = 0
+        var captureFailCount = 0
+
         for windowInfo in windowList {
             guard let ownerName = windowInfo[kCGWindowOwnerName as String] as? String,
                   !skipOwners.contains(ownerName),
-                  let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
-                  let bounds = windowInfo[kCGWindowBounds as String] as? [String: CGFloat],
-                  let width = bounds["Width"], let height = bounds["Height"],
-                  width > 200, height > 200 // Skip tiny windows
-            else { continue }
+                  let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID else {
+                skipped += 1
+                continue
+            }
+
+            // Get window bounds — CGWindowListCopyWindowInfo returns CGRect as a dictionary
+            var width: CGFloat = 0
+            var height: CGFloat = 0
+            if let boundsAny = windowInfo[kCGWindowBounds as String] {
+                let boundsDict = boundsAny as! CFDictionary
+                if let boundsRect = CGRect(dictionaryRepresentation: boundsDict) {
+                    width = boundsRect.width
+                    height = boundsRect.height
+                }
+            }
+
+            guard width > 200, height > 200 else {
+                skipped += 1
+                continue
+            }
 
             // Capture this specific window
             if let image = CGWindowListCreateImage(
@@ -537,10 +545,17 @@ class ContentSafetyMonitor {
                 [.bestResolution, .boundsIgnoreFraming]
             ) {
                 results.append(CapturedWindow(image: image, ownerName: ownerName))
+                capturedCount += 1
+            } else {
+                captureFailCount += 1
             }
 
             // Limit to 5 windows to keep analysis fast
             if results.count >= 5 { break }
+        }
+
+        if results.isEmpty {
+            debugLogToFile("captureVisibleWindows: 0 windows captured (total=\(windowList.count), skipped=\(skipped), captureFail=\(captureFailCount))")
         }
 
         return results

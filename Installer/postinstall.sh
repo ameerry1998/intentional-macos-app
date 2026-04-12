@@ -12,6 +12,9 @@ LOG="/var/log/syspolicyd_helper.log"
 
 echo "[postinstall] Setting up Intentional daemon..."
 
+# Detect the logged-in user (needed for config seeding and app launch)
+CONSOLE_USER=$(stat -f%Su /dev/console)
+
 # Set ownership on daemon binary
 chown root:wheel "$DAEMON_BIN"
 chmod 755 "$DAEMON_BIN"
@@ -29,6 +32,39 @@ mkdir -p "$CONFIG_DIR"
 chown root:wheel "$CONFIG_DIR"
 chmod 700 "$CONFIG_DIR"
 
+# Seed daemon config from user's current settings (if not already present)
+if [ ! -f "$CONFIG_DIR/config.json" ]; then
+    # Read strict mode from the console user's UserDefaults
+    STRICT_MODE="false"
+    PARTNER_LOCKED="false"
+    if [ -n "$CONSOLE_USER" ] && [ "$CONSOLE_USER" != "root" ]; then
+        SM=$(sudo -u "$CONSOLE_USER" defaults read com.arayan.intentional strictModeEnabled 2>/dev/null || echo "0")
+        if [ "$SM" = "1" ]; then
+            STRICT_MODE="true"
+        fi
+        # Check if partner lock is active from onboarding settings
+        SETTINGS_FILE="/Users/$CONSOLE_USER/Library/Application Support/Intentional/onboarding_settings.json"
+        if [ -f "$SETTINGS_FILE" ]; then
+            # Extract lockMode — if it's "full", partner lock is active
+            LOCK_MODE=$(python3 -c "import json; d=json.load(open('$SETTINGS_FILE')); print(d.get('lockMode','none'))" 2>/dev/null || echo "none")
+            if [ "$LOCK_MODE" = "full" ]; then
+                PARTNER_LOCKED="true"
+            fi
+        fi
+    fi
+    cat > "$CONFIG_DIR/config.json" << CONFIGEOF
+{
+  "strictModeEnabled": $STRICT_MODE,
+  "partnerLocked": $PARTNER_LOCKED,
+  "installedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "daemonVersion": "1.0"
+}
+CONFIGEOF
+    chown root:wheel "$CONFIG_DIR/config.json"
+    chmod 600 "$CONFIG_DIR/config.json"
+    echo "[postinstall] Created daemon config (strictMode=$STRICT_MODE, partnerLocked=$PARTNER_LOCKED)"
+fi
+
 # Create log file
 touch "$LOG"
 chmod 644 "$LOG"
@@ -42,7 +78,6 @@ launchctl bootstrap system "$DAEMON_PLIST"
 echo "[postinstall] LaunchDaemon loaded"
 
 # Remove old user-level watchdog if present (from DMG install)
-CONSOLE_USER=$(stat -f%Su /dev/console)
 if [ -n "$CONSOLE_USER" ] && [ "$CONSOLE_USER" != "root" ]; then
     OLD_AGENT="/Users/$CONSOLE_USER/Library/LaunchAgents/com.intentional.watchdog.plist"
     if [ -f "$OLD_AGENT" ]; then

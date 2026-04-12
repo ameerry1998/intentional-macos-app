@@ -168,7 +168,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
             updateWatchdog(enabled: strictEnabled)
         } else {
-            postLog("🔒 Daemon available — skipping fallback flag file + watchdog")
+            // Daemon is available, but main.swift still reads the flag file during SIGTERM
+            // to decide whether to write a no-relaunch marker. Keep it in sync.
+            let flagPath = strictModeFlagPath()
+            if strictEnabled {
+                FileManager.default.createFile(atPath: flagPath, contents: "1".data(using: .utf8))
+            } else {
+                try? FileManager.default.removeItem(atPath: flagPath)
+            }
+            postLog("🔒 Daemon available — flag file synced, skipping fallback watchdog")
         }
     }
 

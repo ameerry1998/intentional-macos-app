@@ -1628,7 +1628,8 @@ class FocusMonitor {
                 intentionDescription: block.description,
                 profile: manager.profile,
                 dailyPlan: manager.todaySchedule?.dailyPlan ?? "",
-                contentType: .application
+                contentType: .application,
+                bundleIdentifier: bid
             )
 
             await MainActor.run {
