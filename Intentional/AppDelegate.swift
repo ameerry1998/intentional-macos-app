@@ -8,6 +8,7 @@
 import Cocoa
 import Foundation
 import ServiceManagement
+import SwiftUI
 
 class AppDelegate: NSObject, NSApplicationDelegate {
 
@@ -45,6 +46,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Bedtime Enforcer — locks screen during bedtime hours
     var bedtimeEnforcer: BedtimeEnforcer?
+
+    // Blocking Profiles & Focus Sessions (Puck integration)
+    var blockingProfileManager: BlockingProfileManager?
+    var focusSessionManager: FocusSessionManager?
+    private var focusStartOverlayWindows: [NSWindow] = []
+    private var focusStartOverlayViewModel: FocusStartOverlayViewModel?
+    private var puckHotkeyMonitor: Any?
 
     // Root daemon XPC client (tamper-resistant strict mode)
     let daemonClient = DaemonXPCClient()
@@ -425,6 +433,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         bedtimeEnforcer?.start()
         postLog("🌙 BedtimeEnforcer initialized and started")
 
+        // Blocking Profiles & Focus Sessions
+        blockingProfileManager = BlockingProfileManager()
+        focusSessionManager = FocusSessionManager()
+
+        // Restore active focus session if app restarted mid-focus
+        if let session = focusSessionManager?.activeSession {
+            postLog("🎯 Restoring active focus session from disk")
+            applyFocusSession(session)
+        }
+
+        // Mock Puck trigger: Cmd+Shift+P global hotkey
+        puckHotkeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.modifierFlags.contains([.command, .shift]) && event.keyCode == 35 {
+                DispatchQueue.main.async { self?.togglePuckFocus() }
+            }
+        }
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.modifierFlags.contains([.command, .shift]) && event.keyCode == 35 {
+                DispatchQueue.main.async { self?.togglePuckFocus() }
+                return nil
+            }
+            return event
+        }
+        postLog("🎯 BlockingProfileManager + FocusSessionManager initialized")
+
         // Wire schedule block changes: when the active block changes,
         // clear the relevance cache, reset focus monitor, and broadcast SCHEDULE_SYNC
         scheduleManager?.onBlockChanged = { [weak self] block, state in
@@ -659,6 +692,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
+        // Focus Session Toggle
+        menu.addItem(NSMenuItem(title: "Toggle Focus (\u{2318}\u{21E7}P)", action: #selector(menuToggleFocus), keyEquivalent: ""))
+
+        menu.addItem(NSMenuItem.separator())
+
         // Quit
         menu.addItem(NSMenuItem(title: "Quit Intentional", action: #selector(quitApp), keyEquivalent: "q"))
 
@@ -805,6 +843,118 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             )
             postLog("☁️ Settings restore: broadcast to extensions complete")
         }
+    }
+
+    // MARK: - Focus Session Control
+
+    @objc func menuToggleFocus() {
+        togglePuckFocus()
+    }
+
+    func togglePuckFocus() {
+        if focusSessionManager?.isActive == true {
+            endFocusSession()
+        } else {
+            showFocusStartOverlay(isPuckTriggered: true)
+        }
+    }
+
+    func showFocusStartOverlay(isPuckTriggered: Bool) {
+        guard focusStartOverlayWindows.isEmpty else { return }
+
+        let vm = FocusStartOverlayViewModel()
+        vm.availableProfiles = blockingProfileManager?.profiles ?? []
+        vm.isPuckTriggered = isPuckTriggered
+        vm.aiScoringEnabled = UserDefaults.standard.bool(forKey: "aiScoringEnabled")
+
+        if isPuckTriggered, let defaultProfile = blockingProfileManager?.profiles.first(where: { $0.isDefault }) {
+            vm.selectedProfileIds = [defaultProfile.id]
+        }
+
+        vm.onStartFocus = { [weak self] profileIds, intention, aiEnabled in
+            self?.startFocusSession(profileIds: profileIds, intention: intention, aiEnabled: aiEnabled, triggeredByPuck: isPuckTriggered)
+            self?.dismissFocusStartOverlay()
+        }
+        vm.onCancel = { [weak self] in
+            self?.dismissFocusStartOverlay()
+        }
+        self.focusStartOverlayViewModel = vm
+
+        for screen in NSScreen.screens {
+            let view = FocusStartOverlayView(viewModel: vm)
+            let hostingView = NSHostingView(rootView: view)
+            hostingView.frame = screen.frame
+
+            let window = KeyableWindow(
+                contentRect: screen.frame,
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = hostingView
+            window.backgroundColor = .clear
+            window.isOpaque = false
+            window.hasShadow = false
+            window.level = .screenSaver
+            window.isReleasedWhenClosed = false
+            window.ignoresMouseEvents = false
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            window.setFrame(screen.frame, display: true)
+            window.makeKeyAndOrderFront(nil)
+            focusStartOverlayWindows.append(window)
+        }
+        postLog("🎯 Focus start overlay shown (puck=\(isPuckTriggered))")
+    }
+
+    func dismissFocusStartOverlay() {
+        for window in focusStartOverlayWindows { window.close() }
+        focusStartOverlayWindows.removeAll()
+        focusStartOverlayViewModel = nil
+    }
+
+    func startFocusSession(profileIds: [UUID], intention: String?, aiEnabled: Bool, triggeredByPuck: Bool) {
+        focusSessionManager?.startSession(profileIds: profileIds, intention: intention, aiEnabled: aiEnabled, triggeredByPuck: triggeredByPuck)
+        guard let session = focusSessionManager?.activeSession else { return }
+        applyFocusSession(session)
+        postLog("🎯 Focus session started (profiles=\(profileIds.count), intention=\(intention ?? "none"), puck=\(triggeredByPuck))")
+    }
+
+    func applyFocusSession(_ session: FocusSession) {
+        let merged = blockingProfileManager?.mergedBlockList(profileIds: session.activeProfileIds)
+        websiteBlocker?.updateDistractingSites(merged?.domains ?? [])
+
+        if let intention = session.intention, !intention.isEmpty {
+            let now = Date()
+            let cal = Calendar.current
+            let block = ScheduleManager.FocusBlock(
+                id: UUID().uuidString,
+                title: intention,
+                description: "",
+                startHour: cal.component(.hour, from: now),
+                startMinute: cal.component(.minute, from: now),
+                endHour: 23,
+                endMinute: 59,
+                blockType: .deepWork
+            )
+            scheduleManager?.injectFocusSessionBlock(block)
+        }
+        focusMonitor?.onBlockChanged()
+    }
+
+    func endFocusSession() {
+        focusSessionManager?.stopSession()
+
+        let settingsURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("Intentional").appendingPathComponent("onboarding_settings.json")
+        if let data = try? Data(contentsOf: settingsURL),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let sites = json["distractingSites"] as? [String] {
+            websiteBlocker?.updateDistractingSites(sites)
+        }
+        scheduleManager?.clearInjectedFocusSessionBlock()
+        focusMonitor?.stop()
+        focusMonitor?.start()
+        postLog("🎯 Focus session ended")
     }
 
     func postLog(_ message: String) {

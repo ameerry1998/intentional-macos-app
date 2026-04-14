@@ -173,6 +173,21 @@ class ScheduleManager {
         var isWork: Bool { self == .deepWork || self == .focusHours }
     }
 
+    // MARK: - Focus Session Injection
+
+    /// When set, this block overrides the schedule (used by FocusSessionManager).
+    private(set) var injectedFocusBlock: FocusBlock?
+
+    func injectFocusSessionBlock(_ block: FocusBlock) {
+        injectedFocusBlock = block
+        recalculateState(forceCallback: true)
+    }
+
+    func clearInjectedFocusSessionBlock() {
+        injectedFocusBlock = nil
+        recalculateState(forceCallback: true)
+    }
+
     // MARK: - State
 
     /// Whether Daily Focus Plan is enabled (opt-in toggle)
@@ -470,6 +485,21 @@ class ScheduleManager {
             currentBlock = nil
             if forceCallback || previousState != .disabled {
                 onBlockChanged?(nil, .disabled)
+            }
+            return
+        }
+
+        // Focus session block overrides normal schedule
+        if let injected = injectedFocusBlock {
+            currentBlock = injected
+            switch injected.blockType {
+            case .deepWork: currentTimeState = .deepWork
+            case .focusHours: currentTimeState = .focusHours
+            case .freeTime: currentTimeState = .freeTime
+            }
+            if forceCallback || currentTimeState != previousState || currentBlock?.id != previousBlockId {
+                appDelegate?.postLog("📋 State: \(previousState.rawValue) → \(currentTimeState.rawValue) (injected focus session)")
+                onBlockChanged?(currentBlock, currentTimeState)
             }
             return
         }

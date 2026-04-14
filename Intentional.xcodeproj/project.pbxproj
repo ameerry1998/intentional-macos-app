@@ -57,6 +57,9 @@
 		A400000100000000000001 /* TrustedClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = A400000200000000000001 /* TrustedClock.swift */; };
 		A500000100000000000001 /* BedtimeEnforcer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500000200000000000001 /* BedtimeEnforcer.swift */; };
 		A600000100000000000001 /* BedtimeOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A600000200000000000001 /* BedtimeOverlayView.swift */; };
+		A700000100000000000001 /* BlockingProfileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A700000200000000000001 /* BlockingProfileManager.swift */; };
+		A800000100000000000001 /* FocusSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A800000200000000000001 /* FocusSessionManager.swift */; };
+		A900000100000000000001 /* FocusStartOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A900000200000000000001 /* FocusStartOverlay.swift */; };
 		FE000001000000000000001 /* FilterDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE000003000000000000001 /* FilterDataProvider.swift */; };
 		FE000010000000000000001 /* FilterExtension.appex in Embed System Extensions */ = {isa = PBXBuildFile; fileRef = FE000002000000000000001 /* FilterExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		FE000012000000000000001 /* FilterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE000011000000000000001 /* FilterManager.swift */; };
@@ -157,6 +160,9 @@
 		A400000200000000000001 /* TrustedClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustedClock.swift; sourceTree = "<group>"; };
 		A500000200000000000001 /* BedtimeEnforcer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeEnforcer.swift; sourceTree = "<group>"; };
 		A600000200000000000001 /* BedtimeOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeOverlayView.swift; sourceTree = "<group>"; };
+		A700000200000000000001 /* BlockingProfileManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockingProfileManager.swift; sourceTree = "<group>"; };
+		A800000200000000000001 /* FocusSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusSessionManager.swift; sourceTree = "<group>"; };
+		A900000200000000000001 /* FocusStartOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusStartOverlay.swift; sourceTree = "<group>"; };
 		FE000002000000000000001 /* FilterExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = FilterExtension.appex; path = FilterExtension.systemextension; sourceTree = BUILT_PRODUCTS_DIR; };
 		FE000003000000000000001 /* FilterDataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterDataProvider.swift; sourceTree = "<group>"; };
 		FE000004000000000000001 /* FilterExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FilterExtension.entitlements; sourceTree = "<group>"; };
@@ -213,6 +219,9 @@
 				A1000012000000000000002 /* main.swift */,
 				A1000002000000000000001 /* AppDelegate.swift */,
 				A300000200000000000001 /* QuitPolicy.swift */,
+				A700000200000000000001 /* BlockingProfileManager.swift */,
+				A800000200000000000001 /* FocusSessionManager.swift */,
+				A900000200000000000001 /* FocusStartOverlay.swift */,
 				A400000200000000000001 /* TrustedClock.swift */,
 				A500000200000000000001 /* BedtimeEnforcer.swift */,
 				A600000200000000000001 /* BedtimeOverlayView.swift */,
@@ -455,6 +464,9 @@
 				A400000100000000000001 /* TrustedClock.swift in Sources */,
 				A500000100000000000001 /* BedtimeEnforcer.swift in Sources */,
 				A600000100000000000001 /* BedtimeOverlayView.swift in Sources */,
+				A700000100000000000001 /* BlockingProfileManager.swift in Sources */,
+				A800000100000000000001 /* FocusSessionManager.swift in Sources */,
+				A900000100000000000001 /* FocusStartOverlay.swift in Sources */,
 				A1000081000000000000033 /* OpenNSFW.mlmodel in Sources */,
 				A1000082000000000000034 /* NudeNetDetector.swift in Sources */,
 				A1000084000000000000035 /* NudeNetV3.mlpackage in Sources */,
