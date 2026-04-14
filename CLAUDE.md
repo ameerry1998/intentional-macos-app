@@ -53,15 +53,28 @@ Setting an intention is optional but upgrades blocking from dumb to smart.
 - **Accountability partner** — for Content Safety notifications and settings locking
 - **Browser extension** — optional sensing layer (page content for AI scoring), NOT required for blocking
 
-### What to Strip (Puck Branch)
+### What Changed (Puck Branch — April 2026)
 
-- **ScheduleManager** — no hourly planning, just on/off toggle
-- **EarnedBrowseManager** — no earned screen time mechanic
-- **TimeTracker** — no usage tracking/budgets
-- **Block rituals (start/end)** — no ceremonies
-- **"NO PLAN" pill state** — no schedule states
-- **Dashboard calendar/planner** — replaced with simple toggle
+- **ScheduleManager** — KEPT. Schedule-driven blocks still work standalone. Focus sessions inject a block via `injectFocusSessionBlock()` that overrides the schedule.
+- **EarnedBrowseManager** — strip (no earned screen time mechanic)
+- **TimeTracker** — strip (no usage tracking/budgets)
+- **Block rituals (start/end)** — strip (no ceremonies)
 - **PlanningCoach** — already removed
+
+### New Systems (April 2026)
+
+- **BlockingProfileManager** — Reusable named profiles of blocked domains + app bundle IDs. One default preset ships out of the box. Stored in `blocking_profiles.json`.
+- **FocusSessionManager** — On-demand focus sessions with disk persistence. Survives app restart. Tracks `triggeredByPuck` flag. Stored in `focus_session.json`.
+- **FocusStartOverlay** — Full-screen SwiftUI overlay shown on focus trigger. Profile picker + AI intention field. Puck mode skips straight to "Just Block Distractions."
+- **BedtimeEnforcer** — Fixed nightly bedtime with 15-min wind-down, one snooze, 3-min auto-sleep countdown. Independent of schedule system.
+- **TrustedClock** — Monotonic drift detection + NTP re-anchoring to prevent clock-change bypass.
+- **QuitPolicy** — Extracted quit decision logic. Allows quit when daemon is running (daemon relaunches app for permission changes like Screen Recording).
+
+### Puck Tap Behavior
+
+When Puck tapped: default "Distracting Apps & Sites" profile activates immediately (non-negotiable floor). User can optionally plan additional profiles + AI intention. No free time exists during Puck focus. Only Puck re-tap ends the session.
+
+Mock trigger: `Cmd+Shift+P` global hotkey (menu bar: "Toggle Focus"). Real Puck signal via backend WebSocket (see `intentional-backend/docs/prd-focus-signal-api.md`).
 
 ### Extension Role Change (Puck Branch)
 
