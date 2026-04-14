@@ -66,6 +66,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         window.backgroundColor = MainWindow.windowBackground(for: theme)
 
         // Force window visible
+        print("🚨 ACTIVATE: MainWindow.init — makeKeyAndOrderFront + orderFrontRegardless")
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
 
@@ -167,6 +168,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     // MARK: - Debug Monitor
 
     func showDebugMonitor() {
+        print("🚨 ACTIVATE: MainWindow.showDebugMonitor")
         if debugMonitorWindow == nil {
             debugMonitorWindow = LegacyMonitorWindow()
         }
@@ -365,6 +367,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         case "SAVE_INTENTIONAL_MODE":
             handleSaveIntentionalMode(body)
+
+        case "GET_BEDTIME_SETTINGS":
+            handleGetBedtimeSettings()
+
+        case "SAVE_BEDTIME_SETTINGS":
+            if let body = message.body as? [String: Any] {
+                handleSaveBedtimeSettings(body)
+            }
 
         default:
             appDelegate?.postLog("⚠️ WKWebView: Unknown message type: \(type)")
@@ -1974,6 +1984,58 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         } else {
             callJS("window._scheduleForDateResult && window._scheduleForDateResult({ date: '\(dateString)', blocks: [], goals: [], dailyPlan: '' })")
         }
+    }
+
+    // MARK: - Bedtime Settings
+
+    private func handleGetBedtimeSettings() {
+        guard let _ = appDelegate?.bedtimeEnforcer else {
+            callJS("window.onBedtimeSettings && window.onBedtimeSettings(null)")
+            return
+        }
+
+        let settingsURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("Intentional")
+            .appendingPathComponent("bedtime_settings.json")
+
+        if let data = try? Data(contentsOf: settingsURL),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let jsonStr = String(data: try! JSONSerialization.data(withJSONObject: json), encoding: .utf8) ?? "{}"
+            callJS("window.onBedtimeSettings && window.onBedtimeSettings(\(jsonStr))")
+        } else {
+            // Return defaults
+            let defaults = """
+            {"enabled":false,"bedtimeStart":{"hour":23,"minute":0},"wakeTime":{"hour":7,"minute":0},"activeDays":[0,1,2,3,4,5,6],"partnerLocked":false}
+            """
+            callJS("window.onBedtimeSettings && window.onBedtimeSettings(\(defaults))")
+        }
+    }
+
+    private func handleSaveBedtimeSettings(_ body: [String: Any]) {
+        guard let enabled = body["enabled"] as? Bool,
+              let startObj = body["bedtimeStart"] as? [String: Int],
+              let endObj = body["wakeTime"] as? [String: Int],
+              let startHour = startObj["hour"],
+              let startMin = startObj["minute"],
+              let endHour = endObj["hour"],
+              let endMin = endObj["minute"] else {
+            appDelegate?.postLog("⚠️ Invalid bedtime settings payload")
+            return
+        }
+
+        let activeDays = body["activeDays"] as? [Int] ?? [0, 1, 2, 3, 4, 5, 6]
+        let partnerLocked = body["partnerLocked"] as? Bool ?? false
+
+        let settings = BedtimeSettings(
+            enabled: enabled,
+            bedtimeStart: TimeOfDay(hour: startHour, minute: startMin),
+            wakeTime: TimeOfDay(hour: endHour, minute: endMin),
+            activeDays: activeDays,
+            partnerLocked: partnerLocked
+        )
+
+        appDelegate?.bedtimeEnforcer?.saveSettings(settings)
+        appDelegate?.postLog("🌙 Bedtime settings saved: \(enabled ? "ON" : "OFF") \(startHour):\(String(format: "%02d", startMin)) → \(endHour):\(String(format: "%02d", endMin))")
     }
 
     // MARK: - Focus Score
