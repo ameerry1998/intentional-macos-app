@@ -376,6 +376,26 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 handleSaveBedtimeSettings(body)
             }
 
+        case "GET_BLOCKING_PROFILES":
+            handleGetBlockingProfiles()
+
+        case "CREATE_BLOCKING_PROFILE":
+            if let body = message.body as? [String: Any] {
+                handleCreateBlockingProfile(body)
+            }
+
+        case "UPDATE_BLOCKING_PROFILE":
+            if let body = message.body as? [String: Any] {
+                handleUpdateBlockingProfile(body)
+            }
+
+        case "DELETE_BLOCKING_PROFILE":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String,
+               let id = UUID(uuidString: idStr) {
+                handleDeleteBlockingProfile(id: id)
+            }
+
         default:
             appDelegate?.postLog("⚠️ WKWebView: Unknown message type: \(type)")
         }
@@ -2036,6 +2056,40 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         appDelegate?.bedtimeEnforcer?.saveSettings(settings)
         appDelegate?.postLog("🌙 Bedtime settings saved: \(enabled ? "ON" : "OFF") \(startHour):\(String(format: "%02d", startMin)) → \(endHour):\(String(format: "%02d", endMin))")
+    }
+
+    // MARK: - Blocking Profile Handlers
+
+    private func handleGetBlockingProfiles() {
+        let profiles = appDelegate?.blockingProfileManager?.profiles ?? []
+        if let data = try? JSONEncoder().encode(profiles),
+           let jsonStr = String(data: data, encoding: .utf8) {
+            callJS("window.onBlockingProfiles && window.onBlockingProfiles(\(jsonStr))")
+        }
+    }
+
+    private func handleCreateBlockingProfile(_ body: [String: Any]) {
+        let name = body["name"] as? String ?? "New Profile"
+        let domains = body["domains"] as? [String] ?? []
+        let apps = body["appBundleIds"] as? [String] ?? []
+        appDelegate?.blockingProfileManager?.createProfile(name: name, domains: domains, appBundleIds: apps)
+        handleGetBlockingProfiles()
+    }
+
+    private func handleUpdateBlockingProfile(_ body: [String: Any]) {
+        guard let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) else { return }
+        appDelegate?.blockingProfileManager?.updateProfile(
+            id: id,
+            name: body["name"] as? String,
+            domains: body["domains"] as? [String],
+            appBundleIds: body["appBundleIds"] as? [String]
+        )
+        handleGetBlockingProfiles()
+    }
+
+    private func handleDeleteBlockingProfile(id: UUID) {
+        let _ = appDelegate?.blockingProfileManager?.deleteProfile(id: id)
+        handleGetBlockingProfiles()
     }
 
     // MARK: - Focus Score
