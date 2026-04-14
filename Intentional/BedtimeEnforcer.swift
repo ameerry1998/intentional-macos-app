@@ -154,6 +154,7 @@ class BedtimeEnforcer {
     private var tickTimer: Timer?
     private var countdownTimer: Timer?
     private var snoozeTimer: Timer?
+    private var ntpTimer: Timer?
     private var countdownSeconds: Int = 180
 
     // Clock
@@ -199,6 +200,15 @@ class BedtimeEnforcer {
             self?.recalculate()
         }
         recalculate()
+
+        // NTP refresh at startup
+        trustedClock.refreshFromNTP()
+
+        // Hourly NTP re-anchor
+        ntpTimer = Timer.scheduledTimer(withTimeInterval: 3600.0, repeats: true) { [weak self] _ in
+            self?.trustedClock.refreshFromNTP()
+        }
+
         appDelegate?.postLog("🌙 BedtimeEnforcer started")
     }
 
@@ -209,6 +219,8 @@ class BedtimeEnforcer {
         countdownTimer = nil
         snoozeTimer?.invalidate()
         snoozeTimer = nil
+        ntpTimer?.invalidate()
+        ntpTimer = nil
         dismissOverlay()
         grayscaleController?.restoreSaturation()
         state = .inactive
