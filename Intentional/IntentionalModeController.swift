@@ -17,6 +17,10 @@ class IntentionalModeController {
     weak var appDelegate: AppDelegate?
     weak var scheduleManager: ScheduleManager?
 
+    var isPuckFocusActive: Bool {
+        appDelegate?.focusSessionManager?.activeSession?.triggeredByPuck == true
+    }
+
     // MARK: - State
 
     enum State: String {
@@ -290,6 +294,7 @@ class IntentionalModeController {
                 self?.handleStartBlock(title: title, durationMinutes: durationMinutes, blockType: blockType)
             }
         )
+        vm.hideFreeTime = isPuckFocusActive
         self.viewModel = vm
 
         let view = IntentionalModeOverlayView(viewModel: vm)
@@ -313,6 +318,7 @@ class IntentionalModeController {
             window.ignoresMouseEvents = false
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
             window.setFrame(screen.frame, display: true)
+            appDelegate?.postLog("🚨 ACTIVATE: IntentionalModeController.showOverlay — makeKeyAndOrderFront")
             window.makeKeyAndOrderFront(nil)
 
             overlayWindows.append(window)
@@ -414,6 +420,7 @@ class IntentionalModeViewModel: ObservableObject {
     @Published var blockTitle: String = ""
     @Published var selectedBlockType: ScheduleManager.BlockType = .focusHours
     @Published var selectedDuration: Int = 60
+    @Published var hideFreeTime: Bool = false
 
     let durationOptions = [30, 60, 90, 120]
 
@@ -485,8 +492,10 @@ struct IntentionalModeOverlayView: View {
                         blockTypeButton(.deepWork, label: "Deep Work", icon: "flame.fill")
                         dividerLine
                         blockTypeButton(.focusHours, label: "Focus", icon: "eye.fill")
-                        dividerLine
-                        blockTypeButton(.freeTime, label: "Free Time", icon: "cup.and.saucer.fill")
+                        if !viewModel.hideFreeTime {
+                            dividerLine
+                            blockTypeButton(.freeTime, label: "Free Time", icon: "cup.and.saucer.fill")
+                        }
                     }
                     .frame(height: 72)
 
@@ -543,6 +552,18 @@ struct IntentionalModeOverlayView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(!viewModel.canStart)
+
+                if viewModel.hideFreeTime {
+                    Button(action: {
+                        viewModel.onStartBlock(viewModel.blockTitle.isEmpty ? "Focus" : viewModel.blockTitle, 60, .deepWork)
+                    }) {
+                        Text("Continue with Default Blocking")
+                            .font(.system(size: 15))
+                            .foregroundColor(Color(white: 0.45))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 8)
+                }
 
                 Spacer()
             }
