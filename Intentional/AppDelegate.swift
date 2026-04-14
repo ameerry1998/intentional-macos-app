@@ -43,6 +43,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Content Safety — on-device screen monitoring for explicit content
     var contentSafetyMonitor: ContentSafetyMonitor?
 
+    // Bedtime Enforcer — locks screen during bedtime hours
+    var bedtimeEnforcer: BedtimeEnforcer?
+
     // Root daemon XPC client (tamper-resistant strict mode)
     let daemonClient = DaemonXPCClient()
 
@@ -70,24 +73,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return appSupport + "/strict-mode"
     }
 
-    /// Block Cmd+Q when strict mode is enabled.
+    /// Block Cmd+Q when strict mode is enabled — unless the daemon is running
+    /// (in which case, let the quit happen and the daemon will relaunch us).
+    /// This is critical for macOS permission changes (e.g. Screen Recording)
+    /// which require a full process restart to take effect.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        // Ask daemon first, fall back to UserDefaults
         let strictEnabled = daemonClient.isStrictModeEnabledSync()
+        let decision = QuitPolicy.decide(
+            strictModeEnabled: strictEnabled,
+            daemonAvailable: daemonClient.isDaemonAvailable
+        )
 
-        if !strictEnabled {
+        switch decision {
+        case .allowQuit:
+            if strictEnabled {
+                postLog("🔒 Quit allowed — daemon will relaunch in seconds")
+            }
             return .terminateNow
+        case .blockQuit:
+            postLog("🔒 Quit blocked — strict mode ON, no daemon to relaunch")
+            let alert = NSAlert()
+            alert.messageText = "App Persistence is On"
+            alert.informativeText = "Intentional is set to keep running. To disable this, open settings and request a code from your accountability partner."
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "Keep Running")
+            alert.runModal()
+            return .terminateCancel
         }
-
-        // Strict mode is ON — block quit (requires partner code to disable via dashboard)
-        postLog("🔒 Quit blocked — strict mode ON (requires partner code to disable)")
-        let alert = NSAlert()
-        alert.messageText = "App Persistence is On"
-        alert.informativeText = "Intentional is set to keep running. To disable this, open settings and request a code from your accountability partner."
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "Keep Running")
-        alert.runModal()
-        return .terminateCancel
     }
 
     /// Enable/disable strict mode.
@@ -257,6 +269,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         postLog("🪟 Main window created")
 
         // Bring window to front
+        postLog("🚨 ACTIVATE: AppDelegate.applicationDidFinishLaunching — initial launch")
         NSApp.activate(ignoringOtherApps: true)
 
         // Create menu bar icon
@@ -403,6 +416,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         intentionalModeController?.recalculateState()
         intentionalModeController?.start()
         postLog("🔒 IntentionalModeController initialized (enabled=\(intentionalModeController?.isEnabled ?? false))")
+
+        // Bedtime Enforcer
+        bedtimeEnforcer = BedtimeEnforcer(appDelegate: self)
+        sleepWakeMonitor?.onWake = { [weak self] in
+            self?.bedtimeEnforcer?.onMacWoke()
+        }
+        bedtimeEnforcer?.start()
+        postLog("🌙 BedtimeEnforcer initialized and started")
 
         // Wire schedule block changes: when the active block changes,
         // clear the relevance cache, reset focus monitor, and broadcast SCHEDULE_SYNC
@@ -672,6 +693,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func showMainWindow() {
+        postLog("🚨 ACTIVATE: AppDelegate.showMainWindow — caller: \(Thread.callStackSymbols.prefix(5).joined(separator: "\n"))")
         mainWindowController?.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
