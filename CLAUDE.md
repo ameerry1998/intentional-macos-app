@@ -55,11 +55,12 @@ Setting an intention is optional but upgrades blocking from dumb to smart.
 
 ### What Changed (Puck Branch — April 2026)
 
-- **ScheduleManager** — KEPT. Schedule-driven blocks still work standalone. Focus sessions inject a block via `injectFocusSessionBlock()` that overrides the schedule.
-- **EarnedBrowseManager** — strip (no earned screen time mechanic)
+- **ScheduleManager** — STRIPPED. Schedules are removed; Puck on/off is the primary model. No daily schedule planning.
+- **EarnedBrowseManager** — KEPT. Earned browse is the pressure valve for always-active blocks.
 - **TimeTracker** — strip (no usage tracking/budgets)
 - **Block rituals (start/end)** — strip (no ceremonies)
 - **PlanningCoach** — already removed
+- **BlockingProfile: always-active toggle** — Per-profile `isAlwaysActive` flag. When ON, profile is enforced 24/7 (free time doesn't override; only earned browse or partner code can bypass). When OFF, profile only blocks during active focus sessions.
 
 ### New Systems (April 2026)
 
@@ -73,6 +74,8 @@ Setting an intention is optional but upgrades blocking from dumb to smart.
 ### Puck Tap Behavior
 
 When Puck tapped: default "Distracting Apps & Sites" profile activates immediately (non-negotiable floor). User can optionally plan additional profiles + AI intention. No free time exists during Puck focus. Only Puck re-tap ends the session.
+
+Always-active profiles are enforced regardless of Puck state — they block 24/7. Puck tap adds session-only profiles on top. Non-always-active profiles only block during active sessions. Schedules are stripped; Puck on/off is the primary model.
 
 Mock trigger: `Cmd+Shift+P` global hotkey (menu bar: "Toggle Focus"). Real Puck signal via backend WebSocket (see `intentional-backend/docs/prd-focus-signal-api.md`).
 
