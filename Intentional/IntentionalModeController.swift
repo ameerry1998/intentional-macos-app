@@ -289,6 +289,12 @@ class IntentionalModeController {
     private func showOverlay() {
         dismissOverlay() // Clear any existing
 
+        // Delegate to FocusStartOverlay (unified overlay for both Focus Gate and Puck)
+        // isPuckTriggered: false means free time option is available
+        appDelegate?.showFocusStartOverlay(isPuckTriggered: isPuckFocusActive)
+        return
+
+        // Legacy overlay code below — kept for reference but no longer used
         let vm = IntentionalModeViewModel(
             onStartBlock: { [weak self] title, durationMinutes, blockType in
                 self?.handleStartBlock(title: title, durationMinutes: durationMinutes, blockType: blockType)
