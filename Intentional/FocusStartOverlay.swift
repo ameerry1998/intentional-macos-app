@@ -169,6 +169,26 @@ struct FocusStartOverlayView: View {
 
             // Bottom buttons
             HStack(spacing: 16) {
+                // Free Time button (only when NOT Puck-triggered)
+                if !viewModel.isPuckTriggered {
+                    Button(action: {
+                        viewModel.onCancel?() // Free time = dismiss without creating session
+                    }) {
+                        Text("Free Time")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(buttonTextDim)
+                            .frame(width: 110)
+                            .padding(.vertical, 14)
+                            .background(buttonBg)
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(buttonBorder, lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 // Cancel / Back button
                 Button(action: {
                     if viewModel.isPuckTriggered && viewModel.showPlanner {
@@ -181,15 +201,9 @@ struct FocusStartOverlayView: View {
                 }) {
                     Text(viewModel.isPuckTriggered && viewModel.showPlanner ? "Back" : "Cancel")
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(buttonTextDim)
-                        .frame(width: 120)
+                        .foregroundColor(Color(white: 0.3))
+                        .frame(width: 80)
                         .padding(.vertical, 14)
-                        .background(buttonBg)
-                        .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(buttonBorder, lineWidth: 1)
-                        )
                 }
                 .buttonStyle(.plain)
 

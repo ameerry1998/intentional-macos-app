@@ -873,6 +873,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func showFocusStartOverlay(isPuckTriggered: Bool) {
         guard focusStartOverlayWindows.isEmpty else { return }
 
+        // Ensure profiles are loaded before showing the overlay
+        if blockingProfileManager == nil {
+            blockingProfileManager = BlockingProfileManager()
+        }
+
         let vm = FocusStartOverlayViewModel()
         vm.availableProfiles = blockingProfileManager?.profiles ?? []
         vm.isPuckTriggered = isPuckTriggered
@@ -932,20 +937,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applyFocusSession(_ session: FocusSession) {
         let merged = blockingProfileManager?.mergedBlockList(profileIds: session.activeProfileIds)
-        websiteBlocker?.updateDistractingSites(merged?.domains ?? [])
+        let domains = merged?.domains ?? []
+        let appBundleIds = merged?.appBundleIds ?? []
+        let hasProfiles = !session.activeProfileIds.isEmpty && !domains.isEmpty
+        let hasIntention = session.intention != nil && !session.intention!.isEmpty
 
-        if let intention = session.intention, !intention.isEmpty {
+        // Only enforce if there's something to enforce
+        guard hasProfiles || hasIntention else {
+            postLog("🎯 Focus session has no profiles and no intention — skipping enforcement")
+            return
+        }
+
+        websiteBlocker?.updateDistractingSites(domains)
+        focusMonitor?.distractingAppBundleIds = Set(appBundleIds)
+
+        if hasIntention {
             let now = Date()
             let cal = Calendar.current
             let block = ScheduleManager.FocusBlock(
                 id: UUID().uuidString,
-                title: intention,
+                title: session.intention!,
                 description: "",
                 startHour: cal.component(.hour, from: now),
                 startMinute: cal.component(.minute, from: now),
                 endHour: 23,
                 endMinute: 59,
-                blockType: .deepWork
+                blockType: hasProfiles ? .deepWork : .focusHours
             )
             scheduleManager?.injectFocusSessionBlock(block)
         }
