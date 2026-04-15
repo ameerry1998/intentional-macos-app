@@ -4993,10 +4993,9 @@ function updateCurrentProfile() {
     alwaysRelevantSites: getAlwaysRelevant(currentProfileData.id).sites || [],
     alwaysRelevantApps: (getAlwaysRelevant(currentProfileData.id).apps || []).map(function(a) { return { name: a.name, bundleId: a.bundleId }; })
   });
-  // Also sync legacy vars + save settings for backward compat
-  syncLegacyVars();
-  clearTimeout(settingSaveTimer);
-  saveAllSettings();
+  // NOTE: Do NOT call syncLegacyVars() or saveAllSettings() here.
+  // The profile system is the source of truth. The legacy onboarding_settings.json
+  // path was overwriting profile changes via WebsiteBlocker.updateDistractingSites().
 }
 
 function syncLegacyVars() {

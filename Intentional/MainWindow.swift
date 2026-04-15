@@ -1037,16 +1037,10 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             self.window?.backgroundColor = MainWindow.windowBackground(for: th)
         }
 
-        // Update WebsiteBlocker with new distracting sites
-        if let sites = distractingSites {
-            appDelegate?.websiteBlocker?.updateDistractingSites(sites)
-        }
-
-        // Update FocusMonitor with new distracting apps
-        if let apps = distractingApps {
-            let bundleIds = Set(apps.compactMap { $0["bundleId"] as? String })
-            appDelegate?.focusMonitor?.distractingAppBundleIds = bundleIds
-        }
+        // Legacy: distractingSites/distractingApps are saved to onboarding_settings.json
+        // for backward compat, but NO LONGER feed WebsiteBlocker or FocusMonitor directly.
+        // Blocking is now profile-driven via BlockingProfileManager.
+        // WebsiteBlocker is fed by applyAlwaysActiveProfiles() and applyFocusSession() only.
 
         // Update Content Safety Monitor
         if let cs = contentSafety {
