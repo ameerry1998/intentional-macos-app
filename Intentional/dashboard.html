@@ -708,6 +708,58 @@ body.theme-effects-warm::after {
   font-size: 13px;
 }
 
+/* ===== Blocking Profile Drill-Down ===== */
+.dist-container { position: relative; height: 100%; overflow: hidden; }
+.profile-row { display: flex; align-items: center; padding: 14px 20px; gap: 14px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.06); transition: background 0.1s; }
+.profile-row:hover { background: rgba(255,255,255,0.04); }
+.profile-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.profile-dot.active { background: #8b5cf6; }
+.profile-dot.inactive { background: #636366; opacity: 0.4; }
+.profile-info { flex: 1; }
+.profile-name { font-size: 15px; font-weight: 500; }
+.profile-meta { font-size: 12px; color: #636366; margin-top: 2px; }
+.profile-badge { font-size: 10px; color: #8b5cf6; background: rgba(139,92,246,0.12); padding: 2px 7px; border-radius: 4px; font-weight: 600; margin-left: 6px; }
+.profile-arrow { color: #636366; font-size: 16px; }
+.dist-view { position: absolute; inset: 0; overflow-y: auto; transition: transform 0.25s ease, opacity 0.25s ease; }
+.dist-view.out-left { transform: translateX(-30%); opacity: 0; pointer-events: none; }
+.dist-view.out-right { transform: translateX(100%); opacity: 0; pointer-events: none; }
+.detail-nav { padding: 16px 20px 12px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.detail-back { color: #8b5cf6; font-size: 13px; cursor: pointer; font-weight: 500; background: none; border: none; padding: 4px 8px; border-radius: 6px; font-family: inherit; }
+.detail-back:hover { background: rgba(139,92,246,0.12); }
+.detail-body { padding: 20px; }
+.detail-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.detail-subtitle { font-size: 12px; color: #636366; margin-bottom: 20px; }
+.detail-section { margin-bottom: 20px; }
+.detail-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.detail-section-label { font-size: 11px; font-weight: 600; color: #8e8e93; letter-spacing: 0.5px; text-transform: uppercase; }
+.detail-section-label.green { color: #4ade80; }
+.detail-add-btn { font-size: 12px; color: #8b5cf6; background: none; border: none; cursor: pointer; font-weight: 500; font-family: inherit; }
+.detail-add-btn:hover { text-decoration: underline; }
+.detail-add-btn.green { color: #4ade80; }
+.chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.dist-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: #1c1c1e; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; font-size: 13px; color: #f2f2f7; }
+.dist-chip:hover { border-color: rgba(255,255,255,0.14); }
+.dist-chip .chip-x { color: #636366; cursor: pointer; font-size: 14px; background: none; border: none; padding: 0; font-family: inherit; }
+.dist-chip .chip-x:hover { color: #ef4444; }
+.dist-chip-icon { font-size: 14px; }
+.dist-chip-green { border-color: rgba(74,222,128,0.15); background: rgba(74,222,128,0.08); }
+.dist-chip-label { font-size: 9px; color: #636366; background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.3px; }
+.chip-check { color: #4ade80; font-size: 11px; }
+.create-profile-btn { width: 100%; padding: 11px; background: transparent; border: 1px dashed rgba(255,255,255,0.14); border-radius: 10px; color: #8e8e93; font-size: 13px; cursor: pointer; font-family: inherit; }
+.create-profile-btn:hover { background: #1c1c1e; color: #f2f2f7; }
+.inline-add { display: flex; gap: 8px; margin-top: 8px; }
+.inline-add input { flex: 1; }
+.inline-add-btn { background: #8b5cf6; color: white; border: none; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.inline-add-btn.green { background: #4ade80; color: #111; }
+.detail-separator { height: 1px; background: rgba(255,255,255,0.06); margin: 20px 0; }
+.detail-delete { font-size: 12px; color: #ef4444; background: none; border: none; cursor: pointer; opacity: 0.5; font-family: inherit; }
+.detail-delete:hover { opacity: 1; }
+.detail-hint { font-size: 11px; color: #636366; margin-bottom: 10px; line-height: 1.5; }
+.detail-empty { padding: 14px; text-align: center; color: #636366; font-size: 12px; border: 1px dashed rgba(255,255,255,0.06); border-radius: 8px; }
+.ar-type-chooser { display: flex; gap: 6px; margin-top: 8px; }
+.ar-type-btn { font-size: 12px; padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); color: #8e8e93; cursor: pointer; font-family: inherit; }
+.ar-type-btn:hover { background: rgba(74,222,128,0.1); color: #4ade80; border-color: rgba(74,222,128,0.2); }
+
 /* ===== Sound Tone Picker ===== */
 .sound-tone-grid {
   display: flex;
@@ -4000,54 +4052,40 @@ body.theme-effects-warm::after {
 
   <!-- Page: Distractions -->
   <div class="page" id="page-distractions">
-    <div class="section-title">Distractions</div>
-
-    <!-- ===== Distracting Websites ===== -->
-    <div class="settings-card">
-      <div class="settings-card-title">Distracting Websites</div>
-      <div class="setting-desc" style="padding: 2px 20px 8px;">These sites are blocked when blocking mode is on.</div>
-      <div class="distracting-sites-list" id="distracting-sites-list"></div>
-      <div class="distracting-sites-add" id="distracting-sites-add">
-        <input type="text" id="distracting-site-input" placeholder="e.g. reddit.com, twitter.com">
-        <button type="button" onclick="addDistractingSite()">Add</button>
-      </div>
-    </div>
-
-    <!-- ===== Distracting Apps ===== -->
-    <div class="settings-card" style="margin-top: 16px;">
-      <div class="settings-card-title">Distracting Apps</div>
-      <div class="setting-desc" style="padding: 2px 20px 8px;">These apps are always marked as off-task during work blocks.</div>
-      <div class="distracting-apps-list" id="distracting-apps-list"></div>
-      <div class="distracting-sites-add" id="distracting-apps-add">
-        <button type="button" class="distracting-apps-add-btn" onclick="showAppPicker()">+ Add App</button>
-      </div>
-    </div>
-
-    <!-- App Picker Modal -->
-    <div class="app-picker-modal" id="app-picker-modal" style="display: none;" onclick="if(event.target===this)hideAppPicker()">
-      <div class="app-picker-card">
-        <div class="app-picker-header">
-          <span style="font-size: 16px; font-weight: 600; color: #fff;">Add Distracting App</span>
-          <button class="app-picker-close" onclick="hideAppPicker()">&times;</button>
+    <div class="dist-container">
+      <!-- List View -->
+      <div class="dist-view" id="dist-list">
+        <div class="section-title">Distractions</div>
+        <div class="setting-desc" style="padding: 0 20px 12px;">Manage what gets blocked during focus sessions</div>
+        <div class="settings-card">
+          <div class="settings-card-title">Blocking Profiles</div>
+          <div id="profile-list-rows"></div>
+          <div style="padding: 10px 20px 14px;">
+            <button type="button" class="create-profile-btn" onclick="createProfile()">+ Create New Profile</button>
+          </div>
         </div>
-        <input type="text" class="app-picker-search" id="app-picker-search" placeholder="Search apps..." oninput="filterAppPicker()">
-        <div class="app-picker-list" id="app-picker-list"></div>
+      </div>
+
+      <!-- Detail View -->
+      <div class="dist-view out-right" id="dist-detail">
+        <div class="detail-nav">
+          <button class="detail-back" onclick="hideProfile()">&#8249; Distractions</button>
+        </div>
+        <div class="detail-body" id="detail-body"></div>
+      </div>
+
+      <!-- App Picker Modal (reused) -->
+      <div class="app-picker-modal" id="app-picker-modal" style="display: none;" onclick="if(event.target===this)hideAppPicker()">
+        <div class="app-picker-card">
+          <div class="app-picker-header">
+            <span style="font-size: 16px; font-weight: 600; color: #fff;" id="app-picker-title">Add App</span>
+            <button class="app-picker-close" onclick="hideAppPicker()">&times;</button>
+          </div>
+          <input type="text" class="app-picker-search" id="app-picker-search" placeholder="Search apps..." oninput="filterAppPicker()">
+          <div class="app-picker-list" id="app-picker-list"></div>
+        </div>
       </div>
     </div>
-
-    <!-- ===== Always-Relevant Sites (Whitelist) ===== -->
-    <div class="settings-card" style="margin-top: 16px;">
-      <div class="settings-card-title">Always-Relevant Sites</div>
-      <div class="setting-desc" style="padding: 2px 20px 8px;">These sites are always counted as productive during work blocks. Use for tools like email or chat where the AI can't tell if you're working.</div>
-      <div class="distracting-sites-list" id="always-relevant-sites-list"></div>
-      <div class="distracting-sites-add" id="always-relevant-sites-add">
-        <input type="text" id="always-relevant-site-input" placeholder="e.g. gmail.com, slack.com, notion.so">
-        <button type="button" onclick="addAlwaysRelevantSite()">Add</button>
-      </div>
-    </div>
-
-    <!-- Platform-specific filtering (YouTube/Instagram/Facebook) removed in Puck branch -->
-
   </div>
 
   <!-- Page: Accountability / Lock -->
@@ -4477,6 +4515,11 @@ function navigateTo(pageId) {
     sendMessage({ type: 'GET_SETTINGS' });
   }
 
+  // Load blocking profiles when viewing distractions page
+  if (pageId === 'distractions') {
+    loadBlockingProfiles();
+  }
+
   // Load all data when viewing Today page
   if (pageId === 'today') {
     sendMessage({ type: 'GET_JOURNAL' });
@@ -4622,237 +4665,458 @@ document.addEventListener('DOMContentLoaded', function() {
   initExtraTimeFlow();
 });
 
-// ===== Distracting Sites Management =====
-/* PUCK BRANCH: No pinned sites — everything is user-configured via customDistractingSites */
-var PINNED_SITES = [];
+// ===== Blocking Profiles Management =====
+var blockingProfiles = [];
+var currentProfileId = null;
+var currentProfileData = null;
+var installedAppsCache = null;
+var appPickerCallback = null; // callback(app) when user picks an app
+// JS-side always-relevant storage (not yet in Swift model)
+var profileAlwaysRelevant = {}; // { profileId: { sites: [], apps: [{name,bundleId,icon}] } }
+
+// Legacy compat vars — kept so saveAllSettings and populateSettingsUI don't break
 var customDistractingSites = [];
 var disabledPlatforms = [];
 var alwaysRelevantSites = [];
-
-function renderDistractingSites() {
-  var list = document.getElementById('distracting-sites-list');
-  if (!list) return;
-  list.innerHTML = '';
-  var locked = typeof isSettingsLocked === 'function' && isSettingsLocked();
-  /* PUCK BRANCH: PINNED_SITES rendering stripped — all sites are user-configurable */
-  customDistractingSites.forEach(function(domain) {
-    var div = document.createElement('div');
-    div.className = 'distracting-site custom';
-
-    var icon = document.createElement('span');
-    icon.className = 'distracting-site-icon';
-    icon.textContent = '🌐';
-    div.appendChild(icon);
-
-    var domainEl = document.createElement('span');
-    domainEl.className = 'distracting-site-domain';
-    domainEl.textContent = domain;
-    div.appendChild(domainEl);
-
-    var badge = document.createElement('span');
-    badge.className = 'distracting-site-badge custom';
-    badge.textContent = 'Tracking';
-    div.appendChild(badge);
-
-    if (!locked) {
-      var removeBtn = document.createElement('button');
-      removeBtn.className = 'distracting-site-remove';
-      removeBtn.title = 'Remove';
-      removeBtn.textContent = '×';
-      removeBtn.addEventListener('click', function() { removeDistractingSite(domain); });
-      div.appendChild(removeBtn);
-    }
-
-    list.appendChild(div);
-  });
-}
+var distractingApps = [];
 
 function normalizeDomain(input) {
   if (!input) return null;
   var s = input.trim().toLowerCase();
-  // Strip protocol
   s = s.replace(/^https?:\/\//, '');
-  // Strip www.
   s = s.replace(/^www\./, '');
-  // Strip path, query, hash, port
   s = s.split('/')[0].split('?')[0].split('#')[0].split(':')[0];
-  // Must contain a dot
   if (s.indexOf('.') === -1) return null;
   if (s.length < 3) return null;
   return s;
 }
 
-function addDistractingSite() {
-  var input = document.getElementById('distracting-site-input');
-  if (!input) return;
-  var domain = normalizeDomain(input.value);
-  if (!domain) { input.value = ''; return; }
-  // Check if re-enabling a disabled pinned site
-  var isPinned = PINNED_SITES.some(function(s) { return s.domain === domain; });
-  if (isPinned) {
-    var idx = disabledPlatforms.indexOf(domain);
-    if (idx !== -1) {
-      disabledPlatforms.splice(idx, 1);
-      renderDistractingSites();
-      clearTimeout(settingSaveTimer);
-      saveAllSettings();
+function loadBlockingProfiles() {
+  sendMessage({ type: 'GET_BLOCKING_PROFILES' });
+}
+
+window.onBlockingProfiles = function(profiles) {
+  blockingProfiles = profiles;
+
+  // Seed legacy always-relevant sites into default profile (one-time migration)
+  var def = profiles.find(function(p) { return p.isDefault; });
+  if (def && window._pendingLegacyAlwaysRelevant) {
+    var ar = getAlwaysRelevant(def.id);
+    if (ar.sites.length === 0 && window._pendingLegacyAlwaysRelevant.length > 0) {
+      ar.sites = window._pendingLegacyAlwaysRelevant.slice();
     }
-    input.value = '';
-    return;
+    delete window._pendingLegacyAlwaysRelevant;
   }
-  // Check duplicates
-  if (customDistractingSites.indexOf(domain) !== -1) { input.value = ''; return; }
-  customDistractingSites.push(domain);
-  renderDistractingSites();
-  input.value = '';
-  input.focus();
-  clearTimeout(settingSaveTimer);
-  saveAllSettings();  // Immediate save — sites must persist before app close
-}
 
-function disablePinnedSite(domain) {
-  if (disabledPlatforms.indexOf(domain) === -1) {
-    disabledPlatforms.push(domain);
+  // Sync legacy vars from default profile for saveAllSettings compat
+  if (def) {
+    customDistractingSites = (def.blockedDomains || []).slice();
+    distractingApps = (def.blockedAppBundleIds || []).map(function(bid) { return { bundleId: bid, name: bid }; });
+    var arDef = getAlwaysRelevant(def.id);
+    alwaysRelevantSites = arDef ? (arDef.sites || []).slice() : [];
   }
-  renderDistractingSites();
-  clearTimeout(settingSaveTimer);
-  saveAllSettings();  // Immediate save
+
+  renderProfileList();
+  if (currentProfileId) {
+    currentProfileData = profiles.find(function(p) { return p.id === currentProfileId; });
+    if (currentProfileData) renderProfileDetail();
+  }
+};
+
+function getAlwaysRelevant(profileId) {
+  if (!profileAlwaysRelevant[profileId]) {
+    profileAlwaysRelevant[profileId] = { sites: [], apps: [] };
+  }
+  return profileAlwaysRelevant[profileId];
 }
 
-function removeDistractingSite(domain) {
-  customDistractingSites = customDistractingSites.filter(function(d) { return d !== domain; });
-  renderDistractingSites();
-  clearTimeout(settingSaveTimer);
-  saveAllSettings();  // Immediate save — sites must persist before app close
-}
+function renderProfileList() {
+  var container = document.getElementById('profile-list-rows');
+  if (!container) return;
+  container.innerHTML = '';
+  blockingProfiles.forEach(function(profile) {
+    var ar = getAlwaysRelevant(profile.id);
+    var siteCount = (profile.blockedDomains || []).length;
+    var appCount = (profile.blockedAppBundleIds || []).length;
+    var arCount = (ar.sites || []).length + (ar.apps || []).length;
 
-// ===== Always-Relevant Sites Management =====
+    var row = document.createElement('div');
+    row.className = 'profile-row';
+    row.addEventListener('click', function() { showProfile(profile.id); });
 
-function renderAlwaysRelevantSites() {
-  var list = document.getElementById('always-relevant-sites-list');
-  if (!list) return;
-  list.innerHTML = '';
-  var locked = typeof isSettingsLocked === 'function' && isSettingsLocked();
-  alwaysRelevantSites.forEach(function(domain) {
-    var div = document.createElement('div');
-    div.className = 'distracting-site custom';
+    var dot = document.createElement('span');
+    dot.className = 'profile-dot ' + (profile.isDefault ? 'active' : 'inactive');
+    row.appendChild(dot);
 
-    var icon = document.createElement('span');
-    icon.className = 'distracting-site-icon';
-    icon.textContent = '✅';
-    div.appendChild(icon);
+    var info = document.createElement('div');
+    info.className = 'profile-info';
 
-    var domainEl = document.createElement('span');
-    domainEl.className = 'distracting-site-domain';
-    domainEl.textContent = domain;
-    div.appendChild(domainEl);
+    var nameEl = document.createElement('span');
+    nameEl.className = 'profile-name';
+    nameEl.textContent = profile.name;
+    info.appendChild(nameEl);
 
-    var badge = document.createElement('span');
-    badge.className = 'distracting-site-badge whitelist';
-    badge.textContent = 'Always relevant';
-    div.appendChild(badge);
-
-    if (!locked) {
-      var removeBtn = document.createElement('button');
-      removeBtn.className = 'distracting-site-remove';
-      removeBtn.title = 'Remove';
-      removeBtn.textContent = '×';
-      removeBtn.addEventListener('click', function() { removeAlwaysRelevantSite(domain); });
-      div.appendChild(removeBtn);
+    if (profile.isDefault) {
+      var badge = document.createElement('span');
+      badge.className = 'profile-badge';
+      badge.textContent = 'DEFAULT';
+      info.appendChild(badge);
     }
 
-    list.appendChild(div);
+    var meta = document.createElement('div');
+    meta.className = 'profile-meta';
+    meta.textContent = siteCount + ' site' + (siteCount !== 1 ? 's' : '') + ' \u00B7 ' +
+      appCount + ' app' + (appCount !== 1 ? 's' : '') + ' \u00B7 ' +
+      arCount + ' always relevant';
+    info.appendChild(meta);
+
+    row.appendChild(info);
+
+    var arrow = document.createElement('span');
+    arrow.className = 'profile-arrow';
+    arrow.textContent = '\u203A';
+    row.appendChild(arrow);
+
+    container.appendChild(row);
   });
 }
 
-function addAlwaysRelevantSite() {
-  var input = document.getElementById('always-relevant-site-input');
+function renderProfileDetail() {
+  var body = document.getElementById('detail-body');
+  if (!body || !currentProfileData) return;
+  var locked = typeof isSettingsLocked === 'function' && isSettingsLocked();
+  var profile = currentProfileData;
+  var ar = getAlwaysRelevant(profile.id);
+  var domains = profile.blockedDomains || [];
+  var appIds = profile.blockedAppBundleIds || [];
+
+  var html = '';
+  html += '<div class="detail-title">' + escapeHTML(profile.name) + '</div>';
+  html += '<div class="detail-subtitle">Profile' + (profile.isDefault ? ' \u00B7 Default blocking profile' : '') + '</div>';
+
+  // Blocked Websites
+  html += '<div class="detail-section">';
+  html += '<div class="detail-section-header">';
+  html += '<span class="detail-section-label">Blocked Websites (' + domains.length + ')</span>';
+  if (!locked) html += '<button class="detail-add-btn" onclick="showAddWebsite()">+ Add Website</button>';
+  html += '</div>';
+  if (domains.length > 0) {
+    html += '<div class="chip-list" id="detail-websites-chips">';
+    domains.forEach(function(d) {
+      html += '<span class="dist-chip"><span class="dist-chip-icon">🌐</span>' + escapeHTML(d);
+      if (!locked) html += '<button class="chip-x" onclick="removeWebsiteFromProfile(\'' + escapeHTML(d) + '\')">&times;</button>';
+      html += '</span>';
+    });
+    html += '</div>';
+  } else {
+    html += '<div class="detail-empty">No blocked websites</div>';
+  }
+  html += '<div id="add-website-inline" style="display:none;"><div class="inline-add"><input type="text" id="inline-website-input" placeholder="e.g. reddit.com" class="distracting-sites-add" style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 12px;color:#fff;font-size:13px;outline:none;"><button class="inline-add-btn" onclick="commitAddWebsite()">Add</button></div></div>';
+  html += '</div>';
+
+  // Blocked Apps
+  html += '<div class="detail-section">';
+  html += '<div class="detail-section-header">';
+  html += '<span class="detail-section-label">Blocked Apps (' + appIds.length + ')</span>';
+  if (!locked) html += '<button class="detail-add-btn" onclick="showAddBlockedApp()">+ Add App</button>';
+  html += '</div>';
+  if (appIds.length > 0) {
+    html += '<div class="chip-list" id="detail-apps-chips">';
+    appIds.forEach(function(bid) {
+      var appName = lookupAppName(bid);
+      html += '<span class="dist-chip"><span class="dist-chip-icon">📱</span>' + escapeHTML(appName);
+      if (!locked) html += '<button class="chip-x" onclick="removeAppFromProfile(\'' + escapeHTML(bid) + '\')">&times;</button>';
+      html += '</span>';
+    });
+    html += '</div>';
+  } else {
+    html += '<div class="detail-empty">No blocked apps</div>';
+  }
+  html += '</div>';
+
+  // Separator
+  html += '<div class="detail-separator"></div>';
+
+  // Always Relevant
+  var arSites = ar.sites || [];
+  var arApps = ar.apps || [];
+  var arTotal = arSites.length + arApps.length;
+  html += '<div class="detail-section">';
+  html += '<div class="detail-section-header">';
+  html += '<span class="detail-section-label green">Always Relevant (' + arTotal + ')</span>';
+  if (!locked) html += '<button class="detail-add-btn green" onclick="showAddAlwaysRelevant()">+ Add</button>';
+  html += '</div>';
+  html += '<div class="detail-hint">These sites and apps are never flagged when this profile is active.</div>';
+  if (arTotal > 0) {
+    html += '<div class="chip-list" id="detail-ar-chips">';
+    arSites.forEach(function(d) {
+      html += '<span class="dist-chip dist-chip-green"><span class="chip-check">✓</span>' + escapeHTML(d);
+      if (!locked) html += '<button class="chip-x" onclick="removeAlwaysRelevantSite(\'' + escapeHTML(d) + '\')">&times;</button>';
+      html += '</span>';
+    });
+    arApps.forEach(function(app) {
+      html += '<span class="dist-chip dist-chip-green"><span class="dist-chip-icon">📱</span>' + escapeHTML(app.name) + '<span class="dist-chip-label">APP</span>';
+      if (!locked) html += '<button class="chip-x" onclick="removeAlwaysRelevantApp(\'' + escapeHTML(app.bundleId) + '\')">&times;</button>';
+      html += '</span>';
+    });
+    html += '</div>';
+  } else {
+    html += '<div class="detail-empty">No always-relevant items</div>';
+  }
+  html += '<div id="add-ar-inline" style="display:none;"></div>';
+  html += '</div>';
+
+  // Delete button (non-default only)
+  if (!profile.isDefault && !locked) {
+    html += '<div class="detail-separator"></div>';
+    html += '<button class="detail-delete" onclick="deleteProfile(\'' + profile.id + '\')">Delete Profile</button>';
+  }
+
+  body.innerHTML = html;
+
+  // Wire up enter key on website input
+  var webInput = document.getElementById('inline-website-input');
+  if (webInput) {
+    webInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); commitAddWebsite(); }
+    });
+  }
+}
+
+function escapeHTML(str) {
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
+}
+
+function lookupAppName(bundleId) {
+  if (installedAppsCache) {
+    var found = installedAppsCache.find(function(a) { return a.bundleId === bundleId; });
+    if (found) return found.name;
+  }
+  // Fallback: extract readable name from bundle ID
+  var parts = bundleId.split('.');
+  return parts[parts.length - 1] || bundleId;
+}
+
+// ===== Navigation =====
+function showProfile(id) {
+  currentProfileId = id;
+  currentProfileData = blockingProfiles.find(function(p) { return p.id === id; });
+  if (!currentProfileData) return;
+  renderProfileDetail();
+  var listEl = document.getElementById('dist-list');
+  var detailEl = document.getElementById('dist-detail');
+  listEl.classList.add('out-left');
+  detailEl.classList.remove('out-right');
+}
+
+function hideProfile() {
+  currentProfileId = null;
+  currentProfileData = null;
+  var listEl = document.getElementById('dist-list');
+  var detailEl = document.getElementById('dist-detail');
+  detailEl.classList.add('out-right');
+  listEl.classList.remove('out-left');
+}
+
+// ===== CRUD =====
+function createProfile() {
+  var name = prompt('New profile name:');
+  if (!name || !name.trim()) return;
+  sendMessage({ type: 'CREATE_BLOCKING_PROFILE', name: name.trim(), domains: [], appBundleIds: [] });
+  // Refresh after creation — Swift will call onBlockingProfiles
+  setTimeout(loadBlockingProfiles, 200);
+}
+
+function deleteProfile(id) {
+  if (!confirm('Delete this blocking profile?')) return;
+  sendMessage({ type: 'DELETE_BLOCKING_PROFILE', id: id });
+  hideProfile();
+  setTimeout(loadBlockingProfiles, 200);
+}
+
+function updateCurrentProfile() {
+  if (!currentProfileData) return;
+  sendMessage({
+    type: 'UPDATE_BLOCKING_PROFILE',
+    id: currentProfileData.id,
+    name: currentProfileData.name,
+    domains: currentProfileData.blockedDomains || [],
+    appBundleIds: currentProfileData.blockedAppBundleIds || [],
+    alwaysRelevantSites: getAlwaysRelevant(currentProfileData.id).sites || [],
+    alwaysRelevantApps: (getAlwaysRelevant(currentProfileData.id).apps || []).map(function(a) { return { name: a.name, bundleId: a.bundleId }; })
+  });
+  // Also sync legacy vars + save settings for backward compat
+  syncLegacyVars();
+  clearTimeout(settingSaveTimer);
+  saveAllSettings();
+}
+
+function syncLegacyVars() {
+  var def = blockingProfiles.find(function(p) { return p.isDefault; });
+  if (def) {
+    customDistractingSites = (def.blockedDomains || []).slice();
+    distractingApps = (def.blockedAppBundleIds || []).map(function(bid) {
+      var name = lookupAppName(bid);
+      return { bundleId: bid, name: name };
+    });
+    var ar = getAlwaysRelevant(def.id);
+    alwaysRelevantSites = ar ? (ar.sites || []).slice() : [];
+  }
+}
+
+// ===== Add/Remove Websites =====
+function showAddWebsite() {
+  var el = document.getElementById('add-website-inline');
+  if (el) {
+    el.style.display = 'block';
+    var inp = document.getElementById('inline-website-input');
+    if (inp) inp.focus();
+  }
+}
+
+function commitAddWebsite() {
+  var input = document.getElementById('inline-website-input');
   if (!input) return;
   var domain = normalizeDomain(input.value);
   if (!domain) { input.value = ''; return; }
-  if (alwaysRelevantSites.indexOf(domain) !== -1) { input.value = ''; return; }
-  alwaysRelevantSites.push(domain);
+  addWebsiteToProfile(domain);
   input.value = '';
-  renderAlwaysRelevantSites();
-  clearTimeout(settingSaveTimer);
-  saveAllSettings();
+  input.focus();
+}
+
+function addWebsiteToProfile(domain) {
+  if (!currentProfileData) return;
+  var domains = currentProfileData.blockedDomains || [];
+  if (domains.indexOf(domain) !== -1) return;
+  domains.push(domain);
+  currentProfileData.blockedDomains = domains;
+  updateCurrentProfile();
+  renderProfileDetail();
+  renderProfileList();
+}
+
+function removeWebsiteFromProfile(domain) {
+  if (!currentProfileData) return;
+  currentProfileData.blockedDomains = (currentProfileData.blockedDomains || []).filter(function(d) { return d !== domain; });
+  updateCurrentProfile();
+  renderProfileDetail();
+  renderProfileList();
+}
+
+// ===== Add/Remove Blocked Apps =====
+function showAddBlockedApp() {
+  appPickerCallback = function(app) {
+    addAppToProfile(app);
+  };
+  showAppPicker('Add Blocked App');
+}
+
+function addAppToProfile(app) {
+  if (!currentProfileData) return;
+  var appIds = currentProfileData.blockedAppBundleIds || [];
+  if (appIds.indexOf(app.bundleId) !== -1) return;
+  appIds.push(app.bundleId);
+  currentProfileData.blockedAppBundleIds = appIds;
+  updateCurrentProfile();
+  renderProfileDetail();
+  renderProfileList();
+}
+
+function removeAppFromProfile(bundleId) {
+  if (!currentProfileData) return;
+  currentProfileData.blockedAppBundleIds = (currentProfileData.blockedAppBundleIds || []).filter(function(b) { return b !== bundleId; });
+  updateCurrentProfile();
+  renderProfileDetail();
+  renderProfileList();
+}
+
+// ===== Add/Remove Always-Relevant =====
+function showAddAlwaysRelevant() {
+  var el = document.getElementById('add-ar-inline');
+  if (!el) return;
+  el.style.display = 'block';
+  el.innerHTML = '<div class="ar-type-chooser">' +
+    '<button class="ar-type-btn" onclick="showAddAlwaysRelevantSite()">+ Website</button>' +
+    '<button class="ar-type-btn" onclick="showAddAlwaysRelevantApp()">+ App</button>' +
+    '</div>';
+}
+
+function showAddAlwaysRelevantSite() {
+  var el = document.getElementById('add-ar-inline');
+  if (!el) return;
+  el.innerHTML = '<div class="inline-add"><input type="text" id="inline-ar-site-input" placeholder="e.g. gmail.com" style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 12px;color:#fff;font-size:13px;outline:none;"><button class="inline-add-btn green" onclick="commitAddAlwaysRelevantSite()">Add</button></div>';
+  var inp = document.getElementById('inline-ar-site-input');
+  if (inp) {
+    inp.focus();
+    inp.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); commitAddAlwaysRelevantSite(); }
+    });
+  }
+}
+
+function commitAddAlwaysRelevantSite() {
+  var input = document.getElementById('inline-ar-site-input');
+  if (!input) return;
+  var domain = normalizeDomain(input.value);
+  if (!domain) { input.value = ''; return; }
+  addAlwaysRelevantSite(domain);
+  input.value = '';
+  input.focus();
+}
+
+function addAlwaysRelevantSite(domain) {
+  if (!currentProfileData) return;
+  var ar = getAlwaysRelevant(currentProfileData.id);
+  if (ar.sites.indexOf(domain) !== -1) return;
+  ar.sites.push(domain);
+  updateCurrentProfile();
+  renderProfileDetail();
+  renderProfileList();
 }
 
 function removeAlwaysRelevantSite(domain) {
-  alwaysRelevantSites = alwaysRelevantSites.filter(function(d) { return d !== domain; });
-  renderAlwaysRelevantSites();
-  clearTimeout(settingSaveTimer);
-  saveAllSettings();
+  if (!currentProfileData) return;
+  var ar = getAlwaysRelevant(currentProfileData.id);
+  ar.sites = ar.sites.filter(function(d) { return d !== domain; });
+  updateCurrentProfile();
+  renderProfileDetail();
+  renderProfileList();
 }
 
-// ===== Distracting Apps Management =====
-var distractingApps = [];
-var installedAppsCache = null;
-
-function renderDistractingApps() {
-  var list = document.getElementById('distracting-apps-list');
-  if (!list) return;
-  list.innerHTML = '';
-  var locked = typeof isSettingsLocked === 'function' && isSettingsLocked();
-  if (distractingApps.length === 0) {
-    var empty = document.createElement('div');
-    empty.className = 'distracting-apps-empty';
-    empty.textContent = 'No apps added yet';
-    list.appendChild(empty);
-    return;
-  }
-  distractingApps.forEach(function(app) {
-    var div = document.createElement('div');
-    div.className = 'distracting-app';
-
-    if (app.icon) {
-      var icon = document.createElement('img');
-      icon.className = 'distracting-app-icon';
-      icon.src = 'data:image/png;base64,' + app.icon;
-      div.appendChild(icon);
-    } else {
-      var iconPlaceholder = document.createElement('span');
-      iconPlaceholder.style.cssText = 'width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:16px;';
-      iconPlaceholder.textContent = '📱';
-      div.appendChild(iconPlaceholder);
-    }
-
-    var name = document.createElement('span');
-    name.className = 'distracting-app-name';
-    name.textContent = app.name;
-    div.appendChild(name);
-
-    if (!locked) {
-      var removeBtn = document.createElement('button');
-      removeBtn.className = 'distracting-app-remove';
-      removeBtn.title = 'Remove';
-      removeBtn.textContent = '×';
-      removeBtn.addEventListener('click', function() { removeDistractingApp(app.bundleId); });
-      div.appendChild(removeBtn);
-    }
-
-    list.appendChild(div);
-  });
+function showAddAlwaysRelevantApp() {
+  appPickerCallback = function(app) {
+    addAlwaysRelevantApp(app);
+  };
+  showAppPicker('Add Always-Relevant App');
 }
 
-function addDistractingApp(app) {
-  if (distractingApps.some(function(a) { return a.bundleId === app.bundleId; })) return;
-  distractingApps.push({ name: app.name, bundleId: app.bundleId, icon: app.icon });
-  renderDistractingApps();
-  clearTimeout(settingSaveTimer);
-  saveAllSettings();
+function addAlwaysRelevantApp(app) {
+  if (!currentProfileData) return;
+  var ar = getAlwaysRelevant(currentProfileData.id);
+  if (ar.apps.some(function(a) { return a.bundleId === app.bundleId; })) return;
+  ar.apps.push({ name: app.name, bundleId: app.bundleId, icon: app.icon });
+  updateCurrentProfile();
+  renderProfileDetail();
+  renderProfileList();
 }
 
-function removeDistractingApp(bundleId) {
-  distractingApps = distractingApps.filter(function(a) { return a.bundleId !== bundleId; });
-  renderDistractingApps();
-  clearTimeout(settingSaveTimer);
-  saveAllSettings();
+function removeAlwaysRelevantApp(bundleId) {
+  if (!currentProfileData) return;
+  var ar = getAlwaysRelevant(currentProfileData.id);
+  ar.apps = ar.apps.filter(function(a) { return a.bundleId !== bundleId; });
+  updateCurrentProfile();
+  renderProfileDetail();
+  renderProfileList();
 }
 
-function showAppPicker() {
+// ===== App Picker (reused for blocked + always-relevant) =====
+function showAppPicker(title) {
   var modal = document.getElementById('app-picker-modal');
   modal.style.display = 'flex';
+  var titleEl = document.getElementById('app-picker-title');
+  if (titleEl) titleEl.textContent = title || 'Add App';
   var search = document.getElementById('app-picker-search');
   search.value = '';
   search.focus();
@@ -4867,9 +5131,9 @@ function showAppPicker() {
 
 function hideAppPicker() {
   document.getElementById('app-picker-modal').style.display = 'none';
+  appPickerCallback = null;
 }
 
-// Called from native app with installed apps list
 window._installedAppsResult = function(apps) {
   installedAppsCache = apps;
   renderAppPickerList(apps);
@@ -4893,6 +5157,14 @@ function renderAppPickerList(apps) {
     return;
   }
 
+  // Determine which apps are already added (blocked + always-relevant for current profile)
+  var addedIds = [];
+  if (currentProfileData) {
+    addedIds = addedIds.concat(currentProfileData.blockedAppBundleIds || []);
+    var ar = getAlwaysRelevant(currentProfileData.id);
+    ar.apps.forEach(function(a) { addedIds.push(a.bundleId); });
+  }
+
   filtered.forEach(function(app) {
     var row = document.createElement('div');
     row.className = 'app-picker-row';
@@ -4914,7 +5186,7 @@ function renderAppPickerList(apps) {
     name.textContent = app.name;
     row.appendChild(name);
 
-    var isAdded = distractingApps.some(function(a) { return a.bundleId === app.bundleId; });
+    var isAdded = addedIds.indexOf(app.bundleId) !== -1;
     if (isAdded) {
       var badge = document.createElement('span');
       badge.className = 'app-picker-row-added';
@@ -4922,8 +5194,10 @@ function renderAppPickerList(apps) {
       row.appendChild(badge);
     } else {
       row.addEventListener('click', function() {
-        addDistractingApp(app);
-        renderAppPickerList(installedAppsCache);
+        if (appPickerCallback) {
+          appPickerCallback(app);
+          renderAppPickerList(installedAppsCache);
+        }
       });
     }
 
@@ -5055,17 +5329,19 @@ function populateSettingsUI(data) {
     document.getElementById('adv-device-id').textContent = data.deviceId;
   }
 
-  // Load custom distracting sites
+  // Load legacy distracting sites/apps for backward compat with saveAllSettings
   customDistractingSites = data.distractingSites || [];
-  renderDistractingSites();
-
-  // Load always-relevant sites whitelist
   alwaysRelevantSites = data.alwaysRelevantSites || [];
-  renderAlwaysRelevantSites();
-
-  // Load distracting apps
   distractingApps = data.distractingApps || [];
-  renderDistractingApps();
+
+  // Load blocking profiles (new profile UI)
+  loadBlockingProfiles();
+
+  // Seed always-relevant data from legacy settings into default profile (if available)
+  if (data.alwaysRelevantSites && data.alwaysRelevantSites.length > 0) {
+    // Will be matched to the default profile once onBlockingProfiles fires
+    window._pendingLegacyAlwaysRelevant = data.alwaysRelevantSites;
+  }
 
   // Load theme picker
   renderThemePicker(data.theme || 'iridescent');
