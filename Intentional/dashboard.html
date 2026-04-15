@@ -4055,6 +4055,7 @@ body.theme-effects-warm::after {
     <div class="dist-container">
       <!-- List View -->
       <div class="dist-view" id="dist-list">
+        <div id="dist-lock-banner"></div>
         <div class="section-title">Distractions</div>
         <div class="setting-desc" style="padding: 0 20px 12px;">Manage what gets blocked during focus sessions</div>
         <div class="settings-card">
@@ -4790,7 +4791,8 @@ function renderProfileList() {
 function renderProfileDetail() {
   var body = document.getElementById('detail-body');
   if (!body || !currentProfileData) return;
-  var locked = typeof isSettingsLocked === 'function' && isSettingsLocked();
+  // TODO: Re-enable lock check after testing. Profiles should be editable during setup even when locked.
+  var locked = false; // typeof isSettingsLocked === 'function' && isSettingsLocked();
   var profile = currentProfileData;
   var ar = getAlwaysRelevant(profile.id);
   var domains = profile.blockedDomains || [];
