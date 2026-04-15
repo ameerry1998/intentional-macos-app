@@ -915,6 +915,22 @@ body.theme-effects-warm::after {
   display: none;
 }
 
+/* ===== Settings Drill-Down Menu ===== */
+.settings-menu-row { display:flex; align-items:center; padding:14px 20px; gap:14px; cursor:pointer; border-bottom:1px solid rgba(255,255,255,0.06); transition:background 0.1s; }
+.settings-menu-row:hover { background:rgba(255,255,255,0.04); }
+.settings-menu-row:last-child { border-bottom:none; }
+.settings-menu-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+.settings-menu-info { flex:1; }
+.settings-menu-title { font-size:14px; font-weight:500; }
+.settings-menu-sub { font-size:12px; color:rgba(255,255,255,0.55); margin-top:1px; }
+.settings-menu-chevron { color:rgba(255,255,255,0.3); font-size:16px; }
+.settings-detail { display:none; }
+.settings-detail.active { display:block; }
+.settings-detail-back { color:#34d399; font-size:13px; cursor:pointer; font-weight:500; background:none; border:none; font-family:inherit; padding:4px 8px; border-radius:6px; margin-bottom:12px; display:inline-block; }
+.settings-detail-back:hover { background:rgba(52,211,153,0.12); }
+.settings-detail-title { font-size:20px; font-weight:700; margin-bottom:16px; }
+.settings-detail-sub { font-size:12px; color:rgba(255,255,255,0.3); margin-bottom:16px; }
+
 /* ===== Settings Card ===== */
 .settings-card {
   background: rgba(255, 255, 255, 0.03);
@@ -4100,11 +4116,65 @@ body.theme-effects-warm::after {
 
   <!-- Page: Settings (Account + Browsers + Time Limits + Device + Reset & Delete) -->
   <div class="page" id="page-settings">
-    <div class="section-title">Settings</div>
 
-    <!-- Account Card -->
+    <!-- Settings Menu (drill-down list) -->
+    <div id="settings-menu">
+      <div class="section-title">Settings</div>
+      <div class="settings-card">
+        <div class="settings-menu-row" onclick="showSettingsDetail('account')">
+          <div class="settings-menu-icon" style="background:rgba(52,211,153,0.1);color:#34d399;">⊕</div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Account</div><div class="settings-menu-sub" id="settings-account-sub">Loading...</div></div>
+          <span class="settings-menu-chevron">›</span>
+        </div>
+        <div class="settings-menu-row" onclick="showSettingsDetail('theme')">
+          <div class="settings-menu-icon" style="background:rgba(129,140,248,0.15);color:#818cf8;">◐</div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Theme</div><div class="settings-menu-sub" id="settings-theme-sub">Iridescent</div></div>
+          <span class="settings-menu-chevron">›</span>
+        </div>
+        <div class="settings-menu-row" onclick="showSettingsDetail('ai')">
+          <div class="settings-menu-icon" style="background:rgba(251,191,36,0.1);color:#fbbf24;">◈</div>
+          <div class="settings-menu-info"><div class="settings-menu-title">AI Scoring</div><div class="settings-menu-sub">Relevance scoring</div></div>
+          <span class="settings-menu-chevron">›</span>
+        </div>
+        <div class="settings-menu-row" onclick="showSettingsDetail('enforcement')">
+          <div class="settings-menu-icon" style="background:rgba(52,211,153,0.1);color:#34d399;">◉</div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Enforcement</div><div class="settings-menu-sub">Nudges, red shift, overlays</div></div>
+          <span class="settings-menu-chevron">›</span>
+        </div>
+        <div class="settings-menu-row" onclick="showSettingsDetail('safety')">
+          <div class="settings-menu-icon" style="background:rgba(239,68,68,0.15);color:#ef4444;">◆</div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Content Safety</div><div class="settings-menu-sub" id="settings-safety-sub">Screen monitoring</div></div>
+          <span class="settings-menu-chevron">›</span>
+        </div>
+        <div class="settings-menu-row" onclick="showSettingsDetail('bedtime')">
+          <div class="settings-menu-icon" style="background:rgba(129,140,248,0.15);color:#818cf8;">☽</div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Bedtime</div><div class="settings-menu-sub" id="settings-bedtime-sub">Configure</div></div>
+          <span class="settings-menu-chevron">›</span>
+        </div>
+        <div class="settings-menu-row" onclick="showSettingsDetail('focusgate')">
+          <div class="settings-menu-icon" style="background:rgba(52,211,153,0.1);color:#34d399;">⊞</div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Focus Gate</div><div class="settings-menu-sub" id="settings-focusgate-sub">Screen lock</div></div>
+          <span class="settings-menu-chevron">›</span>
+        </div>
+        <div class="settings-menu-row" onclick="showSettingsDetail('browsers')">
+          <div class="settings-menu-icon" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.55);">⊙</div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Browsers</div><div class="settings-menu-sub">Extension status</div></div>
+          <span class="settings-menu-chevron">›</span>
+        </div>
+        <div class="settings-menu-row" onclick="showSettingsDetail('reset')">
+          <div class="settings-menu-icon" style="background:rgba(239,68,68,0.15);color:#ef4444;">⊗</div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Reset & Delete</div></div>
+          <span class="settings-menu-chevron">›</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail: Account -->
+    <div class="settings-detail" id="settings-detail-account">
+      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
+      <div class="settings-detail-title">Account</div>
     <div class="settings-card">
-      <div class="settings-card-title">Account</div>
+      <div class="settings-card-title" style="display:none;">Account</div>
 
       <!-- Account: Loading -->
       <div id="account-loading">
@@ -4164,14 +4234,24 @@ body.theme-effects-warm::after {
       </div>
     </div>
 
-    <!-- Theme Card -->
+    </div><!-- end detail-account -->
+
+    <!-- Detail: Theme -->
+    <div class="settings-detail" id="settings-detail-theme">
+      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
+      <div class="settings-detail-title">Theme</div>
     <div class="settings-card">
       <div class="settings-card-title">Theme</div>
       <div class="setting-desc" style="padding: 2px 20px 8px;">Choose the look and feel of your dashboard.</div>
       <div class="theme-picker-grid" id="theme-picker"></div>
     </div>
 
-    <!-- Browsers Card -->
+    </div><!-- end detail-theme -->
+
+    <!-- Detail: Browsers -->
+    <div class="settings-detail" id="settings-detail-browsers">
+      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
+      <div class="settings-detail-title">Browsers</div>
     <div class="settings-card" style="padding: 0; overflow: hidden;">
       <div class="settings-card-title" style="padding: 16px 20px 12px; cursor: pointer; display: flex; align-items: center; justify-content: space-between;" onclick="toggleBrowserCard()">
         <span id="browser-card-title">Browsers</span>
@@ -4184,7 +4264,13 @@ body.theme-effects-warm::after {
       </div>
     </div>
 
-    <!-- Focus Plan Card -->
+    </div><!-- end detail-browsers -->
+
+    <!-- Detail: AI Scoring -->
+    <div class="settings-detail" id="settings-detail-ai">
+      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
+      <div class="settings-detail-title">AI Scoring</div>
+      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">AI scores whether what you're looking at is relevant to your task</div>
     <div class="settings-card" id="focus-plan-card">
       <div class="settings-card-title">Focus Plan</div>
       <div class="setting-row">
@@ -4226,7 +4312,13 @@ body.theme-effects-warm::after {
       </div>
     </div>
 
-    <!-- Enforcement Settings Card -->
+    </div><!-- end detail-ai -->
+
+    <!-- Detail: Enforcement -->
+    <div class="settings-detail" id="settings-detail-enforcement">
+      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
+      <div class="settings-detail-title">Enforcement</div>
+      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">What happens when you're off-task during focus</div>
     <div class="settings-card" id="enforcement-settings-card">
       <div class="settings-card-title">Enforcement Settings</div>
       <style>
@@ -4307,7 +4399,13 @@ body.theme-effects-warm::after {
       </div>
     </div>
 
-    <!-- Content Safety Card -->
+    </div><!-- end detail-enforcement -->
+
+    <!-- Detail: Content Safety -->
+    <div class="settings-detail" id="settings-detail-safety">
+      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
+      <div class="settings-detail-title">Content Safety</div>
+      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">On-device screen monitoring for explicit content</div>
     <div class="settings-card" id="content-safety-card">
       <div class="settings-card-title">Content Safety</div>
       <div class="setting-row">
@@ -4337,9 +4435,15 @@ body.theme-effects-warm::after {
       </div>
     </div>
 
-    <!-- Intentional Mode Card -->
+    </div><!-- end detail-safety -->
+
+    <!-- Detail: Focus Gate (renamed from Intentional Mode) -->
+    <div class="settings-detail" id="settings-detail-focusgate">
+      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
+      <div class="settings-detail-title">Focus Gate</div>
+      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">Ask what you're working on before you can use your Mac</div>
     <div class="settings-card">
-      <div class="settings-card-title">Intentional Mode</div>
+      <div class="settings-card-title" style="display:none;">Focus Gate</div>
       <div class="setting-row">
         <div>
           <div class="setting-label">Screen Lock</div>
@@ -4392,9 +4496,36 @@ body.theme-effects-warm::after {
       </div>
     </div>
 
-    <!-- Reset & Delete Card -->
+    </div><!-- end detail-focusgate -->
+
+    <!-- Detail: Bedtime -->
+    <div class="settings-detail" id="settings-detail-bedtime">
+      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
+      <div class="settings-detail-title">Bedtime</div>
+      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">Wind-down and sleep enforcement</div>
+      <div class="settings-card" style="padding:16px;">
+        <div class="setting-row">
+          <div><div class="setting-label">Bedtime Enforcer</div><div class="setting-desc">15-min wind-down, then lockout with 3-min auto-sleep</div></div>
+          <label class="toggle"><input type="checkbox" id="bedtime-enabled"><span class="toggle-track"></span></label>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Bedtime</div></div>
+          <span style="font-size:14px;color:#fff;font-weight:500;">11:00 PM</span>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Wake time</div></div>
+          <span style="font-size:14px;color:#fff;font-weight:500;">7:00 AM</span>
+        </div>
+      </div>
+    </div><!-- end detail-bedtime -->
+
+    <!-- Detail: Reset & Delete -->
+    <div class="settings-detail" id="settings-detail-reset">
+      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
+      <div class="settings-detail-title">Reset & Delete</div>
+      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">Careful — these actions can't be undone</div>
     <div class="settings-card">
-      <div class="settings-card-title">Reset & Delete</div>
+      <div class="settings-card-title" style="display:none;">Reset & Delete</div>
       <div class="setting-row">
         <div>
           <div class="setting-label">Reset all settings</div>
@@ -4431,6 +4562,7 @@ body.theme-effects-warm::after {
         <p id="uninstall-msg" class="setting-desc" style="margin-top: 6px; display: none;"></p>
       </div>
     </div>
+    </div><!-- end detail-reset -->
   </div>
 
 </div>
@@ -4459,6 +4591,18 @@ function sendMessage(payload) {
   if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
     window.webkit.messageHandlers.intentional.postMessage(payload);
   }
+}
+
+// ===== Settings Drill-Down Navigation =====
+function showSettingsDetail(id) {
+  document.getElementById('settings-menu').style.display = 'none';
+  document.querySelectorAll('.settings-detail').forEach(function(d) { d.classList.remove('active'); });
+  var el = document.getElementById('settings-detail-' + id);
+  if (el) el.classList.add('active');
+}
+function hideSettingsDetail() {
+  document.getElementById('settings-menu').style.display = '';
+  document.querySelectorAll('.settings-detail').forEach(function(d) { d.classList.remove('active'); });
 }
 
 // ===== Settings State =====
@@ -4510,6 +4654,7 @@ function navigateTo(pageId) {
 
   // Load account + browser status when viewing settings page
   if (pageId === 'settings') {
+    hideSettingsDetail(); // Reset drill-down to menu
     loadAccountPage();
     sendMessage({ type: 'GET_EXTENSION_STATUS' });
     sendMessage({ type: 'GET_SCHEDULE_STATE' });
