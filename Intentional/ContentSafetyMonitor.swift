@@ -711,10 +711,13 @@ class ContentSafetyMonitor {
         // CGWindowListCreateImage triggers the system "would like to record" dialog
         // on macOS Sequoia if permission hasn't been granted. Only capture if we
         // know we have permission (via preflight) or have confirmed it this session.
+        // In DEBUG builds, CGPreflightScreenCaptureAccess() lies — skip the guard.
+        #if !DEBUG
         if !wasScreenRecordingGranted && !CGPreflightScreenCaptureAccess() {
             debugLogToFile("Skipping capture — no screen recording permission confirmed yet")
             return
         }
+        #endif
 
         // Capture full composite
         let composite = captureAllScreens()
@@ -819,9 +822,11 @@ class ContentSafetyMonitor {
     private func captureAllScreens() -> CGImage? {
         // Guard: don't call CGWindowListCreateImage unless we know we have permission.
         // On macOS Sequoia, this can trigger the "would like to record" dialog.
+        #if !DEBUG
         if !wasScreenRecordingGranted && !CGPreflightScreenCaptureAccess() {
             return nil
         }
+        #endif
         return CGWindowListCreateImage(
             CGRect.null,              // all screens composited
             .optionOnScreenOnly,      // only visible windows
@@ -842,9 +847,11 @@ class ContentSafetyMonitor {
         var results: [CapturedWindow] = []
 
         // Guard: don't call CGWindowListCopyWindowInfo unless permission confirmed
+        #if !DEBUG
         if !wasScreenRecordingGranted && !CGPreflightScreenCaptureAccess() {
             return results
         }
+        #endif
 
         // Get list of all on-screen windows
         guard let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
