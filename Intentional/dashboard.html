@@ -4700,6 +4700,8 @@ function loadBlockingProfiles() {
 }
 
 window.onBlockingProfiles = function(profiles) {
+  console.log('[DIAG] onBlockingProfiles received', profiles ? profiles.length : 'NULL', 'profiles');
+  if (profiles && profiles.length > 0) console.log('[DIAG] first profile:', profiles[0].name, 'id:', profiles[0].id);
   blockingProfiles = profiles;
 
   // Seed legacy always-relevant sites into default profile (one-time migration)
@@ -4939,8 +4941,11 @@ function hideProfile() {
 
 // ===== CRUD =====
 function createProfile() {
+  console.log('[DIAG] createProfile called');
   var name = prompt('New profile name:');
+  console.log('[DIAG] prompt returned:', name);
   if (!name || !name.trim()) return;
+  console.log('[DIAG] sending CREATE_BLOCKING_PROFILE');
   sendMessage({ type: 'CREATE_BLOCKING_PROFILE', name: name.trim(), domains: [], appBundleIds: [] });
   // Refresh after creation — Swift will call onBlockingProfiles
   setTimeout(loadBlockingProfiles, 200);
@@ -4954,7 +4959,9 @@ function deleteProfile(id) {
 }
 
 function updateCurrentProfile() {
-  if (!currentProfileData) return;
+  console.log('[DIAG] updateCurrentProfile called');
+  if (!currentProfileData) { console.log('[DIAG] ABORT: no currentProfileData'); return; }
+  console.log('[DIAG] sending UPDATE_BLOCKING_PROFILE for id:', currentProfileData.id);
   sendMessage({
     type: 'UPDATE_BLOCKING_PROFILE',
     id: currentProfileData.id,
@@ -4985,10 +4992,13 @@ function syncLegacyVars() {
 
 // ===== Add/Remove Websites =====
 function showAddWebsite() {
+  console.log('[DIAG] showAddWebsite called');
   var el = document.getElementById('add-website-inline');
+  console.log('[DIAG] add-website-inline element:', el ? 'FOUND' : 'NOT FOUND');
   if (el) {
     el.style.display = 'block';
     var inp = document.getElementById('inline-website-input');
+    console.log('[DIAG] inline-website-input element:', inp ? 'FOUND' : 'NOT FOUND');
     if (inp) inp.focus();
   }
 }
@@ -5015,8 +5025,11 @@ function addWebsiteToProfile(domain) {
 }
 
 function removeWebsiteFromProfile(domain) {
-  if (!currentProfileData) return;
+  console.log('[DIAG] removeWebsiteFromProfile called with:', domain);
+  console.log('[DIAG] currentProfileData:', currentProfileData ? currentProfileData.id : 'NULL');
+  if (!currentProfileData) { console.log('[DIAG] ABORT: no currentProfileData'); return; }
   currentProfileData.blockedDomains = (currentProfileData.blockedDomains || []).filter(function(d) { return d !== domain; });
+  console.log('[DIAG] domains after remove:', currentProfileData.blockedDomains);
   updateCurrentProfile();
   renderProfileDetail();
   renderProfileList();
