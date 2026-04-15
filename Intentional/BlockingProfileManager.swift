@@ -8,6 +8,7 @@ struct BlockingProfile: Codable, Identifiable, Equatable {
     var blockedDomains: [String]
     var blockedAppBundleIds: [String]
     var isDefault: Bool
+    var alwaysActive: Bool
 }
 
 struct MergedBlockList {
@@ -70,7 +71,8 @@ class BlockingProfileManager {
                 name: "Distracting Apps & Sites",
                 blockedDomains: BlockingProfileManager.defaultDomains,
                 blockedAppBundleIds: BlockingProfileManager.defaultAppBundleIds,
-                isDefault: true
+                isDefault: true,
+                alwaysActive: false
             )
             self.profiles = [defaultProfile]
             save()
@@ -86,7 +88,8 @@ class BlockingProfileManager {
             name: name,
             blockedDomains: domains,
             blockedAppBundleIds: appBundleIds,
-            isDefault: false
+            isDefault: false,
+            alwaysActive: false
         )
         profiles.append(profile)
         save()
@@ -106,7 +109,7 @@ class BlockingProfileManager {
         return true
     }
 
-    func updateProfile(id: UUID, name: String? = nil, domains: [String]? = nil, appBundleIds: [String]? = nil) {
+    func updateProfile(id: UUID, name: String? = nil, domains: [String]? = nil, appBundleIds: [String]? = nil, alwaysActive: Bool? = nil) {
         guard let index = profiles.firstIndex(where: { $0.id == id }) else {
             return
         }
@@ -119,7 +122,16 @@ class BlockingProfileManager {
         if let appBundleIds = appBundleIds {
             profiles[index].blockedAppBundleIds = appBundleIds
         }
+        if let alwaysActive = alwaysActive {
+            profiles[index].alwaysActive = alwaysActive
+        }
         save()
+    }
+
+    /// Returns merged block list of all profiles with alwaysActive == true
+    func alwaysActiveBlockList() -> MergedBlockList {
+        let activeIds = profiles.filter { $0.alwaysActive }.map { $0.id }
+        return mergedBlockList(profileIds: activeIds)
     }
 
     func profile(for id: UUID) -> BlockingProfile? {

@@ -437,6 +437,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         blockingProfileManager = BlockingProfileManager()
         focusSessionManager = FocusSessionManager()
 
+        // Apply always-active profiles on startup
+        applyAlwaysActiveProfiles()
+
         // Restore active focus session if app restarted mid-focus
         if let session = focusSessionManager?.activeSession {
             postLog("🎯 Restoring active focus session from disk")
@@ -944,17 +947,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func endFocusSession() {
         focusSessionManager?.stopSession()
 
-        let settingsURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("Intentional").appendingPathComponent("onboarding_settings.json")
-        if let data = try? Data(contentsOf: settingsURL),
-           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let sites = json["distractingSites"] as? [String] {
-            websiteBlocker?.updateDistractingSites(sites)
-        }
+        // Fall back to always-active profiles (or empty if none)
+        applyAlwaysActiveProfiles()
+
         scheduleManager?.clearInjectedFocusSessionBlock()
         focusMonitor?.stop()
         focusMonitor?.start()
         postLog("🎯 Focus session ended")
+    }
+
+    /// Enforce always-active profiles. Called on startup, after profile edits, and when focus sessions end.
+    func applyAlwaysActiveProfiles() {
+        let alwaysActive = blockingProfileManager?.alwaysActiveBlockList()
+        let domains = alwaysActive?.domains ?? []
+        websiteBlocker?.updateDistractingSites(domains)
+        filterManager?.updateBlocklist(domains)
+        filterManager?.updateFilterState(blockingEnabled: !domains.isEmpty)
+        postLog("🎯 Always-active enforcement: \(domains.count) domains")
     }
 
     func postLog(_ message: String) {

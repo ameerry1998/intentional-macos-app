@@ -2082,8 +2082,11 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             id: id,
             name: body["name"] as? String,
             domains: body["domains"] as? [String],
-            appBundleIds: body["appBundleIds"] as? [String]
+            appBundleIds: body["appBundleIds"] as? [String],
+            alwaysActive: body["alwaysActive"] as? Bool
         )
+        // Re-apply always-active enforcement after profile change
+        appDelegate?.applyAlwaysActiveProfiles()
         handleGetBlockingProfiles()
     }
 

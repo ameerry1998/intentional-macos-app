@@ -4802,6 +4802,18 @@ function renderProfileDetail() {
   html += '<div class="detail-title">' + escapeHTML(profile.name) + '</div>';
   html += '<div class="detail-subtitle">Profile' + (profile.isDefault ? ' \u00B7 Default blocking profile' : '') + '</div>';
 
+  // Always Active toggle
+  var isAlwaysActive = profile.alwaysActive || false;
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;margin-bottom:16px;border-bottom:1px solid rgba(255,255,255,0.06);">';
+  html += '<div>';
+  html += '<div style="font-size:13px;color:#f2f2f7;font-weight:500;">Always Active</div>';
+  html += '<div style="font-size:11px;color:#636366;margin-top:2px;">Block 24/7 — not just during focus sessions</div>';
+  html += '</div>';
+  html += '<div class="toggle-switch ' + (isAlwaysActive ? 'on' : '') + '" onclick="toggleAlwaysActive()" style="width:40px;height:22px;border-radius:11px;background:' + (isAlwaysActive ? '#8b5cf6' : '#2c2c2e') + ';position:relative;cursor:pointer;flex-shrink:0;">';
+  html += '<div style="width:18px;height:18px;border-radius:50%;background:white;position:absolute;top:2px;left:' + (isAlwaysActive ? '20px' : '2px') + ';transition:left 0.15s;"></div>';
+  html += '</div>';
+  html += '</div>';
+
   // Blocked Websites
   html += '<div class="detail-section">';
   html += '<div class="detail-section-header">';
@@ -4960,6 +4972,13 @@ function deleteProfile(id) {
   setTimeout(loadBlockingProfiles, 200);
 }
 
+function toggleAlwaysActive() {
+  if (!currentProfileData) return;
+  currentProfileData.alwaysActive = !(currentProfileData.alwaysActive || false);
+  updateCurrentProfile();
+  renderProfileDetail();
+}
+
 function updateCurrentProfile() {
   console.log('[DIAG] updateCurrentProfile called');
   if (!currentProfileData) { console.log('[DIAG] ABORT: no currentProfileData'); return; }
@@ -4970,6 +4989,7 @@ function updateCurrentProfile() {
     name: currentProfileData.name,
     domains: currentProfileData.blockedDomains || [],
     appBundleIds: currentProfileData.blockedAppBundleIds || [],
+    alwaysActive: currentProfileData.alwaysActive || false,
     alwaysRelevantSites: getAlwaysRelevant(currentProfileData.id).sites || [],
     alwaysRelevantApps: (getAlwaysRelevant(currentProfileData.id).apps || []).map(function(a) { return { name: a.name, bundleId: a.bundleId }; })
   });
