@@ -13,80 +13,78 @@
 }
 
 :root {
+  /* ═══ Deep Lush — Puck Unified Design System ═══ */
+
   /* Backgrounds */
-  --bg-base: #0e0e12;
-  --bg-elevated: rgba(20, 20, 28, 0.9);
-  --bg-elevated-solid: #14141c;
+  --bg-base: #060806;
+  --bg-elevated: rgba(255, 255, 255, 0.025);
+  --bg-elevated-solid: #0e100e;
 
-  /* Primary accent (violet fallback for single-color contexts) */
-  --accent-primary: #8b5cf6;
-  --accent-primary-hover: #7c3aed;
-  --accent-primary-rgb: 139, 92, 246;
+  /* Brand accent — Coral→Gold (matches physical Puck device) */
+  --accent-primary: #E87461;
+  --accent-primary-hover: #F0B060;
+  --accent-primary-rgb: 232, 116, 97;
+  --accent-gradient: linear-gradient(135deg, #E87461, #F0B060);
 
-  /* Iridescent gradient */
-  --gradient-iridescent: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899);
-  --gradient-iridescent-animated: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899, #06b6d4);
+  /* Gradient variants for all semantic colors */
+  --gradient-iridescent: linear-gradient(135deg, #E87461, #F0B060);
+  --gradient-iridescent-animated: linear-gradient(135deg, #E87461, #F0B060, #E87461);
+  --gradient-success: linear-gradient(135deg, #5cc09a, #c0b060);
+  --gradient-bedtime: linear-gradient(135deg, #a898c8, #c898a8);
+  --gradient-warning: linear-gradient(135deg, #F0B060, #E87461);
+  --gradient-danger: linear-gradient(135deg, #d45050, #aa3333);
 
-  /* Block type colors */
-  --block-focus: #8b5cf6;
-  --block-focus-secondary: #06b6d4;
-  --block-deep-work: #ef4444;
-  --block-free-time: #34d399;
+  /* Block type colors (used for timeline borders) */
+  --block-focus: #E87461;
+  --block-focus-secondary: #F0B060;
+  --block-deep-work: #E87461;
+  --block-free-time: rgba(255, 255, 255, 0.2);
 
-  /* Semantic colors */
-  --color-success: #34d399;
-  --color-success-rgb: 52, 211, 153;
-  --color-error: #ef4444;
-  --color-error-rgb: 239, 68, 68;
-  --color-warning: #f59e0b;
-  --color-warning-rgb: 245, 158, 11;
+  /* Semantic colors (kept for backward compat — prefer gradients) */
+  --color-success: #5cc09a;
+  --color-success-rgb: 92, 192, 154;
+  --color-error: #d45050;
+  --color-error-rgb: 212, 80, 80;
+  --color-warning: #F0B060;
+  --color-warning-rgb: 240, 176, 96;
 
   /* Text */
-  --text-primary: #ffffff;
+  --text-primary: #f7f8f8;
   --text-secondary: rgba(255, 255, 255, 0.5);
-  --text-tertiary: rgba(255, 255, 255, 0.35);
+  --text-tertiary: rgba(255, 255, 255, 0.25);
 
   /* Borders */
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-default: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-default: rgba(255, 255, 255, 0.06);
 
-  /* Iridescent highlight gradient (for card top edges) */
-  --highlight-edge: linear-gradient(90deg, transparent, rgba(6,182,212,0.4), rgba(139,92,246,0.4), rgba(236,72,153,0.3), transparent);
+  /* Card highlight (coral glow instead of iridescent) */
+  --highlight-edge: linear-gradient(90deg, transparent, rgba(232,116,97,0.3), rgba(240,176,96,0.2), transparent);
 
-  /* Sidebar fabric hue shift (green base image) */
+  /* Sidebar fabric hue shift */
   --sidebar-fabric-hue: 140deg;
+
+  /* Ambient glow colors (for background decoration) */
+  --glow-coral: radial-gradient(circle, rgba(232, 116, 97, 0.12) 0%, transparent 70%);
+  --glow-emerald: radial-gradient(circle, rgba(40, 160, 110, 0.1) 0%, transparent 70%);
 }
 
-/* ===== Theme: Classic ===== */
+/* ===== Theme: Classic (cooler dark, same coral accent) ===== */
 [data-theme="classic"] {
-  --bg-base: #0a0a0a;
-  --bg-elevated: rgba(26, 26, 46, 0.9);
-  --bg-elevated-solid: #1a1a2e;
-  --accent-primary: #6366f1;
-  --accent-primary-hover: #4f46e5;
-  --accent-primary-rgb: 99, 102, 241;
-  --gradient-iridescent: linear-gradient(135deg, #6366f1, #6366f1);
-  --gradient-iridescent-animated: linear-gradient(135deg, #6366f1, #6366f1);
-  --block-focus: #6366f1;
-  --block-focus-secondary: #818cf8;
+  --bg-base: #070708;
+  --bg-elevated: rgba(20, 20, 24, 0.9);
+  --bg-elevated-solid: #0e0e12;
   --highlight-edge: transparent;
   --sidebar-fabric-hue: 120deg;
 }
 
-/* ===== Theme: Emerald ===== */
+/* ===== Theme: Emerald (green-tinted dark, same coral accent) ===== */
 [data-theme="emerald"] {
-  --bg-base: #0a0a0a;
-  --bg-elevated: rgba(26, 26, 30, 0.9);
-  --bg-elevated-solid: #1a1a1e;
-  --accent-primary: #34d399;
-  --accent-primary-hover: #2bc48c;
-  --accent-primary-rgb: 52, 211, 153;
-  --gradient-iridescent: linear-gradient(135deg, #34d399, #34d399);
-  --gradient-iridescent-animated: linear-gradient(135deg, #34d399, #34d399);
-  --block-focus: #34d399;
-  --block-focus-secondary: #6ee7b7;
+  --bg-base: #060a08;
+  --bg-elevated: rgba(16, 24, 20, 0.9);
+  --bg-elevated-solid: #0a100c;
   --highlight-edge: transparent;
   --sidebar-fabric-hue: 0deg;
+  --glow-emerald: radial-gradient(circle, rgba(40, 160, 110, 0.14) 0%, transparent 70%);
 }
 
 /* ===== Theme: Warm Iridescent ===== */
@@ -94,15 +92,12 @@
   --bg-base: #111110;
   --bg-elevated: rgba(26, 26, 24, 0.9);
   --bg-elevated-solid: #1a1a18;
-  --accent-primary: #34d399;
-  --accent-primary-hover: #2bc48c;
-  --accent-primary-rgb: 52, 211, 153;
-  --gradient-iridescent: linear-gradient(135deg, #fbbf24, #34d399, #8b5cf6);
-  --gradient-iridescent-animated: linear-gradient(135deg, #fbbf24, #34d399, #8b5cf6, #fbbf24);
-  --block-focus: #8b5cf6;
-  --block-focus-secondary: #fbbf24;
-  --highlight-edge: linear-gradient(90deg, transparent, rgba(251,191,36,0.4), rgba(52,211,153,0.4), rgba(139,92,246,0.3), transparent);
+  --bg-base: #0a0908;
+  --bg-elevated: rgba(24, 22, 18, 0.9);
+  --bg-elevated-solid: #0e0c0a;
+  --highlight-edge: linear-gradient(90deg, transparent, rgba(232,116,97,0.3), rgba(240,176,96,0.3), transparent);
   --sidebar-fabric-hue: -30deg;
+  --glow-coral: radial-gradient(circle, rgba(232, 116, 97, 0.14) 0%, transparent 70%);
 }
 
 /* ===== Theme: Light ===== */
