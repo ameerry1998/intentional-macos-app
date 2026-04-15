@@ -8236,10 +8236,13 @@ function openBlockEditor(blockId, event) {
     '<div class="block-editor-row">' +
     '<label style="color:rgba(255,255,255,0.5);font-size:12px;margin-bottom:4px;">Block Type</label>' +
     '<div class="block-type-selector" id="editor-block-type">' +
-    '<button class="block-type-btn' + (editorBlockType === 'deepWork' ? ' selected type-deep' : '') + '" data-type="deepWork" onclick="selectBlockType(this)">Deep Focus</button>' +
-    '<button class="block-type-btn' + (editorBlockType === 'focusHours' ? ' selected' : '') + '" data-type="focusHours" onclick="selectBlockType(this)">Focus</button>' +
+    '<button class="block-type-btn' + (editorBlockType !== 'freeTime' ? ' selected' : '') + '" data-type="focusHours" onclick="selectBlockType(this)" style="background:rgba(52,211,153,0.12);color:#34d399;border-color:rgba(52,211,153,0.3);">Focus</button>' +
     '<button class="block-type-btn' + (editorBlockType === 'freeTime' ? ' selected type-free' : '') + '" data-type="freeTime" onclick="selectBlockType(this)">Free Time</button>' +
     '</div>' +
+    '</div>' +
+    '<div class="block-editor-row" id="editor-profiles-row" style="' + (editorBlockType === 'freeTime' ? 'display:none;' : '') + '">' +
+    '<label style="color:rgba(255,255,255,0.5);font-size:12px;margin-bottom:4px;">Blocking Profiles</label>' +
+    '<div id="editor-profile-chips" class="chip-list" style="gap:6px;"></div>' +
     '</div>' +
     '<div class="block-editor-actions">' +
     '<button class="btn-small" onclick="saveBlockEdit()">Done</button>' +
@@ -8247,6 +8250,20 @@ function openBlockEditor(blockId, event) {
     '</div>';
 
   document.body.appendChild(editor);
+
+  // Populate profile chips in block editor
+  var chipContainer = document.getElementById('editor-profile-chips');
+  if (chipContainer && blockingProfiles.length > 0) {
+    // Track selected profiles for this block (default: select the default profile)
+    if (!window._editorSelectedProfiles) window._editorSelectedProfiles = new Set();
+    window._editorSelectedProfiles.clear();
+    // Pre-select default profile for new/existing focus blocks
+    if (editorBlockType !== 'freeTime') {
+      var defProfile = blockingProfiles.find(function(p) { return p.isDefault; });
+      if (defProfile) window._editorSelectedProfiles.add(defProfile.id);
+    }
+    renderEditorProfileChips();
+  }
 
   // Disable inputs for past/active blocks
   var past = isBlockPast(block);
@@ -8384,7 +8401,34 @@ function selectBlockType(btn) {
   });
   btn.classList.add('selected');
   if (btn.dataset.type === 'freeTime') btn.classList.add('type-free');
-  if (btn.dataset.type === 'deepWork') btn.classList.add('type-deep');
+  // Show/hide profile chips based on block type
+  var profilesRow = document.getElementById('editor-profiles-row');
+  if (profilesRow) {
+    profilesRow.style.display = btn.dataset.type === 'freeTime' ? 'none' : '';
+  }
+}
+
+function renderEditorProfileChips() {
+  var container = document.getElementById('editor-profile-chips');
+  if (!container) return;
+  container.innerHTML = '';
+  blockingProfiles.forEach(function(profile) {
+    var isSelected = window._editorSelectedProfiles && window._editorSelectedProfiles.has(profile.id);
+    var chip = document.createElement('span');
+    chip.className = 'dist-chip' + (isSelected ? '' : '');
+    chip.style.cssText = 'cursor:pointer;padding:6px 12px;font-size:12px;' +
+      (isSelected ? 'background:rgba(52,211,153,0.15);border-color:rgba(52,211,153,0.3);color:#34d399;' : '');
+    chip.innerHTML = (isSelected ? '<span style="margin-right:4px;">✓</span>' : '') + escapeHtml(profile.name);
+    chip.addEventListener('click', function() {
+      if (window._editorSelectedProfiles.has(profile.id)) {
+        window._editorSelectedProfiles.delete(profile.id);
+      } else {
+        window._editorSelectedProfiles.add(profile.id);
+      }
+      renderEditorProfileChips();
+    });
+    container.appendChild(chip);
+  });
 }
 
 function deleteFocusBlock(blockId) {
