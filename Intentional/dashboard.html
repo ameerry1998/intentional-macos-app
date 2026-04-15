@@ -4515,9 +4515,13 @@ function navigateTo(pageId) {
     sendMessage({ type: 'GET_SETTINGS' });
   }
 
-  // Load blocking profiles when viewing distractions page
+  // Load blocking profiles and installed apps when viewing distractions page
   if (pageId === 'distractions') {
     loadBlockingProfiles();
+    // Pre-fetch installed apps so names/icons render correctly
+    if (!installedAppsCache) {
+      sendMessage({ type: 'GET_INSTALLED_APPS' });
+    }
   }
 
   // Load all data when viewing Today page
@@ -4803,8 +4807,8 @@ function renderProfileDetail() {
   if (domains.length > 0) {
     html += '<div class="chip-list" id="detail-websites-chips">';
     domains.forEach(function(d) {
-      html += '<span class="dist-chip"><span class="dist-chip-icon">🌐</span>' + escapeHTML(d);
-      if (!locked) html += '<button class="chip-x" onclick="removeWebsiteFromProfile(\'' + escapeHTML(d) + '\')">&times;</button>';
+      html += '<span class="dist-chip">' + escapeHTML(d);
+      if (!locked) html += ' <button class="chip-x" onclick="removeWebsiteFromProfile(\'' + escapeHTML(d) + '\')">&times;</button>';
       html += '</span>';
     });
     html += '</div>';
@@ -4823,9 +4827,11 @@ function renderProfileDetail() {
   if (appIds.length > 0) {
     html += '<div class="chip-list" id="detail-apps-chips">';
     appIds.forEach(function(bid) {
-      var appName = lookupAppName(bid);
-      html += '<span class="dist-chip"><span class="dist-chip-icon">📱</span>' + escapeHTML(appName);
-      if (!locked) html += '<button class="chip-x" onclick="removeAppFromProfile(\'' + escapeHTML(bid) + '\')">&times;</button>';
+      var appInfo = lookupAppInfo(bid);
+      html += '<span class="dist-chip">';
+      if (appInfo.icon) html += '<img src="' + appInfo.icon + '" style="width:16px;height:16px;border-radius:3px;vertical-align:middle;margin-right:2px;">';
+      html += escapeHTML(appInfo.name);
+      if (!locked) html += ' <button class="chip-x" onclick="removeAppFromProfile(\'' + escapeHTML(bid) + '\')">&times;</button>';
       html += '</span>';
     });
     html += '</div>';
@@ -4855,8 +4861,11 @@ function renderProfileDetail() {
       html += '</span>';
     });
     arApps.forEach(function(app) {
-      html += '<span class="dist-chip dist-chip-green"><span class="dist-chip-icon">📱</span>' + escapeHTML(app.name) + '<span class="dist-chip-label">APP</span>';
-      if (!locked) html += '<button class="chip-x" onclick="removeAlwaysRelevantApp(\'' + escapeHTML(app.bundleId) + '\')">&times;</button>';
+      var appInfo = lookupAppInfo(app.bundleId);
+      html += '<span class="dist-chip dist-chip-green">';
+      if (appInfo.icon) html += '<img src="' + appInfo.icon + '" style="width:16px;height:16px;border-radius:3px;vertical-align:middle;margin-right:2px;">';
+      html += escapeHTML(appInfo.name) + ' <span class="dist-chip-label">APP</span>';
+      if (!locked) html += ' <button class="chip-x" onclick="removeAlwaysRelevantApp(\'' + escapeHTML(app.bundleId) + '\')">&times;</button>';
       html += '</span>';
     });
     html += '</div>';
@@ -4890,13 +4899,21 @@ function escapeHTML(str) {
 }
 
 function lookupAppName(bundleId) {
+  var info = lookupAppInfo(bundleId);
+  return info.name;
+}
+
+function lookupAppInfo(bundleId) {
   if (installedAppsCache) {
     var found = installedAppsCache.find(function(a) { return a.bundleId === bundleId; });
-    if (found) return found.name;
+    if (found) return { name: found.name, icon: found.icon || null, bundleId: bundleId };
   }
   // Fallback: extract readable name from bundle ID
   var parts = bundleId.split('.');
-  return parts[parts.length - 1] || bundleId;
+  var name = parts[parts.length - 1] || bundleId;
+  // Capitalize first letter
+  name = name.charAt(0).toUpperCase() + name.slice(1);
+  return { name: name, icon: null, bundleId: bundleId };
 }
 
 // ===== Navigation =====
@@ -5137,6 +5154,8 @@ function hideAppPicker() {
 window._installedAppsResult = function(apps) {
   installedAppsCache = apps;
   renderAppPickerList(apps);
+  // Re-render profile detail if showing, so app names/icons update
+  if (currentProfileData) renderProfileDetail();
 };
 
 function renderAppPickerList(apps) {
