@@ -4361,7 +4361,7 @@ body.theme-effects-warm::after {
       </style>
       <div class="enf-grid">
         <div></div>
-        <div class="enf-header" style="color: #f87171;">Deep Focus</div>
+        <div class="enf-header" style="color: #f87171;">Focus</div>
         <div class="enf-header" style="color: #a78bfa;">Focus</div>
 
         <div class="enf-row">
@@ -7470,9 +7470,22 @@ function renderCalendarBlocks() {
 
     var timeStr = formatFocusTime(block.startHour, block.startMinute) + ' \u2013 ' +
                   formatFocusTime(block.endHour, block.endMinute);
+    // Build meta badge: show profile names if profileIds exist, otherwise "free" for free blocks
+    var metaBadge = '';
+    if (bt === 'freeTime') {
+      metaBadge = '<div class="calendar-block-badge badge-free">free</div>';
+    } else if (block.profileIds && block.profileIds.length > 0) {
+      var profileNames = block.profileIds.map(function(pid) {
+        var p = blockingProfiles.find(function(bp) { return bp.id === pid; });
+        return p ? p.name : '';
+      }).filter(Boolean);
+      if (profileNames.length > 0) {
+        metaBadge = '<div class="calendar-block-badge" style="background:rgba(52,211,153,0.15);color:#34d399;font-size:9px;padding:1px 5px;border-radius:4px;margin-top:2px;">' + escapeHtml(profileNames.join(', ')) + '</div>';
+      }
+    }
     el.innerHTML = '<div class="calendar-block-title">' + escapeHtml(block.title || 'Untitled') + '</div>' +
       (height >= 40 ? '<div class="calendar-block-time">' + timeStr + '</div>' : '') +
-      (bt === 'freeTime' ? '<div class="calendar-block-badge badge-free">free</div>' : '') +
+      metaBadge +
       '<div class="calendar-block-resize top"></div>' +
       '<div class="calendar-block-resize bottom"></div>';
 
@@ -8249,11 +8262,13 @@ function openBlockEditor(blockId, event) {
   // Populate profile chips in block editor
   var chipContainer = document.getElementById('editor-profile-chips');
   if (chipContainer && blockingProfiles.length > 0) {
-    // Track selected profiles for this block (default: select the default profile)
+    // Track selected profiles for this block
     if (!window._editorSelectedProfiles) window._editorSelectedProfiles = new Set();
     window._editorSelectedProfiles.clear();
-    // Pre-select default profile for new/existing focus blocks
-    if (editorBlockType !== 'freeTime') {
+    // Restore saved profileIds if block has them, otherwise default profile
+    if (block.profileIds && block.profileIds.length > 0) {
+      block.profileIds.forEach(function(pid) { window._editorSelectedProfiles.add(pid); });
+    } else if (editorBlockType !== 'freeTime') {
       var defProfile = blockingProfiles.find(function(p) { return p.isDefault; });
       if (defProfile) window._editorSelectedProfiles.add(defProfile.id);
     }
@@ -8382,6 +8397,11 @@ function saveBlockEdit() {
   if (selectedBtn && !selectedBtn.disabled) {
     block.blockType = selectedBtn.dataset.type;
     block.isFree = block.blockType === 'freeTime';
+  }
+
+  // Save selected blocking profile IDs
+  if (window._editorSelectedProfiles) {
+    block.profileIds = Array.from(window._editorSelectedProfiles);
   }
 
   closeBlockEditor();
@@ -8769,7 +8789,7 @@ window._focusScoreResult = function(data) {
         '<div style="flex:1;">' +
         '<div class="setting-label">' + (b.blockType === 'freeTime' ? '\u2600 ' : b.blockType === 'deepWork' ? '\uD83D\uDD12 ' : '') + escapeHtml(b.title) + '</div>' +
         '<div class="setting-desc">' + formatFocusTime(b.startHour, b.startMinute) + ' \u2013 ' + formatFocusTime(b.endHour, b.endMinute) +
-        (b.blockType === 'freeTime' ? ' (free)' : b.blockType === 'deepWork' ? ' (deep work)' : '') + '</div>' +
+        (b.blockType === 'freeTime' ? ' (free)' : b.blockType === 'deepWork' ? ' (focus)' : '') + '</div>' +
         '</div>' +
         (b.blockType === 'freeTime' ? '' : '<div style="width:80px;display:flex;align-items:center;gap:8px;">' +
         '<div style="flex:1;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;">' +
