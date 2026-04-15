@@ -49,18 +49,11 @@ class PermissionManager: NSObject {
         // Check immediately
         checkAllPermissions()
 
-        // Only prompt for Accessibility if not granted AND we haven't prompted this session
+        // Check accessibility silently — NEVER auto-prompt.
+        // The system dialog is disruptive and confusing on every launch.
+        // If missing, we log it and show status in the UI. User can grant manually.
         if !AXIsProcessTrusted() {
-            let lastPrompt = UserDefaults.standard.double(forKey: "lastAccessibilityPrompt")
-            let now = Date().timeIntervalSince1970
-            // Don't re-prompt more than once per hour
-            if now - lastPrompt > 3600 {
-                appDelegate?.postLog("⚠️ Accessibility permission not granted — prompting user")
-                UserDefaults.standard.set(now, forKey: "lastAccessibilityPrompt")
-                requestAccessibilityPermission()
-            } else {
-                appDelegate?.postLog("⚠️ Accessibility permission not granted (already prompted recently)")
-            }
+            appDelegate?.postLog("⚠️ Accessibility permission not granted — features like grayscale and AppleScript require it")
         }
 
         // Check every 30 seconds
@@ -210,40 +203,34 @@ class PermissionManager: NSObject {
     }
 
     private func checkAppleEventsPermission(for bundleId: String) -> Bool {
-        // Get the app path
+        // Use AEDeterminePermissionToAutomateTarget to check permission SILENTLY.
+        // This does NOT trigger any system dialog — it just returns the current state.
+        // The old approach (executing AppleScript) would trigger the "wants to control" dialog.
         guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
             return false
         }
 
-        // Try to execute a simple AppleScript that doesn't require the app to be running
-        let appPath = appURL.path
-        let testScript = """
-        tell application "\(appPath)"
-            if it is running then
-                return true
-            else
-                return false
-            end if
-        end tell
-        """
-
-        guard let appleScript = NSAppleScript(source: testScript) else {
-            return false
+        var addressDesc = AEAddressDesc()
+        let bundleIDData = bundleId.data(using: .utf8)!
+        let _ = bundleIDData.withUnsafeBytes { ptr in
+            AECreateDesc(
+                keyAddressAttr,
+                ptr.baseAddress!,
+                bundleIDData.count,
+                &addressDesc
+            )
         }
+        defer { AEDisposeDesc(&addressDesc) }
 
-        var error: NSDictionary?
-        appleScript.executeAndReturnError(&error)
+        let result = AEDeterminePermissionToAutomateTarget(
+            &addressDesc,
+            typeWildCard,
+            typeWildCard,
+            false  // false = don't prompt, just check
+        )
 
-        // If there's no error, we have permission
-        // If there's an error code -1743, it means permission denied
-        if let errorDict = error {
-            if let errorNumber = errorDict["NSAppleScriptErrorNumber"] as? Int {
-                return errorNumber != -1743 && errorNumber != -1728
-            }
-            return false
-        }
-
-        return true
+        // 0 = permitted, -1744 = not permitted, -600 = app not running (treat as unknown/ok)
+        return result == 0 || result == -600
     }
 
     // MARK: - Get Installed Browsers
