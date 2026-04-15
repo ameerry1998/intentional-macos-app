@@ -297,26 +297,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Start website blocker (ScreenTime + AppleEvents fallback)
         websiteBlocker = WebsiteBlocker(backendClient: backendClient!, appDelegate: self)
         // Load custom distracting sites from settings
-        if let supportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-            let settingsURL = supportDir.appendingPathComponent("Intentional/onboarding_settings.json")
-            postLog("🌐🔍 Loading distracting sites from: \(settingsURL.path)")
-            if let data = try? Data(contentsOf: settingsURL),
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                let sites = json["distractingSites"] as? [String] ?? []
-                postLog("🌐🔍 Found distractingSites in settings: \(sites)")
-                if !sites.isEmpty {
-                    websiteBlocker?.updateDistractingSites(sites)
-                } else {
-                    postLog("🌐🔍 distractingSites is EMPTY — nothing will be blocked by WebsiteBlocker")
-                }
-            } else {
-                postLog("🌐🔍 Could not read settings file or parse JSON")
-            }
-        } else {
-            postLog("🌐🔍 Could not find Application Support directory")
-        }
+        // Legacy distractingSites loading removed — blocking is now driven by
+        // BlockingProfileManager (always-active profiles + focus session profiles).
+        // WebsiteBlocker starts empty; applyAlwaysActiveProfiles() populates it below.
         websiteBlocker?.startBlocking()
-        postLog("✅ Website blocking initialized")
+        postLog("✅ Website blocking initialized (profile-driven)")
 
         // Start browser monitoring (all browsers)
         browserMonitor = BrowserMonitor(backendClient: backendClient!, appDelegate: self)
@@ -397,14 +382,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         focusMonitor?.interventionController = interventionController
         // focusMonitor?.ritualController = BlockRitualController()  // Now pill-centric
         focusMonitor?.endRitualController = BlockEndRitualController()
-        // Load user-configured distracting apps from saved settings
+        // Legacy distractingApps loading removed — app blocking is now driven by
+        // BlockingProfileManager (always-active profiles + focus session profiles).
+        // FocusMonitor.distractingAppBundleIds is populated by applyAlwaysActiveProfiles() below.
         let settingsURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
             .appendingPathComponent("Intentional").appendingPathComponent("onboarding_settings.json")
         if let data = try? Data(contentsOf: settingsURL),
            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            if let apps = json["distractingApps"] as? [[String: Any]] {
-                focusMonitor?.distractingAppBundleIds = Set(apps.compactMap { $0["bundleId"] as? String })
-            }
             if let sites = json["alwaysRelevantSites"] as? [String] {
                 focusMonitor?.alwaysRelevantHostnames = Set(sites.map { $0.lowercased() })
                 postLog("👁️ Loaded \(sites.count) always-relevant site(s): \(sites)")
@@ -821,18 +805,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Update in-memory components on the main thread
         await MainActor.run {
-            // Restore distracting sites into WebsiteBlocker
-            if let sites = backendSettings["distractingSites"] as? [String], !sites.isEmpty {
-                websiteBlocker?.updateDistractingSites(sites)
-                postLog("☁️ Settings restore: updated WebsiteBlocker with \(sites.count) distracting site(s)")
-            }
-
-            // Restore distracting apps into FocusMonitor
-            if let apps = backendSettings["distractingApps"] as? [[String: Any]] {
-                let bundleIds = Set(apps.compactMap { $0["bundleId"] as? String })
-                focusMonitor?.distractingAppBundleIds = bundleIds
-                postLog("☁️ Settings restore: updated FocusMonitor with \(bundleIds.count) distracting app(s)")
-            }
+            // Legacy distractingSites/distractingApps restore removed — blocking is now
+            // profile-driven via BlockingProfileManager. Backend settings may still contain
+            // these fields for backward compat but they no longer feed WebsiteBlocker/FocusMonitor.
+            // Re-apply always-active profiles after settings restore.
+            applyAlwaysActiveProfiles()
 
             // Restore always-relevant sites into FocusMonitor
             if let sites = backendSettings["alwaysRelevantSites"] as? [String] {
@@ -960,10 +937,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applyAlwaysActiveProfiles() {
         let alwaysActive = blockingProfileManager?.alwaysActiveBlockList()
         let domains = alwaysActive?.domains ?? []
+        let appBundleIds = alwaysActive?.appBundleIds ?? []
         websiteBlocker?.updateDistractingSites(domains)
-        filterManager?.updateBlocklist(domains)
-        filterManager?.updateFilterState(blockingEnabled: !domains.isEmpty)
-        postLog("🎯 Always-active enforcement: \(domains.count) domains")
+        focusMonitor?.distractingAppBundleIds = Set(appBundleIds)
+        postLog("🎯 Always-active enforcement: \(domains.count) domains, \(appBundleIds.count) apps")
     }
 
     func postLog(_ message: String) {
