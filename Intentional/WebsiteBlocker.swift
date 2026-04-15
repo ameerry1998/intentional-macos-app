@@ -51,7 +51,10 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     private var checkInFlight: Set<String> = []
 
     // Serial queue for AppleScript execution - prevents concurrent scripts to same browser
-    private let appleScriptQueue = DispatchQueue(label: "com.intentional.applescript", qos: .userInitiated)
+    // NSAppleScript MUST run on the main thread — it uses the Apple Event Manager
+    // which is main-thread-only. A serial background queue is NOT sufficient and causes
+    // EXC_BAD_ACCESS crashes. We use main.async to avoid blocking the caller.
+    private let appleScriptQueue = DispatchQueue.main
 
     // MARK: - Bypass Detection
     // Track time spent on blocked sites (for detecting if someone bypasses the blocking page)
@@ -1040,7 +1043,7 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         // (e.g., "Chrome-active" → "Chrome")
         let actualBrowser = browserName.components(separatedBy: "-").first ?? browserName
 
-        // IMPORTANT: NSAppleScript is NOT thread-safe. Use serial queue to prevent crashes.
+        // IMPORTANT: NSAppleScript MUST run on main thread (Apple Event Manager is main-thread-only).
         appleScriptQueue.async { [weak self] in
             guard let self = self else { return }
 
