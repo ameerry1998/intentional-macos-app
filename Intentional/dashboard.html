@@ -3920,16 +3920,24 @@ body.theme-effects-warm::after {
         </div>
       </div>
       <div class="focus-calendar-header-right" id="calendar-add-buttons">
-        <button class="btn-small btn-small-deep" onclick="addFocusBlock('deepWork')">+ Deep Focus</button>
-        <button class="btn-small" onclick="addFocusBlock('focusHours')">+ Focus</button>
+        <button class="btn-small" onclick="addFocusBlock('focusHours')" style="background:rgba(52,211,153,0.12);color:#34d399;">+ Focus</button>
         <button class="btn-small btn-small-free" onclick="addFocusBlock('freeTime')">+ Free Time</button>
         <button onclick="navigateToScheduleSettings()" title="Schedule settings" style="background:none;border:none;color:rgba(255,255,255,0.4);font-size:16px;cursor:pointer;padding:2px 6px;margin-left:2px;">&#x2026;</button>
       </div>
     </div>
     <div class="calendar-container" id="calendar-container"></div>
 
-    <!-- B. Earned Browse (full width) -->
-    <div class="earned-browse-widget" id="earned-browse-widget" style="margin-top: 16px;">
+    <!-- Focus Gate toggle (compact) -->
+    <div class="settings-card" style="margin-top:12px; padding:0;">
+      <div style="display:flex; align-items:center; padding:12px 16px; gap:12px;">
+        <div style="width:28px;height:28px;border-radius:6px;background:rgba(52,211,153,0.1);color:#34d399;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">⊞</div>
+        <div style="flex:1;font-size:13px;font-weight:500;">Focus Gate</div>
+        <label class="toggle"><input type="checkbox" id="focus-gate-today-toggle" onchange="onFocusGateTodayToggle(this.checked)"><span class="toggle-track"></span></label>
+      </div>
+    </div>
+
+    <!-- B. Earned Browse (hidden — stripped for Puck model) -->
+    <div class="earned-browse-widget" id="earned-browse-widget" style="margin-top: 16px; display:none;">
       <div class="focus-goals-title">Earned Browse</div>
       <div style="height: 20px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; display: flex; margin-top: 8px;">
         <div id="eb4-bar-avail" style="background: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899); background-size: 200% 200%; animation: gradient-shift 4s ease infinite; transition: width 0.3s; border-radius: 4px 0 0 4px;"></div>
@@ -4590,6 +4598,22 @@ var THEME = {
 function sendMessage(payload) {
   if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
     window.webkit.messageHandlers.intentional.postMessage(payload);
+  }
+}
+
+// ===== Focus Gate Today Toggle =====
+function onFocusGateTodayToggle(enabled) {
+  var settingsToggle = document.getElementById('intentional-mode-enabled');
+  if (settingsToggle) settingsToggle.checked = enabled;
+  onIntentionalModeChange();
+}
+
+// Sync Focus Gate today toggle when settings load
+function syncFocusGateTodayToggle() {
+  var settingsToggle = document.getElementById('intentional-mode-enabled');
+  var todayToggle = document.getElementById('focus-gate-today-toggle');
+  if (settingsToggle && todayToggle) {
+    todayToggle.checked = settingsToggle.checked;
   }
 }
 
@@ -6409,6 +6433,8 @@ function loadIntentionalModeSettings(s) {
   document.getElementById('intentional-mode-grace').value = String(grace);
   document.getElementById('intentional-mode-options').style.display = enabled ? '' : 'none';
   document.getElementById('intentional-mode-custom-hours').style.display = schedule === 'custom' ? '' : 'none';
+  // Sync Focus Gate toggle on Today page
+  syncFocusGateTodayToggle();
 
   var pad = function(n) { return n < 10 ? '0' + n : String(n); };
   document.getElementById('im-weekday-start').value = pad(custom.weekdayStartHour || 8) + ':' + pad(custom.weekdayStartMinute || 0);
