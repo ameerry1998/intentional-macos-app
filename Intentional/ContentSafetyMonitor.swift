@@ -567,11 +567,13 @@ class ContentSafetyMonitor {
     private func hasScreenRecordingPermissionNow() -> Bool {
         // GUARD: On macOS Sequoia, CGWindowListCopyWindowInfo triggers the
         // "would like to record" system dialog if permission hasn't been granted.
-        // Only proceed with the full check if CGPreflightScreenCaptureAccess says yes
-        // OR we already confirmed permission works this session.
+        // In DEBUG builds, CGPreflightScreenCaptureAccess() always returns false
+        // even when permission IS granted, so we skip the preflight guard.
+        #if !DEBUG
         if !wasScreenRecordingGranted && !CGPreflightScreenCaptureAccess() {
             return false
         }
+        #endif
 
         guard let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
             return false
