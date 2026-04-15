@@ -882,6 +882,12 @@ class BackendClient {
         return keychainGet("access_token") != nil
     }
 
+    /// Returns the stored JWT access token, or nil if not logged in.
+    /// Used by FocusWebSocketClient for WebSocket authentication.
+    func getAccessToken() -> String? {
+        return keychainGet("access_token")
+    }
+
     var storedEmail: String? {
         return keychainGet("email")
     }

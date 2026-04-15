@@ -50,6 +50,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Blocking Profiles & Focus Sessions (Puck integration)
     var blockingProfileManager: BlockingProfileManager?
     var focusSessionManager: FocusSessionManager?
+    var focusWebSocketClient: FocusWebSocketClient?
     private var focusStartOverlayWindows: [NSWindow] = []
     private var focusStartOverlayViewModel: FocusStartOverlayViewModel?
     private var puckHotkeyMonitor: Any?
@@ -445,6 +446,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         postLog("🎯 BlockingProfileManager + FocusSessionManager initialized")
 
+        // WebSocket focus signal client (receives start/stop from Puck via backend)
+        focusWebSocketClient = FocusWebSocketClient()
+        focusWebSocketClient?.onFocusSignal = { [weak self] action, sessionId in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if action == "start" {
+                    self.postLog("🔌 Puck focus signal: START (session: \(sessionId))")
+                    self.showFocusStartOverlay(isPuckTriggered: true)
+                } else if action == "stop" {
+                    self.postLog("🔌 Puck focus signal: STOP (session: \(sessionId))")
+                    self.endFocusSession()
+                }
+            }
+        }
+        focusWebSocketClient?.onConnectionStateChanged = { [weak self] connected in
+            self?.postLog("🔌 WebSocket \(connected ? "connected" : "disconnected")")
+            if connected {
+                self?.checkForActiveFocusSession()
+            }
+        }
+
+        // Connect WebSocket if we have a JWT token
+        if let token = backendClient?.getAccessToken() {
+            focusWebSocketClient?.connect(token: token)
+            postLog("🔌 WebSocket connecting with stored token")
+        }
+
         // Wire schedule block changes: when the active block changes,
         // clear the relevance cache, reset focus monitor, and broadcast SCHEDULE_SYNC
         scheduleManager?.onBlockChanged = { [weak self] block, state in
@@ -614,6 +642,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         stopHeartbeat()
         extensionRescanTimer?.invalidate()
         extensionRescanTimer = nil
+
+        // Disconnect WebSocket
+        focusWebSocketClient?.disconnect()
 
         // Stop content safety monitor
         contentSafetyMonitor?.stop()
@@ -941,6 +972,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         websiteBlocker?.updateDistractingSites(domains)
         focusMonitor?.distractingAppBundleIds = Set(appBundleIds)
         postLog("🎯 Always-active enforcement: \(domains.count) domains, \(appBundleIds.count) apps")
+    }
+
+    func checkForActiveFocusSession() {
+        guard let token = backendClient?.getAccessToken() else { return }
+        guard focusSessionManager?.isActive != true else { return } // Already in a session
+
+        #if DEBUG
+        let urlString = "http://localhost:8000/focus/active"
+        #else
+        let urlString = "https://api.intentional.social/focus/active"
+        #endif
+        var request = URLRequest(url: URL(string: urlString)!)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let active = json["active"] as? Bool, active else { return }
+
+            DispatchQueue.main.async {
+                self?.postLog("🔌 Found active Puck focus session on reconnect")
+                self?.showFocusStartOverlay(isPuckTriggered: true)
+            }
+        }.resume()
     }
 
     func postLog(_ message: String) {
