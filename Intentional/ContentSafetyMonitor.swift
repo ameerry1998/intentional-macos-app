@@ -626,6 +626,12 @@ class ContentSafetyMonitor {
     private var lastLoggedPermissionState: Bool?
 
     private func checkForPermissionRevocations() {
+        // In DEBUG builds, hasScreenRecordingPermissionNow() lies — it says false
+        // even when CGWindowListCreateImage works fine. Skip revocation checks in
+        // DEBUG to prevent false "TAMPER: permission revoked" events.
+        #if DEBUG
+        return
+        #endif
         let screenRecordingNow = hasScreenRecordingPermissionNow()
 
         // Log on first check and on any state change
