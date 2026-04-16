@@ -549,6 +549,14 @@ class ContentSafetyMonitor {
     ///   2. kCGWindowSharingState — non-zero when granted, zero when revoked
     /// This updates at runtime, unlike CGPreflightScreenCaptureAccess() which caches per-process.
     private func hasScreenRecordingPermissionNow() -> Bool {
+        // GUARD: On macOS Sequoia, CGWindowListCopyWindowInfo triggers the
+        // "would like to record" system dialog if permission hasn't been granted.
+        // Only proceed with the full check if CGPreflightScreenCaptureAccess says yes
+        // OR we already confirmed permission works this session.
+        if !wasScreenRecordingGranted && !CGPreflightScreenCaptureAccess() {
+            return false
+        }
+
         guard let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
             return false
         }
@@ -791,6 +799,11 @@ class ContentSafetyMonitor {
 
     /// Captures a composite image of all connected screens (all visible windows)
     private func captureAllScreens() -> CGImage? {
+        // Guard: don't call CGWindowListCreateImage unless we know we have permission.
+        // On macOS Sequoia, this can trigger the "would like to record" dialog.
+        if !wasScreenRecordingGranted && !CGPreflightScreenCaptureAccess() {
+            return nil
+        }
         return CGWindowListCreateImage(
             CGRect.null,              // all screens composited
             .optionOnScreenOnly,      // only visible windows
@@ -809,6 +822,11 @@ class ContentSafetyMonitor {
     /// This catches content in background windows that may be diluted in the full composite.
     private func captureVisibleWindows() -> [CapturedWindow] {
         var results: [CapturedWindow] = []
+
+        // Guard: don't call CGWindowListCopyWindowInfo unless permission confirmed
+        if !wasScreenRecordingGranted && !CGPreflightScreenCaptureAccess() {
+            return results
+        }
 
         // Get list of all on-screen windows
         guard let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
