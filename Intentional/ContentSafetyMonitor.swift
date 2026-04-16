@@ -255,7 +255,7 @@ class ContentSafetyMonitor {
         // on macOS Sequoia if permission hasn't been granted yet.
         // We only use hasScreenRecordingPermissionNow() AFTER the first successful capture.
         let hasPermission = CGPreflightScreenCaptureAccess()
-        appDelegate?.postLog("🛡️ START: hasScreenRecordingPermissionNow=\(hasPermission), permissionsEverConfirmed=\(permissionsEverConfirmed)")
+        appDelegate?.postLog("🛡️ START: CGPreflightScreenCaptureAccess=\(hasPermission), permissionsEverConfirmed=\(permissionsEverConfirmed)")
 
         if hasPermission {
             // Permission confirmed — record it for this session
@@ -263,22 +263,41 @@ class ContentSafetyMonitor {
             wasScreenRecordingGranted = true
             persistPermissionConfirmation()
             appDelegate?.postLog("🛡️ START: wasScreenRecordingGranted set to TRUE")
+            startPolling()
         } else if permissionsEverConfirmed {
-            // API says no but we had it before — might be unreliable API or real revocation.
-            // Report tamper to backend but DON'T show overlay yet. Start polling and let
-            // checkForPermissionRevocations() confirm after the first successful poll cycle.
-            appDelegate?.postLog("🛡️ Content Safety: CGPreflightScreenCaptureAccess=false on start (permissionsEverConfirmed=true) — reporting but NOT blocking yet")
-            Task {
-                await appDelegate?.backendClient?.reportContentSafetyTamper(
-                    eventType: "permission_revoked_on_start", detail: "screen_recording"
-                )
+            // Had permission before but preflight says no now.
+            // Could be unreliable API or real revocation.
+            // Try one actual capture to confirm — if it works, wasScreenRecordingGranted gets set.
+            appDelegate?.postLog("🛡️ Content Safety: preflight=false but permissionsEverConfirmed=true — trying one capture to verify")
+            hasScreenRecordingPermission = true
+            wasScreenRecordingGranted = true  // Temporarily trust it so guards let us through
+            if captureAllScreens() != nil {
+                appDelegate?.postLog("🛡️ Content Safety: capture succeeded despite preflight=false — permission works!")
+                persistPermissionConfirmation()
+                startPolling()
+            } else {
+                wasScreenRecordingGranted = false
+                hasScreenRecordingPermission = false
+                appDelegate?.postLog("🛡️ Content Safety: capture failed — permission truly revoked")
+                Task {
+                    await appDelegate?.backendClient?.reportContentSafetyTamper(
+                        eventType: "permission_revoked_on_start", detail: "screen_recording"
+                    )
+                }
+            }
+        } else {
+            // Never had permission confirmed. Request it ONCE by calling
+            // CGRequestScreenCaptureAccess() which shows the system dialog.
+            // Only do this once per install — track with UserDefaults.
+            let hasAskedBefore = UserDefaults.standard.bool(forKey: "contentSafety_hasRequestedScreenRecording")
+            if !hasAskedBefore {
+                appDelegate?.postLog("🛡️ Content Safety: requesting Screen Recording permission (first time)")
+                UserDefaults.standard.set(true, forKey: "contentSafety_hasRequestedScreenRecording")
+                CGRequestScreenCaptureAccess()
+            } else {
+                appDelegate?.postLog("🛡️ Content Safety: no permission, already asked once — user must grant in System Settings")
             }
         }
-
-        // Always start polling — even if API says no permission, captures may still work
-        // (unreliable API). The poll loop will confirm permission state within 2-4 seconds.
-        hasScreenRecordingPermission = true
-        startPolling()
 
         // Always push status so dashboard shows current state
         pushPermissionStatus()
