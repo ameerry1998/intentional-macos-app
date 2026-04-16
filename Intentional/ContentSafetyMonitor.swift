@@ -36,6 +36,11 @@ class ContentSafetyMonitor {
     private var wasScreenRecordingGranted: Bool = false
     private var wasSensitiveContentEnabled: Bool = false
 
+    /// Persisted flag: true once we've confirmed screen recording works.
+    /// Loaded from onboarding_settings.json on init. Survives app relaunches
+    /// so we can detect revocations that happen while the app isn't running.
+    private var permissionsEverConfirmed: Bool = false
+
     // MARK: - Polling
 
     private var pollTimer: Timer?
@@ -44,6 +49,16 @@ class ContentSafetyMonitor {
     /// Permission recheck timer (when permission not yet granted)
     private var permissionCheckTimer: Timer?
     private let permissionCheckInterval: TimeInterval = 30.0
+
+    // MARK: - Permission Revocation Overlay
+
+    /// Blocking overlay shown when screen recording permission is revoked
+    private var permissionOverlayWindows: [NSWindow] = []
+    private var permissionOverlayViewModel: PermissionRequiredOverlayViewModel?
+
+    /// Timer that checks if permission has been re-granted (to auto-dismiss overlay)
+    private var permissionRecheckTimer: Timer?
+    private let permissionRecheckInterval: TimeInterval = 5.0
 
     // MARK: - Escalation System
     //
@@ -125,6 +140,24 @@ class ContentSafetyMonitor {
 
         self.analyzer = SCSensitivityAnalyzer()
 
+        // Load persisted permission confirmation flag.
+        // NOTE: We load permissionsEverConfirmed for tamper REPORTING only — NOT for
+        // showing the blocking overlay on startup. CGPreflightScreenCaptureAccess() is
+        // unreliable for Developer ID binaries (returns false even when permission IS
+        // granted, especially after PKG reinstall). Showing the overlay based on persisted
+        // state + unreliable API would lock the user out on every PKG update.
+        // The overlay is only shown after we confirm permission works IN THIS SESSION
+        // (wasScreenRecordingGranted = true) and then it stops working.
+        let settingsURL = dir.appendingPathComponent("onboarding_settings.json")
+        if let data = try? Data(contentsOf: settingsURL),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let cs = json["contentSafety"] as? [String: Any],
+           let confirmed = cs["permissionsConfirmedAt"] as? String, !confirmed.isEmpty {
+            self.permissionsEverConfirmed = true
+            // DO NOT set wasScreenRecordingGranted here — that's the in-session flag
+            // used for overlay decisions. It must be confirmed by a live API check.
+        }
+
         // NudeNet detector is loaded lazily in start() to avoid competing
         // with WebKit during initial dashboard render (macOS 26 PAC crash)
     }
@@ -203,14 +236,6 @@ class ContentSafetyMonitor {
     func start() {
         guard isEnabled else { return }
 
-        // Always assume permission is granted and start polling.
-        // CGPreflightScreenCaptureAccess() is unreliable for Developer ID binaries
-        // and CGRequestScreenCaptureAccess() shows annoying dialogs even when permission
-        // is already granted after a PKG reinstall. The actual capture will silently
-        // return wallpaper-only images if permission is missing — we just score those
-        // as safe (which is correct behavior).
-        hasScreenRecordingPermission = true
-
         // Load OpenNSFW model on first start
         if nsfwModel == nil {
             do {
@@ -223,6 +248,36 @@ class ContentSafetyMonitor {
             }
         }
 
+        // Check if screen recording permission is available.
+        // IMPORTANT: Use CGPreflightScreenCaptureAccess() for the startup check — it does NOT
+        // trigger a system dialog. The old hasScreenRecordingPermissionNow() calls
+        // CGWindowListCopyWindowInfo which DOES trigger the "would like to record" dialog
+        // on macOS Sequoia if permission hasn't been granted yet.
+        // We only use hasScreenRecordingPermissionNow() AFTER the first successful capture.
+        let hasPermission = CGPreflightScreenCaptureAccess()
+        appDelegate?.postLog("🛡️ START: hasScreenRecordingPermissionNow=\(hasPermission), permissionsEverConfirmed=\(permissionsEverConfirmed)")
+
+        if hasPermission {
+            // Permission confirmed — record it for this session
+            hasScreenRecordingPermission = true
+            wasScreenRecordingGranted = true
+            persistPermissionConfirmation()
+            appDelegate?.postLog("🛡️ START: wasScreenRecordingGranted set to TRUE")
+        } else if permissionsEverConfirmed {
+            // API says no but we had it before — might be unreliable API or real revocation.
+            // Report tamper to backend but DON'T show overlay yet. Start polling and let
+            // checkForPermissionRevocations() confirm after the first successful poll cycle.
+            appDelegate?.postLog("🛡️ Content Safety: CGPreflightScreenCaptureAccess=false on start (permissionsEverConfirmed=true) — reporting but NOT blocking yet")
+            Task {
+                await appDelegate?.backendClient?.reportContentSafetyTamper(
+                    eventType: "permission_revoked_on_start", detail: "screen_recording"
+                )
+            }
+        }
+
+        // Always start polling — even if API says no permission, captures may still work
+        // (unreliable API). The poll loop will confirm permission state within 2-4 seconds.
+        hasScreenRecordingPermission = true
         startPolling()
 
         // Always push status so dashboard shows current state
@@ -233,7 +288,9 @@ class ContentSafetyMonitor {
     func stop() {
         stopPolling()
         stopPermissionCheckTimer()
+        stopPermissionRecheckTimer()
         dismissOverlay()
+        dismissPermissionRequiredOverlay()
         isMonitoring = false
         appDelegate?.postLog("🛡️ Content Safety: stopped")
     }
@@ -247,11 +304,35 @@ class ContentSafetyMonitor {
         appDelegate?.postLog("🛡️ Content Safety: paused (sleep)")
     }
 
-    /// Called when computer wakes — resume polling
+    /// Called when computer wakes — resume polling (or show overlay if permission was revoked)
     func onWake() {
-        guard isEnabled, hasScreenRecordingPermission else { return }
-        startPolling()
-        appDelegate?.postLog("🛡️ Content Safety: resumed (wake)")
+        guard isEnabled else { return }
+
+        // Re-check permission on wake — user may have revoked it while asleep.
+        // Only show overlay if we confirmed permission IN THIS SESSION (wasScreenRecordingGranted).
+        let hasPermission = hasScreenRecordingPermissionNow()
+        if hasPermission {
+            hasScreenRecordingPermission = true
+            wasScreenRecordingGranted = true
+            startPolling()
+            appDelegate?.postLog("🛡️ Content Safety: resumed (wake)")
+        } else if wasScreenRecordingGranted {
+            // Permission was CONFIRMED working this session and now it's gone — block screen
+            hasScreenRecordingPermission = false
+            wasScreenRecordingGranted = false
+            appDelegate?.postLog("🛡️ Content Safety: permission revoked during sleep — blocking screen")
+            showPermissionRequiredOverlay()
+            startPermissionRecheckTimer()
+            Task {
+                await appDelegate?.backendClient?.reportContentSafetyTamper(
+                    eventType: "permission_revoked", detail: "screen_recording"
+                )
+            }
+        } else {
+            // Permission never confirmed this session — start polling, let poll loop handle it
+            startPolling()
+            appDelegate?.postLog("🛡️ Content Safety: resumed (wake)")
+        }
     }
 
     // MARK: - Polling
@@ -279,8 +360,7 @@ class ContentSafetyMonitor {
         permissionCheckTimer = Timer.scheduledTimer(withTimeInterval: permissionCheckInterval, repeats: true) { [weak self] _ in
             guard let self = self else { return }
 
-            var granted = CGPreflightScreenCaptureAccess()
-            if !granted, let img = self.captureAllScreens(), img.width > 1 { granted = true }
+            let granted = self.hasScreenRecordingPermissionNow()
             if granted {
                 self.hasScreenRecordingPermission = true
                 self.stopPermissionCheckTimer()
@@ -303,27 +383,236 @@ class ContentSafetyMonitor {
             "hasPermission": hasScreenRecordingPermission,
             "isMonitoring": isMonitoring,
             "isAnalysisAvailable": isAnalysisAvailable,
-            "isEnabled": isEnabled
+            "isEnabled": isEnabled,
+            "isPermissionBlocked": isShowingPermissionOverlay
         ]
         DispatchQueue.main.async { [weak self] in
             self?.appDelegate?.mainWindowController?.pushContentSafetyStatus(status)
         }
     }
 
+    // MARK: - Permission Required Overlay (Screen Blocking)
+
+    /// Whether the permission-required overlay is currently showing
+    var isShowingPermissionOverlay: Bool {
+        !permissionOverlayWindows.isEmpty
+    }
+
+    /// Show a non-dismissable blocking overlay on ALL screens when screen recording
+    /// permission is revoked. The user can click "Open System Settings" to get a
+    /// 90-second window to re-enable the permission. If they don't, overlay returns.
+    private func showPermissionRequiredOverlay() {
+        guard permissionOverlayWindows.isEmpty else { return }
+
+        let viewModel = PermissionRequiredOverlayViewModel()
+        viewModel.onOpenSettings = { [weak self] in
+            self?.handleOpenSettingsFromOverlay()
+        }
+        self.permissionOverlayViewModel = viewModel
+
+        for screen in NSScreen.screens {
+            let view = PermissionRequiredOverlayView(viewModel: viewModel)
+            let hostingView = NSHostingView(rootView: view)
+            hostingView.frame = screen.frame
+
+            let window = KeyableWindow(
+                contentRect: screen.frame,
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: false
+            )
+
+            window.contentView = hostingView
+            window.backgroundColor = .clear
+            window.isOpaque = false
+            window.hasShadow = false
+            window.level = .screenSaver
+            window.isReleasedWhenClosed = false
+            window.ignoresMouseEvents = false
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+
+            window.setFrame(screen.frame, display: true)
+            appDelegate?.postLog("🚨 ACTIVATE: ContentSafetyMonitor.showPermissionOverlay — makeKeyAndOrderFront")
+            window.makeKeyAndOrderFront(nil)
+            permissionOverlayWindows.append(window)
+        }
+
+        appDelegate?.postLog("🛡️ Permission overlay: shown on \(NSScreen.screens.count) screen(s)")
+    }
+
+    /// Dismiss all permission overlay windows
+    private func dismissPermissionRequiredOverlay() {
+        for window in permissionOverlayWindows {
+            window.close()
+        }
+        permissionOverlayWindows.removeAll()
+        permissionOverlayViewModel = nil
+    }
+
+    /// Handle the "Open System Settings" button: temporarily dismiss the overlay
+    /// for 90 seconds so the user can navigate to System Settings and re-enable
+    /// Screen Recording. If permission isn't re-granted, overlay comes back.
+    private func handleOpenSettingsFromOverlay() {
+        appDelegate?.postLog("🛡️ Permission overlay: user clicked Open Settings — 90s grace period")
+
+        // Open Screen Recording settings pane
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+            NSWorkspace.shared.open(url)
+        }
+
+        // Dismiss overlay temporarily
+        dismissPermissionRequiredOverlay()
+
+        // After 90 seconds, check if permission was restored. If not, overlay comes back.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 90) { [weak self] in
+            guard let self = self, self.isEnabled else { return }
+
+            if self.hasScreenRecordingPermissionNow() {
+                // Permission restored during grace period — resume monitoring
+                self.hasScreenRecordingPermission = true
+                self.wasScreenRecordingGranted = true
+                self.permissionsEverConfirmed = true
+                self.persistPermissionConfirmation()
+                self.stopPermissionRecheckTimer()
+                self.startPolling()
+                self.pushPermissionStatus()
+                self.appDelegate?.postLog("🛡️ Permission restored during grace period — monitoring resumed")
+            } else {
+                // Still no permission — overlay comes back
+                self.appDelegate?.postLog("🛡️ Grace period expired without permission — overlay returning")
+                self.showPermissionRequiredOverlay()
+            }
+        }
+    }
+
+    /// Timer that checks every 5s if permission has been re-granted.
+    /// Auto-dismisses the overlay when permission is detected.
+    private func startPermissionRecheckTimer() {
+        guard permissionRecheckTimer == nil else { return }
+
+        permissionRecheckTimer = Timer.scheduledTimer(withTimeInterval: permissionRecheckInterval, repeats: true) { [weak self] _ in
+            guard let self = self, self.isEnabled else { return }
+
+            if self.hasScreenRecordingPermissionNow() {
+                self.appDelegate?.postLog("🛡️ Screen Recording permission restored — dismissing overlay")
+                self.hasScreenRecordingPermission = true
+                self.wasScreenRecordingGranted = true
+                self.permissionsEverConfirmed = true
+                self.persistPermissionConfirmation()
+                self.stopPermissionRecheckTimer()
+                self.dismissPermissionRequiredOverlay()
+                self.startPolling()
+                self.pushPermissionStatus()
+            }
+        }
+    }
+
+    /// Stop the permission recheck timer
+    private func stopPermissionRecheckTimer() {
+        permissionRecheckTimer?.invalidate()
+        permissionRecheckTimer = nil
+    }
+
+    /// Save `contentSafety.permissionsConfirmedAt` to onboarding_settings.json so
+    /// we can detect revocations across app relaunches.
+    private func persistPermissionConfirmation() {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let settingsURL = appSupport.appendingPathComponent("Intentional/onboarding_settings.json")
+
+        var json: [String: Any] = [:]
+        if let data = try? Data(contentsOf: settingsURL),
+           let existing = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            json = existing
+        }
+
+        var cs = json["contentSafety"] as? [String: Any] ?? [:]
+        if cs["permissionsConfirmedAt"] == nil {
+            cs["permissionsConfirmedAt"] = ISO8601DateFormatter().string(from: Date())
+            json["contentSafety"] = cs
+            if let data = try? JSONSerialization.data(withJSONObject: json, options: .prettyPrinted) {
+                try? data.write(to: settingsURL)
+            }
+            appDelegate?.postLog("🛡️ Persisted permissionsConfirmedAt to settings")
+        }
+    }
+
     // MARK: - Permission Revocation Detection
 
-    /// Check for permission revocations and report to backend as tamper events.
-    /// Only reports if permissions were previously granted (not first-time missing).
+    /// Check whether we can actually read other apps' window names.
+    /// When Screen Recording permission is granted, CGWindowListCopyWindowInfo returns
+    /// kCGWindowName for other apps' windows. When revoked, that key is nil/missing.
+    /// This is reliable at runtime — unlike CGPreflightScreenCaptureAccess() which caches
+    /// the permission state per-process and may not update after revocation.
+    /// Detect Screen Recording permission by probing what CGWindowListCopyWindowInfo reveals.
+    /// Two independent signals (either one returning false = revoked):
+    ///   1. kCGWindowName — present for other apps when granted, nil when revoked
+    ///   2. kCGWindowSharingState — non-zero when granted, zero when revoked
+    /// This updates at runtime, unlike CGPreflightScreenCaptureAccess() which caches per-process.
+    private func hasScreenRecordingPermissionNow() -> Bool {
+        guard let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+            return false
+        }
+
+        let myPID = ProcessInfo.processInfo.processIdentifier
+        let skipOwners: Set<String> = ["Window Server", "Dock", "SystemUIServer", "Control Center", "Notification Center"]
+
+        var otherAppWindowCount = 0
+        var hasReadableName = false
+        var hasNonZeroSharingState = false
+
+        for windowInfo in windowList {
+            guard let pid = windowInfo[kCGWindowOwnerPID as String] as? pid_t,
+                  pid != myPID,
+                  let ownerName = windowInfo[kCGWindowOwnerName as String] as? String,
+                  !skipOwners.contains(ownerName) else {
+                continue
+            }
+
+            otherAppWindowCount += 1
+
+            // Signal 1: Can we read other apps' window titles?
+            if let name = windowInfo[kCGWindowName as String] as? String, !name.isEmpty {
+                hasReadableName = true
+            }
+
+            // Signal 2: Is the sharing state non-zero? (0 = not shared = permission revoked)
+            if let sharingState = windowInfo[kCGWindowSharingState as String] as? Int, sharingState > 0 {
+                hasNonZeroSharingState = true
+            }
+
+            // Either signal confirms permission — return early
+            if hasReadableName || hasNonZeroSharingState {
+                return true
+            }
+        }
+
+        // We found other app windows but neither signal confirmed permission → revoked
+        if otherAppWindowCount > 0 {
+            return false
+        }
+
+        // No other app windows visible at all (rare: user closed everything).
+        // Can't determine from window list. Fall back to CGPreflight as last resort.
+        return CGPreflightScreenCaptureAccess()
+    }
+
+    /// Track last logged permission state to avoid spamming logs every 2s
+    private var lastLoggedPermissionState: Bool?
+
     private func checkForPermissionRevocations() {
-        // Use actual capture test since CGPreflightScreenCaptureAccess() is unreliable
-        // for Developer ID signed binaries
-        var screenRecordingNow = CGPreflightScreenCaptureAccess()
-        if !screenRecordingNow, let img = captureAllScreens(), img.width > 1 { screenRecordingNow = true }
-        let sensitiveContentNow = isAnalysisAvailable
+        let screenRecordingNow = hasScreenRecordingPermissionNow()
+
+        // Log on first check and on any state change
+        if lastLoggedPermissionState != screenRecordingNow {
+            appDelegate?.postLog("🛡️ PERM CHECK: hasScreenRecordingPermissionNow=\(screenRecordingNow) (was \(lastLoggedPermissionState.map(String.init) ?? "nil")), wasGranted=\(wasScreenRecordingGranted), everConfirmed=\(permissionsEverConfirmed)")
+            lastLoggedPermissionState = screenRecordingNow
+        }
 
         // Screen Recording revoked?
+        // Only show overlay if wasScreenRecordingGranted is true (confirmed in THIS session).
+        // We don't use permissionsEverConfirmed for overlay decisions to avoid lockout on PKG reinstall.
         if wasScreenRecordingGranted && !screenRecordingNow {
-            appDelegate?.postLog("🛡️ TAMPER: Screen Recording permission was REVOKED")
+            appDelegate?.postLog("🛡️ TAMPER: Screen Recording permission was REVOKED (confirmed in-session)")
             Task {
                 await appDelegate?.backendClient?.reportContentSafetyTamper(
                     eventType: "permission_revoked", detail: "screen_recording"
@@ -332,11 +621,22 @@ class ContentSafetyMonitor {
             wasScreenRecordingGranted = false
             hasScreenRecordingPermission = false
             pushPermissionStatus()
+
+            // BLOCK THE SCREEN — revoking permission doesn't help, you just get a blocked screen
+            stopPolling()
+            showPermissionRequiredOverlay()
+            startPermissionRecheckTimer()
         } else if screenRecordingNow {
+            // Permission confirmed — persist if first time, and set in-session flag
+            if !permissionsEverConfirmed {
+                permissionsEverConfirmed = true
+                persistPermissionConfirmation()
+            }
             wasScreenRecordingGranted = true
         }
 
         // Sensitive Content Warning disabled?
+        let sensitiveContentNow = isAnalysisAvailable
         if wasSensitiveContentEnabled && !sensitiveContentNow {
             appDelegate?.postLog("🛡️ TAMPER: Sensitive Content Warning was DISABLED")
             Task {
@@ -363,8 +663,9 @@ class ContentSafetyMonitor {
         // Skip during grace period
         if let graceEnd = graceUntil, Date() < graceEnd { return }
 
-        // Skip if overlay is currently showing
+        // Skip if overlay is currently showing (NSFW or permission)
         guard overlayWindows.isEmpty else { return }
+        guard permissionOverlayWindows.isEmpty else { return }
 
         isAnalyzing = true
         defer { isAnalyzing = false }
@@ -377,6 +678,15 @@ class ContentSafetyMonitor {
 
         guard let model = nsfwModel else {
             debugLogToFile("No NSFW model — skipping")
+            return
+        }
+
+        // Guard: don't attempt capture if preflight says no permission.
+        // CGWindowListCreateImage triggers the system "would like to record" dialog
+        // on macOS Sequoia if permission hasn't been granted. Only capture if we
+        // know we have permission (via preflight) or have confirmed it this session.
+        if !wasScreenRecordingGranted && !CGPreflightScreenCaptureAccess() {
+            debugLogToFile("Skipping capture — no screen recording permission confirmed yet")
             return
         }
 
@@ -703,6 +1013,7 @@ class ContentSafetyMonitor {
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
             window.setFrame(screen.frame, display: true)
+            appDelegate?.postLog("🚨 ACTIVATE: ContentSafetyMonitor.showBlockingOverlay — makeKeyAndOrderFront")
             window.makeKeyAndOrderFront(nil)
             overlayWindows.append(window)
         }
@@ -771,21 +1082,56 @@ class ContentSafetyMonitor {
 
     // MARK: - Debug File Log
 
-    /// Write debug messages to /tmp/intentional-csm-debug.log (NSLog is privacy-redacted on macOS 26)
+    /// Persistent log path — survives reboots (unlike /tmp)
+    private static let persistentLogPath: String = {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("Intentional")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("csm-debug.log").path
+    }()
+
+    /// Also write to /tmp for easy `tail -f` during development
+    private static let tmpLogPath = "/tmp/intentional-csm-debug.log"
+
+    /// Max log size before rotation (5 MB)
+    private static let maxLogSize: UInt64 = 5 * 1024 * 1024
+
+    /// Write debug messages to persistent log + /tmp symlink
     private func debugLogToFile(_ message: String) {
         let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
         let line = "[\(timestamp)] \(message)\n"
-        let path = "/tmp/intentional-csm-debug.log"
-        if let data = line.data(using: .utf8) {
-            if FileManager.default.fileExists(atPath: path) {
-                if let handle = try? FileHandle(forWritingTo: URL(fileURLWithPath: path)) {
-                    handle.seekToEndOfFile()
-                    handle.write(data)
-                    handle.closeFile()
-                }
-            } else {
-                FileManager.default.createFile(atPath: path, contents: data)
+        guard let data = line.data(using: .utf8) else { return }
+
+        let path = Self.persistentLogPath
+
+        // Rotate if too large
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: path),
+           let size = attrs[.size] as? UInt64, size > Self.maxLogSize {
+            let rotatedPath = path + ".1"
+            try? FileManager.default.removeItem(atPath: rotatedPath)
+            try? FileManager.default.moveItem(atPath: path, toPath: rotatedPath)
+        }
+
+        // Append to persistent log
+        if FileManager.default.fileExists(atPath: path) {
+            if let handle = try? FileHandle(forWritingTo: URL(fileURLWithPath: path)) {
+                handle.seekToEndOfFile()
+                handle.write(data)
+                handle.closeFile()
             }
+        } else {
+            FileManager.default.createFile(atPath: path, contents: data)
+        }
+
+        // Also write to /tmp for easy tail -f
+        if FileManager.default.fileExists(atPath: Self.tmpLogPath) {
+            if let handle = try? FileHandle(forWritingTo: URL(fileURLWithPath: Self.tmpLogPath)) {
+                handle.seekToEndOfFile()
+                handle.write(data)
+                handle.closeFile()
+            }
+        } else {
+            FileManager.default.createFile(atPath: Self.tmpLogPath, contents: data)
         }
     }
 
@@ -920,6 +1266,98 @@ struct ContentSafetyOverlayView: View {
                         .font(.system(size: 14))
                         .foregroundColor(.white.opacity(0.4))
                 }
+
+                Spacer()
+            }
+        }
+        .ignoresSafeArea()
+    }
+}
+
+// MARK: - Permission Required Overlay View Model
+
+class PermissionRequiredOverlayViewModel: ObservableObject {
+
+    @Published var hasClickedOpenSettings: Bool = false
+
+    var onOpenSettings: (() -> Void)?
+
+    func openSettings() {
+        guard !hasClickedOpenSettings else { return }  // one-time use
+        hasClickedOpenSettings = true
+        onOpenSettings?()
+    }
+}
+
+// MARK: - Permission Required Overlay View
+
+struct PermissionRequiredOverlayView: View {
+
+    @ObservedObject var viewModel: PermissionRequiredOverlayViewModel
+
+    var body: some View {
+        ZStack {
+            // Full-screen dark background
+            Color.black.opacity(0.95)
+
+            VStack(spacing: 24) {
+                Spacer()
+
+                // Lock icon
+                Image(systemName: "lock.shield.fill")
+                    .font(.system(size: 64))
+                    .foregroundColor(.orange)
+
+                Text("Screen Recording Permission Required")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(.white)
+
+                Text("Content Safety needs Screen Recording permission\nto keep you safe. Please re-enable it in System Settings.")
+                    .font(.system(size: 16))
+                    .foregroundColor(.white.opacity(0.7))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+
+                Spacer().frame(height: 8)
+
+                Text("Your accountability partner has been notified.")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.red.opacity(0.8))
+
+                Spacer().frame(height: 16)
+
+                if !viewModel.hasClickedOpenSettings {
+                    Button(action: { viewModel.openSettings() }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "gear")
+                            Text("Open System Settings")
+                        }
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 32)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.blue.opacity(0.7))
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    Text("You'll have 90 seconds to re-enable the permission.")
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.4))
+                } else {
+                    Text("Opening System Settings...")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+
+                Spacer().frame(height: 8)
+
+                Text("System Settings > Privacy & Security >\nScreen & System Audio Recording > Intentional")
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.35))
+                    .multilineTextAlignment(.center)
 
                 Spacer()
             }
