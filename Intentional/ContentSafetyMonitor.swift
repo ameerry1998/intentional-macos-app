@@ -416,7 +416,7 @@ class ContentSafetyMonitor {
 
     /// Show a non-dismissable blocking overlay on ALL screens when screen recording
     /// permission is revoked. The user can click "Open System Settings" to get a
-    /// 90-second window to re-enable the permission. If they don't, overlay returns.
+    /// 10-second window to re-enable the permission. If they don't, overlay returns.
     private func showPermissionRequiredOverlay() {
         guard permissionOverlayWindows.isEmpty else { return }
 
@@ -466,7 +466,7 @@ class ContentSafetyMonitor {
     }
 
     /// Handle the "Open System Settings" button: temporarily dismiss the overlay
-    /// for 90 seconds so the user can navigate to System Settings and re-enable
+    /// for 10 seconds so the user can navigate to System Settings and re-enable
     /// Screen Recording. If permission isn't re-granted, overlay comes back.
     private func handleOpenSettingsFromOverlay() {
         appDelegate?.postLog("🛡️ Permission overlay: user clicked Open Settings — 90s grace period")
@@ -479,8 +479,8 @@ class ContentSafetyMonitor {
         // Dismiss overlay temporarily
         dismissPermissionRequiredOverlay()
 
-        // After 90 seconds, check if permission was restored. If not, overlay comes back.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 90) { [weak self] in
+        // After 10 seconds, check if permission was restored. If not, overlay comes back.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
             guard let self = self, self.isEnabled else { return }
 
             if self.hasScreenRecordingPermissionNow() {
