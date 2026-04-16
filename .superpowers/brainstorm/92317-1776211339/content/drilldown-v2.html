@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Distractions — Drill-Down v2 (Always Relevant Per Profile)</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --surface-base: #0e0e12;
+    --surface-raised: #1c1c1e;
+    --surface-elevated: #2c2c2e;
+    --surface-hover: rgba(255,255,255,0.04);
+    --text-primary: #f2f2f7;
+    --text-secondary: #8e8e93;
+    --text-tertiary: #636366;
+    --accent: #8b5cf6;
+    --accent-dim: rgba(139,92,246,0.12);
+    --border-subtle: rgba(255,255,255,0.06);
+    --border-strong: rgba(255,255,255,0.14);
+    --danger: #ef4444;
+    --success: #4ade80;
+    --success-dim: rgba(74,222,128,0.08);
+    --success-border: rgba(74,222,128,0.15);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    background: #080810;
+    color: var(--text-primary);
+    display: flex;
+    justify-content: center;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .app-window {
+    width: 880px; height: 640px; background: var(--surface-base);
+    border-radius: 12px; overflow: hidden; border: 1px solid var(--border-subtle);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5); display: flex; flex-direction: column;
+  }
+  .titlebar {
+    background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border-subtle);
+    padding: 12px 16px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; } .dot-y { background: #ffbd2e; } .dot-g { background: #28c840; }
+  .titlebar-text { flex:1; text-align:center; font-size:13px; color:var(--text-tertiary); }
+  .titlebar-badge { font-size:11px; color:var(--success); display:flex; align-items:center; gap:4px; }
+  .app-body { display: flex; flex: 1; overflow: hidden; }
+  .sidebar {
+    width: 190px; background: rgba(255,255,255,0.015);
+    border-right: 1px solid var(--border-subtle); padding: 16px 10px; flex-shrink: 0;
+  }
+  .sidebar-brand { font-size: 15px; font-weight: 700; padding: 4px 12px 16px; }
+  .nav-item {
+    padding: 9px 12px; border-radius: 8px; font-size: 13px; color: var(--text-secondary);
+    cursor: pointer; margin-bottom: 1px; display: flex; align-items: center; gap: 9px;
+  }
+  .nav-item:hover { background: var(--surface-hover); }
+  .nav-item.active { background: var(--accent-dim); color: #c4b5fd; }
+  .nav-icon { font-size: 14px; width: 18px; text-align: center; opacity: 0.7; }
+
+  .content { flex: 1; overflow: hidden; position: relative; }
+  .view {
+    position: absolute; inset: 0; overflow-y: auto;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+  .view.hidden-right { transform: translateX(100%); opacity: 0; pointer-events: none; }
+  .view.hidden-left { transform: translateX(-30%); opacity: 0; pointer-events: none; }
+
+  /* List view */
+  .list-header { padding: 24px 28px 4px; }
+  .list-title { font-size: 22px; font-weight: 700; }
+  .list-subtitle { font-size: 13px; color: var(--text-tertiary); margin-top: 4px; }
+  .section-label {
+    font-size: 11px; font-weight: 600; color: var(--text-tertiary);
+    letter-spacing: 0.5px; text-transform: uppercase; padding: 20px 28px 8px;
+  }
+  .profile-row {
+    display: flex; align-items: center; padding: 14px 28px; gap: 14px;
+    cursor: pointer; border-bottom: 1px solid var(--border-subtle); transition: background 0.1s;
+  }
+  .profile-row:hover { background: var(--surface-hover); }
+  .profile-row:active { background: rgba(255,255,255,0.06); }
+  .profile-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .profile-dot.off { background: var(--text-tertiary); opacity: 0.4; }
+  .profile-info { flex: 1; }
+  .profile-name { font-size: 15px; font-weight: 500; }
+  .profile-meta { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+  .profile-badge {
+    font-size: 10px; color: var(--accent); background: var(--accent-dim);
+    padding: 2px 7px; border-radius: 4px; font-weight: 600; margin-left: 6px;
+  }
+  .profile-arrow { color: var(--text-tertiary); font-size: 16px; }
+  .create-btn-row { padding: 16px 28px; }
+  .create-btn {
+    width: 100%; padding: 11px; background: transparent;
+    border: 1px dashed var(--border-strong); border-radius: 10px;
+    color: var(--text-secondary); font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  .create-btn:hover { background: var(--surface-raised); color: var(--text-primary); }
+
+  /* Detail view */
+  .detail-nav {
+    padding: 16px 24px 12px; border-bottom: 1px solid var(--border-subtle);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .back-btn {
+    color: var(--accent); font-size: 13px; cursor: pointer; font-weight: 500;
+    display: flex; align-items: center; gap: 4px; background: none; border: none;
+    font-family: inherit; padding: 4px 8px; border-radius: 6px;
+  }
+  .back-btn:hover { background: var(--accent-dim); }
+  .detail-body { padding: 24px 28px; }
+  .detail-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .detail-subtitle { font-size: 12px; color: var(--text-tertiary); margin-bottom: 24px; }
+  .detail-section { margin-bottom: 24px; }
+  .detail-section-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+  }
+  .detail-section-label {
+    font-size: 11px; font-weight: 600; color: var(--text-secondary);
+    letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .detail-section-label.green { color: var(--success); }
+  .detail-add-btn {
+    font-size: 12px; color: var(--accent); background: none; border: none;
+    cursor: pointer; font-weight: 500; font-family: inherit;
+  }
+  .detail-add-btn:hover { text-decoration: underline; }
+  .detail-add-btn.green { color: var(--success); }
+  .detail-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; background: var(--surface-raised);
+    border: 1px solid var(--border-subtle); border-radius: 7px; font-size: 13px;
+    color: var(--text-primary); transition: border-color 0.1s;
+  }
+  .chip:hover { border-color: var(--border-strong); }
+  .chip .x { color: var(--text-tertiary); cursor: pointer; font-size: 14px; }
+  .chip .x:hover { color: var(--danger); }
+  .chip-icon { font-size: 14px; width: 18px; text-align: center; }
+  .chip-green { border-color: var(--success-border); background: var(--success-dim); }
+  .chip-label {
+    font-size: 9px; color: var(--text-tertiary); background: rgba(255,255,255,0.06);
+    padding: 1px 5px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .detail-separator { height: 1px; background: var(--border-subtle); margin: 24px 0; }
+  .detail-delete {
+    font-size: 12px; color: var(--danger); background: none; border: none;
+    cursor: pointer; opacity: 0.5; font-family: inherit;
+  }
+  .detail-delete:hover { opacity: 1; }
+  .section-hint {
+    font-size: 11px; color: var(--text-tertiary); margin-bottom: 10px; line-height: 1.5;
+  }
+  .empty-state {
+    padding: 14px; text-align: center; color: var(--text-tertiary); font-size: 12px;
+    border: 1px dashed var(--border-subtle); border-radius: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app-window">
+  <div class="titlebar">
+    <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+    <span class="titlebar-text">Intentional</span>
+    <span class="titlebar-badge">● Arc connected</span>
+  </div>
+  <div class="app-body">
+    <div class="sidebar">
+      <div class="sidebar-brand">Intentional</div>
+      <div class="nav-item"><span class="nav-icon">◉</span> Today</div>
+      <div class="nav-item active"><span class="nav-icon">⊘</span> Distractions</div>
+      <div class="nav-item"><span class="nav-icon">◎</span> Accountability</div>
+      <div class="nav-item"><span class="nav-icon">⚙</span> Settings</div>
+    </div>
+
+    <div class="content" id="content">
+
+      <!-- LIST VIEW (no more global always-relevant) -->
+      <div class="view" id="list-view">
+        <div class="list-header">
+          <div class="list-title">Distractions</div>
+          <div class="list-subtitle">Manage what gets blocked during focus sessions</div>
+        </div>
+        <div class="section-label">Blocking Profiles</div>
+
+        <div class="profile-row" onclick="showDetail('default')">
+          <div class="profile-dot"></div>
+          <div class="profile-info">
+            <div class="profile-name">Distracting Apps & Sites<span class="profile-badge">DEFAULT</span></div>
+            <div class="profile-meta">10 sites · 4 apps · 3 always relevant</div>
+          </div>
+          <span class="profile-arrow">›</span>
+        </div>
+
+        <div class="profile-row" onclick="showDetail('deepwork')">
+          <div class="profile-dot off"></div>
+          <div class="profile-info">
+            <div class="profile-name">Deep Work</div>
+            <div class="profile-meta">3 sites · 2 apps · 0 always relevant</div>
+          </div>
+          <span class="profile-arrow">›</span>
+        </div>
+
+        <div class="profile-row" onclick="showDetail('writing')">
+          <div class="profile-dot off"></div>
+          <div class="profile-info">
+            <div class="profile-name">Writing</div>
+            <div class="profile-meta">5 sites · 1 app · 4 always relevant</div>
+          </div>
+          <span class="profile-arrow">›</span>
+        </div>
+
+        <div class="create-btn-row"><button class="create-btn">+ Create New Profile</button></div>
+      </div>
+
+      <!-- DETAIL: Default Profile -->
+      <div class="view hidden-right" id="detail-default">
+        <div class="detail-nav">
+          <button class="back-btn" onclick="showList()"><span style="font-size:16px;">‹</span> Distractions</button>
+        </div>
+        <div class="detail-body">
+          <div class="detail-title">Distracting Apps & Sites</div>
+          <div class="detail-subtitle">Default profile — always active during Puck focus sessions</div>
+
+          <div class="detail-section">
+            <div class="detail-section-header">
+              <span class="detail-section-label">Blocked Websites (10)</span>
+              <button class="detail-add-btn">+ Add Website</button>
+            </div>
+            <div class="detail-chips">
+              <div class="chip">reddit.com <span class="x">×</span></div>
+              <div class="chip">twitter.com <span class="x">×</span></div>
+              <div class="chip">x.com <span class="x">×</span></div>
+              <div class="chip">youtube.com <span class="x">×</span></div>
+              <div class="chip">instagram.com <span class="x">×</span></div>
+              <div class="chip">facebook.com <span class="x">×</span></div>
+              <div class="chip">tiktok.com <span class="x">×</span></div>
+              <div class="chip">twitch.tv <span class="x">×</span></div>
+              <div class="chip">discord.com <span class="x">×</span></div>
+              <div class="chip">snapchat.com <span class="x">×</span></div>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <div class="detail-section-header">
+              <span class="detail-section-label">Blocked Apps (4)</span>
+              <button class="detail-add-btn">+ Add App</button>
+            </div>
+            <div class="detail-chips">
+              <div class="chip"><span class="chip-icon">🎵</span> Spotify <span class="x">×</span></div>
+              <div class="chip"><span class="chip-icon">💬</span> Discord <span class="x">×</span></div>
+              <div class="chip"><span class="chip-icon">📺</span> Twitch <span class="x">×</span></div>
+              <div class="chip"><span class="chip-icon">🎮</span> Steam <span class="x">×</span></div>
+            </div>
+          </div>
+
+          <div class="detail-separator"></div>
+
+          <div class="detail-section">
+            <div class="detail-section-header">
+              <span class="detail-section-label green">Always Relevant (3)</span>
+              <button class="detail-add-btn green">+ Add</button>
+            </div>
+            <div class="section-hint">These sites and apps are never flagged as distracting when this profile is active.</div>
+            <div class="detail-chips">
+              <div class="chip chip-green"><span style="color:var(--success);font-size:11px;">✓</span> gmail.com <span class="x">×</span></div>
+              <div class="chip chip-green"><span style="color:var(--success);font-size:11px;">✓</span> slack.com <span class="x">×</span></div>
+              <div class="chip chip-green"><span style="color:var(--success);font-size:11px;">✓</span> notion.so <span class="x">×</span></div>
+            </div>
+          </div>
+
+          <div class="detail-separator"></div>
+          <button class="detail-delete">Delete Profile</button>
+        </div>
+      </div>
+
+      <!-- DETAIL: Deep Work (no always-relevant — blocks everything) -->
+      <div class="view hidden-right" id="detail-deepwork">
+        <div class="detail-nav">
+          <button class="back-btn" onclick="showList()"><span style="font-size:16px;">‹</span> Distractions</button>
+        </div>
+        <div class="detail-body">
+          <div class="detail-title">Deep Work</div>
+          <div class="detail-subtitle">Maximum focus — blocks additional sites on top of default</div>
+
+          <div class="detail-section">
+            <div class="detail-section-header">
+              <span class="detail-section-label">Blocked Websites (3)</span>
+              <button class="detail-add-btn">+ Add Website</button>
+            </div>
+            <div class="detail-chips">
+              <div class="chip">news.ycombinator.com <span class="x">×</span></div>
+              <div class="chip">linkedin.com <span class="x">×</span></div>
+              <div class="chip">threads.net <span class="x">×</span></div>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <div class="detail-section-header">
+              <span class="detail-section-label">Blocked Apps (2)</span>
+              <button class="detail-add-btn">+ Add App</button>
+            </div>
+            <div class="detail-chips">
+              <div class="chip"><span class="chip-icon">💬</span> Slack <span class="x">×</span></div>
+              <div class="chip"><span class="chip-icon">✉️</span> Mail <span class="x">×</span></div>
+            </div>
+          </div>
+
+          <div class="detail-separator"></div>
+
+          <div class="detail-section">
+            <div class="detail-section-header">
+              <span class="detail-section-label green">Always Relevant (0)</span>
+              <button class="detail-add-btn green">+ Add</button>
+            </div>
+            <div class="section-hint">These sites and apps are never flagged as distracting when this profile is active.</div>
+            <div class="empty-state">Nothing set — AI will score everything not on the block list</div>
+          </div>
+
+          <div class="detail-separator"></div>
+          <button class="detail-delete">Delete Profile</button>
+        </div>
+      </div>
+
+      <!-- DETAIL: Writing (has always-relevant with mixed sites + apps) -->
+      <div class="view hidden-right" id="detail-writing">
+        <div class="detail-nav">
+          <button class="back-btn" onclick="showList()"><span style="font-size:16px;">‹</span> Distractions</button>
+        </div>
+        <div class="detail-body">
+          <div class="detail-title">Writing</div>
+          <div class="detail-subtitle">Focus on writing — communication tools stay available</div>
+
+          <div class="detail-section">
+            <div class="detail-section-header">
+              <span class="detail-section-label">Blocked Websites (5)</span>
+              <button class="detail-add-btn">+ Add Website</button>
+            </div>
+            <div class="detail-chips">
+              <div class="chip">reddit.com <span class="x">×</span></div>
+              <div class="chip">youtube.com <span class="x">×</span></div>
+              <div class="chip">twitter.com <span class="x">×</span></div>
+              <div class="chip">instagram.com <span class="x">×</span></div>
+              <div class="chip">news.ycombinator.com <span class="x">×</span></div>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <div class="detail-section-header">
+              <span class="detail-section-label">Blocked Apps (1)</span>
+              <button class="detail-add-btn">+ Add App</button>
+            </div>
+            <div class="detail-chips">
+              <div class="chip"><span class="chip-icon">🎮</span> Steam <span class="x">×</span></div>
+            </div>
+          </div>
+
+          <div class="detail-separator"></div>
+
+          <div class="detail-section">
+            <div class="detail-section-header">
+              <span class="detail-section-label green">Always Relevant (4)</span>
+              <button class="detail-add-btn green">+ Add</button>
+            </div>
+            <div class="section-hint">These sites and apps are never flagged as distracting when this profile is active.</div>
+            <div class="detail-chips">
+              <div class="chip chip-green"><span style="color:var(--success);font-size:11px;">✓</span> docs.google.com <span class="x">×</span></div>
+              <div class="chip chip-green"><span style="color:var(--success);font-size:11px;">✓</span> notion.so <span class="x">×</span></div>
+              <div class="chip chip-green"><span class="chip-icon">💬</span> Slack <span class="chip-label">APP</span> <span class="x">×</span></div>
+              <div class="chip chip-green"><span class="chip-icon">✉️</span> Mail <span class="chip-label">APP</span> <span class="x">×</span></div>
+            </div>
+          </div>
+
+          <div class="detail-separator"></div>
+          <button class="detail-delete">Delete Profile</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+let currentDetail = null;
+function showDetail(id) {
+  document.getElementById('list-view').classList.add('hidden-left');
+  document.querySelectorAll('.view').forEach(v => {
+    if (v.id !== 'list-view' && v.id !== 'detail-' + id) v.classList.add('hidden-right');
+  });
+  document.getElementById('detail-' + id).classList.remove('hidden-right');
+  currentDetail = id;
+}
+function showList() {
+  document.getElementById('list-view').classList.remove('hidden-left');
+  if (currentDetail) {
+    document.getElementById('detail-' + currentDetail).classList.add('hidden-right');
+    currentDetail = null;
+  }
+}
+</script>
+
+</body>
+</html>

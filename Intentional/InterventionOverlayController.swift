@@ -72,6 +72,7 @@ class InterventionOverlayController {
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         window.setFrame(screenFrame, display: true)
+        print("🚨 ACTIVATE: InterventionOverlayController.show — makeKeyAndOrderFront")
         window.makeKeyAndOrderFront(nil)
         overlayWindow = window
 

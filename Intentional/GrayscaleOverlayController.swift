@@ -173,6 +173,7 @@ class GrayscaleOverlayController {
         hostView.layer?.backgroundColor = NSColor.clear.cgColor
         window.contentView = hostView
 
+        print("🚨 ACTIVATE: GrayscaleOverlayController.setupVignette — orderFrontRegardless")
         window.orderFrontRegardless()
         vignetteWindow = window
         NSLog("🌫️ [VIGNETTE] Window created \(Int(screen.frame.width))x\(Int(screen.frame.height))")

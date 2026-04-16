@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Intentional — UI Overhaul Preview</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg-primary: #0a0a0b;
+    --bg-card: rgba(255,255,255,0.04);
+    --bg-input: rgba(255,255,255,0.06);
+    --bg-hover: rgba(255,255,255,0.08);
+    --bg-active: rgba(255,255,255,0.10);
+    --border-subtle: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.14);
+    --text-primary: #f0f0f0;
+    --text-secondary: rgba(255,255,255,0.55);
+    --text-tertiary: rgba(255,255,255,0.3);
+    --accent-focus: #34d399;
+    --accent-focus-dim: rgba(52,211,153,0.15);
+    --accent-evening: #818cf8;
+    --accent-evening-dim: rgba(129,140,248,0.15);
+    --accent-warn: #fbbf24;
+    --danger: #ef4444;
+    --danger-dim: rgba(239,68,68,0.15);
+    --radius-md: 16px;
+    --radius-sm: 8px;
+    --radius-lg: 24px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    background: #050508; color: var(--text-primary);
+    display:flex; justify-content:center; padding:20px; min-height:100vh;
+  }
+
+  /* App chrome */
+  .app { width:940px; height:660px; background:var(--bg-primary); border-radius:12px; overflow:hidden; border:1px solid var(--border-subtle); box-shadow:0 24px 80px rgba(0,0,0,0.6); display:flex; flex-direction:column; }
+  .titlebar { background:rgba(255,255,255,0.02); border-bottom:1px solid var(--border-subtle); padding:12px 16px; display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .dot { width:12px; height:12px; border-radius:50%; }
+  .dot-r { background:#ff5f57; } .dot-y { background:#ffbd2e; } .dot-g { background:#28c840; }
+  .titlebar-c { flex:1; text-align:center; font-size:13px; color:var(--text-tertiary); font-weight:500; }
+  .titlebar-r { font-size:11px; color:var(--accent-focus); display:flex; align-items:center; gap:5px; }
+  .status-dot { width:6px; height:6px; border-radius:50%; background:var(--accent-focus); }
+  .app-body { display:flex; flex:1; overflow:hidden; }
+
+  /* Sidebar */
+  .sidebar { width:200px; background:rgba(255,255,255,0.015); border-right:1px solid var(--border-subtle); padding:16px 10px; flex-shrink:0; }
+  .sidebar-brand { font-size:16px; font-weight:700; padding:4px 12px 20px; }
+  .nav-item { padding:9px 12px; border-radius:var(--radius-sm); font-size:13px; color:var(--text-secondary); cursor:pointer; margin-bottom:2px; display:flex; align-items:center; gap:10px; transition:background 0.1s; -webkit-user-select:none; }
+  .nav-item:hover { background:var(--bg-hover); }
+  .nav-item.active { background:var(--accent-focus-dim); color:var(--accent-focus); }
+  .nav-icon { font-size:14px; width:18px; text-align:center; opacity:0.7; }
+  .nav-item.active .nav-icon { opacity:1; }
+
+  /* Content */
+  .content { flex:1; overflow:hidden; position:relative; }
+  .page { position:absolute; inset:0; overflow-y:auto; display:none; padding:24px 28px; }
+  .page.active { display:block; }
+  .page-title { font-size:22px; font-weight:700; margin-bottom:4px; }
+  .page-sub { font-size:13px; color:var(--text-tertiary); margin-bottom:20px; }
+
+  /* Glass card */
+  .glass { background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-md); margin-bottom:12px; overflow:hidden; }
+  .glass-pad { padding:16px; }
+
+  /* Section label */
+  .sec-label { font-size:11px; font-weight:600; color:var(--text-tertiary); letter-spacing:1px; text-transform:uppercase; margin:20px 0 8px; }
+
+  /* Settings row (tappable) */
+  .settings-row { display:flex; align-items:center; padding:14px 16px; gap:14px; cursor:pointer; transition:background 0.1s; border-bottom:1px solid var(--border-subtle); }
+  .settings-row:last-child { border-bottom:none; }
+  .settings-row:hover { background:var(--bg-hover); }
+  .settings-row:active { background:var(--bg-active); }
+  .sr-icon { width:32px; height:32px; border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+  .sr-info { flex:1; }
+  .sr-title { font-size:14px; font-weight:500; }
+  .sr-sub { font-size:12px; color:var(--text-secondary); margin-top:1px; }
+  .sr-chevron { color:var(--text-tertiary); font-size:16px; }
+
+  /* Drill-down */
+  .view { position:absolute; inset:0; overflow-y:auto; padding:24px 28px; transition:transform 0.25s ease, opacity 0.25s ease; }
+  .view.out-left { transform:translateX(-30%); opacity:0; pointer-events:none; }
+  .view.out-right { transform:translateX(100%); opacity:0; pointer-events:none; }
+  .detail-back { color:var(--accent-focus); font-size:13px; cursor:pointer; font-weight:500; background:none; border:none; font-family:inherit; padding:4px 8px; border-radius:var(--radius-sm); margin-bottom:16px; display:inline-block; }
+  .detail-back:hover { background:var(--accent-focus-dim); }
+
+  /* Toggle */
+  .toggle { width:44px; height:24px; border-radius:12px; background:rgba(255,255,255,0.12); position:relative; cursor:pointer; flex-shrink:0; transition:background 0.15s; }
+  .toggle.on { background:var(--accent-focus); }
+  .toggle::after { content:''; width:20px; height:20px; border-radius:50%; background:white; position:absolute; top:2px; left:2px; transition:left 0.15s; }
+  .toggle.on::after { left:22px; }
+
+  /* Toggle row */
+  .toggle-row { display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--border-subtle); }
+  .toggle-row:last-child { border-bottom:none; }
+  .tr-label { font-size:14px; }
+  .tr-desc { font-size:11px; color:var(--text-secondary); margin-top:2px; }
+
+  /* Status pill */
+  .pill { display:inline-block; font-size:11px; font-weight:600; padding:4px 12px; border-radius:100px; }
+  .pill-focus { background:var(--accent-focus-dim); color:var(--accent-focus); }
+  .pill-danger { background:var(--danger-dim); color:var(--danger); }
+  .pill-warn { background:rgba(251,191,36,0.15); color:var(--accent-warn); }
+  .pill-evening { background:var(--accent-evening-dim); color:var(--accent-evening); }
+
+  /* Buttons */
+  .btn-primary { background:var(--accent-focus); color:#0a0a0b; border:none; border-radius:14px; padding:12px 24px; font-size:15px; font-weight:600; cursor:pointer; font-family:inherit; width:100%; }
+  .btn-primary:hover { opacity:0.9; }
+  .btn-secondary { background:var(--bg-input); border:1px solid var(--border-subtle); color:var(--text-primary); border-radius:14px; padding:12px 24px; font-size:15px; font-weight:500; cursor:pointer; font-family:inherit; width:100%; }
+  .btn-danger { background:var(--danger-dim); border:1px solid rgba(239,68,68,0.2); color:var(--danger); border-radius:14px; padding:12px 24px; font-size:15px; font-weight:500; cursor:pointer; font-family:inherit; width:100%; }
+
+  /* Focus Gate card */
+  .gate-card { display:flex; align-items:center; gap:14px; }
+  .gate-info { flex:1; }
+  .gate-title { font-size:15px; font-weight:600; }
+  .gate-sub { font-size:12px; color:var(--text-secondary); margin-top:2px; }
+  .gate-config { font-size:12px; color:var(--accent-focus); cursor:pointer; margin-top:6px; }
+  .gate-config:hover { text-decoration:underline; }
+
+  /* Schedule */
+  .sched-actions { display:flex; gap:8px; margin-bottom:16px; }
+  .sched-btn { padding:7px 16px; border-radius:100px; font-size:12px; font-weight:600; cursor:pointer; border:none; font-family:inherit; }
+  .sched-btn.focus { background:var(--accent-focus-dim); color:var(--accent-focus); }
+  .sched-btn.free { background:rgba(255,255,255,0.06); color:var(--text-secondary); }
+  .sched-btn:hover { opacity:0.8; }
+
+  .time-slot { display:flex; gap:12px; min-height:48px; }
+  .time-label { width:48px; font-size:11px; color:var(--text-tertiary); padding-top:2px; text-align:right; flex-shrink:0; }
+  .time-track { flex:1; border-left:1px solid var(--border-subtle); padding-left:12px; min-height:48px; }
+  .time-block { padding:10px 14px; border-radius:var(--radius-sm); margin-bottom:4px; font-size:13px; font-weight:500; }
+  .time-block.focus { background:var(--accent-focus-dim); border-left:3px solid var(--accent-focus); color:var(--accent-focus); }
+  .time-block.free { background:rgba(255,255,255,0.03); border-left:3px solid var(--text-tertiary); color:var(--text-secondary); }
+  .time-block.bedtime { background:var(--accent-evening-dim); border-left:3px solid var(--accent-evening); color:var(--accent-evening); }
+  .time-block-meta { font-size:11px; opacity:0.7; font-weight:400; margin-top:2px; }
+
+  /* Earned browse */
+  .earned-bar { height:6px; border-radius:3px; background:rgba(255,255,255,0.06); overflow:hidden; margin:8px 0; }
+  .earned-fill { height:100%; border-radius:3px; background:linear-gradient(90deg, #34d399, #818cf8); }
+  .earned-stats { display:flex; justify-content:space-between; font-size:12px; }
+
+  /* Accountability */
+  .lock-row { display:flex; align-items:center; padding:10px 0; gap:12px; border-bottom:1px solid var(--border-subtle); }
+  .lock-row:last-child { border-bottom:none; }
+  .lock-label { font-size:12px; color:var(--text-tertiary); width:70px; flex-shrink:0; }
+  .lock-value { font-size:13px; flex:1; }
+
+  /* Theme grid */
+  .theme-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  .theme-opt { padding:10px; border-radius:var(--radius-sm); border:2px solid var(--border-subtle); cursor:pointer; text-align:center; font-size:11px; color:var(--text-secondary); transition:border-color 0.1s; }
+  .theme-opt:hover { border-color:var(--border-strong); }
+  .theme-opt.active { border-color:var(--accent-focus); color:var(--accent-focus); }
+  .theme-swatch { width:100%; height:28px; border-radius:4px; margin-bottom:6px; }
+
+  .hint { font-size:11px; color:var(--text-tertiary); margin-bottom:10px; line-height:1.5; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="titlebar">
+    <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+    <span class="titlebar-c">Intentional</span>
+    <span class="titlebar-r"><span class="status-dot"></span> Arc connected</span>
+  </div>
+  <div class="app-body">
+    <div class="sidebar">
+      <div class="sidebar-brand">Intentional</div>
+      <div class="nav-item active" onclick="nav('today')"><span class="nav-icon">◉</span> Today</div>
+      <div class="nav-item" onclick="nav('distractions')"><span class="nav-icon">⊘</span> Distractions</div>
+      <div class="nav-item" onclick="nav('accountability')"><span class="nav-icon">◎</span> Accountability</div>
+      <div class="nav-item" onclick="nav('settings')"><span class="nav-icon">⚙</span> Settings</div>
+    </div>
+    <div class="content">
+
+      <!-- ═══ TODAY ═══ -->
+      <div class="page active" id="p-today">
+        <div class="page-title">Schedule</div>
+        <div class="page-sub">Tuesday, April 15</div>
+
+        <!-- Schedule actions + Focus Gate inline -->
+
+        <div class="sched-actions">
+          <button class="sched-btn focus">+ Focus</button>
+          <button class="sched-btn free">+ Free Time</button>
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <div class="time-slot"><div class="time-label">8 AM</div><div class="time-track">
+            <div class="time-block focus">Focus<div class="time-block-meta">8:00 – 10:00 AM · Distracting Apps & Sites</div></div>
+          </div></div>
+          <div class="time-slot"><div class="time-label">10 AM</div><div class="time-track">
+            <div class="time-block free">Free Time<div class="time-block-meta">10:00 – 10:30 AM</div></div>
+          </div></div>
+          <div class="time-slot"><div class="time-label">11 AM</div><div class="time-track">
+            <div class="time-block focus">Focus<div class="time-block-meta">10:30 AM – 12:00 PM · Deep Work + Distracting Apps</div></div>
+          </div></div>
+          <div class="time-slot"><div class="time-label">12 PM</div><div class="time-track"></div></div>
+          <div class="time-slot"><div class="time-label">11 PM</div><div class="time-track">
+            <div class="time-block bedtime">🌙 Bedtime<div class="time-block-meta">11:00 PM – 7:00 AM</div></div>
+          </div></div>
+        </div>
+
+        <!-- Focus Gate — compact row at bottom -->
+        <div class="glass" style="margin-top:8px;">
+          <div class="settings-row" style="cursor:default;">
+            <div class="sr-icon" style="background:var(--accent-focus-dim); color:var(--accent-focus); width:28px; height:28px; font-size:13px;">⊞</div>
+            <div class="sr-info">
+              <div class="sr-title" style="font-size:13px;">Focus Gate</div>
+            </div>
+            <div class="toggle on" onclick="this.classList.toggle('on')" style="width:40px; height:22px; border-radius:11px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ DISTRACTIONS ═══ -->
+      <div class="page" id="p-distractions">
+        <div class="page-title">Distractions</div>
+        <div class="page-sub">Manage what gets blocked during focus sessions</div>
+        <div class="sec-label">Blocking Profiles</div>
+
+        <div class="glass">
+          <div class="settings-row">
+            <div class="sr-icon" style="background:var(--accent-focus-dim); color:var(--accent-focus);">●</div>
+            <div class="sr-info">
+              <div class="sr-title">Distracting Apps & Sites <span class="pill pill-focus" style="font-size:9px; padding:2px 6px;">DEFAULT</span></div>
+              <div class="sr-sub">10 sites · 4 apps · 3 always relevant</div>
+            </div>
+            <span class="sr-chevron">›</span>
+          </div>
+          <div class="settings-row">
+            <div class="sr-icon" style="background:var(--bg-input); color:var(--text-tertiary);">●</div>
+            <div class="sr-info">
+              <div class="sr-title">Deep Work</div>
+              <div class="sr-sub">3 sites · 2 apps</div>
+            </div>
+            <span class="sr-chevron">›</span>
+          </div>
+        </div>
+
+        <button class="btn-secondary" style="padding:11px; font-size:13px; border-style:dashed;">+ Create New Profile</button>
+      </div>
+
+      <!-- ═══ ACCOUNTABILITY ═══ -->
+      <div class="page" id="p-accountability">
+        <div class="page-title">Accountability</div>
+        <div class="page-sub">Partner-based settings protection</div>
+
+        <div class="glass glass-pad">
+          <div class="lock-row">
+            <span class="lock-label">Status</span>
+            <span class="lock-value"><span class="pill pill-danger">Locked</span></span>
+          </div>
+          <div class="lock-row">
+            <span class="lock-label">Mode</span>
+            <span class="lock-value">Partner Lock</span>
+          </div>
+          <div class="lock-row">
+            <span class="lock-label">Partner</span>
+            <span class="lock-value">Sarah · sarah@example.com</span>
+          </div>
+          <div style="padding-top:12px;">
+            <div class="hint">Blocking profiles, enforcement, content safety, and app persistence are protected.</div>
+            <button class="btn-primary">Request Unlock Code</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SETTINGS ═══ -->
+      <div class="page" id="p-settings" style="position:relative; padding:0; min-height:100%;">
+
+        <!-- Settings list view -->
+        <div id="settings-list" style="padding:24px 28px; transition:opacity 0.2s ease;">
+          <div class="page-title">Settings</div>
+          <div class="page-sub">Configure Intentional</div>
+
+          <div class="glass">
+            <div class="settings-row" onclick="showSetting('account')">
+              <div class="sr-icon" style="background:rgba(52,211,153,0.1); color:var(--accent-focus);">⊕</div>
+              <div class="sr-info">
+                <div class="sr-title">Account</div>
+                <div class="sr-sub">arayan@gmail.com</div>
+              </div>
+              <span class="sr-chevron">›</span>
+            </div>
+            <div class="settings-row" onclick="showSetting('theme')">
+              <div class="sr-icon" style="background:var(--accent-evening-dim); color:var(--accent-evening);">◐</div>
+              <div class="sr-info">
+                <div class="sr-title">Theme</div>
+                <div class="sr-sub">Iridescent</div>
+              </div>
+              <span class="sr-chevron">›</span>
+            </div>
+            <div class="settings-row" onclick="showSetting('ai')">
+              <div class="sr-icon" style="background:rgba(251,191,36,0.1); color:var(--accent-warn);">◈</div>
+              <div class="sr-info">
+                <div class="sr-title">AI Scoring</div>
+                <div class="sr-sub">Qwen3 4B (on-device)</div>
+              </div>
+              <span class="sr-chevron">›</span>
+            </div>
+            <div class="settings-row" onclick="showSetting('enforcement')">
+              <div class="sr-icon" style="background:var(--accent-focus-dim); color:var(--accent-focus);">◉</div>
+              <div class="sr-info">
+                <div class="sr-title">Enforcement</div>
+                <div class="sr-sub">Nudges, red shift, overlays</div>
+              </div>
+              <span class="sr-chevron">›</span>
+            </div>
+            <div class="settings-row" onclick="showSetting('safety')">
+              <div class="sr-icon" style="background:var(--danger-dim); color:var(--danger);">◆</div>
+              <div class="sr-info">
+                <div class="sr-title">Content Safety</div>
+                <div class="sr-sub">Screen monitoring active</div>
+              </div>
+              <span class="sr-chevron">›</span>
+            </div>
+            <div class="settings-row" onclick="showSetting('bedtime')">
+              <div class="sr-icon" style="background:var(--accent-evening-dim); color:var(--accent-evening);">☽</div>
+              <div class="sr-info">
+                <div class="sr-title">Bedtime</div>
+                <div class="sr-sub">11:00 PM → 7:00 AM</div>
+              </div>
+              <span class="sr-chevron">›</span>
+            </div>
+            <div class="settings-row" onclick="showSetting('focus-gate')">
+              <div class="sr-icon" style="background:var(--accent-focus-dim); color:var(--accent-focus);">⊞</div>
+              <div class="sr-info">
+                <div class="sr-title">Focus Gate</div>
+                <div class="sr-sub">On · 3 min grace period</div>
+              </div>
+              <span class="sr-chevron">›</span>
+            </div>
+            <div class="settings-row" onclick="showSetting('reset')">
+              <div class="sr-icon" style="background:var(--danger-dim); color:var(--danger);">⊗</div>
+              <div class="sr-info">
+                <div class="sr-title">Reset & Delete</div>
+              </div>
+              <span class="sr-chevron">›</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detail: Theme -->
+        <div class="view out-right" id="setting-theme" style="padding:24px 28px;">
+          <button class="detail-back" onclick="hideSetting()">‹ Settings</button>
+          <div class="page-title">Theme</div>
+          <div class="page-sub">Choose the look and feel of your dashboard</div>
+          <div class="theme-grid">
+            <div class="theme-opt active"><div class="theme-swatch" style="background:linear-gradient(135deg,#1a1025,#0e0e12,#15102a);"></div>Iridescent</div>
+            <div class="theme-opt"><div class="theme-swatch" style="background:#1a1a2e;"></div>Classic</div>
+            <div class="theme-opt"><div class="theme-swatch" style="background:linear-gradient(135deg,#0a1a12,#0e1510);"></div>Emerald</div>
+            <div class="theme-opt"><div class="theme-swatch" style="background:linear-gradient(135deg,#1a1510,#12100e);"></div>Warm</div>
+          </div>
+        </div>
+
+        <!-- Detail: AI Scoring -->
+        <div class="view out-right" id="setting-ai" style="padding:24px 28px;">
+          <button class="detail-back" onclick="hideSetting()">‹ Settings</button>
+          <div class="page-title">AI Scoring</div>
+          <div class="page-sub">AI scores whether what you're looking at is relevant to your task</div>
+          <div class="glass glass-pad">
+            <div class="toggle-row">
+              <div><div class="tr-label">Enable AI Scoring</div><div class="tr-desc">Experimental — scores relevance of websites and apps</div></div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="toggle-row">
+              <div><div class="tr-label">AI Model</div></div>
+              <select style="background:var(--bg-input); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:6px 10px; color:var(--text-primary); font-size:12px; font-family:inherit;">
+                <option>Qwen3 4B (on-device)</option>
+                <option>Apple 3B</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detail: Enforcement -->
+        <div class="view out-right" id="setting-enforcement" style="padding:24px 28px;">
+          <button class="detail-back" onclick="hideSetting()">‹ Settings</button>
+          <div class="page-title">Enforcement</div>
+          <div class="page-sub">What happens when you're off-task during focus</div>
+          <div class="glass glass-pad">
+            <div class="toggle-row"><div><div class="tr-label">Nudge notifications</div><div class="tr-desc">Gentle reminder to get back on track</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="toggle-row"><div><div class="tr-label">Screen red shift</div><div class="tr-desc">Warm color shift when distracted</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="toggle-row"><div><div class="tr-label">Auto-redirect</div><div class="tr-desc">Redirect to last relevant page</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="toggle-row"><div><div class="tr-label">Blocking overlay</div><div class="tr-desc">Full-screen overlay when heavily distracted</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="toggle-row"><div><div class="tr-label">Intervention exercises</div><div class="tr-desc">Cognitive task to break the distraction loop</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="toggle-row"><div><div class="tr-label">Background audio detection</div><div class="tr-desc">Detect audio from distracting sites</div></div><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+          </div>
+        </div>
+
+        <!-- Detail: Content Safety -->
+        <div class="view out-right" id="setting-safety" style="padding:24px 28px;">
+          <button class="detail-back" onclick="hideSetting()">‹ Settings</button>
+          <div class="page-title">Content Safety</div>
+          <div class="page-sub">On-device screen monitoring for explicit content</div>
+          <div class="glass glass-pad">
+            <div class="toggle-row">
+              <div><div class="tr-label">Screen Monitoring</div><div class="tr-desc">Scans your screen every 2 seconds. Your partner is notified of detections.</div></div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+          </div>
+          <div class="glass glass-pad" style="margin-top:12px;">
+            <div class="hint">Screen Recording permission is required for this feature.</div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+              <span class="pill pill-focus">Permission granted</span>
+            </div>
+            <button class="btn-secondary" style="padding:10px; font-size:13px; margin-bottom:8px;">Open System Settings</button>
+            <button class="btn-danger" style="padding:10px; font-size:13px;">Test Detection</button>
+          </div>
+        </div>
+
+        <!-- Detail: Bedtime -->
+        <div class="view out-right" id="setting-bedtime" style="padding:24px 28px;">
+          <button class="detail-back" onclick="hideSetting()">‹ Settings</button>
+          <div class="page-title">Bedtime</div>
+          <div class="page-sub">Wind-down and sleep enforcement</div>
+          <div class="glass glass-pad">
+            <div class="toggle-row">
+              <div><div class="tr-label">Bedtime Enforcer</div><div class="tr-desc">15-min wind-down, then lockout with 3-min auto-sleep</div></div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="toggle-row">
+              <div><div class="tr-label">Bedtime</div></div>
+              <span style="font-size:14px; color:var(--text-primary); font-weight:500;">11:00 PM</span>
+            </div>
+            <div class="toggle-row">
+              <div><div class="tr-label">Wake time</div></div>
+              <span style="font-size:14px; color:var(--text-primary); font-weight:500;">7:00 AM</span>
+            </div>
+            <div class="toggle-row" style="border-bottom:none;">
+              <div><div class="tr-label">Active days</div></div>
+              <span style="font-size:12px; color:var(--text-secondary);">Every day</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detail: Focus Gate -->
+        <div class="view out-right" id="setting-focus-gate" style="padding:24px 28px;">
+          <button class="detail-back" onclick="hideSetting()">‹ Settings</button>
+          <div class="page-title">Focus Gate</div>
+          <div class="page-sub">Ask what you're working on before you can use your Mac</div>
+          <div class="glass glass-pad">
+            <div class="toggle-row">
+              <div><div class="tr-label">Enable Focus Gate</div><div class="tr-desc">Locks screen each hour until you set an intention</div></div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="toggle-row" style="border-bottom:none;">
+              <div><div class="tr-label">Grace period</div></div>
+              <select style="background:var(--bg-input); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:6px 10px; color:var(--text-primary); font-size:12px; font-family:inherit;">
+                <option>1 min</option>
+                <option selected>3 min</option>
+                <option>5 min</option>
+              </select>
+            </div>
+          </div>
+          <div class="hint" style="margin-top:12px;">When Puck is tapped, Focus Gate is managed automatically.</div>
+        </div>
+
+        <!-- Detail: Account -->
+        <div class="view out-right" id="setting-account" style="padding:24px 28px;">
+          <button class="detail-back" onclick="hideSetting()">‹ Settings</button>
+          <div class="page-title">Account</div>
+          <div class="page-sub">Manage your Intentional account</div>
+          <div class="glass glass-pad">
+            <div class="lock-row"><span class="lock-label">Email</span><span class="lock-value">arayan@gmail.com</span></div>
+            <div class="lock-row"><span class="lock-label">Since</span><span class="lock-value">March 2026</span></div>
+            <div class="lock-row" style="border-bottom:none;"><span class="lock-label">Devices</span><span class="lock-value">1 Mac</span></div>
+          </div>
+          <button class="btn-secondary" style="margin-top:12px; padding:10px; font-size:13px;">Sign Out</button>
+        </div>
+
+        <!-- Detail: Reset -->
+        <div class="view out-right" id="setting-reset" style="padding:24px 28px;">
+          <button class="detail-back" onclick="hideSetting()">‹ Settings</button>
+          <div class="page-title">Reset & Delete</div>
+          <div class="page-sub">Careful — these actions can't be undone</div>
+          <div style="display:flex; flex-direction:column; gap:10px; margin-top:16px;">
+            <button class="btn-secondary" style="padding:12px; font-size:13px;">Reset All Settings</button>
+            <button class="btn-danger" style="padding:12px; font-size:13px;">Delete Account</button>
+            <button class="btn-danger" style="padding:12px; font-size:13px;">Uninstall Intentional</button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+function nav(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('p-' + page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  event.target.closest('.nav-item').classList.add('active');
+  // Reset settings drill-down when navigating away
+  if (page !== 'settings') hideSetting();
+}
+
+let currentSetting = null;
+function showSetting(id) {
+  document.getElementById('settings-list').style.display = 'none';
+  document.querySelectorAll('[id^="setting-"]').forEach(v => {
+    if (v.id !== 'setting-' + id) v.classList.add('out-right');
+  });
+  var detail = document.getElementById('setting-' + id);
+  detail.classList.remove('out-right');
+  detail.style.position = 'relative';
+  currentSetting = id;
+}
+function hideSetting() {
+  document.getElementById('settings-list').style.display = '';
+  if (currentSetting) {
+    var detail = document.getElementById('setting-' + currentSetting);
+    detail.classList.add('out-right');
+    detail.style.position = '';
+    currentSetting = null;
+  }
+}
+</script>
+
+</body>
+</html>

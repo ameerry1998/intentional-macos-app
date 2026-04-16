@@ -97,6 +97,7 @@ class BlockRitualController {
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         window.setFrame(screenFrame, display: true)
+        print("🚨 ACTIVATE: BlockRitualController.showRitual — makeKeyAndOrderFront")
         window.makeKeyAndOrderFront(nil)
         ritualWindow = window
 

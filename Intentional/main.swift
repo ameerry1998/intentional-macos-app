@@ -114,22 +114,35 @@ if !launchedViaExtension {
                     // Xcode debug launch: terminate the existing (watchdog-launched) process
                     // so the debugger can attach to this new instance instead.
                     appendLog("XCODE LAUNCH - Terminating existing PID \(existingPID) to allow debug session")
+
+                    // Write our lock file FIRST to prevent race with KeepAlive relaunch.
+                    // If launchd relaunches the PKG before we finish, it will see this lock
+                    // and exit immediately.
+                    try? "\(myPID)".write(toFile: lockFilePath, atomically: true, encoding: .utf8)
+
+                    // Disable the KeepAlive LaunchAgent so launchd stops relaunching the PKG.
+                    // This is a user-level agent so no sudo needed. Re-enabled on next PKG launch.
+                    let disableTask = Process()
+                    disableTask.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+                    disableTask.arguments = ["bootout", "gui/\(getuid())/com.intentional.agent"]
+                    disableTask.standardOutput = FileHandle.nullDevice
+                    disableTask.standardError = FileHandle.nullDevice
+                    try? disableTask.run()
+                    appendLog("XCODE LAUNCH - Disabled com.intentional.agent KeepAlive LaunchAgent")
+
                     kill(existingPID, SIGTERM)
-                    // Wait briefly for the old process to exit and release the lock
+                    // Wait briefly for the old process to exit
                     for _ in 0..<20 {
                         usleep(100_000) // 100ms
                         if kill(existingPID, 0) != 0 { break }
                     }
-                    try? fileManager.removeItem(atPath: lockFilePath)
-                    // Remove no-relaunch marker the old process may have written
+                    // Remove stale no-relaunch marker the old process may have written
                     try? fileManager.removeItem(atPath: noRelaunchMarkerPath)
                 } else {
-                    // Normal duplicate launch — activate existing window and exit
-                    appendLog("DUPLICATE DETECTED - Existing PID: \(existingPID) is alive, activating window")
-                    let runningApps = NSWorkspace.shared.runningApplications
-                    if let existing = runningApps.first(where: { $0.processIdentifier == existingPID }) {
-                        existing.activate(options: .activateIgnoringOtherApps)
-                    }
+                    // Normal duplicate launch — silently exit without stealing focus.
+                    // KeepAlive LaunchAgent respawns every ~10s, so calling activate()
+                    // here would pop the app to the front every 10 seconds.
+                    appendLog("DUPLICATE DETECTED - Existing PID: \(existingPID) is alive, exiting silently")
                     exit(0)
                 }
             } else {

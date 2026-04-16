@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Distractions Page Redesign</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --surface-base: #111111;
+    --surface-raised: #1c1c1e;
+    --surface-elevated: #2c2c2e;
+    --surface-hover: #3a3a3c;
+    --text-primary: #f2f2f7;
+    --text-secondary: #8e8e93;
+    --text-tertiary: #636366;
+    --accent: #8b5cf6;
+    --accent-dim: rgba(139,92,246,0.15);
+    --border-subtle: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.18);
+    --danger: #ef4444;
+    --success: #4ade80;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    background: #0a0a0a;
+    color: var(--text-primary);
+    padding: 32px;
+  }
+  h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+  .subtitle { color: var(--text-secondary); font-size: 14px; margin-bottom: 32px; }
+  .label { font-size: 11px; font-weight: 600; color: var(--text-tertiary); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 8px; }
+
+  /* === MOCKUP FRAME === */
+  .mockup-frame {
+    background: var(--surface-base);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    overflow: hidden;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .mockup-titlebar {
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot-red { background: #ff5f57; }
+  .dot-yellow { background: #ffbd2e; }
+  .dot-green { background: #28c840; }
+
+  /* === LAYOUT === */
+  .app-layout {
+    display: flex;
+    height: 560px;
+  }
+
+  /* Sidebar (existing app nav) */
+  .app-sidebar {
+    width: 180px;
+    background: rgba(255,255,255,0.02);
+    border-right: 1px solid var(--border-subtle);
+    padding: 16px 12px;
+    flex-shrink: 0;
+  }
+  .nav-item {
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .nav-item.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+  .nav-icon { font-size: 15px; width: 20px; text-align: center; }
+
+  /* === MASTER-DETAIL CONTENT === */
+  .content-area {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* Profile list (master) */
+  .profile-list {
+    width: 240px;
+    border-right: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .profile-list-header {
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .profile-list-header h2 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+  .profile-list-items {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+  .profile-item {
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .profile-item:hover {
+    background: var(--surface-hover);
+  }
+  .profile-item.selected {
+    background: var(--accent-dim);
+  }
+  .profile-item-left {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .profile-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+  .profile-item.selected .profile-name {
+    color: var(--accent);
+  }
+  .profile-count {
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+  .profile-toggle {
+    width: 36px;
+    height: 20px;
+    border-radius: 10px;
+    background: var(--surface-hover);
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .profile-toggle.on {
+    background: var(--accent);
+  }
+  .profile-toggle::after {
+    content: '';
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: white;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.15s;
+  }
+  .profile-toggle.on::after {
+    transform: translateX(16px);
+  }
+  .profile-list-toolbar {
+    border-top: 1px solid var(--border-subtle);
+    padding: 8px 12px;
+    display: flex;
+    gap: 4px;
+  }
+  .toolbar-btn {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .toolbar-btn:hover {
+    background: var(--surface-hover);
+    color: var(--text-primary);
+  }
+
+  /* Profile editor (detail) */
+  .profile-editor {
+    flex: 1;
+    padding: 20px 24px;
+    overflow-y: auto;
+  }
+  .editor-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .editor-subtitle {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    margin-bottom: 24px;
+  }
+  .editor-section {
+    margin-bottom: 24px;
+  }
+  .editor-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .editor-section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .add-btn {
+    font-size: 12px;
+    color: var(--accent);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .add-btn:hover { text-decoration: underline; }
+
+  /* Chip list */
+  .chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+  .chip-remove {
+    color: var(--text-tertiary);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+  }
+  .chip-remove:hover { color: var(--danger); }
+  .chip-app {
+    background: var(--surface-elevated);
+  }
+  .chip-icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    background: var(--surface-hover);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+  }
+
+  /* Empty state */
+  .empty-state {
+    padding: 16px;
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 13px;
+    border: 1px dashed var(--border-subtle);
+    border-radius: 8px;
+  }
+
+  /* Default badge */
+  .badge-default {
+    font-size: 10px;
+    color: var(--accent);
+    background: var(--accent-dim);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+
+  /* Separator */
+  .separator {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: 20px 0;
+  }
+
+  /* Always-relevant section */
+  .always-relevant {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-subtle);
+    background: rgba(255,255,255,0.01);
+  }
+
+  /* Delete profile */
+  .delete-profile-btn {
+    font-size: 12px;
+    color: var(--danger);
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0.7;
+  }
+  .delete-profile-btn:hover { opacity: 1; text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<h1>Proposed: Distractions Page Redesign</h1>
+<p class="subtitle">Master-detail layout with blocking profiles. Click around to feel the structure.</p>
+
+<div class="mockup-frame">
+  <div class="mockup-titlebar">
+    <div class="dot dot-red"></div>
+    <div class="dot dot-yellow"></div>
+    <div class="dot dot-green"></div>
+    <span style="flex:1; text-align:center; font-size:13px; color:var(--text-tertiary);">Intentional</span>
+  </div>
+
+  <div class="app-layout">
+    <!-- App sidebar -->
+    <div class="app-sidebar">
+      <div class="nav-item" style="margin-bottom:12px;">
+        <span style="font-size:16px; font-weight:700; color:var(--text-primary);">Intentional</span>
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">📅</span> Today
+      </div>
+      <div class="nav-item active">
+        <span class="nav-icon">🚫</span> Distractions
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">🤝</span> Accountability
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">⚙️</span> Settings
+      </div>
+    </div>
+
+    <!-- Content: Master-Detail -->
+    <div class="content-area">
+
+      <!-- Master: Profile List -->
+      <div class="profile-list">
+        <div class="profile-list-header">
+          <h2>Blocking Profiles</h2>
+        </div>
+
+        <div class="profile-list-items">
+          <!-- Default profile (selected) -->
+          <div class="profile-item selected">
+            <div class="profile-item-left">
+              <div class="profile-name">
+                Distracting Apps & Sites
+                <span class="badge-default">DEFAULT</span>
+              </div>
+              <div class="profile-count">10 sites · 4 apps</div>
+            </div>
+          </div>
+
+          <!-- Custom profile -->
+          <div class="profile-item">
+            <div class="profile-item-left">
+              <div class="profile-name">Deep Work</div>
+              <div class="profile-count">3 sites · 2 apps</div>
+            </div>
+          </div>
+
+          <!-- Custom profile -->
+          <div class="profile-item">
+            <div class="profile-item-left">
+              <div class="profile-name">News Block</div>
+              <div class="profile-count">5 sites · 0 apps</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom toolbar -->
+        <div class="profile-list-toolbar">
+          <button class="toolbar-btn" title="Add profile">+</button>
+          <button class="toolbar-btn" title="Delete profile">−</button>
+        </div>
+      </div>
+
+      <!-- Detail: Profile Editor -->
+      <div class="profile-editor">
+        <div class="editor-title">Distracting Apps & Sites</div>
+        <div class="editor-subtitle">Default profile — blocked during all focus sessions</div>
+
+        <!-- Websites section -->
+        <div class="editor-section">
+          <div class="editor-section-header">
+            <span class="editor-section-title">Blocked Websites (10)</span>
+            <button class="add-btn">+ Add Site</button>
+          </div>
+          <div class="chip-list">
+            <div class="chip">reddit.com <span class="chip-remove">×</span></div>
+            <div class="chip">twitter.com <span class="chip-remove">×</span></div>
+            <div class="chip">x.com <span class="chip-remove">×</span></div>
+            <div class="chip">youtube.com <span class="chip-remove">×</span></div>
+            <div class="chip">instagram.com <span class="chip-remove">×</span></div>
+            <div class="chip">facebook.com <span class="chip-remove">×</span></div>
+            <div class="chip">tiktok.com <span class="chip-remove">×</span></div>
+            <div class="chip">twitch.tv <span class="chip-remove">×</span></div>
+            <div class="chip">discord.com <span class="chip-remove">×</span></div>
+            <div class="chip">snapchat.com <span class="chip-remove">×</span></div>
+          </div>
+        </div>
+
+        <!-- Apps section -->
+        <div class="editor-section">
+          <div class="editor-section-header">
+            <span class="editor-section-title">Blocked Apps (4)</span>
+            <button class="add-btn">+ Add App</button>
+          </div>
+          <div class="chip-list">
+            <div class="chip chip-app">
+              <span class="chip-icon">🎵</span> Spotify <span class="chip-remove">×</span>
+            </div>
+            <div class="chip chip-app">
+              <span class="chip-icon">📺</span> Twitch <span class="chip-remove">×</span>
+            </div>
+            <div class="chip chip-app">
+              <span class="chip-icon">💬</span> Discord <span class="chip-remove">×</span>
+            </div>
+            <div class="chip chip-app">
+              <span class="chip-icon">🎮</span> Steam <span class="chip-remove">×</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="separator"></div>
+
+        <!-- Always-Relevant (global, not per-profile) -->
+        <div class="editor-section">
+          <div class="editor-section-header">
+            <span class="editor-section-title">Always-Relevant Sites (Global)</span>
+            <button class="add-btn">+ Add Site</button>
+          </div>
+          <div style="font-size: 12px; color: var(--text-tertiary); margin-bottom: 10px;">
+            These sites are always counted as productive, regardless of which profile is active. For tools like email or chat where the AI can't judge relevance.
+          </div>
+          <div class="chip-list">
+            <div class="chip" style="border-color: rgba(74,222,128,0.2);">
+              <span style="color: var(--success);">✓</span> gmail.com <span class="chip-remove">×</span>
+            </div>
+            <div class="chip" style="border-color: rgba(74,222,128,0.2);">
+              <span style="color: var(--success);">✓</span> slack.com <span class="chip-remove">×</span>
+            </div>
+            <div class="chip" style="border-color: rgba(74,222,128,0.2);">
+              <span style="color: var(--success);">✓</span> notion.so <span class="chip-remove">×</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px; max-width: 900px; margin-left: auto; margin-right: auto;">
+  <h3 style="margin-bottom: 8px;">What's different:</h3>
+  <ul style="color: var(--text-secondary); line-height: 2; padding-left: 20px; font-size: 14px;">
+    <li><strong>Master-detail layout</strong> — profile list on left, editor on right. Raycast/Arc pattern.</li>
+    <li><strong>Tag chips</strong> — blocked items are dismissible chips, not a long list with rows.</li>
+    <li><strong>Default profile ships populated</strong> — 10 sites + 4 apps out of the box.</li>
+    <li><strong>Sites + apps grouped per profile</strong> — not separate cards.</li>
+    <li><strong>Always-Relevant is global</strong> — below the separator, clearly marked as not per-profile.</li>
+    <li><strong>Bottom toolbar</strong> — macOS convention for add/delete profiles.</li>
+    <li><strong>No emoji icons</strong> — clean, native-feeling.</li>
+  </ul>
+</div>
+
+</body>
+</html>

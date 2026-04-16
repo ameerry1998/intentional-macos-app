@@ -375,13 +375,16 @@ class NativeMessagingSetup {
                 return extensionId
             }
 
-            // Method 2: For unpacked extensions (location=4), read manifest from path
+            // Method 2: For unpacked extensions (location=4), match by path name.
+            // Do NOT read manifest.json from disk — if the extension lives in ~/Documents/
+            // (common for dev), FileManager access triggers a macOS TCC "Documents folder" prompt
+            // every 60 seconds from the auto-discovery timer.
             if location == 4, let extPath = path {
-                let manifestPath = extPath + "/manifest.json"
-                if isIntentionalExtension(manifestPath: manifestPath) {
+                let pathLower = extPath.lowercased()
+                if pathLower.contains("intentional") {
                     browserExtensionMap[browserName] = extensionId
                     browserExtensionEnabledMap[browserName] = isEnabled
-                    log("[NativeMessagingSetup]   ✅ Found Intentional (unpacked extension): \(extensionId)")
+                    log("[NativeMessagingSetup]   ✅ Found Intentional (unpacked, path match): \(extensionId)")
                     log("[NativeMessagingSetup]      Type: unpacked (dev mode)")
                     log("[NativeMessagingSetup]      State: \(stateDescription)")
                     log("[NativeMessagingSetup]      Path: \(extPath)")

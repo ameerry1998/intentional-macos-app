@@ -135,6 +135,7 @@ class NudgeWindowController {
             window?.allowKeyboardInput = true
         }
 
+        print("🚨 ACTIVATE: NudgeWindowController.showNudge — orderFrontRegardless")
         window.orderFrontRegardless()
         nudgeWindow = window
 

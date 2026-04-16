@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Always Relevant — Integrated Comparison</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --surface-base: #0e0e12;
+    --surface-raised: #1c1c1e;
+    --surface-elevated: #2c2c2e;
+    --surface-hover: rgba(255,255,255,0.04);
+    --text-primary: #f2f2f7;
+    --text-secondary: #8e8e93;
+    --text-tertiary: #636366;
+    --accent: #8b5cf6;
+    --accent-dim: rgba(139,92,246,0.12);
+    --border-subtle: rgba(255,255,255,0.06);
+    --border-strong: rgba(255,255,255,0.14);
+    --success: #4ade80;
+    --success-dim: rgba(74,222,128,0.08);
+    --success-border: rgba(74,222,128,0.15);
+    --danger: #ef4444;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    background: #080810;
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px;
+    min-height: 100vh;
+  }
+
+  /* Switcher */
+  .switcher {
+    display: flex;
+    gap: 0;
+    background: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 3px;
+    margin-bottom: 20px;
+    position: sticky;
+    top: 12px;
+    z-index: 100;
+  }
+  .switcher-btn {
+    padding: 8px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .switcher-btn.active {
+    background: var(--accent);
+    color: white;
+  }
+  .switcher-label {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-bottom: 16px;
+  }
+
+  /* App chrome */
+  .app-window {
+    width: 880px;
+    height: 620px;
+    background: var(--surface-base);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+  }
+  .titlebar {
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #ffbd2e; }
+  .dot-g { background: #28c840; }
+  .titlebar-text { flex:1; text-align:center; font-size:13px; color:var(--text-tertiary); }
+  .titlebar-badge { font-size:11px; color:var(--success); display:flex; align-items:center; gap:4px; }
+  .app-body { display: flex; flex: 1; overflow: hidden; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 190px; background: rgba(255,255,255,0.015);
+    border-right: 1px solid var(--border-subtle); padding: 16px 10px; flex-shrink: 0;
+  }
+  .sidebar-brand { font-size: 15px; font-weight: 700; padding: 4px 12px 16px; }
+  .nav-item {
+    padding: 9px 12px; border-radius: 8px; font-size: 13px; color: var(--text-secondary);
+    cursor: pointer; margin-bottom: 1px; display: flex; align-items: center; gap: 9px;
+  }
+  .nav-item.active { background: var(--accent-dim); color: #c4b5fd; }
+  .nav-icon { font-size: 14px; width: 18px; text-align: center; opacity: 0.7; }
+
+  /* Content */
+  .content { flex: 1; overflow-y: auto; }
+  .list-header { padding: 24px 28px 4px; }
+  .list-title { font-size: 22px; font-weight: 700; }
+  .list-subtitle { font-size: 13px; color: var(--text-tertiary); margin-top: 4px; }
+  .section-label {
+    font-size: 11px; font-weight: 600; color: var(--text-tertiary);
+    letter-spacing: 0.5px; text-transform: uppercase; padding: 20px 28px 8px;
+  }
+  .profile-row {
+    display: flex; align-items: center; padding: 14px 28px; gap: 14px;
+    cursor: pointer; border-bottom: 1px solid var(--border-subtle);
+  }
+  .profile-row:hover { background: var(--surface-hover); }
+  .profile-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .profile-dot.off { background: var(--text-tertiary); opacity: 0.4; }
+  .profile-info { flex: 1; }
+  .profile-name { font-size: 15px; font-weight: 500; }
+  .profile-meta { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+  .profile-badge {
+    font-size: 10px; color: var(--accent); background: var(--accent-dim);
+    padding: 2px 7px; border-radius: 4px; font-weight: 600; margin-left: 6px;
+  }
+  .profile-arrow { color: var(--text-tertiary); font-size: 16px; }
+  .create-btn-row { padding: 16px 28px; }
+  .create-btn {
+    width: 100%; padding: 11px; background: transparent;
+    border: 1px dashed var(--border-strong); border-radius: 10px;
+    color: var(--text-secondary); font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  .create-btn:hover { background: var(--surface-raised); color: var(--text-primary); }
+
+  /* Always relevant shared */
+  .always-section { border-top: 1px solid var(--border-subtle); margin-top: 8px; }
+  .always-desc { font-size: 11px; color: var(--text-tertiary); padding: 0 28px 10px; line-height: 1.5; }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 28px 6px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 10px; background: var(--surface-raised);
+    border: 1px solid var(--border-subtle); border-radius: 6px; font-size: 12px;
+  }
+  .chip-green { border-color: var(--success-border); background: var(--success-dim); }
+  .chip .x { color: var(--text-tertiary); cursor: pointer; font-size: 13px; }
+  .chip-icon { font-size: 13px; width: 16px; text-align: center; }
+  .chip-label { font-size: 9px; color: var(--text-tertiary); background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .add-row { display: flex; gap: 8px; padding: 4px 28px 16px; }
+  .add-input {
+    flex: 1; background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle);
+    border-radius: 7px; padding: 7px 12px; color: var(--text-primary); font-size: 12px;
+    font-family: inherit; outline: none;
+  }
+  .add-input::placeholder { color: var(--text-tertiary); }
+  .add-btn-green {
+    background: var(--success); color: #111; border: none; border-radius: 7px;
+    padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+
+  /* Concept A: Tabbed */
+  .mini-tabs { display: flex; gap: 0; margin: 0 28px 12px; border-bottom: 1px solid var(--border-subtle); }
+  .mini-tab {
+    padding: 7px 14px; font-size: 12px; color: var(--text-tertiary); cursor: pointer;
+    border-bottom: 2px solid transparent; font-weight: 500;
+  }
+  .mini-tab.active { color: var(--success); border-bottom-color: var(--success); }
+
+  /* Concept B: Two col */
+  .two-col { display: flex; gap: 20px; padding: 0 28px 8px; }
+  .two-col > div { flex: 1; }
+  .col-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .col-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.3px; }
+  .col-add { font-size: 11px; color: var(--success); cursor: pointer; background: none; border: none; font-weight: 500; font-family: inherit; }
+
+  /* Concept C: Toggle */
+  .add-toggle {
+    display: flex; border: 1px solid var(--border-subtle); border-radius: 7px; overflow: hidden; flex-shrink: 0;
+  }
+  .add-toggle-btn {
+    padding: 6px 11px; font-size: 11px; color: var(--text-tertiary); cursor: pointer;
+    background: transparent; border: none; font-family: inherit; font-weight: 500;
+    transition: all 0.1s;
+  }
+  .add-toggle-btn.active { background: var(--success-dim); color: var(--success); }
+
+  /* Variant visibility */
+  .variant { display: none; }
+  .variant.active { display: block; }
+</style>
+</head>
+<body>
+
+<div class="switcher-label">Switch between Always Relevant designs ↓</div>
+<div class="switcher">
+  <button class="switcher-btn active" onclick="showVariant('a')">A · Tabbed</button>
+  <button class="switcher-btn" onclick="showVariant('b')">B · Two Columns</button>
+  <button class="switcher-btn" onclick="showVariant('c')">C · Mixed Chips</button>
+</div>
+
+<div class="app-window">
+  <div class="titlebar">
+    <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+    <span class="titlebar-text">Intentional</span>
+    <span class="titlebar-badge">● Arc connected</span>
+  </div>
+  <div class="app-body">
+    <div class="sidebar">
+      <div class="sidebar-brand">Intentional</div>
+      <div class="nav-item"><span class="nav-icon">◉</span> Today</div>
+      <div class="nav-item active"><span class="nav-icon">⊘</span> Distractions</div>
+      <div class="nav-item"><span class="nav-icon">◎</span> Accountability</div>
+      <div class="nav-item"><span class="nav-icon">⚙</span> Settings</div>
+    </div>
+    <div class="content">
+      <!-- Shared top: profiles list (identical across all 3) -->
+      <div class="list-header">
+        <div class="list-title">Distractions</div>
+        <div class="list-subtitle">Manage what gets blocked during focus sessions</div>
+      </div>
+      <div class="section-label">Blocking Profiles</div>
+      <div class="profile-row">
+        <div class="profile-dot"></div>
+        <div class="profile-info">
+          <div class="profile-name">Distracting Apps & Sites<span class="profile-badge">DEFAULT</span></div>
+          <div class="profile-meta">10 sites · 4 apps</div>
+        </div>
+        <span class="profile-arrow">›</span>
+      </div>
+      <div class="profile-row">
+        <div class="profile-dot off"></div>
+        <div class="profile-info">
+          <div class="profile-name">Deep Work</div>
+          <div class="profile-meta">3 sites · 2 apps</div>
+        </div>
+        <span class="profile-arrow">›</span>
+      </div>
+      <div class="profile-row">
+        <div class="profile-dot off"></div>
+        <div class="profile-info">
+          <div class="profile-name">News Block</div>
+          <div class="profile-meta">5 sites · 0 apps</div>
+        </div>
+        <span class="profile-arrow">›</span>
+      </div>
+      <div class="create-btn-row"><button class="create-btn">+ Create New Profile</button></div>
+
+      <!-- ====== VARIANT A: Tabbed ====== -->
+      <div class="variant active" id="variant-a">
+        <div class="always-section">
+          <div class="section-label" style="color: var(--success);">Always Relevant</div>
+          <div class="always-desc">Always counted as productive — the AI won't flag these as distractions.</div>
+
+          <div class="mini-tabs">
+            <div class="mini-tab active" onclick="switchTab(this, 'a-sites', 'a-apps')">Sites (3)</div>
+            <div class="mini-tab" onclick="switchTab(this, 'a-apps', 'a-sites')">Apps (2)</div>
+          </div>
+
+          <div id="a-sites">
+            <div class="chip-row">
+              <div class="chip chip-green"><span style="color:var(--success);font-size:11px;">✓</span> gmail.com <span class="x">×</span></div>
+              <div class="chip chip-green"><span style="color:var(--success);font-size:11px;">✓</span> slack.com <span class="x">×</span></div>
+              <div class="chip chip-green"><span style="color:var(--success);font-size:11px;">✓</span> notion.so <span class="x">×</span></div>
+            </div>
+            <div class="add-row">
+              <input class="add-input" placeholder="Add site, e.g. linear.app">
+              <button class="add-btn-green">Add</button>
+            </div>
+          </div>
+          <div id="a-apps" style="display:none;">
+            <div class="chip-row">
+              <div class="chip chip-green"><span class="chip-icon">💬</span> Slack <span class="x">×</span></div>
+              <div class="chip chip-green"><span class="chip-icon">📧</span> Mail <span class="x">×</span></div>
+            </div>
+            <div class="add-row">
+              <button class="create-btn" style="width:100%;">+ Add App</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== VARIANT B: Two Columns ====== -->
+      <div class="variant" id="variant-b">
+        <div class="always-section">
+          <div class="section-label" style="color: var(--success);">Always Relevant</div>
+          <div class="always-desc">Always counted as productive — the AI won't flag these as distractions.</div>
+          <div class="two-col">
+            <div>
+              <div class="col-header">
+                <span class="col-label">Sites</span>
+                <button class="col-add">+ Add</button>
+              </div>
+              <div class="chip-row" style="padding:0 0 8px;">
+                <div class="chip chip-green"><span style="color:var(--success);font-size:11px;">✓</span> gmail.com <span class="x">×</span></div>
+                <div class="chip chip-green"><span style="color:var(--success);font-size:11px;">✓</span> slack.com <span class="x">×</span></div>
+                <div class="chip chip-green"><span style="color:var(--success);font-size:11px;">✓</span> notion.so <span class="x">×</span></div>
+              </div>
+            </div>
+            <div>
+              <div class="col-header">
+                <span class="col-label">Apps</span>
+                <button class="col-add">+ Add</button>
+              </div>
+              <div class="chip-row" style="padding:0 0 8px;">
+                <div class="chip chip-green"><span class="chip-icon">💬</span> Slack <span class="x">×</span></div>
+                <div class="chip chip-green"><span class="chip-icon">📧</span> Mail <span class="x">×</span></div>
+              </div>
+            </div>
+          </div>
+          <div style="height:16px;"></div>
+        </div>
+      </div>
+
+      <!-- ====== VARIANT C: Mixed Chips ====== -->
+      <div class="variant" id="variant-c">
+        <div class="always-section">
+          <div class="section-label" style="color: var(--success);">Always Relevant</div>
+          <div class="always-desc">Always counted as productive — the AI won't flag these as distractions.</div>
+          <div class="chip-row">
+            <div class="chip chip-green"><span style="color:var(--success);font-size:11px;">✓</span> gmail.com <span class="x">×</span></div>
+            <div class="chip chip-green"><span style="color:var(--success);font-size:11px;">✓</span> slack.com <span class="x">×</span></div>
+            <div class="chip chip-green"><span style="color:var(--success);font-size:11px;">✓</span> notion.so <span class="x">×</span></div>
+            <div class="chip chip-green"><span class="chip-icon">💬</span> Slack <span class="chip-label">APP</span> <span class="x">×</span></div>
+            <div class="chip chip-green"><span class="chip-icon">📧</span> Mail <span class="chip-label">APP</span> <span class="x">×</span></div>
+            <div class="chip chip-green"><span class="chip-icon">📝</span> Notes <span class="chip-label">APP</span> <span class="x">×</span></div>
+          </div>
+          <div class="add-row">
+            <div class="add-toggle">
+              <button class="add-toggle-btn active" onclick="toggleAddType(this)">Site</button>
+              <button class="add-toggle-btn" onclick="toggleAddType(this)">App</button>
+            </div>
+            <input class="add-input" placeholder="Add site, e.g. linear.app" id="mixed-input">
+            <button class="add-btn-green">Add</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+function showVariant(id) {
+  document.querySelectorAll('.variant').forEach(v => v.classList.remove('active'));
+  document.getElementById('variant-' + id).classList.add('active');
+  document.querySelectorAll('.switcher-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+function switchTab(el, showId, hideId) {
+  document.getElementById(showId).style.display = '';
+  document.getElementById(hideId).style.display = 'none';
+  el.parentElement.querySelectorAll('.mini-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function toggleAddType(el) {
+  el.parentElement.querySelectorAll('.add-toggle-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const input = document.getElementById('mixed-input');
+  if (el.textContent === 'App') {
+    input.placeholder = 'Search apps...';
+  } else {
+    input.placeholder = 'Add site, e.g. linear.app';
+  }
+}
+</script>
+
+</body>
+</html>

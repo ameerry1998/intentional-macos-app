@@ -101,6 +101,7 @@ class FocusOverlayWindowController {
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         window.setFrame(screenFrame, display: true)
+        appDelegate?.postLog("🚨 ACTIVATE: FocusOverlayWindow.showOverlay — makeKeyAndOrderFront")
         window.makeKeyAndOrderFront(nil)
         overlayWindow = window
 

@@ -1040,6 +1040,7 @@ class FocusMonitor {
     @objc private func handlePillEnterEdit() {
         guard let window = deepWorkTimerController?.timerWindow else { return }
         window.allowKeyboardInput = true
+        appDelegate?.postLog("🚨 ACTIVATE: FocusMonitor.handlePillEnterEdit — makeKeyAndOrderFront (panel)")
         window.makeKeyAndOrderFront(nil)
         deepWorkTimerController?.animateWindowResize(to: NSSize(width: 460, height: 340))
     }
