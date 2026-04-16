@@ -278,7 +278,9 @@ class ContentSafetyMonitor {
             } else {
                 wasScreenRecordingGranted = false
                 hasScreenRecordingPermission = false
-                appDelegate?.postLog("🛡️ Content Safety: capture failed — permission truly revoked")
+                appDelegate?.postLog("🛡️ Content Safety: capture failed — permission truly revoked — BLOCKING SCREEN")
+                showPermissionRequiredOverlay()
+                startPermissionRecheckTimer()
                 Task {
                     await appDelegate?.backendClient?.reportContentSafetyTamper(
                         eventType: "permission_revoked_on_start", detail: "screen_recording"
@@ -286,17 +288,12 @@ class ContentSafetyMonitor {
                 }
             }
         } else {
-            // Never had permission confirmed. Request it ONCE by calling
-            // CGRequestScreenCaptureAccess() which shows the system dialog.
-            // Only do this once per install — track with UserDefaults.
-            let hasAskedBefore = UserDefaults.standard.bool(forKey: "contentSafety_hasRequestedScreenRecording")
-            if !hasAskedBefore {
-                appDelegate?.postLog("🛡️ Content Safety: requesting Screen Recording permission (first time)")
-                UserDefaults.standard.set(true, forKey: "contentSafety_hasRequestedScreenRecording")
-                CGRequestScreenCaptureAccess()
-            } else {
-                appDelegate?.postLog("🛡️ Content Safety: no permission, already asked once — user must grant in System Settings")
-            }
+            // No permission and never confirmed before.
+            // BLOCK the screen and ask user to grant permission.
+            appDelegate?.postLog("🛡️ Content Safety: no Screen Recording permission — BLOCKING SCREEN until granted")
+            hasScreenRecordingPermission = false
+            showPermissionRequiredOverlay()
+            startPermissionRecheckTimer()
         }
 
         // Always push status so dashboard shows current state
