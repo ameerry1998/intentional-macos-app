@@ -1850,6 +1850,107 @@ body.theme-effects-warm::after {
   margin-bottom: 20px;
 }
 .focus-profile-inline .setting-desc { margin-bottom: 10px; }
+
+/* Coach context row (persistent profile + daily plan above calendar) */
+.coach-context-card {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+}
+.coach-context-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+  margin-bottom: 6px;
+}
+.coach-context-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  min-height: 22px;
+}
+.coach-context-row + .coach-context-row { border-top: 1px solid rgba(255, 255, 255, 0.04); margin-top: 2px; padding-top: 6px; }
+.coach-context-label {
+  flex-shrink: 0;
+  width: 64px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+}
+.coach-context-preview {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+.coach-context-preview.is-empty { color: rgba(255, 255, 255, 0.3); font-style: italic; }
+.coach-context-edit-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 5px;
+  transition: color 0.15s, background 0.15s;
+}
+.coach-context-edit-btn:hover { color: var(--accent-primary); background: rgba(var(--accent-primary-rgb), 0.08); }
+.coach-context-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 0;
+}
+.coach-context-editor textarea {
+  width: 100%;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+  min-height: 64px;
+}
+.coach-context-editor textarea:focus { border-color: var(--accent-primary); }
+.coach-context-editor-actions { display: flex; gap: 6px; }
+.coach-context-editor-actions .coach-ctx-save {
+  padding: 4px 12px;
+  font-size: 11px; font-weight: 600;
+  border: 1px solid rgba(var(--accent-primary-rgb), 0.3);
+  border-radius: 6px;
+  background: rgba(var(--accent-primary-rgb), 0.15);
+  color: #a5b4fc;
+  cursor: pointer;
+}
+.coach-context-editor-actions .coach-ctx-save:hover { background: rgba(var(--accent-primary-rgb), 0.25); }
+.coach-context-editor-actions .coach-ctx-cancel {
+  padding: 4px 12px;
+  font-size: 11px; font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+}
+.coach-context-editor-actions .coach-ctx-cancel:hover { background: rgba(255, 255, 255, 0.05); color: #fff; }
 .focus-save-bar {
   position: sticky;
   bottom: 0;
@@ -3915,6 +4016,13 @@ body.theme-effects-warm::after {
 
   <!-- Page: Usage -->
   <div class="page active" id="page-today">
+
+    <!-- Coach context: persistent profile + daily plan above calendar -->
+    <div id="coach-context-card" class="coach-context-card" style="display:none;">
+      <div class="coach-context-title">Coach context</div>
+      <div id="coach-context-row-profile" class="coach-context-row"></div>
+      <div id="coach-context-row-plan" class="coach-context-row"></div>
+    </div>
 
     <!-- A. Schedule -->
     <div class="focus-calendar-header">
@@ -7276,6 +7384,157 @@ function saveProfileInline() {
   sendMessage({ type: 'SET_PROFILE', profile: profileText });
   var el = document.getElementById('focus-profile-inline');
   if (el) el.style.display = 'none';
+  renderCoachContextRow();
+}
+
+// ===== Coach context row (persistent profile + dailyPlan above calendar) =====
+// Tracks which field (if any) is currently in edit mode so re-renders preserve it.
+var _coachCtxEditing = null; // null | 'profile' | 'plan'
+
+function _escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function _truncate(s, n) {
+  s = String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+  if (s.length <= n) return s;
+  return s.slice(0, n - 1).trimEnd() + '\u2026';
+}
+
+function renderCoachContextRow() {
+  var card = document.getElementById('coach-context-card');
+  if (!card) return;
+
+  // Visible when focus page is enabled AND profile is already set.
+  // Mirror of (!hasProfile onboarding card) gate at renderFocusPage().
+  var hasProfile = !!(focusState.profile && focusState.profile.trim().length > 0);
+  var show = !!focusState.enabled && hasProfile;
+  card.style.display = show ? '' : 'none';
+  if (!show) {
+    _coachCtxEditing = null;
+    return;
+  }
+
+  var profileText = (focusState.profile || '').trim();
+  var planText = (focusState.dailyPlan || '').trim();
+
+  var profileRow = document.getElementById('coach-context-row-profile');
+  var planRow = document.getElementById('coach-context-row-plan');
+
+  if (profileRow) {
+    if (_coachCtxEditing === 'profile') {
+      profileRow.innerHTML = _coachCtxEditorHTML('profile', 'About you', profileText,
+        'What coach should know about you, your role, and the work you do.');
+      _focusEditor('profile');
+    } else {
+      var preview = profileText ? _escapeHtml(_truncate(profileText, 110))
+        : '<span class="is-empty">No profile set \u2014 onboarding card below.</span>';
+      profileRow.innerHTML =
+        '<div class="coach-context-label">About you</div>' +
+        '<div class="coach-context-preview' + (profileText ? '' : ' is-empty') + '">' + preview + '</div>' +
+        '<button type="button" class="coach-context-edit-btn" onclick="editCoachField(\'profile\')">' +
+          (profileText ? 'Edit' : 'Set') +
+        '</button>';
+    }
+  }
+
+  if (planRow) {
+    if (_coachCtxEditing === 'plan') {
+      planRow.innerHTML = _coachCtxEditorHTML('plan', 'Today', planText,
+        "What you're focused on today \u2014 a sentence or two helps coach judge relevance.");
+      _focusEditor('plan');
+    } else {
+      var planPreview;
+      if (planText) {
+        planPreview = _escapeHtml(_truncate(planText, 110));
+      } else {
+        planPreview = '<span class="is-empty">No plan yet \u2014 <a href="#" onclick="event.preventDefault(); editCoachField(\'plan\');" style="color:var(--accent-primary);text-decoration:none;">add one</a></span>';
+      }
+      planRow.innerHTML =
+        '<div class="coach-context-label">Today</div>' +
+        '<div class="coach-context-preview' + (planText ? '' : ' is-empty') + '">' + planPreview + '</div>' +
+        '<button type="button" class="coach-context-edit-btn" onclick="editCoachField(\'plan\')">' +
+          (planText ? 'Edit' : 'Set') +
+        '</button>';
+    }
+  }
+}
+
+function _coachCtxEditorHTML(which, labelText, currentValue, placeholder) {
+  var taId = 'coach-ctx-input-' + which;
+  return (
+    '<div class="coach-context-editor">' +
+      '<div style="display:flex;align-items:center;gap:10px;">' +
+        '<div class="coach-context-label">' + _escapeHtml(labelText) + '</div>' +
+        '<div style="flex:1;font-size:11px;color:rgba(255,255,255,0.35);">' + _escapeHtml(placeholder) + '</div>' +
+      '</div>' +
+      '<textarea id="' + taId + '" rows="3" placeholder="' + _escapeHtml(placeholder) + '">' +
+        _escapeHtml(currentValue) +
+      '</textarea>' +
+      '<div class="coach-context-editor-actions">' +
+        '<button type="button" class="coach-ctx-save" onclick="saveCoachField(\'' + which + '\')">Save</button>' +
+        '<button type="button" class="coach-ctx-cancel" onclick="cancelCoachEdit(\'' + which + '\')">Cancel</button>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+function _focusEditor(which) {
+  // Defer focus until after innerHTML settles.
+  setTimeout(function() {
+    var ta = document.getElementById('coach-ctx-input-' + which);
+    if (ta) {
+      ta.focus();
+      // Place caret at end
+      var v = ta.value;
+      try { ta.setSelectionRange(v.length, v.length); } catch (e) {}
+    }
+  }, 0);
+}
+
+function editCoachField(which) {
+  if (which !== 'profile' && which !== 'plan') return;
+  _coachCtxEditing = which;
+  renderCoachContextRow();
+}
+
+function cancelCoachEdit(which) {
+  if (_coachCtxEditing !== which) return;
+  _coachCtxEditing = null;
+  renderCoachContextRow();
+}
+
+function saveCoachField(which) {
+  var ta = document.getElementById('coach-ctx-input-' + which);
+  if (!ta) return;
+  var val = (ta.value || '').trim();
+
+  if (which === 'profile') {
+    if (!val) {
+      showToast('Profile can\u2019t be empty', 'error');
+      return;
+    }
+    focusState.profile = val;
+    sendMessage({ type: 'SET_PROFILE', profile: val });
+    // Hide onboarding card if it was visible.
+    var pEl = document.getElementById('focus-profile-inline');
+    if (pEl) pEl.style.display = 'none';
+  } else if (which === 'plan') {
+    // Empty dailyPlan is allowed — clears the field.
+    focusState.dailyPlan = val;
+    // Reuse the same SET_SCHEDULE shape as autoSaveSchedule().
+    sendMessage({
+      type: 'SET_SCHEDULE',
+      blocks: focusState.blocks,
+      goals: (focusState.goals || []).filter(function(g) { return g; }),
+      dailyPlan: focusState.dailyPlan
+    });
+  }
+
+  _coachCtxEditing = null;
+  renderCoachContextRow();
 }
 
 function renderFocusPage() {
@@ -7307,6 +7566,9 @@ function renderFocusPage() {
   // Save button no longer needed (auto-save)
   var saveBtn = document.getElementById('focus-save-schedule-btn');
   if (saveBtn) saveBtn.style.display = 'none';
+
+  // Persistent coach context row above calendar (profile + dailyPlan).
+  renderCoachContextRow();
 }
 
 function onGoalBlur() {
