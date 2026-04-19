@@ -333,14 +333,16 @@ class FocusMonitor {
         let action: String       // "none", "nudge", "blocked"
         let neutral: Bool        // true for neutral apps (loginwindow, etc.)
         let isEvent: Bool        // true for enforcement events (nudge/block) — not time ticks
+        let userOverride: Bool   // true when the user corrected this assessment (e.g. "this was wrong")
     }
 
     private(set) var relevanceLog: [RelevanceEntry] = []
 
-    private func logAssessment(title: String, appName: String = "", hostname: String = "", intention: String, relevant: Bool, confidence: Int, reason: String, action: String, neutral: Bool = false, isEvent: Bool = false) {
+    private func logAssessment(title: String, appName: String = "", hostname: String = "", intention: String, relevant: Bool, confidence: Int, reason: String, action: String, neutral: Bool = false, isEvent: Bool = false, userOverride: Bool = false) {
         let entry = RelevanceEntry(
             timestamp: Date(), title: title, appName: appName.isEmpty ? title : appName, hostname: hostname, intention: intention,
-            relevant: relevant, confidence: confidence, reason: reason, action: action, neutral: neutral, isEvent: isEvent
+            relevant: relevant, confidence: confidence, reason: reason, action: action, neutral: neutral, isEvent: isEvent,
+            userOverride: userOverride
         )
         relevanceLog.append(entry)
         if relevanceLog.count > Self.maxLogEntries {
@@ -370,6 +372,7 @@ class FocusMonitor {
         ]
         if entry.neutral { dict["neutral"] = true }
         if entry.isEvent { dict["isEvent"] = true }
+        if entry.userOverride { dict["userOverride"] = true }
 
         if let data = try? JSONSerialization.data(withJSONObject: dict),
            var line = String(data: data, encoding: .utf8) {

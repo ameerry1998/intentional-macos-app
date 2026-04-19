@@ -2204,6 +2204,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 "action": entry.action
             ]
             if entry.isEvent { dict["isEvent"] = true }
+            if entry.userOverride { dict["userOverride"] = true }
             return dict
         }
 
@@ -2259,6 +2260,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                     }
                     if let isEvent = obj["isEvent"] as? Bool, isEvent {
                         entry["isEvent"] = true
+                    }
+                    if let userOverride = obj["userOverride"] as? Bool, userOverride {
+                        entry["userOverride"] = true
                     }
                     entries.append(entry)
                 }

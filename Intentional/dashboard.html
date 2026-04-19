@@ -2792,10 +2792,62 @@ body.theme-effects-warm::after {
 .relevance-dot.irrelevant { background: var(--color-error); }
 .relevance-time { font-size: 11px; color: rgba(255, 255, 255, 0.3); min-width: 55px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .relevance-title { color: rgba(255, 255, 255, 0.8); font-weight: 500; }
-.relevance-reason { color: rgba(255, 255, 255, 0.4); font-size: 12px; margin-top: 2px; }
+.relevance-title-row {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+}
+.relevance-confidence {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+.relevance-override-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: rgba(251, 146, 60, 0.95);
+  background: rgba(251, 146, 60, 0.12);
+  border: 1px solid rgba(251, 146, 60, 0.3);
+  border-radius: 4px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+.relevance-reason { color: rgba(255, 255, 255, 0.4); font-size: 12px; margin-top: 2px; font-style: italic; }
 .relevance-action { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 2px; }
 .relevance-action.nudged { color: var(--color-warning); }
 .relevance-action.blocked { color: var(--color-error); }
+.assessments-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+.assessments-card-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+[data-theme="light"] .relevance-confidence {
+  color: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] .relevance-override-badge {
+  color: rgba(194, 65, 12, 0.95);
+  background: rgba(251, 146, 60, 0.15);
+  border-color: rgba(251, 146, 60, 0.4);
+}
+[data-theme="light"] .assessments-card-title {
+  color: rgba(0, 0, 0, 0.8);
+}
+[data-theme="light"] .assessments-card-header {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
 .copy-assessments-btn {
   background: none; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;
   color: rgba(255,255,255,0.35); font-size: 11px; padding: 2px 8px; cursor: pointer;
@@ -4051,6 +4103,18 @@ body.theme-effects-warm::after {
       </div>
     </div>
 
+    <!-- AI Assessments (always visible; shows last 30 coach verdicts) -->
+    <div class="settings-card" id="ai-assessments-card" style="margin-top:12px; padding:0;">
+      <div class="assessments-card-header">
+        <span class="assessments-card-title">AI Assessments</span>
+        <button class="copy-assessments-btn" onclick="sendMessage({type:'EXPORT_RELEVANCE_LOG'});" title="Open persistent log file">Open Log File</button>
+        <button class="copy-assessments-btn" id="copyAssessmentsBtn" onclick="copyAssessments();">Copy</button>
+      </div>
+      <div id="relevance-log" style="max-height:300px;overflow-y:auto;">
+        <div class="setting-row"><div class="setting-desc">No assessments yet</div></div>
+      </div>
+    </div>
+
     <!-- B. Earned Browse (hidden — stripped for Puck model) -->
     <div class="earned-browse-widget" id="earned-browse-widget" style="margin-top: 16px; display:none;">
       <div class="focus-goals-title">Earned Browse</div>
@@ -4156,20 +4220,6 @@ body.theme-effects-warm::after {
         <div class="collapsible-body" id="body-sessions" style="display:none;">
           <div id="journal-entries">
             <div class="journal-empty">No sessions yet today</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="collapsible-section">
-        <div class="collapsible-header" onclick="toggleCollapsible('assessments')">
-          <span class="collapsible-arrow" id="arrow-assessments">▸</span>
-          <span>AI Assessments</span>
-          <button class="copy-assessments-btn" onclick="event.stopPropagation(); sendMessage({type:'EXPORT_RELEVANCE_LOG'});" title="Open persistent log file">Open Log File</button>
-          <button class="copy-assessments-btn" id="copyAssessmentsBtn" onclick="event.stopPropagation(); copyAssessments();">Copy</button>
-        </div>
-        <div class="collapsible-body" id="body-assessments" style="display:none;">
-          <div id="relevance-log" style="max-height:300px;overflow-y:auto;">
-            <div class="setting-row"><div class="setting-desc">No assessments yet</div></div>
           </div>
         </div>
       </div>
@@ -9466,12 +9516,24 @@ window._relevanceLogResult = function(entries) {
     else if (e.action === 'blocked') actionHtml = '<div class="relevance-action blocked">blocked</div>';
     else if (e.action === 'grayscale_on') actionHtml = '<div class="relevance-action blocked">grayscale on</div>';
     else if (e.action === 'grayscale_off') actionHtml = '<div class="relevance-action">grayscale off</div>';
+    var confidence = (typeof e.confidence === 'number') ? e.confidence : parseInt(e.confidence || 0, 10);
+    var confHtml = '<span class="relevance-confidence">' + confidence + '%</span>';
+    var overrideHtml = (e.userOverride === true)
+      ? '<span class="relevance-override-badge" title="You marked this assessment wrong">Marked wrong</span>'
+      : '';
+    var reasonHtml = e.reason
+      ? '<div class="relevance-reason">&ldquo;' + escapeHtml(e.reason) + '&rdquo;</div>'
+      : '';
     html += '<div class="relevance-entry">' +
       '<div class="relevance-dot ' + dotClass + '"></div>' +
       '<div class="relevance-time">' + timeStr + '</div>' +
-      '<div style="flex:1;">' +
-      '<div class="relevance-title">' + escapeHtml(e.title) + '</div>' +
-      '<div class="relevance-reason">' + escapeHtml(e.reason) + '</div>' +
+      '<div style="flex:1;min-width:0;">' +
+      '<div class="relevance-title-row">' +
+        confHtml +
+        '<span class="relevance-title">' + escapeHtml(e.title) + '</span>' +
+        overrideHtml +
+      '</div>' +
+      reasonHtml +
       actionHtml +
       '</div></div>';
   });
