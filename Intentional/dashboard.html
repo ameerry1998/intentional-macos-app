@@ -8343,7 +8343,6 @@ function openBlockEditor(blockId, event) {
     var el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('input', renderCoachPreview);
-    el.addEventListener('change', renderCoachPreview);
   });
   renderCoachPreview();
 
@@ -8368,18 +8367,13 @@ function renderCoachPreview() {
   var lines = [];
   if (!ignore && profile) lines.push('About the user: ' + profile);
   if (plan) lines.push("Today's focus: " + plan);
-  lines.push('Task: "' + (title || '(no title yet)') + '"');
+  lines.push('Task: ' + (title ? '"' + title + '"' : '<no title yet>'));
   if (desc) lines.push('Description: ' + desc);
   lines.push('App: <current app/tab will be inserted here>');
 
-  var notes = [];
-  if (!profile && !ignore) notes.push('No profile set — add one in Coach context or the coach only has title+description.');
-  if (!plan) notes.push("No daily plan set — the coach won't know today's priorities.");
-  if (!desc) notes.push('No block description — consider adding specifics the title doesn\'t cover.');
-
   var body = lines.join('\n');
-  if (notes.length) {
-    body += '\n\n— Notes —\n' + notes.map(function(n) { return '• ' + n; }).join('\n');
+  if (!desc) {
+    body += '\n\n• No block description — consider adding specifics the title doesn\'t cover.';
   }
 
   previewEl.textContent = body;
