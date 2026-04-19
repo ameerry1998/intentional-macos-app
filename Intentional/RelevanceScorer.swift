@@ -36,6 +36,31 @@ class RelevanceScorer {
     private var cache: [String: Result] = [:]
     private var currentIntention: String = ""
 
+    /// Hosts where the URL doesn't reliably identify the content — same URL serves
+    /// wildly different content as the user navigates. Approvals are time-limited
+    /// on these hosts to prevent permanent whitelisting of one on-task video/page
+    /// from laundering all future content on the same host.
+    private let containerAppDomains: Set<String> = [
+        "youtube.com",
+        "twitter.com",
+        "x.com",
+        "reddit.com",
+        "claude.ai",
+        "chat.openai.com",
+        "chatgpt.com",
+        "notion.so",
+        "docs.google.com",
+        "substack.com",
+        "news.ycombinator.com"
+    ]
+
+    private let containerAppApprovalTTL: TimeInterval = 180  // 3 minutes
+
+    /// Per-cache-key timestamp of when a container-app approval was recorded.
+    /// Only populated for entries where result.relevant == true AND the URL
+    /// is a container-app host. Used to TTL-expire cached approvals.
+    private var approvalTimestamps: [String: Date] = [:]
+
     // MLX model state
     private var mlxContext: ModelContext?
     private var mlxSession: ChatSession?
@@ -363,6 +388,7 @@ class RelevanceScorer {
     /// Clear the relevance cache (call when block changes)
     func clearCache() {
         cache.removeAll()
+        approvalTimestamps.removeAll()
         userApproved.removeAll()
         currentIntention = ""
         // Reset the LLM session so it doesn't carry context from previous block
@@ -421,6 +447,9 @@ class RelevanceScorer {
             appDelegate?.postLog("🧠 [Keyword] Match in \(matchSource): \"\(pageTitle)\" url=\(url.isEmpty ? "(none)" : url)")
             let result = Result(relevant: true, confidence: 95, reason: "Keyword match with task (\(matchSource))")
             cache[cacheKey] = result
+            if result.relevant && isContainerAppURL(url) {
+                approvalTimestamps[cacheKey] = Date()
+            }
             return result
         }
 
@@ -432,12 +461,26 @@ class RelevanceScorer {
 
         // Check cache
         if let cached = cache[cacheKey] {
-            return cached
+            // Container-app approvals time out so one on-task video doesn't launder
+            // future content on the same host.
+            if cached.relevant && isContainerAppURL(url) {
+                let stampedAt = approvalTimestamps[cacheKey] ?? Date.distantPast
+                if Date().timeIntervalSince(stampedAt) < containerAppApprovalTTL {
+                    return cached
+                }
+                // TTL elapsed: drop the stale entry and fall through to fresh scoring.
+                cache.removeValue(forKey: cacheKey)
+                approvalTimestamps.removeValue(forKey: cacheKey)
+                appDelegate?.postLog("🧠 [Cache] Container-app TTL expired for \"\(pageTitle)\" on \(URL(string: url)?.host ?? "?") — re-scoring")
+            } else {
+                return cached
+            }
         }
 
         // Track intention changes — clear cache when block switches
         if intention != currentIntention {
             cache.removeAll()
+            approvalTimestamps.removeAll()
             currentIntention = intention
         }
 
@@ -461,6 +504,9 @@ class RelevanceScorer {
                         bundleIdentifier: bundleIdentifier
                     )
                     cache[cacheKey] = result
+                    if result.relevant && isContainerAppURL(url) {
+                        approvalTimestamps[cacheKey] = Date()
+                    }
                     return result
                 } catch {
                     appDelegate?.postLog("⚠️ RelevanceScorer: MLX scoring error: \(error)")
@@ -484,6 +530,9 @@ class RelevanceScorer {
                     bundleIdentifier: bundleIdentifier
                 )
                 cache[cacheKey] = result
+                if result.relevant && isContainerAppURL(url) {
+                    approvalTimestamps[cacheKey] = Date()
+                }
                 return result
             } catch {
                 appDelegate?.postLog("⚠️ RelevanceScorer: Foundation Models error: \(error)")
@@ -518,6 +567,18 @@ class RelevanceScorer {
         text.lowercased()
             .components(separatedBy: .alphanumerics.inverted)
             .filter { $0.count >= 3 && !Self.stopWords.contains($0) }
+    }
+
+    /// Returns true if the URL's host matches or is a subdomain of a container-app domain.
+    /// Example: "www.youtube.com" → matches "youtube.com"; "m.reddit.com" → matches "reddit.com".
+    private func isContainerAppURL(_ url: String) -> Bool {
+        guard let host = URL(string: url)?.host?.lowercased() else { return false }
+        for domain in containerAppDomains {
+            if host == domain || host.hasSuffix(".\(domain)") {
+                return true
+            }
+        }
+        return false
     }
 
     /// Extract readable words from a URL path (split on /, -, _, %20).
