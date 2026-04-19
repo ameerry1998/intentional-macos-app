@@ -230,24 +230,27 @@ body.theme-effects-warm::after {
 
 /* ===== Sidebar ===== */
 .sidebar {
-  width: 220px;
+  width: 200px;
   min-height: 100vh;
-  background: rgba(255, 255, 255, 0.02);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 20px 0;
+  background: rgba(255, 255, 255, 0.01);
+  border-right: 1px solid var(--border-subtle);
+  padding: 16px 12px;
   flex-shrink: 0;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .sidebar::before {
   content: '';
   position: absolute;
-  inset: 0;
-  background: url('sidebar-fabric.png') center/cover no-repeat;
-  opacity: 0.25;
+  top: -80px;
+  left: -80px;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(var(--accent-primary-rgb), 0.06) 0%, transparent 70%);
+  pointer-events: none;
   z-index: 0;
-  filter: hue-rotate(var(--sidebar-fabric-hue, 0deg));
-  animation: fabric-drift 30s ease-in-out infinite;
 }
 @keyframes fabric-drift {
   0%   { transform: scale(1.3) translate(0, 0); }
@@ -261,89 +264,111 @@ body.theme-effects-warm::after {
 }
 
 .sidebar-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 20px 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  margin-bottom: 12px;
-}
-
-.logo-ring {
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.3), rgba(var(--accent-primary-rgb), 0.3), rgba(236, 72, 153, 0.2));
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
+  padding: 8px 12px 20px;
 }
 
 .sidebar-title {
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -0.3px;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .sidebar-divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.06);
-  margin: 8px 20px;
+  background: var(--border-subtle);
+  margin: 8px 12px;
 }
 
 .sidebar-label {
-  padding: 8px 20px 4px;
-  font-size: 11px;
+  padding: 8px 12px 4px;
+  font-size: 10px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 1px;
 }
 
 .sidebar-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 20px;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.5);
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
-  border-left: 3px solid transparent;
+  border-radius: 8px;
+  position: relative;
 }
 
 .sidebar-item:hover {
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
   background: rgba(255, 255, 255, 0.03);
 }
 
 .sidebar-item.active {
-  color: var(--text-primary);
-  background: linear-gradient(90deg, rgba(var(--accent-primary-rgb), 0.1), transparent);
-  border-left-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: rgba(var(--accent-primary-rgb), 0.08);
+}
+.sidebar-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--accent-gradient);
 }
 
 .sidebar-item-icon {
-  font-size: 16px;
+  font-size: 15px;
   width: 20px;
   text-align: center;
+  opacity: 0.7;
 }
+.sidebar-item.active .sidebar-item-icon { opacity: 1; }
 
 /* ===== Main Content ===== */
 .main {
   flex: 1;
   overflow-y: auto;
   max-height: 100vh;
+  position: relative;
 }
+/* Ambient glows — coral top-right, emerald bottom-left */
+.main::before, .main::after {
+  content: '';
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+}
+.main::before {
+  top: -200px;
+  right: -100px;
+  width: 600px;
+  height: 600px;
+  background: var(--glow-coral);
+}
+.main::after {
+  bottom: -200px;
+  left: -100px;
+  width: 600px;
+  height: 600px;
+  background: var(--glow-emerald);
+}
+.page { position: relative; z-index: 1; }
 
 /* ===== Header ===== */
 .header {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding: 20px 32px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 16px 32px;
+  border-bottom: 1px solid var(--border-subtle);
+  position: relative;
+  z-index: 1;
 }
 
 .header-right {
@@ -708,19 +733,19 @@ body.theme-effects-warm::after {
 .profile-row { display: flex; align-items: center; padding: 14px 20px; gap: 14px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.06); transition: background 0.1s; }
 .profile-row:hover { background: rgba(255,255,255,0.04); }
 .profile-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.profile-dot.active { background: #8b5cf6; }
+.profile-dot.active { background: var(--accent-primary); }
 .profile-dot.inactive { background: #636366; opacity: 0.4; }
 .profile-info { flex: 1; }
 .profile-name { font-size: 15px; font-weight: 500; }
 .profile-meta { font-size: 12px; color: #636366; margin-top: 2px; }
-.profile-badge { font-size: 10px; color: #8b5cf6; background: rgba(139,92,246,0.12); padding: 2px 7px; border-radius: 4px; font-weight: 600; margin-left: 6px; }
+.profile-badge { font-size: 10px; color: var(--accent-primary); background: rgba(var(--accent-primary-rgb),0.12); padding: 2px 7px; border-radius: 4px; font-weight: 600; margin-left: 6px; }
 .profile-arrow { color: #636366; font-size: 16px; }
 .dist-view { position: absolute; inset: 0; overflow-y: auto; transition: transform 0.25s ease, opacity 0.25s ease; }
 .dist-view.out-left { transform: translateX(-30%); opacity: 0; pointer-events: none; }
 .dist-view.out-right { transform: translateX(100%); opacity: 0; pointer-events: none; }
 .detail-nav { padding: 16px 20px 12px; border-bottom: 1px solid rgba(255,255,255,0.06); }
-.detail-back { color: #8b5cf6; font-size: 13px; cursor: pointer; font-weight: 500; background: none; border: none; padding: 4px 8px; border-radius: 6px; font-family: inherit; }
-.detail-back:hover { background: rgba(139,92,246,0.12); }
+.detail-back { color: var(--accent-primary); font-size: 13px; cursor: pointer; font-weight: 500; background: none; border: none; padding: 4px 8px; border-radius: 6px; font-family: inherit; }
+.detail-back:hover { background: rgba(var(--accent-primary-rgb),0.12); }
 .detail-body { padding: 20px; }
 .detail-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
 .detail-subtitle { font-size: 12px; color: #636366; margin-bottom: 20px; }
@@ -728,7 +753,7 @@ body.theme-effects-warm::after {
 .detail-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .detail-section-label { font-size: 11px; font-weight: 600; color: #8e8e93; letter-spacing: 0.5px; text-transform: uppercase; }
 .detail-section-label.green { color: #4ade80; }
-.detail-add-btn { font-size: 12px; color: #8b5cf6; background: none; border: none; cursor: pointer; font-weight: 500; font-family: inherit; }
+.detail-add-btn { font-size: 12px; color: var(--accent-primary); background: none; border: none; cursor: pointer; font-weight: 500; font-family: inherit; }
 .detail-add-btn:hover { text-decoration: underline; }
 .detail-add-btn.green { color: #4ade80; }
 .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -744,7 +769,7 @@ body.theme-effects-warm::after {
 .create-profile-btn:hover { background: #1c1c1e; color: #f2f2f7; }
 .inline-add { display: flex; gap: 8px; margin-top: 8px; }
 .inline-add input { flex: 1; }
-.inline-add-btn { background: #8b5cf6; color: white; border: none; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.inline-add-btn { background: var(--accent-primary); color: white; border: none; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
 .inline-add-btn.green { background: #4ade80; color: #111; }
 .detail-separator { height: 1px; background: rgba(255,255,255,0.06); margin: 20px 0; }
 .detail-delete { font-size: 12px; color: #ef4444; background: none; border: none; cursor: pointer; opacity: 0.5; font-family: inherit; }
@@ -921,19 +946,21 @@ body.theme-effects-warm::after {
 .settings-menu-chevron { color:rgba(255,255,255,0.3); font-size:16px; }
 .settings-detail { display:none; }
 .settings-detail.active { display:block; }
-.settings-detail-back { color:#34d399; font-size:13px; cursor:pointer; font-weight:500; background:none; border:none; font-family:inherit; padding:4px 8px; border-radius:6px; margin-bottom:12px; display:inline-block; }
-.settings-detail-back:hover { background:rgba(52,211,153,0.12); }
+.settings-detail-back { color:var(--accent-primary); font-size:13px; cursor:pointer; font-weight:500; background:none; border:none; font-family:inherit; padding:4px 8px; border-radius:6px; margin-bottom:12px; display:inline-block; }
+.settings-detail-back:hover { background:rgba(var(--accent-primary-rgb),0.1); }
 .settings-detail-title { font-size:20px; font-weight:700; margin-bottom:16px; }
 .settings-detail-sub { font-size:12px; color:rgba(255,255,255,0.3); margin-bottom:16px; }
 
 /* ===== Settings Card ===== */
 .settings-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
   overflow: hidden;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   position: relative;
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
 }
 .settings-card::before {
   content: '';
@@ -1021,7 +1048,8 @@ body.theme-effects-warm::after {
 }
 
 .toggle input:checked + .toggle-track {
-  background: var(--accent-primary);
+  background: var(--accent-gradient);
+  box-shadow: 0 0 12px rgba(var(--accent-primary-rgb), 0.2);
 }
 
 .toggle input:checked + .toggle-track::after {
@@ -1439,16 +1467,17 @@ body.theme-effects-warm::after {
 }
 
 .btn-primary {
-  padding: 8px 20px;
-  background: var(--accent-primary);
+  padding: 10px 16px;
+  background: var(--accent-gradient);
   border: none;
-  border-radius: 8px;
-  color: #ffffff;
+  border-radius: 12px;
+  color: #0a0a0b;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: box-shadow 0.15s;
   margin-top: 6px;
+  box-shadow: 0 4px 20px rgba(var(--accent-primary-rgb), 0.2);
 }
 
 .btn-primary:hover {
@@ -2406,7 +2435,7 @@ body.theme-effects-warm::after {
   background: rgba(220,38,38,0.35);
 }
 .block-type-btn.selected.type-free {
-  background: rgba(52,211,153,0.3);
+  background: rgba(var(--accent-primary-rgb),0.3);
 }
 .block-editor-actions {
   display: flex; gap: 8px; margin-top: 16px;
@@ -2684,42 +2713,20 @@ body.theme-effects-warm::after {
   display: flex; gap: 8px;
 }
 
-/* ===== Theme Effect Overrides: Iridescent ===== */
+/* ===== Theme Effect Overrides: All themes use Deep Lush coral→gold ===== */
 .theme-effects-iridescent .save-btn,
 .theme-effects-iridescent .btn-primary,
-.theme-effects-iridescent .browser-install-btn {
-  background: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899);
-  background-size: 200% 200%;
-  animation: gradient-shift 4s ease infinite;
-}
-.theme-effects-iridescent .save-btn.saved { animation: none; }
-.theme-effects-iridescent .toggle input:checked + .toggle-track {
-  background: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899);
-  background-size: 200% 200%;
-  animation: gradient-shift 4s ease infinite;
-}
-.theme-effects-iridescent .sidebar-item.active {
-  background: linear-gradient(90deg, rgba(var(--accent-primary-rgb), 0.1), rgba(6, 182, 212, 0.05), transparent);
-  border-image: linear-gradient(to bottom, #06b6d4, #8b5cf6, #ec4899) 1;
-}
-
-/* ===== Theme Effect Overrides: Warm ===== */
+.theme-effects-iridescent .browser-install-btn,
 .theme-effects-warm .save-btn,
 .theme-effects-warm .btn-primary,
 .theme-effects-warm .browser-install-btn {
-  background: linear-gradient(135deg, #fbbf24, #34d399, #8b5cf6);
-  background-size: 200% 200%;
-  animation: gradient-shift 4s ease infinite;
+  background: var(--accent-gradient);
 }
+.theme-effects-iridescent .save-btn.saved,
 .theme-effects-warm .save-btn.saved { animation: none; }
+.theme-effects-iridescent .toggle input:checked + .toggle-track,
 .theme-effects-warm .toggle input:checked + .toggle-track {
-  background: linear-gradient(135deg, #fbbf24, #34d399, #8b5cf6);
-  background-size: 200% 200%;
-  animation: gradient-shift 4s ease infinite;
-}
-.theme-effects-warm .sidebar-item.active {
-  background: linear-gradient(90deg, rgba(var(--accent-primary-rgb), 0.1), rgba(251, 191, 36, 0.05), transparent);
-  border-image: linear-gradient(to bottom, #fbbf24, #34d399, #8b5cf6) 1;
+  background: var(--accent-gradient);
 }
 
 /* ===== Light Theme: Selector Overrides ===== */
@@ -3081,7 +3088,7 @@ body.theme-effects-warm::after {
 }
 .plan-card-type.deep-work { background: rgba(239,68,68,0.15); color: #ef4444; }
 .plan-card-type.focus-hours { background: rgba(139,92,246,0.15); color: var(--block-focus); }
-.plan-card-type.free-time { background: rgba(52,211,153,0.15); color: var(--block-free-time); }
+.plan-card-type.free-time { background: rgba(var(--accent-primary-rgb),0.12); color: var(--block-free-time); }
 .plan-card-actions {
   display: flex;
   gap: 4px;
@@ -3871,20 +3878,25 @@ body.theme-effects-warm::after {
 <!-- Sidebar -->
 <div class="sidebar">
   <div class="sidebar-header">
-    <div class="logo-ring">🎯</div>
-    <span class="sidebar-title">Intentional</span>
+    <span class="sidebar-title" style="background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Intentional</span>
   </div>
   <div class="sidebar-item active" data-page="today" onclick="navigateTo('today')">
-    <span class="sidebar-item-icon">📋</span> Today
+    <span class="sidebar-item-icon">◉</span> Today
   </div>
   <div class="sidebar-item" data-page="distractions" onclick="navigateTo('distractions')">
-    <span class="sidebar-item-icon">🚫</span> Distractions
+    <span class="sidebar-item-icon">⊘</span> Distractions
   </div>
   <div class="sidebar-item" data-page="lock" onclick="navigateTo('lock')">
-    <span class="sidebar-item-icon">🔒</span> Accountability
+    <span class="sidebar-item-icon">◫</span> Accountability
   </div>
   <div class="sidebar-item" data-page="settings" onclick="navigateTo('settings')">
-    <span class="sidebar-item-icon">⚙️</span> Settings
+    <span class="sidebar-item-icon">⚙</span> Settings
+  </div>
+  <div style="flex:1;"></div>
+  <div class="sidebar-label">Session</div>
+  <div style="padding:4px 20px 8px;">
+    <div id="sidebar-session-status" style="font-size:11px;color:var(--text-tertiary);">Free Time</div>
+    <div id="sidebar-session-detail" style="font-size:10px;color:var(--text-tertiary);margin-top:2px;">No active session</div>
   </div>
 </div>
 
@@ -3915,7 +3927,7 @@ body.theme-effects-warm::after {
         </div>
       </div>
       <div class="focus-calendar-header-right" id="calendar-add-buttons">
-        <button class="btn-small" onclick="addFocusBlock('focusHours')" style="background:rgba(52,211,153,0.12);color:#34d399;">+ Focus</button>
+        <button class="btn-small" onclick="addFocusBlock('focusHours')" style="background:rgba(var(--accent-primary-rgb),0.1);color:var(--accent-primary);">+ Focus</button>
         <button class="btn-small btn-small-free" onclick="addFocusBlock('freeTime')">+ Free Time</button>
         <button onclick="navigateToScheduleSettings()" title="Schedule settings" style="background:none;border:none;color:rgba(255,255,255,0.4);font-size:16px;cursor:pointer;padding:2px 6px;margin-left:2px;">&#x2026;</button>
       </div>
@@ -3925,7 +3937,7 @@ body.theme-effects-warm::after {
     <!-- Focus Gate toggle (compact) -->
     <div class="settings-card" style="margin-top:12px; padding:0;">
       <div style="display:flex; align-items:center; padding:12px 16px; gap:12px;">
-        <div style="width:28px;height:28px;border-radius:6px;background:rgba(52,211,153,0.1);color:#34d399;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">⊞</div>
+        <div style="width:28px;height:28px;border-radius:6px;background:rgba(52,211,153,0.1);color:var(--accent-primary);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">⊞</div>
         <div style="flex:1;font-size:13px;font-weight:500;">Focus Gate</div>
         <label class="toggle"><input type="checkbox" id="focus-gate-today-toggle" onchange="onFocusGateTodayToggle(this.checked)"><span class="toggle-track"></span></label>
       </div>
@@ -3935,7 +3947,7 @@ body.theme-effects-warm::after {
     <div class="earned-browse-widget" id="earned-browse-widget" style="margin-top: 16px; display:none;">
       <div class="focus-goals-title">Earned Browse</div>
       <div style="height: 20px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; display: flex; margin-top: 8px;">
-        <div id="eb4-bar-avail" style="background: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899); background-size: 200% 200%; animation: gradient-shift 4s ease infinite; transition: width 0.3s; border-radius: 4px 0 0 4px;"></div>
+        <div id="eb4-bar-avail" style="background: var(--accent-gradient); transition: width 0.3s; border-radius: 4px 0 0 4px;"></div>
         <div id="eb4-bar-used" style="background: #f87171; transition: width 0.3s;"></div>
       </div>
       <div style="display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: rgba(255,255,255,0.5);">
@@ -4111,7 +4123,14 @@ body.theme-effects-warm::after {
   <!-- Page: Accountability / Lock -->
   <div class="page" id="page-lock">
     <div class="section-title">Accountability</div>
-    <div class="setting-desc" style="padding:0 0 12px; color:rgba(255,255,255,0.3);">Partner-based settings protection</div>
+
+    <!-- Partner avatar card (shown when partner exists, updated by JS) -->
+    <div id="partner-avatar-card" class="settings-card" style="display:none;text-align:center;padding:24px;">
+      <div id="partner-avatar" style="width:48px;height:48px;border-radius:50%;background:var(--accent-gradient);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#0a0a0b;margin:0 auto 12px;"></div>
+      <div id="partner-display-name" style="font-size:15px;font-weight:600;"></div>
+      <div id="partner-display-email" style="font-size:12px;color:var(--text-tertiary);margin-top:2px;"></div>
+    </div>
+
     <div class="lock-container" id="lock-content">
       <div class="lock-title" style="color:rgba(255,255,255,0.5); text-align:center; padding:20px 0;">Loading...</div>
     </div>
@@ -4125,47 +4144,47 @@ body.theme-effects-warm::after {
       <div class="section-title">Settings</div>
       <div class="settings-card">
         <div class="settings-menu-row" onclick="showSettingsDetail('account')">
-          <div class="settings-menu-icon" style="background:rgba(52,211,153,0.1);color:#34d399;">⊕</div>
+          <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1);color:var(--accent-primary);">⊕</div>
           <div class="settings-menu-info"><div class="settings-menu-title">Account</div><div class="settings-menu-sub" id="settings-account-sub">Loading...</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('theme')">
-          <div class="settings-menu-icon" style="background:rgba(129,140,248,0.15);color:#818cf8;">◐</div>
-          <div class="settings-menu-info"><div class="settings-menu-title">Theme</div><div class="settings-menu-sub" id="settings-theme-sub">Iridescent</div></div>
+          <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1);color:var(--accent-primary);">◐</div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Theme</div><div class="settings-menu-sub" id="settings-theme-sub">Deep Lush</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('ai')">
-          <div class="settings-menu-icon" style="background:rgba(251,191,36,0.1);color:#fbbf24;">◈</div>
+          <div class="settings-menu-icon" style="background:rgba(240,176,96,0.1);color:var(--accent-primary-hover);">◎</div>
           <div class="settings-menu-info"><div class="settings-menu-title">AI Scoring</div><div class="settings-menu-sub">Relevance scoring</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('enforcement')">
-          <div class="settings-menu-icon" style="background:rgba(52,211,153,0.1);color:#34d399;">◉</div>
+          <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1);color:var(--accent-primary);">◈</div>
           <div class="settings-menu-info"><div class="settings-menu-title">Enforcement</div><div class="settings-menu-sub">Nudges, red shift, overlays</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('safety')">
-          <div class="settings-menu-icon" style="background:rgba(239,68,68,0.15);color:#ef4444;">◆</div>
+          <div class="settings-menu-icon" style="background:rgba(92,192,154,0.1);color:#5cc09a;">◉</div>
           <div class="settings-menu-info"><div class="settings-menu-title">Content Safety</div><div class="settings-menu-sub" id="settings-safety-sub">Screen monitoring</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('bedtime')">
-          <div class="settings-menu-icon" style="background:rgba(129,140,248,0.15);color:#818cf8;">☽</div>
+          <div class="settings-menu-icon" style="background:rgba(168,152,200,0.1);color:#a898c8;">☾</div>
           <div class="settings-menu-info"><div class="settings-menu-title">Bedtime</div><div class="settings-menu-sub" id="settings-bedtime-sub">Configure</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('focusgate')">
-          <div class="settings-menu-icon" style="background:rgba(52,211,153,0.1);color:#34d399;">⊞</div>
-          <div class="settings-menu-info"><div class="settings-menu-title">Focus Gate</div><div class="settings-menu-sub" id="settings-focusgate-sub">Screen lock</div></div>
+          <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1);color:var(--accent-primary);">◉</div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Focus Gate</div><div class="settings-menu-sub" id="settings-focusgate-sub">Hourly check-in</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('browsers')">
-          <div class="settings-menu-icon" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.55);">⊙</div>
+          <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1);color:var(--accent-primary);">⊞</div>
           <div class="settings-menu-info"><div class="settings-menu-title">Browsers</div><div class="settings-menu-sub">Extension status</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('reset')">
-          <div class="settings-menu-icon" style="background:rgba(239,68,68,0.15);color:#ef4444;">⊗</div>
+          <div class="settings-menu-icon" style="background:rgba(212,80,80,0.1);color:#d45050;">⊖</div>
           <div class="settings-menu-info"><div class="settings-menu-title">Reset & Delete</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
@@ -4973,7 +4992,7 @@ function renderProfileDetail() {
   html += '<div style="font-size:13px;color:#f2f2f7;font-weight:500;">Always Active</div>';
   html += '<div style="font-size:11px;color:#636366;margin-top:2px;">Block 24/7 — not just during focus sessions</div>';
   html += '</div>';
-  html += '<div class="toggle-switch ' + (isAlwaysActive ? 'on' : '') + '" onclick="toggleAlwaysActive()" style="width:40px;height:22px;border-radius:11px;background:' + (isAlwaysActive ? '#8b5cf6' : '#2c2c2e') + ';position:relative;cursor:pointer;flex-shrink:0;">';
+  html += '<div class="toggle-switch ' + (isAlwaysActive ? 'on' : '') + '" onclick="toggleAlwaysActive()" style="width:40px;height:22px;border-radius:11px;background:' + (isAlwaysActive ? 'linear-gradient(135deg, #E87461, #F0B060)' : 'rgba(255,255,255,0.1)') + ';position:relative;cursor:pointer;flex-shrink:0;">';
   html += '<div style="width:18px;height:18px;border-radius:50%;background:white;position:absolute;top:2px;left:' + (isAlwaysActive ? '20px' : '2px') + ';transition:left 0.15s;"></div>';
   html += '</div>';
   html += '</div>';
@@ -5512,7 +5531,7 @@ window._contentSafetyStatus = function(status) {
 
   if (status.isMonitoring && status.hasPermission && status.isAnalysisAvailable) {
     // All good — either Apple SCA or NudeNet fallback is active
-    textEl.innerHTML = '<span style="color:#34d399;">Monitoring active</span>';
+    textEl.innerHTML = '<span style="color:var(--color-success);">Monitoring active</span>';
     if (banner) banner.style.display = 'none';
   } else {
     // Build list of missing permissions — only Screen Recording is required
@@ -5576,10 +5595,10 @@ function populateSettingsUI(data) {
 // ===== Theme Picker =====
 var selectedTheme = 'iridescent';
 var themeOptions = [
-  { id: 'classic', label: 'Classic', bg: '#0a0a0a', accent: '#6366f1' },
-  { id: 'iridescent', label: 'Iridescent', bg: '#0e0e12', accent: 'linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899)' },
-  { id: 'emerald', label: 'Emerald', bg: '#0a0a0a', accent: '#34d399' },
-  { id: 'warm', label: 'Warm', bg: '#111110', accent: 'linear-gradient(135deg, #fbbf24, #34d399, #8b5cf6)' },
+  { id: 'iridescent', label: 'Deep Lush', bg: '#060806', accent: 'linear-gradient(135deg, #E87461, #F0B060)' },
+  { id: 'classic', label: 'Classic', bg: '#070708', accent: '#E87461' },
+  { id: 'emerald', label: 'Emerald', bg: '#060a08', accent: 'linear-gradient(135deg, #E87461, #F0B060)' },
+  { id: 'warm', label: 'Warm', bg: '#0a0908', accent: 'linear-gradient(135deg, #E87461, #F0B060)' },
   { id: 'light', label: 'Light', bg: '#f5f5f7', accent: '#7c3aed' }
 ];
 
@@ -5604,10 +5623,10 @@ function applyTheme(themeId) {
   var barAvail = document.getElementById('eb4-bar-avail');
   if (barAvail) {
     var gradients = {
-      iridescent: 'linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899)',
-      warm: 'linear-gradient(135deg, #fbbf24, #34d399, #8b5cf6)',
-      classic: '#6366f1',
-      emerald: '#34d399',
+      iridescent: 'linear-gradient(135deg, #E87461, #F0B060)',
+      warm: 'linear-gradient(135deg, #E87461, #F0B060)',
+      classic: '#E87461',
+      emerald: 'linear-gradient(135deg, #E87461, #F0B060)',
       light: '#7c3aed'
     };
     var bg = gradients[themeId] || gradients.iridescent;
@@ -5740,6 +5759,18 @@ function renderLockState() {
   var email = escapeHtml(settings.partnerEmail || '');
   var name = escapeHtml(settings.partnerName || '');
   var partnerDisplay = name ? name + ' (' + email + ')' : email;
+
+  // Update partner avatar card
+  var avatarCard = document.getElementById('partner-avatar-card');
+  if (avatarCard && email) {
+    avatarCard.style.display = '';
+    var initial = (name || email).charAt(0).toUpperCase();
+    document.getElementById('partner-avatar').textContent = initial;
+    document.getElementById('partner-display-name').textContent = name || '';
+    document.getElementById('partner-display-email').textContent = email;
+  } else if (avatarCard) {
+    avatarCard.style.display = 'none';
+  }
 
   // Clear any running countdown
   if (countdownInterval) {
@@ -7353,7 +7384,7 @@ function autoGenerateBlocks() {
         id: generateFocusUUID(), title: 'Lunch',
         startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
         endHour: Math.floor((startMin + 60) / 60), endMinute: (startMin + 60) % 60,
-        blockType: 'freeTime', isFree: true
+        blockType: 'freeTime', isFree: true, ignoreProfile: false
       });
       startMin = startMin + 60 + 15;
       lunchInserted = true;
@@ -7363,7 +7394,7 @@ function autoGenerateBlocks() {
       id: generateFocusUUID(), title: goal,
       startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
       endHour: Math.floor(endMin / 60), endMinute: endMin % 60,
-      blockType: 'focusHours', isFree: false
+      blockType: 'focusHours', isFree: false, ignoreProfile: false
     });
     startMin = endMin + 15;
   });
@@ -7374,7 +7405,7 @@ function autoGenerateBlocks() {
       id: generateFocusUUID(), title: 'Lunch',
       startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
       endHour: Math.floor((startMin + 60) / 60), endMinute: (startMin + 60) % 60,
-      blockType: 'freeTime', isFree: true
+      blockType: 'freeTime', isFree: true, ignoreProfile: false
     });
   }
 }
@@ -7480,7 +7511,7 @@ function renderCalendarBlocks() {
         return p ? p.name : '';
       }).filter(Boolean);
       if (profileNames.length > 0) {
-        metaBadge = '<div class="calendar-block-badge" style="background:rgba(52,211,153,0.15);color:#34d399;font-size:9px;padding:1px 5px;border-radius:4px;margin-top:2px;">' + escapeHtml(profileNames.join(', ')) + '</div>';
+        metaBadge = '<div class="calendar-block-badge" style="background:rgba(var(--accent-primary-rgb),0.12);color:var(--accent-primary);font-size:9px;padding:1px 5px;border-radius:4px;margin-top:2px;">' + escapeHtml(profileNames.join(', ')) + '</div>';
       }
     }
     el.innerHTML = '<div class="calendar-block-title">' + escapeHtml(block.title || 'Untitled') + '</div>' +
@@ -8117,7 +8148,8 @@ function onCalendarHourClick(event, hour) {
     id: generateFocusUUID(), title: '',
     startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
     endHour: Math.floor(endMin / 60), endMinute: endMin % 60,
-    blockType: 'focusHours'
+    blockType: 'focusHours',
+    ignoreProfile: false
   };
   focusState.blocks.push(newBlock);
   markFocusDirty();
@@ -8173,7 +8205,8 @@ function addFocusBlock(blockType) {
     startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
     endHour: Math.floor(endMin / 60), endMinute: endMin % 60,
     blockType: blockType,
-    isFree: blockType === 'freeTime'
+    isFree: blockType === 'freeTime',
+    ignoreProfile: false
   };
   focusState.blocks.push(newBlock);
   if (blockType === 'freeTime') {
@@ -8201,7 +8234,8 @@ function openNewBlockDraft() {
     startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
     endHour: Math.floor(endMin / 60), endMinute: endMin % 60,
     blockType: 'focusHours',
-    isFree: false
+    isFree: false,
+    ignoreProfile: false
   };
 
   focusState.blocks.push(newBlock);
@@ -8231,8 +8265,8 @@ function openBlockEditor(blockId, event) {
     '<input class="block-editor-input" id="editor-title" value="' + escapeHtml(block.title) + '" placeholder="What are you working on?">' +
     '</div>' +
     '<div class="block-editor-row">' +
-    '<label>Description <span style="color:rgba(255,255,255,0.25);font-weight:normal;">(helps AI understand your task)</span></label>' +
-    '<textarea class="block-editor-input" id="editor-desc" rows="2" placeholder="e.g. Watching coding tutorials on React" style="resize:vertical;min-height:36px;">' + escapeHtml(block.description || '') + '</textarea>' +
+    '<label>Description <span style="color:rgba(255,255,255,0.25);font-weight:normal;">(specifics the AI can\'t guess from the title)</span></label>' +
+    '<textarea class="block-editor-input" id="editor-desc" rows="2" placeholder="Specifics the AI can\'t guess from the title — project name, language/framework, what counts as on-task, what doesn\'t." style="resize:vertical;min-height:36px;">' + escapeHtml(block.description || '') + '</textarea>' +
     '</div>' +
     '<div class="block-editor-row">' +
     '<label>Time</label>' +
@@ -8244,13 +8278,21 @@ function openBlockEditor(blockId, event) {
     '<div class="block-editor-row">' +
     '<label style="color:rgba(255,255,255,0.5);font-size:12px;margin-bottom:4px;">Block Type</label>' +
     '<div class="block-type-selector" id="editor-block-type">' +
-    '<button class="block-type-btn' + (editorBlockType !== 'freeTime' ? ' selected' : '') + '" data-type="focusHours" onclick="selectBlockType(this)" style="background:rgba(52,211,153,0.12);color:#34d399;border-color:rgba(52,211,153,0.3);">Focus</button>' +
+    '<button class="block-type-btn' + (editorBlockType !== 'freeTime' ? ' selected' : '') + '" data-type="focusHours" onclick="selectBlockType(this)" style="background:rgba(var(--accent-primary-rgb),0.1);color:var(--accent-primary);border-color:rgba(var(--accent-primary-rgb),0.3);">Focus</button>' +
     '<button class="block-type-btn' + (editorBlockType === 'freeTime' ? ' selected type-free' : '') + '" data-type="freeTime" onclick="selectBlockType(this)">Free Time</button>' +
     '</div>' +
     '</div>' +
     '<div class="block-editor-row" id="editor-profiles-row" style="' + (editorBlockType === 'freeTime' ? 'display:none;' : '') + '">' +
     '<label style="color:rgba(255,255,255,0.5);font-size:12px;margin-bottom:4px;">Blocking Profiles</label>' +
     '<div id="editor-profile-chips" class="chip-list" style="gap:6px;"></div>' +
+    '</div>' +
+    '<div class="block-editor-row" id="editor-coach-row" style="' + (editorBlockType === 'freeTime' ? 'display:none;' : '') + '">' +
+    '<label style="color:rgba(255,255,255,0.5);font-size:12px;margin-bottom:6px;">What the coach will see</label>' +
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+    '<input type="checkbox" id="editor-ignore-profile"' + (block.ignoreProfile ? ' checked' : '') + '>' +
+    '<label for="editor-ignore-profile" style="font-size:12px;cursor:pointer;color:rgba(255,255,255,0.65);">Use just this block (ignore my profile)</label>' +
+    '</div>' +
+    '<pre id="editor-coach-preview" style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:10px 12px;font-family:ui-monospace,Menlo,monospace;font-size:11px;line-height:1.45;color:rgba(255,255,255,0.75);white-space:pre-wrap;word-break:break-word;margin:0;max-height:200px;overflow-y:auto;"></pre>' +
     '</div>' +
     '<div class="block-editor-actions">' +
     '<button class="btn-small" onclick="saveBlockEdit()">Done</button>' +
@@ -8295,9 +8337,52 @@ function openBlockEditor(blockId, event) {
   editor.style.left = Math.min(calRect.right + 8, window.innerWidth - 300) + 'px';
 
   document.getElementById('editor-title').focus();
+
+  // Wire up "What the coach will see" live preview
+  ['editor-title', 'editor-desc', 'editor-ignore-profile'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', renderCoachPreview);
+    el.addEventListener('change', renderCoachPreview);
+  });
+  renderCoachPreview();
+
   setTimeout(function() {
     document.addEventListener('mousedown', closeBlockEditorOutside);
   }, 50);
+}
+
+function renderCoachPreview() {
+  var titleEl = document.getElementById('editor-title');
+  var descEl = document.getElementById('editor-desc');
+  var ignoreEl = document.getElementById('editor-ignore-profile');
+  var previewEl = document.getElementById('editor-coach-preview');
+  if (!previewEl) return;
+
+  var title = (titleEl && titleEl.value || '').trim();
+  var desc = (descEl && descEl.value || '').trim();
+  var ignore = !!(ignoreEl && ignoreEl.checked);
+  var profile = (focusState.profile || '').trim();
+  var plan = (focusState.dailyPlan || '').trim();
+
+  var lines = [];
+  if (!ignore && profile) lines.push('About the user: ' + profile);
+  if (plan) lines.push("Today's focus: " + plan);
+  lines.push('Task: "' + (title || '(no title yet)') + '"');
+  if (desc) lines.push('Description: ' + desc);
+  lines.push('App: <current app/tab will be inserted here>');
+
+  var notes = [];
+  if (!profile && !ignore) notes.push('No profile set — add one in Coach context or the coach only has title+description.');
+  if (!plan) notes.push("No daily plan set — the coach won't know today's priorities.");
+  if (!desc) notes.push('No block description — consider adding specifics the title doesn\'t cover.');
+
+  var body = lines.join('\n');
+  if (notes.length) {
+    body += '\n\n— Notes —\n' + notes.map(function(n) { return '• ' + n; }).join('\n');
+  }
+
+  previewEl.textContent = body;
 }
 
 function closeBlockEditorOutside(e) {
@@ -8404,6 +8489,10 @@ function saveBlockEdit() {
     block.profileIds = Array.from(window._editorSelectedProfiles);
   }
 
+  // Save ignoreProfile flag (per-block AI prompt override)
+  var ignoreEl = document.getElementById('editor-ignore-profile');
+  block.ignoreProfile = !!(ignoreEl && ignoreEl.checked);
+
   closeBlockEditor();
   markFocusDirty();
   renderCalendarBlocks();
@@ -8421,6 +8510,11 @@ function selectBlockType(btn) {
   if (profilesRow) {
     profilesRow.style.display = btn.dataset.type === 'freeTime' ? 'none' : '';
   }
+  // Show/hide coach preview row — freeTime blocks don't go through AI scoring
+  var coachRow = document.getElementById('editor-coach-row');
+  if (coachRow) {
+    coachRow.style.display = btn.dataset.type === 'freeTime' ? 'none' : '';
+  }
 }
 
 function renderEditorProfileChips() {
@@ -8432,7 +8526,7 @@ function renderEditorProfileChips() {
     var chip = document.createElement('span');
     chip.className = 'dist-chip' + (isSelected ? '' : '');
     chip.style.cssText = 'cursor:pointer;padding:6px 12px;font-size:12px;' +
-      (isSelected ? 'background:rgba(52,211,153,0.15);border-color:rgba(52,211,153,0.3);color:#34d399;' : '');
+      (isSelected ? 'background:rgba(var(--accent-primary-rgb),0.12);border-color:rgba(var(--accent-primary-rgb),0.3);color:var(--accent-primary);' : '');
     chip.innerHTML = (isSelected ? '<span style="margin-right:4px;">✓</span>' : '') + escapeHtml(profile.name);
     chip.addEventListener('click', function() {
       if (window._editorSelectedProfiles.has(profile.id)) {
