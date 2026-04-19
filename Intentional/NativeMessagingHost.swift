@@ -799,7 +799,7 @@ class NativeMessagingHost {
                 pageTitle: pageTitle,
                 intention: block.title,
                 intentionDescription: block.description,
-                profile: manager.profile,
+                profile: block.ignoreProfile ? "" : manager.profile,
                 dailyPlan: manager.todaySchedule?.dailyPlan ?? "",
                 url: url,
                 pageDescription: pageDescription,
@@ -854,6 +854,7 @@ class NativeMessagingHost {
             } else {
                 blockType = .focusHours
             }
+            let ignoreProfile = dict["ignoreProfile"] as? Bool ?? false
             return ScheduleManager.FocusBlock(
                 id: dict["id"] as? String ?? UUID().uuidString,
                 title: title,
@@ -862,7 +863,8 @@ class NativeMessagingHost {
                 startMinute: startMinute,
                 endHour: endHour,
                 endMinute: endMinute,
-                blockType: blockType
+                blockType: blockType,
+                ignoreProfile: ignoreProfile
             )
         }
 
@@ -889,6 +891,7 @@ class NativeMessagingHost {
         } else {
             blockType = .focusHours
         }
+        let ignoreProfile = message["ignoreProfile"] as? Bool ?? false
         let block = ScheduleManager.FocusBlock(
             id: message["id"] as? String ?? UUID().uuidString,
             title: title,
@@ -897,7 +900,8 @@ class NativeMessagingHost {
             startMinute: message["startMinute"] as? Int ?? 0,
             endHour: endHour,
             endMinute: message["endMinute"] as? Int ?? 0,
-            blockType: blockType
+            blockType: blockType,
+            ignoreProfile: ignoreProfile
         )
 
         DispatchQueue.main.async { [weak self] in

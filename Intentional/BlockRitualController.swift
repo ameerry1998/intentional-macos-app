@@ -57,6 +57,7 @@ class BlockRitualController {
             focusQuestion: block.description,
             focusGoal: 80,
             designVariant: savedVariant < Self.designVariantCount ? savedVariant : 3,
+            ignoreProfile: block.ignoreProfile,
             onStart: { [weak self] in
                 if let v = self?.viewModel?.designVariant {
                     UserDefaults.standard.set(v, forKey: "blockRitualDesign")
@@ -139,6 +140,7 @@ class BlockRitualViewModel: ObservableObject {
     @Published var focusGoal: Int
     @Published var isEditing: Bool = false
     @Published var designVariant: Int
+    let ignoreProfile: Bool
 
     let onStart: () -> Void
     let onSaveEdit: (ScheduleManager.FocusBlock) -> Void
@@ -168,7 +170,7 @@ class BlockRitualViewModel: ObservableObject {
          blockType: ScheduleManager.BlockType,
          startHour: Int, startMinute: Int, endHour: Int, endMinute: Int,
          availableMinutes: Double, selectedPlan: Int, focusQuestion: String,
-         focusGoal: Int, designVariant: Int,
+         focusGoal: Int, designVariant: Int, ignoreProfile: Bool = false,
          onStart: @escaping () -> Void,
          onSaveEdit: @escaping (ScheduleManager.FocusBlock) -> Void,
          onPushBack: @escaping () -> Void) {
@@ -179,6 +181,7 @@ class BlockRitualViewModel: ObservableObject {
         self.availableMinutes = availableMinutes; self.selectedPlan = selectedPlan
         self.focusQuestion = focusQuestion; self.focusGoal = focusGoal
         self.designVariant = designVariant
+        self.ignoreProfile = ignoreProfile
         self.onStart = onStart; self.onSaveEdit = onSaveEdit; self.onPushBack = onPushBack
     }
 
@@ -186,7 +189,8 @@ class BlockRitualViewModel: ObservableObject {
         ScheduleManager.FocusBlock(
             id: blockId, title: blockTitle, description: focusQuestion,
             startHour: startHour, startMinute: startMinute,
-            endHour: endHour, endMinute: endMinute, blockType: blockType
+            endHour: endHour, endMinute: endMinute, blockType: blockType,
+            ignoreProfile: ignoreProfile
         )
     }
 

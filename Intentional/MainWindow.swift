@@ -1945,6 +1945,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             } else {
                 blockType = .focusHours
             }
+            let ignoreProfile = dict["ignoreProfile"] as? Bool ?? false
             return ScheduleManager.FocusBlock(
                 id: dict["id"] as? String ?? UUID().uuidString,
                 title: title,
@@ -1953,7 +1954,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 startMinute: startMinute,
                 endHour: endHour,
                 endMinute: endMinute,
-                blockType: blockType
+                blockType: blockType,
+                ignoreProfile: ignoreProfile
             )
         }
 

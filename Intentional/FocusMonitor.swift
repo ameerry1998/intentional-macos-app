@@ -1627,7 +1627,7 @@ class FocusMonitor {
                 pageTitle: appName,
                 intention: block.title,
                 intentionDescription: block.description,
-                profile: manager.profile,
+                profile: block.ignoreProfile ? "" : manager.profile,
                 dailyPlan: manager.todaySchedule?.dailyPlan ?? "",
                 contentType: .application,
                 bundleIdentifier: bid
@@ -1817,7 +1817,7 @@ class FocusMonitor {
                 pageTitle: info.title,
                 intention: block.title,
                 intentionDescription: block.description,
-                profile: manager.profile,
+                profile: block.ignoreProfile ? "" : manager.profile,
                 dailyPlan: manager.todaySchedule?.dailyPlan ?? "",
                 url: info.url,
                 bundleIdentifier: bundleId
@@ -2694,7 +2694,7 @@ class FocusMonitor {
                 pageTitle: displayName,
                 intention: block.title,
                 intentionDescription: enrichedDescription,
-                profile: manager.profile,
+                profile: block.ignoreProfile ? "" : manager.profile,
                 dailyPlan: manager.todaySchedule?.dailyPlan ?? ""
             )
 

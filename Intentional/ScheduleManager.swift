@@ -24,17 +24,18 @@ class ScheduleManager {
         var endHour: Int     // 0-23
         var endMinute: Int   // 0-59
         var blockType: BlockType
+        var ignoreProfile: Bool  // When true, the AI scorer omits the user's profile for this block.
 
         /// Backwards compat
         var isFree: Bool { blockType == .freeTime }
 
         // Custom coding to migrate legacy `isFree` → `blockType`
         enum CodingKeys: String, CodingKey {
-            case id, title, description, startHour, startMinute, endHour, endMinute, blockType, isFree
+            case id, title, description, startHour, startMinute, endHour, endMinute, blockType, isFree, ignoreProfile
         }
 
         init(id: String, title: String, description: String, startHour: Int, startMinute: Int,
-             endHour: Int, endMinute: Int, blockType: BlockType) {
+             endHour: Int, endMinute: Int, blockType: BlockType, ignoreProfile: Bool = false) {
             self.id = id
             self.title = title
             self.description = description
@@ -43,6 +44,7 @@ class ScheduleManager {
             self.endHour = endHour
             self.endMinute = endMinute
             self.blockType = blockType
+            self.ignoreProfile = ignoreProfile
         }
 
         init(from decoder: Decoder) throws {
@@ -62,6 +64,8 @@ class ScheduleManager {
             } else {
                 blockType = .focusHours
             }
+            // Migration: ignoreProfile added later; default false when absent.
+            ignoreProfile = (try? container.decode(Bool.self, forKey: .ignoreProfile)) ?? false
         }
 
         func encode(to encoder: Encoder) throws {
@@ -74,6 +78,7 @@ class ScheduleManager {
             try container.encode(endHour, forKey: .endHour)
             try container.encode(endMinute, forKey: .endMinute)
             try container.encode(blockType, forKey: .blockType)
+            try container.encode(ignoreProfile, forKey: .ignoreProfile)
         }
 
         /// Start time as minutes from midnight
@@ -390,7 +395,8 @@ class ScheduleManager {
             startMinute: newStartMinutes % 60,
             endHour: block.endHour,
             endMinute: block.endMinute,
-            blockType: block.blockType
+            blockType: block.blockType,
+            ignoreProfile: block.ignoreProfile
         )
         // Only apply if the block still has positive duration
         guard block.startMinutes < block.endMinutes else { return }
@@ -735,7 +741,8 @@ class ScheduleManager {
             "endHour": block.endHour,
             "endMinute": block.endMinute,
             "blockType": block.blockType.rawValue,
-            "isFree": block.isFree  // backwards compat for extension
+            "isFree": block.isFree,  // backwards compat for extension
+            "ignoreProfile": block.ignoreProfile
         ]
     }
 
