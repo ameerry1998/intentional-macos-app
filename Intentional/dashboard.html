@@ -7390,6 +7390,7 @@ function saveProfileInline() {
 // ===== Coach context row (persistent profile + dailyPlan above calendar) =====
 // Tracks which field (if any) is currently in edit mode so re-renders preserve it.
 var _coachCtxEditing = null; // null | 'profile' | 'plan'
+const COACH_CTX_PREVIEW_CHARS = 110;
 
 function _escapeHtml(s) {
   return String(s == null ? '' : s)
@@ -7425,30 +7426,28 @@ function renderCoachContextRow() {
 
   if (profileRow) {
     if (_coachCtxEditing === 'profile') {
-      profileRow.innerHTML = _coachCtxEditorHTML('profile', 'About you', profileText,
-        'What coach should know about you, your role, and the work you do.');
-      _focusEditor('profile');
+      // Leave the editor alone — user is mid-edit. Re-rendering would wipe
+      // unsaved textarea input when Swift pushes a schedule-state update.
+      // Initial render into edit mode happens in editCoachField().
     } else {
-      var preview = profileText ? _escapeHtml(_truncate(profileText, 110))
-        : '<span class="is-empty">No profile set \u2014 onboarding card below.</span>';
+      // Card only renders when hasProfile === true, so profileText is non-empty here.
+      var preview = _escapeHtml(_truncate(profileText, COACH_CTX_PREVIEW_CHARS));
       profileRow.innerHTML =
         '<div class="coach-context-label">About you</div>' +
-        '<div class="coach-context-preview' + (profileText ? '' : ' is-empty') + '">' + preview + '</div>' +
-        '<button type="button" class="coach-context-edit-btn" onclick="editCoachField(\'profile\')">' +
-          (profileText ? 'Edit' : 'Set') +
-        '</button>';
+        '<div class="coach-context-preview">' + preview + '</div>' +
+        '<button type="button" class="coach-context-edit-btn" onclick="editCoachField(\'profile\')">Edit</button>';
     }
   }
 
   if (planRow) {
     if (_coachCtxEditing === 'plan') {
-      planRow.innerHTML = _coachCtxEditorHTML('plan', 'Today', planText,
-        "What you're focused on today \u2014 a sentence or two helps coach judge relevance.");
-      _focusEditor('plan');
+      // Leave the editor alone — user is mid-edit. Re-rendering would wipe
+      // unsaved textarea input when Swift pushes a schedule-state update.
+      // Initial render into edit mode happens in editCoachField().
     } else {
       var planPreview;
       if (planText) {
-        planPreview = _escapeHtml(_truncate(planText, 110));
+        planPreview = _escapeHtml(_truncate(planText, COACH_CTX_PREVIEW_CHARS));
       } else {
         planPreview = '<span class="is-empty">No plan yet \u2014 <a href="#" onclick="event.preventDefault(); editCoachField(\'plan\');" style="color:var(--accent-primary);text-decoration:none;">add one</a></span>';
       }
@@ -7497,7 +7496,20 @@ function _focusEditor(which) {
 function editCoachField(which) {
   if (which !== 'profile' && which !== 'plan') return;
   _coachCtxEditing = which;
-  renderCoachContextRow();
+  // Render the editor HTML directly here — renderCoachContextRow() intentionally
+  // skips the editing row to protect in-progress input from schedule-state pushes.
+  var row = document.getElementById('coach-context-row-' + which);
+  if (!row) return;
+  if (which === 'profile') {
+    var profileText = (focusState.profile || '').trim();
+    row.innerHTML = _coachCtxEditorHTML('profile', 'About you', profileText,
+      'What coach should know about you, your role, and the work you do.');
+  } else {
+    var planText = (focusState.dailyPlan || '').trim();
+    row.innerHTML = _coachCtxEditorHTML('plan', 'Today', planText,
+      "What you're focused on today \u2014 a sentence or two helps coach judge relevance.");
+  }
+  _focusEditor(which);
 }
 
 function cancelCoachEdit(which) {
@@ -7524,13 +7536,14 @@ function saveCoachField(which) {
   } else if (which === 'plan') {
     // Empty dailyPlan is allowed — clears the field.
     focusState.dailyPlan = val;
-    // Reuse the same SET_SCHEDULE shape as autoSaveSchedule().
-    sendMessage({
-      type: 'SET_SCHEDULE',
-      blocks: focusState.blocks,
-      goals: (focusState.goals || []).filter(function(g) { return g; }),
-      dailyPlan: focusState.dailyPlan
-    });
+    _coachCtxEditing = null;
+    // Delegate to autoSaveSchedule() so we share the exact SET_SCHEDULE shape
+    // (and DOM-goal-syncing) used by the rest of the Today page. The goal
+    // inputs may not be mounted when editing from the Today page, but
+    // autoSaveSchedule() already guards with `(document.getElementById(...) || {}).value || ''`.
+    autoSaveSchedule();
+    renderCoachContextRow();
+    return;
   }
 
   _coachCtxEditing = null;
