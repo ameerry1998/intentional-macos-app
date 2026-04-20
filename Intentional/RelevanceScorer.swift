@@ -49,12 +49,11 @@ class RelevanceScorer {
 
     // MARK: - Cache
 
-    /// Unified cache entry: result + timestamp + title hash for container-app TTL and tab-title invalidation.
+    /// Unified cache entry: result + timestamp. Cache key already encodes the page title,
+    /// so a title change produces a new key and a natural cache miss — no extra titleHash needed.
     private struct CacheEntry {
         let result: Result
         let stampedAt: Date
-        /// SHA-256 first 8 hex chars of pageTitle — used to detect tab navigation on container apps.
-        let titleHash: String
     }
 
     private var cache: [String: CacheEntry] = [:]
@@ -431,16 +430,9 @@ class RelevanceScorer {
     func approvePageTitle(_ pageTitle: String, for intention: String) {
         let cacheKey = "\(intention)|\(pageTitle)"
         let result = Result(relevant: true, confidence: 100, reason: "User-approved", path: .metadataRelevant)
-        cache[cacheKey] = CacheEntry(result: result, stampedAt: Date(), titleHash: titleHash(for: pageTitle))
+        cache[cacheKey] = CacheEntry(result: result, stampedAt: Date())
         userApproved.insert(cacheKey)
         appDelegate?.postLog("🧠 User approved: \"\(pageTitle)\" for \"\(intention)\"")
-    }
-
-    /// Compute an 8-hex-char SHA-256 prefix of a page title for cache invalidation.
-    private func titleHash(for pageTitle: String) -> String {
-        let bytes = Array(pageTitle.utf8)
-        let digest = SHA256.hash(data: bytes)
-        return digest.prefix(4).map { String(format: "%02x", $0) }.joined()
     }
 
     // MARK: - shouldVerifyWithOCR
@@ -480,7 +472,6 @@ class RelevanceScorer {
             return digest.prefix(4).map { String(format: "%02x", $0) }.joined()
         }()
         let cacheKey = "\(intention)|\(pageTitle)|\(urlPath)|\(contextHash)"
-        let currentTitleHash = titleHash(for: pageTitle)
         let isContainer = isContainerAppURL(url)
 
         // Keyword overlap: catch obvious matches without hitting the LLM
@@ -492,7 +483,7 @@ class RelevanceScorer {
             appDelegate?.postLog("🧠 [Keyword] Match in \(matchSource): \"\(pageTitle)\" url=\(url.isEmpty ? "(none)" : url)")
             var result = Result(relevant: true, confidence: 95, reason: "Keyword match with task (\(matchSource))")
             result.path = .metadataRelevant
-            cache[cacheKey] = CacheEntry(result: result, stampedAt: Date(), titleHash: currentTitleHash)
+            cache[cacheKey] = CacheEntry(result: result, stampedAt: Date())
             return result
         }
 
@@ -506,11 +497,7 @@ class RelevanceScorer {
         // Check cache
         if let entry = cache[cacheKey] {
             if isContainer {
-                // Tab-title-change invalidation: if title changed, treat as a cache miss and re-score.
-                if entry.titleHash != currentTitleHash {
-                    cache.removeValue(forKey: cacheKey)
-                    appDelegate?.postLog("🧠 [Cache] Tab title changed on container app — re-scoring \"\(pageTitle)\"")
-                } else if entry.result.relevant {
+                if entry.result.relevant {
                     // Apply path-aware TTL
                     let ttl: TimeInterval = entry.result.path == .ocrVerifiedRelevant
                         ? ocrVerifiedRelevantTTL
@@ -629,7 +616,7 @@ class RelevanceScorer {
                     appDelegate?.postLog("🧠 [OCR] Verdict: \"\(pageTitle)\" → \(finalResult.relevant ? "relevant" : "NOT relevant") (\(finalResult.confidence)%) path=\(finalResult.path.rawValue)")
                     // Cache OCR-verified relevant results; don't cache off-task (re-score on next tick)
                     if finalResult.relevant {
-                        cache[cacheKey] = CacheEntry(result: finalResult, stampedAt: Date(), titleHash: currentTitleHash)
+                        cache[cacheKey] = CacheEntry(result: finalResult, stampedAt: Date())
                     }
                     return finalResult
                 } else {
@@ -646,19 +633,19 @@ class RelevanceScorer {
             return rawResult
         }
 
-        // Cancel any unused pre-capture task (metadata said relevant, no OCR needed)
+        // Cancel pre-capture if unused (metadata was relevant, or non-container app)
         captureTask?.cancel()
 
         // Metadata-only path: label correctly based on verdict
         rawResult.path = rawResult.relevant ? .metadataRelevant : .metadataOffTask
         // Cache relevant results; for container apps use stampedAt for TTL tracking
         if rawResult.relevant {
-            cache[cacheKey] = CacheEntry(result: rawResult, stampedAt: Date(), titleHash: currentTitleHash)
+            cache[cacheKey] = CacheEntry(result: rawResult, stampedAt: Date())
         }
         // Don't cache off-task metadata verdicts for container apps — re-score each tick
         // For non-container-app off-task, cache normally (no TTL)
         if !rawResult.relevant && !isContainer {
-            cache[cacheKey] = CacheEntry(result: rawResult, stampedAt: Date(), titleHash: currentTitleHash)
+            cache[cacheKey] = CacheEntry(result: rawResult, stampedAt: Date())
         }
         return rawResult
     }
