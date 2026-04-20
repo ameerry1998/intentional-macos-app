@@ -2918,6 +2918,13 @@ class FocusMonitor {
         // won't double up in the UI.
         persistAssessment(trigger)
         appDelegate?.postLog("🚩 User marked assessment wrong: \"\(trigger.title)\"")
+
+        // Feed the correction into the learned-override store so this host can be
+        // promoted to "always OCR-verify" after 3+ corrections in the last 30 days.
+        if !trigger.hostname.isEmpty {
+            relevanceScorer?.recordUserOverride(host: trigger.hostname)
+        }
+
         overlayController?.dismiss()
     }
 

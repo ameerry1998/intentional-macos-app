@@ -405,6 +405,27 @@ class RelevanceScorer {
     }
     #endif
 
+    // MARK: - Learned Override Store
+
+    private var learnedOverrideStore = LearnedOverrideStore()
+
+    /// Load the learned-override store from UserDefaults (or scan the JSONL if first launch).
+    /// Call once from AppDelegate after RelevanceScorer is initialized.
+    func loadLearnedOverrides() {
+        let logPath = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("Intentional/relevance_log.jsonl")
+        learnedOverrideStore.loadFromUserDefaults(logPath: logPath)
+        appDelegate?.postLog("🧠 LearnedOverrideStore loaded — \(learnedOverrideStore.promotedHosts.count) promoted host(s): \(learnedOverrideStore.promotedHosts.sorted().joined(separator: ", "))")
+    }
+
+    /// Record a user correction for the given host.
+    /// Called by FocusMonitor when the user taps "This was wrong" on the blocking overlay.
+    func recordUserOverride(host: String, at date: Date = Date()) {
+        learnedOverrideStore.recordOverride(host: host, at: date)
+        appDelegate?.postLog("🧠 LearnedOverride recorded for \"\(host)\" — promoted: \(learnedOverrideStore.isPromoted(host: host))")
+    }
+
     init(appDelegate: AppDelegate?) {
         self.appDelegate = appDelegate
         appDelegate?.postLog("🧠 RelevanceScorer initialized")
@@ -442,11 +463,13 @@ class RelevanceScorer {
     // MARK: - shouldVerifyWithOCR
 
     /// Gate: should we run a second-chance OCR pass for this off-task verdict?
-    /// Returns true only when metadata said off-task AND the URL is a container app.
-    /// (Task 11 will extend this with learned overrides.)
+    /// Returns true when metadata said off-task AND either:
+    ///   (a) the URL is a container app (dynamic content, same URL), OR
+    ///   (b) the host has been promoted via learned overrides (3+ user corrections in 30 days).
     private func shouldVerifyWithOCR(metadataResult: Result, url: String, bundleIdentifier: String) -> Bool {
         guard !metadataResult.relevant else { return false }
-        return isContainerAppURL(url)
+        let host = URLComponents(string: url)?.host ?? ""
+        return isContainerAppURL(url) || learnedOverrideStore.isPromoted(host: host)
     }
 
     // MARK: - OCR Screen-Recording Permission Gate

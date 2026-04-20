@@ -370,6 +370,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Initialize Daily Focus Plan (V2: schedule engine + relevance scoring)
         scheduleManager = ScheduleManager(appDelegate: self)
         relevanceScorer = RelevanceScorer(appDelegate: self)
+        relevanceScorer?.loadLearnedOverrides()
 
         // Initialize focus monitor and nudge window (V2: desktop app monitoring)
         nudgeController = NudgeWindowController(appDelegate: self)
