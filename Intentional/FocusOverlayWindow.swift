@@ -24,6 +24,10 @@ class FocusOverlayWindowController {
     var onStartQuickBlock: ((String, Int, Bool) -> Void)?
     /// Called when the user clicks "Plan My Day" to open the full dashboard
     var onPlanDay: (() -> Void)?
+    /// Called when the user clicks "Approve for this block" in the Why? disclosure
+    var onApproveForBlock: (() -> Void)?
+    /// Called when the user clicks "This was wrong" in the Why? disclosure
+    var onMarkWrong: (() -> Void)?
 
     init(appDelegate: AppDelegate?) {
         self.appDelegate = appDelegate
@@ -39,7 +43,9 @@ class FocusOverlayWindowController {
         nextBlockTitle: String? = nil,
         nextBlockTime: String? = nil,
         minutesUntilNextBlock: Int? = nil,
-        displayName: String? = nil
+        displayName: String? = nil,
+        confidence: Int = 0,
+        urlString: String? = nil
     ) {
         // Close any existing overlay
         dismiss()
@@ -53,7 +59,9 @@ class FocusOverlayWindowController {
             nextBlockTitle: nextBlockTitle,
             nextBlockTime: nextBlockTime,
             minutesUntilNextBlock: minutesUntilNextBlock,
-            displayName: displayName
+            displayName: displayName,
+            confidence: confidence,
+            urlString: urlString
         )
 
         viewModel.onBackToWork = { [weak self] in
@@ -73,6 +81,18 @@ class FocusOverlayWindowController {
 
         viewModel.onPlanDay = { [weak self] in
             self?.onPlanDay?()
+            self?.dismiss()
+        }
+
+        viewModel.onApproveForBlock = { [weak self] in
+            // Controller callback is responsible for dismissing (it calls handleOverlayAction
+            // which eventually dismisses); dismiss here too to guarantee teardown.
+            self?.onApproveForBlock?()
+            self?.dismiss()
+        }
+
+        viewModel.onMarkWrong = { [weak self] in
+            self?.onMarkWrong?()
             self?.dismiss()
         }
 
@@ -142,6 +162,11 @@ class FocusOverlayViewModel: ObservableObject {
     let nextBlockTime: String?
     let minutesUntilNextBlock: Int?
 
+    // Why? disclosure context (deep-work overlay only)
+    let confidence: Int
+    let urlString: String?
+    @Published var showWhyDetails: Bool = false
+
     // Quick block creation (unplanned overlay)
     @Published var quickBlockTitle: String = ""
     @Published var selectedDuration: Int = 60
@@ -151,6 +176,8 @@ class FocusOverlayViewModel: ObservableObject {
     var onSnooze: (() -> Void)?
     var onStartQuickBlock: ((String, Int, Bool) -> Void)?
     var onPlanDay: (() -> Void)?
+    var onApproveForBlock: (() -> Void)?
+    var onMarkWrong: (() -> Void)?
 
     var durationOptions: [DurationOption] {
         var options = [
@@ -174,7 +201,8 @@ class FocusOverlayViewModel: ObservableObject {
     init(intention: String, reason: String, focusDurationMinutes: Int,
          isNoPlan: Bool = false, canSnooze: Bool = false,
          nextBlockTitle: String? = nil, nextBlockTime: String? = nil, minutesUntilNextBlock: Int? = nil,
-         displayName: String? = nil) {
+         displayName: String? = nil,
+         confidence: Int = 0, urlString: String? = nil) {
         self.intention = intention
         self.reason = reason
         self.focusDurationMinutes = focusDurationMinutes
@@ -184,6 +212,8 @@ class FocusOverlayViewModel: ObservableObject {
         self.nextBlockTitle = nextBlockTitle
         self.nextBlockTime = nextBlockTime
         self.minutesUntilNextBlock = minutesUntilNextBlock
+        self.confidence = confidence
+        self.urlString = urlString
     }
 }
 
@@ -496,5 +526,116 @@ struct FocusOverlayView: View {
                 .cornerRadius(12)
         }
         .buttonStyle(.plain)
+
+        // Why? disclosure — reveals block/page/url/reason/confidence and the two override actions.
+        Button(action: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                viewModel.showWhyDetails.toggle()
+            }
+        }) {
+            Text(viewModel.showWhyDetails ? "Hide details" : "Why?")
+                .font(.system(size: 12))
+                .foregroundColor(textTertiary)
+                .underline()
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 14)
+
+        if viewModel.showWhyDetails {
+            whyDetailsPanel
+                .padding(.top, 14)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+
+    // MARK: - Why? Disclosure Panel
+
+    @ViewBuilder
+    private var whyDetailsPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            whyRow(label: "Block", value: viewModel.intention)
+            whyRow(label: "Page", value: (viewModel.displayName?.isEmpty == false) ? viewModel.displayName! : "—")
+            if let url = viewModel.urlString, !url.isEmpty {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("URL")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(textTertiary)
+                        .frame(width: 72, alignment: .leading)
+                    Text(url)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(textSecondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+            if !viewModel.reason.isEmpty {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("Reason")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(textTertiary)
+                        .frame(width: 72, alignment: .leading)
+                    Text(viewModel.reason)
+                        .font(.system(size: 12))
+                        .foregroundColor(textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            whyRow(label: "Confidence", value: "\(viewModel.confidence)%")
+
+            HStack(spacing: 10) {
+                Button(action: { viewModel.onApproveForBlock?() }) {
+                    Text("Approve for this block")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(
+                            LinearGradient(colors: [accentStart, accentEnd],
+                                           startPoint: .leading, endPoint: .trailing)
+                        )
+                        .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+
+                Button(action: { viewModel.onMarkWrong?() }) {
+                    Text("This was wrong")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(textSecondary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color.white.opacity(0.04))
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.top, 6)
+        }
+        .frame(maxWidth: 380, alignment: .leading)
+        .padding(14)
+        .background(Color.white.opacity(0.03))
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    @ViewBuilder
+    private func whyRow(label: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(label)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(textTertiary)
+                .frame(width: 72, alignment: .leading)
+            Text(value)
+                .font(.system(size: 12))
+                .foregroundColor(textSecondary)
+                .lineLimit(2)
+                .truncationMode(.middle)
+        }
     }
 }

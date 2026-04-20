@@ -333,7 +333,7 @@ class FocusMonitor {
         let action: String       // "none", "nudge", "blocked"
         let neutral: Bool        // true for neutral apps (loginwindow, etc.)
         let isEvent: Bool        // true for enforcement events (nudge/block) — not time ticks
-        let userOverride: Bool   // true when the user corrected this assessment (e.g. "this was wrong")
+        var userOverride: Bool   // true when the user corrected this assessment (e.g. "this was wrong")
     }
 
     private(set) var relevanceLog: [RelevanceEntry] = []
@@ -401,6 +401,15 @@ class FocusMonitor {
     private var isCurrentlyIrrelevant = false
     private var isOnBreak = false
     private var currentOverlayIsNoPlan = false   // Whether the current overlay is for noPlan/unplanned
+
+    // Overlay trigger tracking (Why? / approve / mark-wrong affordances)
+    /// Timestamp of the assessment entry that triggered the currently-visible blocking overlay.
+    /// Used by "This was wrong" so we can flip the correct row to userOverride=true.
+    private var overlayTriggerTimestamp: Date?
+    /// URL (if any) of the page that triggered the overlay — surfaced in the "Why?" disclosure.
+    private var overlayTriggerURL: String?
+    /// Display name (page title or app) that triggered the overlay — used for "Approve for this block".
+    private var overlayDisplayName: String?
 
     // Tiered enforcement: targets already warned once in this block
     private var warnedTargets: Set<String> = []
@@ -2805,6 +2814,12 @@ class FocusMonitor {
         overlayController?.onPlanDay = { [weak self] in
             self?.handlePlanDay()
         }
+        overlayController?.onApproveForBlock = { [weak self] in
+            self?.approveCurrentOverlay()
+        }
+        overlayController?.onMarkWrong = { [weak self] in
+            self?.markCurrentOverlayAsWrong()
+        }
 
         // Compute next block info for unplanned overlay
         let nextBlock = scheduleManager?.nextUpcomingBlock()
@@ -2818,13 +2833,28 @@ class FocusMonitor {
 
         // Log enforcement event for popover visibility
         let browserName = currentAppBundleId.flatMap { Self.browserAppNames[$0] } ?? ""
-        let overlayDisplayName = displayName ?? currentTarget
+        let overlayName = displayName ?? currentTarget
         logAssessment(
-            title: overlayDisplayName, appName: browserName.isEmpty ? overlayDisplayName : browserName,
+            title: overlayName, appName: browserName.isEmpty ? overlayName : browserName,
             intention: intention, relevant: false, confidence: 0,
             reason: isNoPlan ? "Blocking overlay (no plan)" : "Blocking overlay",
             action: "blocked", isEvent: true
         )
+
+        // Capture trigger handles for Why? / approve / mark-wrong affordances.
+        // Use the event row we just logged as the anchor for "This was wrong".
+        overlayTriggerTimestamp = relevanceLog.last?.timestamp
+        overlayDisplayName = overlayName
+        // Pull the most recent non-event assessment for this target to surface real confidence
+        // (the event row we just wrote has confidence=0; the scoring row before it has the real score).
+        let lastScored = relevanceLog.last(where: { $0.title == overlayName && !$0.isEvent })
+        let triggerConfidence = lastScored?.confidence ?? 0
+        var triggerURL: String? = nil
+        if let bid = currentAppBundleId, Self.browserBundleIds.contains(bid),
+           let info = readActiveTabInfo(for: bid), !info.url.isEmpty {
+            triggerURL = info.url
+        }
+        overlayTriggerURL = triggerURL
 
         let canSnooze30 = (scheduleManager?.snoozeCount == 0) && isNoPlan
         appDelegate?.earnedBrowseManager?.recordNudge()
@@ -2838,9 +2868,40 @@ class FocusMonitor {
                 nextBlockTitle: nextBlockTitle,
                 nextBlockTime: nextBlockTime,
                 minutesUntilNextBlock: minutesUntilNext,
-                displayName: displayName
+                displayName: displayName,
+                confidence: triggerConfidence,
+                urlString: triggerURL
             )
         }
+    }
+
+    /// Approve the currently-overlaid content for the current block (wires to RelevanceScorer).
+    /// Dismisses the overlay and resumes normal evaluation (same flow as Back to work).
+    func approveCurrentOverlay() {
+        guard let block = scheduleManager?.currentBlock,
+              let name = overlayDisplayName, !name.isEmpty else {
+            overlayController?.dismiss()
+            return
+        }
+        relevanceScorer?.approvePageTitle(name, for: block.title)
+        appDelegate?.postLog("👍 User approved current overlay target: \"\(name)\" for \"\(block.title)\"")
+        // Dismiss overlay + navigate back (same flow as Back to work).
+        handleOverlayAction(action: "back_to_work", reason: nil)
+    }
+
+    /// Mark the assessment row that triggered the current overlay as userOverride=true.
+    /// Also appends a correction row to the JSONL so the signal persists across restarts.
+    func markCurrentOverlayAsWrong() {
+        if let ts = overlayTriggerTimestamp,
+           let idx = relevanceLog.firstIndex(where: { $0.timestamp == ts }) {
+            relevanceLog[idx].userOverride = true
+            let corrected = relevanceLog[idx]
+            persistAssessment(corrected)
+            appDelegate?.postLog("🚩 User marked assessment wrong: \"\(corrected.title)\"")
+        } else {
+            appDelegate?.postLog("🚩 markCurrentOverlayAsWrong: no trigger entry found")
+        }
+        overlayController?.dismiss()
     }
 
     /// Handle "Open Intentional" — open the main app window and dismiss overlay.
