@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import CryptoKit
 
 #if canImport(FoundationModels)
 import FoundationModels
@@ -401,9 +402,15 @@ class RelevanceScorer {
         contentType: ContentType = .webpage,
         bundleIdentifier: String = ""
     ) async -> Result {
-        // Include URL path in cache key so same-title pages on different URLs get scored separately
+        // Include URL path in cache key so same-title pages on different URLs get scored separately.
+        // Append a short hash of profile+dailyPlan so edits to either invalidate stale cache entries.
         let urlPath = URL(string: url)?.path ?? ""
-        let cacheKey = "\(intention)|\(pageTitle)|\(urlPath)"
+        let contextHash: String = {
+            let bytes = Array("\(profile)|\(dailyPlan)".utf8)
+            let digest = SHA256.hash(data: bytes)
+            return digest.prefix(4).map { String(format: "%02x", $0) }.joined()
+        }()
+        let cacheKey = "\(intention)|\(pageTitle)|\(urlPath)|\(contextHash)"
 
         // Keyword overlap: catch obvious matches without hitting the LLM
         let urlSegments = urlPathSegments(url)
@@ -537,6 +544,10 @@ class RelevanceScorer {
         contentType: ContentType = .webpage,
         bundleIdentifier: String = ""
     ) async throws -> Result {
+        let trimmedProfile = profile.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedDailyPlan = dailyPlan.trimmingCharacters(in: .whitespacesAndNewlines)
+        let profileLine = trimmedProfile.isEmpty ? "" : "About the user: \(trimmedProfile)\n"
+        let planLine = trimmedDailyPlan.isEmpty ? "" : "Today's focus: \(trimmedDailyPlan)\n"
         let descLine = intentionDescription.isEmpty ? "" : "\nBlock description: \(intentionDescription)"
         let urlLine = url.isEmpty ? "" : "\nURL path: \(URL(string: url)?.path ?? url)"
         let pageDescLine = pageDescription.isEmpty ? "" : "\nPage description: \(pageDescription)"
@@ -558,9 +569,18 @@ class RelevanceScorer {
             contentLabel = "Webpage title"
         }
 
+        // App line: prefer "App: <bundleID> (<displayTitle>)" when bundleIdentifier is present,
+        // otherwise fall back to the previous "<contentLabel>: \"<displayTitle>\"" format.
+        let appLine: String
+        if !bundleIdentifier.isEmpty {
+            appLine = "App: \(bundleIdentifier) (\(displayTitle))"
+        } else {
+            appLine = "\(contentLabel): \"\(displayTitle)\""
+        }
+
         let userMessage = """
-        Current time block task: "\(intention)"\(descLine)
-        \(contentLabel): "\(displayTitle)"\(urlLine)\(pageDescLine)
+        \(profileLine)\(planLine)Current time block task: "\(intention)"\(descLine)
+        \(appLine)\(urlLine)\(pageDescLine)
         """
 
         appDelegate?.postLog("🧠 [Prompt] Foundation Models input:\n\(userMessage)")
@@ -620,6 +640,10 @@ class RelevanceScorer {
                           userInfo: [NSLocalizedDescriptionKey: "MLX model not loaded"])
         }
 
+        let trimmedProfile = profile.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedDailyPlan = dailyPlan.trimmingCharacters(in: .whitespacesAndNewlines)
+        let profileLine = trimmedProfile.isEmpty ? "" : "About the user: \(trimmedProfile)\n"
+        let planLine = trimmedDailyPlan.isEmpty ? "" : "Today's focus: \(trimmedDailyPlan)\n"
         let descLine = intentionDescription.isEmpty ? "" : "\nDescription: \(intentionDescription)"
         let cleanTitle = pageTitle
             .replacingOccurrences(of: #"&[a-zA-Z0-9#]+;"#, with: " ", options: .regularExpression)
@@ -637,21 +661,28 @@ class RelevanceScorer {
             fewShot = appFewShotExamples()
 
             let enrichedName = enrichAppName(cleanTitle, bundleIdentifier: bundleIdentifier)
+            let appLine: String
+            if !bundleIdentifier.isEmpty {
+                appLine = "App: \(bundleIdentifier) (\"\(enrichedName)\")"
+            } else {
+                appLine = "App: \"\(enrichedName)\""
+            }
             evaluationPart = """
-            Now classify:
+            \(profileLine)\(planLine)Now classify:
             Task: "\(intention)"\(descLine)
-            App: "\(enrichedName)"
+            \(appLine)
             """
         } else {
             selectedSystemPrompt = webSystemPrompt
             fewShot = webFewShotExamples()
 
+            let browserLine = bundleIdentifier.isEmpty ? "" : "Browser: \(bundleIdentifier)\n"
             let urlLine = url.isEmpty ? "" : "\nURL: \(URL(string: url)?.path ?? url)"
             let pageDescLine = pageDescription.isEmpty ? "" : "\nPage description: \(pageDescription)"
             evaluationPart = """
-            Now classify:
+            \(profileLine)\(planLine)Now classify:
             Task: "\(intention)"\(descLine)
-            Page: "\(cleanTitle)"\(urlLine)\(pageDescLine)
+            \(browserLine)Page: "\(cleanTitle)"\(urlLine)\(pageDescLine)
             """
         }
 

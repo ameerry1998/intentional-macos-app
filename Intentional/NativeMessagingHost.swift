@@ -791,14 +791,19 @@ class NativeMessagingHost {
         }
 
         // Score asynchronously — Foundation Models call can take ~500-1000ms
+        // Use OS-detected browser bundle ID if the relay populated it; otherwise best-effort
+        // default to Chrome since native messaging hosts run under Chromium browsers.
+        let browserBundleId = self.detectedBrowserBundleId ?? "com.google.Chrome"
         Task {
             let result = await scorer.scoreRelevance(
                 pageTitle: pageTitle,
                 intention: block.title,
+                intentionDescription: block.description,
                 profile: manager.profile,
                 dailyPlan: manager.todaySchedule?.dailyPlan ?? "",
                 url: url,
-                pageDescription: pageDescription
+                pageDescription: pageDescription,
+                bundleIdentifier: browserBundleId
             )
 
             var response: [String: Any] = [
