@@ -403,9 +403,10 @@ class FocusMonitor {
     private var currentOverlayIsNoPlan = false   // Whether the current overlay is for noPlan/unplanned
 
     // Overlay trigger tracking (Why? / approve / mark-wrong affordances)
-    /// Timestamp of the assessment entry that triggered the currently-visible blocking overlay.
-    /// Used by "This was wrong" so we can flip the correct row to userOverride=true.
-    private var overlayTriggerTimestamp: Date?
+    /// Full assessment entry that triggered the currently-visible blocking overlay.
+    /// Captured at overlay-show time so "This was wrong" still works even if the row
+    /// has been evicted from the in-memory `relevanceLog` (capped at maxLogEntries=50).
+    private var overlayTriggerEntry: RelevanceEntry?
     /// URL (if any) of the page that triggered the overlay — surfaced in the "Why?" disclosure.
     private var overlayTriggerURL: String?
     /// Display name (page title or app) that triggered the overlay — used for "Approve for this block".
@@ -2843,7 +2844,9 @@ class FocusMonitor {
 
         // Capture trigger handles for Why? / approve / mark-wrong affordances.
         // Use the event row we just logged as the anchor for "This was wrong".
-        overlayTriggerTimestamp = relevanceLog.last?.timestamp
+        // Capture the full entry (not just the timestamp) so mark-wrong still works
+        // even if the row has been evicted from the in-memory log by the time the user clicks.
+        overlayTriggerEntry = relevanceLog.last
         overlayDisplayName = overlayName
         // Pull the most recent non-event assessment for this target to surface real confidence
         // (the event row we just wrote has confidence=0; the scoring row before it has the real score).
@@ -2892,15 +2895,22 @@ class FocusMonitor {
     /// Mark the assessment row that triggered the current overlay as userOverride=true.
     /// Also appends a correction row to the JSONL so the signal persists across restarts.
     func markCurrentOverlayAsWrong() {
-        if let ts = overlayTriggerTimestamp,
-           let idx = relevanceLog.firstIndex(where: { $0.timestamp == ts }) {
-            relevanceLog[idx].userOverride = true
-            let corrected = relevanceLog[idx]
-            persistAssessment(corrected)
-            appDelegate?.postLog("🚩 User marked assessment wrong: \"\(corrected.title)\"")
-        } else {
-            appDelegate?.postLog("🚩 markCurrentOverlayAsWrong: no trigger entry found")
+        guard var trigger = overlayTriggerEntry else {
+            appDelegate?.postLog("🚩 markCurrentOverlayAsWrong: no trigger entry captured")
+            overlayController?.dismiss()
+            return
         }
+        trigger.userOverride = true
+        // If the row is still in the in-memory log, mutate in place so the dashboard
+        // sees the flag on its next poll.
+        if let idx = relevanceLog.firstIndex(where: { $0.timestamp == trigger.timestamp }) {
+            relevanceLog[idx].userOverride = true
+        }
+        // Persist a correction row regardless of whether the original was evicted from
+        // the in-memory log. handleGetBlockAssessments dedupes by timestamp, so this
+        // won't double up in the UI.
+        persistAssessment(trigger)
+        appDelegate?.postLog("🚩 User marked assessment wrong: \"\(trigger.title)\"")
         overlayController?.dismiss()
     }
 

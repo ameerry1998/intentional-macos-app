@@ -2269,6 +2269,18 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             }
         }
 
+        // Last-wins dedup by timestamp — handles userOverride correction rows appended by
+        // markCurrentOverlayAsWrong() which share their original timestamp with the row they correct.
+        var byTs: [Double: [String: Any]] = [:]
+        var order: [Double] = []
+        for e in entries {
+            if let ts = e["timestamp"] as? Double {
+                if byTs[ts] == nil { order.append(ts) }
+                byTs[ts] = e
+            }
+        }
+        entries = order.map { byTs[$0]! }
+
         if let data = try? JSONSerialization.data(withJSONObject: entries),
            let json = String(data: data, encoding: .utf8) {
             callJS("window._blockAssessmentsResult && window._blockAssessmentsResult(\(json))")
