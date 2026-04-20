@@ -26,14 +26,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     /// (Swift→WebContent marshalling + JSC parse) that blocks scroll compositing.
     private var lastExtensionStatusJSON: String?
 
-    // MARK: - UI Perf Instrumentation
-    // Every 3s we dump counts of incoming messages + outgoing callJS invocations.
-    // Tail: `tail -f $TMPDIR/intentional-debug.log | grep UIPERF`
+    #if DEBUG
+    // UI Perf instrumentation — DEBUG only. Every 3s we dump counts of incoming messages
+    // + outgoing callJS invocations. Tail: `tail -f $TMPDIR/intentional-debug.log | grep UIPERF`.
+    // Release builds skip the per-message counter work entirely.
     private var uiPerfRxCounts: [String: Int] = [:]
     private var uiPerfCallJSCount: Int = 0
     private var uiPerfCallJSBytes: Int = 0
     private var uiPerfLastFlush: Date = Date()
-    private let uiPerfQueue = DispatchQueue(label: "com.intentional.uiperf")
 
     private func uiPerfMaybeFlush() {
         let now = Date()
@@ -50,6 +50,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             .joined(separator: " ")
         appDelegate?.postLog("[UIPERF] 3s: callJS=\(jsCount) (\(jsBytes) bytes)  rx={\(rxStr)}")
     }
+    #endif
 
     convenience init(appDelegate: AppDelegate) {
         // Create window
@@ -89,10 +90,12 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         webView.setValue(false, forKey: "drawsBackground")
         webView.uiDelegate = self
 
-        // Enable Safari Web Inspector for paint/layout profiling
+        #if DEBUG
+        // Safari Web Inspector — DEBUG only, never exposed in Release builds.
         if #available(macOS 13.3, *) {
             webView.isInspectable = true
         }
+        #endif
 
         window.contentView = webView
         window.title = "Intentional"
@@ -241,7 +244,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             return
         }
 
-        // [UIPERF] per-type receive counter; flushed every 3s via uiPerfMaybeFlush()
+        #if DEBUG
         if type != "DIAGNOSTIC_LOG" {
             uiPerfRxCounts[type, default: 0] += 1
             uiPerfMaybeFlush()
@@ -253,6 +256,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 appDelegate?.postLog("[UIPERF] SLOW rx \(type) sync-phase \(Int(ms))ms")
             }
         }
+        #endif
 
         switch type {
         case "DIAGNOSTIC_LOG":
@@ -2561,10 +2565,10 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     // MARK: - JS Helpers
 
     private func callJS(_ script: String) {
+        #if DEBUG
         uiPerfCallJSCount += 1
         uiPerfCallJSBytes += script.count
         let scriptSize = script.count
-        // Extract the target function name (first "_xxxResult" or "navigateTo" etc.)
         let fnName: String = {
             if let r = script.range(of: #"window\.(_[A-Za-z0-9]+)"#, options: .regularExpression) {
                 return String(script[r]).replacingOccurrences(of: "window.", with: "")
@@ -2573,13 +2577,18 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             return String(head).components(separatedBy: "(").first ?? String(head)
         }()
         uiPerfMaybeFlush()
+        #endif
         DispatchQueue.main.async {
+            #if DEBUG
             let t0 = CFAbsoluteTimeGetCurrent()
+            #endif
             self.webView.evaluateJavaScript(script) { _, error in
+                #if DEBUG
                 let ms = (CFAbsoluteTimeGetCurrent() - t0) * 1000
                 if ms > 50 {
                     self.appDelegate?.postLog("[UIPERF] SLOW callJS \(Int(ms))ms fn=\(fnName) size=\(scriptSize)")
                 }
+                #endif
                 if let error = error {
                     self.appDelegate?.postLog("⚠️ JS eval error: \(error.localizedDescription)")
                 }

@@ -50,10 +50,6 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     // Prevents flooding the queue when scripts take longer than the 0.5s timer interval.
     private var checkInFlight: Set<String> = []
 
-    // Serial queue for AppleScript execution - prevents concurrent scripts to same browser
-    // NSAppleScript MUST run on the main thread — it uses the Apple Event Manager
-    // which is main-thread-only. A serial background queue is NOT sufficient and causes
-    // EXC_BAD_ACCESS crashes. We use main.async to avoid blocking the caller.
     // Serial background queue for AppleScript execution. NSAppleScript.executeAndReturnError
     // blocks on mach_msg waiting for the target browser's AE reply (200–600ms typical). Running
     // on DispatchQueue.main froze the entire app — menu bar, pill, and dashboard — because the
