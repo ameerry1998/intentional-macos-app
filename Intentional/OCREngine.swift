@@ -1,5 +1,10 @@
+//
+//  OCREngine.swift
+//  Intentional
+//
+
 import Vision
-import AppKit
+import CoreGraphics
 
 actor OCREngine {
 

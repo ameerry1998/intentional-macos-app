@@ -1,3 +1,8 @@
+//
+//  ScreenCapture.swift
+//  Intentional
+//
+
 import ScreenCaptureKit
 import AppKit
 
@@ -14,6 +19,8 @@ actor ScreenCapture {
             $0.isOnScreen &&
             $0.windowLayer == 0
         }) else { return nil }
+
+        guard win.frame.width > 0 && win.frame.height > 0 else { return nil }
 
         let filter = SCContentFilter(desktopIndependentWindow: win)
         let cfg = SCStreamConfiguration()
