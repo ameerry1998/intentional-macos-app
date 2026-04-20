@@ -466,12 +466,17 @@ class RelevanceScorer {
         // Skip if preflight says permission is already granted, or if we've captured before.
         if hasCapturedBefore || CGPreflightScreenCaptureAccess() { return }
 
-        // Throttle: at most once per 24 hours.
+        // Throttle: at most once per 24 hours (cheap early-exit, NOT authoritative — race guard below).
         let defaults = UserDefaults.standard
         if let lastDate = defaults.object(forKey: "lastOCRPromptDate") as? Date,
            Date().timeIntervalSince(lastDate) < 86400 { return }
 
         await MainActor.run {
+            // Authoritative re-check with main-thread exclusivity (race guard: two concurrent Tasks
+            // can both pass the outer throttle before either writes; re-reading here under the
+            // MainActor serializes the write and prevents a double-prompt).
+            if let lastDate = defaults.object(forKey: "lastOCRPromptDate") as? Date,
+               Date().timeIntervalSince(lastDate) < 86400 { return }
             defaults.set(Date(), forKey: "lastOCRPromptDate")
 
             let alert = NSAlert()
@@ -639,7 +644,7 @@ class RelevanceScorer {
 
             let captureResult = (try? await captureTask?.value) ?? nil
             if captureResult != nil {
-                hasCapturedBefore = true
+                await MainActor.run { self.hasCapturedBefore = true }
             }
 
             if let capture = captureResult,
@@ -673,10 +678,10 @@ class RelevanceScorer {
                 } else {
                     appDelegate?.postLog("🧠 [OCR] Empty OCR text for \"\(pageTitle)\" — falling through to metadata verdict")
                 }
-            } else if captureResult == nil {
+            } else if captureResult == nil && !hasCapturedBefore {
                 // Capture returned nil — likely denied permission. Show gentle prompt (capped 1/24h, skipped in DEBUG).
                 appDelegate?.postLog("🧠 [OCR] Capture returned nil for \"\(pageTitle)\" — prompting for screen recording if needed")
-                Task { await self.promptForScreenRecordingIfNeeded() }
+                Task { [weak self] in await self?.promptForScreenRecordingIfNeeded() }
             } else {
                 // PID drifted — user switched apps between capture and scoring.
                 appDelegate?.postLog("🧠 [OCR] PID drift for \"\(pageTitle)\" — using metadata verdict")
