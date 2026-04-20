@@ -94,6 +94,10 @@ class RelevanceScorer {
     // User-approved pages (survives cache clears within a block, cleared on block change)
     private var userApproved: Set<String> = []
 
+    /// True after any successful SCScreenshotManager capture this session.
+    /// Used to skip the `CGPreflightScreenCaptureAccess` gate once we know permission exists.
+    private var hasCapturedBefore: Bool = false
+
     // Stop words excluded from keyword overlap matching
     private static let stopWords: Set<String> = [
         "the", "and", "for", "with", "this", "that", "from", "have", "some",
@@ -445,6 +449,48 @@ class RelevanceScorer {
         return isContainerAppURL(url)
     }
 
+    // MARK: - OCR Screen-Recording Permission Gate
+
+    /// Show a gentle NSAlert prompting the user to enable screen recording for OCR verification.
+    ///
+    /// Rules:
+    /// - Never called in DEBUG builds (CGPreflightScreenCaptureAccess() lies in Xcode builds).
+    /// - Capped at once per 24 hours via "lastOCRPromptDate" in UserDefaults.
+    /// - Fire-and-forget: called after capture returns nil; scoring already returns metadataOffTask.
+    /// - Must run on the main thread (NSAlert requirement).
+    private func promptForScreenRecordingIfNeeded() async {
+        #if DEBUG
+        // Preflight always returns false in Xcode builds — never prompt.
+        return
+        #else
+        // Skip if preflight says permission is already granted, or if we've captured before.
+        if hasCapturedBefore || CGPreflightScreenCaptureAccess() { return }
+
+        // Throttle: at most once per 24 hours.
+        let defaults = UserDefaults.standard
+        if let lastDate = defaults.object(forKey: "lastOCRPromptDate") as? Date,
+           Date().timeIntervalSince(lastDate) < 86400 { return }
+
+        await MainActor.run {
+            defaults.set(Date(), forKey: "lastOCRPromptDate")
+
+            let alert = NSAlert()
+            alert.messageText = "Enable Content Verification?"
+            alert.informativeText = "Intentional uses on-screen text to verify that what you're viewing matches your focus intention. This runs entirely on your Mac — nothing is uploaded."
+            alert.addButton(withTitle: "Enable in Settings")
+            alert.addButton(withTitle: "Not Now")
+            alert.alertStyle = .informational
+
+            let response = alert.runModal()
+            if response == .alertFirstButtonReturn {
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+        }
+        #endif
+    }
+
     // MARK: - scoreRelevance
 
     /// Score a page title or app name against the current work intention.
@@ -591,7 +637,12 @@ class RelevanceScorer {
             // If they differ the user switched apps between capture and scoring — discard capture.
             let currentPID = await MainActor.run { NSWorkspace.shared.frontmostApplication?.processIdentifier }
 
-            if let capture = (try? await captureTask?.value) ?? nil,
+            let captureResult = (try? await captureTask?.value) ?? nil
+            if captureResult != nil {
+                hasCapturedBefore = true
+            }
+
+            if let capture = captureResult,
                capture.pid == currentPID {
                 let ocrEngine = OCREngine()
                 let ocrText = (try? await ocrEngine.extractText(from: capture.image)) ?? ""
@@ -622,9 +673,13 @@ class RelevanceScorer {
                 } else {
                     appDelegate?.postLog("🧠 [OCR] Empty OCR text for \"\(pageTitle)\" — falling through to metadata verdict")
                 }
+            } else if captureResult == nil {
+                // Capture returned nil — likely denied permission. Show gentle prompt (capped 1/24h, skipped in DEBUG).
+                appDelegate?.postLog("🧠 [OCR] Capture returned nil for \"\(pageTitle)\" — prompting for screen recording if needed")
+                Task { await self.promptForScreenRecordingIfNeeded() }
             } else {
-                // PID drifted or capture failed — fall through to metadata verdict
-                appDelegate?.postLog("🧠 [OCR] PID drift or capture unavailable for \"\(pageTitle)\" — using metadata verdict")
+                // PID drifted — user switched apps between capture and scoring.
+                appDelegate?.postLog("🧠 [OCR] PID drift for \"\(pageTitle)\" — using metadata verdict")
             }
 
             // Fall-through: OCR unavailable/drifted — return metadata off-task verdict without caching
