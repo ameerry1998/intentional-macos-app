@@ -11,7 +11,7 @@ import Foundation
 /// under the UserDefaults key ``UserDefaults.learnedOverrideSummaryKey``.
 /// The JSONL file is the authoritative record; UserDefaults is a cache that
 /// avoids rescanning on every app launch.
-struct LearnedOverrideStore {
+actor LearnedOverrideStore {
 
     // MARK: - Constants
 
@@ -26,27 +26,31 @@ struct LearnedOverrideStore {
     /// Per-host lists of correction timestamps (pruned to the last 30 days on every mutation).
     private var overrideDates: [String: [Date]] = [:]
 
-    /// Derived promoted set — recomputed whenever `overrideDates` changes.
-    private(set) var promotedHosts: Set<String> = []
-
     // MARK: - Query
 
     /// Returns true if this host has been promoted (3+ user corrections in the last 30 days).
+    /// Computed dynamically so stale data can never produce a false positive.
     func isPromoted(host: String) -> Bool {
-        promotedHosts.contains(normalise(host))
+        let key = normalise(host)
+        let dates = pruned(overrideDates[key] ?? [])
+        return dates.count >= Self.promotionThreshold
+    }
+
+    /// Returns the set of currently-promoted hosts (for logging).
+    func promotedHostsSnapshot() -> Set<String> {
+        Set(overrideDates.filter { pruned($0.value).count >= Self.promotionThreshold }.keys)
     }
 
     // MARK: - Mutation
 
     /// Record a user correction for `host` at `date`.
-    /// Prunes stale timestamps, updates the promoted set, and persists to UserDefaults.
-    mutating func recordOverride(host: String, at date: Date = Date()) {
+    /// Prunes stale timestamps and persists to UserDefaults.
+    func recordOverride(host: String, at date: Date = Date()) {
         let key = normalise(host)
         guard !key.isEmpty else { return }
         var dates = overrideDates[key] ?? []
         dates.append(date)
         overrideDates[key] = pruned(dates)
-        recomputePromoted()
         persist()
     }
 
@@ -54,12 +58,11 @@ struct LearnedOverrideStore {
 
     /// Load state from UserDefaults. Call on app start before the first query.
     /// If the key is missing, falls back to a full JSONL scan via `reloadFromLog(at:)`.
-    mutating func loadFromUserDefaults(logPath: URL) {
+    func loadFromUserDefaults(logPath: URL) {
         let defaults = UserDefaults.standard
         if let data = defaults.data(forKey: UserDefaults.learnedOverrideSummaryKey),
            let raw = try? JSONDecoder().decode([String: [Date]].self, from: data) {
             overrideDates = raw.mapValues { pruned($0) }
-            recomputePromoted()
         } else {
             // First launch or key missing — scan JSONL once and populate.
             reloadFromLog(at: logPath)
@@ -67,12 +70,11 @@ struct LearnedOverrideStore {
     }
 
     /// Scan the JSONL relevance log, extract every line with `userOverride == true`,
-    /// rebuild `overrideDates`, recompute promoted set, and persist.
-    mutating func reloadFromLog(at logPath: URL) {
+    /// rebuild `overrideDates`, and persist.
+    func reloadFromLog(at logPath: URL) {
         guard let contents = try? String(contentsOf: logPath, encoding: .utf8) else {
             // File missing or unreadable — start empty.
             overrideDates = [:]
-            recomputePromoted()
             persist()
             return
         }
@@ -96,7 +98,6 @@ struct LearnedOverrideStore {
         }
 
         overrideDates = rebuilt.mapValues { pruned($0) }
-        recomputePromoted()
         persist()
     }
 
@@ -113,13 +114,6 @@ struct LearnedOverrideStore {
     private func pruned(_ dates: [Date]) -> [Date] {
         let cutoff = Date().addingTimeInterval(-Self.windowSeconds)
         return dates.filter { $0 >= cutoff }
-    }
-
-    /// Recompute `promotedHosts` from current `overrideDates`.
-    private mutating func recomputePromoted() {
-        promotedHosts = Set(
-            overrideDates.filter { $0.value.count >= Self.promotionThreshold }.keys
-        )
     }
 
     /// Persist the current `overrideDates` to UserDefaults.
