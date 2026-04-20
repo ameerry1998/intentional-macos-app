@@ -649,8 +649,8 @@ class RelevanceScorer {
         // Cancel any unused pre-capture task (metadata said relevant, no OCR needed)
         captureTask?.cancel()
 
-        // Metadata-only relevant path
-        rawResult.path = .metadataRelevant
+        // Metadata-only path: label correctly based on verdict
+        rawResult.path = rawResult.relevant ? .metadataRelevant : .metadataOffTask
         // Cache relevant results; for container apps use stampedAt for TTL tracking
         if rawResult.relevant {
             cache[cacheKey] = CacheEntry(result: rawResult, stampedAt: Date(), titleHash: currentTitleHash)
