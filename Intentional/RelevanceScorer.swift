@@ -10,6 +10,18 @@ import MLXLLM
 import MLXLMCommon  // LanguageModel protocol
 import MLX          // GPU cache configuration
 
+/// Describes which scoring path was taken to produce a relevance verdict.
+enum ScoringPath: String, Codable {
+    /// Metadata said relevant — no OCR was performed.
+    case metadataRelevant
+    /// Metadata said off-task; OCR not triggered (gate said no, PID drifted, or OCR unavailable).
+    case metadataOffTask
+    /// Metadata said off-task; OCR rescore overturned the verdict to relevant.
+    case ocrVerifiedRelevant
+    /// Metadata said off-task; OCR rescore confirmed off-task.
+    case ocrVerifiedOffTask
+}
+
 /// Scores activity relevance against the current work block intention
 /// using MLX Qwen3-4B-Instruct (on-device LLM via Apple Silicon GPU).
 /// Falls back to Apple Foundation Models on macOS 26+ if Qwen is not selected.
@@ -30,10 +42,22 @@ class RelevanceScorer {
         var relevant: Bool
         var confidence: Int  // 0-100
         var reason: String
+        var path: ScoringPath = .metadataRelevant
+        /// First ~300 chars of OCR-extracted on-screen text; non-nil only on ocrVerified* paths.
+        var ocrExcerpt: String? = nil
     }
 
-    // Cache: "intention|pageTitle" → Result
-    private var cache: [String: Result] = [:]
+    // MARK: - Cache
+
+    /// Unified cache entry: result + timestamp + title hash for container-app TTL and tab-title invalidation.
+    private struct CacheEntry {
+        let result: Result
+        let stampedAt: Date
+        /// SHA-256 first 8 hex chars of pageTitle — used to detect tab navigation on container apps.
+        let titleHash: String
+    }
+
+    private var cache: [String: CacheEntry] = [:]
     private var currentIntention: String = ""
 
     /// Hosts where the URL doesn't reliably identify the content — same URL serves
@@ -54,12 +78,10 @@ class RelevanceScorer {
         "news.ycombinator.com"
     ]
 
-    private let containerAppApprovalTTL: TimeInterval = 180  // 3 minutes
-
-    /// Per-cache-key timestamp of when a container-app approval was recorded.
-    /// Only populated for entries where result.relevant == true AND the URL
-    /// is a container-app host. Used to TTL-expire cached approvals.
-    private var approvalTimestamps: [String: Date] = [:]
+    /// Default TTL for metadata-relevant approvals on container apps (3 min).
+    private let containerAppApprovalTTL: TimeInterval = 180
+    /// TTL for OCR-verified-relevant verdicts on container apps (10 min — grounded in content).
+    private let ocrVerifiedRelevantTTL: TimeInterval = 600
 
     // MLX model state
     private var mlxContext: ModelContext?
@@ -388,7 +410,6 @@ class RelevanceScorer {
     /// Clear the relevance cache (call when block changes)
     func clearCache() {
         cache.removeAll()
-        approvalTimestamps.removeAll()
         userApproved.removeAll()
         currentIntention = ""
         // Reset the LLM session so it doesn't carry context from previous block
@@ -409,14 +430,36 @@ class RelevanceScorer {
     /// Persists until block changes (cleared by clearCache()).
     func approvePageTitle(_ pageTitle: String, for intention: String) {
         let cacheKey = "\(intention)|\(pageTitle)"
-        let result = Result(relevant: true, confidence: 100, reason: "User-approved")
-        cache[cacheKey] = result
+        let result = Result(relevant: true, confidence: 100, reason: "User-approved", path: .metadataRelevant)
+        cache[cacheKey] = CacheEntry(result: result, stampedAt: Date(), titleHash: titleHash(for: pageTitle))
         userApproved.insert(cacheKey)
         appDelegate?.postLog("🧠 User approved: \"\(pageTitle)\" for \"\(intention)\"")
     }
 
+    /// Compute an 8-hex-char SHA-256 prefix of a page title for cache invalidation.
+    private func titleHash(for pageTitle: String) -> String {
+        let bytes = Array(pageTitle.utf8)
+        let digest = SHA256.hash(data: bytes)
+        return digest.prefix(4).map { String(format: "%02x", $0) }.joined()
+    }
+
+    // MARK: - shouldVerifyWithOCR
+
+    /// Gate: should we run a second-chance OCR pass for this off-task verdict?
+    /// Returns true only when metadata said off-task AND the URL is a container app.
+    /// (Task 11 will extend this with learned overrides.)
+    private func shouldVerifyWithOCR(metadataResult: Result, url: String, bundleIdentifier: String) -> Bool {
+        guard !metadataResult.relevant else { return false }
+        return isContainerAppURL(url)
+    }
+
+    // MARK: - scoreRelevance
+
     /// Score a page title or app name against the current work intention.
     /// Returns cached result if available.
+    ///
+    /// For container-app URLs where metadata scores off-task, kicks off a second-chance
+    /// OCR verification pass before returning a blocking verdict.
     func scoreRelevance(
         pageTitle: String,
         intention: String,
@@ -437,6 +480,8 @@ class RelevanceScorer {
             return digest.prefix(4).map { String(format: "%02x", $0) }.joined()
         }()
         let cacheKey = "\(intention)|\(pageTitle)|\(urlPath)|\(contextHash)"
+        let currentTitleHash = titleHash(for: pageTitle)
+        let isContainer = isContainerAppURL(url)
 
         // Keyword overlap: catch obvious matches without hitting the LLM
         let urlSegments = urlPathSegments(url)
@@ -445,54 +490,71 @@ class RelevanceScorer {
         if titleMatch || urlMatch {
             let matchSource = titleMatch ? "title" : "URL path"
             appDelegate?.postLog("🧠 [Keyword] Match in \(matchSource): \"\(pageTitle)\" url=\(url.isEmpty ? "(none)" : url)")
-            let result = Result(relevant: true, confidence: 95, reason: "Keyword match with task (\(matchSource))")
-            cache[cacheKey] = result
-            if result.relevant && isContainerAppURL(url) {
-                approvalTimestamps[cacheKey] = Date()
-            }
+            var result = Result(relevant: true, confidence: 95, reason: "Keyword match with task (\(matchSource))")
+            result.path = .metadataRelevant
+            cache[cacheKey] = CacheEntry(result: result, stampedAt: Date(), titleHash: currentTitleHash)
             return result
         }
 
-        // User-approved whitelist (from justification) — keyed by title only (no URL)
+        // User-approved whitelist (from justification) — keyed by title only (no URL).
+        // Approved pages never trigger OCR; they return early here.
         let approvalKey = "\(intention)|\(pageTitle)"
         if userApproved.contains(approvalKey) {
-            return Result(relevant: true, confidence: 100, reason: "User-approved")
+            return Result(relevant: true, confidence: 100, reason: "User-approved", path: .metadataRelevant)
         }
 
         // Check cache
-        if let cached = cache[cacheKey] {
-            // Container-app approvals time out so one on-task video doesn't launder
-            // future content on the same host.
-            if cached.relevant && isContainerAppURL(url) {
-                let stampedAt = approvalTimestamps[cacheKey] ?? Date.distantPast
-                if Date().timeIntervalSince(stampedAt) < containerAppApprovalTTL {
-                    return cached
+        if let entry = cache[cacheKey] {
+            if isContainer {
+                // Tab-title-change invalidation: if title changed, treat as a cache miss and re-score.
+                if entry.titleHash != currentTitleHash {
+                    cache.removeValue(forKey: cacheKey)
+                    appDelegate?.postLog("🧠 [Cache] Tab title changed on container app — re-scoring \"\(pageTitle)\"")
+                } else if entry.result.relevant {
+                    // Apply path-aware TTL
+                    let ttl: TimeInterval = entry.result.path == .ocrVerifiedRelevant
+                        ? ocrVerifiedRelevantTTL
+                        : containerAppApprovalTTL
+                    if Date().timeIntervalSince(entry.stampedAt) < ttl {
+                        return entry.result
+                    }
+                    // TTL elapsed: drop stale entry and fall through to fresh scoring.
+                    cache.removeValue(forKey: cacheKey)
+                    appDelegate?.postLog("🧠 [Cache] Container-app TTL expired for \"\(pageTitle)\" on \(URL(string: url)?.host ?? "?") — re-scoring")
+                } else {
+                    // Off-task cached result for container app — always re-score (don't cache off-task)
+                    cache.removeValue(forKey: cacheKey)
                 }
-                // TTL elapsed: drop the stale entry and fall through to fresh scoring.
-                cache.removeValue(forKey: cacheKey)
-                approvalTimestamps.removeValue(forKey: cacheKey)
-                appDelegate?.postLog("🧠 [Cache] Container-app TTL expired for \"\(pageTitle)\" on \(URL(string: url)?.host ?? "?") — re-scoring")
             } else {
-                return cached
+                // Non-container-app: return cached result as-is (no TTL expiry)
+                return entry.result
             }
         }
 
         // Track intention changes — clear cache when block switches
         if intention != currentIntention {
             cache.removeAll()
-            approvalTimestamps.removeAll()
             currentIntention = intention
         }
+
+        // Pre-capture: kick off screen capture concurrently for container apps BEFORE scoring,
+        // so the screenshot is ready by the time we need it for OCR verification.
+        let screenCapture = ScreenCapture()
+        let captureTask: Task<(image: CGImage, pid: pid_t)?, Error>? = isContainer
+            ? Task { try await screenCapture.captureFrontmostWindow() }
+            : nil
 
         // Check which AI model to use
         let aiModel = appDelegate?.scheduleManager?.aiModel ?? "apple"
 
+        // --- Metadata scoring pass ---
+        var metadataResult: Result? = nil
+
         if aiModel == "qwen" {
-            // MLX path: load model if needed, then score
             await loadMLXModelIfNeeded()
             if mlxModelLoaded {
                 do {
-                    let result = try await scoreWithMLX(
+                    metadataResult = try await scoreWithMLX(
                         pageTitle: pageTitle,
                         intention: intention,
                         intentionDescription: intentionDescription,
@@ -503,22 +565,16 @@ class RelevanceScorer {
                         contentType: contentType,
                         bundleIdentifier: bundleIdentifier
                     )
-                    cache[cacheKey] = result
-                    if result.relevant && isContainerAppURL(url) {
-                        approvalTimestamps[cacheKey] = Date()
-                    }
-                    return result
                 } catch {
                     appDelegate?.postLog("⚠️ RelevanceScorer: MLX scoring error: \(error)")
-                    // Fall through to Foundation Models if MLX fails
                 }
             }
         }
 
         #if canImport(FoundationModels)
-        if #available(macOS 26.0, *) {
+        if #available(macOS 26.0, *), metadataResult == nil {
             do {
-                let result = try await scoreWithFoundationModels(
+                metadataResult = try await scoreWithFoundationModels(
                     pageTitle: pageTitle,
                     intention: intention,
                     intentionDescription: intentionDescription,
@@ -529,20 +585,148 @@ class RelevanceScorer {
                     contentType: contentType,
                     bundleIdentifier: bundleIdentifier
                 )
-                cache[cacheKey] = result
-                if result.relevant && isContainerAppURL(url) {
-                    approvalTimestamps[cacheKey] = Date()
-                }
-                return result
             } catch {
                 appDelegate?.postLog("⚠️ RelevanceScorer: Foundation Models error: \(error)")
             }
         }
         #endif
 
-        // Fallback: assume relevant (don't block if scoring unavailable)
-        let fallback = Result(relevant: true, confidence: 0, reason: "Scoring unavailable on this macOS version")
-        return fallback
+        // Fallback if all scoring paths failed
+        guard var rawResult = metadataResult else {
+            captureTask?.cancel()
+            let fallback = Result(relevant: true, confidence: 0, reason: "Scoring unavailable on this macOS version", path: .metadataRelevant)
+            return fallback
+        }
+
+        // --- OCR verification pass (second-chance for off-task verdicts on container apps) ---
+        if shouldVerifyWithOCR(metadataResult: rawResult, url: url, bundleIdentifier: bundleIdentifier) {
+            // PID drift guard (Flag 1): compare PID at capture time with PID right now.
+            // If they differ the user switched apps between capture and scoring — discard capture.
+            let currentPID = await MainActor.run { NSWorkspace.shared.frontmostApplication?.processIdentifier }
+
+            if let capture = (try? await captureTask?.value) ?? nil,
+               capture.pid == currentPID {
+                let ocrEngine = OCREngine()
+                let ocrText = (try? await ocrEngine.extractText(from: capture.image)) ?? ""
+
+                if !ocrText.isEmpty {
+                    appDelegate?.postLog("🧠 [OCR] Running verification pass for \"\(pageTitle)\" (\(ocrText.count) chars)")
+                    let verifiedResult = await rescoreWithOCR(
+                        pageTitle: pageTitle,
+                        intention: intention,
+                        intentionDescription: intentionDescription,
+                        profile: profile,
+                        dailyPlan: dailyPlan,
+                        url: url,
+                        pageDescription: pageDescription,
+                        contentType: contentType,
+                        bundleIdentifier: bundleIdentifier,
+                        ocrText: ocrText
+                    )
+                    var finalResult = verifiedResult
+                    finalResult.path = verifiedResult.relevant ? .ocrVerifiedRelevant : .ocrVerifiedOffTask
+                    finalResult.ocrExcerpt = String(ocrText.prefix(300))
+                    appDelegate?.postLog("🧠 [OCR] Verdict: \"\(pageTitle)\" → \(finalResult.relevant ? "relevant" : "NOT relevant") (\(finalResult.confidence)%) path=\(finalResult.path.rawValue)")
+                    // Cache OCR-verified relevant results; don't cache off-task (re-score on next tick)
+                    if finalResult.relevant {
+                        cache[cacheKey] = CacheEntry(result: finalResult, stampedAt: Date(), titleHash: currentTitleHash)
+                    }
+                    return finalResult
+                } else {
+                    appDelegate?.postLog("🧠 [OCR] Empty OCR text for \"\(pageTitle)\" — falling through to metadata verdict")
+                }
+            } else {
+                // PID drifted or capture failed — fall through to metadata verdict
+                appDelegate?.postLog("🧠 [OCR] PID drift or capture unavailable for \"\(pageTitle)\" — using metadata verdict")
+            }
+
+            // Fall-through: OCR unavailable/drifted — return metadata off-task verdict without caching
+            rawResult.path = .metadataOffTask
+            captureTask?.cancel()
+            return rawResult
+        }
+
+        // Cancel any unused pre-capture task (metadata said relevant, no OCR needed)
+        captureTask?.cancel()
+
+        // Metadata-only relevant path
+        rawResult.path = .metadataRelevant
+        // Cache relevant results; for container apps use stampedAt for TTL tracking
+        if rawResult.relevant {
+            cache[cacheKey] = CacheEntry(result: rawResult, stampedAt: Date(), titleHash: currentTitleHash)
+        }
+        // Don't cache off-task metadata verdicts for container apps — re-score each tick
+        // For non-container-app off-task, cache normally (no TTL)
+        if !rawResult.relevant && !isContainer {
+            cache[cacheKey] = CacheEntry(result: rawResult, stampedAt: Date(), titleHash: currentTitleHash)
+        }
+        return rawResult
+    }
+
+    // MARK: - OCR Rescore
+
+    /// Re-score relevance using both metadata AND on-screen OCR text.
+    ///
+    /// IMPORTANT — Flag 2 (clean prompt): this builds a FRESH prompt that includes the OCR excerpt
+    /// as additional context. It does NOT reference a prior verdict, does NOT say "re-evaluate,"
+    /// and does NOT anchor the model on a previous decision. The model sees exactly the same
+    /// metadata it would have seen in the regular pass, plus the on-screen text.
+    private func rescoreWithOCR(
+        pageTitle: String,
+        intention: String,
+        intentionDescription: String,
+        profile: String,
+        dailyPlan: String,
+        url: String,
+        pageDescription: String,
+        contentType: ContentType,
+        bundleIdentifier: String,
+        ocrText: String
+    ) async -> Result {
+        let aiModel = appDelegate?.scheduleManager?.aiModel ?? "apple"
+
+        if aiModel == "qwen" && mlxModelLoaded {
+            do {
+                return try await scoreWithMLX(
+                    pageTitle: pageTitle,
+                    intention: intention,
+                    intentionDescription: intentionDescription,
+                    profile: profile,
+                    dailyPlan: dailyPlan,
+                    url: url,
+                    pageDescription: pageDescription,
+                    contentType: contentType,
+                    bundleIdentifier: bundleIdentifier,
+                    ocrText: ocrText
+                )
+            } catch {
+                appDelegate?.postLog("⚠️ RelevanceScorer: OCR rescore MLX error: \(error)")
+            }
+        }
+
+        #if canImport(FoundationModels)
+        if #available(macOS 26.0, *) {
+            do {
+                return try await scoreWithFoundationModels(
+                    pageTitle: pageTitle,
+                    intention: intention,
+                    intentionDescription: intentionDescription,
+                    profile: profile,
+                    dailyPlan: dailyPlan,
+                    url: url,
+                    pageDescription: pageDescription,
+                    contentType: contentType,
+                    bundleIdentifier: bundleIdentifier,
+                    ocrText: ocrText
+                )
+            } catch {
+                appDelegate?.postLog("⚠️ RelevanceScorer: OCR rescore Foundation Models error: \(error)")
+            }
+        }
+        #endif
+
+        // Could not rescore — return fail-closed off-task
+        return Result(relevant: false, confidence: 0, reason: "OCR rescore unavailable", path: .ocrVerifiedOffTask)
     }
 
     // MARK: - Keyword Overlap
@@ -604,6 +788,8 @@ class RelevanceScorer {
 
     #if canImport(FoundationModels)
     @available(macOS 26.0, *)
+    /// When `ocrText` is provided (OCR verification pass), it is appended as additional context.
+    /// No reference to a prior verdict is included (Flag 2).
     private func scoreWithFoundationModels(
         pageTitle: String,
         intention: String,
@@ -613,11 +799,13 @@ class RelevanceScorer {
         url: String = "",
         pageDescription: String = "",
         contentType: ContentType = .webpage,
-        bundleIdentifier: String = ""
+        bundleIdentifier: String = "",
+        ocrText: String = ""
     ) async throws -> Result {
         let descLine = intentionDescription.isEmpty ? "" : "\nBlock description: \(intentionDescription)"
         let urlLine = url.isEmpty ? "" : "\nURL path: \(URL(string: url)?.path ?? url)"
         let pageDescLine = pageDescription.isEmpty ? "" : "\nPage description: \(pageDescription)"
+        let ocrBlock = ocrText.isEmpty ? "" : "\nOn-screen text excerpt:\n\(ocrText)"
         // Clean page title: strip HTML entities and non-ASCII punctuation that confuse the model
         let cleanTitle = pageTitle
             .replacingOccurrences(of: #"&[a-zA-Z0-9#]+;"#, with: " ", options: .regularExpression)
@@ -648,10 +836,10 @@ class RelevanceScorer {
 
         let userMessage = """
         \(contextHeader(profile: profile, dailyPlan: dailyPlan))Current time block task: "\(intention)"\(descLine)
-        \(appLine)\(urlLine)\(pageDescLine)
+        \(appLine)\(urlLine)\(pageDescLine)\(ocrBlock)
         """
 
-        appDelegate?.postLog("🧠 [Prompt] Foundation Models input:\n\(userMessage)")
+        appDelegate?.postLog("🧠 [Prompt] Foundation Models input\(ocrText.isEmpty ? "" : " +OCR"):\n\(userMessage)")
 
         let response = try await session.respond(to: userMessage, generating: RelevanceOutput.self)
         let output = response.content
@@ -692,6 +880,8 @@ class RelevanceScorer {
     }
 
     /// Score relevance using MLX Qwen3-4B with split prompts, enrichment, and few-shot examples.
+    /// When `ocrText` is provided (OCR verification pass), it is appended as additional context
+    /// to the same prompt structure — no reference to a prior verdict (Flag 2).
     private func scoreWithMLX(
         pageTitle: String,
         intention: String,
@@ -701,7 +891,8 @@ class RelevanceScorer {
         url: String = "",
         pageDescription: String = "",
         contentType: ContentType,
-        bundleIdentifier: String = ""
+        bundleIdentifier: String = "",
+        ocrText: String = ""
     ) async throws -> Result {
         guard let session = mlxSession else {
             throw NSError(domain: "RelevanceScorer", code: 1,
@@ -721,6 +912,9 @@ class RelevanceScorer {
         let fewShot: String
         let evaluationPart: String
 
+        // OCR excerpt block — appended only when present (same prompt, extra context, no prior verdict)
+        let ocrBlock = ocrText.isEmpty ? "" : "\nOn-screen text excerpt:\n\(ocrText)"
+
         if contentType == .application {
             selectedSystemPrompt = appSystemPrompt
             fewShot = appFewShotExamples()
@@ -735,7 +929,7 @@ class RelevanceScorer {
             evaluationPart = """
             \(header)Now classify:
             Task: "\(intention)"\(descLine)
-            \(appLine)
+            \(appLine)\(ocrBlock)
             """
         } else {
             selectedSystemPrompt = webSystemPrompt
@@ -747,7 +941,7 @@ class RelevanceScorer {
             evaluationPart = """
             \(header)Now classify:
             Task: "\(intention)"\(descLine)
-            \(browserLine)Page: "\(cleanTitle)"\(urlLine)\(pageDescLine)
+            \(browserLine)Page: "\(cleanTitle)"\(urlLine)\(pageDescLine)\(ocrBlock)
             """
         }
 
@@ -762,7 +956,7 @@ class RelevanceScorer {
         /no_think
         """
 
-        appDelegate?.postLog("🧠 [Prompt] MLX (\(contentType == .application ? "app" : "web")):\n\(evaluationPart)")
+        appDelegate?.postLog("🧠 [Prompt] MLX (\(contentType == .application ? "app" : "web")\(ocrText.isEmpty ? "" : "+OCR")):\n\(evaluationPart)")
 
         let response = try await session.respond(to: prompt)
 
