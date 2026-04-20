@@ -21,6 +21,36 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     private var iconCache: [String: String] = [:]
     private let iconCacheLock = NSLock()
 
+    /// Last JSON pushed for _extensionStatusResult. ~89 KB per push (icons as base64);
+    /// the 5s poll re-sends it continuously. Skip when identical to save bridge cost
+    /// (Swift→WebContent marshalling + JSC parse) that blocks scroll compositing.
+    private var lastExtensionStatusJSON: String?
+
+    // MARK: - UI Perf Instrumentation
+    // Every 3s we dump counts of incoming messages + outgoing callJS invocations.
+    // Tail: `tail -f $TMPDIR/intentional-debug.log | grep UIPERF`
+    private var uiPerfRxCounts: [String: Int] = [:]
+    private var uiPerfCallJSCount: Int = 0
+    private var uiPerfCallJSBytes: Int = 0
+    private var uiPerfLastFlush: Date = Date()
+    private let uiPerfQueue = DispatchQueue(label: "com.intentional.uiperf")
+
+    private func uiPerfMaybeFlush() {
+        let now = Date()
+        guard now.timeIntervalSince(uiPerfLastFlush) >= 3.0 else { return }
+        let rx = uiPerfRxCounts
+        let jsCount = uiPerfCallJSCount
+        let jsBytes = uiPerfCallJSBytes
+        uiPerfRxCounts.removeAll(keepingCapacity: true)
+        uiPerfCallJSCount = 0
+        uiPerfCallJSBytes = 0
+        uiPerfLastFlush = now
+        let rxStr = rx.sorted { $0.value > $1.value }
+            .map { "\($0.key)=\($0.value)" }
+            .joined(separator: " ")
+        appDelegate?.postLog("[UIPERF] 3s: callJS=\(jsCount) (\(jsBytes) bytes)  rx={\(rxStr)}")
+    }
+
     convenience init(appDelegate: AppDelegate) {
         // Create window
         let window = NSWindow(
@@ -58,6 +88,11 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         // Dark background to match the web UI
         webView.setValue(false, forKey: "drawsBackground")
         webView.uiDelegate = self
+
+        // Enable Safari Web Inspector for paint/layout profiling
+        if #available(macOS 13.3, *) {
+            webView.isInspectable = true
+        }
 
         window.contentView = webView
         window.title = "Intentional"
@@ -206,7 +241,25 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             return
         }
 
+        // [UIPERF] per-type receive counter; flushed every 3s via uiPerfMaybeFlush()
+        if type != "DIAGNOSTIC_LOG" {
+            uiPerfRxCounts[type, default: 0] += 1
+            uiPerfMaybeFlush()
+        }
+        let rxStart = CFAbsoluteTimeGetCurrent()
+        defer {
+            let ms = (CFAbsoluteTimeGetCurrent() - rxStart) * 1000
+            if ms > 50 && type != "DIAGNOSTIC_LOG" {
+                appDelegate?.postLog("[UIPERF] SLOW rx \(type) sync-phase \(Int(ms))ms")
+            }
+        }
+
         switch type {
+        case "DIAGNOSTIC_LOG":
+            if let msg = body["msg"] as? String {
+                appDelegate?.postLog(msg)
+            }
+
         case "SAVE_ONBOARDING":
             handleSaveOnboarding(body)
 
@@ -506,15 +559,30 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                     entry["iconDataUrl"] = cached
                 } else if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: browser.bundleId) {
                     let icon = NSWorkspace.shared.icon(forFile: appURL.path)
-                    icon.size = NSSize(width: 32, height: 32)
-                    if let tiffData = icon.tiffRepresentation,
-                       let bitmap = NSBitmapImageRep(data: tiffData),
-                       let pngData = bitmap.representation(using: .png, properties: [:]) {
-                        let dataUrl = "data:image/png;base64,\(pngData.base64EncodedString())"
-                        self.iconCacheLock.lock()
-                        self.iconCache[browser.bundleId] = dataUrl
-                        self.iconCacheLock.unlock()
-                        entry["iconDataUrl"] = dataUrl
+                    // Rasterize into a 64x64 (2x retina) bitmap. NSImage.size is just a hint —
+                    // tiffRepresentation would otherwise serialize the 1024x1024 master rep,
+                    // producing ~2MB base64 strings per icon and freezing the WebView.
+                    if let bitmap = NSBitmapImageRep(
+                        bitmapDataPlanes: nil,
+                        pixelsWide: 64, pixelsHigh: 64,
+                        bitsPerSample: 8, samplesPerPixel: 4,
+                        hasAlpha: true, isPlanar: false,
+                        colorSpaceName: .deviceRGB,
+                        bytesPerRow: 0, bitsPerPixel: 32
+                    ) {
+                        bitmap.size = NSSize(width: 32, height: 32)
+                        NSGraphicsContext.saveGraphicsState()
+                        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
+                        icon.draw(in: NSRect(x: 0, y: 0, width: 32, height: 32),
+                                  from: .zero, operation: .copy, fraction: 1.0)
+                        NSGraphicsContext.restoreGraphicsState()
+                        if let pngData = bitmap.representation(using: .png, properties: [:]) {
+                            let dataUrl = "data:image/png;base64,\(pngData.base64EncodedString())"
+                            self.iconCacheLock.lock()
+                            self.iconCache[browser.bundleId] = dataUrl
+                            self.iconCacheLock.unlock()
+                            entry["iconDataUrl"] = dataUrl
+                        }
                     }
                 }
                 browsersArray.append(entry)
@@ -525,9 +593,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 "connectedCount": connectedCount
             ]
 
-            if let data = try? JSONSerialization.data(withJSONObject: result),
+            // .sortedKeys is required for dedup — Swift [String: Any] has non-deterministic
+            // iteration order, so unsorted serialization produces different byte strings
+            // for semantically-identical payloads and the dedup check never matches.
+            if let data = try? JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]),
                let json = String(data: data, encoding: .utf8) {
                 DispatchQueue.main.async {
+                    if self.lastExtensionStatusJSON == json { return }
+                    self.lastExtensionStatusJSON = json
                     self.callJS("window._extensionStatusResult && window._extensionStatusResult(\(json))")
                 }
             }
@@ -2488,8 +2561,25 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     // MARK: - JS Helpers
 
     private func callJS(_ script: String) {
+        uiPerfCallJSCount += 1
+        uiPerfCallJSBytes += script.count
+        let scriptSize = script.count
+        // Extract the target function name (first "_xxxResult" or "navigateTo" etc.)
+        let fnName: String = {
+            if let r = script.range(of: #"window\.(_[A-Za-z0-9]+)"#, options: .regularExpression) {
+                return String(script[r]).replacingOccurrences(of: "window.", with: "")
+            }
+            let head = script.prefix(40)
+            return String(head).components(separatedBy: "(").first ?? String(head)
+        }()
+        uiPerfMaybeFlush()
         DispatchQueue.main.async {
+            let t0 = CFAbsoluteTimeGetCurrent()
             self.webView.evaluateJavaScript(script) { _, error in
+                let ms = (CFAbsoluteTimeGetCurrent() - t0) * 1000
+                if ms > 50 {
+                    self.appDelegate?.postLog("[UIPERF] SLOW callJS \(Int(ms))ms fn=\(fnName) size=\(scriptSize)")
+                }
                 if let error = error {
                     self.appDelegate?.postLog("⚠️ JS eval error: \(error.localizedDescription)")
                 }

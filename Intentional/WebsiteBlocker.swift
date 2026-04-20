@@ -54,7 +54,13 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     // NSAppleScript MUST run on the main thread — it uses the Apple Event Manager
     // which is main-thread-only. A serial background queue is NOT sufficient and causes
     // EXC_BAD_ACCESS crashes. We use main.async to avoid blocking the caller.
-    private let appleScriptQueue = DispatchQueue.main
+    // Serial background queue for AppleScript execution. NSAppleScript.executeAndReturnError
+    // blocks on mach_msg waiting for the target browser's AE reply (200–600ms typical). Running
+    // on DispatchQueue.main froze the entire app — menu bar, pill, and dashboard — because the
+    // 0.5s check timer fired per-browser scripts continuously on the main thread. Apple Event
+    // Manager spins up its own nested CFRunLoop for reply delivery on whichever thread calls
+    // AESendMessage, so background execution works.
+    private let appleScriptQueue = DispatchQueue(label: "com.intentional.applescript", qos: .userInitiated)
 
     // MARK: - Bypass Detection
     // Track time spent on blocked sites (for detecting if someone bypasses the blocking page)
@@ -1037,22 +1043,23 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     private func executeScript(_ script: String, browserName: String, completion: @escaping ([String]) -> Void) {
         // Prevent queue flooding: skip if a check script is already queued/running for this key
         guard !checkInFlight.contains(browserName) else { return }
-        checkInFlight.insert(browserName)
 
         // Extract actual browser name for activeBrowsers check
         // (e.g., "Chrome-active" → "Chrome")
         let actualBrowser = browserName.components(separatedBy: "-").first ?? browserName
 
-        // IMPORTANT: NSAppleScript MUST run on main thread (Apple Event Manager is main-thread-only).
+        // Guard on the caller's (main) thread — activeBrowsers is a Swift Set<String> and must
+        // only be read from the thread that mutates it. Callers are all main-queue timers.
+        guard activeBrowsers.contains(actualBrowser) else { return }
+
+        checkInFlight.insert(browserName)
+
         appleScriptQueue.async { [weak self] in
             guard let self = self else { return }
 
             defer {
                 DispatchQueue.main.async { self.checkInFlight.remove(browserName) }
             }
-
-            // Bail if browser was removed from active set while queued
-            guard self.activeBrowsers.contains(actualBrowser) else { return }
 
             guard let appleScript = NSAppleScript(source: script) else {
                 DispatchQueue.main.async {
@@ -1093,7 +1100,9 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func executeBlockingScript(_ script: String, browserName: String, blockedURL: String) {
-        // Use serial queue to prevent concurrent AppleScript execution
+        // Guard on main thread — Set<String> read must not race with mutations.
+        guard activeBrowsers.contains(browserName) else { return }
+
         appleScriptQueue.async { [weak self] in
             guard let self = self else { return }
 
@@ -1106,9 +1115,6 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
                     }
                 }
             }
-
-            // Bail if browser was removed from active set while queued
-            guard self.activeBrowsers.contains(browserName) else { return }
 
             guard let appleScript = NSAppleScript(source: script) else {
                 DispatchQueue.main.async {
@@ -1149,7 +1155,9 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     /// Execute blocking script and capture the result (for debugging)
     /// Uses a serial queue to prevent concurrent AppleScript execution which can cause hangs
     private func executeBlockingScriptWithResult(_ script: String, browserName: String, blockedURL: String) {
-        // Use serial queue to prevent concurrent AppleScript execution
+        // Guard on main thread — Set<String> read must not race with mutations.
+        guard activeBrowsers.contains(browserName) else { return }
+
         appleScriptQueue.async { [weak self] in
             guard let self = self else { return }
 
@@ -1162,9 +1170,6 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
                     }
                 }
             }
-
-            // Bail if browser was removed from active set while queued
-            guard self.activeBrowsers.contains(browserName) else { return }
 
             DispatchQueue.main.async {
                 self.appDelegate?.postLog("⏳ \(browserName): Starting AppleScript execution...")

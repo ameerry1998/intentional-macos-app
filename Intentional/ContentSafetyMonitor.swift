@@ -356,6 +356,14 @@ class ContentSafetyMonitor {
     private func startPolling() {
         guard pollTimer == nil else { return }
 
+        // DIAGNOSTIC GATE — skip CI/CoreML poll loop to isolate fps impact.
+        // Partner-gated `isEnabled` state is untouched; overlays/permission still work.
+        if ProcessInfo.processInfo.environment["CSM_DISABLE_FOR_PERF_TEST"] == "1" {
+            isMonitoring = false
+            appDelegate?.postLog("🛡️ Content Safety: POLL DISABLED via CSM_DISABLE_FOR_PERF_TEST=1 (diagnostic)")
+            return
+        }
+
         pollTimer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
             Task { await self?.pollAndAnalyze() }
         }
