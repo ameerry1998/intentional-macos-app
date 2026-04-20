@@ -531,6 +531,16 @@ class RelevanceScorer {
             .joined(separator: " ")
     }
 
+    /// Build the shared profile/plan header lines used by both scoring backends.
+    /// Returns an empty string when both inputs are empty/whitespace.
+    private func contextHeader(profile: String, dailyPlan: String) -> String {
+        let p = profile.trimmingCharacters(in: .whitespacesAndNewlines)
+        let d = dailyPlan.trimmingCharacters(in: .whitespacesAndNewlines)
+        let profileLine = p.isEmpty ? "" : "About the user: \(p)\n"
+        let planLine    = d.isEmpty ? "" : "Today's focus: \(d)\n"
+        return profileLine + planLine
+    }
+
     #if canImport(FoundationModels)
     @available(macOS 26.0, *)
     private func scoreWithFoundationModels(
@@ -544,10 +554,6 @@ class RelevanceScorer {
         contentType: ContentType = .webpage,
         bundleIdentifier: String = ""
     ) async throws -> Result {
-        let trimmedProfile = profile.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedDailyPlan = dailyPlan.trimmingCharacters(in: .whitespacesAndNewlines)
-        let profileLine = trimmedProfile.isEmpty ? "" : "About the user: \(trimmedProfile)\n"
-        let planLine = trimmedDailyPlan.isEmpty ? "" : "Today's focus: \(trimmedDailyPlan)\n"
         let descLine = intentionDescription.isEmpty ? "" : "\nBlock description: \(intentionDescription)"
         let urlLine = url.isEmpty ? "" : "\nURL path: \(URL(string: url)?.path ?? url)"
         let pageDescLine = pageDescription.isEmpty ? "" : "\nPage description: \(pageDescription)"
@@ -569,17 +575,18 @@ class RelevanceScorer {
             contentLabel = "Webpage title"
         }
 
-        // App line: prefer "App: <bundleID> (<displayTitle>)" when bundleIdentifier is present,
-        // otherwise fall back to the previous "<contentLabel>: \"<displayTitle>\"" format.
+        // App line: prefer `App: <bundleID> ("<displayTitle>")` when bundleIdentifier is present,
+        // otherwise fall back to `<contentLabel>: "<displayTitle>"`. Names are always quoted so
+        // values containing parentheses (e.g. "Visual Studio Code (Insiders)") don't confuse the model.
         let appLine: String
         if !bundleIdentifier.isEmpty {
-            appLine = "App: \(bundleIdentifier) (\(displayTitle))"
+            appLine = "App: \(bundleIdentifier) (\"\(displayTitle)\")"
         } else {
             appLine = "\(contentLabel): \"\(displayTitle)\""
         }
 
         let userMessage = """
-        \(profileLine)\(planLine)Current time block task: "\(intention)"\(descLine)
+        \(contextHeader(profile: profile, dailyPlan: dailyPlan))Current time block task: "\(intention)"\(descLine)
         \(appLine)\(urlLine)\(pageDescLine)
         """
 
@@ -640,10 +647,7 @@ class RelevanceScorer {
                           userInfo: [NSLocalizedDescriptionKey: "MLX model not loaded"])
         }
 
-        let trimmedProfile = profile.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedDailyPlan = dailyPlan.trimmingCharacters(in: .whitespacesAndNewlines)
-        let profileLine = trimmedProfile.isEmpty ? "" : "About the user: \(trimmedProfile)\n"
-        let planLine = trimmedDailyPlan.isEmpty ? "" : "Today's focus: \(trimmedDailyPlan)\n"
+        let header = contextHeader(profile: profile, dailyPlan: dailyPlan)
         let descLine = intentionDescription.isEmpty ? "" : "\nDescription: \(intentionDescription)"
         let cleanTitle = pageTitle
             .replacingOccurrences(of: #"&[a-zA-Z0-9#]+;"#, with: " ", options: .regularExpression)
@@ -668,7 +672,7 @@ class RelevanceScorer {
                 appLine = "App: \"\(enrichedName)\""
             }
             evaluationPart = """
-            \(profileLine)\(planLine)Now classify:
+            \(header)Now classify:
             Task: "\(intention)"\(descLine)
             \(appLine)
             """
@@ -680,7 +684,7 @@ class RelevanceScorer {
             let urlLine = url.isEmpty ? "" : "\nURL: \(URL(string: url)?.path ?? url)"
             let pageDescLine = pageDescription.isEmpty ? "" : "\nPage description: \(pageDescription)"
             evaluationPart = """
-            \(profileLine)\(planLine)Now classify:
+            \(header)Now classify:
             Task: "\(intention)"\(descLine)
             \(browserLine)Page: "\(cleanTitle)"\(urlLine)\(pageDescLine)
             """
