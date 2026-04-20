@@ -2859,6 +2859,8 @@ class FocusMonitor {
         // (the event row we just wrote has confidence=0; the scoring row before it has the real score).
         let lastScored = relevanceLog.last(where: { $0.title == overlayName && !$0.isEvent })
         let triggerConfidence = lastScored?.confidence ?? 0
+        let triggerPath: ScoringPath? = lastScored?.path
+        let triggerOCRExcerpt: String? = lastScored?.ocrExcerpt
         var triggerURL: String? = nil
         if let bid = currentAppBundleId, Self.browserBundleIds.contains(bid),
            let info = readActiveTabInfo(for: bid), !info.url.isEmpty {
@@ -2880,7 +2882,9 @@ class FocusMonitor {
                 minutesUntilNextBlock: minutesUntilNext,
                 displayName: displayName,
                 confidence: triggerConfidence,
-                urlString: triggerURL
+                urlString: triggerURL,
+                path: triggerPath,
+                ocrExcerpt: triggerOCRExcerpt
             )
         }
     }

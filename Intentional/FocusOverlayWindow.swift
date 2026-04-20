@@ -45,7 +45,9 @@ class FocusOverlayWindowController {
         minutesUntilNextBlock: Int? = nil,
         displayName: String? = nil,
         confidence: Int = 0,
-        urlString: String? = nil
+        urlString: String? = nil,
+        path: ScoringPath? = nil,
+        ocrExcerpt: String? = nil
     ) {
         // Close any existing overlay
         dismiss()
@@ -61,7 +63,9 @@ class FocusOverlayWindowController {
             minutesUntilNextBlock: minutesUntilNextBlock,
             displayName: displayName,
             confidence: confidence,
-            urlString: urlString
+            urlString: urlString,
+            path: path,
+            ocrExcerpt: ocrExcerpt
         )
 
         viewModel.onBackToWork = { [weak self] in
@@ -165,6 +169,8 @@ class FocusOverlayViewModel: ObservableObject {
     // Why? disclosure context (deep-work overlay only)
     let confidence: Int
     let urlString: String?
+    let path: ScoringPath?
+    let ocrExcerpt: String?
     @Published var showWhyDetails: Bool = false
 
     // Quick block creation (unplanned overlay)
@@ -202,7 +208,8 @@ class FocusOverlayViewModel: ObservableObject {
          isNoPlan: Bool = false, canSnooze: Bool = false,
          nextBlockTitle: String? = nil, nextBlockTime: String? = nil, minutesUntilNextBlock: Int? = nil,
          displayName: String? = nil,
-         confidence: Int = 0, urlString: String? = nil) {
+         confidence: Int = 0, urlString: String? = nil,
+         path: ScoringPath? = nil, ocrExcerpt: String? = nil) {
         self.intention = intention
         self.reason = reason
         self.focusDurationMinutes = focusDurationMinutes
@@ -214,6 +221,8 @@ class FocusOverlayViewModel: ObservableObject {
         self.minutesUntilNextBlock = minutesUntilNextBlock
         self.confidence = confidence
         self.urlString = urlString
+        self.path = path
+        self.ocrExcerpt = ocrExcerpt
     }
 }
 
@@ -550,8 +559,21 @@ struct FocusOverlayView: View {
 
     // MARK: - Why? Disclosure Panel
 
+    private func verdictPathLabel(_ path: ScoringPath) -> String {
+        switch path {
+        case .metadataRelevant, .metadataOffTask: return "Metadata only"
+        case .ocrVerifiedRelevant, .ocrVerifiedOffTask: return "OCR-verified"
+        }
+    }
+
     @ViewBuilder
     private var whyDetailsPanel: some View {
+        let isOCRVerified: Bool = {
+            guard let p = viewModel.path else { return false }
+            return p == .ocrVerifiedRelevant || p == .ocrVerifiedOffTask
+        }()
+        let verifiedSuffix: String = isOCRVerified ? " (verified)" : ""
+
         VStack(alignment: .leading, spacing: 8) {
             whyRow(label: "Block", value: viewModel.intention)
             whyRow(label: "Page", value: (viewModel.displayName?.isEmpty == false) ? viewModel.displayName! : "—")
@@ -580,7 +602,25 @@ struct FocusOverlayView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            whyRow(label: "Confidence", value: "\(viewModel.confidence)%")
+            whyRow(label: "Confidence", value: "\(viewModel.confidence)%\(verifiedSuffix)")
+            if let p = viewModel.path {
+                whyRow(label: "Verdict path", value: verdictPathLabel(p))
+            }
+            if let excerpt = viewModel.ocrExcerpt, !excerpt.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("OCR excerpt")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.45))
+                    Text(excerpt)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.65))
+                        .lineLimit(6)
+                        .truncationMode(.tail)
+                        .padding(8)
+                        .background(Color.white.opacity(0.04))
+                        .cornerRadius(4)
+                }
+            }
 
             HStack(spacing: 10) {
                 Button(action: { viewModel.onApproveForBlock?() }) {
