@@ -26,6 +26,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     /// (Swift→WebContent marshalling + JSC parse) that blocks scroll compositing.
     private var lastExtensionStatusJSON: String?
 
+    /// Cheap fingerprint of the browser status payload (connectedCount + per-browser
+    /// bundleId/isEnabled/hasExtension). Used to short-circuit the 89 KB JSON
+    /// serialization when nothing material changed between 5s polls. Guarded by
+    /// `extensionStatusLock` so the background serializer can read it without
+    /// round-tripping to main.
+    private var lastExtensionStatusSignature: String?
+    private let extensionStatusLock = NSLock()
+
     #if DEBUG
     // UI Perf instrumentation — DEBUG only. Every 3s we dump counts of incoming messages
     // + outgoing callJS invocations. Tail: `tail -f $TMPDIR/intentional-debug.log | grep UIPERF`.
@@ -543,6 +551,17 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             let statuses = NativeMessagingSetup.shared.getBrowserStatus()
             let connectedCount = self.appDelegate?.socketRelayServer?.connectionCount ?? 0
 
+            // Signature check: skip icon rasterization + 89 KB JSON serialization when
+            // nothing material changed. Must match on every field the webview renders
+            // differently on.
+            let signature = "\(connectedCount)|" + statuses
+                .map { "\($0.bundleId):\($0.isEnabled ? 1 : 0):\($0.hasExtension ? 1 : 0):\($0.extensionId ?? "")" }
+                .joined(separator: "|")
+            self.extensionStatusLock.lock()
+            let signatureMatches = (self.lastExtensionStatusSignature == signature)
+            self.extensionStatusLock.unlock()
+            if signatureMatches { return }
+
             var browsersArray: [[String: Any]] = []
             for browser in statuses {
                 var entry: [String: Any] = [
@@ -602,6 +621,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             // for semantically-identical payloads and the dedup check never matches.
             if let data = try? JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]),
                let json = String(data: data, encoding: .utf8) {
+                self.extensionStatusLock.lock()
+                self.lastExtensionStatusSignature = signature
+                self.extensionStatusLock.unlock()
                 DispatchQueue.main.async {
                     if self.lastExtensionStatusJSON == json { return }
                     self.lastExtensionStatusJSON = json
