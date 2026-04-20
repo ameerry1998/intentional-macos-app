@@ -146,10 +146,10 @@
 }
 
 @keyframes aurora-drift {
-  0% { transform: translate(0, 0) scale(1); opacity: 0.3; }
-  33% { transform: translate(30px, -20px) scale(1.1); opacity: 0.4; }
-  66% { transform: translate(-20px, 15px) scale(0.95); opacity: 0.25; }
-  100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
+  0% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -20px) scale(1.1); }
+  66% { transform: translate(-20px, 15px) scale(0.95); }
+  100% { transform: translate(0, 0) scale(1); }
 }
 
 /* ===== Reset ===== */
@@ -176,7 +176,9 @@ input, textarea, [contenteditable] {
   -webkit-user-select: text;
 }
 
-/* Aurora background blobs — gated by theme class */
+/* Aurora background blobs — gated by theme class.
+   Transform-only animation at 60s+ keeps layers GPU-cached so backdrop-filter
+   elements above them don't have to resample every frame. */
 body.theme-effects-iridescent::before {
   content: '';
   position: fixed;
@@ -184,8 +186,10 @@ body.theme-effects-iridescent::before {
   left: -10%;
   width: 50%;
   height: 40%;
+  opacity: 0.32;
   background: radial-gradient(ellipse, rgba(6, 182, 212, 0.06), transparent 70%);
-  animation: aurora-drift 10s ease-in-out infinite;
+  animation: aurora-drift 60s ease-in-out infinite;
+  will-change: transform;
   pointer-events: none;
   z-index: 0;
 }
@@ -196,8 +200,10 @@ body.theme-effects-iridescent::after {
   right: -10%;
   width: 50%;
   height: 40%;
+  opacity: 0.32;
   background: radial-gradient(ellipse, rgba(139, 92, 246, 0.06), transparent 70%);
-  animation: aurora-drift 12s ease-in-out infinite reverse;
+  animation: aurora-drift 72s ease-in-out infinite reverse;
+  will-change: transform;
   pointer-events: none;
   z-index: 0;
 }
@@ -210,8 +216,10 @@ body.theme-effects-warm::before {
   left: -10%;
   width: 50%;
   height: 40%;
+  opacity: 0.32;
   background: radial-gradient(ellipse, rgba(251, 191, 36, 0.05), transparent 70%);
-  animation: aurora-drift 10s ease-in-out infinite;
+  animation: aurora-drift 60s ease-in-out infinite;
+  will-change: transform;
   pointer-events: none;
   z-index: 0;
 }
@@ -222,8 +230,10 @@ body.theme-effects-warm::after {
   right: -10%;
   width: 50%;
   height: 40%;
+  opacity: 0.32;
   background: radial-gradient(ellipse, rgba(52, 211, 153, 0.05), transparent 70%);
-  animation: aurora-drift 12s ease-in-out infinite reverse;
+  animation: aurora-drift 72s ease-in-out infinite reverse;
+  will-change: transform;
   pointer-events: none;
   z-index: 0;
 }
@@ -953,14 +963,12 @@ body.theme-effects-warm::after {
 
 /* ===== Settings Card ===== */
 .settings-card {
-  background: rgba(255, 255, 255, 0.025);
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-subtle);
   border-radius: 14px;
   overflow: hidden;
   margin-bottom: 10px;
   position: relative;
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
 }
 .settings-card::before {
   content: '';
@@ -1625,8 +1633,8 @@ body.theme-effects-warm::after {
 }
 .lock-confirm-box {
   background: var(--bg-elevated);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   padding: 28px 32px;
@@ -1853,13 +1861,11 @@ body.theme-effects-warm::after {
 
 /* Coach context row (persistent profile + daily plan above calendar) */
 .coach-context-card {
-  background: rgba(255, 255, 255, 0.025);
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
   padding: 10px 14px;
   margin-bottom: 12px;
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
 }
 .coach-context-title {
   font-size: 10px;
@@ -2245,15 +2251,8 @@ body.theme-effects-warm::after {
   position: relative;
   cursor: pointer;
 }
-.calendar-hour-track::before {
-  content: '';
-  position: absolute; inset: 0;
-  background: repeating-linear-gradient(
-    -45deg, transparent, transparent 4px,
-    rgba(255, 255, 255, 0.015) 4px, rgba(255, 255, 255, 0.015) 8px
-  );
-  pointer-events: none;
-}
+/* repeating diagonal gradient removed — it was ~1.5% opacity (nearly invisible)
+   but forced the compositor to re-rasterize the pattern on every scroll frame. */
 
 .calendar-block {
   position: absolute;
@@ -2418,8 +2417,7 @@ body.theme-effects-warm::after {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: rgba(10, 10, 10, 0.85);
-  backdrop-filter: blur(8px);
+  background: rgba(10, 10, 10, 0.98);
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 .calendar-zoom-icon { font-size: 10px; color: rgba(255, 255, 255, 0.25); }
@@ -2488,14 +2486,15 @@ body.theme-effects-warm::after {
 /* Block Editor Popover */
 .block-editor {
   position: fixed;
-  background: var(--bg-elevated);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(20, 20, 22, 0.98);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 12px;
   padding: 16px;
   z-index: 100;
   width: 280px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 .block-editor-row { margin-bottom: 12px; }
@@ -2553,9 +2552,7 @@ body.theme-effects-warm::after {
 /* Block Assessment Popover */
 .block-assessment-popover {
   position: fixed;
-  background: var(--bg-elevated);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(20, 20, 22, 0.98);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 12px;
   z-index: 100;
@@ -2831,6 +2828,7 @@ body.theme-effects-warm::after {
     flex-shrink: 0;
 }
 .relevance-path-badge.metadata-offtask { background: rgba(156, 163, 175, 0.25); color: rgba(156, 163, 175, 0.95); }
+.relevance-path-badge.metadata-offtask-lowconf { background: rgba(99, 102, 241, 0.22); color: rgba(165, 180, 252, 0.95); }
 .relevance-path-badge.ocr-verified-relevant { background: rgba(251, 146, 60, 0.25); color: rgba(251, 146, 60, 0.95); }
 .relevance-path-badge.ocr-verified-offtask { background: rgba(239, 68, 68, 0.25); color: rgba(239, 68, 68, 0.95); }
 .relevance-ocr-excerpt {
@@ -2869,6 +2867,7 @@ body.theme-effects-warm::after {
   border-color: rgba(251, 146, 60, 0.4);
 }
 [data-theme="light"] .relevance-path-badge.metadata-offtask { background: rgba(107, 114, 128, 0.12); color: rgba(75, 85, 99, 0.9); }
+[data-theme="light"] .relevance-path-badge.metadata-offtask-lowconf { background: rgba(79, 70, 229, 0.1); color: rgba(67, 56, 202, 0.9); }
 [data-theme="light"] .relevance-path-badge.ocr-verified-relevant { background: rgba(234, 88, 12, 0.12); color: rgba(194, 65, 12, 0.95); }
 [data-theme="light"] .relevance-path-badge.ocr-verified-offtask { background: rgba(220, 38, 38, 0.12); color: rgba(185, 28, 28, 0.95); }
 [data-theme="light"] .relevance-ocr-excerpt {
@@ -4806,6 +4805,116 @@ function sendMessage(payload) {
   }
 }
 
+// ===== UI Perf Instrumentation =====
+// Tail logs:  tail -f $TMPDIR/intentional-debug.log | grep UIPERF
+window._uiPerf = {
+  longTasks: 0,
+  longTaskMs: 0,
+  longTaskMax: 0,
+  frames: 0,
+  slowFrames: 0,       // frames where rAF gap was >100ms (dropped several frames)
+  worstFrameMs: 0,
+  sentCounts: {},
+  rxCounts: {},
+  rxMs: {}
+};
+
+// Long task observer — any main-thread task >50ms shows up here
+try {
+  var _lto = new PerformanceObserver(function(list) {
+    list.getEntries().forEach(function(e) {
+      window._uiPerf.longTasks++;
+      window._uiPerf.longTaskMs += e.duration;
+      if (e.duration > window._uiPerf.longTaskMax) window._uiPerf.longTaskMax = e.duration;
+      if (e.duration > 250) {
+        sendMessage({ type: 'DIAGNOSTIC_LOG', msg: '[UIPERF] long task ' + Math.round(e.duration) + 'ms (name=' + e.name + ')' });
+      }
+    });
+  });
+  _lto.observe({ entryTypes: ['longtask'] });
+} catch (e) {
+  // PerformanceObserver not supported; skip
+}
+
+// rAF frame tracker
+(function() {
+  var last = performance.now();
+  function tick(now) {
+    var delta = now - last;
+    last = now;
+    window._uiPerf.frames++;
+    if (delta > 100) window._uiPerf.slowFrames++;
+    if (delta > window._uiPerf.worstFrameMs) window._uiPerf.worstFrameMs = delta;
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+
+// Wrap sendMessage to count outbound types (keeps original reachable)
+(function() {
+  var _origSend = sendMessage;
+  window.sendMessage = function(payload) {
+    if (payload && payload.type && payload.type !== 'DIAGNOSTIC_LOG') {
+      window._uiPerf.sentCounts[payload.type] = (window._uiPerf.sentCounts[payload.type] || 0) + 1;
+    }
+    return _origSend(payload);
+  };
+  // Local reference for callers using the old name
+  sendMessage = window.sendMessage;
+})();
+
+// Wrap every window._xxxResult handler we can see and time it.
+// This runs once at startup, so handlers defined later will be wrapped lazily below.
+function _uiPerfWrapResultHandler(name) {
+  var orig = window[name];
+  if (!orig || orig._uiPerfWrapped) return;
+  var wrapped = function() {
+    var t0 = performance.now();
+    try { return orig.apply(this, arguments); }
+    finally {
+      var dt = performance.now() - t0;
+      window._uiPerf.rxCounts[name] = (window._uiPerf.rxCounts[name] || 0) + 1;
+      window._uiPerf.rxMs[name] = (window._uiPerf.rxMs[name] || 0) + dt;
+      if (dt > 50) {
+        sendMessage({ type: 'DIAGNOSTIC_LOG', msg: '[UIPERF] SLOW handler ' + name + ' ' + Math.round(dt) + 'ms' });
+      }
+    }
+  };
+  wrapped._uiPerfWrapped = true;
+  window[name] = wrapped;
+}
+// Proxy window to auto-wrap future _xxxResult assignments
+(function() {
+  var handlerNames = [];
+  var origDefine = Object.defineProperty;
+  // Periodically scan for any new _xxxResult handlers and wrap them.
+  setInterval(function() {
+    Object.keys(window).forEach(function(k) {
+      if (k.charAt(0) === '_' && k.indexOf('Result') !== -1 && typeof window[k] === 'function' && !window[k]._uiPerfWrapped) {
+        _uiPerfWrapResultHandler(k);
+      }
+    });
+  }, 1000);
+})();
+
+// Every 3s, dump a summary to Swift log
+setInterval(function() {
+  var p = window._uiPerf;
+  var topRx = Object.keys(p.rxCounts).sort(function(a,b){return p.rxCounts[b]-p.rxCounts[a];}).slice(0,6)
+    .map(function(k){return k+'='+p.rxCounts[k]+'('+Math.round(p.rxMs[k]||0)+'ms)';}).join(' ');
+  var sent = Object.keys(p.sentCounts).sort(function(a,b){return p.sentCounts[b]-p.sentCounts[a];}).slice(0,6)
+    .map(function(k){return k+'='+p.sentCounts[k];}).join(' ');
+  var fps = Math.round(p.frames / 3);
+  var msg = '[UIPERF] fps=' + fps + ' slowFrames=' + p.slowFrames + ' worstFrame=' + Math.round(p.worstFrameMs) + 'ms'
+    + ' longTasks=' + p.longTasks + ' (' + Math.round(p.longTaskMs) + 'ms max=' + Math.round(p.longTaskMax) + 'ms)'
+    + ' | rx: ' + topRx + ' | sent: ' + sent;
+  sendMessage({ type: 'DIAGNOSTIC_LOG', msg: msg });
+  p.longTasks = 0; p.longTaskMs = 0; p.longTaskMax = 0;
+  p.frames = 0; p.slowFrames = 0; p.worstFrameMs = 0;
+  p.sentCounts = {}; p.rxCounts = {}; p.rxMs = {};
+}, 3000);
+// ===== End UI Perf Instrumentation =====
+
 // ===== Focus Gate Today Toggle =====
 function onFocusGateTodayToggle(enabled) {
   var settingsToggle = document.getElementById('intentional-mode-enabled');
@@ -4904,6 +5013,7 @@ function navigateTo(pageId) {
     sendMessage({ type: 'GET_JOURNAL' });
     loadFocusState();
     sendMessage({ type: 'GET_RELEVANCE_LOG' });
+    if (relevanceLogTimer) { clearInterval(relevanceLogTimer); relevanceLogTimer = null; }
     relevanceLogTimer = setInterval(function() {
       sendMessage({ type: 'GET_RELEVANCE_LOG' });
     }, 5000);
@@ -8691,8 +8801,13 @@ function openBlockEditor(blockId, event) {
   }
 
   var calRect = document.getElementById('calendar-container').getBoundingClientRect();
-  editor.style.top = Math.min(event.clientY || 300, window.innerHeight - 300) + 'px';
   editor.style.left = Math.min(calRect.right + 8, window.innerWidth - 300) + 'px';
+  // Clamp top using the editor's actual measured height so the bottom stays on-screen
+  // even when content (profiles, coach row, etc.) pushes it past a fixed assumption.
+  var editorHeight = editor.getBoundingClientRect().height;
+  var desiredTop = event.clientY || 80;
+  var maxTop = Math.max(20, window.innerHeight - editorHeight - 20);
+  editor.style.top = Math.max(20, Math.min(desiredTop, maxTop)) + 'px';
 
   document.getElementById('editor-title').focus();
 
@@ -9557,6 +9672,8 @@ window._relevanceLogResult = function(entries) {
     var pathBadgeHtml = '';
     if (e.path === 'metadataOffTask') {
       pathBadgeHtml = '<span class="relevance-path-badge metadata-offtask" title="Scored off-task from metadata only">META</span>';
+    } else if (e.path === 'metadataOffTaskLowConf') {
+      pathBadgeHtml = '<span class="relevance-path-badge metadata-offtask-lowconf" title="Off-task verdict below confidence threshold — not enforced">META ?</span>';
     } else if (e.path === 'ocrVerifiedRelevant') {
       pathBadgeHtml = '<span class="relevance-path-badge ocr-verified-relevant" title="OCR overturned verdict to relevant">OCR \u2713</span>';
     } else if (e.path === 'ocrVerifiedOffTask') {
@@ -9588,10 +9705,32 @@ window._relevanceLogResult = function(entries) {
 
 var _lastRelevanceEntries = null;
 var _origRelevanceLogResult = window._relevanceLogResult;
-window._relevanceLogResult = function(entries) {
-  _lastRelevanceEntries = entries;
-  _origRelevanceLogResult(entries);
-};
+// Short-circuit re-renders when the payload is byte-identical to the previous one.
+// Swift pushes these on fixed 5s intervals regardless of change — most ticks are no-ops.
+// Dropping them saves the innerHTML rebuild + layout pass that starves scroll.
+(function(){
+  var _skipIfSame = function(slot, origFn) {
+    var last = null;
+    return function(data) {
+      var json;
+      try { json = JSON.stringify(data); } catch (e) { json = null; }
+      if (json !== null && json === last) return;
+      last = json;
+      if (slot === 'relevance') _lastRelevanceEntries = data;
+      origFn(data);
+    };
+  };
+  window._relevanceLogResult = _skipIfSame('relevance', _origRelevanceLogResult);
+  if (typeof window._dashboardDataResult === 'function') {
+    window._dashboardDataResult = _skipIfSame('dashboard', window._dashboardDataResult);
+  }
+  if (typeof window._extensionStatusResult === 'function') {
+    window._extensionStatusResult = _skipIfSame('extension', window._extensionStatusResult);
+  }
+  if (typeof window._journalResult === 'function') {
+    window._journalResult = _skipIfSame('journal', window._journalResult);
+  }
+})();
 
 function copyAssessments() {
   var entries = _lastRelevanceEntries;
@@ -9644,6 +9783,10 @@ refresh();
 loadFocusState();
 sendMessage({ type: 'GET_RELEVANCE_LOG' });
 relevanceLogTimer = setInterval(function() {
+  // AI Assessments card lives inside page-today — only poll when that page is visible.
+  // Mirrors the GET_JOURNAL guard in refresh() at line 5046.
+  var todayPage = document.getElementById('page-today');
+  if (!todayPage || !todayPage.classList.contains('active')) return;
   sendMessage({ type: 'GET_RELEVANCE_LOG' });
 }, 5000);
 setInterval(refresh, 5000);
