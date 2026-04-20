@@ -2820,6 +2820,32 @@ body.theme-effects-warm::after {
 .relevance-action { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 2px; }
 .relevance-action.nudged { color: var(--color-warning); }
 .relevance-action.blocked { color: var(--color-error); }
+.relevance-path-badge {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.9);
+    flex-shrink: 0;
+}
+.relevance-path-badge.metadata-offtask { background: rgba(156, 163, 175, 0.25); color: rgba(156, 163, 175, 0.95); }
+.relevance-path-badge.ocr-verified-relevant { background: rgba(251, 146, 60, 0.25); color: rgba(251, 146, 60, 0.95); }
+.relevance-path-badge.ocr-verified-offtask { background: rgba(239, 68, 68, 0.25); color: rgba(239, 68, 68, 0.95); }
+.relevance-ocr-excerpt {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 6px 8px;
+    border-radius: 4px;
+    margin-top: 4px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 80px;
+    overflow: hidden;
+}
 .assessments-card-header {
   display: flex;
   align-items: center;
@@ -2841,6 +2867,13 @@ body.theme-effects-warm::after {
   color: rgba(194, 65, 12, 0.95);
   background: rgba(251, 146, 60, 0.15);
   border-color: rgba(251, 146, 60, 0.4);
+}
+[data-theme="light"] .relevance-path-badge.metadata-offtask { background: rgba(107, 114, 128, 0.12); color: rgba(75, 85, 99, 0.9); }
+[data-theme="light"] .relevance-path-badge.ocr-verified-relevant { background: rgba(234, 88, 12, 0.12); color: rgba(194, 65, 12, 0.95); }
+[data-theme="light"] .relevance-path-badge.ocr-verified-offtask { background: rgba(220, 38, 38, 0.12); color: rgba(185, 28, 28, 0.95); }
+[data-theme="light"] .relevance-ocr-excerpt {
+  color: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.03);
 }
 [data-theme="light"] .assessments-card-title {
   color: rgba(0, 0, 0, 0.8);
@@ -9521,8 +9554,19 @@ window._relevanceLogResult = function(entries) {
     var overrideHtml = (e.userOverride === true)
       ? '<span class="relevance-override-badge" title="You marked this assessment wrong">Marked wrong</span>'
       : '';
+    var pathBadgeHtml = '';
+    if (e.path === 'metadataOffTask') {
+      pathBadgeHtml = '<span class="relevance-path-badge metadata-offtask" title="Scored off-task from metadata only">META</span>';
+    } else if (e.path === 'ocrVerifiedRelevant') {
+      pathBadgeHtml = '<span class="relevance-path-badge ocr-verified-relevant" title="OCR overturned verdict to relevant">OCR \u2713</span>';
+    } else if (e.path === 'ocrVerifiedOffTask') {
+      pathBadgeHtml = '<span class="relevance-path-badge ocr-verified-offtask" title="OCR confirmed off-task verdict">OCR \u2717</span>';
+    }
     var reasonHtml = e.reason
       ? '<div class="relevance-reason">&ldquo;' + escapeHtml(e.reason) + '&rdquo;</div>'
+      : '';
+    var ocrExcerptHtml = e.ocrExcerpt
+      ? '<div class="relevance-ocr-excerpt">' + escapeHtml(e.ocrExcerpt.substring(0, 300)) + '</div>'
       : '';
     html += '<div class="relevance-entry">' +
       '<div class="relevance-dot ' + dotClass + '"></div>' +
@@ -9531,9 +9575,11 @@ window._relevanceLogResult = function(entries) {
       '<div class="relevance-title-row">' +
         confHtml +
         '<span class="relevance-title">' + escapeHtml(e.title) + '</span>' +
+        pathBadgeHtml +
         overrideHtml +
       '</div>' +
       reasonHtml +
+      ocrExcerptHtml +
       actionHtml +
       '</div></div>';
   });

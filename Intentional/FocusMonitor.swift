@@ -334,15 +334,17 @@ class FocusMonitor {
         let neutral: Bool        // true for neutral apps (loginwindow, etc.)
         let isEvent: Bool        // true for enforcement events (nudge/block) — not time ticks
         var userOverride: Bool   // true when the user corrected this assessment (e.g. "this was wrong")
+        let path: ScoringPath
+        let ocrExcerpt: String?
     }
 
     private(set) var relevanceLog: [RelevanceEntry] = []
 
-    private func logAssessment(title: String, appName: String = "", hostname: String = "", intention: String, relevant: Bool, confidence: Int, reason: String, action: String, neutral: Bool = false, isEvent: Bool = false, userOverride: Bool = false) {
+    private func logAssessment(title: String, appName: String = "", hostname: String = "", intention: String, relevant: Bool, confidence: Int, reason: String, action: String, neutral: Bool = false, isEvent: Bool = false, userOverride: Bool = false, path: ScoringPath = .metadataRelevant, ocrExcerpt: String? = nil) {
         let entry = RelevanceEntry(
             timestamp: Date(), title: title, appName: appName.isEmpty ? title : appName, hostname: hostname, intention: intention,
             relevant: relevant, confidence: confidence, reason: reason, action: action, neutral: neutral, isEvent: isEvent,
-            userOverride: userOverride
+            userOverride: userOverride, path: path, ocrExcerpt: ocrExcerpt
         )
         relevanceLog.append(entry)
         if relevanceLog.count > Self.maxLogEntries {
@@ -373,6 +375,8 @@ class FocusMonitor {
         if entry.neutral { dict["neutral"] = true }
         if entry.isEvent { dict["isEvent"] = true }
         if entry.userOverride { dict["userOverride"] = true }
+        dict["path"] = entry.path.rawValue
+        if let excerpt = entry.ocrExcerpt { dict["ocrExcerpt"] = excerpt }
 
         if let data = try? JSONSerialization.data(withJSONObject: dict),
            var line = String(data: data, encoding: .utf8) {
@@ -1656,7 +1660,8 @@ class FocusMonitor {
                 self.logAssessment(
                     title: appName, intention: block.title,
                     relevant: result.relevant, confidence: result.confidence,
-                    reason: result.reason, action: "none"
+                    reason: result.reason, action: "none",
+                    path: result.path, ocrExcerpt: result.ocrExcerpt
                 )
                 if result.relevant {
                     self.debugLog("👁️ App is relevant: \(appName)")
@@ -1849,7 +1854,8 @@ class FocusMonitor {
                     self.logAssessment(
                         title: info.title, appName: browserName, hostname: info.hostname, intention: block.title,
                         relevant: true, confidence: result.confidence,
-                        reason: result.reason, action: "none"
+                        reason: result.reason, action: "none",
+                        path: result.path, ocrExcerpt: result.ocrExcerpt
                     )
                     self.debugLog("👁️ Tab is relevant: \"\(info.title)\"")
                     self.handleRelevantContent()
@@ -1872,7 +1878,8 @@ class FocusMonitor {
                         self.logAssessment(
                             title: info.title, appName: browserName, hostname: info.hostname, intention: block.title,
                             relevant: false, confidence: result.confidence,
-                            reason: result.reason, action: "none"
+                            reason: result.reason, action: "none",
+                            path: result.path, ocrExcerpt: result.ocrExcerpt
                         )
                         // Record irrelevant assessment for earned browse tracking
                         if self.scheduleManager?.currentTimeState.isWork == true {

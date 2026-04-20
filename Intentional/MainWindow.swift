@@ -2205,6 +2205,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             ]
             if entry.isEvent { dict["isEvent"] = true }
             if entry.userOverride { dict["userOverride"] = true }
+            dict["path"] = entry.path.rawValue
+            if let excerpt = entry.ocrExcerpt { dict["ocrExcerpt"] = excerpt }
             return dict
         }
 
@@ -2263,6 +2265,11 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                     }
                     if let userOverride = obj["userOverride"] as? Bool, userOverride {
                         entry["userOverride"] = true
+                    }
+                    // Phase 2: scoring path (default to metadataRelevant for pre-Phase-2 log entries)
+                    entry["path"] = (obj["path"] as? String) ?? "metadataRelevant"
+                    if let excerpt = obj["ocrExcerpt"] as? String {
+                        entry["ocrExcerpt"] = excerpt
                     }
                     entries.append(entry)
                 }
