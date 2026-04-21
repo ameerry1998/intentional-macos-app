@@ -120,7 +120,7 @@ final class SwitchInterventionCoordinator {
             beginDwell(target: target, at: now)
             return .suppress(reason: .returningToKnown)
         }
-        return .showOverlay(countdownSeconds: countdownForCurrentTier())
+        return .showOverlay(countdownSeconds: countdownForCurrentTier(at: now))
     }
 
     func resolve(outcome: SwitchResolution, intendedTarget: SwitchTarget?, returnTarget: SwitchTarget?, at now: Date) {

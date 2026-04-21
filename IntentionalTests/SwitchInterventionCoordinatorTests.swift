@@ -111,6 +111,105 @@ struct SwitchInterventionCoordinatorTests {
             assertEqual(duringGrace, .suppress(reason: .inGracePeriod))
         }
 
+        test("tier escalates: 1-3 at 10s, 4-6 at 15s, 7+ capped at 20s") {
+            let start = Date(timeIntervalSince1970: 1_000_000)
+            let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            c.sessionStarted(at: start)
+            c.setInWorkSession(true)
+            var t = start.addingTimeInterval(61)
+
+            // Switches 1, 2, 3 — countdown 10s each.
+            for i in 1...3 {
+                let d = c.onSwitch(to: .app(bundleId: "app\(i)"), at: t)
+                assertEqual(d, .showOverlay(countdownSeconds: 10), "switch \(i) should be tier 1")
+                c.resolve(outcome: .continued,
+                          intendedTarget: .app(bundleId: "app\(i)"),
+                          returnTarget: nil,
+                          at: t.addingTimeInterval(1))
+                t = t.addingTimeInterval(10)
+            }
+
+            // Switch 4 → tier 2 (15s).
+            let d4 = c.onSwitch(to: .app(bundleId: "app4"), at: t)
+            assertEqual(d4, .showOverlay(countdownSeconds: 15))
+            c.resolve(outcome: .continued,
+                      intendedTarget: .app(bundleId: "app4"),
+                      returnTarget: nil,
+                      at: t.addingTimeInterval(1))
+            t = t.addingTimeInterval(20)
+
+            // Switches 5, 6 — also tier 2.
+            for i in 5...6 {
+                let d = c.onSwitch(to: .app(bundleId: "app\(i)"), at: t)
+                assertEqual(d, .showOverlay(countdownSeconds: 15))
+                c.resolve(outcome: .continued,
+                          intendedTarget: .app(bundleId: "app\(i)"),
+                          returnTarget: nil,
+                          at: t.addingTimeInterval(1))
+                t = t.addingTimeInterval(20)
+            }
+
+            // Switch 7+ → tier 3 (20s), capped.
+            let d7 = c.onSwitch(to: .app(bundleId: "app7"), at: t)
+            assertEqual(d7, .showOverlay(countdownSeconds: 20))
+            c.resolve(outcome: .continued,
+                      intendedTarget: .app(bundleId: "app7"),
+                      returnTarget: nil,
+                      at: t.addingTimeInterval(1))
+            t = t.addingTimeInterval(20)
+            let d10 = c.onSwitch(to: .app(bundleId: "app10"), at: t)
+            assertEqual(d10, .showOverlay(countdownSeconds: 20), "tier caps at 3 (20s)")
+        }
+
+        test("back to work does not increment the counter") {
+            let start = Date(timeIntervalSince1970: 1_000_000)
+            let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            c.sessionStarted(at: start)
+            c.setInWorkSession(true)
+            let t = start.addingTimeInterval(61)
+
+            // Switches 1, 2, 3 — all resolved via Back to work.
+            for i in 1...3 {
+                _ = c.onSwitch(to: .app(bundleId: "app\(i)"), at: t)
+                c.resolve(outcome: .backToWork,
+                          intendedTarget: nil,
+                          returnTarget: .app(bundleId: "work"),
+                          at: t)
+            }
+            // Counter should be 0 → switch 4 still tier 1.
+            assertEqual(c.switchCountForTesting, 0)
+            let d = c.onSwitch(to: .app(bundleId: "app4"), at: t.addingTimeInterval(10))
+            assertEqual(d, .showOverlay(countdownSeconds: 10))
+        }
+
+        test("return to known target (>=60s dwell) skips the overlay") {
+            let start = Date(timeIntervalSince1970: 1_000_000)
+            let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            c.sessionStarted(at: start)
+            c.setInWorkSession(true)
+
+            // Land on Xcode post-grace, dwell 90s (>= 60s threshold).
+            _ = c.onSwitch(to: .app(bundleId: "com.apple.dt.Xcode"),
+                           at: start.addingTimeInterval(61))
+            c.resolve(outcome: .continued,
+                      intendedTarget: .app(bundleId: "com.apple.dt.Xcode"),
+                      returnTarget: nil,
+                      at: start.addingTimeInterval(62))
+
+            // Switch to Safari (overlay fires), wait out, continue.
+            _ = c.onSwitch(to: .app(bundleId: "com.apple.Safari"),
+                           at: start.addingTimeInterval(160))
+            c.resolve(outcome: .continued,
+                      intendedTarget: .app(bundleId: "com.apple.Safari"),
+                      returnTarget: nil,
+                      at: start.addingTimeInterval(170))
+
+            // Return to Xcode — should be suppressed as returningToKnown.
+            let d = c.onSwitch(to: .app(bundleId: "com.apple.dt.Xcode"),
+                               at: start.addingTimeInterval(180))
+            assertEqual(d, .suppress(reason: .returningToKnown))
+        }
+
         print("\n\(passed) passed, \(failed) failed\n")
         if failed > 0 {
             print("❌ TESTS FAILED")
