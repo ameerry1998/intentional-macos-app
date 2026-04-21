@@ -1428,17 +1428,22 @@ class FocusMonitor {
            app.activationPolicy != .accessory,
            (priorApp?.activationPolicy ?? .regular) != .accessory,
            !(overlayController?.isShowing ?? false),
-           !(interventionController?.isShowing ?? false)
+           !(interventionController?.isShowing ?? false),
+           !(switchOverlayController?.isShowing ?? false)
         {
             let target = SwitchTarget.app(bundleId: newBundleId)
             let decision = coord.onSwitch(to: target, at: Date())
-            if case .showOverlay(let seconds) = decision {
+            switch decision {
+            case .showOverlay(let seconds):
                 priorAppBundleIdBeforeSwitch = priorBundleId
                 priorTabURLBeforeSwitch = nil
                 pendingSwitchTarget = target
+                appDelegate?.postLog("🎯 Switch overlay fire → \(app.localizedName ?? newBundleId) [\(newBundleId)] priorApp=\(priorBundleId ?? "nil") tier=\(coordinatorTier()) countdown=\(seconds)s")
                 presentSwitchOverlay(for: target, countdown: seconds, displayName: app.localizedName ?? newBundleId)
                 // Do NOT early-return — evaluateApp still needs to run so scorer/enforcement stays accurate.
                 // The overlay is orthogonal to enforcement.
+            case .suppress(let reason):
+                appDelegate?.postLog("🎯 Switch overlay suppressed (\(reason.rawValue)) → \(app.localizedName ?? newBundleId) [\(newBundleId)]")
             }
         }
 
@@ -1918,16 +1923,21 @@ class FocusMonitor {
                let coord = switchCoordinator,
                isEnforcementEnabled(.contextSwitchOverlay),
                !(overlayController?.isShowing ?? false),
-               !(interventionController?.isShowing ?? false)
+               !(interventionController?.isShowing ?? false),
+               !(switchOverlayController?.isShowing ?? false)
             {
                 let target = SwitchTarget.tab(bundleId: bundleId, host: info.hostname)
                 let decision = coord.onSwitch(to: target, at: Date())
-                if case .showOverlay(let seconds) = decision {
+                switch decision {
+                case .showOverlay(let seconds):
                     priorAppBundleIdBeforeSwitch = nil
                     priorTabURLBeforeSwitch = lastSeenBrowserTab.map { "http://\($0.host)" }
                     pendingSwitchTarget = target
                     let display = "\(Self.browserAppNames[bundleId] ?? "Browser") — \(info.hostname)"
+                    appDelegate?.postLog("🎯 Switch overlay fire → tab \(display) priorHost=\(lastSeenBrowserTab?.host ?? "nil") tier=\(coordinatorTier()) countdown=\(seconds)s")
                     presentSwitchOverlay(for: target, countdown: seconds, displayName: display)
+                case .suppress(let reason):
+                    appDelegate?.postLog("🎯 Switch overlay suppressed (\(reason.rawValue)) → tab \(bundleId) · \(info.hostname)")
                 }
             }
             lastSeenBrowserTab = tupleNow
@@ -3583,26 +3593,61 @@ class FocusMonitor {
 extension FocusMonitor: SwitchOverlayDelegate {
     func switchOverlayDidTapBackToWork() {
         guard let coord = switchCoordinator, let pending = pendingSwitchTarget else {
+            appDelegate?.postLog("🎯 Back-to-work tapped but no pending target; dismissing")
             switchOverlayController?.dismiss()
             pendingSwitchTarget = nil
             return
         }
-        let returnTarget = coord.preferredReturnTarget(excluding: pending, at: Date())
+        // Simplified return policy: always go back to whatever target was frontmost right before
+        // the intercepted switch. Prefer the prior tab URL if we were in a browser, else the prior
+        // app bundle id. Skips the coordinator's known-target/dwell heuristic entirely.
+        var returnTarget: SwitchTarget? = nil
+        if let priorURL = priorTabURLBeforeSwitch, let host = URL(string: priorURL)?.host, !host.isEmpty,
+           case .tab(let bid, _) = pending {
+            returnTarget = .tab(bundleId: bid, host: host)
+        } else if let prior = priorAppBundleIdBeforeSwitch,
+                  !prior.isEmpty,
+                  prior != "com.arayan.intentional" {
+            returnTarget = .app(bundleId: prior)
+        }
+        appDelegate?.postLog("🎯 Back-to-work → \(returnTarget.map(describe) ?? "(no prior; hiding Intentional)") (pending=\(describe(pending)))")
         coord.resolve(outcome: .backToWork, intendedTarget: nil, returnTarget: returnTarget, at: Date())
         switchOverlayController?.dismiss()
         pendingSwitchTarget = nil
-        applyReturnTarget(returnTarget)
+        priorAppBundleIdBeforeSwitch = nil
+        priorTabURLBeforeSwitch = nil
+        if let t = returnTarget {
+            applyReturnTarget(t)
+        } else {
+            // Last-resort: hide Intentional so macOS auto-activates the previously-frontmost app.
+            NSApp.hide(nil)
+        }
     }
 
     func switchOverlayDidTapContinue() {
         guard let coord = switchCoordinator, let pending = pendingSwitchTarget else {
+            appDelegate?.postLog("🎯 Continue tapped but no pending target; dismissing")
             switchOverlayController?.dismiss()
             pendingSwitchTarget = nil
             return
         }
+        appDelegate?.postLog("🎯 Continue → \(describe(pending))")
         coord.resolve(outcome: .continued, intendedTarget: pending, returnTarget: nil, at: Date())
         switchOverlayController?.dismiss()
         pendingSwitchTarget = nil
+        priorAppBundleIdBeforeSwitch = nil
+        priorTabURLBeforeSwitch = nil
+        // Actually navigate to the target. Without this, the user is stranded on Intentional
+        // (the overlay's host app). Clicking the intended app in the dock would fire a fresh
+        // switch and re-present the overlay, which users perceive as "the timer restarted."
+        applyReturnTarget(pending)
+    }
+
+    private func describe(_ t: SwitchTarget) -> String {
+        switch t {
+        case .app(let b): return "app(\(b))"
+        case .tab(let b, let h): return "tab(\(b) · \(h))"
+        }
     }
 
     private func applyReturnTarget(_ target: SwitchTarget?) {
