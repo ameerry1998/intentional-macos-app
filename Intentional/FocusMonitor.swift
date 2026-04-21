@@ -472,6 +472,9 @@ class FocusMonitor {
     private var tabIsOnBlockingPage = false
     private var blockedOriginalURL: String?
 
+    /// Most recent (bundleId, hostname) seen by the browser poll — used to detect tab switches.
+    private var lastSeenBrowserTab: (bundleId: String, host: String)?
+
     // Cumulative distraction counter (seconds). Increases when on irrelevant content,
     // decays when user returns to relevant content. Resets on block change.
     private var cumulativeDistractionSeconds: TimeInterval = 0
@@ -1868,6 +1871,37 @@ class FocusMonitor {
             return
         }
 
+        // Context-switching overlay: detect tab-level switch on each poll.
+        //
+        // Default #3 (overlay-on-overlay) applied: skip if FocusOverlayWindow or
+        // InterventionOverlayController is already visible. Flag: revert by removing
+        // the isShowing guards.
+        if !info.hostname.isEmpty {
+            let tupleNow = (bundleId: bundleId, host: info.hostname)
+            let changed: Bool
+            if let prior = lastSeenBrowserTab {
+                changed = (prior.bundleId != tupleNow.bundleId) || (prior.host != tupleNow.host)
+            } else {
+                changed = true
+            }
+            if changed,
+               let coord = switchCoordinator,
+               !(overlayController?.isShowing ?? false),
+               !(interventionController?.isShowing ?? false)
+            {
+                let target = SwitchTarget.tab(bundleId: bundleId, host: info.hostname)
+                let decision = coord.onSwitch(to: target, at: Date())
+                if case .showOverlay(let seconds) = decision {
+                    priorAppBundleIdBeforeSwitch = nil
+                    priorTabURLBeforeSwitch = lastSeenBrowserTab.map { "http://\($0.host)" }
+                    pendingSwitchTarget = target
+                    let display = "\(Self.browserAppNames[bundleId] ?? "Browser") — \(info.hostname)"
+                    presentSwitchOverlay(for: target, countdown: seconds, displayName: display)
+                }
+            }
+            lastSeenBrowserTab = tupleNow
+        }
+
         // Detect transition FROM blocking page (user justified or left)
         if tabIsOnBlockingPage {
             if !info.url.contains("focus-blocked.html") {
@@ -2163,6 +2197,7 @@ class FocusMonitor {
     private func stopBrowserPolling() {
         browserPollTimer?.invalidate()
         browserPollTimer = nil
+        lastSeenBrowserTab = nil
     }
 
     /// Start a repeating timer that records work ticks for always-allowed non-browser apps.
