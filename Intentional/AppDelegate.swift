@@ -50,18 +50,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Blocking Profiles & Focus Sessions (Puck integration)
     var blockingProfileManager: BlockingProfileManager?
 
-    // Projects (Task #9–#16)
     var projectStore: ProjectStore?
 
-    // Transient: which project's session is currently active (Phase 1 — replaces FocusBlock.projectId).
-    // Cleared on block end via ScheduleManager.onBlockChanged.
-    var activeProjectId: UUID?
-    private var activeProjectBlockId: String?
+    // Transient: which project's session is currently active (replaces
+    // FocusBlock.projectId; cleared on block end in onBlockChanged).
+    private(set) var activeProjectSession: (projectId: UUID, blockId: String)?
 
-    /// Allows MainWindow to mark the block that should keep `activeProjectId` live.
-    func setActiveProjectBlockId(_ blockId: String) {
-        self.activeProjectBlockId = blockId
+    func setActiveProjectSession(projectId: UUID, blockId: String) {
+        self.activeProjectSession = (projectId, blockId)
     }
+
+    func clearActiveProjectSession() {
+        self.activeProjectSession = nil
+    }
+
+    var activeProjectId: UUID? { activeProjectSession?.projectId }
 
     var focusSessionManager: FocusSessionManager?
     var focusWebSocketClient: FocusWebSocketClient?
@@ -531,10 +534,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // If celebration was skipped but pill was in blockComplete, resume deferred start
             self.focusMonitor?.resumeIfPendingBlockStart()
 
-            // Clear project session tracking if the tracked block is no longer active.
-            if let blockId = self.activeProjectBlockId, block?.id != blockId {
-                self.activeProjectId = nil
-                self.activeProjectBlockId = nil
+            if let tracked = self.activeProjectSession?.blockId, block?.id != tracked {
+                self.clearActiveProjectSession()
             }
         }
 

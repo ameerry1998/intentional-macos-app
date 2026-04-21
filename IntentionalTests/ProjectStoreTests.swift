@@ -264,7 +264,7 @@ struct ProjectStoreTests {
                 await store.create(name: "T", intention: "", allowed: [], blocklistIds: [], allowSearchEngines: false)
             }
             let pid = p.id
-            let sid = sync { await store.recordSessionStart(projectId: pid, blockId: nil) }
+            let sid = sync { await store.recordSessionStart(projectId: pid, blockId: nil) }!
             let _ = sync { await store.recordSessionEnd(projectId: pid, sessionId: sid, focusScore: 0.9) }
             let summaries = sync { await store.listSummary() }
             assertEqual(summaries[0].humanLastUsed, "today")
@@ -316,7 +316,7 @@ struct ProjectStoreTests {
             let blockId = UUID()
             let pid = p.id
             let capturedBlockId = blockId
-            let sid = sync { await store.recordSessionStart(projectId: pid, blockId: capturedBlockId) }
+            let sid = sync { await store.recordSessionStart(projectId: pid, blockId: capturedBlockId) }!
             let fetched = sync { await store.get(id: pid) }
             assertEqual(fetched?.sessions.count, 1)
             assertEqual(fetched?.sessions[0].id, sid)
@@ -330,7 +330,7 @@ struct ProjectStoreTests {
                 await store.create(name: "E", intention: "", allowed: [], blocklistIds: [], allowSearchEngines: false)
             }
             let pid = p.id
-            let sid = sync { await store.recordSessionStart(projectId: pid, blockId: nil) }
+            let sid = sync { await store.recordSessionStart(projectId: pid, blockId: nil) }!
             usleep(20_000)
             let ended = sync { await store.recordSessionEnd(projectId: pid, sessionId: sid, focusScore: 0.85) }
             assertTrue(ended != nil)

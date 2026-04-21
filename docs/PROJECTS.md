@@ -69,8 +69,8 @@ JSON serialization for the detail/list payloads uses `projectsJSONEncoder()` (`M
 
 `handleStartProjectSession` (`MainWindow.swift` L2361) computes a proposed `[proposedStart, proposedEnd)` window in minutes-from-midnight, then branches:
 
-1. **Immediate.** No `currentBlock` → `proposedStart = nowMinutes`. The app inserts a new `focusHours` FocusBlock titled `"Project: {name}"` with `description = project.intention`, sets `appDelegate.activeProjectId = id` and `setActiveProjectBlockId(newBlockId)`, calls `ProjectStore.recordSessionStart`, and emits `{status: "started", blockId, projectId, startMinutes, endMinutes}`.
-2. **Queued.** A `currentBlock` exists → `proposedStart = currentBlock.endMinutes`. If no collision and not past midnight, the new block is inserted via `scheduleManager.addBlock` but `activeProjectId` stays nil (the session will be activated when the block becomes current — see *Known Deferrals*). Emits `{status: "queued", …}`.
+1. **Immediate.** No `currentBlock` → `proposedStart = nowMinutes`. The app inserts a new `focusHours` FocusBlock titled `"Project: {name}"` with `description = project.intention`, awaits `ProjectStore.recordSessionStart` (so a persistence failure doesn't silently leak a `started` response), then calls `appDelegate.setActiveProjectSession(projectId:blockId:)` and emits `{status: "started", blockId, projectId, startMinutes, endMinutes}`.
+2. **Queued.** A `currentBlock` exists → `proposedStart = currentBlock.endMinutes`. If no collision and not past midnight, the new block is inserted via `scheduleManager.addBlock` but no active session is set (the session will be activated when the block becomes current — see *Known Deferrals*). Emits `{status: "queued", …}`.
 3. **Refused.** Returned with a `reason` string when: invalid payload (missing id or duration outside 1–240), project not found, `proposedEnd > 24*60` (past midnight), or a future scheduled block starts before `proposedEnd` (collision). No state is mutated.
 
 The immediate vs queued decision does not consider the block's `blockType` — any active block defers the new session.
@@ -81,19 +81,19 @@ The immediate vs queued decision does not consider the block's `blockType` — a
 
 ## AppDelegate Wiring
 
-Declared in `AppDelegate.swift` L53–L64:
-- `var projectStore: ProjectStore?` — the actor, initialized at init slot **11a** (L373), right after `EarnedBrowseManager`.
-- `var activeProjectId: UUID?` — transient: which project's session is currently active.
-- `private var activeProjectBlockId: String?` — the FocusBlock id that should keep `activeProjectId` live.
-- `func setActiveProjectBlockId(_ blockId: String)` — exposed so `MainWindow` can stamp the newly inserted block without reaching into private state.
+Declared in `AppDelegate.swift`:
+- `var projectStore: ProjectStore?` — the actor, initialized at init slot **11a**, right after `EarnedBrowseManager`.
+- `private(set) var activeProjectSession: (projectId: UUID, blockId: String)?` — single tuple so the pair can't drift.
+- `func setActiveProjectSession(projectId:blockId:)` / `clearActiveProjectSession()` — the only way to mutate it.
+- `var activeProjectId: UUID?` — computed convenience for readers that only need the project id.
 
 Transient state lives on the delegate (not as a field on `FocusBlock`) because a session's project identity is a runtime binding, not part of the persisted schedule. `FocusBlock`s are edited, duplicated, and resurfaced across dashboard round-trips; hanging project identity off the delegate keeps the schedule storage pure.
 
-**Clearing rule.** Inside `scheduleManager.onBlockChanged` (`AppDelegate.swift` L534), when the active block's id no longer matches `activeProjectBlockId`, both `activeProjectId` and `activeProjectBlockId` are nilled. This covers natural block end, user-edited schedule, and skipped transitions.
+**Clearing rule.** Inside `scheduleManager.onBlockChanged`, when the active block's id no longer matches `activeProjectSession?.blockId`, the tuple is cleared via `clearActiveProjectSession()`. This covers natural block end, user-edited schedule, and skipped transitions.
 
 ## Known Deferrals / Follow-ups
 
-1. **Queued-block activation.** `// TODO(#15-followup): wire activeProjectId + recordSessionStart on queued-block activation` lives at `MainWindow.swift` L2462. Today, a queued session inserts the block but never activates the project when that block becomes current — `activeProjectId` stays nil and no `SessionEntry` is created. The fix is to register the pending `(projectId, blockId)` pair and, on `ScheduleManager.onBlockChanged`, promote the pair to active + call `recordSessionStart`.
+1. **Queued-block activation.** `handleStartProjectSession` inserts the FocusBlock for a queued session but never activates the project when that block later becomes current — `activeProjectSession` stays nil and no `SessionEntry` is created. The fix is to register the pending `(projectId, blockId)` pair and, on `ScheduleManager.onBlockChanged`, call `setActiveProjectSession` + `ProjectStore.recordSessionStart`.
 2. **PR2 — relevance scorer integration.** The scorer does not yet consult `project.allowed`, `project.learned`, or `LearnedSite.isPromoted` when `activeProjectId` is set. PR2 scope: on a score-miss for an active project, call `recordLearnedHit(projectId:host:)` so the site accumulates a `hitCount` and can surface in the UI for manual promotion; on a score-pass, favor hosts already present in `allowed` before hitting the LLM path. See `docs/AI_SCORING.md` for the pipeline this plugs into.
 3. **Session end.** `recordSessionEnd` is defined but not yet called by the FocusBlock lifecycle. It lands in PR2 alongside scorer integration so `focusScore` has a value to carry.
 

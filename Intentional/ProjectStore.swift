@@ -28,15 +28,6 @@ struct LearnedSite: Codable, Equatable, Identifiable {
     var isPromoted: Bool
 }
 
-/// A persisted Project — the user's durable intention container.
-///
-/// Fields with spec notes:
-/// - `intention`: max 140 chars (truncated on create/update).
-/// - `accent`: hex string from the 4-color palette, assigned at create time
-///   by `projects.count % palette.count`.
-/// - `weekMinutes`: exactly 14 entries, index 13 = today. Shifted lazily
-///   on `recordSessionEnd` based on `weeklyAnchor`.
-/// - `sessions`: capped at the last 20 entries.
 struct Project: Codable, Equatable, Identifiable {
     let id: UUID
     var name: String
@@ -51,10 +42,6 @@ struct Project: Codable, Equatable, Identifiable {
     var lastUsedAt: Date?
     var sessions: [SessionEntry]
     var weekMinutes: [Int]
-
-    /// Calendar day that `weekMinutes[13]` represents. Private-ish: used only
-    /// for lazy weekly shifting in `recordSessionEnd`. JSON-encoded so the
-    /// shift tracking survives process restarts.
     var weeklyAnchor: Date?
 }
 
@@ -83,24 +70,42 @@ struct ProjectPatch {
 // MARK: - ProjectStore
 
 /// Actor-isolated JSON-backed store for `Project` records.
-///
 /// Persists to `<settingsDir>/projects.json` (default:
-/// `~/Library/Application Support/Intentional`). Uses `.iso8601` on both
-/// encode and decode — changing only one side was the bug in the prior
-/// revision; don't repeat it.
+/// `~/Library/Application Support/Intentional`).
 actor ProjectStore {
 
     // MARK: - Constants
 
     static let accentPalette: [String] = ["#E87461", "#F0B060", "#8ea0b8", "#7fb39a"]
     static let sessionsCap = 20
+    static let learnedCap = 200
     static let weekLength = 14
     static let intentionCap = 140
 
+    // Shared encoder/decoder/calendar/formatter — constructing these per call
+    // is measurable overhead in learned-hit and listSummary hot paths.
+    private static let encoder: JSONEncoder = {
+        let e = JSONEncoder()
+        e.outputFormatting = [.prettyPrinted, .sortedKeys]
+        e.dateEncodingStrategy = .iso8601
+        return e
+    }()
+    private static let decoder: JSONDecoder = {
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = .iso8601
+        return d
+    }()
+    private static let calendar = Calendar.current
+    private static let monthDayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "MMM d"
+        return f
+    }()
+
     // MARK: - Storage
 
-    private let settingsDir: String
-    private let filePath: String
+    private let fileURL: URL
 
     // MARK: - State
 
@@ -109,33 +114,28 @@ actor ProjectStore {
     // MARK: - Init
 
     init(settingsDir: String? = nil) {
-        let dir = settingsDir ?? {
-            let home = FileManager.default.homeDirectoryForCurrentUser.path
-            return "\(home)/Library/Application Support/Intentional"
-        }()
-        self.settingsDir = dir
-        self.filePath = "\(dir)/projects.json"
+        let dirURL: URL
+        if let settingsDir = settingsDir {
+            dirURL = URL(fileURLWithPath: settingsDir)
+        } else {
+            let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            dirURL = support.appendingPathComponent("Intentional", isDirectory: true)
+        }
+        self.fileURL = dirURL.appendingPathComponent("projects.json")
 
-        let fm = FileManager.default
-        if !fm.fileExists(atPath: dir) {
-            do {
-                try fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
-            } catch {
-                print("⚠️ [ProjectStore] could not create settings dir: \(error)")
-            }
+        do {
+            try FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
+        } catch {
+            print("⚠️ [ProjectStore] could not create settings dir: \(error)")
         }
 
-        if let data = fm.contents(atPath: self.filePath) {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
+        if let data = try? Data(contentsOf: fileURL) {
             do {
-                self.projects = try decoder.decode([Project].self, from: data)
+                self.projects = try Self.decoder.decode([Project].self, from: data)
             } catch {
                 print("⚠️ [ProjectStore] decode failed, starting empty: \(error)")
                 self.projects = []
             }
-        } else {
-            self.projects = []
         }
     }
 
@@ -148,7 +148,6 @@ actor ProjectStore {
     func listSummary() -> [ProjectSummary] {
         return projects.map { p in
             let totalSec = p.sessions.compactMap { $0.durationSec }.reduce(0, +)
-            let hours = Double(totalSec) / 3600.0
             return ProjectSummary(
                 id: p.id,
                 name: p.name,
@@ -157,7 +156,7 @@ actor ProjectStore {
                 lastUsedAt: p.lastUsedAt,
                 humanLastUsed: Self.humanLastUsed(p.lastUsedAt),
                 weekMinutes: p.weekMinutes,
-                totalHours: hours,
+                totalHours: Double(totalSec) / 3600.0,
                 blocklistCount: p.blocklistIds.count,
                 allowedCount: p.allowed.count
             )
@@ -168,9 +167,6 @@ actor ProjectStore {
         return projects.first(where: { $0.id == id })
     }
 
-    /// Returns full `Project`s that reference the given blocklist id in their
-    /// `blocklistIds`. Used by BlockingProfileManager to refuse deletion of
-    /// referenced profiles (or to warn the user).
     func projectsReferencing(blocklistId: UUID) -> [Project] {
         return projects.filter { $0.blocklistIds.contains(blocklistId) }
     }
@@ -235,11 +231,9 @@ actor ProjectStore {
 
     // MARK: - Sessions
 
-    /// Start a session: append a `SessionEntry` with `startedAt = now` and
-    /// return its id. Caps to last 20, bumps `lastUsedAt`, persists.
     @discardableResult
-    func recordSessionStart(projectId: UUID, blockId: UUID?) -> UUID {
-        guard let idx = projects.firstIndex(where: { $0.id == projectId }) else { return UUID() }
+    func recordSessionStart(projectId: UUID, blockId: UUID?) -> UUID? {
+        guard let idx = projects.firstIndex(where: { $0.id == projectId }) else { return nil }
         let now = Date()
         let entry = SessionEntry(
             id: UUID(),
@@ -258,8 +252,6 @@ actor ProjectStore {
         return entry.id
     }
 
-    /// Finalize a session: set `endedAt`, `durationSec`, `focusScore`; shift
-    /// the weekly window if days have passed; bucket minutes into today's slot.
     @discardableResult
     func recordSessionEnd(projectId: UUID, sessionId: UUID, focusScore: Double?) -> SessionEntry? {
         guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return nil }
@@ -273,12 +265,15 @@ actor ProjectStore {
         entry.focusScore = focusScore
         projects[pIdx].sessions[sIdx] = entry
 
-        // Lazy weekly shift, then add this session's minutes.
         let anchor = projects[pIdx].weeklyAnchor
-        projects[pIdx].weekMinutes = Self.advanceWeekly(projects[pIdx].weekMinutes, from: anchor, to: now)
-        projects[pIdx].weeklyAnchor = now
-        let minutes = durationSec / 60
-        projects[pIdx].weekMinutes[Self.weekLength - 1] += minutes
+        let shifted = Self.advanceWeekly(projects[pIdx].weekMinutes, from: anchor, to: now)
+        // Only touch weeklyAnchor when the window actually moved — avoids
+        // rewriting identical JSON back on every session end within a day.
+        if shifted != projects[pIdx].weekMinutes || anchor == nil {
+            projects[pIdx].weekMinutes = shifted
+            projects[pIdx].weeklyAnchor = now
+        }
+        projects[pIdx].weekMinutes[Self.weekLength - 1] += durationSec / 60
 
         projects[pIdx].lastUsedAt = now
         projects[pIdx].updatedAt = now
@@ -289,8 +284,6 @@ actor ProjectStore {
 
     // MARK: - Learned sites
 
-    /// Upsert a learned-site hit: increment `hitCount` if present, otherwise
-    /// append a new entry. No ordering.
     func recordLearnedHit(projectId: UUID, host: String) {
         guard let idx = projects.firstIndex(where: { $0.id == projectId }) else { return }
         let now = Date()
@@ -305,13 +298,11 @@ actor ProjectStore {
                 lastSeenAt: now,
                 isPromoted: false
             ))
+            Self.evictLearnedIfNeeded(&projects[idx].learned)
         }
         persist()
     }
 
-    /// Mark a learned site as promoted and add a domain `HostItem` to
-    /// `allowed` if not already present. Returns false if no matching
-    /// learned site exists.
     @discardableResult
     func promoteLearnedSite(projectId: UUID, host: String) -> Bool {
         guard let pIdx = projects.firstIndex(where: { $0.id == projectId }) else { return false }
@@ -338,21 +329,9 @@ actor ProjectStore {
     // MARK: - Persistence
 
     private func persist() {
-        let fm = FileManager.default
-        if !fm.fileExists(atPath: settingsDir) {
-            do {
-                try fm.createDirectory(atPath: settingsDir, withIntermediateDirectories: true)
-            } catch {
-                print("⚠️ [ProjectStore] persist mkdir failed: \(error)")
-                return
-            }
-        }
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        encoder.dateEncodingStrategy = .iso8601
         do {
-            let data = try encoder.encode(projects)
-            try data.write(to: URL(fileURLWithPath: filePath), options: .atomic)
+            let data = try Self.encoder.encode(projects)
+            try data.write(to: fileURL, options: .atomic)
         } catch {
             print("⚠️ [ProjectStore] persist failed: \(error)")
         }
@@ -360,7 +339,6 @@ actor ProjectStore {
 
     // MARK: - Helpers
 
-    /// Remove duplicate UUIDs while preserving first-seen order.
     private static func dedupe(_ ids: [UUID]) -> [UUID] {
         var seen = Set<UUID>()
         var out: [UUID] = []
@@ -368,15 +346,31 @@ actor ProjectStore {
         return out
     }
 
+    /// LRU-ish eviction: drop unpromoted entries with lowest hitCount first,
+    /// tiebreak by oldest `lastSeenAt`. Promoted entries are kept.
+    private static func evictLearnedIfNeeded(_ sites: inout [LearnedSite]) {
+        guard sites.count > Self.learnedCap else { return }
+        let overflow = sites.count - Self.learnedCap
+        let indexed = sites.enumerated().map { ($0.offset, $0.element) }
+        let victims = indexed
+            .filter { !$0.1.isPromoted }
+            .sorted { a, b in
+                if a.1.hitCount != b.1.hitCount { return a.1.hitCount < b.1.hitCount }
+                return a.1.lastSeenAt < b.1.lastSeenAt
+            }
+            .prefix(overflow)
+            .map { $0.0 }
+        let dropSet = Set(victims)
+        sites = sites.enumerated().compactMap { dropSet.contains($0.offset) ? nil : $0.element }
+    }
+
     /// Shift the week window so that index 13 corresponds to the calendar day
-    /// of `to`. No-op if `from` is nil or is already the same day. Shift count
-    /// is clamped to `weekLength` (larger gaps zero the whole window).
+    /// of `to`. No-op if `from` is nil or is already the same day.
     static func advanceWeekly(_ week: [Int], from: Date?, to: Date) -> [Int] {
         guard let from = from else { return week }
-        let cal = Calendar.current
-        let fromDay = cal.startOfDay(for: from)
-        let toDay = cal.startOfDay(for: to)
-        guard let dayDiff = cal.dateComponents([.day], from: fromDay, to: toDay).day, dayDiff > 0 else {
+        let fromDay = Self.calendar.startOfDay(for: from)
+        let toDay = Self.calendar.startOfDay(for: to)
+        guard let dayDiff = Self.calendar.dateComponents([.day], from: fromDay, to: toDay).day, dayDiff > 0 else {
             return week
         }
         let shift = min(dayDiff, Self.weekLength)
@@ -392,22 +386,18 @@ actor ProjectStore {
     /// - 1 day (calendar) → "yesterday"
     /// - ≥2 and <7 days → "Nd ago"
     /// - ≥7 and <28 days → "Nw ago" (N = days/7 rounded down)
-    /// - ≥28 days → "MMM d" via DateFormatter with locale en_US_POSIX
+    /// - ≥28 days → "MMM d"
     static func humanLastUsed(_ date: Date?, now: Date = Date()) -> String {
         guard let date = date else { return "new" }
-        let cal = Calendar.current
-        let startNow = cal.startOfDay(for: now)
-        let startThen = cal.startOfDay(for: date)
-        guard let dayDiff = cal.dateComponents([.day], from: startThen, to: startNow).day else {
+        let startNow = Self.calendar.startOfDay(for: now)
+        let startThen = Self.calendar.startOfDay(for: date)
+        guard let dayDiff = Self.calendar.dateComponents([.day], from: startThen, to: startNow).day else {
             return "new"
         }
         if dayDiff <= 0 { return "today" }
         if dayDiff == 1 { return "yesterday" }
         if dayDiff < 7 { return "\(dayDiff)d ago" }
         if dayDiff < 28 { return "\(dayDiff / 7)w ago" }
-        let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        fmt.dateFormat = "MMM d"
-        return fmt.string(from: date)
+        return Self.monthDayFormatter.string(from: date)
     }
 }

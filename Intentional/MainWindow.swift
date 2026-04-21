@@ -2229,6 +2229,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 if !referencing.isEmpty {
                     let names = referencing.map { $0.name }
                     await MainActor.run {
+                        self.appDelegate?.postLog("🚫 [BlockingProfile] refused to delete \(id) — referenced by \(names.count) project(s): \(names.joined(separator: ", "))")
                         let namesJSON = (try? String(data: JSONSerialization.data(withJSONObject: names), encoding: .utf8)) ?? "[]"
                         self.callJS("window.onBlockingProfileDeleteRefused && window.onBlockingProfileDeleteRefused({ id: '\(id.uuidString)', referencedBy: \(namesJSON) })")
                     }
@@ -2385,87 +2386,77 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 return
             }
 
-            await MainActor.run {
+            // Prepare + insert on MainActor (schedule state is main-isolated).
+            // Returns (refusal?, startMinutes, endMinutes, blockId, blockUUID, isImmediate).
+            let prep: (String?, Int, Int, String, UUID, Bool) = await MainActor.run {
                 let now = Date()
                 let cal = Calendar.current
-                let hour = cal.component(.hour, from: now)
-                let minute = cal.component(.minute, from: now)
-                let nowMinutes = hour * 60 + minute
+                let nowMinutes = cal.component(.hour, from: now) * 60 + cal.component(.minute, from: now)
 
                 let currentBlock = scheduleManager.currentBlock
                 let allBlocks: [ScheduleManager.FocusBlock] = scheduleManager.todaySchedule?.blocks ?? []
+                let isImmediate = currentBlock == nil
+                let start = currentBlock?.endMinutes ?? nowMinutes
+                let end = start + durationMins
 
-                // Determine proposed start/end
-                let proposedStart: Int
-                let isImmediate: Bool
-                if let cur = currentBlock {
-                    proposedStart = cur.endMinutes
-                    isImmediate = false
-                } else {
-                    proposedStart = nowMinutes
-                    isImmediate = true
+                if end > 24 * 60 {
+                    return ("Session would run past midnight", 0, 0, "", UUID(), false)
                 }
-                let proposedEnd = proposedStart + durationMins
-
-                if proposedEnd > 24 * 60 {
-                    self.emitSessionResult([
-                        "status": "refused",
-                        "reason": "Session would run past midnight"
-                    ])
-                    return
-                }
-
-                // Collision check with future blocks
                 let conflict = allBlocks.first { b in
-                    // Ignore the current block itself
                     if let cur = currentBlock, b.id == cur.id { return false }
-                    // Only future blocks matter
-                    if b.startMinutes < proposedStart { return false }
-                    return b.startMinutes < proposedEnd
+                    if b.startMinutes < start { return false }
+                    return b.startMinutes < end
                 }
                 if let conflict = conflict {
-                    self.emitSessionResult([
-                        "status": "refused",
-                        "reason": "Would collide with your next block: \(conflict.title)"
-                    ])
-                    return
+                    return ("Would collide with your next block: \(conflict.title)", 0, 0, "", UUID(), false)
                 }
-
-                let newBlockId = UUID().uuidString
+                let blockUUID = UUID()
+                let blockIdStr = blockUUID.uuidString
                 let newBlock = ScheduleManager.FocusBlock(
-                    id: newBlockId,
+                    id: blockIdStr,
                     title: "Project: \(project.name)",
                     description: project.intention,
-                    startHour: proposedStart / 60,
-                    startMinute: proposedStart % 60,
-                    endHour: proposedEnd / 60,
-                    endMinute: proposedEnd % 60,
+                    startHour: start / 60,
+                    startMinute: start % 60,
+                    endHour: end / 60,
+                    endMinute: end % 60,
                     blockType: .focusHours,
                     ignoreProfile: false
                 )
                 scheduleManager.addBlock(newBlock)
+                return (nil, start, end, blockIdStr, blockUUID, isImmediate)
+            }
 
-                if isImmediate {
-                    self.appDelegate?.activeProjectId = id
-                    self.appDelegate?.setActiveProjectBlockId(newBlockId)
-                    Task {
-                        _ = await store.recordSessionStart(projectId: id, blockId: UUID(uuidString: newBlockId))
-                    }
+            let (refusal, start, end, blockIdStr, blockUUID, isImmediate) = prep
+            if let reason = refusal {
+                await MainActor.run {
+                    self.emitSessionResult(["status": "refused", "reason": reason])
+                }
+                return
+            }
+
+            if isImmediate {
+                _ = await store.recordSessionStart(projectId: id, blockId: blockUUID)
+                await MainActor.run {
+                    self.appDelegate?.setActiveProjectSession(projectId: id, blockId: blockIdStr)
                     self.emitSessionResult([
                         "status": "started",
-                        "blockId": newBlockId,
+                        "blockId": blockIdStr,
                         "projectId": idStr,
-                        "startMinutes": proposedStart,
-                        "endMinutes": proposedEnd
+                        "startMinutes": start,
+                        "endMinutes": end
                     ])
-                } else {
-                    // TODO(#15-followup): wire activeProjectId + recordSessionStart on queued-block activation
+                }
+            } else {
+                // Queued sessions are activated when their block becomes current.
+                // See docs/PROJECTS.md "Known Deferrals" — activation hook is not yet wired.
+                await MainActor.run {
                     self.emitSessionResult([
                         "status": "queued",
-                        "blockId": newBlockId,
+                        "blockId": blockIdStr,
                         "projectId": idStr,
-                        "startMinutes": proposedStart,
-                        "endMinutes": proposedEnd
+                        "startMinutes": start,
+                        "endMinutes": end
                     ])
                 }
             }
