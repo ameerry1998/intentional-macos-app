@@ -67,6 +67,7 @@ Order matters. Components have dependencies that must be wired in sequence.
 15a. BlockRitualController   → Wired to FocusMonitor.ritualController
 15b. BlockEndRitualController → Wired to FocusMonitor.endRitualController
 15c. ContentSafetyMonitor     → Load enabled from settings, start if enabled
+15d. SwitchInterventionCoordinator + SwitchOverlayController → Wired to FocusMonitor (context-switching overlay v1)
 16. Wire ScheduleManager.onBlockChanged callback  ← MUST be after all managers
 17. Manual activeBlockId sync                      ← Catches app-started-during-block
 18. NativeMessagingHost (template)
