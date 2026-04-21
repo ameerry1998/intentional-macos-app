@@ -5484,6 +5484,20 @@ window.onProjectDetail = function(project) {
   ProjectsController.onMessage({ kind: 'detail', payload: project });
 };
 
+window.onProjectSessionResult = function(result) {
+  if (!result) return;
+  if (result.status === 'started') {
+    showToast('Session started', 'success');
+  } else if (result.status === 'queued') {
+    var startH = Math.floor(result.startMinutes / 60);
+    var startM = result.startMinutes % 60;
+    var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
+    showToast('Queued to start at ' + startH + ':' + pad(startM), 'success');
+  } else if (result.status === 'refused') {
+    showToast(result.reason || 'Session refused', 'error');
+  }
+};
+
 window.onBlockingProfileDeleteRefused = function(info) {
   // info: { id: string, referencedBy: string[] }
   var names = (info && info.referencedBy) ? info.referencedBy.join(', ') : '';
@@ -10514,7 +10528,6 @@ const ProjectsController = (() => {
       id: state.selected.id,
       durationMins: mins,
     });
-    showToast('Session requested', 'success');
   }
 
   function _promote(host) {

@@ -53,6 +53,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Projects (Task #9–#16)
     var projectStore: ProjectStore?
 
+    // Transient: which project's session is currently active (Phase 1 — replaces FocusBlock.projectId).
+    // Cleared on block end via ScheduleManager.onBlockChanged.
+    var activeProjectId: UUID?
+    private var activeProjectBlockId: String?
+
+    /// Allows MainWindow to mark the block that should keep `activeProjectId` live.
+    func setActiveProjectBlockId(_ blockId: String) {
+        self.activeProjectBlockId = blockId
+    }
+
     var focusSessionManager: FocusSessionManager?
     var focusWebSocketClient: FocusWebSocketClient?
     private var focusStartOverlayWindows: [NSWindow] = []
@@ -520,6 +530,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             // If celebration was skipped but pill was in blockComplete, resume deferred start
             self.focusMonitor?.resumeIfPendingBlockStart()
+
+            // Clear project session tracking if the tracked block is no longer active.
+            if let blockId = self.activeProjectBlockId, block?.id != blockId {
+                self.activeProjectId = nil
+                self.activeProjectBlockId = nil
+            }
         }
 
         // ScheduleManager.init() already called recalculateState(), but the callback
