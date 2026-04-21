@@ -440,6 +440,12 @@ class FocusMonitor {
     /// Snapshot of the app/tab the user was in BEFORE the pending switch (for Back-to-work restoration).
     private var priorAppBundleIdBeforeSwitch: String?
     private var priorTabURLBeforeSwitch: String?
+    /// One-shot suppression: when we programmatically `activateApp` a bundleId (Continue / Back-to-work),
+    /// the resulting NSWorkspace activation notification arrives on the main queue moments later and
+    /// would otherwise re-enter the coordinator as a fresh `.app(X)` switch — different enum case
+    /// than the `.tab(X, host)` target the user resolved, so `sameTarget` doesn't suppress it.
+    /// Without this guard, accepting an overlay for a browser tab triggers an infinite countdown loop.
+    private var suppressNextActivationIntercept: String?
 
     // Linger tracking
     private var lingerTimer: Timer?
@@ -1413,6 +1419,16 @@ class FocusMonitor {
         let priorBundleId = currentAppBundleId
         currentApp = app
         currentAppBundleId = newBundleId
+
+        // Consume one-shot suppression set by our own `activateApp` calls (Continue / Back-to-work
+        // resolving a tab target activates the browser, which fires this notification as a fresh
+        // `.app(X)` event — must not re-trigger the overlay).
+        if let suppressed = suppressNextActivationIntercept, suppressed == newBundleId {
+            suppressNextActivationIntercept = nil
+            appDelegate?.postLog("🎯 Switch overlay: consumed self-activation suppression for [\(newBundleId)]")
+            evaluateApp(app)
+            return
+        }
 
         // Context-switching overlay intercept.
         //
@@ -3664,7 +3680,15 @@ extension FocusMonitor: SwitchOverlayDelegate {
     private func activateApp(bundleId: String) {
         let runningApps = NSWorkspace.shared.runningApplications
         if let app = runningApps.first(where: { $0.bundleIdentifier == bundleId }) {
+            suppressNextActivationIntercept = bundleId
             app.activate(options: [])
+            // Safety clear — if the activation notification never arrives (already frontmost, etc.)
+            // we don't want the flag to poison the next real user switch.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                if self?.suppressNextActivationIntercept == bundleId {
+                    self?.suppressNextActivationIntercept = nil
+                }
+            }
         }
     }
 }
