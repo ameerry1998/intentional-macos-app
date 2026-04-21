@@ -210,6 +210,38 @@ struct SwitchInterventionCoordinatorTests {
             assertEqual(d, .suppress(reason: .returningToKnown))
         }
 
+        test("tier decays to 1 after 15 min continuous on-task in a known target") {
+            let start = Date(timeIntervalSince1970: 1_000_000)
+            let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            c.sessionStarted(at: start)
+            c.setInWorkSession(true)
+            // Land on Xcode, dwell 90s to become known (>= 60s threshold).
+            _ = c.onSwitch(to: .app(bundleId: "com.apple.dt.Xcode"),
+                           at: start.addingTimeInterval(61))
+            c.resolve(outcome: .continued,
+                      intendedTarget: .app(bundleId: "com.apple.dt.Xcode"),
+                      returnTarget: nil,
+                      at: start.addingTimeInterval(62))
+
+            // Rack up 4 switches elsewhere to reach tier 2.
+            var t = start.addingTimeInterval(200)
+            for i in 0..<4 {
+                _ = c.onSwitch(to: .app(bundleId: "app\(i)"), at: t)
+                c.resolve(outcome: .continued,
+                          intendedTarget: .app(bundleId: "app\(i)"),
+                          returnTarget: nil,
+                          at: t.addingTimeInterval(1))
+                t = t.addingTimeInterval(10)
+            }
+
+            // Return to Xcode (suppressed — known).
+            _ = c.onSwitch(to: .app(bundleId: "com.apple.dt.Xcode"), at: t)
+
+            // 16 minutes later, still in Xcode — tier should have decayed back to 1.
+            let queried = c.countdownForCurrentTier(at: t.addingTimeInterval(16 * 60))
+            assertEqual(queried, 10, "after 16 min continuous on-task, tier should decay to 1 (10s countdown)")
+        }
+
         print("\n\(passed) passed, \(failed) failed\n")
         if failed > 0 {
             print("❌ TESTS FAILED")
