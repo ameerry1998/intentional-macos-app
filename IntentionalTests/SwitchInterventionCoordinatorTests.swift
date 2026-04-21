@@ -242,6 +242,58 @@ struct SwitchInterventionCoordinatorTests {
             assertEqual(queried, 10, "after 16 min continuous on-task, tier should decay to 1 (10s countdown)")
         }
 
+        test("preferredReturnTarget picks the known target with longest dwell") {
+            let start = Date(timeIntervalSince1970: 1_000_000)
+            let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            c.sessionStarted(at: start)
+            c.setInWorkSession(true)
+
+            // Xcode: dwell 120s → becomes known, but Terminal will dwell longer.
+            _ = c.onSwitch(to: .app(bundleId: "com.apple.dt.Xcode"),
+                           at: start.addingTimeInterval(61))
+            c.resolve(outcome: .continued,
+                      intendedTarget: .app(bundleId: "com.apple.dt.Xcode"),
+                      returnTarget: nil,
+                      at: start.addingTimeInterval(62))
+            // Switch to Terminal, dwell ~210s.
+            _ = c.onSwitch(to: .app(bundleId: "com.apple.Terminal"),
+                           at: start.addingTimeInterval(200))
+            c.resolve(outcome: .continued,
+                      intendedTarget: .app(bundleId: "com.apple.Terminal"),
+                      returnTarget: nil,
+                      at: start.addingTimeInterval(201))
+            // Now switching to Safari — preferred return target should be Terminal (longest known dwell).
+            _ = c.onSwitch(to: .app(bundleId: "com.apple.Safari"),
+                           at: start.addingTimeInterval(410))
+            let preferred = c.preferredReturnTarget(
+                excluding: .app(bundleId: "com.apple.Safari"),
+                at: start.addingTimeInterval(410)
+            )
+            assertEqual(preferred, SwitchTarget?.some(.app(bundleId: "com.apple.Terminal")))
+        }
+
+        test("preferredReturnTarget falls back to most recent when no target is known") {
+            let start = Date(timeIntervalSince1970: 1_000_000)
+            let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            c.sessionStarted(at: start)
+            c.setInWorkSession(true)
+
+            // Short dwells — neither reaches 60s.
+            _ = c.onSwitch(to: .app(bundleId: "a"), at: start.addingTimeInterval(61))
+            c.resolve(outcome: .continued, intendedTarget: .app(bundleId: "a"),
+                      returnTarget: nil, at: start.addingTimeInterval(62))
+            _ = c.onSwitch(to: .app(bundleId: "b"), at: start.addingTimeInterval(70))
+            c.resolve(outcome: .continued, intendedTarget: .app(bundleId: "b"),
+                      returnTarget: nil, at: start.addingTimeInterval(71))
+            // Switching to c now — no qualifying known target; fallback is "b" (most recent non-current).
+            _ = c.onSwitch(to: .app(bundleId: "c"), at: start.addingTimeInterval(80))
+            let preferred = c.preferredReturnTarget(
+                excluding: .app(bundleId: "c"),
+                at: start.addingTimeInterval(80)
+            )
+            assertEqual(preferred, SwitchTarget?.some(.app(bundleId: "b")))
+        }
+
         print("\n\(passed) passed, \(failed) failed\n")
         if failed > 0 {
             print("❌ TESTS FAILED")

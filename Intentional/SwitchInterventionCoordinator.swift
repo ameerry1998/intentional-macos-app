@@ -53,6 +53,8 @@ final class SwitchInterventionCoordinator {
     private var lastBreakEnd: Date?
     private var completedSwitchCount: Int = 0
     private(set) var dwellLedger: [SwitchTarget: TimeInterval] = [:]
+    /// Ordered history of targets seen in the session, oldest first. Used for fallback return target.
+    private var targetHistory: [SwitchTarget] = []
     private var currentTarget: SwitchTarget?
     private var currentTargetSince: Date?
 
@@ -66,6 +68,7 @@ final class SwitchInterventionCoordinator {
         sessionStart = now
         completedSwitchCount = 0
         dwellLedger = [:]
+        targetHistory = []
         currentTarget = nil
         currentTargetSince = nil
         onBreak = false
@@ -78,6 +81,7 @@ final class SwitchInterventionCoordinator {
         onBreak = false
         completedSwitchCount = 0
         dwellLedger = [:]
+        targetHistory = []
         currentTarget = nil
         currentTargetSince = nil
         lastBreakEnd = nil
@@ -131,8 +135,23 @@ final class SwitchInterventionCoordinator {
         case .backToWork:
             if let t = returnTarget { beginDwell(target: t, at: now) }
         case .sessionEndedMidCountdown:
+            // No counter change. Dwell tracking stops because sessionEnded() clears state.
             break
         }
+    }
+
+    // MARK: - Return Target
+
+    /// Returns the best target to navigate back to when the user taps "Back to work".
+    /// Prefers the known target (dwell >= 60s) with the longest cumulative dwell.
+    /// Falls back to the most recent non-excluded target in history.
+    func preferredReturnTarget(excluding: SwitchTarget, at now: Date) -> SwitchTarget? {
+        flushDwell(at: now)
+        let known = dwellLedger
+            .filter { $0.key != excluding && $0.value >= Self.knownTargetDwellSeconds }
+            .sorted { $0.value > $1.value }
+        if let first = known.first { return first.key }
+        return targetHistory.reversed().first { $0 != excluding }
     }
 
     // MARK: - Queries
@@ -160,6 +179,10 @@ final class SwitchInterventionCoordinator {
     }
 
     private func beginDwell(target: SwitchTarget, at now: Date) {
+        if currentTarget != target {
+            targetHistory.removeAll { $0 == target }
+            targetHistory.append(target)
+        }
         currentTarget = target
         currentTargetSince = now
     }
