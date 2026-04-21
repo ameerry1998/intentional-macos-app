@@ -5469,6 +5469,11 @@ window.onBlockingProfiles = function(profiles) {
     currentProfileData = profiles.find(function(p) { return p.id === currentProfileId; });
     if (currentProfileData) renderProfileDetail();
   }
+
+  // Tee into ProjectsController so Setup form can render blocklist chips.
+  if (window.ProjectsController) {
+    ProjectsController.onBlocklists(profiles || []);
+  }
 };
 
 window.onProjectsList = function(list) {
@@ -10079,6 +10084,14 @@ const ProjectsController = (() => {
     loadedOnce: false,
   };
 
+  // Transient form state for the Setup view. Reset on every entry into
+  // renderSetup so navigating away/back starts clean.
+  let formState = null;
+  // Tracks whether an in-flight CREATE_PROJECT or UPDATE_PROJECT is awaiting
+  // the `detail` reply. Used by onMessage to auto-navigate after save.
+  let savePending = null; // null | 'create' | 'update'
+  let allowedLocalCounter = 0;
+
   function onEnter() {
     // Fetch on first entry, refresh on every entry (cheap).
     sendMessage({ type: 'GET_PROJECTS' });
@@ -10095,8 +10108,31 @@ const ProjectsController = (() => {
       if (state.view === 'index') renderIndex();
     } else if (msg.kind === 'detail') {
       state.selected = msg.payload;
+      // After a CREATE_PROJECT (savePending === 'create'), jump to the
+      // dashboard view for the newly-saved project.
+      if (savePending === 'create' && msg.payload && msg.payload.id) {
+        savePending = null;
+        showToast('Project created', 'success');
+        state.isNew = false;
+        showView('dashboard');
+        return;
+      }
+      // After an UPDATE_PROJECT (savePending === 'update'), return to the
+      // dashboard view with the refreshed project.
+      if (savePending === 'update' && msg.payload && msg.payload.id) {
+        savePending = null;
+        showToast('Project saved', 'success');
+        showView('dashboard');
+        return;
+      }
       if (state.view === 'dashboard' || state.isNew) renderDashboard();
+      if (state.view === 'setup') renderSetup();
     }
+  }
+
+  function onBlocklists(list) {
+    state.blocklists = Array.isArray(list) ? list : [];
+    if (state.view === 'setup') renderSetup();
   }
 
   function showView(which) {
@@ -10104,6 +10140,11 @@ const ProjectsController = (() => {
     document.getElementById('projects-view-index').style.display = which === 'index' ? '' : 'none';
     document.getElementById('projects-view-dashboard').style.display = which === 'dashboard' ? '' : 'none';
     document.getElementById('projects-view-setup').style.display = which === 'setup' ? '' : 'none';
+    if (which === 'setup') {
+      // Fresh entry into setup: drop any stale transient form state so
+      // renderSetup seeds from state.selected or blanks.
+      formState = null;
+    }
     if (which === 'index') renderIndex();
     if (which === 'dashboard') renderDashboard();
     if (which === 'setup') renderSetup();
@@ -10209,13 +10250,360 @@ const ProjectsController = (() => {
       </div>`;
   }
 
-  // ----- Rendering: Setup (stub — Task #13) -----
+  // ----- Rendering: Setup (Task #13) -----
+  // Called whenever entering setup view, receiving blocklists, or toggling
+  // chips/allowed-list entries. Rebuilds the form HTML from `formState`,
+  // which is seeded from `state.selected` on first entry and kept updated
+  // from input values before every re-render.
   function renderSetup() {
     const root = document.getElementById('projects-view-setup');
+    if (!root) return;
+
+    // Seed formState on first entry (or whenever it was reset).
+    if (!formState) {
+      formState = seedFormState();
+    } else {
+      // Before rebuilding HTML, pull the latest text values from the inputs
+      // so in-progress typing isn't lost across re-renders.
+      syncFormStateFromDOM(root);
+    }
+
+    const title = state.isNew ? 'New project' : 'Edit project';
+    const backLabel = state.isNew ? 'Cancel' : 'Back';
+
+    const intentionLen = (formState.intention || '').length;
+    const intentionOver = intentionLen > 140;
+    const intentionNear = intentionLen > 110 && intentionLen <= 140;
+    const intentionColor = intentionOver
+      ? 'var(--color-error)'
+      : (intentionNear ? 'var(--color-warning, #e0a458)' : 'var(--text-tertiary)');
+
+    const nameEmpty = !(formState.name || '').trim();
+    const saveDisabled = nameEmpty || intentionOver;
+
+    const blocklistChipsHTML = renderBlocklistChips();
+    const allowedListHTML = renderAllowedList();
+    const searchEnginesToggleHTML = renderSearchEnginesToggle();
+
+    const deleteButton = (!state.isNew && state.selected && state.selected.id)
+      ? `<button type="button" class="btn btn-danger" onclick="ProjectsController._handleDelete()" style="margin-left:auto;">Delete project</button>`
+      : '';
+
     root.innerHTML = `
-      <div class="projects-back-link" onclick="ProjectsController.goBack()">← ${state.isNew ? 'Cancel' : 'Back'}</div>
-      <div class="projects-section-header">${state.isNew ? 'New project' : 'Edit project'}</div>
-      <div class="empty-note" style="margin-top: 20px;">Setup form coming in Task #13.</div>`;
+      <div class="projects-back-link" onclick="ProjectsController.goBack()">← ${backLabel}</div>
+      <div class="projects-section-header">${title}</div>
+
+      <div class="projects-setup-field">
+        <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);margin-bottom:8px;">Name</div>
+        <input id="project-setup-name" type="text" placeholder="Project name"
+          value="${escapeHTML(formState.name || '')}"
+          style="width:100%;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border-default);border-radius:8px;color:var(--text-primary);font-size:14px;font-family:inherit;box-sizing:border-box;"
+          oninput="ProjectsController._onNameInput(this.value)" />
+      </div>
+
+      <div class="projects-setup-field">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;">
+          <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);">Intention</div>
+          <div id="project-setup-intention-count" class="char-count" style="font-size:11px;color:${intentionColor};font-variant-numeric:tabular-nums;">${intentionLen} / 140</div>
+        </div>
+        <textarea id="project-setup-intention" rows="3" placeholder="What are you trying to accomplish?"
+          style="width:100%;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border-default);border-radius:8px;color:var(--text-primary);font-size:14px;font-family:inherit;resize:vertical;box-sizing:border-box;"
+          oninput="ProjectsController._onIntentionInput(this.value)">${escapeHTML(formState.intention || '')}</textarea>
+        <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);margin-top:6px;">Shown to the AI when scoring relevance.</div>
+      </div>
+
+      <div class="projects-setup-field">
+        <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);margin-bottom:8px;">Blocklists</div>
+        <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px;">Which blocking profiles apply during this project's sessions. Tap to toggle.</div>
+        ${blocklistChipsHTML}
+      </div>
+
+      <div class="projects-setup-field">
+        <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);margin-bottom:8px;">Allowed hosts</div>
+        <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px;">Domains and app bundle IDs that are always allowed, even when blocklists match.</div>
+        ${allowedListHTML}
+      </div>
+
+      <div class="projects-setup-field">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div>
+            <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);margin-bottom:4px;">Allow search engines</div>
+            <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);">Google, DuckDuckGo, etc. are allowed without scoring.</div>
+          </div>
+          ${searchEnginesToggleHTML}
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;margin-top:18px;">
+        <button type="button" class="btn btn-primary" id="project-setup-save"
+          ${saveDisabled ? 'disabled' : ''}
+          onclick="ProjectsController._handleSave()">Save</button>
+        <button type="button" class="btn btn-ghost btn-secondary"
+          onclick="ProjectsController.goBack()">Cancel</button>
+        ${deleteButton}
+      </div>
+    `;
+  }
+
+  // Build the initial transient form state. Editing pulls from state.selected;
+  // new projects get blanks.
+  function seedFormState() {
+    const src = (!state.isNew && state.selected) ? state.selected : null;
+    const allowedSrc = (src && Array.isArray(src.allowed)) ? src.allowed : [];
+    const allowed = allowedSrc.map(a => ({
+      _lk: nextAllowedKey(),
+      id: a.id || null,
+      kind: (a.kind === 'appBundleId') ? 'appBundleId' : 'domain',
+      value: a.value || '',
+      note: a.note || '',
+    }));
+    return {
+      name: src ? (src.name || '') : '',
+      intention: src ? (src.intention || '') : '',
+      allowed: allowed,
+      blocklistIds: (src && Array.isArray(src.blocklistIds)) ? src.blocklistIds.slice() : [],
+      allowSearchEngines: src ? !!src.allowSearchEngines : true,
+      allowedDraft: '', // transient text in the add-input
+    };
+  }
+
+  function nextAllowedKey() {
+    allowedLocalCounter += 1;
+    return 'lk_' + allowedLocalCounter;
+  }
+
+  function syncFormStateFromDOM(root) {
+    if (!formState) return;
+    const nameEl = root.querySelector('#project-setup-name');
+    if (nameEl) formState.name = nameEl.value;
+    const intentionEl = root.querySelector('#project-setup-intention');
+    if (intentionEl) formState.intention = intentionEl.value;
+    const draftEl = root.querySelector('#project-setup-allowed-draft');
+    if (draftEl) formState.allowedDraft = draftEl.value;
+  }
+
+  function renderBlocklistChips() {
+    if (!state.blocklists || state.blocklists.length === 0) {
+      return `<div class="field-helper" style="font-size:12px;color:var(--text-tertiary);font-style:italic;">No blocklists yet. Create one in Distractions.</div>`;
+    }
+    const selected = new Set(formState.blocklistIds || []);
+    return '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
+      state.blocklists.map(bl => {
+        const active = selected.has(bl.id);
+        const name = escapeHTML(bl.name || 'Unnamed');
+        const dot = active ? '●' : '○';
+        const base = 'display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:12px;cursor:pointer;user-select:none;transition:all 0.15s;border:1px solid ';
+        const activeStyle = base + 'rgba(var(--accent-primary-rgb),0.4);background:rgba(var(--accent-primary-rgb),0.12);color:var(--accent-primary);';
+        const inactiveStyle = base + 'var(--border-default);background:rgba(255,255,255,0.02);color:var(--text-secondary);';
+        return `<span class="select-pill${active ? ' active' : ''}" style="${active ? activeStyle : inactiveStyle}" onclick="ProjectsController._toggleBlocklist('${escapeHTML(bl.id)}')"><span style="font-size:10px;">${dot}</span>${name}</span>`;
+      }).join('') +
+      '</div>';
+  }
+
+  function renderAllowedList() {
+    const rows = (formState.allowed || []).map(a => {
+      const icon = a.kind === 'appBundleId' ? '▢' : '◈';
+      const val = escapeHTML(a.value || '');
+      const kindLabel = a.kind === 'appBundleId' ? 'app' : 'site';
+      return `
+        <div class="host-row" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid var(--border-subtle);border-radius:7px;margin-bottom:6px;">
+          <span style="font-size:14px;color:var(--text-tertiary);width:16px;text-align:center;">${icon}</span>
+          <span style="flex:1;font-size:13px;color:var(--text-primary);font-family:var(--font-mono, ui-monospace, monospace);">${val}</span>
+          <span style="font-size:10px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.4px;">${kindLabel}</span>
+          <button type="button" onclick="ProjectsController._removeAllowed('${a._lk}')" style="background:transparent;border:none;color:var(--text-tertiary);cursor:pointer;font-size:16px;line-height:1;padding:2px 6px;">×</button>
+        </div>`;
+    }).join('');
+
+    const draft = escapeHTML(formState.allowedDraft || '');
+    const addRow = `
+      <div class="host-add" style="display:flex;gap:8px;margin-top:${rows ? '10px' : '0'};">
+        <input id="project-setup-allowed-draft" type="text" placeholder="add domain or app bundle id" value="${draft}"
+          oninput="ProjectsController._onAllowedDraftInput(this.value)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();ProjectsController._commitAllowed();}"
+          style="flex:1;padding:8px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border-default);border-radius:7px;color:var(--text-primary);font-size:13px;font-family:inherit;box-sizing:border-box;" />
+        <button type="button" onclick="ProjectsController._commitAllowed()"
+          style="padding:8px 14px;background:rgba(255,255,255,0.05);border:1px solid var(--border-default);border-radius:7px;color:var(--text-secondary);font-size:12px;cursor:pointer;">Add</button>
+      </div>`;
+
+    return rows + addRow;
+  }
+
+  function renderSearchEnginesToggle() {
+    const on = !!formState.allowSearchEngines;
+    const dot = on ? '●' : '○';
+    const label = on ? 'on' : 'off';
+    const base = 'display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;font-size:12px;cursor:pointer;user-select:none;transition:all 0.15s;border:1px solid ';
+    const onStyle = base + 'rgba(var(--color-success-rgb),0.4);background:rgba(var(--color-success-rgb),0.12);color:var(--color-success);';
+    const offStyle = base + 'var(--border-default);background:rgba(255,255,255,0.02);color:var(--text-tertiary);';
+    return `<span class="select-pill${on ? ' active' : ''}" style="${on ? onStyle : offStyle}" onclick="ProjectsController._toggleSearchEngines()"><span style="font-size:10px;">${dot}</span>${label}</span>`;
+  }
+
+  // ----- Setup event handlers (public via controller API as _prefixed) -----
+
+  // Track name input live so Save-disabled state can flip without a full
+  // re-render. We update the DOM disabled attr directly.
+  function _onNameInput(value) {
+    if (!formState) return;
+    formState.name = value;
+    updateSaveDisabled();
+  }
+
+  // Intention input: update char counter + Save-disabled state live, no
+  // full re-render (we want to keep textarea focus + cursor position).
+  function _onIntentionInput(value) {
+    if (!formState) return;
+    formState.intention = value;
+    const len = value.length;
+    const over = len > 140;
+    const near = len > 110 && len <= 140;
+    const counter = document.getElementById('project-setup-intention-count');
+    if (counter) {
+      counter.textContent = len + ' / 140';
+      counter.style.color = over
+        ? 'var(--color-error)'
+        : (near ? 'var(--color-warning, #e0a458)' : 'var(--text-tertiary)');
+    }
+    updateSaveDisabled();
+  }
+
+  function updateSaveDisabled() {
+    if (!formState) return;
+    const btn = document.getElementById('project-setup-save');
+    if (!btn) return;
+    const nameEmpty = !(formState.name || '').trim();
+    const over = (formState.intention || '').length > 140;
+    btn.disabled = nameEmpty || over;
+  }
+
+  function _onAllowedDraftInput(value) {
+    if (!formState) return;
+    formState.allowedDraft = value;
+  }
+
+  function _toggleBlocklist(id) {
+    if (!formState) return;
+    syncFormStateFromDOM(document.getElementById('projects-view-setup'));
+    const ids = formState.blocklistIds || [];
+    const idx = ids.indexOf(id);
+    if (idx >= 0) ids.splice(idx, 1);
+    else ids.push(id);
+    formState.blocklistIds = ids;
+    renderSetup();
+  }
+
+  function _toggleSearchEngines() {
+    if (!formState) return;
+    syncFormStateFromDOM(document.getElementById('projects-view-setup'));
+    formState.allowSearchEngines = !formState.allowSearchEngines;
+    renderSetup();
+  }
+
+  function _commitAllowed() {
+    if (!formState) return;
+    syncFormStateFromDOM(document.getElementById('projects-view-setup'));
+    const raw = (formState.allowedDraft || '').trim();
+    if (!raw) return;
+    const kind = inferAllowedKind(raw);
+    // De-dupe (case-insensitive on value + same kind).
+    const exists = (formState.allowed || []).some(a =>
+      a.kind === kind && (a.value || '').toLowerCase() === raw.toLowerCase()
+    );
+    if (!exists) {
+      formState.allowed.push({
+        _lk: nextAllowedKey(),
+        id: null,
+        kind: kind,
+        value: raw,
+        note: '',
+      });
+    }
+    formState.allowedDraft = '';
+    renderSetup();
+    // Return focus to the draft input for fast multi-entry.
+    setTimeout(() => {
+      const el = document.getElementById('project-setup-allowed-draft');
+      if (el) el.focus();
+    }, 0);
+  }
+
+  function _removeAllowed(localKey) {
+    if (!formState) return;
+    syncFormStateFromDOM(document.getElementById('projects-view-setup'));
+    formState.allowed = (formState.allowed || []).filter(a => a._lk !== localKey);
+    renderSetup();
+  }
+
+  // Heuristic: dotted string with no spaces = domain; else if it looks like
+  // "com.*" or ends with ".app" = app bundle id; default domain.
+  function inferAllowedKind(raw) {
+    const s = String(raw).trim();
+    const hasSpace = /\s/.test(s);
+    const hasDot = s.indexOf('.') >= 0;
+    if (hasDot && !hasSpace) {
+      // Bundle IDs typically start with "com." / "app." / "org." and don't
+      // look like "example.com". We treat two-label dotted strings as domain
+      // and three+ label strings starting with a known prefix as bundle id.
+      if (/\.app$/i.test(s)) return 'appBundleId';
+      if (/^(com|org|net|io|ai|app|dev)\./i.test(s) && s.split('.').length >= 3 && !/^[a-z0-9-]+\.[a-z]{2,}$/i.test(s)) {
+        return 'appBundleId';
+      }
+      return 'domain';
+    }
+    return 'domain';
+  }
+
+  function _handleSave() {
+    if (!formState) return;
+    syncFormStateFromDOM(document.getElementById('projects-view-setup'));
+    const name = (formState.name || '').trim();
+    const intention = formState.intention || '';
+    if (!name) return;
+    if (intention.length > 140) return;
+
+    // Strip local-only _lk keys before sending.
+    const allowed = (formState.allowed || []).map(a => {
+      const out = {
+        kind: a.kind,
+        value: a.value,
+      };
+      if (a.id) out.id = a.id;
+      if (a.note) out.note = a.note;
+      return out;
+    });
+
+    if (state.isNew) {
+      savePending = 'create';
+      sendMessage({
+        type: 'CREATE_PROJECT',
+        name: name,
+        intention: intention,
+        allowed: allowed,
+        blocklistIds: (formState.blocklistIds || []).slice(),
+        allowSearchEngines: !!formState.allowSearchEngines,
+      });
+    } else if (state.selected && state.selected.id) {
+      savePending = 'update';
+      sendMessage({
+        type: 'UPDATE_PROJECT',
+        id: state.selected.id,
+        patch: {
+          name: name,
+          intention: intention,
+          allowed: allowed,
+          blocklistIds: (formState.blocklistIds || []).slice(),
+          allowSearchEngines: !!formState.allowSearchEngines,
+        }
+      });
+    }
+  }
+
+  function _handleDelete() {
+    if (state.isNew || !state.selected || !state.selected.id) return;
+    const name = state.selected.name || 'this project';
+    if (!confirm('Delete "' + name + '"? This cannot be undone.')) return;
+    sendMessage({ type: 'DELETE_PROJECT', id: state.selected.id });
+    // Swift will reply via onProjectsList, which refreshes Index.
+    goBack();
   }
 
   // ----- Utilities -----
@@ -10226,8 +10614,13 @@ const ProjectsController = (() => {
   }
 
   return {
-    onEnter, onMessage,
+    onEnter, onMessage, onBlocklists,
     openDashboard, openNew, openEdit, goBack,
+    // Setup form internals (exposed so inline onclick/oninput handlers work).
+    _onNameInput, _onIntentionInput, _onAllowedDraftInput,
+    _toggleBlocklist, _toggleSearchEngines,
+    _commitAllowed, _removeAllowed,
+    _handleSave, _handleDelete,
   };
 })();
 </script>
