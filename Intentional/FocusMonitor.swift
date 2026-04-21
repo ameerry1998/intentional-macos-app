@@ -684,6 +684,7 @@ class FocusMonitor {
     /// Called when the active focus block changes.
     /// Resets all warning state, timers, and suppression.
     func onBlockChanged() {
+        signalCoordinatorBlockChange()
         // If pill is in blockComplete/celebration mode, defer — AppDelegate will call showCelebration()
         if let pillMode = deepWorkTimerController?.viewModel?.mode,
            pillMode == .blockComplete || pillMode == .celebration {
@@ -810,6 +811,26 @@ class FocusMonitor {
             pushFocusStatsToTimer()
         } else {
             deepWorkTimerController?.dismiss()
+        }
+    }
+
+    /// Signal the switch coordinator about a block change.
+    /// Work blocks start a session; non-work blocks end it. If an overlay is up
+    /// when the session changes, it's dismissed with a sessionEndedMidCountdown resolution.
+    private func signalCoordinatorBlockChange() {
+        guard let coord = switchCoordinator else { return }
+        if let block = scheduleManager?.currentBlock,
+           block.blockType == .deepWork || block.blockType == .focusHours {
+            coord.sessionStarted(at: Date())
+            coord.setInWorkSession(true)
+        } else {
+            coord.setInWorkSession(false)
+            coord.sessionEnded()
+        }
+        if switchOverlayController?.isShowing == true {
+            coord.resolve(outcome: .sessionEndedMidCountdown, intendedTarget: nil, returnTarget: nil, at: Date())
+            switchOverlayController?.dismiss()
+            pendingSwitchTarget = nil
         }
     }
 
@@ -1318,6 +1339,13 @@ class FocusMonitor {
         guard !isOnBreak else { return }
         isOnBreak = true
 
+        switchCoordinator?.breakStarted(at: Date())
+        if switchOverlayController?.isShowing == true {
+            switchCoordinator?.resolve(outcome: .sessionEndedMidCountdown, intendedTarget: nil, returnTarget: nil, at: Date())
+            switchOverlayController?.dismiss()
+            pendingSwitchTarget = nil
+        }
+
         // Dismiss any active nudge/overlay
         nudgeController?.dismiss()
         isCurrentlyIrrelevant = false
@@ -1343,6 +1371,7 @@ class FocusMonitor {
     private func endBreak() {
         guard isOnBreak else { return }
         isOnBreak = false
+        switchCoordinator?.breakEnded(at: Date())
         deepWorkTimerController?.endBreak()
         appDelegate?.postLog("☕ Break ended — resuming monitoring")
         // checkForegroundApp will restart on next timer tick (called by ScheduleManager every 10s)
