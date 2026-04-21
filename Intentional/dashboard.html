@@ -4311,6 +4311,9 @@ body.theme-effects-warm::after {
   <div class="sidebar-item active" data-page="today" onclick="navigateTo('today')">
     <span class="sidebar-item-icon">◉</span> Today
   </div>
+  <div class="sidebar-item" data-page="projects" onclick="navigateTo('projects')">
+    <span class="sidebar-item-icon">◎</span> Projects
+  </div>
   <div class="sidebar-item" data-page="distractions" onclick="navigateTo('distractions')">
     <span class="sidebar-item-icon">⊘</span> Distractions
   </div>
@@ -4512,6 +4515,13 @@ body.theme-effects-warm::after {
       </div>
     </div>
 
+  </div>
+
+  <!-- Page: Projects -->
+  <div class="page" id="page-projects">
+    <div class="projects-page" id="projects-view-index"></div>
+    <div class="projects-dashboard-page" id="projects-view-dashboard" style="display:none"></div>
+    <div class="projects-setup-page" id="projects-view-setup" style="display:none"></div>
   </div>
 
   <!-- Page: Distractions -->
@@ -5251,6 +5261,10 @@ function navigateTo(pageId) {
     }
   }
 
+  if (pageId === 'projects') {
+    ProjectsController.onEnter();
+  }
+
   // Load all data when viewing Today page
   if (pageId === 'today') {
     sendMessage({ type: 'GET_JOURNAL' });
@@ -5455,6 +5469,20 @@ window.onBlockingProfiles = function(profiles) {
     currentProfileData = profiles.find(function(p) { return p.id === currentProfileId; });
     if (currentProfileData) renderProfileDetail();
   }
+};
+
+window.onProjectsList = function(list) {
+  ProjectsController.onMessage({ kind: 'list', payload: list || [] });
+};
+
+window.onProjectDetail = function(project) {
+  ProjectsController.onMessage({ kind: 'detail', payload: project });
+};
+
+window.onBlockingProfileDeleteRefused = function(info) {
+  // info: { id: string, referencedBy: string[] }
+  var names = (info && info.referencedBy) ? info.referencedBy.join(', ') : '';
+  showToast('Cannot delete — used by project: ' + names, 'error');
 };
 
 function getAlwaysRelevant(profileId) {
@@ -10033,6 +10061,175 @@ relevanceLogTimer = setInterval(function() {
   sendMessage({ type: 'GET_RELEVANCE_LOG' });
 }, 5000);
 setInterval(refresh, 5000);
+
+// ============================================================
+// PROJECTS (Task #12)
+// Controller module for the Projects feature.
+// Views: index (grid), dashboard (single project), setup (new/edit).
+// Task #12 ships: index view + skeleton for dashboard/setup.
+// Tasks #13/#14 flesh out setup and dashboard views.
+// ============================================================
+const ProjectsController = (() => {
+  const state = {
+    projects: [],         // summary list from GET_PROJECTS
+    selected: null,       // full project detail (or null)
+    view: 'index',        // 'index' | 'dashboard' | 'setup'
+    isNew: false,
+    blocklists: [],       // from GET_BLOCKING_PROFILES (cached)
+    loadedOnce: false,
+  };
+
+  function onEnter() {
+    // Fetch on first entry, refresh on every entry (cheap).
+    sendMessage({ type: 'GET_PROJECTS' });
+    if (!state.loadedOnce) {
+      sendMessage({ type: 'GET_BLOCKING_PROFILES' });
+      state.loadedOnce = true;
+    }
+    showView('index');
+  }
+
+  function onMessage(msg) {
+    if (msg.kind === 'list') {
+      state.projects = msg.payload || [];
+      if (state.view === 'index') renderIndex();
+    } else if (msg.kind === 'detail') {
+      state.selected = msg.payload;
+      if (state.view === 'dashboard' || state.isNew) renderDashboard();
+    }
+  }
+
+  function showView(which) {
+    state.view = which;
+    document.getElementById('projects-view-index').style.display = which === 'index' ? '' : 'none';
+    document.getElementById('projects-view-dashboard').style.display = which === 'dashboard' ? '' : 'none';
+    document.getElementById('projects-view-setup').style.display = which === 'setup' ? '' : 'none';
+    if (which === 'index') renderIndex();
+    if (which === 'dashboard') renderDashboard();
+    if (which === 'setup') renderSetup();
+  }
+
+  function openDashboard(id) {
+    state.selected = null;
+    sendMessage({ type: 'GET_PROJECT_DETAIL', id: id });
+    showView('dashboard');
+  }
+
+  function openNew() {
+    state.isNew = true;
+    state.selected = null;
+    showView('setup');
+  }
+
+  function openEdit() {
+    state.isNew = false;
+    showView('setup');
+  }
+
+  function goBack() {
+    state.selected = null;
+    state.isNew = false;
+    showView('index');
+  }
+
+  // ----- Rendering: Index -----
+  function renderIndex() {
+    const root = document.getElementById('projects-view-index');
+    const header = `
+      <div class="page-header">
+        <div>
+          <div class="page-title">Projects</div>
+          <div class="page-subtitle">Your work, organized by intention</div>
+        </div>
+      </div>`;
+    const cards = state.projects.map(renderCard).join('');
+    const newTile = renderNewTile();
+    root.innerHTML = header + `<div class="projects-index-grid">${cards}${newTile}</div>`;
+  }
+
+  function renderCard(p) {
+    const sparkline = renderSparkline(p.weekMinutes || [], p.accent || 'var(--accent-primary)');
+    const intention = escapeHTML(p.intention || '');
+    const name = escapeHTML(p.name || 'Untitled');
+    const meta = [
+      p.humanLastUsed || 'new',
+      p.allowedCount ? (p.allowedCount + ' allowed') : null,
+      p.blocklistCount ? (p.blocklistCount + ' blocklist' + (p.blocklistCount === 1 ? '' : 's')) : null,
+    ].filter(Boolean).join(' · ');
+    return `
+      <div class="projects-card" style="--accent: ${p.accent || 'var(--accent-primary)'}" onclick="ProjectsController.openDashboard('${p.id}')">
+        <div class="projects-card-title">${name}</div>
+        ${intention ? `<div class="projects-card-intention">${intention}</div>` : ''}
+        <div class="projects-sparkline">${sparkline}</div>
+        <div class="projects-card-meta">${meta}</div>
+      </div>`;
+  }
+
+  function renderNewTile() {
+    return `
+      <div class="projects-card projects-card--new" onclick="ProjectsController.openNew()">
+        <div class="projects-card-title" style="opacity: 0.6;">+ New Project</div>
+        <div class="projects-card-intention" style="opacity: 0.5;">Define an intention, pick a blocklist, get to work.</div>
+      </div>`;
+  }
+
+  function renderSparkline(values, accent) {
+    // 14 buckets; height ~ 28. If all zeros, render a flat muted line.
+    const w = 200, h = 28, pad = 2;
+    const vals = (values.length === 14 ? values : new Array(14).fill(0));
+    const max = Math.max.apply(null, vals.concat([1]));
+    const stepX = (w - pad * 2) / (vals.length - 1);
+    const points = vals.map((v, i) => {
+      const x = pad + i * stepX;
+      const y = pad + (h - pad * 2) * (1 - v / max);
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    const hasData = vals.some(v => v > 0);
+    const stroke = hasData ? accent : 'rgba(255,255,255,0.15)';
+    return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none">
+      <polyline points="${points}" fill="none" stroke="${stroke}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+  }
+
+  // ----- Rendering: Dashboard (stub — Task #14) -----
+  function renderDashboard() {
+    const root = document.getElementById('projects-view-dashboard');
+    if (!state.selected) {
+      root.innerHTML = `<div class="projects-back-link" onclick="ProjectsController.goBack()">← Back</div><div class="empty-note">Loading…</div>`;
+      return;
+    }
+    const p = state.selected;
+    root.innerHTML = `
+      <div class="projects-back-link" onclick="ProjectsController.goBack()">← All projects</div>
+      <div class="projects-section-header">${escapeHTML(p.name || 'Untitled')}</div>
+      <div class="page-subtitle">${escapeHTML(p.intention || '')}</div>
+      <div class="empty-note" style="margin-top: 20px;">Project dashboard coming in Task #14.</div>
+      <div style="margin-top: 12px;">
+        <button class="btn btn-ghost" onclick="ProjectsController.openEdit()">Edit settings</button>
+      </div>`;
+  }
+
+  // ----- Rendering: Setup (stub — Task #13) -----
+  function renderSetup() {
+    const root = document.getElementById('projects-view-setup');
+    root.innerHTML = `
+      <div class="projects-back-link" onclick="ProjectsController.goBack()">← ${state.isNew ? 'Cancel' : 'Back'}</div>
+      <div class="projects-section-header">${state.isNew ? 'New project' : 'Edit project'}</div>
+      <div class="empty-note" style="margin-top: 20px;">Setup form coming in Task #13.</div>`;
+  }
+
+  // ----- Utilities -----
+  function escapeHTML(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  return {
+    onEnter, onMessage,
+    openDashboard, openNew, openEdit, goBack,
+  };
+})();
 </script>
 
 <!-- Lock Confirmation Modal -->
