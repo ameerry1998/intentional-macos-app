@@ -2,6 +2,10 @@
 
 Non-skippable countdown overlay that fires on every app/tab switch during an active work block. Based on the "one sec" research pattern (Grüning et al., 2023, PNAS) — short friction + clear dismiss option drives behavior change; motivational copy does not.
 
+## Settings
+
+The overlay is gated per-block-type under **Settings → Enforcement → Context-switch countdown**. Both Deep Work and Focus Hours columns default to **off**; toggle on to enable. Persisted in `enforcementSettings` alongside the other mechanisms (Nudge, Red Shift, Auto-redirect, Blocking Overlay, Intervention, Audio Detection). Check: `ScheduleManager.isEnforcementEnabled(.contextSwitchOverlay)`.
+
 ## Components
 
 - **`SwitchInterventionCoordinator`** — pure-logic state machine. Owns the per-session switch counter, tier math, grace-period clock, per-target dwell ledger. No AppKit / no UI.

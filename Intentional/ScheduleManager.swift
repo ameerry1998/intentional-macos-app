@@ -112,6 +112,31 @@ class ScheduleManager {
         var blockingOverlay: Bool
         var interventionExercises: Bool
         var backgroundAudioDetection: Bool
+        var contextSwitchOverlay: Bool
+
+        init(nudgeNotifications: Bool, screenRedShift: Bool, autoRedirect: Bool,
+             blockingOverlay: Bool, interventionExercises: Bool,
+             backgroundAudioDetection: Bool, contextSwitchOverlay: Bool = false) {
+            self.nudgeNotifications = nudgeNotifications
+            self.screenRedShift = screenRedShift
+            self.autoRedirect = autoRedirect
+            self.blockingOverlay = blockingOverlay
+            self.interventionExercises = interventionExercises
+            self.backgroundAudioDetection = backgroundAudioDetection
+            self.contextSwitchOverlay = contextSwitchOverlay
+        }
+
+        // Custom decode so persisted settings that predate contextSwitchOverlay decode cleanly (defaults to off).
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            self.nudgeNotifications = try c.decode(Bool.self, forKey: .nudgeNotifications)
+            self.screenRedShift = try c.decode(Bool.self, forKey: .screenRedShift)
+            self.autoRedirect = try c.decode(Bool.self, forKey: .autoRedirect)
+            self.blockingOverlay = try c.decode(Bool.self, forKey: .blockingOverlay)
+            self.interventionExercises = try c.decode(Bool.self, forKey: .interventionExercises)
+            self.backgroundAudioDetection = try c.decode(Bool.self, forKey: .backgroundAudioDetection)
+            self.contextSwitchOverlay = (try? c.decode(Bool.self, forKey: .contextSwitchOverlay)) ?? false
+        }
 
         func toDict() -> [String: Bool] {
             return [
@@ -120,7 +145,8 @@ class ScheduleManager {
                 "autoRedirect": autoRedirect,
                 "blockingOverlay": blockingOverlay,
                 "interventionExercises": interventionExercises,
-                "backgroundAudioDetection": backgroundAudioDetection
+                "backgroundAudioDetection": backgroundAudioDetection,
+                "contextSwitchOverlay": contextSwitchOverlay
             ]
         }
     }
@@ -163,6 +189,7 @@ class ScheduleManager {
         case blockingOverlay
         case interventionExercises
         case backgroundAudioDetection
+        case contextSwitchOverlay
     }
 
     enum TimeState: String {
@@ -319,6 +346,7 @@ class ScheduleManager {
         case .blockingOverlay: return settings.blockingOverlay
         case .interventionExercises: return settings.interventionExercises
         case .backgroundAudioDetection: return settings.backgroundAudioDetection
+        case .contextSwitchOverlay: return settings.contextSwitchOverlay
         }
     }
 

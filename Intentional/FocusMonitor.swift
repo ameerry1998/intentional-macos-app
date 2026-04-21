@@ -1424,6 +1424,7 @@ class FocusMonitor {
         //      is already on-screen. Avoids stacking overlays when the user is mid-intervention.
         //      Flag: revert by removing this guard.
         if let coord = switchCoordinator,
+           isEnforcementEnabled(.contextSwitchOverlay),
            app.activationPolicy != .accessory,
            (priorApp?.activationPolicy ?? .regular) != .accessory,
            !(overlayController?.isShowing ?? false),
@@ -1915,6 +1916,7 @@ class FocusMonitor {
             }
             if changed,
                let coord = switchCoordinator,
+               isEnforcementEnabled(.contextSwitchOverlay),
                !(overlayController?.isShowing ?? false),
                !(interventionController?.isShowing ?? false)
             {
