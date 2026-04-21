@@ -461,6 +461,39 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 handleDeleteBlockingProfile(id: id)
             }
 
+        // NOTE: START_PROJECT_SESSION is wired in a later task (#15).
+        case "GET_PROJECTS":
+            handleGetProjects()
+
+        case "GET_PROJECT_DETAIL":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String,
+               let id = UUID(uuidString: idStr) {
+                handleGetProjectDetail(id: id)
+            }
+
+        case "CREATE_PROJECT":
+            if let body = message.body as? [String: Any] {
+                handleCreateProject(body)
+            }
+
+        case "UPDATE_PROJECT":
+            if let body = message.body as? [String: Any] {
+                handleUpdateProject(body)
+            }
+
+        case "DELETE_PROJECT":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String,
+               let id = UUID(uuidString: idStr) {
+                handleDeleteProject(id: id)
+            }
+
+        case "PROMOTE_LEARNED_SITE":
+            if let body = message.body as? [String: Any] {
+                handlePromoteLearnedSite(body)
+            }
+
         default:
             appDelegate?.postLog("⚠️ WKWebView: Unknown message type: \(type)")
         }
@@ -2186,8 +2219,165 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     }
 
     private func handleDeleteBlockingProfile(id: UUID) {
-        let _ = appDelegate?.blockingProfileManager?.deleteProfile(id: id)
-        handleGetBlockingProfiles()
+        Task {
+            if let store = appDelegate?.projectStore {
+                let referencing = await store.projectsReferencing(blocklistId: id)
+                if !referencing.isEmpty {
+                    let names = referencing.map { $0.name }
+                    await MainActor.run {
+                        let namesJSON = (try? String(data: JSONSerialization.data(withJSONObject: names), encoding: .utf8)) ?? "[]"
+                        self.callJS("window.onBlockingProfileDeleteRefused && window.onBlockingProfileDeleteRefused({ id: '\(id.uuidString)', referencedBy: \(namesJSON) })")
+                    }
+                    return
+                }
+            }
+            await MainActor.run {
+                _ = self.appDelegate?.blockingProfileManager?.deleteProfile(id: id)
+                self.handleGetBlockingProfiles()
+            }
+        }
+    }
+
+    // MARK: - Projects Handlers
+
+    private func handleGetProjects() {
+        Task {
+            guard let store = appDelegate?.projectStore else {
+                await MainActor.run {
+                    self.callJS("window.onProjectsList && window.onProjectsList([])")
+                }
+                return
+            }
+            let summaries = await store.listSummary()
+            await MainActor.run {
+                if let data = try? Self.projectsJSONEncoder().encode(summaries),
+                   let jsonStr = String(data: data, encoding: .utf8) {
+                    self.callJS("window.onProjectsList && window.onProjectsList(\(jsonStr))")
+                }
+            }
+        }
+    }
+
+    private func handleGetProjectDetail(id: UUID) {
+        Task {
+            guard let store = appDelegate?.projectStore else { return }
+            guard let project = await store.get(id: id) else {
+                await MainActor.run {
+                    self.callJS("window.onProjectDetail && window.onProjectDetail(null)")
+                }
+                return
+            }
+            await MainActor.run {
+                self.emitProjectDetail(project)
+            }
+        }
+    }
+
+    private func handleCreateProject(_ body: [String: Any]) {
+        let name = body["name"] as? String ?? "New Project"
+        let intention = body["intention"] as? String ?? ""
+        let allowSearchEngines = body["allowSearchEngines"] as? Bool ?? true
+        let allowed = Self.decodeHostItems(body["allowed"] as? [[String: Any]] ?? [])
+        let blocklistIds = (body["blocklistIds"] as? [String] ?? []).compactMap(UUID.init(uuidString:))
+
+        Task {
+            guard let store = appDelegate?.projectStore else { return }
+            let project = await store.create(
+                name: name,
+                intention: intention,
+                allowed: allowed,
+                blocklistIds: blocklistIds,
+                allowSearchEngines: allowSearchEngines
+            )
+            await MainActor.run {
+                self.emitProjectDetail(project)
+            }
+        }
+    }
+
+    private func handleUpdateProject(_ body: [String: Any]) {
+        guard let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) else { return }
+        let patchDict = body["patch"] as? [String: Any] ?? [:]
+
+        var patch = ProjectPatch()
+        patch.name = patchDict["name"] as? String
+        patch.intention = patchDict["intention"] as? String
+        patch.accent = patchDict["accent"] as? String
+        patch.allowSearchEnginesForThisProject = patchDict["allowSearchEngines"] as? Bool
+        if let allowedRaw = patchDict["allowed"] as? [[String: Any]] {
+            patch.allowed = Self.decodeHostItems(allowedRaw)
+        }
+        if let idsRaw = patchDict["blocklistIds"] as? [String] {
+            patch.blocklistIds = idsRaw.compactMap(UUID.init(uuidString:))
+        }
+
+        Task {
+            guard let store = appDelegate?.projectStore else { return }
+            guard let project = await store.update(id: id, patch: patch) else {
+                await MainActor.run {
+                    self.callJS("window.onProjectDetail && window.onProjectDetail(null)")
+                }
+                return
+            }
+            await MainActor.run {
+                self.emitProjectDetail(project)
+            }
+        }
+    }
+
+    private func handleDeleteProject(id: UUID) {
+        Task {
+            guard let store = appDelegate?.projectStore else { return }
+            _ = await store.delete(id: id)
+            let summaries = await store.listSummary()
+            await MainActor.run {
+                if let data = try? Self.projectsJSONEncoder().encode(summaries),
+                   let jsonStr = String(data: data, encoding: .utf8) {
+                    self.callJS("window.onProjectsList && window.onProjectsList(\(jsonStr))")
+                }
+            }
+        }
+    }
+
+    private func handlePromoteLearnedSite(_ body: [String: Any]) {
+        guard let idStr = body["id"] as? String,
+              let id = UUID(uuidString: idStr),
+              let host = body["host"] as? String else { return }
+
+        Task {
+            guard let store = appDelegate?.projectStore else { return }
+            _ = await store.promoteLearnedSite(projectId: id, host: host)
+            guard let project = await store.get(id: id) else { return }
+            await MainActor.run {
+                self.emitProjectDetail(project)
+            }
+        }
+    }
+
+    // MARK: - Projects helpers
+
+    private static func projectsJSONEncoder() -> JSONEncoder {
+        let enc = JSONEncoder()
+        enc.dateEncodingStrategy = .iso8601
+        return enc
+    }
+
+    private static func decodeHostItems(_ raw: [[String: Any]]) -> [HostItem] {
+        raw.compactMap { dict -> HostItem? in
+            guard let kindRaw = dict["kind"] as? String,
+                  let kind = HostKind(rawValue: kindRaw),
+                  let value = dict["value"] as? String else { return nil }
+            let idStr = dict["id"] as? String
+            let id = idStr.flatMap(UUID.init(uuidString:)) ?? UUID()
+            return HostItem(id: id, kind: kind, value: value, note: dict["note"] as? String)
+        }
+    }
+
+    private func emitProjectDetail(_ project: Project) {
+        if let data = try? Self.projectsJSONEncoder().encode(project),
+           let jsonStr = String(data: data, encoding: .utf8) {
+            self.callJS("window.onProjectDetail && window.onProjectDetail(\(jsonStr))")
+        }
     }
 
     // MARK: - Focus Score

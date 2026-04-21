@@ -61,6 +61,7 @@
 		A500000100000000000001 /* BedtimeEnforcer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500000200000000000001 /* BedtimeEnforcer.swift */; };
 		A600000100000000000001 /* BedtimeOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A600000200000000000001 /* BedtimeOverlayView.swift */; };
 		A700000100000000000001 /* BlockingProfileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A700000200000000000001 /* BlockingProfileManager.swift */; };
+		AB00000100000000000001 /* ProjectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000200000000000001 /* ProjectStore.swift */; };
 		A800000100000000000001 /* FocusSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A800000200000000000001 /* FocusSessionManager.swift */; };
 		A900000100000000000001 /* FocusStartOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A900000200000000000001 /* FocusStartOverlay.swift */; };
 		AA00000100000000000001 /* FocusWebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000200000000000001 /* FocusWebSocketClient.swift */; };
@@ -168,6 +169,7 @@
 		A500000200000000000001 /* BedtimeEnforcer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeEnforcer.swift; sourceTree = "<group>"; };
 		A600000200000000000001 /* BedtimeOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeOverlayView.swift; sourceTree = "<group>"; };
 		A700000200000000000001 /* BlockingProfileManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockingProfileManager.swift; sourceTree = "<group>"; };
+		AB00000200000000000001 /* ProjectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectStore.swift; sourceTree = "<group>"; };
 		A800000200000000000001 /* FocusSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusSessionManager.swift; sourceTree = "<group>"; };
 		A900000200000000000001 /* FocusStartOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusStartOverlay.swift; sourceTree = "<group>"; };
 		AA00000200000000000001 /* FocusWebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusWebSocketClient.swift; sourceTree = "<group>"; };
@@ -228,6 +230,7 @@
 				A1000002000000000000001 /* AppDelegate.swift */,
 				A300000200000000000001 /* QuitPolicy.swift */,
 				A700000200000000000001 /* BlockingProfileManager.swift */,
+				AB00000200000000000001 /* ProjectStore.swift */,
 				A800000200000000000001 /* FocusSessionManager.swift */,
 				A900000200000000000001 /* FocusStartOverlay.swift */,
 				AA00000200000000000001 /* FocusWebSocketClient.swift */,
@@ -477,6 +480,7 @@
 				A500000100000000000001 /* BedtimeEnforcer.swift in Sources */,
 				A600000100000000000001 /* BedtimeOverlayView.swift in Sources */,
 				A700000100000000000001 /* BlockingProfileManager.swift in Sources */,
+				AB00000100000000000001 /* ProjectStore.swift in Sources */,
 				A800000100000000000001 /* FocusSessionManager.swift in Sources */,
 				A900000100000000000001 /* FocusStartOverlay.swift in Sources */,
 				AA00000100000000000001 /* FocusWebSocketClient.swift in Sources */,

@@ -49,6 +49,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Blocking Profiles & Focus Sessions (Puck integration)
     var blockingProfileManager: BlockingProfileManager?
+
+    // Projects (Task #9–#16)
+    var projectStore: ProjectStore?
+
     var focusSessionManager: FocusSessionManager?
     var focusWebSocketClient: FocusWebSocketClient?
     private var focusStartOverlayWindows: [NSWindow] = []
@@ -354,6 +358,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         earnedBrowseManager = EarnedBrowseManager(appDelegate: self)
         earnedBrowseManager?.load()
         postLog("💰 EarnedBrowseManager initialized")
+
+        // Initialize Projects store
+        projectStore = ProjectStore()
+        postLog("📁 ProjectStore initialized")
 
         // Wire TimeTracker callback: deduct social media time from earned pool
         timeTracker?.onSocialMediaTimeRecorded = { [weak self] platform, minutes, isFreeBrowse in
