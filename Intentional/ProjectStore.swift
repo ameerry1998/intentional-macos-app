@@ -193,7 +193,7 @@ actor ProjectStore {
             accent: accent,
             allowed: allowed,
             learned: [],
-            blocklistIds: blocklistIds,
+            blocklistIds: Self.dedupe(blocklistIds),
             allowSearchEnginesForThisProject: allowSearchEngines,
             createdAt: now,
             updatedAt: now,
@@ -216,7 +216,7 @@ actor ProjectStore {
         }
         if let accent = patch.accent { projects[idx].accent = accent }
         if let allowed = patch.allowed { projects[idx].allowed = allowed }
-        if let blocklistIds = patch.blocklistIds { projects[idx].blocklistIds = blocklistIds }
+        if let blocklistIds = patch.blocklistIds { projects[idx].blocklistIds = Self.dedupe(blocklistIds) }
         if let allowSearch = patch.allowSearchEnginesForThisProject {
             projects[idx].allowSearchEnginesForThisProject = allowSearch
         }
@@ -352,13 +352,21 @@ actor ProjectStore {
         encoder.dateEncodingStrategy = .iso8601
         do {
             let data = try encoder.encode(projects)
-            fm.createFile(atPath: filePath, contents: data)
+            try data.write(to: URL(fileURLWithPath: filePath), options: .atomic)
         } catch {
-            print("⚠️ [ProjectStore] persist encode failed: \(error)")
+            print("⚠️ [ProjectStore] persist failed: \(error)")
         }
     }
 
     // MARK: - Helpers
+
+    /// Remove duplicate UUIDs while preserving first-seen order.
+    private static func dedupe(_ ids: [UUID]) -> [UUID] {
+        var seen = Set<UUID>()
+        var out: [UUID] = []
+        for id in ids where seen.insert(id).inserted { out.append(id) }
+        return out
+    }
 
     /// Shift the week window so that index 13 corresponds to the calendar day
     /// of `to`. No-op if `from` is nil or is already the same day. Shift count
@@ -374,11 +382,7 @@ actor ProjectStore {
         let shift = min(dayDiff, Self.weekLength)
         var shifted = Array(week.dropFirst(shift))
         shifted.append(contentsOf: Array(repeating: 0, count: shift))
-        if shifted.count < Self.weekLength {
-            shifted.append(contentsOf: Array(repeating: 0, count: Self.weekLength - shifted.count))
-        } else if shifted.count > Self.weekLength {
-            shifted = Array(shifted.prefix(Self.weekLength))
-        }
+        assert(shifted.count == Self.weekLength)
         return shifted
     }
 

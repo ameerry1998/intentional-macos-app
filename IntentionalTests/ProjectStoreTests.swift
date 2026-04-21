@@ -417,6 +417,24 @@ struct ProjectStoreTests {
             assertEqual(noRefs.count, 0)
         }
 
+        // ── 20: create dedupes blocklistIds ──
+        test("create dedupes blocklistIds") {
+            let store = ProjectStore(settingsDir: testDir + "/t20")
+            let blockId = UUID()
+            let project = sync {
+                await store.create(
+                    name: "Dup",
+                    intention: "",
+                    allowed: [],
+                    blocklistIds: [blockId, blockId, blockId],
+                    allowSearchEngines: false
+                )
+            }
+            assertEqual(project.blocklistIds.count, 1, "duplicates removed on create")
+            let summary = sync { await store.listSummary() }.first!
+            assertEqual(summary.blocklistCount, 1, "summary count reflects dedupe")
+        }
+
         // ── Results ──
         print("\n\(passed) passed, \(failed) failed\n")
         if failed > 0 {
