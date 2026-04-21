@@ -10092,6 +10092,13 @@ const ProjectsController = (() => {
   let savePending = null; // null | 'create' | 'update'
   let allowedLocalCounter = 0;
 
+  // Transient dashboard state (Task #14). Lives only while Dashboard view is
+  // up; reset by openDashboard so each project starts with a clean picker.
+  let dashboardSelectedDuration = null; // number (mins) | null
+  let dashboardCustomDuration = '';     // raw input string
+  let dashboardCustomOpen = false;      // whether Custom input is visible
+  let promotePending = null;            // host string awaiting detail reply
+
   function onEnter() {
     // Fetch on first entry, refresh on every entry (cheap).
     sendMessage({ type: 'GET_PROJECTS' });
@@ -10125,6 +10132,13 @@ const ProjectsController = (() => {
         showView('dashboard');
         return;
       }
+      // After a PROMOTE_LEARNED_SITE, the detail reply carries the refreshed
+      // project. Toast the host and fall through to re-render dashboard below.
+      if (promotePending && msg.payload && msg.payload.id) {
+        const host = promotePending;
+        promotePending = null;
+        showToast('Promoted ' + host, 'success');
+      }
       if (state.view === 'dashboard' || state.isNew) renderDashboard();
       if (state.view === 'setup') renderSetup();
     }
@@ -10152,6 +10166,11 @@ const ProjectsController = (() => {
 
   function openDashboard(id) {
     state.selected = null;
+    // Reset transient dashboard state so the new project starts clean.
+    dashboardSelectedDuration = null;
+    dashboardCustomDuration = '';
+    dashboardCustomOpen = false;
+    promotePending = null;
     sendMessage({ type: 'GET_PROJECT_DETAIL', id: id });
     showView('dashboard');
   }
@@ -10232,7 +10251,7 @@ const ProjectsController = (() => {
     </svg>`;
   }
 
-  // ----- Rendering: Dashboard (stub — Task #14) -----
+  // ----- Rendering: Dashboard (Task #14) -----
   function renderDashboard() {
     const root = document.getElementById('projects-view-dashboard');
     if (!state.selected) {
@@ -10240,15 +10259,275 @@ const ProjectsController = (() => {
       return;
     }
     const p = state.selected;
+    const accent = p.accent || 'var(--accent-primary)';
+    const name = escapeHTML(p.name || 'Untitled');
+    const intention = escapeHTML(p.intention || '');
+
+    const stats = summarizeSessions(p.sessions || []);
+    const sessionsHTML = renderRecentSessions(p.sessions || []);
+    const learnedHTML = renderLearnedSites(p.learned || []);
+    const resumeHTML = renderResumeHero(p);
+
     root.innerHTML = `
       <div class="projects-back-link" onclick="ProjectsController.goBack()">← All projects</div>
-      <div class="projects-section-header">${escapeHTML(p.name || 'Untitled')}</div>
-      <div class="page-subtitle">${escapeHTML(p.intention || '')}</div>
-      <div class="empty-note" style="margin-top: 20px;">Project dashboard coming in Task #14.</div>
-      <div style="margin-top: 12px;">
-        <button class="btn btn-ghost" onclick="ProjectsController.openEdit()">Edit settings</button>
-      </div>`;
+
+      <div class="projects-section-header" style="font-size: 22px; margin-top: 6px;">
+        <span style="display:inline-block; width: 8px; height: 8px; border-radius: 2px; background: ${accent}; margin-right: 10px; vertical-align: middle;"></span>
+        ${name}
+      </div>
+      <div class="page-subtitle" style="margin-bottom: 22px;">${intention}</div>
+
+      ${resumeHTML}
+
+      <div style="display:flex; gap: 12px; margin-top: 20px;">
+        <div style="flex:1; padding: 14px 16px; background: var(--bg-card, var(--bg-elevated)); border: 1px solid var(--border-subtle); border-radius: 10px;">
+          <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); margin-bottom: 6px;">Total hours</div>
+          <div style="font-size: 22px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums;">${stats.totalHours.toFixed(1)}</div>
+        </div>
+        <div style="flex:1; padding: 14px 16px; background: var(--bg-card, var(--bg-elevated)); border: 1px solid var(--border-subtle); border-radius: 10px;">
+          <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); margin-bottom: 6px;">Sessions this week</div>
+          <div style="font-size: 22px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums;">${stats.thisWeekCount}</div>
+        </div>
+        <div style="flex:1; padding: 14px 16px; background: var(--bg-card, var(--bg-elevated)); border: 1px solid var(--border-subtle); border-radius: 10px;">
+          <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); margin-bottom: 6px;">Avg focus</div>
+          <div style="font-size: 22px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums;">${stats.avgScorePct == null ? '—' : (stats.avgScorePct + '%')}</div>
+        </div>
+      </div>
+
+      <div style="margin-top: 28px;">
+        <div class="projects-section-header" style="margin-bottom: 10px;">Recent sessions</div>
+        ${sessionsHTML}
+      </div>
+
+      <div style="margin-top: 28px;">
+        <div class="projects-section-header" style="margin-bottom: 4px;">Learned sites</div>
+        <div class="field-helper" style="font-size:11px; color: var(--text-tertiary); margin-bottom: 10px;">Sites you visited during project sessions. Promote the useful ones to your allowlist.</div>
+        ${learnedHTML}
+      </div>
+
+      <div style="display:flex; justify-content: flex-end; gap: 10px; margin-top: 32px;">
+        <button type="button" class="btn btn-ghost btn-secondary" onclick="ProjectsController.openEdit()">Edit settings</button>
+        <button type="button" class="btn btn-danger" onclick="ProjectsController._handleDelete()">Delete project</button>
+      </div>
+    `;
   }
+
+  function renderResumeHero(p) {
+    const durations = [25, 45, 60, 90];
+    const selected = dashboardSelectedDuration;
+    const buttons = durations.map(d => {
+      const active = (selected === d) && !dashboardCustomOpen ? ' active' : '';
+      return `<button type="button" class="${active ? 'active' : ''}" onclick="ProjectsController._pickDuration(${d})">${d} min</button>`;
+    }).join('');
+    const customActive = dashboardCustomOpen ? ' active' : '';
+    const customBtn = `<button type="button" class="${customActive ? 'active' : ''}" onclick="ProjectsController._pickCustomDuration()">Custom</button>`;
+
+    const customInput = dashboardCustomOpen
+      ? `<div style="margin-top: 10px; display:flex; align-items:center; gap: 8px;">
+           <input id="project-custom-duration" type="number" min="1" max="600" placeholder="minutes"
+             value="${escapeHTML(dashboardCustomDuration)}"
+             oninput="ProjectsController._onCustomDurationInput(this.value)"
+             style="width: 120px; padding: 8px 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-default); border-radius: 7px; color: var(--text-primary); font-size: 13px; font-family: inherit; box-sizing: border-box;" />
+           <span style="font-size: 12px; color: var(--text-tertiary);">minutes</span>
+         </div>`
+      : '';
+
+    const startDisabled = !resolvedStartMinutes();
+
+    return `
+      <div class="projects-resume-hero">
+        <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-tertiary); margin-bottom: 10px;">Start a session</div>
+        ${p.intention ? `<div style="font-size: 15px; color: var(--text-primary); margin-bottom: 16px; line-height: 1.4;">${escapeHTML(p.intention)}</div>` : ''}
+        <div class="projects-duration-group">
+          ${buttons}
+          ${customBtn}
+        </div>
+        ${customInput}
+        <div style="margin-top: 18px; display:flex; align-items:center; gap: 12px;">
+          <button type="button" class="btn btn-primary"
+            ${startDisabled ? 'disabled' : ''}
+            onclick="ProjectsController._startSession()">Start session</button>
+          <div style="font-size: 11px; color: var(--text-tertiary);">Session will start based on your schedule.</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderRecentSessions(sessions) {
+    if (!sessions || sessions.length === 0) {
+      return `<div class="empty-note" style="font-size: 12px; color: var(--text-tertiary); font-style: italic; padding: 10px 0;">No sessions yet. Start one above.</div>`;
+    }
+    // Most-recent first. Sessions may already be ordered, but sort defensively.
+    const sorted = sessions.slice().sort((a, b) => {
+      const aT = a.startedAt ? Date.parse(a.startedAt) : 0;
+      const bT = b.startedAt ? Date.parse(b.startedAt) : 0;
+      return bT - aT;
+    }).slice(0, 10);
+
+    return '<div style="border: 1px solid var(--border-subtle); border-radius: 10px; overflow: hidden;">' +
+      sorted.map(s => {
+        const date = s.startedAt ? formatDate(s.startedAt) : '—';
+        const dur = (s.durationSec != null && s.durationSec > 0)
+          ? (Math.round(s.durationSec / 60) + ' min')
+          : '—';
+        let scoreCell;
+        if (typeof s.focusScore === 'number') {
+          const pct = Math.round(s.focusScore * 100);
+          const hue = scoreHue(s.focusScore);
+          scoreCell = `<span class="projects-score-pill" style="--score-hue: ${hue};">${pct}%</span>`;
+        } else {
+          scoreCell = `<span style="font-size: 12px; color: var(--text-tertiary);">—</span>`;
+        }
+        return `
+          <div class="projects-history-row">
+            <div style="flex:1; font-size: 13px; color: var(--text-primary);">${escapeHTML(date)}</div>
+            <div style="min-width: 80px; text-align:right; font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums;">${dur}</div>
+            <div style="min-width: 60px; text-align:right;">${scoreCell}</div>
+          </div>`;
+      }).join('') +
+      '</div>';
+  }
+
+  function renderLearnedSites(learned) {
+    if (!learned || learned.length === 0) {
+      return `<div class="empty-note" style="font-size: 12px; color: var(--text-tertiary); font-style: italic; padding: 10px 0;">No learned sites yet.</div>`;
+    }
+    const sorted = learned.slice().sort((a, b) => (b.hitCount || 0) - (a.hitCount || 0)).slice(0, 10);
+    return sorted.map(row => {
+      const host = escapeHTML(row.host || '');
+      const hits = (row.hitCount || 0) + '×';
+      const promoted = !!row.isPromoted;
+      const badge = promoted
+        ? `<span style="display:inline-flex; align-items:center; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; background: rgba(var(--color-success-rgb, 52, 199, 89), 0.12); color: var(--color-success); border: 1px solid rgba(var(--color-success-rgb, 52, 199, 89), 0.35);">promoted</span>`
+        : `<button type="button" onclick="ProjectsController._promote('${escapeHTML(row.host || '')}')" style="padding: 4px 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-default); border-radius: 6px; color: var(--text-secondary); font-size: 11px; cursor: pointer; font-family: inherit;">Promote</button>`;
+      return `
+        <div class="projects-learned-row">
+          <span style="flex:1; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--text-primary);">${host}</span>
+          <span style="font-size: 11px; color: var(--text-tertiary); font-variant-numeric: tabular-nums;">${hits}</span>
+          ${badge}
+        </div>`;
+    }).join('');
+  }
+
+  // ----- Dashboard helpers -----
+
+  function summarizeSessions(sessions) {
+    if (!sessions || sessions.length === 0) {
+      return { totalHours: 0, thisWeekCount: 0, avgScorePct: null };
+    }
+    let totalSec = 0;
+    let weekCount = 0;
+    let scoreSum = 0;
+    let scoreCount = 0;
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    for (const s of sessions) {
+      if (typeof s.durationSec === 'number' && s.durationSec > 0) {
+        totalSec += s.durationSec;
+      }
+      if (s.endedAt) {
+        const t = Date.parse(s.endedAt);
+        if (!isNaN(t) && t >= weekAgo) weekCount += 1;
+      }
+      if (typeof s.focusScore === 'number') {
+        scoreSum += s.focusScore;
+        scoreCount += 1;
+      }
+    }
+    const avgScorePct = scoreCount > 0 ? Math.round((scoreSum / scoreCount) * 100) : null;
+    return {
+      totalHours: totalSec / 3600,
+      thisWeekCount: weekCount,
+      avgScorePct: avgScorePct,
+    };
+  }
+
+  function scoreHue(focusScore) {
+    const s = typeof focusScore === 'number' ? focusScore : 0;
+    const clamped = Math.max(0, Math.min(1, s));
+    return Math.round(clamped * 140);
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    // "Apr 14, 3:20 PM"
+    try {
+      const datePart = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      const timePart = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+      return datePart + ', ' + timePart;
+    } catch (e) {
+      return d.toISOString();
+    }
+  }
+
+  function resolvedStartMinutes() {
+    if (dashboardCustomOpen) {
+      const n = parseInt(dashboardCustomDuration, 10);
+      if (isNaN(n) || n <= 0) return null;
+      return n;
+    }
+    if (dashboardSelectedDuration && dashboardSelectedDuration > 0) {
+      return dashboardSelectedDuration;
+    }
+    return null;
+  }
+
+  // ----- Dashboard event handlers (public via controller API as _prefixed) -----
+
+  function _pickDuration(mins) {
+    dashboardSelectedDuration = mins;
+    dashboardCustomOpen = false;
+    renderDashboard();
+  }
+
+  function _pickCustomDuration() {
+    dashboardCustomOpen = !dashboardCustomOpen;
+    if (dashboardCustomOpen) {
+      // When opening custom, clear the preset selection visually.
+      dashboardSelectedDuration = null;
+    }
+    renderDashboard();
+    if (dashboardCustomOpen) {
+      setTimeout(() => {
+        const el = document.getElementById('project-custom-duration');
+        if (el) el.focus();
+      }, 0);
+    }
+  }
+
+  function _onCustomDurationInput(value) {
+    dashboardCustomDuration = String(value || '');
+    // Flip Start button disabled state live without a full re-render.
+    const btn = document.querySelector('#projects-view-dashboard .projects-resume-hero .btn.btn-primary');
+    if (btn) {
+      btn.disabled = !resolvedStartMinutes();
+    }
+  }
+
+  function _startSession() {
+    if (!state.selected || !state.selected.id) return;
+    const mins = resolvedStartMinutes();
+    if (!mins) return;
+    sendMessage({
+      type: 'START_PROJECT_SESSION',
+      id: state.selected.id,
+      durationMins: mins,
+    });
+    showToast('Session requested', 'success');
+  }
+
+  function _promote(host) {
+    if (!state.selected || !state.selected.id) return;
+    if (!host) return;
+    promotePending = host;
+    sendMessage({
+      type: 'PROMOTE_LEARNED_SITE',
+      id: state.selected.id,
+      host: host,
+    });
+  }
+
 
   // ----- Rendering: Setup (Task #13) -----
   // Called whenever entering setup view, receiving blocklists, or toggling
@@ -10621,6 +10900,9 @@ const ProjectsController = (() => {
     _toggleBlocklist, _toggleSearchEngines,
     _commitAllowed, _removeAllowed,
     _handleSave, _handleDelete,
+    // Dashboard internals (Task #14).
+    _pickDuration, _pickCustomDuration, _onCustomDurationInput,
+    _startSession, _promote,
   };
 })();
 </script>
