@@ -116,7 +116,7 @@ class ScheduleManager {
 
         init(nudgeNotifications: Bool, screenRedShift: Bool, autoRedirect: Bool,
              blockingOverlay: Bool, interventionExercises: Bool,
-             backgroundAudioDetection: Bool, contextSwitchOverlay: Bool = false) {
+             backgroundAudioDetection: Bool, contextSwitchOverlay: Bool = true) {
             self.nudgeNotifications = nudgeNotifications
             self.screenRedShift = screenRedShift
             self.autoRedirect = autoRedirect
@@ -126,7 +126,7 @@ class ScheduleManager {
             self.contextSwitchOverlay = contextSwitchOverlay
         }
 
-        // Custom decode so persisted settings that predate contextSwitchOverlay decode cleanly (defaults to off).
+        // Custom decode so persisted settings that predate contextSwitchOverlay decode cleanly (defaults to on for work blocks).
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             self.nudgeNotifications = try c.decode(Bool.self, forKey: .nudgeNotifications)
@@ -135,7 +135,7 @@ class ScheduleManager {
             self.blockingOverlay = try c.decode(Bool.self, forKey: .blockingOverlay)
             self.interventionExercises = try c.decode(Bool.self, forKey: .interventionExercises)
             self.backgroundAudioDetection = try c.decode(Bool.self, forKey: .backgroundAudioDetection)
-            self.contextSwitchOverlay = (try? c.decode(Bool.self, forKey: .contextSwitchOverlay)) ?? false
+            self.contextSwitchOverlay = (try? c.decode(Bool.self, forKey: .contextSwitchOverlay)) ?? true
         }
 
         func toDict() -> [String: Bool] {
@@ -161,7 +161,8 @@ class ScheduleManager {
             case .focusHours: return focusHours
             case .freeTime: return BlockEnforcementSettings(
                 nudgeNotifications: false, screenRedShift: false, autoRedirect: false,
-                blockingOverlay: false, interventionExercises: false, backgroundAudioDetection: false)
+                blockingOverlay: false, interventionExercises: false, backgroundAudioDetection: false,
+                contextSwitchOverlay: false)
             }
         }
 

@@ -4,7 +4,7 @@ Non-skippable countdown overlay that fires on every app/tab switch during an act
 
 ## Settings
 
-The overlay is gated per-block-type under **Settings → Enforcement → Context-switch countdown**. Both Deep Work and Focus Hours columns default to **off**; toggle on to enable. Persisted in `enforcementSettings` alongside the other mechanisms (Nudge, Red Shift, Auto-redirect, Blocking Overlay, Intervention, Audio Detection). Check: `ScheduleManager.isEnforcementEnabled(.contextSwitchOverlay)`.
+The overlay is gated per-block-type under **Settings → Enforcement → Context-switch countdown**. Both Deep Work and Focus Hours columns default to **on** (Free Time is always off — no work session). Persisted in `enforcementSettings` alongside the other mechanisms (Nudge, Red Shift, Auto-redirect, Blocking Overlay, Intervention, Audio Detection). Check: `ScheduleManager.isEnforcementEnabled(.contextSwitchOverlay)`.
 
 ## Components
 
