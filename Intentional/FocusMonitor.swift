@@ -336,15 +336,19 @@ class FocusMonitor {
         var userOverride: Bool   // true when the user corrected this assessment (e.g. "this was wrong")
         let path: ScoringPath
         let ocrExcerpt: String?
+        /// Stages the scorer walked through to reach this verdict (keyword → cache → metadata → OCR),
+        /// each stamped with elapsed-ms-since-scoring-entry. Empty for non-scorer entries
+        /// (grayscale/intervention events, neutral-app logs, etc.).
+        let trace: [TraceStep]
     }
 
     private(set) var relevanceLog: [RelevanceEntry] = []
 
-    private func logAssessment(title: String, appName: String = "", hostname: String = "", intention: String, relevant: Bool, confidence: Int, reason: String, action: String, neutral: Bool = false, isEvent: Bool = false, userOverride: Bool = false, path: ScoringPath = .metadataRelevant, ocrExcerpt: String? = nil) {
+    private func logAssessment(title: String, appName: String = "", hostname: String = "", intention: String, relevant: Bool, confidence: Int, reason: String, action: String, neutral: Bool = false, isEvent: Bool = false, userOverride: Bool = false, path: ScoringPath = .metadataRelevant, ocrExcerpt: String? = nil, trace: [TraceStep] = []) {
         let entry = RelevanceEntry(
             timestamp: Date(), title: title, appName: appName.isEmpty ? title : appName, hostname: hostname, intention: intention,
             relevant: relevant, confidence: confidence, reason: reason, action: action, neutral: neutral, isEvent: isEvent,
-            userOverride: userOverride, path: path, ocrExcerpt: ocrExcerpt
+            userOverride: userOverride, path: path, ocrExcerpt: ocrExcerpt, trace: trace
         )
         relevanceLog.append(entry)
         if relevanceLog.count > Self.maxLogEntries {
@@ -377,6 +381,9 @@ class FocusMonitor {
         if entry.userOverride { dict["userOverride"] = true }
         dict["path"] = entry.path.rawValue
         if let excerpt = entry.ocrExcerpt { dict["ocrExcerpt"] = excerpt }
+        if !entry.trace.isEmpty {
+            dict["trace"] = entry.trace.map { ["step": $0.step, "elapsedMs": $0.elapsedMs, "detail": $0.detail] }
+        }
 
         if let data = try? JSONSerialization.data(withJSONObject: dict),
            var line = String(data: data, encoding: .utf8) {
@@ -1657,11 +1664,16 @@ class FocusMonitor {
                     return
                 }
 
+                let shouldEnforceOffTask = ConfidenceGate.shouldEnforceOffTask(
+                    relevant: result.relevant, confidence: result.confidence, path: result.path)
+                let isLowConfPassthrough = !result.relevant && !shouldEnforceOffTask
+                let loggedPath: ScoringPath = isLowConfPassthrough ? .metadataOffTaskLowConf : result.path
+
                 self.logAssessment(
                     title: appName, intention: block.title,
                     relevant: result.relevant, confidence: result.confidence,
-                    reason: result.reason, action: "none",
-                    path: result.path, ocrExcerpt: result.ocrExcerpt
+                    reason: result.reason, action: "none", neutral: isLowConfPassthrough,
+                    path: loggedPath, ocrExcerpt: result.ocrExcerpt, trace: result.trace
                 )
                 if result.relevant {
                     self.debugLog("👁️ App is relevant: \(appName)")
@@ -1674,6 +1686,8 @@ class FocusMonitor {
                         // Start continuous work tick timer so earning + decay continues
                         self.startWorkTickTimer(appName: appName)
                     }
+                } else if isLowConfPassthrough {
+                    self.appDelegate?.postLog("👁️ App off-task at \(result.confidence)% confidence — below threshold, letting through: \(appName)")
                 } else {
                     self.appDelegate?.postLog("👁️ App is NOT relevant: \(appName) — \(result.reason)")
                     // Record irrelevant assessment for deep work tracking
@@ -1848,21 +1862,34 @@ class FocusMonitor {
                     return
                 }
 
+                let shouldEnforceOffTask = ConfidenceGate.shouldEnforceOffTask(
+                    relevant: result.relevant, confidence: result.confidence, path: result.path)
+                let isLowConfPassthrough = !result.relevant && !shouldEnforceOffTask
+                let browserName = Self.browserAppNames[bundleId] ?? "Browser"
+
                 if result.relevant {
                     self.lastScoreWasIrrelevant = false
-                    let browserName = Self.browserAppNames[bundleId] ?? "Browser"
                     self.logAssessment(
                         title: info.title, appName: browserName, hostname: info.hostname, intention: block.title,
                         relevant: true, confidence: result.confidence,
                         reason: result.reason, action: "none",
-                        path: result.path, ocrExcerpt: result.ocrExcerpt
+                        path: result.path, ocrExcerpt: result.ocrExcerpt, trace: result.trace
                     )
                     self.debugLog("👁️ Tab is relevant: \"\(info.title)\"")
                     self.handleRelevantContent()
                     // No initial tick here — browser poll timer handles ongoing earning
+                } else if isLowConfPassthrough {
+                    // Low-confidence off-task: don't enforce, don't count toward distraction stats.
+                    self.lastScoreWasIrrelevant = false
+                    self.logAssessment(
+                        title: info.title, appName: browserName, hostname: info.hostname, intention: block.title,
+                        relevant: false, confidence: result.confidence,
+                        reason: result.reason, action: "none", neutral: true,
+                        path: .metadataOffTaskLowConf, ocrExcerpt: result.ocrExcerpt, trace: result.trace
+                    )
+                    self.appDelegate?.postLog("👁️ Tab off-task at \(result.confidence)% confidence — below threshold, letting through: \"\(info.title)\"")
                 } else {
                     self.lastScoreWasIrrelevant = true
-                    let browserName = Self.browserAppNames[bundleId] ?? "Browser"
 
                     if self.isOverrideActive {
                         // During override: skip assessment, still earn work ticks, log as override
@@ -1879,7 +1906,7 @@ class FocusMonitor {
                             title: info.title, appName: browserName, hostname: info.hostname, intention: block.title,
                             relevant: false, confidence: result.confidence,
                             reason: result.reason, action: "none",
-                            path: result.path, ocrExcerpt: result.ocrExcerpt
+                            path: result.path, ocrExcerpt: result.ocrExcerpt, trace: result.trace
                         )
                         // Record irrelevant assessment for earned browse tracking
                         if self.scheduleManager?.currentTimeState.isWork == true {
@@ -2861,6 +2888,7 @@ class FocusMonitor {
         let triggerConfidence = lastScored?.confidence ?? 0
         let triggerPath: ScoringPath? = lastScored?.path
         let triggerOCRExcerpt: String? = lastScored?.ocrExcerpt
+        let triggerTrace: [TraceStep] = lastScored?.trace ?? []
         var triggerURL: String? = nil
         if let bid = currentAppBundleId, Self.browserBundleIds.contains(bid),
            let info = readActiveTabInfo(for: bid), !info.url.isEmpty {
@@ -2884,7 +2912,8 @@ class FocusMonitor {
                 confidence: triggerConfidence,
                 urlString: triggerURL,
                 path: triggerPath,
-                ocrExcerpt: triggerOCRExcerpt
+                ocrExcerpt: triggerOCRExcerpt,
+                trace: triggerTrace
             )
         }
     }

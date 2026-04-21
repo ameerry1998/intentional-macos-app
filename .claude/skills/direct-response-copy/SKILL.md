@@ -9,6 +9,7 @@ This is an AI skill file. It turns any AI into a direct response copywriter trai
 ## How to use this
 
 You have three options depending on your setup. Pick whichever fits.
+
 ### Option 1: Claude Code, Cursor, Codex, or any coding agent
 
 If you use Claude Code, Cursor, Codex CLI, Windsurf, or similar:

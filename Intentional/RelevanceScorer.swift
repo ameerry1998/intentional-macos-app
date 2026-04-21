@@ -10,18 +10,6 @@ import MLXLLM
 import MLXLMCommon  // LanguageModel protocol
 import MLX          // GPU cache configuration
 
-/// Describes which scoring path was taken to produce a relevance verdict.
-enum ScoringPath: String, Codable {
-    /// Metadata said relevant — no OCR was performed.
-    case metadataRelevant
-    /// Metadata said off-task; OCR not triggered (gate said no, PID drifted, or OCR unavailable).
-    case metadataOffTask
-    /// Metadata said off-task; OCR rescore overturned the verdict to relevant.
-    case ocrVerifiedRelevant
-    /// Metadata said off-task; OCR rescore confirmed off-task.
-    case ocrVerifiedOffTask
-}
-
 /// Scores activity relevance against the current work block intention
 /// using MLX Qwen3-4B-Instruct (on-device LLM via Apple Silicon GPU).
 /// Falls back to Apple Foundation Models on macOS 26+ if Qwen is not selected.
@@ -45,6 +33,10 @@ class RelevanceScorer {
         var path: ScoringPath = .metadataRelevant
         /// First ~300 chars of OCR-extracted on-screen text; non-nil only on ocrVerified* paths.
         var ocrExcerpt: String? = nil
+        /// Timestamped journey of which pipeline stages ran for this verdict. Populated
+        /// by `ScoringTracer` inside scoreRelevance. Stripped/overwritten on cache hits
+        /// so the trace always reflects THIS decision, not the one that seeded the cache.
+        var trace: [TraceStep] = []
     }
 
     // MARK: - Cache
@@ -470,12 +462,26 @@ class RelevanceScorer {
 
     // MARK: - shouldVerifyWithOCR
 
+    /// Confidence threshold above which metadata off-task verdicts are trusted without OCR.
+    /// When the title is specific enough for the LLM to render a strong verdict (e.g.
+    /// "Northeastern post bacc program — Claude" is clearly medical), running OCR adds
+    /// risk: on platforms like Claude.ai the OCR captures sidebar/history chrome that
+    /// may reference unrelated topics (past engineering conversations) and can flip a
+    /// correct off-task verdict into a wrong relevant one.
+    private let ocrEscalationMaxConfidence: Int = 70
+
     /// Gate: should we run a second-chance OCR pass for this off-task verdict?
-    /// Returns true when metadata said off-task AND either:
+    /// Returns true only when metadata said off-task with MODERATE confidence (below the
+    /// threshold) AND either:
     ///   (a) the URL is a container app (dynamic content, same URL), OR
     ///   (b) the host has been promoted via learned overrides (3+ user corrections in 30 days).
+    ///
+    /// High-confidence off-task verdicts are trusted directly; OCR is reserved for
+    /// ambiguous cases where the title alone isn't enough to decide.
     private func shouldVerifyWithOCR(metadataResult: Result, url: String, bundleIdentifier: String) async -> Bool {
         guard !metadataResult.relevant else { return false }
+        // Trust high-confidence off-task metadata verdicts — don't let OCR chrome override them.
+        if metadataResult.confidence >= ocrEscalationMaxConfidence { return false }
         if isContainerAppURL(url) { return true }
         let host = URLComponents(string: url)?.host ?? ""
         return await learnedOverrideStore.isPromoted(host: host)
@@ -546,16 +552,42 @@ class RelevanceScorer {
         contentType: ContentType = .webpage,
         bundleIdentifier: String = ""
     ) async -> Result {
-        // Include URL path in cache key so same-title pages on different URLs get scored separately.
+        let tracer = ScoringTracer()
+        // Helper that stamps the terminal "final" step, attaches the trace to the result,
+        // and emits a one-line trace summary to postLog. Every return path goes through this
+        // so the user sees the full step-by-step journey for every verdict.
+        let traceLabel = "\"\(pageTitle)\"" + (url.isEmpty ? "" : " " + (URL(string: url)?.host ?? ""))
+        func finalize(_ r: Result) -> Result {
+            tracer.record("final", "relevant=\(r.relevant) conf=\(r.confidence) path=\(r.path.rawValue)")
+            var out = r
+            out.trace = tracer.steps
+            appDelegate?.postLog(tracer.summary(label: traceLabel))
+            return out
+        }
+
+        // Include URL in cache key so same-title pages on different URLs get scored separately.
         // Append a short hash of profile+dailyPlan so edits to either invalidate stale cache entries.
-        let urlPath = URL(string: url)?.path ?? ""
+        //
+        // Include the query string so different YouTube videos (/watch?v=X vs /watch?v=Y) don't
+        // collide on the shared `/watch` path.
+        let parsedURL = URL(string: url)
+        let urlPath = parsedURL?.path ?? ""
+        let urlPathWithQuery = urlPath + (parsedURL?.query.map { "?\($0)" } ?? "")
+        let urlHost = parsedURL?.host?.lowercased() ?? ""
         let contextHash: String = {
             let bytes = Array("\(profile)|\(dailyPlan)".utf8)
             let digest = SHA256.hash(data: bytes)
             return digest.prefix(4).map { String(format: "%02x", $0) }.joined()
         }()
-        let cacheKey = "\(intention)|\(pageTitle)|\(urlPath)|\(contextHash)"
         let isContainer = isContainerAppURL(url)
+        // For container apps (Claude, YouTube, Notion, docs.google.com) the tab title churns
+        // as the conversation/video/doc state changes, which made the title-keyed cache miss
+        // whenever the user tabbed away and back. Key off host+path+query only for these
+        // hosts — stable per-content-item, so a verdict sticks across tab switches.
+        // Non-container webpages still use the title (some static pages share a path).
+        let cacheKey: String = isContainer
+            ? "\(intention)|@\(urlHost)\(urlPathWithQuery)|\(contextHash)"
+            : "\(intention)|\(pageTitle)|\(urlPath)|\(contextHash)"
 
         // Keyword overlap: catch obvious matches without hitting the LLM
         let urlSegments = urlPathSegments(url)
@@ -563,22 +595,27 @@ class RelevanceScorer {
         let urlMatch = !url.isEmpty && hasKeywordOverlap(intention: intention, pageTitle: urlSegments)
         if titleMatch || urlMatch {
             let matchSource = titleMatch ? "title" : "URL path"
+            tracer.record("keyword", "hit(\(matchSource))")
             appDelegate?.postLog("🧠 [Keyword] Match in \(matchSource): \"\(pageTitle)\" url=\(url.isEmpty ? "(none)" : url)")
             var result = Result(relevant: true, confidence: 95, reason: "Keyword match with task (\(matchSource))")
             result.path = .metadataRelevant
-            cache[cacheKey] = CacheEntry(result: result, stampedAt: Date())
-            return result
+            let finalR = finalize(result)
+            cache[cacheKey] = CacheEntry(result: finalR, stampedAt: Date())
+            return finalR
         }
+        tracer.record("keyword", "miss")
 
         // User-approved whitelist (from justification) — keyed by title only (no URL).
         // Approved pages never trigger OCR; they return early here.
         let approvalKey = "\(intention)|\(pageTitle)"
         if userApproved.contains(approvalKey) {
-            return Result(relevant: true, confidence: 100, reason: "User-approved", path: .metadataRelevant)
+            tracer.record("approval", "hit")
+            return finalize(Result(relevant: true, confidence: 100, reason: "User-approved", path: .metadataRelevant))
         }
 
         // Check cache
         if let entry = cache[cacheKey] {
+            let ageSec = Int(Date().timeIntervalSince(entry.stampedAt))
             if isContainer {
                 if entry.result.relevant {
                     // Apply path-aware TTL
@@ -586,19 +623,24 @@ class RelevanceScorer {
                         ? ocrVerifiedRelevantTTL
                         : containerAppApprovalTTL
                     if Date().timeIntervalSince(entry.stampedAt) < ttl {
-                        return entry.result
+                        tracer.record("cache", "hit(age=\(ageSec)s path=\(entry.result.path.rawValue))")
+                        return finalize(entry.result)
                     }
                     // TTL elapsed: drop stale entry and fall through to fresh scoring.
                     cache.removeValue(forKey: cacheKey)
-                    appDelegate?.postLog("🧠 [Cache] Container-app TTL expired for \"\(pageTitle)\" on \(URL(string: url)?.host ?? "?") — re-scoring")
+                    tracer.record("cache", "expired(age=\(ageSec)s)")
+                    appDelegate?.postLog("🧠 [Cache] Container-app TTL expired for \"\(pageTitle)\" on \(urlHost.isEmpty ? "?" : urlHost) — re-scoring")
                 } else {
                     // Off-task cached result for container app — always re-score (don't cache off-task)
                     cache.removeValue(forKey: cacheKey)
+                    tracer.record("cache", "stale-offtask")
                 }
             } else {
-                // Non-container-app: return cached result as-is (no TTL expiry)
-                return entry.result
+                tracer.record("cache", "hit(age=\(ageSec)s path=\(entry.result.path.rawValue))")
+                return finalize(entry.result)
             }
+        } else {
+            tracer.record("cache", "miss")
         }
 
         // Track intention changes — clear cache when block switches
@@ -607,11 +649,11 @@ class RelevanceScorer {
             currentIntention = intention
         }
 
-        // Pre-capture: kick off screen capture concurrently for container apps BEFORE scoring,
-        // so the screenshot is ready by the time we need it for OCR verification.
-        let screenCapture = ScreenCapture()
-        let captureTask: Task<(image: CGImage, pid: pid_t)?, Error>? = isContainer
-            ? Task { try await screenCapture.captureFrontmostWindow() }
+        // Grab frontmost PID at scoring entry for drift detection on the OCR path.
+        // Compared later to capture.pid so we discard OCR output if the user switched apps
+        // between scoring-start and capture-time. Only needed when the OCR path is possible.
+        let startPID: pid_t? = isContainer
+            ? await MainActor.run { NSWorkspace.shared.frontmostApplication?.processIdentifier }
             : nil
 
         // Check which AI model to use
@@ -663,28 +705,32 @@ class RelevanceScorer {
 
         // Fallback if all scoring paths failed
         guard var rawResult = metadataResult else {
-            captureTask?.cancel()
-            let fallback = Result(relevant: true, confidence: 0, reason: "Scoring unavailable on this macOS version", path: .metadataRelevant)
-            return fallback
+            tracer.record("metadata", "unavailable")
+            return finalize(Result(relevant: true, confidence: 0, reason: "Scoring unavailable on this macOS version", path: .metadataRelevant))
         }
+        tracer.record("metadata", "\(rawResult.relevant ? "relevant" : "off-task")/\(rawResult.confidence)")
 
         // --- OCR verification pass (second-chance for off-task verdicts on container apps) ---
-        if await shouldVerifyWithOCR(metadataResult: rawResult, url: url, bundleIdentifier: bundleIdentifier) {
-            // PID drift guard (Flag 1): compare PID at capture time with PID right now.
-            // If they differ the user switched apps between capture and scoring — discard capture.
-            let currentPID = await MainActor.run { NSWorkspace.shared.frontmostApplication?.processIdentifier }
-
-            let captureResult = (try? await captureTask?.value) ?? nil
+        let gateAllowsOCR = await shouldVerifyWithOCR(metadataResult: rawResult, url: url, bundleIdentifier: bundleIdentifier)
+        if gateAllowsOCR {
+            tracer.record("ocr-gate", "yes")
+            // Serial capture only when OCR is actually needed. This avoids window-server
+            // contention with ContentSafetyMonitor's CGWindowListCreateImage poll.
+            let captureResult = (try? await ScreenCapture().captureFrontmostWindow()) ?? nil
             if captureResult != nil {
                 await MainActor.run { self.hasCapturedBefore = true }
             }
 
+            // PID drift guard (Flag 1): compare startPID (sampled at scoring entry) with
+            // capture.pid. If they differ the user switched apps mid-flight — discard capture.
             if let capture = captureResult,
-               capture.pid == currentPID {
+               capture.pid == startPID {
+                tracer.record("ocr-capture", "ok")
                 let ocrEngine = OCREngine()
                 let ocrText = (try? await ocrEngine.extractText(from: capture.image)) ?? ""
 
                 if !ocrText.isEmpty {
+                    tracer.record("ocr-ocr", "\(ocrText.count)ch")
                     appDelegate?.postLog("🧠 [OCR] Running verification pass for \"\(pageTitle)\" (\(ocrText.count) chars)")
                     let verifiedResult = await rescoreWithOCR(
                         pageTitle: pageTitle,
@@ -698,48 +744,51 @@ class RelevanceScorer {
                         bundleIdentifier: bundleIdentifier,
                         ocrText: ocrText
                     )
+                    tracer.record("ocr-rescore", "\(verifiedResult.relevant ? "relevant" : "off-task")/\(verifiedResult.confidence)")
                     var finalResult = verifiedResult
                     finalResult.path = verifiedResult.relevant ? .ocrVerifiedRelevant : .ocrVerifiedOffTask
                     finalResult.ocrExcerpt = String(ocrText.prefix(300))
                     appDelegate?.postLog("🧠 [OCR] Verdict: \"\(pageTitle)\" → \(finalResult.relevant ? "relevant" : "NOT relevant") (\(finalResult.confidence)%) path=\(finalResult.path.rawValue)")
+                    let finalized = finalize(finalResult)
                     // Cache OCR-verified relevant results; don't cache off-task (re-score on next tick)
-                    if finalResult.relevant {
-                        cache[cacheKey] = CacheEntry(result: finalResult, stampedAt: Date())
+                    if finalized.relevant {
+                        cache[cacheKey] = CacheEntry(result: finalized, stampedAt: Date())
                     }
-                    return finalResult
+                    return finalized
                 } else {
+                    tracer.record("ocr-ocr", "empty")
                     appDelegate?.postLog("🧠 [OCR] Empty OCR text for \"\(pageTitle)\" — falling through to metadata verdict")
                 }
             } else if captureResult == nil && !hasCapturedBefore {
                 // Capture returned nil — likely denied permission. Show gentle prompt (capped 1/24h, skipped in DEBUG).
+                tracer.record("ocr-capture", "nil(no-perm?)")
                 appDelegate?.postLog("🧠 [OCR] Capture returned nil for \"\(pageTitle)\" — prompting for screen recording if needed")
                 Task { [weak self] in await self?.promptForScreenRecordingIfNeeded() }
             } else {
                 // PID drifted — user switched apps between capture and scoring.
+                tracer.record("ocr-capture", "drift")
                 appDelegate?.postLog("🧠 [OCR] PID drift for \"\(pageTitle)\" — using metadata verdict")
             }
 
             // Fall-through: OCR unavailable/drifted — return metadata off-task verdict without caching
             rawResult.path = .metadataOffTask
-            captureTask?.cancel()
-            return rawResult
+            return finalize(rawResult)
         }
-
-        // Cancel pre-capture if unused (metadata was relevant, or non-container app)
-        captureTask?.cancel()
+        tracer.record("ocr-gate", "no")
 
         // Metadata-only path: label correctly based on verdict
         rawResult.path = rawResult.relevant ? .metadataRelevant : .metadataOffTask
+        let finalized = finalize(rawResult)
         // Cache relevant results; for container apps use stampedAt for TTL tracking
-        if rawResult.relevant {
-            cache[cacheKey] = CacheEntry(result: rawResult, stampedAt: Date())
+        if finalized.relevant {
+            cache[cacheKey] = CacheEntry(result: finalized, stampedAt: Date())
         }
         // Don't cache off-task metadata verdicts for container apps — re-score each tick
         // For non-container-app off-task, cache normally (no TTL)
-        if !rawResult.relevant && !isContainer {
-            cache[cacheKey] = CacheEntry(result: rawResult, stampedAt: Date())
+        if !finalized.relevant && !isContainer {
+            cache[cacheKey] = CacheEntry(result: finalized, stampedAt: Date())
         }
-        return rawResult
+        return finalized
     }
 
     // MARK: - OCR Rescore
@@ -810,14 +859,23 @@ class RelevanceScorer {
 
     // MARK: - Keyword Overlap
 
-    /// Check if any keyword from the intention shares a common stem with a word in the page title.
-    /// Uses prefix matching (min 3 chars) to handle basic morphological variants (e.g. "taxes" ↔ "tax").
+    /// Check if a keyword from the intention matches a word in the page title strongly
+    /// enough to short-circuit the LLM.
+    ///
+    /// A positive verdict here skips the LLM entirely, so the bar is intentionally high:
+    ///   - exact match on a ≥4-char word, OR
+    ///   - shared prefix of ≥5 chars between two ≥5-char words (catches "engineer"↔"engineering",
+    ///     "program"↔"programming", but NOT "apply"↔"application" which share only 4 chars)
+    ///
+    /// The previous `hasPrefix` rule (min 3 chars) allowed weak single-word matches like
+    /// "tech"↔"technology" to falsely mark a page RELEVANT before the LLM ever ran.
     private func hasKeywordOverlap(intention: String, pageTitle: String) -> Bool {
         let intentWords = extractKeywords(intention)
         let titleWords = extractKeywords(pageTitle)
         for iw in intentWords {
             for tw in titleWords {
-                if iw.count >= 3 && tw.count >= 3 && (iw.hasPrefix(tw) || tw.hasPrefix(iw)) {
+                if iw == tw && iw.count >= 4 { return true }
+                if iw.count >= 5 && tw.count >= 5 && iw.commonPrefix(with: tw).count >= 5 {
                     return true
                 }
             }
@@ -884,7 +942,11 @@ class RelevanceScorer {
         let descLine = intentionDescription.isEmpty ? "" : "\nBlock description: \(intentionDescription)"
         let urlLine = url.isEmpty ? "" : "\nURL path: \(URL(string: url)?.path ?? url)"
         let pageDescLine = pageDescription.isEmpty ? "" : "\nPage description: \(pageDescription)"
-        let ocrBlock = ocrText.isEmpty ? "" : "\nOn-screen text excerpt:\n\(ocrText)"
+        let ocrBlock = ocrText.isEmpty ? "" : """
+
+        On-screen text (may include sidebar, history, and navigation chrome — use to CONFIRM the page title's topic, not to override a clearly off-task title):
+        \(ocrText)
+        """
         // Clean page title: strip HTML entities and non-ASCII punctuation that confuse the model
         let cleanTitle = pageTitle
             .replacingOccurrences(of: #"&[a-zA-Z0-9#]+;"#, with: " ", options: .regularExpression)
@@ -991,8 +1053,16 @@ class RelevanceScorer {
         let fewShot: String
         let evaluationPart: String
 
-        // OCR excerpt block — appended only when present (same prompt, extra context, no prior verdict)
-        let ocrBlock = ocrText.isEmpty ? "" : "\nOn-screen text excerpt:\n\(ocrText)"
+        // OCR excerpt block — appended only when present. The preface warns the model that
+        // the text may include platform chrome (sidebars, conversation history, nav links)
+        // and should CONFIRM — not override — what the page title says. Without this guard,
+        // a single tangential URL in Claude's sidebar (e.g. "anthropic.com/engineering/...")
+        // was flipping clearly off-task medical/personal pages to RELEVANT for coding tasks.
+        let ocrBlock = ocrText.isEmpty ? "" : """
+
+        On-screen text (may include sidebar, history, and navigation chrome — use to CONFIRM the page title's topic, not to override a clearly off-task title):
+        \(ocrText)
+        """
 
         if contentType == .application {
             selectedSystemPrompt = appSystemPrompt

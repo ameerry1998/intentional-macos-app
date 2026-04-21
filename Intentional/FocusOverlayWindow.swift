@@ -47,7 +47,8 @@ class FocusOverlayWindowController {
         confidence: Int = 0,
         urlString: String? = nil,
         path: ScoringPath? = nil,
-        ocrExcerpt: String? = nil
+        ocrExcerpt: String? = nil,
+        trace: [TraceStep] = []
     ) {
         // Close any existing overlay
         dismiss()
@@ -65,7 +66,8 @@ class FocusOverlayWindowController {
             confidence: confidence,
             urlString: urlString,
             path: path,
-            ocrExcerpt: ocrExcerpt
+            ocrExcerpt: ocrExcerpt,
+            trace: trace
         )
 
         viewModel.onBackToWork = { [weak self] in
@@ -171,6 +173,9 @@ class FocusOverlayViewModel: ObservableObject {
     let urlString: String?
     let path: ScoringPath?
     let ocrExcerpt: String?
+    /// Step-by-step journey (keyword → cache → metadata → OCR), each stamped with elapsed-ms.
+    /// Surfaced in the Why panel's Trace section so the user can see which stages ran.
+    let trace: [TraceStep]
     @Published var showWhyDetails: Bool = false
 
     // Quick block creation (unplanned overlay)
@@ -209,7 +214,8 @@ class FocusOverlayViewModel: ObservableObject {
          nextBlockTitle: String? = nil, nextBlockTime: String? = nil, minutesUntilNextBlock: Int? = nil,
          displayName: String? = nil,
          confidence: Int = 0, urlString: String? = nil,
-         path: ScoringPath? = nil, ocrExcerpt: String? = nil) {
+         path: ScoringPath? = nil, ocrExcerpt: String? = nil,
+         trace: [TraceStep] = []) {
         self.intention = intention
         self.reason = reason
         self.focusDurationMinutes = focusDurationMinutes
@@ -223,6 +229,7 @@ class FocusOverlayViewModel: ObservableObject {
         self.urlString = urlString
         self.path = path
         self.ocrExcerpt = ocrExcerpt
+        self.trace = trace
     }
 }
 
@@ -562,6 +569,7 @@ struct FocusOverlayView: View {
     private func verdictPathLabel(_ path: ScoringPath) -> String {
         switch path {
         case .metadataRelevant, .metadataOffTask: return "Metadata only"
+        case .metadataOffTaskLowConf: return "Metadata only (low confidence — not enforced)"
         case .ocrVerifiedRelevant, .ocrVerifiedOffTask: return "OCR-verified"
         }
     }
@@ -619,6 +627,36 @@ struct FocusOverlayView: View {
                         .padding(8)
                         .background(Color.white.opacity(0.04))
                         .cornerRadius(4)
+                }
+            }
+
+            if !viewModel.trace.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Trace")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.45))
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(Array(viewModel.trace.enumerated()), id: \.offset) { _, step in
+                            HStack(spacing: 8) {
+                                Text("+\(step.elapsedMs)ms")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundColor(.white.opacity(0.45))
+                                    .frame(width: 52, alignment: .trailing)
+                                Text(step.step)
+                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                    .foregroundColor(.white.opacity(0.75))
+                                    .frame(width: 78, alignment: .leading)
+                                Text(step.detail)
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundColor(.white.opacity(0.65))
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                            }
+                        }
+                    }
+                    .padding(8)
+                    .background(Color.white.opacity(0.04))
+                    .cornerRadius(4)
                 }
             }
 

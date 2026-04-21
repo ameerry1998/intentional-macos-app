@@ -2489,7 +2489,7 @@ body.theme-effects-warm::after {
   background: rgba(20, 20, 22, 0.98);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 12px;
-  padding: 16px;
+  padding: 16px 16px 0 16px; /* bottom padding moves to sticky actions row */
   z-index: 100;
   width: 280px;
   max-height: calc(100vh - 40px);
@@ -2497,6 +2497,13 @@ body.theme-effects-warm::after {
   overscroll-behavior: contain;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
+/* Force a visible scrollbar inside the editor so users can tell it scrolls. */
+.block-editor::-webkit-scrollbar { width: 8px; }
+.block-editor::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+}
+.block-editor::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
 .block-editor-row { margin-bottom: 12px; }
 .block-editor-row label {
   display: block;
@@ -2538,7 +2545,17 @@ body.theme-effects-warm::after {
   background: rgba(var(--accent-primary-rgb),0.3);
 }
 .block-editor-actions {
-  display: flex; gap: 8px; margin-top: 16px;
+  display: flex; gap: 8px;
+  /* Stick to the bottom of the scroll container so Done/Delete stay reachable
+     even when the editor's natural height exceeds the viewport. */
+  position: sticky;
+  bottom: 0;
+  margin: 16px -16px 0 -16px; /* bleed across the editor's horizontal padding */
+  padding: 12px 16px 16px 16px;
+  background: rgba(20, 20, 22, 0.98);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0 0 12px 12px;
+  z-index: 1;
 }
 .block-editor-delete {
   color: var(--color-error) !important;
@@ -8802,22 +8819,25 @@ function openBlockEditor(blockId, event) {
 
   var calRect = document.getElementById('calendar-container').getBoundingClientRect();
   editor.style.left = Math.min(calRect.right + 8, window.innerWidth - 300) + 'px';
-  // Clamp top using the editor's actual measured height so the bottom stays on-screen
-  // even when content (profiles, coach row, etc.) pushes it past a fixed assumption.
-  var editorHeight = editor.getBoundingClientRect().height;
-  var desiredTop = event.clientY || 80;
-  var maxTop = Math.max(20, window.innerHeight - editorHeight - 20);
-  editor.style.top = Math.max(20, Math.min(desiredTop, maxTop)) + 'px';
 
-  document.getElementById('editor-title').focus();
-
-  // Wire up "What the coach will see" live preview
+  // Wire up "What the coach will see" live preview + render initial content
+  // BEFORE measuring height — the preview is what grows the editor past the
+  // viewport, so measuring first under-reports and leaves top set too low.
   ['editor-title', 'editor-desc', 'editor-ignore-profile'].forEach(function(id) {
     var el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('input', renderCoachPreview);
   });
   renderCoachPreview();
+
+  // Clamp top using the editor's actual measured height so the bottom stays
+  // on-screen even when content pushes it past a fixed assumption.
+  var editorHeight = editor.getBoundingClientRect().height;
+  var desiredTop = (event && event.clientY) || 80;
+  var maxTop = Math.max(20, window.innerHeight - editorHeight - 20);
+  editor.style.top = Math.max(20, Math.min(desiredTop, maxTop)) + 'px';
+
+  document.getElementById('editor-title').focus();
 
   setTimeout(function() {
     document.addEventListener('mousedown', closeBlockEditorOutside);

@@ -115,28 +115,56 @@ if !launchedViaExtension {
                     // so the debugger can attach to this new instance instead.
                     appendLog("XCODE LAUNCH - Terminating existing PID \(existingPID) to allow debug session")
 
-                    // Write our lock file FIRST to prevent race with KeepAlive relaunch.
-                    // If launchd relaunches the PKG before we finish, it will see this lock
-                    // and exit immediately.
-                    try? "\(myPID)".write(toFile: lockFilePath, atomically: true, encoding: .utf8)
+                    // Disable ALL persistence mechanisms FIRST so launchd won't relaunch
+                    // the PKG after we kill it.
+                    // 1. KeepAlive LaunchAgent (installed by PKG)
+                    let agentTask = Process()
+                    agentTask.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+                    agentTask.arguments = ["bootout", "gui/\(getuid())/com.intentional.agent"]
+                    agentTask.standardOutput = FileHandle.nullDevice
+                    agentTask.standardError = FileHandle.nullDevice
+                    try? agentTask.run()
+                    agentTask.waitUntilExit()
 
-                    // Disable the KeepAlive LaunchAgent so launchd stops relaunching the PKG.
-                    // This is a user-level agent so no sudo needed. Re-enabled on next PKG launch.
-                    let disableTask = Process()
-                    disableTask.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-                    disableTask.arguments = ["bootout", "gui/\(getuid())/com.intentional.agent"]
-                    disableTask.standardOutput = FileHandle.nullDevice
-                    disableTask.standardError = FileHandle.nullDevice
-                    try? disableTask.run()
-                    appendLog("XCODE LAUNCH - Disabled com.intentional.agent KeepAlive LaunchAgent")
+                    // 2. Login Item (SMAppService — auto-relaunches on macOS 14+)
+                    let findPipe = Pipe()
+                    let findTask = Process()
+                    findTask.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+                    findTask.arguments = ["list"]
+                    findTask.standardOutput = findPipe
+                    findTask.standardError = FileHandle.nullDevice
+                    try? findTask.run()
+                    findTask.waitUntilExit()
+                    if let output = String(data: findPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) {
+                        for line in output.components(separatedBy: "\n") {
+                            if line.contains("application.com.arayan.intentional") ||
+                               line.contains("com.intentional.") {
+                                let parts = line.components(separatedBy: "\t")
+                                if let label = parts.last?.trimmingCharacters(in: .whitespaces), !label.isEmpty {
+                                    let bootTask = Process()
+                                    bootTask.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+                                    bootTask.arguments = ["bootout", "gui/\(getuid())/\(label)"]
+                                    bootTask.standardOutput = FileHandle.nullDevice
+                                    bootTask.standardError = FileHandle.nullDevice
+                                    try? bootTask.run()
+                                    bootTask.waitUntilExit()
+                                    appendLog("XCODE LAUNCH - Disabled: \(label)")
+                                }
+                            }
+                        }
+                    }
+                    appendLog("XCODE LAUNCH - Disabled all persistence mechanisms")
 
+                    // Now kill the old process. Its SIGTERM handler will remove the lock file.
                     kill(existingPID, SIGTERM)
-                    // Wait briefly for the old process to exit
                     for _ in 0..<20 {
                         usleep(100_000) // 100ms
                         if kill(existingPID, 0) != 0 { break }
                     }
-                    // Remove stale no-relaunch marker the old process may have written
+
+                    // Re-write lock file AFTER old process exits (its SIGTERM handler deletes it)
+                    try? "\(myPID)".write(toFile: lockFilePath, atomically: true, encoding: .utf8)
+                    // Remove no-relaunch marker the old process may have written
                     try? fileManager.removeItem(atPath: noRelaunchMarkerPath)
                 } else {
                     // Normal duplicate launch — silently exit without stealing focus.

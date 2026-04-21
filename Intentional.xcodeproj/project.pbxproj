@@ -52,6 +52,8 @@
 		A1000086000000000000036 /* ScreenCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000087000000000000036 /* ScreenCapture.swift */; };
 		A1000088000000000000037 /* OCREngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000089000000000000037 /* OCREngine.swift */; };
 		A1000090000000000000038 /* LearnedOverrideStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000091000000000000038 /* LearnedOverrideStore.swift */; };
+		A1000092000000000000039 /* ConfidenceGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000093000000000000039 /* ConfidenceGate.swift */; };
+		A1000094000000000000040 /* ScoringPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000095000000000000040 /* ScoringPath.swift */; };
 		A100F0C0000000000000001 /* focus-blocked.html in Resources */ = {isa = PBXBuildFile; fileRef = A100F0C1000000000000001 /* focus-blocked.html */; };
 		A2000001000000000000001 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = A2000003000000000000001 /* MLXLLM */; };
 		A2000002000000000000001 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = A2000004000000000000001 /* MLXLMCommon */; };
@@ -161,6 +163,8 @@
 		A1000087000000000000036 /* ScreenCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCapture.swift; sourceTree = "<group>"; };
 		A1000089000000000000037 /* OCREngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCREngine.swift; sourceTree = "<group>"; };
 		A1000091000000000000038 /* LearnedOverrideStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearnedOverrideStore.swift; sourceTree = "<group>"; };
+		A1000093000000000000039 /* ConfidenceGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfidenceGate.swift; sourceTree = "<group>"; };
+		A1000095000000000000040 /* ScoringPath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoringPath.swift; sourceTree = "<group>"; };
 		A100F0C1000000000000001 /* focus-blocked.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "focus-blocked.html"; sourceTree = "<group>"; };
 		A200000100000000000001 /* IntentionalModeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentionalModeController.swift; sourceTree = "<group>"; };
 		A300000200000000000001 /* QuitPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuitPolicy.swift; sourceTree = "<group>"; };
@@ -268,6 +272,8 @@
 				A1000087000000000000036 /* ScreenCapture.swift */,
 				A1000089000000000000037 /* OCREngine.swift */,
 				A1000091000000000000038 /* LearnedOverrideStore.swift */,
+				A1000093000000000000039 /* ConfidenceGate.swift */,
+				A1000095000000000000040 /* ScoringPath.swift */,
 				A1000047000000000000016 /* LegacyMonitorView.swift */,
 				A1000018000000000000004 /* blocked.html */,
 				A100F0C1000000000000001 /* focus-blocked.html */,
@@ -486,6 +492,8 @@
 				A1000086000000000000036 /* ScreenCapture.swift in Sources */,
 				A1000088000000000000037 /* OCREngine.swift in Sources */,
 				A1000090000000000000038 /* LearnedOverrideStore.swift in Sources */,
+				A1000092000000000000039 /* ConfidenceGate.swift in Sources */,
+				A1000094000000000000040 /* ScoringPath.swift in Sources */,
 				A1000046000000000000016 /* LegacyMonitorView.swift in Sources */,
 				FE000012000000000000001 /* FilterManager.swift in Sources */,
 			);
