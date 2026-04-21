@@ -56,6 +56,61 @@ struct SwitchInterventionCoordinatorTests {
             assertEqual(decision, .suppress(reason: .exemptApp))
         }
 
+        test("suppresses during first 60s of session (grace period)") {
+            let start = Date(timeIntervalSince1970: 1_000_000)
+            let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            c.sessionStarted(at: start)
+            c.setInWorkSession(true)
+            let decision = c.onSwitch(
+                to: .app(bundleId: "com.apple.Safari"),
+                at: start.addingTimeInterval(30)
+            )
+            assertEqual(decision, .suppress(reason: .inGracePeriod))
+        }
+
+        test("fires overlay after 60s grace elapses") {
+            let start = Date(timeIntervalSince1970: 1_000_000)
+            let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            c.sessionStarted(at: start)
+            c.setInWorkSession(true)
+            let decision = c.onSwitch(
+                to: .app(bundleId: "com.apple.Safari"),
+                at: start.addingTimeInterval(61)
+            )
+            assertEqual(decision, .showOverlay(countdownSeconds: 10))
+        }
+
+        test("suppresses second switch to same target") {
+            let start = Date(timeIntervalSince1970: 1_000_000)
+            let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            c.sessionStarted(at: start)
+            c.setInWorkSession(true)
+            // First switch after grace — overlay
+            _ = c.onSwitch(to: .app(bundleId: "com.apple.Safari"), at: start.addingTimeInterval(61))
+            c.resolve(outcome: .continued,
+                      intendedTarget: .app(bundleId: "com.apple.Safari"),
+                      returnTarget: nil,
+                      at: start.addingTimeInterval(75))
+            // Second "switch" to same target — suppressed
+            let decision = c.onSwitch(to: .app(bundleId: "com.apple.Safari"),
+                                      at: start.addingTimeInterval(90))
+            assertEqual(decision, .suppress(reason: .sameTarget))
+        }
+
+        test("grace period resumes for 60s after a break ends") {
+            let start = Date(timeIntervalSince1970: 1_000_000)
+            let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            c.sessionStarted(at: start)
+            c.setInWorkSession(true)
+            c.breakStarted(at: start.addingTimeInterval(120))
+            c.breakEnded(at: start.addingTimeInterval(420))  // 5-min break
+            let duringGrace = c.onSwitch(
+                to: .app(bundleId: "com.apple.Safari"),
+                at: start.addingTimeInterval(430)
+            )
+            assertEqual(duringGrace, .suppress(reason: .inGracePeriod))
+        }
+
         print("\n\(passed) passed, \(failed) failed\n")
         if failed > 0 {
             print("❌ TESTS FAILED")
