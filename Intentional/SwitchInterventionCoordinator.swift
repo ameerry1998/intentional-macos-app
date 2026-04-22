@@ -117,14 +117,22 @@ final class SwitchInterventionCoordinator {
             if cur == target {
                 return .suppress(reason: .sameTarget)
             }
-            // Same-app refinement/re-selection: if current is .tab(X, _) and incoming is .app(X),
-            // or current is .app(X) and incoming is .tab(X, _), it's the same app — either macOS
-            // re-activating a browser we're already tracking, or the first tab read after landing
-            // on an app. Neither is a fresh context switch. Promote currentTarget to the more
-            // specific value (prefer .tab over .app).
-            if cur.bundleId == target.bundleId {
-                beginDwell(target: target, at: now)
+            // Same-app refinement across .app ↔ .tab for the SAME bundleId only — either
+            // macOS re-activating a browser we're already tracking, or the first tab read
+            // after landing on an app. NOT a fresh context switch. Promote to .tab when
+            // available (more specific).
+            //
+            // IMPORTANT: .tab → .tab with different host IS a real tab switch and must fire —
+            // don't suppress on bundleId alone. Only cross-case (.app ↔ .tab) is the refinement.
+            switch (cur, target) {
+            case (.app(let cb), .tab(let tb, _)) where cb == tb:
+                beginDwell(target: target, at: now)  // promote to .tab
                 return .suppress(reason: .sameTarget)
+            case (.tab(let cb, _), .app(let tb)) where cb == tb:
+                // Don't downgrade currentTarget back to .app — keep the specific .tab.
+                return .suppress(reason: .sameTarget)
+            default:
+                break
             }
         }
         if inGracePeriod(at: now) {

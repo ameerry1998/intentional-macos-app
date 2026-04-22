@@ -1949,7 +1949,11 @@ class FocusMonitor {
         // Default #3 (overlay-on-overlay) applied: skip if FocusOverlayWindow or
         // InterventionOverlayController is already visible. Flag: revert by removing
         // the isShowing guards.
-        if !info.hostname.isEmpty {
+        // readActiveTabInfo() falls back to `hostname = bundleId` when URL parsing fails
+        // (e.g. chrome://newtab, about:blank, empty URL). That's NOT a real host and must not
+        // drive the switch-overlay — treat as no hostname for this path only.
+        let hostIsReal = !info.hostname.isEmpty && info.hostname != bundleId
+        if hostIsReal {
             let tupleNow = (bundleId: bundleId, host: info.hostname)
             let changed: Bool
             if let prior = lastSeenBrowserTab {
@@ -3690,9 +3694,11 @@ extension FocusMonitor: SwitchOverlayDelegate {
         if let t = returnTarget {
             applyReturnTarget(t)
         } else {
-            // Last-resort: hide Intentional so macOS auto-activates the previously-frontmost app.
-            appDelegate?.postLog("🎯 Back-to-work: no return target available — calling NSApp.hide(nil)")
-            NSApp.hide(nil)
+            // No usable return target — just dismiss the overlay and leave the user where they
+            // are. Previously we called NSApp.hide(nil), which caused macOS to auto-activate
+            // whatever was underneath (usually the pending app), which then re-triggered the
+            // tab-switch intercept → infinite overlay loop.
+            appDelegate?.postLog("🎯 Back-to-work: no return target — dismissing overlay only (skipping hide to avoid re-fire)")
         }
     }
 
