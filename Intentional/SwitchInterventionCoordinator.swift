@@ -113,8 +113,19 @@ final class SwitchInterventionCoordinator {
             beginDwell(target: target, at: now)
             return .suppress(reason: .exemptApp)
         }
-        if let cur = currentTarget, cur == target {
-            return .suppress(reason: .sameTarget)
+        if let cur = currentTarget {
+            if cur == target {
+                return .suppress(reason: .sameTarget)
+            }
+            // Same-app refinement/re-selection: if current is .tab(X, _) and incoming is .app(X),
+            // or current is .app(X) and incoming is .tab(X, _), it's the same app — either macOS
+            // re-activating a browser we're already tracking, or the first tab read after landing
+            // on an app. Neither is a fresh context switch. Promote currentTarget to the more
+            // specific value (prefer .tab over .app).
+            if cur.bundleId == target.bundleId {
+                beginDwell(target: target, at: now)
+                return .suppress(reason: .sameTarget)
+            }
         }
         if inGracePeriod(at: now) {
             beginDwell(target: target, at: now)

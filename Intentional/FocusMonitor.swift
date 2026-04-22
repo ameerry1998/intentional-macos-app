@@ -440,12 +440,13 @@ class FocusMonitor {
     /// Snapshot of the app/tab the user was in BEFORE the pending switch (for Back-to-work restoration).
     private var priorAppBundleIdBeforeSwitch: String?
     private var priorTabURLBeforeSwitch: String?
-    /// One-shot suppression: when we programmatically `activateApp` a bundleId (Continue / Back-to-work),
-    /// the resulting NSWorkspace activation notification arrives on the main queue moments later and
-    /// would otherwise re-enter the coordinator as a fresh `.app(X)` switch — different enum case
-    /// than the `.tab(X, host)` target the user resolved, so `sameTarget` doesn't suppress it.
-    /// Without this guard, accepting an overlay for a browser tab triggers an infinite countdown loop.
-    private var suppressNextActivationIntercept: String?
+    /// Suppressed bundle IDs: when the overlay dismisses or we programmatically `activateApp`,
+    /// macOS fires NSWorkspace activation for the new frontmost app. We arm the suppression BEFORE
+    /// `dismiss()` / `activate()` so the synchronous notification is always swallowed and the
+    /// coordinator intercept never runs for our own self-induced activations. Set-based (not a
+    /// single slot) because Continue/Back-to-work can cause two cascading activations — the
+    /// overlay's underlying app (pending) on dismiss and the actual return target on activate.
+    private var pendingActivationSuppressions: Set<String> = []
     /// Monotonic count of switch overlays presented. Drives the rotating reminder copy so each
     /// interception sees a stable line and consecutive interceptions rotate. Not reset per session —
     /// variety across sessions is fine, and this keeps the counter simple.
@@ -1439,12 +1440,10 @@ class FocusMonitor {
             lastNonIntentionalAppBundleId = newBundleId
         }
 
-        // Consume one-shot suppression set by our own `activateApp` calls (Continue / Back-to-work
-        // resolving a tab target activates the browser, which fires this notification as a fresh
-        // `.app(X)` event — must not re-trigger the overlay).
-        if let suppressed = suppressNextActivationIntercept, suppressed == newBundleId {
-            suppressNextActivationIntercept = nil
-            appDelegate?.postLog("🎯 Switch overlay: consumed self-activation suppression for [\(newBundleId)]")
+        // Consume suppression set by our own dismiss() / activateApp() calls — self-induced
+        // activation events must not re-enter the coordinator as a fresh switch.
+        if pendingActivationSuppressions.remove(newBundleId) != nil {
+            appDelegate?.postLog("🎯 Switch overlay: consumed self-activation suppression for [\(newBundleId)] (remaining: \(pendingActivationSuppressions.sorted().joined(separator: ",")))")
             evaluateApp(app)
             return
         }
@@ -3674,6 +3673,16 @@ extension FocusMonitor: SwitchOverlayDelegate {
 
         appDelegate?.postLog("🎯 Back-to-work tapped — pending=\(describe(pending)) rawPriorApp=\(rawPriorApp ?? "nil") rawPriorURL=\(rawPriorURL ?? "nil") mruLast=\(lastNonIntentionalAppBundleId ?? "nil") branch=\(branch) → \(returnTarget.map(describe) ?? "(none; hiding Intentional)")")
         coord.resolve(outcome: .backToWork, intendedTarget: nil, returnTarget: returnTarget, at: Date())
+        // Arm suppression BEFORE dismiss(): closing our key window causes macOS to synchronously
+        // re-activate whatever was underneath, which fires .didActivate on the main queue before
+        // activateApp() gets a chance to arm its own flag. Cover both the pending target (the app
+        // the user tried to open — may briefly gain focus) and the return target (where we're
+        // heading). Any extra entries get safety-cleared after 2s inside activateApp.
+        pendingActivationSuppressions.insert(pending.bundleId)
+        if let r = returnTarget, r.bundleId != pending.bundleId {
+            pendingActivationSuppressions.insert(r.bundleId)
+        }
+        appDelegate?.postLog("🎯 Back-to-work: arming pre-dismiss suppressions \(pendingActivationSuppressions.sorted())")
         switchOverlayController?.dismiss()
         pendingSwitchTarget = nil
         priorAppBundleIdBeforeSwitch = nil
@@ -3696,6 +3705,10 @@ extension FocusMonitor: SwitchOverlayDelegate {
         }
         appDelegate?.postLog("🎯 Continue → \(describe(pending))")
         coord.resolve(outcome: .continued, intendedTarget: pending, returnTarget: nil, at: Date())
+        // Arm BEFORE dismiss(): closing our key window causes macOS to synchronously re-activate
+        // the underlying app, firing .didActivate before activateApp() runs its own arm.
+        pendingActivationSuppressions.insert(pending.bundleId)
+        appDelegate?.postLog("🎯 Continue: arming pre-dismiss suppression for [\(pending.bundleId)]")
         switchOverlayController?.dismiss()
         pendingSwitchTarget = nil
         priorAppBundleIdBeforeSwitch = nil
@@ -3732,17 +3745,19 @@ extension FocusMonitor: SwitchOverlayDelegate {
     private func activateApp(bundleId: String) {
         let runningApps = NSWorkspace.shared.runningApplications
         if let app = runningApps.first(where: { $0.bundleIdentifier == bundleId }) {
-            suppressNextActivationIntercept = bundleId
+            pendingActivationSuppressions.insert(bundleId)
             let ok = app.activate(options: [])
-            appDelegate?.postLog("🎯 activateApp [\(bundleId)] (\(app.localizedName ?? "?")) → activate()=\(ok), suppression flag armed")
+            appDelegate?.postLog("🎯 activateApp [\(bundleId)] (\(app.localizedName ?? "?")) → activate()=\(ok), suppression armed")
             // Safety clear — if the activation notification never arrives (already frontmost, etc.)
             // we don't want the flag to poison the next real user switch.
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-                if self?.suppressNextActivationIntercept == bundleId {
-                    self?.suppressNextActivationIntercept = nil
-                    self?.appDelegate?.postLog("🎯 activateApp [\(bundleId)] suppression flag safety-cleared after 2s")
+                guard let self = self else { return }
+                if self.pendingActivationSuppressions.remove(bundleId) != nil {
+                    self.appDelegate?.postLog("🎯 activateApp [\(bundleId)] suppression safety-cleared after 2s")
                 }
             }
+        } else {
+            appDelegate?.postLog("🎯 activateApp [\(bundleId)] NOT FOUND in runningApplications")
         }
     }
 }
