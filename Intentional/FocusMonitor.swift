@@ -446,6 +446,10 @@ class FocusMonitor {
     /// than the `.tab(X, host)` target the user resolved, so `sameTarget` doesn't suppress it.
     /// Without this guard, accepting an overlay for a browser tab triggers an infinite countdown loop.
     private var suppressNextActivationIntercept: String?
+    /// Monotonic count of switch overlays presented. Drives the rotating reminder copy so each
+    /// interception sees a stable line and consecutive interceptions rotate. Not reset per session —
+    /// variety across sessions is fine, and this keeps the counter simple.
+    private var switchOverlayInterceptCount: Int = 0
 
     // Linger tracking
     private var lingerTimer: Timer?
@@ -1468,13 +1472,17 @@ class FocusMonitor {
 
     private func presentSwitchOverlay(for target: SwitchTarget, countdown: Int, displayName: String) {
         let block = scheduleManager?.currentBlock
-        let task = block?.title ?? "Focus session"
+        let project = block?.title ?? "Focus session"
+        let task = block?.description ?? ""
         let remainingText = Self.formatSessionRemaining(block: block)
+        switchOverlayInterceptCount += 1
         let presentation = SwitchOverlayPresentation(
-            taskTitle: task,
-            timeRemainingInSession: remainingText,
-            targetDisplayName: displayName,
-            countdownSeconds: countdown
+            project: project,
+            task: task,
+            sessionLeft: remainingText,
+            targetName: displayName,
+            countdownSeconds: countdown,
+            interceptIndex: switchOverlayInterceptCount
         )
         switchOverlayController?.show(presentation: presentation, delegate: self)
         appDelegate?.postLog("👁️ Switch overlay: \(displayName) (\(countdown)s, tier \(coordinatorTier()))")
