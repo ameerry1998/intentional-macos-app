@@ -626,6 +626,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.focusMonitor?.resumeIfPendingBlockStart()
 
             if let tracked = self.activeProjectSession?.blockId, block?.id != tracked {
+                // Finalize the session BEFORE clearing so we can look up the session id
+                // and snapshot the focus score for the just-ended block.
+                if let projectId = self.activeProjectSession?.projectId,
+                   let blockUUID = UUID(uuidString: tracked),
+                   let store = self.projectStore {
+                    let scorePct = self.earnedBrowseManager?.blockFocusStats[tracked]?.focusScore
+                    let scoreFraction: Double? = scorePct.map { Double($0) / 100.0 }
+                    Task {
+                        if let sid = await store.findActiveSession(projectId: projectId, blockId: blockUUID) {
+                            _ = await store.recordSessionEnd(
+                                projectId: projectId,
+                                sessionId: sid,
+                                focusScore: scoreFraction
+                            )
+                        }
+                    }
+                }
                 self.clearActiveProjectSession()
             }
             self.ensureProjectSessionMatchesCurrentBlock()

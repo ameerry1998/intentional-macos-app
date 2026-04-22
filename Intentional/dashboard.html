@@ -10118,6 +10118,7 @@ const ProjectsController = (() => {
     isNew: false,
     blocklists: [],       // from GET_BLOCKING_PROFILES (cached)
     loadedOnce: false,
+    learnedCollapsed: true,  // Learned sites list starts collapsed on the Dashboard
   };
 
   // Transient form state for the Setup view. Reset on every entry into
@@ -10345,9 +10346,12 @@ const ProjectsController = (() => {
       </div>
 
       <div style="margin-top: 28px;">
-        <div class="projects-section-header" style="margin-bottom: 4px;">Learned sites</div>
+        <div class="projects-section-header" style="margin-bottom: 4px; display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none;" onclick="ProjectsController._toggleLearnedCollapsed()">
+          <span id="projects-learned-chevron" style="font-size:10px; color: var(--text-tertiary); transition: transform 0.15s; transform: ${state.learnedCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)'};">▼</span>
+          <span>Learned sites</span>
+        </div>
         <div class="field-helper" style="font-size:11px; color: var(--text-tertiary); margin-bottom: 10px;">Sites you visited during project sessions. Promote the useful ones to your allowlist.</div>
-        ${learnedHTML}
+        <div id="projects-learned-body" style="${state.learnedCollapsed ? 'display:none;' : ''}">${learnedHTML}</div>
       </div>
 
       <div style="display:flex; justify-content: flex-end; gap: 10px; margin-top: 32px;">
@@ -10570,6 +10574,14 @@ const ProjectsController = (() => {
       id: state.selected.id,
       host: host,
     });
+  }
+
+  function _toggleLearnedCollapsed() {
+    state.learnedCollapsed = !state.learnedCollapsed;
+    const body = document.getElementById('projects-learned-body');
+    const chev = document.getElementById('projects-learned-chevron');
+    if (body) body.style.display = state.learnedCollapsed ? 'none' : '';
+    if (chev) chev.style.transform = state.learnedCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
   }
 
 
@@ -11026,7 +11038,7 @@ const ProjectsController = (() => {
     _handleSave, _handleDelete,
     // Dashboard internals (Task #14).
     _pickDuration, _pickCustomDuration, _onCustomDurationInput,
-    _startSession, _promote,
+    _startSession, _promote, _toggleLearnedCollapsed,
   };
 })();
 </script>

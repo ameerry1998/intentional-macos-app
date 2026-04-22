@@ -34,6 +34,7 @@ struct Project: Codable, Equatable, Identifiable {
     var intention: String
     var accent: String
     var allowed: [HostItem]
+    var blocked: [HostItem]
     var learned: [LearnedSite]
     var blocklistIds: [UUID]
     var allowSearchEnginesForThisProject: Bool
@@ -43,6 +44,49 @@ struct Project: Codable, Equatable, Identifiable {
     var sessions: [SessionEntry]
     var weekMinutes: [Int]
     var weeklyAnchor: Date?
+
+    // Custom decode so existing `projects.json` files written before the
+    // `blocked` field existed still load. Missing key → default to [].
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try c.decode(UUID.self, forKey: .id)
+        self.name = try c.decode(String.self, forKey: .name)
+        self.intention = try c.decode(String.self, forKey: .intention)
+        self.accent = try c.decode(String.self, forKey: .accent)
+        self.allowed = try c.decode([HostItem].self, forKey: .allowed)
+        self.blocked = try c.decodeIfPresent([HostItem].self, forKey: .blocked) ?? []
+        self.learned = try c.decode([LearnedSite].self, forKey: .learned)
+        self.blocklistIds = try c.decode([UUID].self, forKey: .blocklistIds)
+        self.allowSearchEnginesForThisProject = try c.decode(Bool.self, forKey: .allowSearchEnginesForThisProject)
+        self.createdAt = try c.decode(Date.self, forKey: .createdAt)
+        self.updatedAt = try c.decode(Date.self, forKey: .updatedAt)
+        self.lastUsedAt = try c.decodeIfPresent(Date.self, forKey: .lastUsedAt)
+        self.sessions = try c.decode([SessionEntry].self, forKey: .sessions)
+        self.weekMinutes = try c.decode([Int].self, forKey: .weekMinutes)
+        self.weeklyAnchor = try c.decodeIfPresent(Date.self, forKey: .weeklyAnchor)
+    }
+
+    init(id: UUID, name: String, intention: String, accent: String,
+         allowed: [HostItem], blocked: [HostItem], learned: [LearnedSite],
+         blocklistIds: [UUID], allowSearchEnginesForThisProject: Bool,
+         createdAt: Date, updatedAt: Date, lastUsedAt: Date?,
+         sessions: [SessionEntry], weekMinutes: [Int], weeklyAnchor: Date?) {
+        self.id = id
+        self.name = name
+        self.intention = intention
+        self.accent = accent
+        self.allowed = allowed
+        self.blocked = blocked
+        self.learned = learned
+        self.blocklistIds = blocklistIds
+        self.allowSearchEnginesForThisProject = allowSearchEnginesForThisProject
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.lastUsedAt = lastUsedAt
+        self.sessions = sessions
+        self.weekMinutes = weekMinutes
+        self.weeklyAnchor = weeklyAnchor
+    }
 }
 
 struct ProjectSummary: Codable, Equatable, Identifiable {
@@ -63,6 +107,7 @@ struct ProjectPatch {
     var intention: String?
     var accent: String?
     var allowed: [HostItem]?
+    var blocked: [HostItem]?
     var blocklistIds: [UUID]?
     var allowSearchEnginesForThisProject: Bool?
 }
@@ -177,6 +222,7 @@ actor ProjectStore {
     func create(name: String,
                 intention: String,
                 allowed: [HostItem],
+                blocked: [HostItem] = [],
                 blocklistIds: [UUID],
                 allowSearchEngines: Bool) -> Project {
         let accent = Self.accentPalette[projects.count % Self.accentPalette.count]
@@ -188,6 +234,7 @@ actor ProjectStore {
             intention: truncated,
             accent: accent,
             allowed: allowed,
+            blocked: blocked,
             learned: [],
             blocklistIds: Self.dedupe(blocklistIds),
             allowSearchEnginesForThisProject: allowSearchEngines,
@@ -212,6 +259,7 @@ actor ProjectStore {
         }
         if let accent = patch.accent { projects[idx].accent = accent }
         if let allowed = patch.allowed { projects[idx].allowed = allowed }
+        if let blocked = patch.blocked { projects[idx].blocked = blocked }
         if let blocklistIds = patch.blocklistIds { projects[idx].blocklistIds = Self.dedupe(blocklistIds) }
         if let allowSearch = patch.allowSearchEnginesForThisProject {
             projects[idx].allowSearchEnginesForThisProject = allowSearch
@@ -280,6 +328,17 @@ actor ProjectStore {
 
         persist()
         return entry
+    }
+
+    /// Find the most-recent session for a project that matches a given block UUID.
+    /// Used when the FocusBlock lifecycle (not our code) knows only the blockId and
+    /// needs to finalize the session via recordSessionEnd.
+    func findActiveSession(projectId: UUID, blockId: UUID) -> UUID? {
+        guard let idx = projects.firstIndex(where: { $0.id == projectId }) else { return nil }
+        return projects[idx].sessions
+            .reversed()
+            .first(where: { $0.blockId == blockId && $0.endedAt == nil })?
+            .id
     }
 
     // MARK: - Learned sites
