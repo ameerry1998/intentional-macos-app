@@ -14,7 +14,7 @@ class KeyableWindow: NSWindow {
 class FocusOverlayWindowController {
 
     weak var appDelegate: AppDelegate?
-    private var overlayWindow: NSWindow?
+    private var overlayWindows: [NSWindow] = []
 
     /// Called when the user clicks "Back to work" or "Open Intentional"
     var onBackToWork: (() -> Void)?
@@ -102,46 +102,49 @@ class FocusOverlayWindowController {
             self?.dismiss()
         }
 
-        let view = FocusOverlayView(viewModel: viewModel)
-        let hostingView = NSHostingView(rootView: view)
+        // Create overlay windows on ALL screens (same pattern as ContentSafetyMonitor)
+        for (index, screen) in NSScreen.screens.enumerated() {
+            let view = FocusOverlayView(viewModel: viewModel)
+            let hostingView = NSHostingView(rootView: view)
+            let screenFrame = screen.frame
 
-        guard let screen = NSScreen.main else { return }
-        let screenFrame = screen.frame
+            hostingView.frame = screenFrame
 
-        hostingView.frame = screenFrame
+            let window = KeyableWindow(
+                contentRect: screenFrame,
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: false
+            )
 
-        let window = KeyableWindow(
-            contentRect: screenFrame,
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
-        )
+            window.contentView = hostingView
+            window.backgroundColor = .clear
+            window.isOpaque = false
+            window.hasShadow = false
+            window.level = .screenSaver
+            window.isReleasedWhenClosed = false
+            window.ignoresMouseEvents = false
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-        window.contentView = hostingView
-        window.backgroundColor = .clear
-        window.isOpaque = false
-        window.hasShadow = false
-        window.level = .screenSaver
-        window.isReleasedWhenClosed = false
-        window.ignoresMouseEvents = false
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            window.setFrame(screenFrame, display: true)
+            appDelegate?.postLog("🚨 ACTIVATE: FocusOverlayWindow.showOverlay — makeKeyAndOrderFront (screen \(index))")
+            window.makeKeyAndOrderFront(nil)
+            overlayWindows.append(window)
+        }
 
-        window.setFrame(screenFrame, display: true)
-        appDelegate?.postLog("🚨 ACTIVATE: FocusOverlayWindow.showOverlay — makeKeyAndOrderFront")
-        window.makeKeyAndOrderFront(nil)
-        overlayWindow = window
-
-        appDelegate?.postLog("🌑 Native focus overlay shown: \"\(intention)\" (isNoPlan: \(isNoPlan))")
+        appDelegate?.postLog("🌑 Native focus overlay shown on \(NSScreen.screens.count) screen(s): \"\(intention)\" (isNoPlan: \(isNoPlan))")
     }
 
-    /// Dismiss the overlay window.
+    /// Dismiss all overlay windows.
     func dismiss() {
-        overlayWindow?.close()
-        overlayWindow = nil
+        for window in overlayWindows {
+            window.close()
+        }
+        overlayWindows.removeAll()
     }
 
     var isShowing: Bool {
-        overlayWindow != nil
+        !overlayWindows.isEmpty
     }
 }
 

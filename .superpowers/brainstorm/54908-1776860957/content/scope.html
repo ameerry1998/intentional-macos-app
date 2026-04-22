@@ -1,0 +1,48 @@
+<h2>Which slice do we brainstorm into a concrete spec?</h2>
+<p class="subtitle">Your roadmap already has pieces of both pillars (Block Start/End Ritual, coaching language, Intentional Mode, idle detection). The research brief names specific mechanics that either aren't in the roadmap yet, or are partially there but framed differently. Pick the angle — each becomes one design doc and one implementation plan.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Point-of-performance trigger layer</h3>
+      <p>The brief's core insight: the if-then plan must fire AT the moment of action, not at block start. Build an event-driven trigger engine: surface the user's intention when the Mac wakes, when Slack closes, when a blocking window begins, when a distracting site is opened. Turns static if-then plans into point-of-performance prompts. Pulls Struggle #1 (intention-action gap) into everything — not just the first 30 seconds of a block.</p>
+      <p class="label" style="margin-top:8px;">Neuro anchor: Gollwitzer d=0.65 · Barkley "performance disorder" · pulls 80% of the thesis weight</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Ambient time-externalization layer</h3>
+      <p>Build the second pillar: duration — not clock time — made continuously visible. Mac menu-bar shrinking disc (Time Timer pattern), iOS Lock Screen / Dynamic Island Live Activity for elapsed-and-remaining without unlocking, "stage of the day" indicator, a time-estimation calibration loop (predict → log actual → show personal multiplier), a hyperfocus reality-check interrupt. Attacks Struggle #2 directly with mechanics nothing on your roadmap currently covers.</p>
+      <p class="label" style="margin-top:8px;">Neuro anchor: Marx 2022 meta-analysis · Janeslätt RCT · this is the whitespace nobody serves well</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>The unified morning + switch + evening loop</h3>
+      <p>The brief's "core loop": morning prompt picks 3 tasks, forces an if-then plan for the hardest one, decomposes it on demand (Goblin.tools-style). Task-switch moments get a 20-second "ready-to-resume" capture (Leroy 2018). Evening is a 2-min forgiving review. This fuses the existing Block Start/End rituals with the Sophie Leroy attention-residue research as a single ritual system. Breadth > depth; the "coaching loop" people will talk about in reviews.</p>
+      <p class="label" style="margin-top:8px;">Neuro anchor: Safren/Solanto CBT · Leroy ready-to-resume RCT · self-compassion frame</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="d" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>Re-audit the roadmap against the thesis first</h3>
+      <p>Before building anything new, use the research brief as a grading rubric to reshuffle the existing P0/P1/P2 list. Keep what the evidence supports, kill what it doesn't (e.g., gamification streak mechanics, the 30-idea gamification spec), reframe what's miscategorized. Output is a pruned roadmap + a short "what to build next" recommendation — no new code, just clarity.</p>
+      <p class="label" style="margin-top:8px;">No build. Strategic. Sets up the next 2-3 specs.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="e" onclick="toggleSelect(this)">
+    <div class="letter">E</div>
+    <div class="content">
+      <h3>Something else / combine these</h3>
+      <p>Tell me in the terminal if none of these framings is right, or if you want a specific combo (e.g., A+B infrastructure bundle).</p>
+    </div>
+  </div>
+</div>

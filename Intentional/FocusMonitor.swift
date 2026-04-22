@@ -286,7 +286,9 @@ class FocusMonitor {
 
     // MARK: - Constants
 
-    /// How often to re-check the active browser tab (seconds)
+    /// Backup poll interval for browser tabs (seconds).
+    /// Primary detection is via AXObserver (instant). Poll is a safety net
+    /// in case AX notifications fail to fire.
     static let browserPollInterval: TimeInterval = 10.0
     /// Decay ratio: for every second of relevant work, reduce distraction counter by this fraction
     static let distractionDecayRatio: TimeInterval = 0.5
@@ -525,8 +527,13 @@ class FocusMonitor {
         return currentApp?.localizedName ?? "unknown"
     }
 
-    // Browser tab polling
+    // Browser tab detection: AXObserver for instant title-change events + backup poll
     private var browserPollTimer: Timer?
+    private var axObserver: AXObserver?
+    private var axObservedPid: pid_t = 0
+    private var axObservedWindow: AXUIElement?
+    private var axDebounceTimer: Timer?
+    private var axBundleId: String?
     // Work tick timer for always-allowed non-browser apps (Xcode, Terminal, etc.)
     private var workTickTimer: Timer?
     // Neutral tick timer for screen lock, Intentional app, etc. (logs grey entries)
@@ -1629,6 +1636,8 @@ class FocusMonitor {
             lastScoredURL = nil
             lastScoreWasIrrelevant = false
             readAndScoreActiveTab(bundleId: bid)
+            // AXObserver for instant tab-switch detection + backup poll timer
+            startBrowserAXObserver(pid: app.processIdentifier, bundleId: bid)
             startBrowserPolling(bundleId: bid)
             return
         }
@@ -1703,13 +1712,34 @@ class FocusMonitor {
     // MARK: - AppleScript Tab Reading
 
     /// Read the active tab title and URL via AppleScript, then score for relevance.
+    /// AppleScript runs on background queue to avoid blocking main thread 200-600ms.
+    /// (Same fix as WebsiteBlocker — see CLAUDE.md Bug #9)
     private func readAndScoreActiveTab(bundleId: String) {
         guard let manager = scheduleManager,
               manager.currentTimeState.isWork,
               let block = manager.currentBlock,
               let scorer = relevanceScorer else { return }
 
-        let tabInfo = readActiveTabInfo(for: bundleId)
+        // Read tab info on background queue — AppleScript blocks 200-600ms
+        // waiting for the browser's Apple Event reply (mach_msg).
+        appleScriptQueue.async { [weak self] in
+            let tabInfo = self?.readActiveTabInfo(for: bundleId)
+            DispatchQueue.main.async {
+                self?.processActiveTabInfo(tabInfo, bundleId: bundleId, block: block, scorer: scorer, manager: manager)
+            }
+        }
+    }
+
+    /// Process tab info after AppleScript read completes (runs on main thread).
+    private func processActiveTabInfo(_ tabInfo: (title: String, url: String, hostname: String)?,
+                                      bundleId: String, block: ScheduleManager.FocusBlock,
+                                      scorer: RelevanceScorer, manager: ScheduleManager) {
+        // Stale check: browser may no longer be frontmost, or block may have ended
+        // during the 200-600ms AppleScript wait
+        guard currentAppBundleId == bundleId,
+              let currentManager = scheduleManager,
+              currentManager.currentTimeState.isWork,
+              currentManager.currentBlock?.id == block.id else { return }
 
         guard let info = tabInfo else {
             debugLog("👁️ Could not read tab info for \(bundleId)")
@@ -1985,6 +2015,144 @@ class FocusMonitor {
     private func stopBrowserPolling() {
         browserPollTimer?.invalidate()
         browserPollTimer = nil
+        stopBrowserAXObserver()
+    }
+
+    // MARK: - AXObserver (instant tab-switch detection)
+
+    /// Start observing a browser's window title changes via the Accessibility API.
+    /// Watches the focused window directly (not the app element) for reliable
+    /// kAXTitleChangedNotification delivery across all browsers.
+    /// Re-observes the window when kAXFocusedWindowChangedNotification fires.
+    private func startBrowserAXObserver(pid: pid_t, bundleId: String) {
+        // Already observing this process
+        if axObservedPid == pid && axObserver != nil { return }
+        stopBrowserAXObserver()
+
+        guard AXIsProcessTrusted() else {
+            debugLog("👁️ AXObserver: accessibility not trusted — skipping")
+            return
+        }
+
+        // passRetained so the C callback holds a strong reference to self.
+        // Balanced by takeRetainedValue in stopBrowserAXObserver.
+        let refcon = Unmanaged.passRetained(self).toOpaque()
+
+        var observer: AXObserver?
+        let result = AXObserverCreate(pid, { (_: AXObserver, element: AXUIElement, notification: CFString, refcon: UnsafeMutableRawPointer?) in
+            guard let refcon = refcon else { return }
+            // Safe: refcon is a retained pointer — self is guaranteed alive.
+            let monitor = Unmanaged<FocusMonitor>.fromOpaque(refcon).takeUnretainedValue()
+            let notifName = notification as String
+            DispatchQueue.main.async { [weak monitor] in
+                guard let monitor = monitor else { return }
+                if notifName == kAXFocusedWindowChangedNotification as String {
+                    monitor.axFocusedWindowChanged()
+                } else {
+                    monitor.axTitleDidChange()
+                }
+            }
+        }, &observer)
+
+        guard result == .success, let observer = observer else {
+            // Balance the retain since we won't store the observer
+            Unmanaged<FocusMonitor>.fromOpaque(refcon).release()
+            appDelegate?.postLog("👁️ AXObserver: create failed for pid \(pid) — error \(result.rawValue)")
+            return
+        }
+
+        let appElement = AXUIElementCreateApplication(pid)
+
+        // Observe focused-window changes on the app element (fires on window switch)
+        let winResult = AXObserverAddNotification(observer, appElement, kAXFocusedWindowChangedNotification as CFString, refcon)
+        if winResult != .success {
+            appDelegate?.postLog("👁️ AXObserver: kAXFocusedWindowChanged add failed — \(winResult.rawValue)")
+        }
+
+        // Observe title changes on the focused window element (not the app element).
+        // kAXTitleChangedNotification is emitted by the window, and some browsers
+        // don't propagate it to the application element.
+        observeTitleOnFocusedWindow(observer: observer, appElement: appElement, refcon: refcon)
+
+        CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
+
+        axObserver = observer
+        axObservedPid = pid
+        axBundleId = bundleId
+        appDelegate?.postLog("👁️ AXObserver: started for pid \(pid) (\(bundleId))")
+    }
+
+    /// Add kAXTitleChangedNotification on the browser's focused window element.
+    private func observeTitleOnFocusedWindow(observer: AXObserver, appElement: AXUIElement, refcon: UnsafeMutableRawPointer) {
+        // Remove old window observation if any
+        if let oldWindow = axObservedWindow {
+            AXObserverRemoveNotification(observer, oldWindow, kAXTitleChangedNotification as CFString)
+            axObservedWindow = nil
+        }
+
+        var windowRef: AnyObject?
+        let attrResult = AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &windowRef)
+        guard attrResult == .success, let window = windowRef else {
+            debugLog("👁️ AXObserver: no focused window (error \(attrResult.rawValue)) — title observation skipped")
+            return
+        }
+
+        let windowElement = window as! AXUIElement
+        let addResult = AXObserverAddNotification(observer, windowElement, kAXTitleChangedNotification as CFString, refcon)
+        if addResult == .success || addResult == .notificationAlreadyRegistered {
+            axObservedWindow = windowElement
+        } else {
+            appDelegate?.postLog("👁️ AXObserver: kAXTitleChanged add on window failed — \(addResult.rawValue)")
+        }
+    }
+
+    private func stopBrowserAXObserver() {
+        axDebounceTimer?.invalidate()
+        axDebounceTimer = nil
+
+        guard let observer = axObserver else { return }
+        CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
+
+        // Balance the passRetained from startBrowserAXObserver
+        let refcon = Unmanaged.passUnretained(self).toOpaque()
+        Unmanaged<FocusMonitor>.fromOpaque(refcon).release()
+
+        axObserver = nil
+        axObservedPid = 0
+        axObservedWindow = nil
+        axBundleId = nil
+    }
+
+    /// Browser's focused window changed → re-observe title on the new window.
+    private func axFocusedWindowChanged() {
+        guard let observer = axObserver else { return }
+        let appElement = AXUIElementCreateApplication(axObservedPid)
+        let refcon = Unmanaged.passUnretained(self).toOpaque()
+        observeTitleOnFocusedWindow(observer: observer, appElement: appElement, refcon: refcon)
+        // Also score the new window's tab immediately
+        axTitleDidChange()
+    }
+
+    /// AXObserver callback: browser title changed.
+    /// Debounced — page loads cause rapid title changes ("" → "Loading…" → "Title").
+    /// Coalesces into one readAndScoreActiveTab call after 300ms of quiet.
+    private func axTitleDidChange() {
+        guard let bundleId = axBundleId ?? currentAppBundleId,
+              Self.browserBundleIds.contains(bundleId) else { return }
+
+        if awaitingRitual || isOnBreak || justificationInProgress { return }
+        guard let manager = scheduleManager, manager.currentTimeState.isWork else { return }
+
+        // Debounce: reset the 300ms timer on each title change
+        axDebounceTimer?.invalidate()
+        axDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            self.axDebounceTimer = nil
+            // Final stale check before dispatching
+            guard let bid = self.currentAppBundleId,
+                  Self.browserBundleIds.contains(bid) else { return }
+            self.readAndScoreActiveTab(bundleId: bid)
+        }
     }
 
     /// Start a repeating timer that records work ticks for always-allowed non-browser apps.
@@ -2102,12 +2270,6 @@ class FocusMonitor {
             action: "blocked", isEvent: true
         )
 
-        // First check if already on the blocked page
-        if let info = readActiveTabInfo(for: bundleId), info.url.contains("focus-blocked.html") {
-            debugLog("👁️ Already on focus-blocked page, skipping redirect")
-            return
-        }
-
         let script: String
         if bundleId == "com.apple.Safari" {
             script = """
@@ -2123,7 +2285,17 @@ class FocusMonitor {
             """
         }
 
+        // Both the "already on block page?" check and the redirect run on the
+        // background queue to avoid blocking main thread with AppleScript calls.
         appleScriptQueue.async { [weak self] in
+            // Check if already on the blocked page
+            if let info = self?.readActiveTabInfo(for: bundleId), info.url.contains("focus-blocked.html") {
+                DispatchQueue.main.async {
+                    self?.debugLog("👁️ Already on focus-blocked page, skipping redirect")
+                }
+                return
+            }
+
             guard let appleScript = NSAppleScript(source: script) else { return }
             var error: NSDictionary?
             appleScript.executeAndReturnError(&error)
@@ -2260,12 +2432,13 @@ class FocusMonitor {
         // Dismiss active intervention if showing
         interventionController?.dismiss()
 
-        // Track last relevant browser tab for smart "Back to work"
+        // Track last relevant browser tab for smart "Back to work".
+        // Uses lastScoredURL from the scoring pipeline — no AppleScript needed.
         if let bundleId = currentAppBundleId,
            Self.browserBundleIds.contains(bundleId),
-           let info = readActiveTabInfo(for: bundleId),
-           !info.url.contains("focus-blocked.html") {
-            lastRelevantTabURL = info.url
+           let url = lastScoredURL,
+           !url.contains("focus-blocked.html") {
+            lastRelevantTabURL = url
         }
     }
 
@@ -2367,8 +2540,8 @@ class FocusMonitor {
 
     // MARK: - Deep Work Browser Enforcement
 
-    /// Deep Work aggressive browser enforcement (all threshold-driven):
-    /// - 10s cumulative: nudge + timer dot red
+    /// Deep Work aggressive browser enforcement:
+    /// - Immediate: blocking overlay on tab switch to new irrelevant content
     /// - 20s cumulative: auto-redirect to last relevant URL + grayscale starts
     /// - 20s+ (revisit): instant redirect if site already redirected this block
     /// - 300s cumulative: intervention overlay (escalating 60s/90s/120s)
@@ -2385,14 +2558,30 @@ class FocusMonitor {
             return
         }
 
-        // Track current target
-        if currentTargetKey != targetKey {
+        // Track current target — show overlay on switch to NEW irrelevant content.
+        // Check both hostname (targetKey) and page title (displayName) so navigating
+        // within the same domain (e.g. reddit.com/r/a → reddit.com/r/b) is detected.
+        if currentTargetKey != targetKey || currentTarget != displayName {
             nudgeShownForCurrentContent = false
             currentTarget = displayName
             currentTargetKey = targetKey
+
+            // Show full-screen blocking overlay immediately on tab switch
+            if isEnforcementEnabled(.blockingOverlay) && !(overlayController?.isShowing ?? false) {
+                let focusDuration = computeFocusDurationMinutes()
+                showOverlay(intention: intention,
+                           reason: reason.isEmpty ? "Not related to your task" : reason,
+                           focusDurationMinutes: focusDuration,
+                           isNoPlan: false,
+                           displayName: displayName)
+                return
+            }
         }
 
-        // Check thresholds in descending order (highest priority first)
+        // Skip cumulative enforcement while overlay is showing
+        if overlayController?.isShowing == true { return }
+
+        // Check cumulative thresholds in descending order (highest priority first)
 
         // 300s+: Intervention overlay (and re-trigger every 300s)
         if cumulativeDistractionSeconds >= Self.deepWorkInterventionThreshold
@@ -2415,7 +2604,7 @@ class FocusMonitor {
             }
         }
 
-        // 10s: First nudge
+        // 10s: First nudge (backup if overlay is disabled)
         if cumulativeDistractionSeconds >= Self.deepWorkNudgeThreshold && !nudgeShownForCurrentContent {
             nudgeShownForCurrentContent = true
             if isEnforcementEnabled(.nudge) {
@@ -2489,11 +2678,10 @@ class FocusMonitor {
 
     /// Redirect browser tab to focus-blocked.html (Deep Work only, after sustained distraction)
     private func redirectBrowserTab(targetKey: String, displayName: String, intention: String) {
-        var originalURL: String? = nil
-        if let bundleId = currentAppBundleId, let info = readActiveTabInfo(for: bundleId) {
-            originalURL = info.url
-            if info.url.contains("focus-blocked.html") { return }
-        }
+        // Use lastScoredURL for the original URL — avoids blocking main thread.
+        // readActiveTabInfo was already called during scoring; lastScoredURL is current.
+        let originalURL = lastScoredURL
+        if let url = originalURL, url.contains("focus-blocked.html") { return }
 
         blockActiveTab(intention: intention, pageTitle: displayName,
                       hostname: targetKey, originalURL: originalURL)
@@ -2504,23 +2692,37 @@ class FocusMonitor {
 
     // MARK: - Focus Hours Browser Enforcement
 
-    /// Focus Hours browser enforcement — all threshold-driven off cumulativeDistractionSeconds:
-    /// 10s: Level 1 nudge #1 (auto-dismiss 8s)
-    /// 30s: Grayscale starts (30s fade to dark)
-    /// 70s: Level 1 nudge #2 (+60s from first)
-    /// 130s: Level 1 nudge #3
-    /// 190s: Level 1 nudge #4
-    /// 240s: Warning nudge (red, "intervention in 60s")
-    /// 300s: Intervention overlay (60s mandatory, escalating)
-    /// 600s: Re-intervention (90s mandatory)
-    /// 900s: Re-intervention (120s mandatory, capped)
+    /// Focus Hours browser enforcement:
+    /// - Immediate: blocking overlay on tab switch to new irrelevant content
+    /// - 30s: Grayscale starts (30s fade to dark)
+    /// - 10s+: Level 1 nudges (backup if overlay disabled)
+    /// - 240s: Warning nudge (red, "intervention in 60s")
+    /// - 300s: Intervention overlay (60s mandatory, escalating)
     /// Between interventions: Level 2 persistent nudges (re-show on each poll if dismissed)
     private func handleFocusHoursBrowserIrrelevance(targetKey: String, displayName: String,
                                                      intention: String, confidence: Int, reason: String) {
-        // Track current target (nudge timing is continuous across site changes —
-        // switching between irrelevant sites doesn't reset the nudge cadence)
-        currentTarget = displayName
-        currentTargetKey = targetKey
+        // Show overlay on switch to NEW irrelevant content (same pattern as Deep Work)
+        if currentTargetKey != targetKey || currentTarget != displayName {
+            nudgeShownForCurrentContent = false
+            currentTarget = displayName
+            currentTargetKey = targetKey
+
+            if isEnforcementEnabled(.blockingOverlay) && !(overlayController?.isShowing ?? false) {
+                let focusDuration = computeFocusDurationMinutes()
+                showOverlay(intention: intention,
+                           reason: reason.isEmpty ? "Not related to your task" : reason,
+                           focusDurationMinutes: focusDuration,
+                           isNoPlan: false,
+                           displayName: displayName)
+                return
+            }
+        } else {
+            currentTarget = displayName
+            currentTargetKey = targetKey
+        }
+
+        // Skip cumulative enforcement while overlay is showing
+        if overlayController?.isShowing == true { return }
 
         // Update floating timer distraction dot (red) for focus hours too
         deepWorkTimerController?.update(isDistracted: true)
@@ -2889,10 +3091,11 @@ class FocusMonitor {
         let triggerPath: ScoringPath? = lastScored?.path
         let triggerOCRExcerpt: String? = lastScored?.ocrExcerpt
         let triggerTrace: [TraceStep] = lastScored?.trace ?? []
+        // Use lastScoredURL from the scoring pipeline — no AppleScript needed.
         var triggerURL: String? = nil
         if let bid = currentAppBundleId, Self.browserBundleIds.contains(bid),
-           let info = readActiveTabInfo(for: bid), !info.url.isEmpty {
-            triggerURL = info.url
+           let url = lastScoredURL, !url.isEmpty {
+            triggerURL = url
         }
         overlayTriggerURL = triggerURL
 
@@ -3205,10 +3408,8 @@ class FocusMonitor {
         if let until = suppressedUntil[currentTargetKey], Date() < until { return }
 
         let intention = scheduleManager?.currentBlock?.title ?? "Plan your day"
-        var originalURL: String? = nil
-        if let info = readActiveTabInfo(for: bundleId) {
-            originalURL = info.url
-        }
+        // Use lastScoredURL — avoids blocking main thread with AppleScript.
+        let originalURL = lastScoredURL
         blockActiveTab(intention: intention, pageTitle: currentTarget, hostname: currentTargetKey, originalURL: originalURL)
         appDelegate?.postLog("👁️ Linger expired — blocked \(currentTarget)")
     }

@@ -4625,6 +4625,12 @@ body.theme-effects-warm::after {
           <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-dw-audio" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
           <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-fh-audio" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
         </div>
+
+        <div class="enf-row">
+          <div class="enf-label">Context-switch countdown</div>
+          <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-dw-context" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
+          <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-fh-context" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
+        </div>
       </div>
     </div>
 
@@ -6450,8 +6456,8 @@ window._strictModeResult = function(result) {
 // ===== Lock Enforcement on Settings Pages =====
 var LOCKED_INPUT_IDS = [
   // Enforcement settings
-  'enf-dw-nudge', 'enf-dw-redshift', 'enf-dw-redirect', 'enf-dw-overlay', 'enf-dw-intervention', 'enf-dw-audio',
-  'enf-fh-nudge', 'enf-fh-redshift', 'enf-fh-redirect', 'enf-fh-overlay', 'enf-fh-intervention', 'enf-fh-audio',
+  'enf-dw-nudge', 'enf-dw-redshift', 'enf-dw-redirect', 'enf-dw-overlay', 'enf-dw-intervention', 'enf-dw-audio', 'enf-dw-context',
+  'enf-fh-nudge', 'enf-fh-redshift', 'enf-fh-redirect', 'enf-fh-overlay', 'enf-fh-intervention', 'enf-fh-audio', 'enf-fh-context',
   // Core features
   'focus-enabled', 'focus-enforcement',
   'content-safety-enabled',
@@ -7511,7 +7517,8 @@ function readEnforcementSettingsFromUI() {
       autoRedirect: document.getElementById('enf-dw-redirect').checked,
       blockingOverlay: document.getElementById('enf-dw-overlay').checked,
       interventionExercises: document.getElementById('enf-dw-intervention').checked,
-      backgroundAudioDetection: document.getElementById('enf-dw-audio').checked
+      backgroundAudioDetection: document.getElementById('enf-dw-audio').checked,
+      contextSwitchCountdown: document.getElementById('enf-dw-context').checked
     },
     focusHours: {
       nudgeNotifications: document.getElementById('enf-fh-nudge').checked,
@@ -7519,7 +7526,8 @@ function readEnforcementSettingsFromUI() {
       autoRedirect: document.getElementById('enf-fh-redirect').checked,
       blockingOverlay: document.getElementById('enf-fh-overlay').checked,
       interventionExercises: document.getElementById('enf-fh-intervention').checked,
-      backgroundAudioDetection: document.getElementById('enf-fh-audio').checked
+      backgroundAudioDetection: document.getElementById('enf-fh-audio').checked,
+      contextSwitchCountdown: document.getElementById('enf-fh-context').checked
     }
   };
 }
@@ -7534,12 +7542,14 @@ function populateEnforcementSettingsUI(enf) {
   document.getElementById('enf-dw-overlay').checked = dw.blockingOverlay !== false;
   document.getElementById('enf-dw-intervention').checked = dw.interventionExercises !== false;
   document.getElementById('enf-dw-audio').checked = dw.backgroundAudioDetection !== false;
+  document.getElementById('enf-dw-context').checked = dw.contextSwitchCountdown !== undefined ? dw.contextSwitchCountdown : false;
   document.getElementById('enf-fh-nudge').checked = fh.nudgeNotifications !== false;
   document.getElementById('enf-fh-redshift').checked = fh.screenRedShift !== false;
   document.getElementById('enf-fh-redirect').checked = fh.autoRedirect !== undefined ? fh.autoRedirect : false;
   document.getElementById('enf-fh-overlay').checked = fh.blockingOverlay !== undefined ? fh.blockingOverlay : false;
   document.getElementById('enf-fh-intervention').checked = fh.interventionExercises !== undefined ? fh.interventionExercises : false;
   document.getElementById('enf-fh-audio').checked = fh.backgroundAudioDetection !== undefined ? fh.backgroundAudioDetection : false;
+  document.getElementById('enf-fh-context').checked = fh.contextSwitchCountdown !== undefined ? fh.contextSwitchCountdown : false;
 }
 
 function onEnforcementSettingChange() {

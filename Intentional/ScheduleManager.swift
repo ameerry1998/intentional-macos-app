@@ -112,6 +112,31 @@ class ScheduleManager {
         var blockingOverlay: Bool
         var interventionExercises: Bool
         var backgroundAudioDetection: Bool
+        var contextSwitchCountdown: Bool
+
+        // Custom decoder so existing JSON without contextSwitchCountdown still loads
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            nudgeNotifications = try c.decode(Bool.self, forKey: .nudgeNotifications)
+            screenRedShift = try c.decode(Bool.self, forKey: .screenRedShift)
+            autoRedirect = try c.decode(Bool.self, forKey: .autoRedirect)
+            blockingOverlay = try c.decode(Bool.self, forKey: .blockingOverlay)
+            interventionExercises = try c.decode(Bool.self, forKey: .interventionExercises)
+            backgroundAudioDetection = try c.decode(Bool.self, forKey: .backgroundAudioDetection)
+            contextSwitchCountdown = try c.decodeIfPresent(Bool.self, forKey: .contextSwitchCountdown) ?? false
+        }
+
+        init(nudgeNotifications: Bool, screenRedShift: Bool, autoRedirect: Bool,
+             blockingOverlay: Bool, interventionExercises: Bool, backgroundAudioDetection: Bool,
+             contextSwitchCountdown: Bool = false) {
+            self.nudgeNotifications = nudgeNotifications
+            self.screenRedShift = screenRedShift
+            self.autoRedirect = autoRedirect
+            self.blockingOverlay = blockingOverlay
+            self.interventionExercises = interventionExercises
+            self.backgroundAudioDetection = backgroundAudioDetection
+            self.contextSwitchCountdown = contextSwitchCountdown
+        }
 
         func toDict() -> [String: Bool] {
             return [
@@ -120,7 +145,8 @@ class ScheduleManager {
                 "autoRedirect": autoRedirect,
                 "blockingOverlay": blockingOverlay,
                 "interventionExercises": interventionExercises,
-                "backgroundAudioDetection": backgroundAudioDetection
+                "backgroundAudioDetection": backgroundAudioDetection,
+                "contextSwitchCountdown": contextSwitchCountdown
             ]
         }
     }
@@ -135,7 +161,8 @@ class ScheduleManager {
             case .focusHours: return focusHours
             case .freeTime: return BlockEnforcementSettings(
                 nudgeNotifications: false, screenRedShift: false, autoRedirect: false,
-                blockingOverlay: false, interventionExercises: false, backgroundAudioDetection: false)
+                blockingOverlay: false, interventionExercises: false, backgroundAudioDetection: false,
+                contextSwitchCountdown: false)
             }
         }
 
@@ -163,6 +190,7 @@ class ScheduleManager {
         case blockingOverlay
         case interventionExercises
         case backgroundAudioDetection
+        case contextSwitchCountdown
     }
 
     enum TimeState: String {
@@ -319,6 +347,7 @@ class ScheduleManager {
         case .blockingOverlay: return settings.blockingOverlay
         case .interventionExercises: return settings.interventionExercises
         case .backgroundAudioDetection: return settings.backgroundAudioDetection
+        case .contextSwitchCountdown: return settings.contextSwitchCountdown
         }
     }
 
