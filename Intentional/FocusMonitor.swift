@@ -450,6 +450,11 @@ class FocusMonitor {
     /// interception sees a stable line and consecutive interceptions rotate. Not reset per session —
     /// variety across sessions is fine, and this keeps the counter simple.
     private var switchOverlayInterceptCount: Int = 0
+    /// Rolling "last non-Intentional regular app" the user was in. Used as a Back-to-work fallback
+    /// when `priorAppBundleIdBeforeSwitch` is nil or Intentional itself (e.g. if the user clicked
+    /// something in Intentional's dashboard and that's why we saw a switch). Updated on every
+    /// appDidActivate for regular apps other than Intentional.
+    private var lastNonIntentionalAppBundleId: String?
 
     // Linger tracking
     private var lingerTimer: Timer?
@@ -1423,6 +1428,16 @@ class FocusMonitor {
         let priorBundleId = currentAppBundleId
         currentApp = app
         currentAppBundleId = newBundleId
+
+        appDelegate?.postLog("🔀 appDidActivate: \(priorBundleId ?? "nil") → \(newBundleId) (policy=\(app.activationPolicy.rawValue))")
+
+        // Track last non-Intentional, non-accessory app so Back-to-work has a sane fallback even
+        // when priorAppBundleIdBeforeSwitch is stale or Intentional itself.
+        if newBundleId != "com.arayan.intentional",
+           !newBundleId.isEmpty,
+           app.activationPolicy == .regular {
+            lastNonIntentionalAppBundleId = newBundleId
+        }
 
         // Consume one-shot suppression set by our own `activateApp` calls (Continue / Back-to-work
         // resolving a tab target activates the browser, which fires this notification as a fresh
@@ -3625,16 +3640,39 @@ extension FocusMonitor: SwitchOverlayDelegate {
         // Simplified return policy: always go back to whatever target was frontmost right before
         // the intercepted switch. Prefer the prior tab URL if we were in a browser, else the prior
         // app bundle id. Skips the coordinator's known-target/dwell heuristic entirely.
+        let rawPriorApp = priorAppBundleIdBeforeSwitch
+        let rawPriorURL = priorTabURLBeforeSwitch
+        let priorAppCandidate: String?
+        if let p = rawPriorApp, !p.isEmpty, p != "com.arayan.intentional" {
+            priorAppCandidate = p
+        } else {
+            priorAppCandidate = nil
+        }
+        let fallbackApp: String?
+        if priorAppCandidate == nil,
+           let last = lastNonIntentionalAppBundleId,
+           !last.isEmpty,
+           last != pending.bundleId {
+            fallbackApp = last
+        } else {
+            fallbackApp = nil
+        }
+
         var returnTarget: SwitchTarget? = nil
-        if let priorURL = priorTabURLBeforeSwitch, let host = URL(string: priorURL)?.host, !host.isEmpty,
+        var branch: String = "none"
+        if let priorURL = rawPriorURL, let host = URL(string: priorURL)?.host, !host.isEmpty,
            case .tab(let bid, _) = pending {
             returnTarget = .tab(bundleId: bid, host: host)
-        } else if let prior = priorAppBundleIdBeforeSwitch,
-                  !prior.isEmpty,
-                  prior != "com.arayan.intentional" {
-            returnTarget = .app(bundleId: prior)
+            branch = "prior-tab"
+        } else if let app = priorAppCandidate {
+            returnTarget = .app(bundleId: app)
+            branch = "prior-app"
+        } else if let app = fallbackApp {
+            returnTarget = .app(bundleId: app)
+            branch = "mru-fallback"
         }
-        appDelegate?.postLog("🎯 Back-to-work → \(returnTarget.map(describe) ?? "(no prior; hiding Intentional)") (pending=\(describe(pending)))")
+
+        appDelegate?.postLog("🎯 Back-to-work tapped — pending=\(describe(pending)) rawPriorApp=\(rawPriorApp ?? "nil") rawPriorURL=\(rawPriorURL ?? "nil") mruLast=\(lastNonIntentionalAppBundleId ?? "nil") branch=\(branch) → \(returnTarget.map(describe) ?? "(none; hiding Intentional)")")
         coord.resolve(outcome: .backToWork, intendedTarget: nil, returnTarget: returnTarget, at: Date())
         switchOverlayController?.dismiss()
         pendingSwitchTarget = nil
@@ -3644,6 +3682,7 @@ extension FocusMonitor: SwitchOverlayDelegate {
             applyReturnTarget(t)
         } else {
             // Last-resort: hide Intentional so macOS auto-activates the previously-frontmost app.
+            appDelegate?.postLog("🎯 Back-to-work: no return target available — calling NSApp.hide(nil)")
             NSApp.hide(nil)
         }
     }
@@ -3675,12 +3714,17 @@ extension FocusMonitor: SwitchOverlayDelegate {
     }
 
     private func applyReturnTarget(_ target: SwitchTarget?) {
-        guard let target = target else { return }
+        guard let target = target else {
+            appDelegate?.postLog("🎯 applyReturnTarget: nil — no-op")
+            return
+        }
         switch target {
         case .app(let bundleId):
+            appDelegate?.postLog("🎯 applyReturnTarget: app → activating [\(bundleId)]")
             activateApp(bundleId: bundleId)
-        case .tab(let bundleId, _):
+        case .tab(let bundleId, let host):
             // v1: activate the browser. Tab-level restoration punted to v2.
+            appDelegate?.postLog("🎯 applyReturnTarget: tab [\(bundleId) · \(host)] → activating browser (tab restore is v2)")
             activateApp(bundleId: bundleId)
         }
     }
@@ -3689,12 +3733,14 @@ extension FocusMonitor: SwitchOverlayDelegate {
         let runningApps = NSWorkspace.shared.runningApplications
         if let app = runningApps.first(where: { $0.bundleIdentifier == bundleId }) {
             suppressNextActivationIntercept = bundleId
-            app.activate(options: [])
+            let ok = app.activate(options: [])
+            appDelegate?.postLog("🎯 activateApp [\(bundleId)] (\(app.localizedName ?? "?")) → activate()=\(ok), suppression flag armed")
             // Safety clear — if the activation notification never arrives (already frontmost, etc.)
             // we don't want the flag to poison the next real user switch.
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
                 if self?.suppressNextActivationIntercept == bundleId {
                     self?.suppressNextActivationIntercept = nil
+                    self?.appDelegate?.postLog("🎯 activateApp [\(bundleId)] suppression flag safety-cleared after 2s")
                 }
             }
         }
