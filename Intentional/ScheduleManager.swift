@@ -112,30 +112,30 @@ class ScheduleManager {
         var blockingOverlay: Bool
         var interventionExercises: Bool
         var backgroundAudioDetection: Bool
-        var contextSwitchCountdown: Bool
-
-        // Custom decoder so existing JSON without contextSwitchCountdown still loads
-        init(from decoder: Decoder) throws {
-            let c = try decoder.container(keyedBy: CodingKeys.self)
-            nudgeNotifications = try c.decode(Bool.self, forKey: .nudgeNotifications)
-            screenRedShift = try c.decode(Bool.self, forKey: .screenRedShift)
-            autoRedirect = try c.decode(Bool.self, forKey: .autoRedirect)
-            blockingOverlay = try c.decode(Bool.self, forKey: .blockingOverlay)
-            interventionExercises = try c.decode(Bool.self, forKey: .interventionExercises)
-            backgroundAudioDetection = try c.decode(Bool.self, forKey: .backgroundAudioDetection)
-            contextSwitchCountdown = try c.decodeIfPresent(Bool.self, forKey: .contextSwitchCountdown) ?? false
-        }
+        var contextSwitchOverlay: Bool
 
         init(nudgeNotifications: Bool, screenRedShift: Bool, autoRedirect: Bool,
-             blockingOverlay: Bool, interventionExercises: Bool, backgroundAudioDetection: Bool,
-             contextSwitchCountdown: Bool = false) {
+             blockingOverlay: Bool, interventionExercises: Bool,
+             backgroundAudioDetection: Bool, contextSwitchOverlay: Bool = true) {
             self.nudgeNotifications = nudgeNotifications
             self.screenRedShift = screenRedShift
             self.autoRedirect = autoRedirect
             self.blockingOverlay = blockingOverlay
             self.interventionExercises = interventionExercises
             self.backgroundAudioDetection = backgroundAudioDetection
-            self.contextSwitchCountdown = contextSwitchCountdown
+            self.contextSwitchOverlay = contextSwitchOverlay
+        }
+
+        // Custom decode so persisted settings that predate contextSwitchOverlay decode cleanly (defaults to on for work blocks).
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            self.nudgeNotifications = try c.decode(Bool.self, forKey: .nudgeNotifications)
+            self.screenRedShift = try c.decode(Bool.self, forKey: .screenRedShift)
+            self.autoRedirect = try c.decode(Bool.self, forKey: .autoRedirect)
+            self.blockingOverlay = try c.decode(Bool.self, forKey: .blockingOverlay)
+            self.interventionExercises = try c.decode(Bool.self, forKey: .interventionExercises)
+            self.backgroundAudioDetection = try c.decode(Bool.self, forKey: .backgroundAudioDetection)
+            self.contextSwitchOverlay = (try? c.decode(Bool.self, forKey: .contextSwitchOverlay)) ?? true
         }
 
         func toDict() -> [String: Bool] {
@@ -146,7 +146,7 @@ class ScheduleManager {
                 "blockingOverlay": blockingOverlay,
                 "interventionExercises": interventionExercises,
                 "backgroundAudioDetection": backgroundAudioDetection,
-                "contextSwitchCountdown": contextSwitchCountdown
+                "contextSwitchOverlay": contextSwitchOverlay
             ]
         }
     }
@@ -162,7 +162,7 @@ class ScheduleManager {
             case .freeTime: return BlockEnforcementSettings(
                 nudgeNotifications: false, screenRedShift: false, autoRedirect: false,
                 blockingOverlay: false, interventionExercises: false, backgroundAudioDetection: false,
-                contextSwitchCountdown: false)
+                contextSwitchOverlay: false)
             }
         }
 
@@ -190,7 +190,7 @@ class ScheduleManager {
         case blockingOverlay
         case interventionExercises
         case backgroundAudioDetection
-        case contextSwitchCountdown
+        case contextSwitchOverlay
     }
 
     enum TimeState: String {
@@ -347,7 +347,7 @@ class ScheduleManager {
         case .blockingOverlay: return settings.blockingOverlay
         case .interventionExercises: return settings.interventionExercises
         case .backgroundAudioDetection: return settings.backgroundAudioDetection
-        case .contextSwitchCountdown: return settings.contextSwitchCountdown
+        case .contextSwitchOverlay: return settings.contextSwitchOverlay
         }
     }
 

@@ -44,11 +44,101 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Content Safety — on-device screen monitoring for explicit content
     var contentSafetyMonitor: ContentSafetyMonitor?
 
+    // Context-switching overlay v1 — intervenes on switches from work to non-work
+    var switchCoordinator: SwitchInterventionCoordinator?
+    var switchOverlayController: SwitchOverlayController?
+
     // Bedtime Enforcer — locks screen during bedtime hours
     var bedtimeEnforcer: BedtimeEnforcer?
 
     // Blocking Profiles & Focus Sessions (Puck integration)
     var blockingProfileManager: BlockingProfileManager?
+
+    var projectStore: ProjectStore?
+
+    // Transient: which project's session is currently active (replaces
+    // FocusBlock.projectId; cleared on block end in onBlockChanged).
+    private(set) var activeProjectSession: (projectId: UUID, blockId: String)?
+
+    func setActiveProjectSession(projectId: UUID, blockId: String) {
+        self.activeProjectSession = (projectId, blockId)
+        Task { await self.refreshProjectEnforcement(for: projectId) }
+    }
+
+    func clearActiveProjectSession() {
+        self.activeProjectSession = nil
+        self.focusMonitor?.projectEnforcement = nil
+    }
+
+    /// Call after an in-session project edit so the new allow/block lists take effect.
+    func refreshActiveProjectEnforcement() {
+        guard let pid = activeProjectSession?.projectId else { return }
+        Task { await self.refreshProjectEnforcement(for: pid) }
+    }
+
+    /// Sync `activeProjectSession` to the current schedule block. Called on app startup
+    /// and whenever the active block changes — the in-memory session isn't otherwise
+    /// restored after a restart and queued sessions don't auto-activate when their
+    /// block becomes current.
+    func ensureProjectSessionMatchesCurrentBlock() {
+        guard let block = scheduleManager?.currentBlock else { return }
+        if activeProjectSession?.blockId == block.id { return }
+        guard let store = projectStore else { return }
+        Task {
+            let all = await store.list()
+            let match = all.first { p in
+                p.sessions.contains { $0.blockId?.uuidString == block.id }
+            }
+            guard let project = match else { return }
+            await MainActor.run {
+                guard self.scheduleManager?.currentBlock?.id == block.id else { return }
+                self.setActiveProjectSession(projectId: project.id, blockId: block.id)
+            }
+        }
+    }
+
+    private func refreshProjectEnforcement(for projectId: UUID) async {
+        guard let store = projectStore,
+              let project = await store.get(id: projectId) else {
+            await MainActor.run { self.focusMonitor?.projectEnforcement = nil }
+            return
+        }
+        let merged = blockingProfileManager?.mergedBlockList(profileIds: project.blocklistIds)
+        var allowedBundleIds = Set<String>()
+        var allowedDomains = Set<String>()
+        for item in project.allowed {
+            switch item.kind {
+            case .appBundleId: allowedBundleIds.insert(item.value)
+            case .domain: allowedDomains.insert(item.value.lowercased())
+            }
+        }
+        var blockedBundleIds = Set<String>()
+        var blockedDomains = Set<String>()
+        for item in project.blocked {
+            switch item.kind {
+            case .appBundleId: blockedBundleIds.insert(item.value)
+            case .domain: blockedDomains.insert(item.value.lowercased())
+            }
+        }
+        if let merged = merged {
+            for app in merged.appBundleIds { blockedBundleIds.insert(app) }
+            for d in merged.domains { blockedDomains.insert(d.lowercased()) }
+        }
+        let enforcement = FocusMonitor.ProjectEnforcement(
+            projectId: projectId,
+            allowedBundleIds: allowedBundleIds,
+            allowedDomains: allowedDomains,
+            blockedBundleIds: blockedBundleIds,
+            blockedDomains: blockedDomains
+        )
+        await MainActor.run {
+            guard self.activeProjectSession?.projectId == projectId else { return }
+            self.focusMonitor?.projectEnforcement = enforcement
+        }
+    }
+
+    var activeProjectId: UUID? { activeProjectSession?.projectId }
+
     var focusSessionManager: FocusSessionManager?
     var focusWebSocketClient: FocusWebSocketClient?
     private var focusStartOverlayWindows: [NSWindow] = []
@@ -355,6 +445,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         earnedBrowseManager?.load()
         postLog("💰 EarnedBrowseManager initialized")
 
+        // Initialize Projects store
+        projectStore = ProjectStore()
+        postLog("📁 ProjectStore initialized")
+
         // Wire TimeTracker callback: deduct social media time from earned pool
         timeTracker?.onSocialMediaTimeRecorded = { [weak self] platform, minutes, isFreeBrowse in
             guard let mgr = self?.earnedBrowseManager else { return }
@@ -400,6 +494,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let partnerEmail = json["partnerEmail"] as? String ?? ""
             focusMonitor?.hasConfiguredPartner = !partnerEmail.isEmpty
         }
+        // Step 15d: Switch intervention coordinator (context-switching overlay v1).
+        let switchCoordinator = SwitchInterventionCoordinator(
+            exemptBundleIds: Set(["com.arayan.intentional"])
+        )
+        let switchOverlayController = SwitchOverlayController()
+        focusMonitor?.switchCoordinator = switchCoordinator
+        focusMonitor?.switchOverlayController = switchOverlayController
+        self.switchCoordinator = switchCoordinator
+        self.switchOverlayController = switchOverlayController
+
+        // Seed session state from current schedule, in case the app starts mid-block.
+        if let block = scheduleManager?.currentBlock,
+           block.blockType == .deepWork || block.blockType == .focusHours {
+            switchCoordinator.sessionStarted(at: Date())
+            switchCoordinator.setInWorkSession(true)
+        }
+        postLog("👁️ SwitchInterventionCoordinator + SwitchOverlayController wired to FocusMonitor")
+
         focusMonitor?.start()
         postLog("👁️ FocusMonitor + NudgeWindowController + FocusOverlayWindow + InterventionOverlay initialized")
 
@@ -512,6 +624,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             // If celebration was skipped but pill was in blockComplete, resume deferred start
             self.focusMonitor?.resumeIfPendingBlockStart()
+
+            if let tracked = self.activeProjectSession?.blockId, block?.id != tracked {
+                // Finalize the session BEFORE clearing so we can look up the session id
+                // and snapshot the focus score for the just-ended block.
+                if let projectId = self.activeProjectSession?.projectId,
+                   let blockUUID = UUID(uuidString: tracked),
+                   let store = self.projectStore {
+                    let scorePct = self.earnedBrowseManager?.blockFocusStats[tracked]?.focusScore
+                    let scoreFraction: Double? = scorePct.map { Double($0) / 100.0 }
+                    Task {
+                        if let sid = await store.findActiveSession(projectId: projectId, blockId: blockUUID) {
+                            _ = await store.recordSessionEnd(
+                                projectId: projectId,
+                                sessionId: sid,
+                                focusScore: scoreFraction
+                            )
+                        }
+                    }
+                }
+                self.clearActiveProjectSession()
+            }
+            self.ensureProjectSessionMatchesCurrentBlock()
         }
 
         // ScheduleManager.init() already called recalculateState(), but the callback
@@ -521,6 +655,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             earnedBrowseManager?.onBlockChanged(blockId: block.id, blockTitle: block.title)
             // Also sync focusMonitor so the floating timer shows immediately on startup mid-block
             focusMonitor?.onBlockChanged()
+            ensureProjectSessionMatchesCurrentBlock()
         }
 
         // Content Safety Monitor — on-device screen monitoring for explicit content

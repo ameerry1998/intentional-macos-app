@@ -82,6 +82,41 @@ class FocusMonitor {
     /// (e.g. Gmail, Slack — ambiguous sites where AI can't determine relevance from title/URL alone)
     var alwaysRelevantHostnames: Set<String> = []
 
+    /// Per-project allow/block overlay, populated while a project session is active.
+    /// Evaluated BEFORE the global distraction checks so project rules win.
+    struct ProjectEnforcement {
+        let projectId: UUID
+        let allowedBundleIds: Set<String>
+        let allowedDomains: Set<String>       // lowercased
+        let blockedBundleIds: Set<String>
+        let blockedDomains: Set<String>       // lowercased
+
+        enum Verdict { case allow, block, noDecision }
+
+        func verdict(bundleId: String?, hostname: String?) -> Verdict {
+            if let bid = bundleId, allowedBundleIds.contains(bid) { return .allow }
+            if let host = hostname?.lowercased(), Self.matchesDomain(host, in: allowedDomains) { return .allow }
+            if let bid = bundleId, blockedBundleIds.contains(bid) { return .block }
+            if let host = hostname?.lowercased(), Self.matchesDomain(host, in: blockedDomains) { return .block }
+            return .noDecision
+        }
+
+        private static func matchesDomain(_ host: String, in set: Set<String>) -> Bool {
+            if set.contains(host) { return true }
+            for d in set where host.hasSuffix(".\(d)") { return true }
+            return false
+        }
+    }
+    var projectEnforcement: ProjectEnforcement? {
+        didSet {
+            // Changing project policy must re-evaluate any in-view tab on the next poll
+            // rather than short-circuiting via the unchanged-tab cache.
+            lastScoredTitle = nil
+            lastScoredURL = nil
+            lastScoreWasIrrelevant = false
+        }
+    }
+
     // MARK: - Social Media Hostnames (extension handles enforcement)
 
     /// Social media hostnames where the Chrome extension handles enforcement
@@ -406,6 +441,31 @@ class FocusMonitor {
     private(set) var currentApp: NSRunningApplication?
     private var currentAppBundleId: String?
 
+    // Context-switching overlay (v1)
+    var switchCoordinator: SwitchInterventionCoordinator?
+    var switchOverlayController: SwitchOverlayController?
+    /// The target the user was about to open when the overlay appeared.
+    private var pendingSwitchTarget: SwitchTarget?
+    /// Snapshot of the app/tab the user was in BEFORE the pending switch (for Back-to-work restoration).
+    private var priorAppBundleIdBeforeSwitch: String?
+    private var priorTabURLBeforeSwitch: String?
+    /// Suppressed bundle IDs: when the overlay dismisses or we programmatically `activateApp`,
+    /// macOS fires NSWorkspace activation for the new frontmost app. We arm the suppression BEFORE
+    /// `dismiss()` / `activate()` so the synchronous notification is always swallowed and the
+    /// coordinator intercept never runs for our own self-induced activations. Set-based (not a
+    /// single slot) because Continue/Back-to-work can cause two cascading activations — the
+    /// overlay's underlying app (pending) on dismiss and the actual return target on activate.
+    private var pendingActivationSuppressions: Set<String> = []
+    /// Monotonic count of switch overlays presented. Drives the rotating reminder copy so each
+    /// interception sees a stable line and consecutive interceptions rotate. Not reset per session —
+    /// variety across sessions is fine, and this keeps the counter simple.
+    private var switchOverlayInterceptCount: Int = 0
+    /// Rolling "last non-Intentional regular app" the user was in. Used as a Back-to-work fallback
+    /// when `priorAppBundleIdBeforeSwitch` is nil or Intentional itself (e.g. if the user clicked
+    /// something in Intentional's dashboard and that's why we saw a switch). Updated on every
+    /// appDidActivate for regular apps other than Intentional.
+    private var lastNonIntentionalAppBundleId: String?
+
     // Linger tracking
     private var lingerTimer: Timer?
     private var lingerStart: Date?
@@ -436,6 +496,9 @@ class FocusMonitor {
     // Per-tab blocking: tracks when a browser tab has been redirected to focus-blocked.html
     private var tabIsOnBlockingPage = false
     private var blockedOriginalURL: String?
+
+    /// Most recent (bundleId, hostname) seen by the browser poll — used to detect tab switches.
+    private var lastSeenBrowserTab: (bundleId: String, host: String)?
 
     // Cumulative distraction counter (seconds). Increases when on irrelevant content,
     // decays when user returns to relevant content. Resets on block change.
@@ -651,6 +714,7 @@ class FocusMonitor {
     /// Called when the active focus block changes.
     /// Resets all warning state, timers, and suppression.
     func onBlockChanged() {
+        signalCoordinatorBlockChange()
         // If pill is in blockComplete/celebration mode, defer — AppDelegate will call showCelebration()
         if let pillMode = deepWorkTimerController?.viewModel?.mode,
            pillMode == .blockComplete || pillMode == .celebration {
@@ -777,6 +841,26 @@ class FocusMonitor {
             pushFocusStatsToTimer()
         } else {
             deepWorkTimerController?.dismiss()
+        }
+    }
+
+    /// Signal the switch coordinator about a block change.
+    /// Work blocks start a session; non-work blocks end it. If an overlay is up
+    /// when the session changes, it's dismissed with a sessionEndedMidCountdown resolution.
+    private func signalCoordinatorBlockChange() {
+        guard let coord = switchCoordinator else { return }
+        if let block = scheduleManager?.currentBlock,
+           block.blockType == .deepWork || block.blockType == .focusHours {
+            coord.sessionStarted(at: Date())
+            coord.setInWorkSession(true)
+        } else {
+            coord.setInWorkSession(false)
+            coord.sessionEnded()
+        }
+        if switchOverlayController?.isShowing == true {
+            coord.resolve(outcome: .sessionEndedMidCountdown, intendedTarget: nil, returnTarget: nil, at: Date())
+            switchOverlayController?.dismiss()
+            pendingSwitchTarget = nil
         }
     }
 
@@ -1285,6 +1369,13 @@ class FocusMonitor {
         guard !isOnBreak else { return }
         isOnBreak = true
 
+        switchCoordinator?.breakStarted(at: Date())
+        if switchOverlayController?.isShowing == true {
+            switchCoordinator?.resolve(outcome: .sessionEndedMidCountdown, intendedTarget: nil, returnTarget: nil, at: Date())
+            switchOverlayController?.dismiss()
+            pendingSwitchTarget = nil
+        }
+
         // Dismiss any active nudge/overlay
         nudgeController?.dismiss()
         isCurrentlyIrrelevant = false
@@ -1310,6 +1401,7 @@ class FocusMonitor {
     private func endBreak() {
         guard isOnBreak else { return }
         isOnBreak = false
+        switchCoordinator?.breakEnded(at: Date())
         deepWorkTimerController?.endBreak()
         appDelegate?.postLog("☕ Break ended — resuming monitoring")
         // checkForegroundApp will restart on next timer tick (called by ScheduleManager every 10s)
@@ -1345,11 +1437,99 @@ class FocusMonitor {
 
     @objc private func appDidActivate(_ notification: Notification) {
         guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
+        let newBundleId = app.bundleIdentifier ?? ""
 
+        let priorApp = currentApp
+        let priorBundleId = currentAppBundleId
         currentApp = app
-        currentAppBundleId = app.bundleIdentifier
+        currentAppBundleId = newBundleId
+
+        appDelegate?.postLog("🔀 appDidActivate: \(priorBundleId ?? "nil") → \(newBundleId) (policy=\(app.activationPolicy.rawValue))")
+
+        // Track last non-Intentional, non-accessory app so Back-to-work has a sane fallback even
+        // when priorAppBundleIdBeforeSwitch is stale or Intentional itself.
+        if newBundleId != "com.arayan.intentional",
+           !newBundleId.isEmpty,
+           app.activationPolicy == .regular {
+            lastNonIntentionalAppBundleId = newBundleId
+        }
+
+        // Consume suppression set by our own dismiss() / activateApp() calls — self-induced
+        // activation events must not re-enter the coordinator as a fresh switch.
+        if pendingActivationSuppressions.remove(newBundleId) != nil {
+            appDelegate?.postLog("🎯 Switch overlay: consumed self-activation suppression for [\(newBundleId)] (remaining: \(pendingActivationSuppressions.sorted().joined(separator: ",")))")
+            evaluateApp(app)
+            return
+        }
+
+        // Context-switching overlay intercept.
+        //
+        // Defaults applied here per the v1 plan's open questions:
+        //   #7 menu-bar apps — suppress switches FROM or TO NSApplication.ActivationPolicy.accessory.
+        //      Prevents battery/menu-bar clicks (which activate an .accessory app for an instant)
+        //      from firing the overlay. Flag: revert by removing this guard.
+        //   #3 overlay-on-overlay — suppress when FocusOverlayWindow or InterventionOverlayController
+        //      is already on-screen. Avoids stacking overlays when the user is mid-intervention.
+        //      Flag: revert by removing this guard.
+        if let coord = switchCoordinator,
+           isEnforcementEnabled(.contextSwitchOverlay),
+           app.activationPolicy != .accessory,
+           (priorApp?.activationPolicy ?? .regular) != .accessory,
+           !(overlayController?.isShowing ?? false),
+           !(interventionController?.isShowing ?? false),
+           !(switchOverlayController?.isShowing ?? false)
+        {
+            let target = SwitchTarget.app(bundleId: newBundleId)
+            let decision = coord.onSwitch(to: target, at: Date())
+            switch decision {
+            case .showOverlay(let seconds):
+                priorAppBundleIdBeforeSwitch = priorBundleId
+                priorTabURLBeforeSwitch = nil
+                pendingSwitchTarget = target
+                appDelegate?.postLog("🎯 Switch overlay fire → \(app.localizedName ?? newBundleId) [\(newBundleId)] priorApp=\(priorBundleId ?? "nil") tier=\(coordinatorTier()) countdown=\(seconds)s")
+                presentSwitchOverlay(for: target, countdown: seconds, displayName: app.localizedName ?? newBundleId)
+                // Do NOT early-return — evaluateApp still needs to run so scorer/enforcement stays accurate.
+                // The overlay is orthogonal to enforcement.
+            case .suppress(let reason):
+                appDelegate?.postLog("🎯 Switch overlay suppressed (\(reason.rawValue)) → \(app.localizedName ?? newBundleId) [\(newBundleId)]")
+            }
+        }
 
         evaluateApp(app)
+    }
+
+    private func presentSwitchOverlay(for target: SwitchTarget, countdown: Int, displayName: String) {
+        let block = scheduleManager?.currentBlock
+        let project = block?.title ?? "Focus session"
+        let task = block?.description ?? ""
+        let remainingText = Self.formatSessionRemaining(block: block)
+        switchOverlayInterceptCount += 1
+        let presentation = SwitchOverlayPresentation(
+            project: project,
+            task: task,
+            sessionLeft: remainingText,
+            targetName: displayName,
+            countdownSeconds: countdown,
+            interceptIndex: switchOverlayInterceptCount
+        )
+        switchOverlayController?.show(presentation: presentation, delegate: self)
+        appDelegate?.postLog("👁️ Switch overlay: \(displayName) (\(countdown)s, tier \(coordinatorTier()))")
+    }
+
+    private func coordinatorTier() -> Int {
+        switchCoordinator?.currentTier(at: Date()) ?? 1
+    }
+
+    private static func formatSessionRemaining(block: ScheduleManager.FocusBlock?) -> String {
+        guard let block = block else { return "" }
+        let minuteOfDay = ScheduleManager.currentMinuteOfDay()
+        let remainingMinutes = max(0, block.endMinutes - minuteOfDay)
+        if remainingMinutes >= 60 {
+            let h = remainingMinutes / 60
+            let m = remainingMinutes % 60
+            return m == 0 ? "\(h)h left" : "\(h)h \(m)m left"
+        }
+        return "\(remainingMinutes) min left"
     }
 
     private func evaluateApp(_ app: NSRunningApplication) {
@@ -1531,6 +1711,60 @@ class FocusMonitor {
             handleRelevantContent()
             stopBrowserPolling()
             return
+        }
+
+        // Per-project overlay: allow/block decisions win over global defaults when a
+        // project session is active. Allowed apps skip AI scoring; blocked apps enforce
+        // the same direct-irrelevance path as distracting apps.
+        if let verdict = projectEnforcement?.verdict(bundleId: bid, hostname: nil) {
+            switch verdict {
+            case .allow:
+                debugLog("👁️ EXIT: \(appName) allowed by active project")
+                handleRelevantContent()
+                stopBrowserPolling()
+                logAssessment(
+                    title: appName,
+                    intention: scheduleManager?.currentBlock?.title ?? "",
+                    relevant: true, confidence: 100,
+                    reason: "Project allow list", action: "none"
+                )
+                appDelegate?.earnedBrowseManager?.updateLastActiveApp(name: appName, timestamp: Date())
+                startWorkTickTimer(appName: appName)
+                return
+            case .block:
+                debugLog("👁️ \(appName) blocked by active project — hard block")
+                stopBrowserPolling()
+                logAssessment(
+                    title: appName,
+                    intention: scheduleManager?.currentBlock?.title ?? "",
+                    relevant: false, confidence: 100,
+                    reason: "Project block list", action: "overlay", isEvent: true
+                )
+                if scheduleManager?.currentTimeState.isWork == true {
+                    appDelegate?.earnedBrowseManager?.recordAssessment(relevant: false)
+                }
+                // Project blocklist apps are explicit user rules — force the blocking
+                // overlay regardless of block type. Soft nudges are only for the AI's
+                // ambiguous verdicts, not for content the user has already ruled out.
+                if isOverrideActive { return }
+                cancelGracePeriod()
+                warnedTargets.insert(bid)
+                currentTarget = appName
+                currentTargetKey = bid
+                isCurrentlyIrrelevant = true
+                resetFocusStreak()
+                triggerGrayscale()
+                deepWorkTimerController?.update(isDistracted: true)
+                if isEnforcementEnabled(.blockingOverlay) {
+                    let intention = scheduleManager?.currentBlock?.title ?? ""
+                    let focusDuration = computeFocusDurationMinutes()
+                    showOverlay(intention: intention, reason: "Project block list",
+                               focusDurationMinutes: focusDuration, isNoPlan: false, displayName: appName)
+                }
+                return
+            case .noDecision:
+                break
+            }
         }
 
         // User-configured distracting apps: always treat as irrelevant during work blocks
@@ -1754,6 +1988,47 @@ class FocusMonitor {
             return
         }
 
+        // Context-switching overlay: detect tab-level switch on each poll.
+        //
+        // Default #3 (overlay-on-overlay) applied: skip if FocusOverlayWindow or
+        // InterventionOverlayController is already visible. Flag: revert by removing
+        // the isShowing guards.
+        // readActiveTabInfo() falls back to `hostname = bundleId` when URL parsing fails
+        // (e.g. chrome://newtab, about:blank, empty URL). That's NOT a real host and must not
+        // drive the switch-overlay — treat as no hostname for this path only.
+        let hostIsReal = !info.hostname.isEmpty && info.hostname != bundleId
+        if hostIsReal {
+            let tupleNow = (bundleId: bundleId, host: info.hostname)
+            let changed: Bool
+            if let prior = lastSeenBrowserTab {
+                changed = (prior.bundleId != tupleNow.bundleId) || (prior.host != tupleNow.host)
+            } else {
+                changed = true
+            }
+            if changed,
+               let coord = switchCoordinator,
+               isEnforcementEnabled(.contextSwitchOverlay),
+               !(overlayController?.isShowing ?? false),
+               !(interventionController?.isShowing ?? false),
+               !(switchOverlayController?.isShowing ?? false)
+            {
+                let target = SwitchTarget.tab(bundleId: bundleId, host: info.hostname)
+                let decision = coord.onSwitch(to: target, at: Date())
+                switch decision {
+                case .showOverlay(let seconds):
+                    priorAppBundleIdBeforeSwitch = nil
+                    priorTabURLBeforeSwitch = lastSeenBrowserTab.map { "http://\($0.host)" }
+                    pendingSwitchTarget = target
+                    let display = "\(Self.browserAppNames[bundleId] ?? "Browser") — \(info.hostname)"
+                    appDelegate?.postLog("🎯 Switch overlay fire → tab \(display) priorHost=\(lastSeenBrowserTab?.host ?? "nil") tier=\(coordinatorTier()) countdown=\(seconds)s")
+                    presentSwitchOverlay(for: target, countdown: seconds, displayName: display)
+                case .suppress(let reason):
+                    appDelegate?.postLog("🎯 Switch overlay suppressed (\(reason.rawValue)) → tab \(bundleId) · \(info.hostname)")
+                }
+            }
+            lastSeenBrowserTab = tupleNow
+        }
+
         // Detect transition FROM blocking page (user justified or left)
         if tabIsOnBlockingPage {
             if !info.url.contains("focus-blocked.html") {
@@ -1832,6 +2107,53 @@ class FocusMonitor {
         if info.url.contains("focus-blocked.html") || info.url.contains("blocked.html") {
             lastScoreWasIrrelevant = false
             return
+        }
+
+        // Per-project overlay (browser): allow/block decisions win over AI scoring.
+        if let verdict = projectEnforcement?.verdict(bundleId: nil, hostname: info.hostname) {
+            let browserName = Self.browserAppNames[bundleId] ?? "Browser"
+            switch verdict {
+            case .allow:
+                lastScoreWasIrrelevant = false
+                logAssessment(
+                    title: info.title, appName: browserName, hostname: info.hostname, intention: block.title,
+                    relevant: true, confidence: 100, reason: "Project allow list", action: "none"
+                )
+                appDelegate?.postLog("👁️ Project allow: \"\(info.title)\" (\(info.hostname)) — skipping AI")
+                handleRelevantContent()
+                if manager.currentTimeState.isWork {
+                    appDelegate?.earnedBrowseManager?.recordAssessment(relevant: true)
+                    appDelegate?.earnedBrowseManager?.recordWorkTick(seconds: Self.browserPollInterval)
+                    startWorkTickTimer(appName: browserName)
+                }
+                return
+            case .block:
+                lastScoreWasIrrelevant = true
+                logAssessment(
+                    title: info.title, appName: browserName, hostname: info.hostname, intention: block.title,
+                    relevant: false, confidence: 100, reason: "Project block list", action: "blocked", isEvent: true
+                )
+                if manager.currentTimeState.isWork {
+                    appDelegate?.earnedBrowseManager?.recordAssessment(relevant: false)
+                }
+                // Project blocklist entries are explicit user rules — hard-block immediately
+                // regardless of block type (bypasses the Focus Hours soft grayscale+nudge path).
+                // Still respects active AI overrides so the user can escape if they really need to.
+                if isOverrideActive { return }
+                appDelegate?.postLog("👁️ Project block (hard): \"\(info.title)\" (\(info.hostname)) — redirecting")
+                isCurrentlyIrrelevant = true
+                currentTarget = info.title
+                currentTargetKey = info.hostname
+                deepWorkRedirectedSites.insert(info.hostname)
+                if let tabInfo = readActiveTabInfo(for: bundleId),
+                   !tabInfo.url.contains("focus-blocked.html") {
+                    blockActiveTab(intention: block.title, pageTitle: info.title,
+                                   hostname: info.hostname, originalURL: tabInfo.url)
+                }
+                return
+            case .noDecision:
+                break
+            }
         }
 
         // Social media sites are always irrelevant during work blocks — skip AI scoring.
@@ -2016,6 +2338,7 @@ class FocusMonitor {
         browserPollTimer?.invalidate()
         browserPollTimer = nil
         stopBrowserAXObserver()
+        lastSeenBrowserTab = nil
     }
 
     // MARK: - AXObserver (instant tab-switch detection)
@@ -3534,5 +3857,143 @@ class FocusMonitor {
 
     deinit {
         stop()
+    }
+}
+
+// MARK: - Context-switching overlay delegate
+
+extension FocusMonitor: SwitchOverlayDelegate {
+    func switchOverlayDidTapBackToWork() {
+        guard let coord = switchCoordinator, let pending = pendingSwitchTarget else {
+            appDelegate?.postLog("🎯 Back-to-work tapped but no pending target; dismissing")
+            switchOverlayController?.dismiss()
+            pendingSwitchTarget = nil
+            return
+        }
+        // Simplified return policy: always go back to whatever target was frontmost right before
+        // the intercepted switch. Prefer the prior tab URL if we were in a browser, else the prior
+        // app bundle id. Skips the coordinator's known-target/dwell heuristic entirely.
+        let rawPriorApp = priorAppBundleIdBeforeSwitch
+        let rawPriorURL = priorTabURLBeforeSwitch
+        let priorAppCandidate: String?
+        if let p = rawPriorApp, !p.isEmpty, p != "com.arayan.intentional" {
+            priorAppCandidate = p
+        } else {
+            priorAppCandidate = nil
+        }
+        let fallbackApp: String?
+        if priorAppCandidate == nil,
+           let last = lastNonIntentionalAppBundleId,
+           !last.isEmpty,
+           last != pending.bundleId {
+            fallbackApp = last
+        } else {
+            fallbackApp = nil
+        }
+
+        var returnTarget: SwitchTarget? = nil
+        var branch: String = "none"
+        if let priorURL = rawPriorURL, let host = URL(string: priorURL)?.host, !host.isEmpty,
+           case .tab(let bid, _) = pending {
+            returnTarget = .tab(bundleId: bid, host: host)
+            branch = "prior-tab"
+        } else if let app = priorAppCandidate {
+            returnTarget = .app(bundleId: app)
+            branch = "prior-app"
+        } else if let app = fallbackApp {
+            returnTarget = .app(bundleId: app)
+            branch = "mru-fallback"
+        }
+
+        appDelegate?.postLog("🎯 Back-to-work tapped — pending=\(describe(pending)) rawPriorApp=\(rawPriorApp ?? "nil") rawPriorURL=\(rawPriorURL ?? "nil") mruLast=\(lastNonIntentionalAppBundleId ?? "nil") branch=\(branch) → \(returnTarget.map(describe) ?? "(none; hiding Intentional)")")
+        coord.resolve(outcome: .backToWork, intendedTarget: nil, returnTarget: returnTarget, at: Date())
+        // Arm suppression BEFORE dismiss(): closing our key window causes macOS to synchronously
+        // re-activate whatever was underneath, which fires .didActivate on the main queue before
+        // activateApp() gets a chance to arm its own flag. Cover both the pending target (the app
+        // the user tried to open — may briefly gain focus) and the return target (where we're
+        // heading). Any extra entries get safety-cleared after 2s inside activateApp.
+        pendingActivationSuppressions.insert(pending.bundleId)
+        if let r = returnTarget, r.bundleId != pending.bundleId {
+            pendingActivationSuppressions.insert(r.bundleId)
+        }
+        appDelegate?.postLog("🎯 Back-to-work: arming pre-dismiss suppressions \(pendingActivationSuppressions.sorted())")
+        switchOverlayController?.dismiss()
+        pendingSwitchTarget = nil
+        priorAppBundleIdBeforeSwitch = nil
+        priorTabURLBeforeSwitch = nil
+        if let t = returnTarget {
+            applyReturnTarget(t)
+        } else {
+            // No usable return target — just dismiss the overlay and leave the user where they
+            // are. Previously we called NSApp.hide(nil), which caused macOS to auto-activate
+            // whatever was underneath (usually the pending app), which then re-triggered the
+            // tab-switch intercept → infinite overlay loop.
+            appDelegate?.postLog("🎯 Back-to-work: no return target — dismissing overlay only (skipping hide to avoid re-fire)")
+        }
+    }
+
+    func switchOverlayDidTapContinue() {
+        guard let coord = switchCoordinator, let pending = pendingSwitchTarget else {
+            appDelegate?.postLog("🎯 Continue tapped but no pending target; dismissing")
+            switchOverlayController?.dismiss()
+            pendingSwitchTarget = nil
+            return
+        }
+        appDelegate?.postLog("🎯 Continue → \(describe(pending))")
+        coord.resolve(outcome: .continued, intendedTarget: pending, returnTarget: nil, at: Date())
+        // Arm BEFORE dismiss(): closing our key window causes macOS to synchronously re-activate
+        // the underlying app, firing .didActivate before activateApp() runs its own arm.
+        pendingActivationSuppressions.insert(pending.bundleId)
+        appDelegate?.postLog("🎯 Continue: arming pre-dismiss suppression for [\(pending.bundleId)]")
+        switchOverlayController?.dismiss()
+        pendingSwitchTarget = nil
+        priorAppBundleIdBeforeSwitch = nil
+        priorTabURLBeforeSwitch = nil
+        // Actually navigate to the target. Without this, the user is stranded on Intentional
+        // (the overlay's host app). Clicking the intended app in the dock would fire a fresh
+        // switch and re-present the overlay, which users perceive as "the timer restarted."
+        applyReturnTarget(pending)
+    }
+
+    private func describe(_ t: SwitchTarget) -> String {
+        switch t {
+        case .app(let b): return "app(\(b))"
+        case .tab(let b, let h): return "tab(\(b) · \(h))"
+        }
+    }
+
+    private func applyReturnTarget(_ target: SwitchTarget?) {
+        guard let target = target else {
+            appDelegate?.postLog("🎯 applyReturnTarget: nil — no-op")
+            return
+        }
+        switch target {
+        case .app(let bundleId):
+            appDelegate?.postLog("🎯 applyReturnTarget: app → activating [\(bundleId)]")
+            activateApp(bundleId: bundleId)
+        case .tab(let bundleId, let host):
+            // v1: activate the browser. Tab-level restoration punted to v2.
+            appDelegate?.postLog("🎯 applyReturnTarget: tab [\(bundleId) · \(host)] → activating browser (tab restore is v2)")
+            activateApp(bundleId: bundleId)
+        }
+    }
+
+    private func activateApp(bundleId: String) {
+        let runningApps = NSWorkspace.shared.runningApplications
+        if let app = runningApps.first(where: { $0.bundleIdentifier == bundleId }) {
+            pendingActivationSuppressions.insert(bundleId)
+            let ok = app.activate(options: [])
+            appDelegate?.postLog("🎯 activateApp [\(bundleId)] (\(app.localizedName ?? "?")) → activate()=\(ok), suppression armed")
+            // Safety clear — if the activation notification never arrives (already frontmost, etc.)
+            // we don't want the flag to poison the next real user switch.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                guard let self = self else { return }
+                if self.pendingActivationSuppressions.remove(bundleId) != nil {
+                    self.appDelegate?.postLog("🎯 activateApp [\(bundleId)] suppression safety-cleared after 2s")
+                }
+            }
+        } else {
+            appDelegate?.postLog("🎯 activateApp [\(bundleId)] NOT FOUND in runningApplications")
+        }
     }
 }
