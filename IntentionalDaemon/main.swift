@@ -120,6 +120,16 @@ class XPCHandler: NSObject, DaemonXPCProtocol {
     func getConfig(reply: @escaping (Data?) -> Void) {
         reply(config.getConfigData())
     }
+
+    // Stub — real implementation in Task 9.
+    func signEnforcement(payload: Data, reply: @escaping (Data?, String?) -> Void) {
+        reply(nil, "not implemented")
+    }
+
+    // Stub — real implementation in Task 9.
+    func verifyEnforcement(payload: Data, signature: Data, reply: @escaping (Bool) -> Void) {
+        reply(false)
+    }
 }
 
 // MARK: - Main
