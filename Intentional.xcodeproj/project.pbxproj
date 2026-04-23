@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0E261E45662D000102B7BDB2 /* EnforcementReconciler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB500423E96AEF2BF4B2C62D /* EnforcementReconciler.swift */; };
 		343A70ED2F4713C200030ED8 /* com.intentional.watchdog.plist in Resources */ = {isa = PBXBuildFile; fileRef = 343A70EC2F4713C100030ED8 /* com.intentional.watchdog.plist */; };
 		343A70EF2F47140400030ED8 /* com.intentional.watchdog.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 343A70EC2F4713C100030ED8 /* com.intentional.watchdog.plist */; };
 		343A70F32F4AA13800030ED8 /* EarnedBrowseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 343A70F22F4AA13800030ED8 /* EarnedBrowseManager.swift */; };
@@ -184,6 +185,7 @@
 		A900000200000000000001 /* FocusStartOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusStartOverlay.swift; sourceTree = "<group>"; };
 		AA00000200000000000001 /* FocusWebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusWebSocketClient.swift; sourceTree = "<group>"; };
 		AB00000200000000000001 /* ProjectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectStore.swift; sourceTree = "<group>"; };
+		AB500423E96AEF2BF4B2C62D /* EnforcementReconciler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EnforcementReconciler.swift; sourceTree = "<group>"; };
 		AC00000200000000000001 /* SwitchInterventionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchInterventionCoordinator.swift; sourceTree = "<group>"; };
 		AC00000400000000000002 /* SwitchOverlayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchOverlayController.swift; sourceTree = "<group>"; };
 		AD00000200000000000001 /* ConstraintEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConstraintEvaluator.swift; sourceTree = "<group>"; };
@@ -313,6 +315,7 @@
 				FE000011000000000000001 /* FilterManager.swift */,
 				328596E5DF4895AA2334AF66 /* EnforcementCache.swift */,
 				50A0BF0323F06AFE2F42E744 /* EnforcementDaemonClient.swift */,
+				AB500423E96AEF2BF4B2C62D /* EnforcementReconciler.swift */,
 			);
 			path = Intentional;
 			sourceTree = "<group>";
@@ -528,6 +531,7 @@
 				FE000012000000000000001 /* FilterManager.swift in Sources */,
 				CA0C967615871B3E89B38023 /* EnforcementCache.swift in Sources */,
 				75AF45B090B2E42A4579F347 /* EnforcementDaemonClient.swift in Sources */,
+				0E261E45662D000102B7BDB2 /* EnforcementReconciler.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
