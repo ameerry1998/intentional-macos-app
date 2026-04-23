@@ -8,12 +8,35 @@
 import Foundation
 import Cocoa
 import Security
+import CommonCrypto
+
+struct EnforcementFetchResult {
+    let success: Bool
+    let lockMode: String
+    let enforcementActive: Bool
+    let constraints: [String: [String: Any]]
+    let temporaryUnlockUntil: String?
+    let updatedAt: String?
+    let deviceId: String
+    let rawJSON: Data  // the bytes we'll hand to daemon for signing
+    let error: String?
+}
 
 class BackendClient {
 
     private let baseURL: String
     private let deviceId: String
     private static var loggedFailures: Set<String> = []
+
+    /// SHA-256 fingerprint of the backend leaf certificate for the /device/enforcement call.
+    /// Empty array = pinning disabled (dev/staging). In production, populate with uppercase
+    /// colon-separated hex. When the cert is about to rotate, ship an app update with BOTH
+    /// fingerprints (old + new), then drop the old after users have upgraded.
+    ///
+    /// To compute: `openssl s_client -connect api.intentional.social:443 -servername api.intentional.social </dev/null 2>/dev/null | openssl x509 -fingerprint -sha256 -noout`
+    private static let pinnedBackendCertSHA256: [String] = [
+        // TODO(ops): fill in actual fingerprint before production ship.
+    ]
 
     init(baseURL: String) {
         self.baseURL = baseURL
@@ -1145,6 +1168,54 @@ class BackendClient {
         return false
     }
 
+    // MARK: - Enforcement
+
+    /// Fetch authoritative enforcement state. Uses cert-pinned URLSession when pinning
+    /// fingerprints are configured; otherwise falls back to the default session with a
+    /// warning log (dev/staging).
+    func fetchEnforcement() async -> EnforcementFetchResult? {
+        let endpoint = "\(baseURL)/device/enforcement"
+        guard let url = URL(string: endpoint) else { return nil }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        let session = Self.pinnedBackendCertSHA256.isEmpty
+            ? URLSession.shared
+            : URLSession(configuration: .default,
+                         delegate: CertPinningDelegate(pinned: Self.pinnedBackendCertSHA256),
+                         delegateQueue: nil)
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                let appDelegate = NSApplication.shared.delegate as? AppDelegate
+                appDelegate?.postLog("⚠️ fetchEnforcement non-200: \(String(describing: (response as? HTTPURLResponse)?.statusCode))")
+                return nil
+            }
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                return nil
+            }
+            let constraints = (json["constraints"] as? [String: [String: Any]]) ?? [:]
+            return EnforcementFetchResult(
+                success: (json["success"] as? Bool) ?? false,
+                lockMode: (json["lock_mode"] as? String) ?? "none",
+                enforcementActive: (json["enforcement_active"] as? Bool) ?? false,
+                constraints: constraints,
+                temporaryUnlockUntil: json["temporary_unlock_until"] as? String,
+                updatedAt: json["updated_at"] as? String,
+                deviceId: (json["device_id"] as? String) ?? deviceId,
+                rawJSON: data,
+                error: nil
+            )
+        } catch {
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            appDelegate?.postLog("⚠️ fetchEnforcement failed: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
     /// Report a tamper event (permission revoked or feature disabled).
     /// Backend notifies the accountability partner.
     func reportContentSafetyTamper(eventType: String, detail: String) async {
@@ -1175,5 +1246,52 @@ class BackendClient {
             let appDelegate = NSApplication.shared.delegate as? AppDelegate
             appDelegate?.postLog("⚠️ Tamper report error: \(error.localizedDescription)")
         }
+    }
+}
+
+// MARK: - TLS Certificate Pinning
+
+final class CertPinningDelegate: NSObject, URLSessionDelegate {
+    let pinned: [String]
+
+    init(pinned: [String]) { self.pinned = pinned }
+
+    func urlSession(_ session: URLSession,
+                    didReceive challenge: URLAuthenticationChallenge,
+                    completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+              let trust = challenge.protectionSpace.serverTrust else {
+            completionHandler(.cancelAuthenticationChallenge, nil)
+            return
+        }
+        // Let system evaluate trust first (chain + expiry).
+        var error: CFError?
+        guard SecTrustEvaluateWithError(trust, &error) else {
+            completionHandler(.cancelAuthenticationChallenge, nil)
+            return
+        }
+        // Then check the leaf cert SHA-256 against our pinned list.
+        guard let chain = SecTrustCopyCertificateChain(trust) as? [SecCertificate],
+              let leaf = chain.first else {
+            completionHandler(.cancelAuthenticationChallenge, nil)
+            return
+        }
+        let data = SecCertificateCopyData(leaf) as Data
+        let fingerprint = data.sha256HexColons.uppercased()
+        if pinned.map({ $0.uppercased() }).contains(fingerprint) {
+            completionHandler(.useCredential, URLCredential(trust: trust))
+        } else {
+            completionHandler(.cancelAuthenticationChallenge, nil)
+        }
+    }
+}
+
+private extension Data {
+    var sha256HexColons: String {
+        var hash = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
+        self.withUnsafeBytes { buf in
+            _ = CC_SHA256(buf.baseAddress, CC_LONG(self.count), &hash)
+        }
+        return hash.map { String(format: "%02X", $0) }.joined(separator: ":")
     }
 }
