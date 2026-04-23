@@ -52,6 +52,31 @@ For app targets, the controller calls `NSRunningApplication.activate`. For brows
 - `Intentional/SwitchOverlayController.swift` — UI + view model
 - `IntentionalTests/SwitchInterventionCoordinatorTests.swift` — unit tests
 
+## Coverage & focus
+
+The overlay creates one `KeyableWindow` per `NSScreen.screens` entry so multi-display setups can't be bypassed by dragging to the other monitor. Collection behavior: `.canJoinAllSpaces + .fullScreenAuxiliary + .ignoresCycle + .stationary` — visible on every Space, floats over full-screen apps, ignored by `⌘` `` ` `` window cycling, stays put when the user swipes between Spaces.
+
+macOS still owns `⌘-Tab` and Mission Control gestures, so the overlay can't prevent them. Instead, `SwitchOverlayController` observes `NSWorkspace.didActivateApplicationNotification` while visible: if any non-Intentional app activates, it pulls focus back via `NSApp.activate()` and re-keys the main overlay window. The user can briefly switch apps but the intervention never loses keyboard focus or visibility.
+
+## Activation reliability (Continue / Back to work)
+
+Two macOS 14+ realities the controller handles:
+
+1. `NSRunningApplication.activate(options:)` is deprecated and silently no-ops in several cases. `activateApp` uses the new no-arg `activate()` on macOS 14+. If the target still isn't frontmost 250ms later, it falls back to `NSWorkspace.openApplication(at:configuration:)` with `activates=true`, which is documented to always succeed.
+2. macOS can deliver `didActivate` multiple times for a single activation (e.g. overlay dismiss auto-re-activates the underlying app, then `activateApp` activates the target, then the target's main window becomes key). `pendingActivationSuppressions` is a `[String: Date]` map (2s expiry by default) rather than a `Set<String>` — every `didActivate` within the armed window is suppressed, so cascading events don't leak back into the coordinator as a fresh user switch.
+
+## Detection latency
+
+Three-tier detection, best signal wins:
+
+| Source | Latency | Requires |
+|---|---|---|
+| `AXObserver` (kAXTitleChangedNotification, 300ms debounce) | ~300ms | Accessibility permission |
+| 2s tab-switch fallback poll (`tabSwitchFallbackTimer`) | ~2s | Automation permission for the browser |
+| Backup `browserPollTimer` | 10s | Automation permission |
+
+When `AXIsProcessTrusted()` is false or `AXObserverCreate` fails, the controller starts `tabSwitchFallbackTimer` at 2s cadence and logs an actionable message pointing users to System Settings. When the AX observer installs successfully for a browser, the fallback is stopped — no duplicate work.
+
 ## Known v1 limitations
 
 - Sleep/screen lock: session keeps running, no special handling.
@@ -59,4 +84,4 @@ For app targets, the controller calls `NSRunningApplication.activate`. For brows
 - Does not intercept ⌘-Tab window-within-app switches.
 - Always-allowed apps (Finder, loginwindow, QuickTime) fire the overlay the same as any other app. If they become noisy in practice, expand `exemptBundleIds`.
 - Counter does not persist across app restart — quitting Intentional mid-session resets the tier.
-- Tab-switch detection is gated on `browserPollTimer` (10s interval), so overlay can lag up to 10s after an actual tab switch.
+- The focus pull-back observer re-kies Intentional after an app switch but doesn't prevent the switch from happening visually. Users briefly see the other app before focus snaps back.
