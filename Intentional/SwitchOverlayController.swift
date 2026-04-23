@@ -263,12 +263,15 @@ struct SwitchOverlayView: View {
 
 // MARK: - Controller
 
-/// Owns the overlay window. One window active at a time.
+/// Owns overlay windows — one per screen so the intervention is unescapable on multi-display setups.
+/// All windows share a single view model so the countdown is in sync across screens.
 final class SwitchOverlayController {
-    private var overlayWindow: NSWindow?
+    private var overlayWindows: [NSWindow] = []
     private(set) var viewModel: SwitchOverlayViewModel?
     /// Local keyDown monitor — Esc routes to "Back to work" (matches design spec).
     private var escapeMonitor: Any?
+    /// Activation observer — re-key the overlay if another app steals focus while the overlay is up.
+    private var activationObserver: NSObjectProtocol?
 
     func show(presentation: SwitchOverlayPresentation, delegate: SwitchOverlayDelegate) {
         dismiss()
@@ -276,42 +279,87 @@ final class SwitchOverlayController {
         vm.delegate = delegate
         self.viewModel = vm
 
-        let view = SwitchOverlayView(viewModel: vm)
-        let hostingView = NSHostingView(rootView: view)
+        // Create one window per screen so the overlay can't be dodged by moving to another display
+        // or by Mission-Control-ing to a different space. Same pattern as FocusOverlayWindow.
+        let screens = NSScreen.screens
+        guard !screens.isEmpty else { return }
 
-        guard let screen = NSScreen.main else { return }
-        let screenFrame = screen.frame
-        hostingView.frame = screenFrame
+        for (index, screen) in screens.enumerated() {
+            let view = SwitchOverlayView(viewModel: vm)
+            let hostingView = NSHostingView(rootView: view)
+            let screenFrame = screen.frame
+            hostingView.frame = screenFrame
 
-        let window = KeyableWindow(
-            contentRect: screenFrame,
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
-        )
-        window.contentView = hostingView
-        window.backgroundColor = .clear
-        window.isOpaque = false
-        window.hasShadow = false
-        window.level = .screenSaver
-        window.isReleasedWhenClosed = false
-        window.ignoresMouseEvents = false
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            let window = KeyableWindow(
+                contentRect: screenFrame,
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = hostingView
+            window.backgroundColor = .clear
+            window.isOpaque = false
+            window.hasShadow = false
+            window.level = .screenSaver
+            window.isReleasedWhenClosed = false
+            window.ignoresMouseEvents = false
+            // .canJoinAllSpaces — window appears on every Space.
+            // .fullScreenAuxiliary — window can float over apps running in fullScreen mode.
+            // .ignoresCycle — keeps the overlay out of Cmd-` window cycling.
+            // .stationary — overlay does not animate away when user swipes between Spaces.
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle, .stationary]
+            window.animationBehavior = .none
 
-        window.setFrame(screenFrame, display: true)
-        window.makeKeyAndOrderFront(nil)
-        overlayWindow = window
+            window.setFrame(screenFrame, display: true)
+            // Only the main-screen window becomes key (holds keyboard focus + Esc handler);
+            // others just orderFront to be visible. Having multiple key windows on multi-display
+            // would compete for keyboard input.
+            if index == 0 {
+                window.makeKeyAndOrderFront(nil)
+            } else {
+                window.orderFront(nil)
+            }
+            overlayWindows.append(window)
+        }
+
+        // Force Intentional to the front so the overlay has app-level focus.
+        // Without this, on some configurations the overlay renders above but the
+        // app below keeps keyboard focus, so typing goes to the wrong app.
+        if #available(macOS 14.0, *) {
+            NSApp.activate()
+        } else {
+            NSApp.activate(ignoringOtherApps: true)
+        }
         vm.startTimer()
 
         // Esc = "okay, back to work" (design spec). .defaultAction on the primary button
         // already handles Enter, so we only need an explicit monitor for Escape.
         escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             // 53 = kVK_Escape
-            if event.keyCode == 53, self?.overlayWindow != nil {
+            if event.keyCode == 53, !(self?.overlayWindows.isEmpty ?? true) {
                 self?.viewModel?.backToWork()
                 return nil
             }
             return event
+        }
+
+        // If another app activates while the overlay is visible (e.g. via Cmd-Tab, Mission Control
+        // pick, or Dock click), pull focus back so the overlay keeps the keyboard. We only snap
+        // back to Intentional — we don't try to prevent the app switch itself (macOS owns that).
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self = self, !self.overlayWindows.isEmpty else { return }
+            guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                  app.bundleIdentifier != "com.arayan.intentional" else { return }
+            if #available(macOS 14.0, *) {
+                NSApp.activate()
+            } else {
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            self.overlayWindows.first?.makeKeyAndOrderFront(nil)
         }
     }
 
@@ -320,10 +368,17 @@ final class SwitchOverlayController {
             NSEvent.removeMonitor(monitor)
             escapeMonitor = nil
         }
-        overlayWindow?.close()
-        overlayWindow = nil
+        if let observer = activationObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
+            activationObserver = nil
+        }
+        for window in overlayWindows {
+            window.orderOut(nil)
+            window.close()
+        }
+        overlayWindows.removeAll()
         viewModel = nil
     }
 
-    var isShowing: Bool { overlayWindow != nil }
+    var isShowing: Bool { !overlayWindows.isEmpty }
 }

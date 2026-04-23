@@ -452,10 +452,16 @@ class FocusMonitor {
     /// Suppressed bundle IDs: when the overlay dismisses or we programmatically `activateApp`,
     /// macOS fires NSWorkspace activation for the new frontmost app. We arm the suppression BEFORE
     /// `dismiss()` / `activate()` so the synchronous notification is always swallowed and the
-    /// coordinator intercept never runs for our own self-induced activations. Set-based (not a
-    /// single slot) because Continue/Back-to-work can cause two cascading activations — the
-    /// overlay's underlying app (pending) on dismiss and the actual return target on activate.
-    private var pendingActivationSuppressions: Set<String> = []
+    /// coordinator intercept never runs for our own self-induced activations.
+    ///
+    /// Map of bundle-id → expiry-date. Time-based (not single-shot) because:
+    ///   - Continue/Back-to-work can cause multiple cascading activations (overlay dismiss
+    ///     auto-activates underlying app, then applyReturnTarget calls app.activate again).
+    ///   - macOS can fire `didActivate` multiple times for the same app in rapid succession
+    ///     (e.g. when a window becomes key after app becomes frontmost).
+    /// Consuming does NOT remove the entry — entries naturally expire, so every didActivate
+    /// inside the window is suppressed without bookkeeping fragility.
+    private var pendingActivationSuppressions: [String: Date] = [:]
     /// Monotonic count of switch overlays presented. Drives the rotating reminder copy so each
     /// interception sees a stable line and consecutive interceptions rotate. Not reset per session —
     /// variety across sessions is fine, and this keeps the counter simple.
@@ -465,6 +471,24 @@ class FocusMonitor {
     /// something in Intentional's dashboard and that's why we saw a switch). Updated on every
     /// appDidActivate for regular apps other than Intentional.
     private var lastNonIntentionalAppBundleId: String?
+
+    /// Arm a self-activation suppression for the given bundle. Any `didActivate` for this
+    /// bundle within `seconds` is treated as our own doing (not a user-driven switch) and
+    /// won't re-fire the switch-overlay intercept.
+    private func armActivationSuppression(_ bundleId: String, seconds: TimeInterval = 2.0) {
+        pendingActivationSuppressions[bundleId] = Date().addingTimeInterval(seconds)
+    }
+
+    /// True if we're still within the armed suppression window for this bundle.
+    /// Does NOT remove the entry — lets multiple rapid didActivate calls all be suppressed.
+    private func isActivationSuppressed(_ bundleId: String) -> Bool {
+        guard let expiresAt = pendingActivationSuppressions[bundleId] else { return false }
+        if Date() > expiresAt {
+            pendingActivationSuppressions.removeValue(forKey: bundleId)
+            return false
+        }
+        return true
+    }
 
     // Linger tracking
     private var lingerTimer: Timer?
@@ -597,6 +621,16 @@ class FocusMonitor {
     private var axObservedWindow: AXUIElement?
     private var axDebounceTimer: Timer?
     private var axBundleId: String?
+
+    /// Fast fallback poller (2s) that runs ONLY when AXObserver couldn't start (missing
+    /// Accessibility permission, or AXObserverCreate failed). Without AX, the 10s browser poll
+    /// is the user's only path to tab-switch detection — too slow for the switch overlay. This
+    /// timer runs a lightweight AppleScript read, dispatches tab-switch-only logic, and skips
+    /// the heavier scoring path.
+    private var tabSwitchFallbackTimer: Timer?
+    private static let tabSwitchFallbackInterval: TimeInterval = 2.0
+    /// Whether the AX observer successfully installed for the currently-observed browser.
+    private var axObserverActive: Bool = false
     // Work tick timer for always-allowed non-browser apps (Xcode, Terminal, etc.)
     private var workTickTimer: Timer?
     // Neutral tick timer for screen lock, Intentional app, etc. (logs grey entries)
@@ -1455,9 +1489,11 @@ class FocusMonitor {
         }
 
         // Consume suppression set by our own dismiss() / activateApp() calls — self-induced
-        // activation events must not re-enter the coordinator as a fresh switch.
-        if pendingActivationSuppressions.remove(newBundleId) != nil {
-            appDelegate?.postLog("🎯 Switch overlay: consumed self-activation suppression for [\(newBundleId)] (remaining: \(pendingActivationSuppressions.sorted().joined(separator: ",")))")
+        // activation events must not re-enter the coordinator as a fresh switch. Time-based:
+        // every didActivate for this bundle within the armed window is suppressed, so cascading
+        // macOS auto-activations don't poke through.
+        if isActivationSuppressed(newBundleId) {
+            appDelegate?.postLog("🎯 Switch overlay: suppressed self-activation for [\(newBundleId)] (active suppressions: \(pendingActivationSuppressions.keys.sorted().joined(separator: ",")))")
             evaluateApp(app)
             return
         }
@@ -1976,7 +2012,10 @@ class FocusMonitor {
               currentManager.currentBlock?.id == block.id else { return }
 
         guard let info = tabInfo else {
-            debugLog("👁️ Could not read tab info for \(bundleId)")
+            // Surface this at info level — repeated failures here are almost always missing
+            // Automation permission for the browser (System Settings → Privacy & Security →
+            // Automation → Intentional). Without it, the switch overlay can't detect tab switches.
+            appDelegate?.postLog("👁️ readActiveTabInfo returned nil for \(bundleId) — check Automation permission for the browser")
             // Still log assessment so browser time is tracked even when AppleScript fails
             let browserName = Self.browserAppNames[bundleId] ?? "Browser"
             logAssessment(
@@ -2338,7 +2377,31 @@ class FocusMonitor {
         browserPollTimer?.invalidate()
         browserPollTimer = nil
         stopBrowserAXObserver()
+        stopTabSwitchFallbackPoll()
         lastSeenBrowserTab = nil
+    }
+
+    /// 2s poll for tab-switch detection, running only while the AX observer isn't active.
+    /// Reads the current tab via AppleScript and routes through processActiveTabInfo, same as
+    /// the 10s browserPollTimer — the difference is cadence. The scoring/cache layers dedupe
+    /// repeated reads of the same tab, so this isn't wasted work.
+    private func startTabSwitchFallbackPoll(bundleId: String) {
+        stopTabSwitchFallbackPoll()
+        tabSwitchFallbackTimer = Timer.scheduledTimer(withTimeInterval: Self.tabSwitchFallbackInterval, repeats: true) { [weak self] _ in
+            guard let self = self,
+                  self.currentAppBundleId == bundleId,
+                  !self.awaitingRitual,
+                  !self.isOnBreak,
+                  !self.justificationInProgress else { return }
+            guard let mgr = self.scheduleManager, mgr.currentTimeState.isWork else { return }
+            self.readAndScoreActiveTab(bundleId: bundleId)
+        }
+        appDelegate?.postLog("👁️ AXObserver unavailable — started \(Int(Self.tabSwitchFallbackInterval))s tab-switch fallback poll for \(bundleId)")
+    }
+
+    private func stopTabSwitchFallbackPoll() {
+        tabSwitchFallbackTimer?.invalidate()
+        tabSwitchFallbackTimer = nil
     }
 
     // MARK: - AXObserver (instant tab-switch detection)
@@ -2353,7 +2416,9 @@ class FocusMonitor {
         stopBrowserAXObserver()
 
         guard AXIsProcessTrusted() else {
-            debugLog("👁️ AXObserver: accessibility not trusted — skipping")
+            appDelegate?.postLog("👁️ AXObserver: accessibility NOT trusted — falling back to 2s tab-switch poll for \(bundleId). Grant Accessibility in System Settings for instant tab-switch detection.")
+            axObserverActive = false
+            startTabSwitchFallbackPoll(bundleId: bundleId)
             return
         }
 
@@ -2380,7 +2445,9 @@ class FocusMonitor {
         guard result == .success, let observer = observer else {
             // Balance the retain since we won't store the observer
             Unmanaged<FocusMonitor>.fromOpaque(refcon).release()
-            appDelegate?.postLog("👁️ AXObserver: create failed for pid \(pid) — error \(result.rawValue)")
+            appDelegate?.postLog("👁️ AXObserver: create failed for pid \(pid) — error \(result.rawValue); falling back to 2s tab-switch poll")
+            axObserverActive = false
+            startTabSwitchFallbackPoll(bundleId: bundleId)
             return
         }
 
@@ -2402,7 +2469,11 @@ class FocusMonitor {
         axObserver = observer
         axObservedPid = pid
         axBundleId = bundleId
-        appDelegate?.postLog("👁️ AXObserver: started for pid \(pid) (\(bundleId))")
+        axObserverActive = true
+        // AX observer is our instant-detection path; stop any fallback timer started previously
+        // (e.g. from a prior browser that had no accessibility permission).
+        stopTabSwitchFallbackPoll()
+        appDelegate?.postLog("👁️ AXObserver: started for pid \(pid) (\(bundleId)) — instant tab-switch detection active")
     }
 
     /// Add kAXTitleChangedNotification on the browser's focused window element.
@@ -2432,6 +2503,7 @@ class FocusMonitor {
     private func stopBrowserAXObserver() {
         axDebounceTimer?.invalidate()
         axDebounceTimer = nil
+        axObserverActive = false
 
         guard let observer = axObserver else { return }
         CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
@@ -3911,12 +3983,12 @@ extension FocusMonitor: SwitchOverlayDelegate {
         // re-activate whatever was underneath, which fires .didActivate on the main queue before
         // activateApp() gets a chance to arm its own flag. Cover both the pending target (the app
         // the user tried to open — may briefly gain focus) and the return target (where we're
-        // heading). Any extra entries get safety-cleared after 2s inside activateApp.
-        pendingActivationSuppressions.insert(pending.bundleId)
+        // heading). Entries expire after 2s so they don't poison the next real user switch.
+        armActivationSuppression(pending.bundleId)
         if let r = returnTarget, r.bundleId != pending.bundleId {
-            pendingActivationSuppressions.insert(r.bundleId)
+            armActivationSuppression(r.bundleId)
         }
-        appDelegate?.postLog("🎯 Back-to-work: arming pre-dismiss suppressions \(pendingActivationSuppressions.sorted())")
+        appDelegate?.postLog("🎯 Back-to-work: arming pre-dismiss suppressions \(pendingActivationSuppressions.keys.sorted())")
         switchOverlayController?.dismiss()
         pendingSwitchTarget = nil
         priorAppBundleIdBeforeSwitch = nil
@@ -3943,7 +4015,7 @@ extension FocusMonitor: SwitchOverlayDelegate {
         coord.resolve(outcome: .continued, intendedTarget: pending, returnTarget: nil, at: Date())
         // Arm BEFORE dismiss(): closing our key window causes macOS to synchronously re-activate
         // the underlying app, firing .didActivate before activateApp() runs its own arm.
-        pendingActivationSuppressions.insert(pending.bundleId)
+        armActivationSuppression(pending.bundleId)
         appDelegate?.postLog("🎯 Continue: arming pre-dismiss suppression for [\(pending.bundleId)]")
         switchOverlayController?.dismiss()
         pendingSwitchTarget = nil
@@ -3980,20 +4052,40 @@ extension FocusMonitor: SwitchOverlayDelegate {
 
     private func activateApp(bundleId: String) {
         let runningApps = NSWorkspace.shared.runningApplications
-        if let app = runningApps.first(where: { $0.bundleIdentifier == bundleId }) {
-            pendingActivationSuppressions.insert(bundleId)
-            let ok = app.activate(options: [])
-            appDelegate?.postLog("🎯 activateApp [\(bundleId)] (\(app.localizedName ?? "?")) → activate()=\(ok), suppression armed")
-            // Safety clear — if the activation notification never arrives (already frontmost, etc.)
-            // we don't want the flag to poison the next real user switch.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-                guard let self = self else { return }
-                if self.pendingActivationSuppressions.remove(bundleId) != nil {
-                    self.appDelegate?.postLog("🎯 activateApp [\(bundleId)] suppression safety-cleared after 2s")
+        guard let app = runningApps.first(where: { $0.bundleIdentifier == bundleId }) else {
+            appDelegate?.postLog("🎯 activateApp [\(bundleId)] NOT FOUND in runningApplications")
+            return
+        }
+        armActivationSuppression(bundleId)
+        let ok: Bool
+        if #available(macOS 14.0, *) {
+            // Modern API: macOS 14 deprecated activate(options:) — the no-arg form handles
+            // activation-policy checks and the "requesting app is frontmost" path that the
+            // deprecated form silently drops.
+            ok = app.activate()
+        } else {
+            ok = app.activate(options: [])
+        }
+        appDelegate?.postLog("🎯 activateApp [\(bundleId)] (\(app.localizedName ?? "?")) → activate()=\(ok), suppression armed")
+
+        // If activate() returned false OR the target didn't actually become frontmost after a
+        // short settle, retry with URL-based open — that path always activates the app on
+        // modern macOS even when NSRunningApplication.activate is ignored.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            guard let self = self else { return }
+            let frontBundle = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""
+            if frontBundle == bundleId { return }
+            self.appDelegate?.postLog("🎯 activateApp [\(bundleId)] fallback — frontmost is \(frontBundle.isEmpty ? "(nil)" : frontBundle), retrying via NSWorkspace.openApplication")
+            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
+                self.armActivationSuppression(bundleId)
+                let cfg = NSWorkspace.OpenConfiguration()
+                cfg.activates = true
+                NSWorkspace.shared.openApplication(at: url, configuration: cfg) { [weak self] _, err in
+                    if let err = err {
+                        self?.appDelegate?.postLog("🎯 activateApp [\(bundleId)] openApplication failed: \(err.localizedDescription)")
+                    }
                 }
             }
-        } else {
-            appDelegate?.postLog("🎯 activateApp [\(bundleId)] NOT FOUND in runningApplications")
         }
     }
 }
