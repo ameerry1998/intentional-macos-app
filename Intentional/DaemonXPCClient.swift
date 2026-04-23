@@ -56,6 +56,13 @@ class DaemonXPCClient {
         } as? DaemonXPCProtocol
     }
 
+    /// Typed proxy specifically for enforcement sign/verify methods.
+    /// Returns nil when the daemon is unreachable so callers can drop into
+    /// degraded-mode fallback.
+    func proxyForEnforcement() -> DaemonXPCProtocol? {
+        return proxy
+    }
+
     // MARK: - Strict Mode (with fallback)
 
     /// Check if strict mode is enabled.
