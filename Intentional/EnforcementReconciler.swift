@@ -245,7 +245,7 @@ final class EnforcementReconciler {
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: payload),
               let json = String(data: data, encoding: .utf8) else { return }
-        appDelegate?.mainWindow?.callJS("window._enforcementState && window._enforcementState(\(json))")
+        appDelegate?.mainWindowController?.callJS("window._enforcementState && window._enforcementState(\(json))")
     }
 
     // MARK: KeyPath helpers

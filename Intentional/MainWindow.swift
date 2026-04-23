@@ -1683,6 +1683,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                     } else {
                         self.callJS("window._verifyUnlockResult && window._verifyUnlockResult({ success: true, auto_relock: false })")
                     }
+
+                    // Notify EnforcementReconciler to refresh with the new unlock window
+                    NotificationCenter.default.post(name: Notification.Name("enforcementShouldRefresh"), object: nil)
                 } else {
                     let escaped = result.message.replacingOccurrences(of: "'", with: "\\'")
                     self.callJS("window._verifyUnlockResult && window._verifyUnlockResult({ success: false, message: '\(escaped)' })")
@@ -2891,7 +2894,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
     // MARK: - JS Helpers
 
-    private func callJS(_ script: String) {
+    func callJS(_ script: String) {
         #if DEBUG
         uiPerfCallJSCount += 1
         uiPerfCallJSBytes += script.count

@@ -44,6 +44,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Content Safety — on-device screen monitoring for explicit content
     var contentSafetyMonitor: ContentSafetyMonitor?
 
+    // Enforcement (Content Safety Lockdown) — verifies partner-locked settings
+    var enforcementReconciler: EnforcementReconciler?
+    var tamperOverlayController: TamperOverlayController?
+
     // Context-switching overlay v1 — intervenes on switches from work to non-work
     var switchCoordinator: SwitchInterventionCoordinator?
     var switchOverlayController: SwitchOverlayController?
@@ -512,6 +516,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         postLog("👁️ SwitchInterventionCoordinator + SwitchOverlayController wired to FocusMonitor")
 
+        // Phase B: async backend fetch. Don't block startup.
+        Task { [weak self] in
+            await self?.enforcementReconciler?.runPhaseB()
+        }
+
         focusMonitor?.start()
         postLog("👁️ FocusMonitor + NudgeWindowController + FocusOverlayWindow + InterventionOverlay initialized")
 
@@ -658,6 +667,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             ensureProjectSessionMatchesCurrentBlock()
         }
 
+        // Step 15b: Enforcement Reconciler — runs BEFORE ContentSafetyMonitor
+        // so CS reads a verified state.
+        tamperOverlayController = TamperOverlayController()
+        let enforcementDaemonClient = EnforcementDaemonClient(daemonClient: daemonClient)
+        enforcementReconciler = EnforcementReconciler(
+            appDelegate: self,
+            backendClient: backendClient!,
+            daemonClient: enforcementDaemonClient
+        )
+
+        // Phase A is async but fast (local XPC). Block startup briefly with a hard cap.
+        let enforcementSema = DispatchSemaphore(value: 0)
+        Task {
+            await enforcementReconciler?.runBlockingPhaseA()
+            enforcementSema.signal()
+        }
+        _ = enforcementSema.wait(timeout: .now() + 1.0)  // hard cap at 1s; if daemon hangs, proceed
+        postLog("🛡️ Enforcement: Phase A complete")
+
+        // Observe post-unlock refresh notifications from MainWindow
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("enforcementShouldRefresh"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { await self?.enforcementReconciler?.refresh() }
+        }
+
         // Content Safety Monitor — on-device screen monitoring for explicit content
         contentSafetyMonitor = ContentSafetyMonitor(appDelegate: self)
         // Load enabled state from persisted settings
@@ -728,6 +765,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Schedule recurring heartbeats every 2 minutes
         heartbeatTimer = Timer.scheduledTimer(withTimeInterval: heartbeatInterval, repeats: true) { [weak self] _ in
             self?.sendHeartbeat()
+            Task { [weak self] in
+                await self?.enforcementReconciler?.refreshIfDue()
+            }
         }
         postLog("💓 Heartbeat timer started (every \(Int(heartbeatInterval))s)")
     }
