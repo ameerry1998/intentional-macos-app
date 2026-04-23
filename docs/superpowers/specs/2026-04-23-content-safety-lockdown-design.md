@@ -568,6 +568,10 @@ Client side:
 
 ---
 
+## Open infrastructure TODO
+
+**IntentionalTests Xcode target (deferred):** the `IntentionalTests/` filesystem directory contains 9 test files (Project, SwitchInterventionCoordinator, ConstraintEvaluator, etc.) authored as TDD specs, but no Xcode test target references them — tests can't be run via `xcodebuild test`. Programmatic pbxproj editing via the `xcodeproj` gem got the target added but stumbled on transitive SPM dependency resolution (MLXLLM → Jinja → OrderedCollections won't resolve cleanly for a secondary target without Xcode's GUI wiring). The 5-minute fix: in Xcode, `File → New → Target → macOS → Unit Testing Bundle`, name it `IntentionalTests`, then manually drag-add the existing `IntentionalTests/*.swift` files. Xcode auto-handles SPM product dependencies in its GUI flow. Until then, tests are documentation-level and confidence is based on manual inspection.
+
 ## Notes for future sessions
 
 - This spec will be the entry point for a writing-plans handoff. Changes after user review trigger a spec self-review cycle per the brainstorming skill.
