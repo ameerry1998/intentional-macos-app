@@ -272,6 +272,10 @@ final class SwitchOverlayController {
     private var escapeMonitor: Any?
     /// Activation observer — re-key the overlay if another app steals focus while the overlay is up.
     private var activationObserver: NSObjectProtocol?
+    /// Last time the observer pulled focus back. Used to damp rapid cascades (each NSApp.activate
+    /// fires a didActivate that we filter out, but a real activation storm from macOS could still
+    /// trigger us repeatedly — 100ms cooldown caps that to 10 Hz).
+    private var lastFocusPullback: Date?
 
     func show(presentation: SwitchOverlayPresentation, delegate: SwitchOverlayDelegate) {
         dismiss()
@@ -346,6 +350,14 @@ final class SwitchOverlayController {
         // If another app activates while the overlay is visible (e.g. via Cmd-Tab, Mission Control
         // pick, or Dock click), pull focus back so the overlay keeps the keyboard. We only snap
         // back to Intentional — we don't try to prevent the app switch itself (macOS owns that).
+        //
+        // Filters:
+        //   - Intentional itself: no-op (would otherwise spin when our own NSApp.activate fires).
+        //   - Accessory / prohibited activation policy: skip. Menu-bar apps, Spotlight, Control
+        //     Center, etc. briefly "activate" without becoming foreground; chasing those causes
+        //     flicker and can fight with the system.
+        //   - 100ms cooldown: caps pullback rate so we can't enter a tight loop if macOS fires
+        //     a burst of didActivate events during an overlay show or system transition.
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
@@ -354,6 +366,10 @@ final class SwitchOverlayController {
             guard let self = self, !self.overlayWindows.isEmpty else { return }
             guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
                   app.bundleIdentifier != "com.arayan.intentional" else { return }
+            if app.activationPolicy != .regular { return }
+            let now = Date()
+            if let last = self.lastFocusPullback, now.timeIntervalSince(last) < 0.1 { return }
+            self.lastFocusPullback = now
             if #available(macOS 14.0, *) {
                 NSApp.activate()
             } else {
@@ -378,6 +394,7 @@ final class SwitchOverlayController {
         }
         overlayWindows.removeAll()
         viewModel = nil
+        lastFocusPullback = nil
     }
 
     var isShowing: Bool { !overlayWindows.isEmpty }

@@ -3996,11 +3996,25 @@ extension FocusMonitor: SwitchOverlayDelegate {
         if let t = returnTarget {
             applyReturnTarget(t)
         } else {
-            // No usable return target — just dismiss the overlay and leave the user where they
-            // are. Previously we called NSApp.hide(nil), which caused macOS to auto-activate
-            // whatever was underneath (usually the pending app), which then re-triggered the
-            // tab-switch intercept → infinite overlay loop.
-            appDelegate?.postLog("🎯 Back-to-work: no return target — dismissing overlay only (skipping hide to avoid re-fire)")
+            // No usable return target — don't strand the user on Intentional (overlay host).
+            // Activate Finder as a neutral fallback: always running, benign, and we arm a
+            // suppression so the coordinator treats the synthetic switch as our own doing,
+            // not a fresh user-driven switch that would re-fire the overlay.
+            //
+            // Previous behaviour called NSApp.hide(nil), which auto-activated whatever was
+            // underneath (often the pending app), which immediately re-fired the tab-switch
+            // intercept → infinite overlay loop. Activating Finder explicitly avoids both
+            // strandedness AND the loop because we pre-arm the suppression for Finder.
+            let fallbackBundle = "com.apple.finder"
+            if fallbackBundle != pending.bundleId {
+                appDelegate?.postLog("🎯 Back-to-work: no return target — activating Finder as neutral fallback")
+                // activateApp arms its own suppression, so the didActivate that follows is
+                // suppressed and doesn't re-enter the coordinator as a new user switch.
+                activateApp(bundleId: fallbackBundle)
+            } else {
+                // Pending WAS Finder (weird case) — just dismiss overlay, stay where we are.
+                appDelegate?.postLog("🎯 Back-to-work: no return target + pending is Finder — overlay dismissed only")
+            }
         }
     }
 
