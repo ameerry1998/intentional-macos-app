@@ -158,6 +158,32 @@ final class EnforcementReconciler {
 
     // MARK: Corrections
 
+    /// Maps enforcement blob keys (snake_case, backend-canonical) to the corresponding
+    /// keypath in `onboarding_settings.json` (camelCase, client-canonical). Without this
+    /// translation, the reconciler looks up non-existent paths and silently fails to
+    /// correct the file even though runtime services get the right signal.
+    private static let enforcementToSettingsKeyPath: [String: String] = [
+        "content_safety.enabled":           "contentSafety.enabled",
+        "platforms.youtube.enabled":        "platforms.youtube.enabled",
+        "platforms.youtube.threshold":      "platforms.youtube.threshold",
+        "platforms.youtube.block_shorts":   "platforms.youtube.blockShorts",
+        "platforms.youtube.block_reels":    "platforms.youtube.blockReels",
+        "platforms.instagram.enabled":      "platforms.instagram.enabled",
+        "platforms.instagram.threshold":    "platforms.instagram.threshold",
+        "platforms.instagram.block_reels":  "platforms.instagram.blockReels",
+        "platforms.facebook.enabled":       "platforms.facebook.enabled",
+        "platforms.facebook.block_watch":   "platforms.facebook.blockWatch",
+        "platforms.facebook.block_reels":   "platforms.facebook.blockReels",
+        "platforms.facebook.block_gaming":  "platforms.facebook.blockGaming",
+        "platforms.facebook.block_sponsored":  "platforms.facebook.blockSponsored",
+        "platforms.facebook.block_suggested":  "platforms.facebook.blockSuggested",
+        "distracting_sites":                "distractingSites",
+    ]
+
+    private static func settingsPath(for enforcementKey: String) -> String {
+        return enforcementToSettingsKeyPath[enforcementKey] ?? enforcementKey
+    }
+
     private func applyCorrections(_ snapshot: EnforcementSnapshot, logPrefix: String) {
         guard snapshot.enforcementActive, !snapshot.constraints.isEmpty else { return }
 
@@ -167,17 +193,18 @@ final class EnforcementReconciler {
             return
         }
 
-        var violations: [(String, Any)] = []  // (key, correction)
+        var violations: [(String, Any)] = []  // (key, correction) — enforcement key (snake_case)
 
         for (key, spec) in snapshot.constraints {
             let constraint = ConstraintEvaluator.parse(spec)
-            let current = getValue(forKeyPath: key, in: settings)
+            let localPath = Self.settingsPath(for: key)
+            let current = getValue(forKeyPath: localPath, in: settings)
             let result = ConstraintEvaluator.evaluate(key: key, constraint: constraint, currentValue: current)
             switch result {
             case .satisfied:
                 continue
             case .violated(let correction):
-                settings = setValue(correction, forKeyPath: key, in: settings)
+                settings = setValue(correction, forKeyPath: localPath, in: settings)
                 violations.append((key, correction))
             case .cannotAutoCorrect:
                 appDelegate?.postLog("⚠️ \(logPrefix): unknown constraint for \(key)")
