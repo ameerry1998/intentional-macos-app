@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0E261E45662D000102B7BDB2 /* EnforcementReconciler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB500423E96AEF2BF4B2C62D /* EnforcementReconciler.swift */; };
+		2E6750D26C76AADBBDFDBBB9 /* TamperOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 058407AA3AB42BD7A1FF42A1 /* TamperOverlayController.swift */; };
 		343A70ED2F4713C200030ED8 /* com.intentional.watchdog.plist in Resources */ = {isa = PBXBuildFile; fileRef = 343A70EC2F4713C100030ED8 /* com.intentional.watchdog.plist */; };
 		343A70EF2F47140400030ED8 /* com.intentional.watchdog.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 343A70EC2F4713C100030ED8 /* com.intentional.watchdog.plist */; };
 		343A70F32F4AA13800030ED8 /* EarnedBrowseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 343A70F22F4AA13800030ED8 /* EarnedBrowseManager.swift */; };
@@ -123,6 +124,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		058407AA3AB42BD7A1FF42A1 /* TamperOverlayController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TamperOverlayController.swift; sourceTree = "<group>"; };
 		328596E5DF4895AA2334AF66 /* EnforcementCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EnforcementCache.swift; sourceTree = "<group>"; };
 		343A70EC2F4713C100030ED8 /* com.intentional.watchdog.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.intentional.watchdog.plist; sourceTree = "<group>"; };
 		343A70F22F4AA13800030ED8 /* EarnedBrowseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EarnedBrowseManager.swift; sourceTree = "<group>"; };
@@ -316,6 +318,7 @@
 				328596E5DF4895AA2334AF66 /* EnforcementCache.swift */,
 				50A0BF0323F06AFE2F42E744 /* EnforcementDaemonClient.swift */,
 				AB500423E96AEF2BF4B2C62D /* EnforcementReconciler.swift */,
+				058407AA3AB42BD7A1FF42A1 /* TamperOverlayController.swift */,
 			);
 			path = Intentional;
 			sourceTree = "<group>";
@@ -532,6 +535,7 @@
 				CA0C967615871B3E89B38023 /* EnforcementCache.swift in Sources */,
 				75AF45B090B2E42A4579F347 /* EnforcementDaemonClient.swift in Sources */,
 				0E261E45662D000102B7BDB2 /* EnforcementReconciler.swift in Sources */,
+				2E6750D26C76AADBBDFDBBB9 /* TamperOverlayController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
