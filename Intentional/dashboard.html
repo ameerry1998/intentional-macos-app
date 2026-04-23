@@ -4299,6 +4299,25 @@ body.theme-effects-warm::after {
 .projects-learned-row.allowed { border-left: 2px solid var(--color-success); }
 .projects-learned-row.blocked { border-left: 2px solid var(--color-error); }
 
+/* Enforcement lock styling — applied by applyEnforcementStateToDashboard */
+.enforcement-locked {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.enforcement-locked input, .enforcement-locked select, .enforcement-locked button {
+  cursor: not-allowed;
+}
+.enforcement-lock-hint {
+  font-size: 11px;
+  color: #c88;
+  margin-top: 4px;
+  font-style: italic;
+}
+.site-lock-icon {
+  margin-left: 6px;
+  opacity: 0.7;
+}
+
 </style>
 </head>
 <body>
@@ -6170,6 +6189,96 @@ window._contentSafetyStatus = function(status) {
 function openContentSafetySettings() {
   sendMessage({ type: 'OPEN_CONTENT_SAFETY_SETTINGS' });
 }
+
+// Receives enforcement state from Swift reconciler.
+// See docs/superpowers/specs/2026-04-23-content-safety-lockdown-design.md §8.2.
+window._enforcementState = function(payload) {
+  window._currentEnforcementState = payload;
+  if (typeof applyEnforcementStateToDashboard === 'function') {
+    applyEnforcementStateToDashboard(payload);
+  }
+};
+
+function applyEnforcementStateToDashboard(state) {
+  if (!state || !state.enforcement_active) {
+    // No enforcement → clear any previously applied lock styling.
+    document.querySelectorAll('.enforcement-locked').forEach(function(el) {
+      el.classList.remove('enforcement-locked');
+      var inputs = el.querySelectorAll('input, select, button');
+      inputs.forEach(function(inp) { inp.disabled = false; });
+      var hint = el.querySelector('.enforcement-lock-hint');
+      if (hint) hint.remove();
+    });
+    document.querySelectorAll('.site-lock-icon').forEach(function(el) { el.remove(); });
+    return;
+  }
+
+  var constraints = state.constraints || {};
+  // Map enforcement keys → DOM selectors. Entries whose element doesn't exist
+  // are silently skipped. Some platform-specific constraints (YouTube threshold,
+  // Instagram reels, etc.) have no dedicated toggle in the dashboard yet; those
+  // are enforced server-side only and will gain UI hooks as they're added.
+  var lockableSelectors = {
+    'content_safety.enabled':          '#content-safety-enabled',
+    'platforms.youtube.enabled':       '#yt-enabled',
+    'platforms.youtube.threshold':     '#yt-threshold',
+    'platforms.youtube.block_shorts':  '#yt-block-shorts',
+    'platforms.instagram.enabled':     '#ig-enabled',
+    'platforms.instagram.threshold':   '#ig-threshold',
+    'platforms.instagram.block_reels': '#ig-block-reels',
+    'platforms.facebook.enabled':      '#fb-enabled',
+  };
+
+  Object.keys(lockableSelectors).forEach(function(key) {
+    if (!constraints[key]) return;
+    var input = document.querySelector(lockableSelectors[key]);
+    if (!input) return;
+    var row = input.closest('.settings-row') || input.closest('.toggle-row') || input.closest('.enf-row') || input.parentElement;
+    if (!row) return;
+    row.classList.add('enforcement-locked');
+    input.disabled = true;
+    if (!row.querySelector('.enforcement-lock-hint')) {
+      var hint = document.createElement('div');
+      hint.className = 'enforcement-lock-hint';
+      hint.textContent = 'Get code from accountability partner to unlock';
+      row.appendChild(hint);
+    }
+  });
+
+  // Distracting sites list — dashboard renders as .dist-chip with the host as
+  // inner text. Mark locked sites so their × remove buttons are hidden and a
+  // lock icon appears.
+  var siteConstraint = constraints['distracting_sites'];
+  if (siteConstraint && siteConstraint.values) {
+    var lockedSites = {};
+    siteConstraint.values.forEach(function(s) { lockedSites[s] = true; });
+    // Look for both the legacy .distracting-site class and the current .dist-chip.
+    var chipSelectors = ['.distracting-site', '.dist-chip'];
+    chipSelectors.forEach(function(sel) {
+      document.querySelectorAll(sel).forEach(function(el) {
+        var host = el.dataset.host || (el.textContent || '').trim().replace(/\s*×\s*$/, '').trim();
+        if (lockedSites[host]) {
+          var removeBtn = el.querySelector('.remove-site, .chip-x, .distracting-site-remove');
+          if (removeBtn) removeBtn.style.display = 'none';
+          if (!el.querySelector('.site-lock-icon')) {
+            var icon = document.createElement('span');
+            icon.className = 'site-lock-icon';
+            icon.textContent = '🔒';
+            icon.title = 'This site is partner-locked.';
+            el.appendChild(icon);
+          }
+        }
+      });
+    });
+  }
+}
+
+// Apply on initial DOM load in case state arrived before settings panel rendered.
+window.addEventListener('DOMContentLoaded', function() {
+  if (window._currentEnforcementState) {
+    applyEnforcementStateToDashboard(window._currentEnforcementState);
+  }
+});
 
 // Populate settings UI from loaded data
 function populateSettingsUI(data) {
