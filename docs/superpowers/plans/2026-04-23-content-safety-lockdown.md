@@ -15,7 +15,7 @@
 ## File Structure
 
 **intentional-backend (`/Users/arayan/Documents/GitHub/intentional-backend/`)**
-- **Create** `migrations/006_add_enforcement.sql` — adds `users.enforced_settings`, `users.enforced_settings_updated_at`, `users.last_tamper_email_at`.
+- **Create** `migrations/010_add_enforcement.sql` — adds `users.enforced_settings`, `users.enforced_settings_updated_at`, `users.last_tamper_email_at`.
 - **Create** `enforcement.py` — `derive_enforcement_blob()` function. Pure module, unit-tested.
 - **Create** `scripts/backfill_enforcement.py` — one-shot backfill for partner-locked users.
 - **Create** `tests/test_enforcement.py` — pytest suite for derive fn + endpoint.
@@ -49,12 +49,12 @@
 ### Task 1: Database migration
 
 **Files:**
-- Create: `intentional-backend/migrations/006_add_enforcement.sql`
+- Create: `intentional-backend/migrations/010_add_enforcement.sql`
 
 - [ ] **Step 1: Create migration file**
 
 ```sql
--- migrations/006_add_enforcement.sql
+-- migrations/010_add_enforcement.sql
 -- Adds enforcement blob storage and tamper-email rate-limiting.
 
 ALTER TABLE users
@@ -72,7 +72,7 @@ CREATE INDEX IF NOT EXISTS idx_users_enforcement_updated
 
 Run via Supabase SQL Editor or CLI (whichever the team uses):
 ```bash
-cat intentional-backend/migrations/006_add_enforcement.sql | psql $DATABASE_URL
+cat intentional-backend/migrations/010_add_enforcement.sql | psql $DATABASE_URL
 ```
 Expected: three `ALTER TABLE` and one `CREATE INDEX` succeed without error.
 
@@ -80,7 +80,7 @@ Expected: three `ALTER TABLE` and one `CREATE INDEX` succeed without error.
 
 ```bash
 cd /Users/arayan/Documents/GitHub/intentional-backend
-git add migrations/006_add_enforcement.sql
+git add migrations/010_add_enforcement.sql
 git commit -m "migration: add enforced_settings + tamper rate-limit columns (006)"
 ```
 
@@ -698,7 +698,7 @@ Create `intentional-backend/scripts/backfill_enforcement.py`:
 """One-shot: populate enforced_settings for all currently partner-locked users.
 
 Idempotent — re-running computes the same blobs and updates only if changed.
-Run after migration 006 and after the new `/device/enforcement` endpoint is deployed.
+Run after migration 010 and after the new `/device/enforcement` endpoint is deployed.
 
 Usage:
     cd intentional-backend

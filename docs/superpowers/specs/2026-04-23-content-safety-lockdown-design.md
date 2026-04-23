@@ -100,7 +100,7 @@ Partner lock captures a "minimum strictness floor" — a ratchet-up-only semanti
 
 ### 4.1 Schema
 
-Single migration file: `006_add_enforcement.sql`
+Single migration file: `010_add_enforcement.sql`
 
 ```sql
 ALTER TABLE users
@@ -492,7 +492,7 @@ See §8.3. New file `docs/PARTNER_EMAIL_REGISTRY.md` created during implementati
 
 **Problem:** existing users with `lock_mode='partner'` today have `enforced_settings=NULL` (default). On first launch of the new client, the blob would be empty → no constraints → lockdown silently ceases to enforce. That's a regression for every currently-locked user.
 
-**Solution:** backfill migration runs after `006_add_enforcement.sql`. Script:
+**Solution:** backfill migration runs after `010_add_enforcement.sql`. Script:
 
 ```sql
 -- 007_backfill_enforced_settings.sql
