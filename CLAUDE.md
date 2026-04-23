@@ -1,5 +1,18 @@
 # Intentional macOS App - Development Guide
 
+## Use Superpowers Skills at the Appropriate Times (MANDATORY)
+
+Every non-trivial task on this repo must route through the right skill — this is not optional:
+- **Before designing a new feature or behaviour change:** invoke `superpowers:brainstorming` to align on intent, scope, and trade-offs. Don't skip this even on "simple" changes.
+- **Before writing implementation code:** invoke `superpowers:writing-plans` once the design is approved. The plan goes to `docs/superpowers/plans/` and gets reviewed before code moves.
+- **Before debugging a bug, test failure, or unexpected behaviour:** invoke `superpowers:systematic-debugging` — do NOT guess at fixes without root-cause analysis.
+- **When executing a written plan:** invoke `superpowers:subagent-driven-development` — don't ask which execution mode to use, just start.
+- **Before claiming work is done:** invoke `superpowers:verification-before-completion` — evidence before assertions, always.
+
+Violating the letter of this process violates the spirit of the development approach. Use the skills.
+
+---
+
 ## Documentation Maintenance (MANDATORY)
 
 After completing any code changes, assess whether this CLAUDE.md or the relevant `docs/` file needs updating. Update if any of the following changed:
@@ -169,3 +182,14 @@ Detailed docs for each subsystem live in `docs/`. Read the relevant doc when wor
 | [EARN_YOUR_BROWSE_IMPLEMENTATION.md](docs/EARN_YOUR_BROWSE_IMPLEMENTATION.md) | Full earned browse implementation spec with UI mockups, extension changes, message protocol |
 | [CALENDAR_BLOCK_RULES.md](docs/CALENDAR_BLOCK_RULES.md) | Block manipulation rules (past locked, active limited, future editable) |
 | [BLOCK_TYPE_ENFORCEMENT_SETTINGS.md](docs/BLOCK_TYPE_ENFORCEMENT_SETTINGS.md) | Per-block enforcement toggles (6 mechanisms per block type) |
+
+---
+
+## Reminder: Use Superpowers Skills at the Appropriate Times
+
+Second placement because this is load-bearing and easy to skip. Before any meaningful work:
+- Non-trivial change? → `superpowers:brainstorming` first, then `superpowers:writing-plans`, then `superpowers:subagent-driven-development`.
+- Bug / unexpected behaviour? → `superpowers:systematic-debugging` before touching code.
+- About to say "done"? → `superpowers:verification-before-completion` first — run the thing, confirm output.
+
+Skipping these because a task "feels simple" is exactly when you get burned. Route through the skill.
