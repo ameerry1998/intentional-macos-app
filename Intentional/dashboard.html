@@ -4318,6 +4318,18 @@ body.theme-effects-warm::after {
   opacity: 0.7;
 }
 
+    .degraded-banner {
+      background: #5b2a2a;
+      color: #fff;
+      padding: 10px 16px;
+      font-size: 12px;
+      text-align: center;
+      border-bottom: 1px solid #7a3838;
+      position: sticky;
+      top: 0;
+      z-index: 999;
+    }
+
 </style>
 </head>
 <body>
@@ -6198,6 +6210,23 @@ window._enforcementState = function(payload) {
     applyEnforcementStateToDashboard(payload);
   }
 };
+
+    // Receives daemon-availability flag from Swift AppDelegate.
+    // When false → show a persistent degraded-mode banner at the top of the dashboard.
+    window._daemonAvailable = function(ok) {
+      var banner = document.getElementById('daemon-degraded-banner');
+      if (!ok) {
+        if (!banner) {
+          var b = document.createElement('div');
+          b.id = 'daemon-degraded-banner';
+          b.className = 'degraded-banner';
+          b.textContent = '⚠ Lockdown not fully protected — install production build for full protection.';
+          document.body.insertBefore(b, document.body.firstChild);
+        }
+      } else if (banner) {
+        banner.remove();
+      }
+    };
 
 function applyEnforcementStateToDashboard(state) {
   if (!state || !state.enforcement_active) {

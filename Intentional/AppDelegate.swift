@@ -686,6 +686,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         _ = enforcementSema.wait(timeout: .now() + 1.0)  // hard cap at 1s; if daemon hangs, proceed
         postLog("🛡️ Enforcement: Phase A complete")
 
+        // Push daemon-available flag to dashboard for the degraded-mode banner.
+        let daemonAvailable = enforcementDaemonClient.daemonAvailable
+        DispatchQueue.main.async { [weak self] in
+            let js = "window._daemonAvailable && window._daemonAvailable(\(daemonAvailable ? "true" : "false"))"
+            self?.mainWindowController?.callJS(js)
+        }
+
         // Observe post-unlock refresh notifications from MainWindow
         NotificationCenter.default.addObserver(
             forName: Notification.Name("enforcementShouldRefresh"),
