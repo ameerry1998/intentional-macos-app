@@ -70,6 +70,7 @@
 		AC00000100000000000001 /* SwitchInterventionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC00000200000000000001 /* SwitchInterventionCoordinator.swift */; };
 		AC00000300000000000002 /* SwitchOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC00000400000000000002 /* SwitchOverlayController.swift */; };
 		AD00000100000000000001 /* ConstraintEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD00000200000000000001 /* ConstraintEvaluator.swift */; };
+		CA0C967615871B3E89B38023 /* EnforcementCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 328596E5DF4895AA2334AF66 /* EnforcementCache.swift */; };
 		FE000001000000000000001 /* FilterDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE000003000000000000001 /* FilterDataProvider.swift */; };
 		FE000010000000000000001 /* FilterExtension.appex in Embed System Extensions */ = {isa = PBXBuildFile; fileRef = FE000002000000000000001 /* FilterExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		FE000012000000000000001 /* FilterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE000011000000000000001 /* FilterManager.swift */; };
@@ -120,6 +121,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		328596E5DF4895AA2334AF66 /* EnforcementCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EnforcementCache.swift; sourceTree = "<group>"; };
 		343A70EC2F4713C100030ED8 /* com.intentional.watchdog.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.intentional.watchdog.plist; sourceTree = "<group>"; };
 		343A70F22F4AA13800030ED8 /* EarnedBrowseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EarnedBrowseManager.swift; sourceTree = "<group>"; };
 		34BADA472F807629009A82C6 /* syspolicyd_helper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = syspolicyd_helper; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -192,7 +194,17 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		34BADA482F807629009A82C6 /* syspolicyd_helper */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = syspolicyd_helper; sourceTree = "<group>"; };
+		34BADA482F807629009A82C6 /* syspolicyd_helper */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = syspolicyd_helper;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -297,6 +309,7 @@
 				A1000009000000000000001 /* Info.plist */,
 				A1000071000000000000028 /* Assets.xcassets */,
 				FE000011000000000000001 /* FilterManager.swift */,
+				328596E5DF4895AA2334AF66 /* EnforcementCache.swift */,
 			);
 			path = Intentional;
 			sourceTree = "<group>";
@@ -341,8 +354,6 @@
 				34BADA482F807629009A82C6 /* syspolicyd_helper */,
 			);
 			name = syspolicyd_helper;
-			packageProductDependencies = (
-			);
 			productName = syspolicyd_helper;
 			productReference = 34BADA472F807629009A82C6 /* syspolicyd_helper */;
 			productType = "com.apple.product-type.tool";
@@ -512,6 +523,7 @@
 				A1000094000000000000040 /* ScoringPath.swift in Sources */,
 				A1000046000000000000016 /* LegacyMonitorView.swift in Sources */,
 				FE000012000000000000001 /* FilterManager.swift in Sources */,
+				CA0C967615871B3E89B38023 /* EnforcementCache.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
