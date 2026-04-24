@@ -1,5 +1,17 @@
 # Intentional macOS App - Development Guide
 
+## Cross-repo / Overnight Work — Single Source of Truth (MANDATORY)
+
+When a task spans multiple repos (e.g. Puck integration touches `intentional-backend` + `puck-ios` + this repo) OR is an overnight autonomous run:
+
+- **Final progress log always lives in THIS repo** at `docs/overnight-run-YYYY-MM-DD.md` (or `docs/cross-repo-<feature>-YYYY-MM-DD.md` for non-overnight multi-repo features).
+- That file is the authoritative hand-off: what was completed, what was blocked, what's in which PR, what the user needs to do tomorrow morning.
+- Before starting a multi-repo or overnight task, check `docs/` for an existing log to append to.
+- When handing off to a subagent for multi-repo work, explicitly point them at this convention.
+- Sibling repos live at `/Users/arayan/Documents/GitHub/intentional-backend`, `/Users/arayan/Documents/GitHub/puck-ios`, `/Users/arayan/Documents/GitHub/puck-partner-dashboard`, `/Users/arayan/Documents/GitHub/intentional-extension`.
+
+---
+
 ## Use Superpowers Skills at the Appropriate Times (MANDATORY)
 
 Every non-trivial task on this repo must route through the right skill — this is not optional:
