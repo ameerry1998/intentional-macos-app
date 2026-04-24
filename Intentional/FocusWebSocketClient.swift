@@ -10,13 +10,17 @@ class FocusWebSocketClient {
     private var isIntentionallyDisconnected = false
 
     /// Called when a focus signal is received from the backend
-    /// Parameters: action ("start" or "stop"), sessionId
-    var onFocusSignal: ((_ action: String, _ sessionId: String) -> Void)?
+    /// Parameters: action ("start" or "stop"), sessionId, triggeredBy ("puck" | "app" | other)
+    var onFocusSignal: ((_ action: String, _ sessionId: String, _ triggeredBy: String) -> Void)?
 
     /// Called when connection state changes
     var onConnectionStateChanged: ((_ connected: Bool) -> Void)?
 
     private(set) var isConnected = false
+
+    // Heartbeat — keeps the WS connection warm and bumps last_seen on the server.
+    private var heartbeatTimer: Timer?
+    private var heartbeatSessionId: String?
 
     // Backend URL — change for production
     private let baseURL: String = {
@@ -36,10 +40,30 @@ class FocusWebSocketClient {
 
     func disconnect() {
         isIntentionallyDisconnected = true
+        stopHeartbeat()
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
         isConnected = false
         onConnectionStateChanged?(false)
+    }
+
+    /// Start sending heartbeats every 2 minutes for the given session.
+    /// Safe to call repeatedly — stops any existing timer before starting a new one.
+    func startHeartbeat(sessionId: String) {
+        heartbeatSessionId = sessionId
+        stopHeartbeat()
+        let timer = Timer(timeInterval: 120.0, repeats: true) { [weak self] _ in
+            guard let self = self, let sid = self.heartbeatSessionId else { return }
+            self.sendHeartbeat(sessionId: sid)
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        heartbeatTimer = timer
+    }
+
+    func stopHeartbeat() {
+        heartbeatTimer?.invalidate()
+        heartbeatTimer = nil
+        heartbeatSessionId = nil
     }
 
     func reconnect(token: String) {
@@ -125,9 +149,10 @@ class FocusWebSocketClient {
         case "focus_signal":
             let action = json["action"] as? String ?? ""
             let sessionId = json["session_id"] as? String ?? ""
-            print("[WS] Focus signal: \(action) session=\(sessionId)")
+            let triggeredBy = json["triggered_by"] as? String ?? "puck"
+            print("[WS] Focus signal: \(action) session=\(sessionId) triggeredBy=\(triggeredBy)")
             DispatchQueue.main.async {
-                self.onFocusSignal?(action, sessionId)
+                self.onFocusSignal?(action, sessionId, triggeredBy)
             }
 
         default:
