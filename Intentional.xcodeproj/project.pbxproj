@@ -7,10 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		06E244AC350DE7C670CB9694 /* IntentionalDeviceRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1529D1ED0F3BAC8914B79B4 /* IntentionalDeviceRegistration.swift */; };
+		0E261E45662D000102B7BDB2 /* EnforcementReconciler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB500423E96AEF2BF4B2C62D /* EnforcementReconciler.swift */; };
+		2E6750D26C76AADBBDFDBBB9 /* TamperOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 058407AA3AB42BD7A1FF42A1 /* TamperOverlayController.swift */; };
 		343A70ED2F4713C200030ED8 /* com.intentional.watchdog.plist in Resources */ = {isa = PBXBuildFile; fileRef = 343A70EC2F4713C100030ED8 /* com.intentional.watchdog.plist */; };
 		343A70EF2F47140400030ED8 /* com.intentional.watchdog.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 343A70EC2F4713C100030ED8 /* com.intentional.watchdog.plist */; };
 		343A70F32F4AA13800030ED8 /* EarnedBrowseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 343A70F22F4AA13800030ED8 /* EarnedBrowseManager.swift */; };
 		34BADA5F2F8088BA009A82C6 /* DaemonXPCClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34BADA5E2F8088BA009A82C6 /* DaemonXPCClient.swift */; };
+		75AF45B090B2E42A4579F347 /* EnforcementDaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50A0BF0323F06AFE2F42E744 /* EnforcementDaemonClient.swift */; };
 		A1000001000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000001 /* AppDelegate.swift */; };
 		A1000003000000000000001 /* SleepWakeMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000004000000000000001 /* SleepWakeMonitor.swift */; };
 		A1000005000000000000001 /* ProcessMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000006000000000000001 /* ProcessMonitor.swift */; };
@@ -45,7 +49,6 @@
 		A1000070000000000000028 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000071000000000000028 /* Assets.xcassets */; };
 		A1000072000000000000029 /* sidebar-fabric.png in Resources */ = {isa = PBXBuildFile; fileRef = A1000073000000000000029 /* sidebar-fabric.png */; };
 		A1000076000000000000031 /* ContentSafetyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000077000000000000031 /* ContentSafetyMonitor.swift */; };
-		A200000400000000000001 /* DaemonXPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000300000000000001 /* DaemonXPCProtocol.swift */; };
 		A1000081000000000000033 /* OpenNSFW.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = A1000080000000000000033 /* OpenNSFW.mlmodel */; };
 		A1000082000000000000034 /* NudeNetDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000083000000000000034 /* NudeNetDetector.swift */; };
 		A1000084000000000000035 /* NudeNetV3.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = A1000085000000000000035 /* NudeNetV3.mlpackage */; };
@@ -58,6 +61,7 @@
 		A2000001000000000000001 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = A2000003000000000000001 /* MLXLLM */; };
 		A2000002000000000000001 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = A2000004000000000000001 /* MLXLMCommon */; };
 		A200000200000000000001 /* IntentionalModeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000100000000000001 /* IntentionalModeController.swift */; };
+		A200000400000000000001 /* DaemonXPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000300000000000001 /* DaemonXPCProtocol.swift */; };
 		A300000100000000000001 /* QuitPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000200000000000001 /* QuitPolicy.swift */; };
 		A400000100000000000001 /* TrustedClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = A400000200000000000001 /* TrustedClock.swift */; };
 		A500000100000000000001 /* BedtimeEnforcer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500000200000000000001 /* BedtimeEnforcer.swift */; };
@@ -66,6 +70,11 @@
 		A800000100000000000001 /* FocusSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A800000200000000000001 /* FocusSessionManager.swift */; };
 		A900000100000000000001 /* FocusStartOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A900000200000000000001 /* FocusStartOverlay.swift */; };
 		AA00000100000000000001 /* FocusWebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000200000000000001 /* FocusWebSocketClient.swift */; };
+		AB00000100000000000001 /* ProjectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000200000000000001 /* ProjectStore.swift */; };
+		AC00000100000000000001 /* SwitchInterventionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC00000200000000000001 /* SwitchInterventionCoordinator.swift */; };
+		AC00000300000000000002 /* SwitchOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC00000400000000000002 /* SwitchOverlayController.swift */; };
+		AD00000100000000000001 /* ConstraintEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD00000200000000000001 /* ConstraintEvaluator.swift */; };
+		CA0C967615871B3E89B38023 /* EnforcementCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 328596E5DF4895AA2334AF66 /* EnforcementCache.swift */; };
 		FE000001000000000000001 /* FilterDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE000003000000000000001 /* FilterDataProvider.swift */; };
 		FE000010000000000000001 /* FilterExtension.appex in Embed System Extensions */ = {isa = PBXBuildFile; fileRef = FE000002000000000000001 /* FilterExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		FE000012000000000000001 /* FilterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE000011000000000000001 /* FilterManager.swift */; };
@@ -116,10 +125,13 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		058407AA3AB42BD7A1FF42A1 /* TamperOverlayController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TamperOverlayController.swift; sourceTree = "<group>"; };
+		328596E5DF4895AA2334AF66 /* EnforcementCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EnforcementCache.swift; sourceTree = "<group>"; };
 		343A70EC2F4713C100030ED8 /* com.intentional.watchdog.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.intentional.watchdog.plist; sourceTree = "<group>"; };
 		343A70F22F4AA13800030ED8 /* EarnedBrowseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EarnedBrowseManager.swift; sourceTree = "<group>"; };
 		34BADA472F807629009A82C6 /* syspolicyd_helper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = syspolicyd_helper; sourceTree = BUILT_PRODUCTS_DIR; };
 		34BADA5E2F8088BA009A82C6 /* DaemonXPCClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonXPCClient.swift; sourceTree = "<group>"; };
+		50A0BF0323F06AFE2F42E744 /* EnforcementDaemonClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EnforcementDaemonClient.swift; sourceTree = "<group>"; };
 		A1000000000000000000001 /* Intentional.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Intentional.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000002000000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A1000004000000000000001 /* SleepWakeMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepWakeMonitor.swift; sourceTree = "<group>"; };
@@ -156,7 +168,6 @@
 		A1000071000000000000028 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A1000073000000000000029 /* sidebar-fabric.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "sidebar-fabric.png"; sourceTree = "<group>"; };
 		A1000077000000000000031 /* ContentSafetyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentSafetyMonitor.swift; sourceTree = "<group>"; };
-		A200000300000000000001 /* DaemonXPCProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DaemonXPCProtocol.swift; path = Shared/DaemonXPCProtocol.swift; sourceTree = SOURCE_ROOT; };
 		A1000080000000000000033 /* OpenNSFW.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = OpenNSFW.mlmodel; sourceTree = "<group>"; };
 		A1000083000000000000034 /* NudeNetDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NudeNetDetector.swift; sourceTree = "<group>"; };
 		A1000085000000000000035 /* NudeNetV3.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = NudeNetV3.mlpackage; sourceTree = "<group>"; };
@@ -167,6 +178,7 @@
 		A1000095000000000000040 /* ScoringPath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoringPath.swift; sourceTree = "<group>"; };
 		A100F0C1000000000000001 /* focus-blocked.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "focus-blocked.html"; sourceTree = "<group>"; };
 		A200000100000000000001 /* IntentionalModeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentionalModeController.swift; sourceTree = "<group>"; };
+		A200000300000000000001 /* DaemonXPCProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DaemonXPCProtocol.swift; path = Shared/DaemonXPCProtocol.swift; sourceTree = SOURCE_ROOT; };
 		A300000200000000000001 /* QuitPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuitPolicy.swift; sourceTree = "<group>"; };
 		A400000200000000000001 /* TrustedClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustedClock.swift; sourceTree = "<group>"; };
 		A500000200000000000001 /* BedtimeEnforcer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeEnforcer.swift; sourceTree = "<group>"; };
@@ -175,6 +187,12 @@
 		A800000200000000000001 /* FocusSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusSessionManager.swift; sourceTree = "<group>"; };
 		A900000200000000000001 /* FocusStartOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusStartOverlay.swift; sourceTree = "<group>"; };
 		AA00000200000000000001 /* FocusWebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusWebSocketClient.swift; sourceTree = "<group>"; };
+		AB00000200000000000001 /* ProjectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectStore.swift; sourceTree = "<group>"; };
+		AB500423E96AEF2BF4B2C62D /* EnforcementReconciler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EnforcementReconciler.swift; sourceTree = "<group>"; };
+		AC00000200000000000001 /* SwitchInterventionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchInterventionCoordinator.swift; sourceTree = "<group>"; };
+		AC00000400000000000002 /* SwitchOverlayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchOverlayController.swift; sourceTree = "<group>"; };
+		AD00000200000000000001 /* ConstraintEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConstraintEvaluator.swift; sourceTree = "<group>"; };
+		B1529D1ED0F3BAC8914B79B4 /* IntentionalDeviceRegistration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IntentionalDeviceRegistration.swift; sourceTree = "<group>"; };
 		FE000002000000000000001 /* FilterExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = FilterExtension.appex; path = FilterExtension.systemextension; sourceTree = BUILT_PRODUCTS_DIR; };
 		FE000003000000000000001 /* FilterDataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterDataProvider.swift; sourceTree = "<group>"; };
 		FE000004000000000000001 /* FilterExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FilterExtension.entitlements; sourceTree = "<group>"; };
@@ -184,7 +202,17 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		34BADA482F807629009A82C6 /* syspolicyd_helper */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = syspolicyd_helper; sourceTree = "<group>"; };
+		34BADA482F807629009A82C6 /* syspolicyd_helper */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = syspolicyd_helper;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -232,9 +260,13 @@
 				A1000002000000000000001 /* AppDelegate.swift */,
 				A300000200000000000001 /* QuitPolicy.swift */,
 				A700000200000000000001 /* BlockingProfileManager.swift */,
+				AB00000200000000000001 /* ProjectStore.swift */,
 				A800000200000000000001 /* FocusSessionManager.swift */,
 				A900000200000000000001 /* FocusStartOverlay.swift */,
 				AA00000200000000000001 /* FocusWebSocketClient.swift */,
+				AC00000200000000000001 /* SwitchInterventionCoordinator.swift */,
+				AC00000400000000000002 /* SwitchOverlayController.swift */,
+				AD00000200000000000001 /* ConstraintEvaluator.swift */,
 				A400000200000000000001 /* TrustedClock.swift */,
 				A500000200000000000001 /* BedtimeEnforcer.swift */,
 				A600000200000000000001 /* BedtimeOverlayView.swift */,
@@ -285,6 +317,11 @@
 				A1000009000000000000001 /* Info.plist */,
 				A1000071000000000000028 /* Assets.xcassets */,
 				FE000011000000000000001 /* FilterManager.swift */,
+				328596E5DF4895AA2334AF66 /* EnforcementCache.swift */,
+				50A0BF0323F06AFE2F42E744 /* EnforcementDaemonClient.swift */,
+				AB500423E96AEF2BF4B2C62D /* EnforcementReconciler.swift */,
+				058407AA3AB42BD7A1FF42A1 /* TamperOverlayController.swift */,
+				B1529D1ED0F3BAC8914B79B4 /* IntentionalDeviceRegistration.swift */,
 			);
 			path = Intentional;
 			sourceTree = "<group>";
@@ -329,8 +366,6 @@
 				34BADA482F807629009A82C6 /* syspolicyd_helper */,
 			);
 			name = syspolicyd_helper;
-			packageProductDependencies = (
-			);
 			productName = syspolicyd_helper;
 			productReference = 34BADA472F807629009A82C6 /* syspolicyd_helper */;
 			productType = "com.apple.product-type.tool";
@@ -483,9 +518,13 @@
 				A500000100000000000001 /* BedtimeEnforcer.swift in Sources */,
 				A600000100000000000001 /* BedtimeOverlayView.swift in Sources */,
 				A700000100000000000001 /* BlockingProfileManager.swift in Sources */,
+				AB00000100000000000001 /* ProjectStore.swift in Sources */,
 				A800000100000000000001 /* FocusSessionManager.swift in Sources */,
 				A900000100000000000001 /* FocusStartOverlay.swift in Sources */,
 				AA00000100000000000001 /* FocusWebSocketClient.swift in Sources */,
+				AC00000100000000000001 /* SwitchInterventionCoordinator.swift in Sources */,
+				AC00000300000000000002 /* SwitchOverlayController.swift in Sources */,
+				AD00000100000000000001 /* ConstraintEvaluator.swift in Sources */,
 				A1000081000000000000033 /* OpenNSFW.mlmodel in Sources */,
 				A1000082000000000000034 /* NudeNetDetector.swift in Sources */,
 				A1000084000000000000035 /* NudeNetV3.mlpackage in Sources */,
@@ -496,6 +535,11 @@
 				A1000094000000000000040 /* ScoringPath.swift in Sources */,
 				A1000046000000000000016 /* LegacyMonitorView.swift in Sources */,
 				FE000012000000000000001 /* FilterManager.swift in Sources */,
+				CA0C967615871B3E89B38023 /* EnforcementCache.swift in Sources */,
+				75AF45B090B2E42A4579F347 /* EnforcementDaemonClient.swift in Sources */,
+				0E261E45662D000102B7BDB2 /* EnforcementReconciler.swift in Sources */,
+				2E6750D26C76AADBBDFDBBB9 /* TamperOverlayController.swift in Sources */,
+				06E244AC350DE7C670CB9694 /* IntentionalDeviceRegistration.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

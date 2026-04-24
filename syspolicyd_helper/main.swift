@@ -124,6 +124,26 @@ class XPCHandler: NSObject, DaemonXPCProtocol {
     func getConfig(reply: @escaping (Data?) -> Void) {
         reply(config.getConfigData())
     }
+
+    func signEnforcement(payload: Data, reply: @escaping (Data?, String?) -> Void) {
+        do {
+            let mac = try EnforcementHMAC.sign(payload: payload)
+            reply(mac, nil)
+        } catch {
+            log("signEnforcement failed: \(error.localizedDescription)")
+            reply(nil, error.localizedDescription)
+        }
+    }
+
+    func verifyEnforcement(payload: Data, signature: Data, reply: @escaping (Bool) -> Void) {
+        do {
+            let ok = try EnforcementHMAC.verify(payload: payload, signature: signature)
+            reply(ok)
+        } catch {
+            log("verifyEnforcement failed: \(error.localizedDescription)")
+            reply(false)
+        }
+    }
 }
 
 // MARK: - Main

@@ -39,4 +39,13 @@ let kDaemonMachServiceName = "com.intentional.daemon.xpc"
     /// Get the full daemon config (for the app to sync state on launch).
     /// Reply: JSON data of the config.
     func getConfig(reply: @escaping (Data?) -> Void)
+
+    /// Sign an enforcement cache payload with the daemon's HMAC key.
+    /// The app passes canonical JSON bytes; daemon returns HMAC-SHA256 raw bytes.
+    /// Reply: (signature, errorMessage) — signature nil on failure.
+    func signEnforcement(payload: Data, reply: @escaping (Data?, String?) -> Void)
+
+    /// Verify an enforcement cache signature.
+    /// Reply: (valid) — true if signature matches the stored HMAC key.
+    func verifyEnforcement(payload: Data, signature: Data, reply: @escaping (Bool) -> Void)
 }

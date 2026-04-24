@@ -461,6 +461,43 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 handleDeleteBlockingProfile(id: id)
             }
 
+        case "START_PROJECT_SESSION":
+            if let body = message.body as? [String: Any] {
+                handleStartProjectSession(body)
+            }
+
+        case "GET_PROJECTS":
+            handleGetProjects()
+
+        case "GET_PROJECT_DETAIL":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String,
+               let id = UUID(uuidString: idStr) {
+                handleGetProjectDetail(id: id)
+            }
+
+        case "CREATE_PROJECT":
+            if let body = message.body as? [String: Any] {
+                handleCreateProject(body)
+            }
+
+        case "UPDATE_PROJECT":
+            if let body = message.body as? [String: Any] {
+                handleUpdateProject(body)
+            }
+
+        case "DELETE_PROJECT":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String,
+               let id = UUID(uuidString: idStr) {
+                handleDeleteProject(id: id)
+            }
+
+        case "PROMOTE_LEARNED_SITE":
+            if let body = message.body as? [String: Any] {
+                handlePromoteLearnedSite(body)
+            }
+
         default:
             appDelegate?.postLog("⚠️ WKWebView: Unknown message type: \(type)")
         }
@@ -1646,6 +1683,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                     } else {
                         self.callJS("window._verifyUnlockResult && window._verifyUnlockResult({ success: true, auto_relock: false })")
                     }
+
+                    // Notify EnforcementReconciler to refresh with the new unlock window
+                    NotificationCenter.default.post(name: Notification.Name("enforcementShouldRefresh"), object: nil)
                 } else {
                     let escaped = result.message.replacingOccurrences(of: "'", with: "\\'")
                     self.callJS("window._verifyUnlockResult && window._verifyUnlockResult({ success: false, message: '\(escaped)' })")
@@ -2186,8 +2226,276 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     }
 
     private func handleDeleteBlockingProfile(id: UUID) {
-        let _ = appDelegate?.blockingProfileManager?.deleteProfile(id: id)
-        handleGetBlockingProfiles()
+        Task {
+            if let store = appDelegate?.projectStore {
+                let referencing = await store.projectsReferencing(blocklistId: id)
+                if !referencing.isEmpty {
+                    let names = referencing.map { $0.name }
+                    await MainActor.run {
+                        self.appDelegate?.postLog("🚫 [BlockingProfile] refused to delete \(id) — referenced by \(names.count) project(s): \(names.joined(separator: ", "))")
+                        let namesJSON = (try? String(data: JSONSerialization.data(withJSONObject: names), encoding: .utf8)) ?? "[]"
+                        self.callJS("window.onBlockingProfileDeleteRefused && window.onBlockingProfileDeleteRefused({ id: '\(id.uuidString)', referencedBy: \(namesJSON) })")
+                    }
+                    return
+                }
+            }
+            await MainActor.run {
+                _ = self.appDelegate?.blockingProfileManager?.deleteProfile(id: id)
+                self.handleGetBlockingProfiles()
+            }
+        }
+    }
+
+    // MARK: - Projects Handlers
+
+    private func handleGetProjects() {
+        Task {
+            guard let store = appDelegate?.projectStore else {
+                await MainActor.run {
+                    self.callJS("window.onProjectsList && window.onProjectsList([])")
+                }
+                return
+            }
+            let summaries = await store.listSummary()
+            await MainActor.run {
+                if let data = try? Self.projectsJSONEncoder().encode(summaries),
+                   let jsonStr = String(data: data, encoding: .utf8) {
+                    self.callJS("window.onProjectsList && window.onProjectsList(\(jsonStr))")
+                }
+            }
+        }
+    }
+
+    private func handleGetProjectDetail(id: UUID) {
+        Task {
+            guard let store = appDelegate?.projectStore else { return }
+            guard let project = await store.get(id: id) else {
+                await MainActor.run {
+                    self.callJS("window.onProjectDetail && window.onProjectDetail(null)")
+                }
+                return
+            }
+            await MainActor.run {
+                self.emitProjectDetail(project)
+            }
+        }
+    }
+
+    private func handleCreateProject(_ body: [String: Any]) {
+        let name = body["name"] as? String ?? "New Project"
+        let intention = body["intention"] as? String ?? ""
+        let allowSearchEngines = body["allowSearchEngines"] as? Bool ?? true
+        let allowed = Self.decodeHostItems(body["allowed"] as? [[String: Any]] ?? [])
+        let blocklistIds = (body["blocklistIds"] as? [String] ?? []).compactMap(UUID.init(uuidString:))
+
+        Task {
+            guard let store = appDelegate?.projectStore else { return }
+            let project = await store.create(
+                name: name,
+                intention: intention,
+                allowed: allowed,
+                blocklistIds: blocklistIds,
+                allowSearchEngines: allowSearchEngines
+            )
+            await MainActor.run {
+                self.emitProjectDetail(project)
+            }
+        }
+    }
+
+    private func handleUpdateProject(_ body: [String: Any]) {
+        guard let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) else { return }
+        let patchDict = body["patch"] as? [String: Any] ?? [:]
+
+        var patch = ProjectPatch()
+        patch.name = patchDict["name"] as? String
+        patch.intention = patchDict["intention"] as? String
+        patch.accent = patchDict["accent"] as? String
+        patch.allowSearchEnginesForThisProject = patchDict["allowSearchEngines"] as? Bool
+        if let allowedRaw = patchDict["allowed"] as? [[String: Any]] {
+            patch.allowed = Self.decodeHostItems(allowedRaw)
+        }
+        if let idsRaw = patchDict["blocklistIds"] as? [String] {
+            patch.blocklistIds = idsRaw.compactMap(UUID.init(uuidString:))
+        }
+
+        Task {
+            guard let store = appDelegate?.projectStore else { return }
+            guard let project = await store.update(id: id, patch: patch) else {
+                await MainActor.run {
+                    self.callJS("window.onProjectDetail && window.onProjectDetail(null)")
+                }
+                return
+            }
+            await MainActor.run {
+                self.emitProjectDetail(project)
+            }
+        }
+    }
+
+    private func handleDeleteProject(id: UUID) {
+        Task {
+            guard let store = appDelegate?.projectStore else { return }
+            _ = await store.delete(id: id)
+            let summaries = await store.listSummary()
+            await MainActor.run {
+                if let data = try? Self.projectsJSONEncoder().encode(summaries),
+                   let jsonStr = String(data: data, encoding: .utf8) {
+                    self.callJS("window.onProjectsList && window.onProjectsList(\(jsonStr))")
+                }
+            }
+        }
+    }
+
+    private func handlePromoteLearnedSite(_ body: [String: Any]) {
+        guard let idStr = body["id"] as? String,
+              let id = UUID(uuidString: idStr),
+              let host = body["host"] as? String else { return }
+
+        Task {
+            guard let store = appDelegate?.projectStore else { return }
+            _ = await store.promoteLearnedSite(projectId: id, host: host)
+            guard let project = await store.get(id: id) else { return }
+            await MainActor.run {
+                self.emitProjectDetail(project)
+            }
+        }
+    }
+
+    private func handleStartProjectSession(_ body: [String: Any]) {
+        guard let idStr = body["id"] as? String,
+              let id = UUID(uuidString: idStr),
+              let durationMins = body["durationMins"] as? Int,
+              durationMins > 0 && durationMins <= 240
+        else {
+            emitSessionResult([
+                "status": "refused",
+                "reason": "Invalid request"
+            ])
+            return
+        }
+
+        Task {
+            guard let store = appDelegate?.projectStore,
+                  let scheduleManager = appDelegate?.scheduleManager,
+                  let project = await store.get(id: id)
+            else {
+                await MainActor.run {
+                    self.emitSessionResult([
+                        "status": "refused",
+                        "reason": "Project not found"
+                    ])
+                }
+                return
+            }
+
+            // Prepare + insert on MainActor (schedule state is main-isolated).
+            // Returns (refusal?, startMinutes, endMinutes, blockId, blockUUID, isImmediate).
+            let prep: (String?, Int, Int, String, UUID, Bool) = await MainActor.run {
+                let now = Date()
+                let cal = Calendar.current
+                let nowMinutes = cal.component(.hour, from: now) * 60 + cal.component(.minute, from: now)
+
+                let currentBlock = scheduleManager.currentBlock
+                let allBlocks: [ScheduleManager.FocusBlock] = scheduleManager.todaySchedule?.blocks ?? []
+                let isImmediate = currentBlock == nil
+                let start = currentBlock?.endMinutes ?? nowMinutes
+                let end = start + durationMins
+
+                if end > 24 * 60 {
+                    return ("Session would run past midnight", 0, 0, "", UUID(), false)
+                }
+                let conflict = allBlocks.first { b in
+                    if let cur = currentBlock, b.id == cur.id { return false }
+                    if b.startMinutes < start { return false }
+                    return b.startMinutes < end
+                }
+                if let conflict = conflict {
+                    return ("Would collide with your next block: \(conflict.title)", 0, 0, "", UUID(), false)
+                }
+                let blockUUID = UUID()
+                let blockIdStr = blockUUID.uuidString
+                let newBlock = ScheduleManager.FocusBlock(
+                    id: blockIdStr,
+                    title: "Project: \(project.name)",
+                    description: project.intention,
+                    startHour: start / 60,
+                    startMinute: start % 60,
+                    endHour: end / 60,
+                    endMinute: end % 60,
+                    blockType: .focusHours,
+                    ignoreProfile: false
+                )
+                scheduleManager.addBlock(newBlock)
+                return (nil, start, end, blockIdStr, blockUUID, isImmediate)
+            }
+
+            let (refusal, start, end, blockIdStr, blockUUID, isImmediate) = prep
+            if let reason = refusal {
+                await MainActor.run {
+                    self.emitSessionResult(["status": "refused", "reason": reason])
+                }
+                return
+            }
+
+            if isImmediate {
+                _ = await store.recordSessionStart(projectId: id, blockId: blockUUID)
+                await MainActor.run {
+                    self.appDelegate?.setActiveProjectSession(projectId: id, blockId: blockIdStr)
+                    self.emitSessionResult([
+                        "status": "started",
+                        "blockId": blockIdStr,
+                        "projectId": idStr,
+                        "startMinutes": start,
+                        "endMinutes": end
+                    ])
+                }
+            } else {
+                // Queued sessions are activated when their block becomes current.
+                // See docs/PROJECTS.md "Known Deferrals" — activation hook is not yet wired.
+                await MainActor.run {
+                    self.emitSessionResult([
+                        "status": "queued",
+                        "blockId": blockIdStr,
+                        "projectId": idStr,
+                        "startMinutes": start,
+                        "endMinutes": end
+                    ])
+                }
+            }
+        }
+    }
+
+    private func emitSessionResult(_ dict: [String: Any]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: dict, options: []),
+              let json = String(data: data, encoding: .utf8) else { return }
+        callJS("window.onProjectSessionResult && window.onProjectSessionResult(\(json))")
+    }
+
+    // MARK: - Projects helpers
+
+    private static func projectsJSONEncoder() -> JSONEncoder {
+        let enc = JSONEncoder()
+        enc.dateEncodingStrategy = .iso8601
+        return enc
+    }
+
+    private static func decodeHostItems(_ raw: [[String: Any]]) -> [HostItem] {
+        raw.compactMap { dict -> HostItem? in
+            guard let kindRaw = dict["kind"] as? String,
+                  let kind = HostKind(rawValue: kindRaw),
+                  let value = dict["value"] as? String else { return nil }
+            let idStr = dict["id"] as? String
+            let id = idStr.flatMap(UUID.init(uuidString:)) ?? UUID()
+            return HostItem(id: id, kind: kind, value: value, note: dict["note"] as? String)
+        }
+    }
+
+    private func emitProjectDetail(_ project: Project) {
+        if let data = try? Self.projectsJSONEncoder().encode(project),
+           let jsonStr = String(data: data, encoding: .utf8) {
+            self.callJS("window.onProjectDetail && window.onProjectDetail(\(jsonStr))")
+        }
     }
 
     // MARK: - Focus Score
@@ -2586,7 +2894,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
     // MARK: - JS Helpers
 
-    private func callJS(_ script: String) {
+    func callJS(_ script: String) {
         #if DEBUG
         uiPerfCallJSCount += 1
         uiPerfCallJSBytes += script.count
