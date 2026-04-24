@@ -570,14 +570,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // WebSocket focus signal client (receives start/stop from Puck via backend)
         focusWebSocketClient = FocusWebSocketClient()
-        focusWebSocketClient?.onFocusSignal = { [weak self] action, sessionId in
+        focusWebSocketClient?.onFocusSignal = { [weak self] action, sessionId, triggeredBy in
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 if action == "start" {
-                    self.postLog("🔌 Puck focus signal: START (session: \(sessionId))")
-                    self.showFocusStartOverlay(isPuckTriggered: true)
+                    self.postLog("🔌 Focus signal: START (session: \(sessionId), triggeredBy: \(triggeredBy))")
+                    self.focusWebSocketClient?.startHeartbeat(sessionId: sessionId)
+                    self.showFocusStartOverlay(isPuckTriggered: triggeredBy == "puck")
                 } else if action == "stop" {
-                    self.postLog("🔌 Puck focus signal: STOP (session: \(sessionId))")
+                    self.postLog("🔌 Focus signal: STOP (session: \(sessionId))")
+                    self.focusWebSocketClient?.stopHeartbeat()
                     self.endFocusSession()
                 }
             }
@@ -593,6 +595,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let token = backendClient?.getAccessToken() {
             focusWebSocketClient?.connect(token: token)
             postLog("🔌 WebSocket connecting with stored token")
+
+            // Register this Mac with the Intentional backend (idempotent, one-shot)
+            IntentionalDeviceRegistration.shared.registerIfNeeded(token: token) { [weak self] msg in
+                self?.postLog(msg)
+            }
         }
 
         // Wire schedule block changes: when the active block changes,
