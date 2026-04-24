@@ -10,7 +10,7 @@
 
 **Status:** **Code-complete across all 3 repos. Ready for user review.**
 
-- **Backend (intentional-backend):** All endpoint and auth changes done, 34 unit tests passing (19 new). PR not deployable until `SUPABASE_JWT_SECRET` is set on Railway.
+- **Backend (intentional-backend):** All endpoint and auth changes done, 34 unit tests passing. **UPDATED 2026-04-24 morning:** the overnight agent picked HS256, but inspection of Supabase dashboard (JWT Signing Keys page) showed this project rotated to ES256/ECC 3 months ago. Backend verifier switched to JWKS/ES256 (primary) + HS256 fallback (legacy tokens) in commit `1bd8932`. No new env var needed — `SUPABASE_URL` is already on Railway. `SUPABASE_JWT_SECRET` is now OPTIONAL.
 - **iOS (puck-ios):** 3 new files + 4 edits + 2 pbxproj fixups. Xcode build succeeds for generic iOS Simulator.
 - **macOS (intentional-macos-app):** 1 new file + 2 edits. Xcode Debug build succeeds.
 - **End-to-end demo:** Not executed (requires physical Puck tap + user's signed-in devices). See §Verification for the commands the user can run tomorrow.
