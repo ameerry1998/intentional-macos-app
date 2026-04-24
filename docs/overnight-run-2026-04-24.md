@@ -265,14 +265,14 @@ Numbered in priority order.
 
 ## PR URLs
 
-_(Filled in after `gh pr create` ran. See §Pushing & PRs.)_
+- **Backend:** https://github.com/ameerry1998/intentional-backend/pull/1 — base: `main`
+- **iOS:** https://github.com/ameerry1998/puck-ios/pull/1 — base: `main`
+- **macOS:** https://github.com/ameerry1998/intentional-macos-app/pull/1 — base: `puck`
 
-- Backend: <pending push>
-- iOS: <pending push>
-- macOS: <pending push>
+**Merge order:** backend (after env var is set) → macOS → iOS.
 
 ---
 
 ## Pushing & PRs
 
-See Task 21 of the plan. User picks up the branches tomorrow morning.
+All three branches pushed to `origin`. All three PRs opened via `gh pr create`. User reviews and merges tomorrow.
