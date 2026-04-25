@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Intentional / Puck — Project Docs Index</title>
+<style>
+  :root {
+    --bg: #0a0c0a;
+    --card: rgba(255,255,255,0.03);
+    --card-hover: rgba(255,255,255,0.06);
+    --border: rgba(255,255,255,0.08);
+    --text: #f7f8f8;
+    --muted: rgba(255,255,255,0.55);
+    --dim: rgba(255,255,255,0.36);
+    --coral: #E87461;
+    --gold: #F0B060;
+    --green: #6FB58E;
+    --blue: #6E8FE0;
+    --violet: #B287D9;
+    --amber: #E5A063;
+    --red: #D45050;
+    --teal: #5CA39B;
+    --grad: linear-gradient(135deg, var(--coral), var(--gold));
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; line-height: 1.55; }
+  body {
+    background:
+      radial-gradient(ellipse at top left, rgba(232,116,97,0.08), transparent 60%),
+      radial-gradient(ellipse at bottom right, rgba(240,176,96,0.06), transparent 60%),
+      var(--bg);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 56px 32px 96px; }
+  header { margin-bottom: 40px; }
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--coral); margin-bottom: 10px; }
+  h1 { font-size: 38px; line-height: 1.15; letter-spacing: -0.8px; font-weight: 700; margin: 0 0 14px; }
+  h1 .accent { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lede { font-size: 17px; color: var(--muted); max-width: 720px; margin-bottom: 8px; }
+  h2 { font-size: 22px; letter-spacing: -0.4px; font-weight: 600; margin: 48px 0 6px; }
+  h2 .desc { font-size: 13px; font-weight: 400; color: var(--dim); margin-left: 12px; letter-spacing: 0; text-transform: none; }
+  h3 { font-size: 14px; font-weight: 600; margin: 24px 0 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--dim); }
+  p { color: var(--muted); }
+  .section-note { color: var(--muted); font-size: 14px; margin: 6px 0 18px; }
+
+  .doc-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
+  .doc-list.full { grid-template-columns: 1fr; }
+  a.doc {
+    display: block;
+    padding: 16px 18px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    text-decoration: none;
+    transition: background 0.12s, border-color 0.12s, transform 0.08s;
+    position: relative;
+  }
+  a.doc:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.18); }
+  a.doc:active { transform: translateY(1px); }
+  a.doc .title { font-size: 15px; font-weight: 600; letter-spacing: -0.1px; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  a.doc .desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  a.doc .meta { font-size: 11px; color: var(--dim); margin-top: 8px; font-family: "SF Mono", Menlo, monospace; }
+
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; white-space: nowrap; }
+  .pill.html { background: rgba(232,116,97,0.10); color: var(--coral); border: 1px solid rgba(232,116,97,0.28); }
+  .pill.md { background: rgba(110,143,224,0.10); color: var(--blue); border: 1px solid rgba(110,143,224,0.28); }
+  .pill.live { background: rgba(111,181,142,0.10); color: var(--green); border: 1px solid rgba(111,181,142,0.28); }
+  .pill.dated { background: rgba(229,160,99,0.10); color: var(--amber); border: 1px solid rgba(229,160,99,0.28); }
+  .pill.draft { background: rgba(255,255,255,0.05); color: var(--dim); border: 1px solid var(--border); }
+  .pill.starred { background: var(--grad); color: #1a0f0a; border: none; }
+
+  .convention {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px 28px;
+    margin: 24px 0 8px;
+  }
+  .convention h2 { margin-top: 0; }
+  .convention table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13.5px; }
+  .convention th, .convention td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .convention th { color: var(--dim); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+  .convention td:first-child { color: var(--text); font-weight: 600; white-space: nowrap; }
+  .convention td.note { color: var(--muted); }
+  code { font-family: "SF Mono", Menlo, monospace; font-size: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 1px 6px; border-radius: 5px; color: var(--coral); }
+  blockquote { margin: 14px 0; padding: 12px 18px; border-left: 3px solid var(--coral); background: rgba(232,116,97,0.05); border-radius: 0 8px 8px 0; color: var(--text); font-size: 14px; }
+
+  .footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--dim); font-size: 12px; }
+
+  details summary { cursor: pointer; padding: 6px 0; color: var(--muted); font-size: 13px; }
+  details summary:hover { color: var(--text); }
+  details[open] summary { color: var(--text); margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Project documentation index</div>
+  <h1>Intentional <span class="accent">+ Puck</span> — Docs</h1>
+  <p class="lede">Single entry point for understanding the project. Click any card to open the full doc. Visual reports (HTML) and reference material (Markdown) are organized below.</p>
+</header>
+
+<h2>👀 Start here <span class="desc">if you have 5 minutes</span></h2>
+<p class="section-note">The two essentials for getting oriented.</p>
+<div class="doc-list full">
+  <a class="doc" href="feature-parity-2026-04-25.html">
+    <div class="title"><span class="pill starred">★ READ FIRST</span><span class="pill html">HTML</span><span class="pill dated">2026-04-25</span> Feature parity &amp; unification plan</div>
+    <div class="desc">What the iOS Puck app and the macOS Intentional app each do, where they overlap, what's not yet unified, and the ranked list of what to ship next. The clearest single artifact to understand the system today.</div>
+    <div class="meta">docs/feature-parity-2026-04-25.html</div>
+  </a>
+  <a class="doc" href="../CLAUDE.md">
+    <div class="title"><span class="pill md">MD</span><span class="pill live">LIVE</span> CLAUDE.md (project root)</div>
+    <div class="desc">Project conventions, mandatory skills/process, init order, known bugs. Read by every Claude session before doing anything. The contract for working in this repo.</div>
+    <div class="meta">CLAUDE.md (rendered on GitHub or in your editor)</div>
+  </a>
+</div>
+
+<h2>📊 Reports &amp; audits <span class="desc">point-in-time HTML, dated</span></h2>
+<p class="section-note">Snapshot reports that capture state at a specific moment. Filename always includes a date. Don't update old ones — write a new one.</p>
+<div class="doc-list">
+  <a class="doc" href="feature-parity-2026-04-25.html">
+    <div class="title"><span class="pill html">HTML</span><span class="pill dated">2026-04-25</span> Feature parity</div>
+    <div class="desc">iOS ↔ macOS feature comparison, shared-concept divergence map, ranked unification priorities.</div>
+  </a>
+  <a class="doc" href="overnight-run-2026-04-25.md">
+    <div class="title"><span class="pill md">MD</span><span class="pill dated">2026-04-25</span> Overnight cross-repo run log</div>
+    <div class="desc">The night of 2026-04-24 → 04-25: iOS layout fix + design system port (21 commits), macOS Content Safety tamper detection (3 commits), Partner Dashboard Phase 2 (4 commits). Includes simulator screenshots.</div>
+    <div class="meta">+ docs/overnight-2026-04-25-screenshots/ (5 PNGs)</div>
+  </a>
+  <a class="doc" href="overnight-run-2026-04-24.md">
+    <div class="title"><span class="pill md">MD</span><span class="pill dated">2026-04-24</span> Overnight run log</div>
+    <div class="desc">Earlier overnight session — see file for scope.</div>
+  </a>
+</div>
+
+<h2>📐 Reference docs <span class="desc">evergreen Markdown, source-of-truth</span></h2>
+<p class="section-note">These describe the system as it currently is. They get updated when behavior changes — never stale-snapshotted.</p>
+
+<h3>Architecture &amp; protocols</h3>
+<div class="doc-list">
+  <a class="doc" href="ARCHITECTURE.md">
+    <div class="title"><span class="pill md">MD</span><span class="pill live">LIVE</span> Architecture</div>
+    <div class="desc">Project structure, init order, persistence files, backend API, state machine, process model.</div>
+  </a>
+  <a class="doc" href="EXTENSION_PROTOCOL.md">
+    <div class="title"><span class="pill md">MD</span><span class="pill live">LIVE</span> Extension protocol</div>
+    <div class="desc">Native messaging socket protocol between the macOS app and Chrome extension. All message types both directions.</div>
+  </a>
+  <a class="doc" href="PUCK_SPEC.md">
+    <div class="title"><span class="pill md">MD</span><span class="pill live">LIVE</span> Puck product spec</div>
+    <div class="desc">Product vision, blocking modes, NFC integration, branch changes (April 2026).</div>
+  </a>
+</div>
+
+<h3>Subsystems</h3>
+<div class="doc-list">
+  <a class="doc" href="FOCUS_ENFORCEMENT.md">
+    <div class="title"><span class="pill md">MD</span> Focus enforcement</div>
+    <div class="desc">Deep Work vs Focus Hours timelines, block rituals, pill, overlays, distracting-app handling.</div>
+  </a>
+  <a class="doc" href="EARNED_BROWSE_SYSTEM.md">
+    <div class="title"><span class="pill md">MD</span> Earned-browse system</div>
+    <div class="desc">Earn rates, multipliers, intent bonus, delay escalation, per-block tracking.</div>
+  </a>
+  <a class="doc" href="AI_SCORING.md">
+    <div class="title"><span class="pill md">MD</span> AI relevance scoring</div>
+    <div class="desc">Pipeline (keyword → cache → LLM), Qwen3-4B / Apple FM models, fail-closed policy.</div>
+  </a>
+  <a class="doc" href="CONTENT_SAFETY_MONITOR.md">
+    <div class="title"><span class="pill md">MD</span> Content safety monitor</div>
+    <div class="desc">On-device NSFW detection, two-pass capture, OpenNSFW for Developer ID, partner notification.</div>
+  </a>
+  <a class="doc" href="STRICT_MODE.md">
+    <div class="title"><span class="pill md">MD</span> Strict mode</div>
+    <div class="desc">App persistence, partner-gated enable/disable, Cmd+Q behavior, watchdog, edge cases.</div>
+  </a>
+  <a class="doc" href="PROJECTS.md">
+    <div class="title"><span class="pill md">MD</span> Projects (intention sessions)</div>
+    <div class="desc">Data model, ProjectStore actor API, 7 bridge messages, start-session rules, blocklist delete guard.</div>
+  </a>
+  <a class="doc" href="CONTEXT_SWITCHING_OVERLAY.md">
+    <div class="title"><span class="pill md">MD</span> Context-switching overlay</div>
+    <div class="desc">Non-skippable countdown on app/tab switches during a work block.</div>
+  </a>
+  <a class="doc" href="CALENDAR_BLOCK_RULES.md">
+    <div class="title"><span class="pill md">MD</span> Calendar block rules</div>
+    <div class="desc">What you can edit on past/active/future blocks.</div>
+  </a>
+  <a class="doc" href="BLOCK_TYPE_ENFORCEMENT_SETTINGS.md">
+    <div class="title"><span class="pill md">MD</span> Block-type enforcement settings</div>
+    <div class="desc">Per-block enforcement toggles (6 mechanisms per block type).</div>
+  </a>
+  <a class="doc" href="FOCUS_MONITOR_LOGGING.md">
+    <div class="title"><span class="pill md">MD</span> Focus monitor logging</div>
+    <div class="desc">Diagnostic log format + how to read it.</div>
+  </a>
+</div>
+
+<h3>Build &amp; deploy</h3>
+<div class="doc-list">
+  <a class="doc" href="PKG_BUILD_GUIDE.md">
+    <div class="title"><span class="pill md">MD</span> PKG build guide</div>
+    <div class="desc">Pipeline, signing, daemon relaunch strategy, testing checklist. Read before touching <code>scripts/build-pkg.sh</code>.</div>
+  </a>
+  <a class="doc" href="CS_TESTING_WINDOW_PLAYBOOK.md">
+    <div class="title"><span class="pill md">MD</span> CS testing window playbook</div>
+    <div class="desc">Pause/resume Content Safety for debugging windows. Three switches, paired scripts.</div>
+  </a>
+</div>
+
+<h3>Product, roadmap, research</h3>
+<div class="doc-list">
+  <a class="doc" href="ROADMAP.md">
+    <div class="title"><span class="pill md">MD</span> Roadmap</div>
+    <div class="desc">Long-term roadmap, psychology research, P0–P3 priorities.</div>
+  </a>
+  <a class="doc" href="PRIORITY_TODOS.md">
+    <div class="title"><span class="pill md">MD</span> Priority TODOs</div>
+    <div class="desc">Active backlog: Intentional Mode, permission monitoring, NE integration, anti-tamper hardening.</div>
+  </a>
+  <a class="doc" href="PARTNER_DASHBOARD.md">
+    <div class="title"><span class="pill md">MD</span> Partner dashboard spec</div>
+    <div class="desc">Spec for the dashboard.getpuck.co web app for accountability partners. Sections, data flow, security, retention.</div>
+  </a>
+  <a class="doc" href="PSYCHOLOGY_ANALYSIS.md">
+    <div class="title"><span class="pill md">MD</span> Psychology analysis</div>
+    <div class="desc">Research feeding the product design.</div>
+  </a>
+  <a class="doc" href="GAMIFICATION_BRAINSTORM.md">
+    <div class="title"><span class="pill md">MD</span> Gamification brainstorm</div>
+    <div class="desc">Pre-design exploration for gamification mechanics.</div>
+  </a>
+  <a class="doc" href="UNIFIED_BUDGET_DESIGN.md">
+    <div class="title"><span class="pill md">MD</span> Unified budget design</div>
+    <div class="desc">Design for a unified time budget across blocks.</div>
+  </a>
+  <a class="doc" href="copywriting-playbook.md">
+    <div class="title"><span class="pill md">MD</span> Copywriting playbook</div>
+    <div class="desc">Voice, tone, copy patterns.</div>
+  </a>
+</div>
+
+<h2>🎨 Design mockups <span class="desc">visual exploration HTML, click to view</span></h2>
+<p class="section-note">Standalone HTML pages exploring visual designs. Most are landing-page or theme variations from earlier sprints. Useful as reference, not normative.</p>
+
+<details>
+  <summary>Show 24 design mockups</summary>
+  <div class="doc-list">
+    <a class="doc" href="landing-v6-gamified.html"><div class="title"><span class="pill html">HTML</span> Landing v6 (gamified)</div></a>
+    <a class="doc" href="landing-v5.html"><div class="title"><span class="pill html">HTML</span> Landing v5</div></a>
+    <a class="doc" href="landing-v4.html"><div class="title"><span class="pill html">HTML</span> Landing v4</div></a>
+    <a class="doc" href="landing-v3-bold.html"><div class="title"><span class="pill html">HTML</span> Landing v3 (bold)</div></a>
+    <a class="doc" href="landing-v3-sugarman.html"><div class="title"><span class="pill html">HTML</span> Landing v3 (sugarman)</div></a>
+    <a class="doc" href="landing-v2-reviewed.html"><div class="title"><span class="pill html">HTML</span> Landing v2 (reviewed)</div></a>
+    <a class="doc" href="landing-combined.html"><div class="title"><span class="pill html">HTML</span> Landing combined</div></a>
+    <a class="doc" href="landing-page-prototype.html"><div class="title"><span class="pill html">HTML</span> Landing prototype</div></a>
+    <a class="doc" href="how-it-works-versions.html"><div class="title"><span class="pill html">HTML</span> "How it works" versions</div></a>
+    <a class="doc" href="intentional-mode-mockups.html"><div class="title"><span class="pill html">HTML</span> Intentional mode mockups</div></a>
+    <a class="doc" href="morning-prompt-designs.html"><div class="title"><span class="pill html">HTML</span> Morning prompt designs</div></a>
+    <a class="doc" href="plan-card-designs.html"><div class="title"><span class="pill html">HTML</span> Plan card designs</div></a>
+    <a class="doc" href="plan-card-sequences.html"><div class="title"><span class="pill html">HTML</span> Plan card sequences</div></a>
+    <a class="doc" href="plan-day-ritual-mockups.html"><div class="title"><span class="pill html">HTML</span> Plan day ritual mockups</div></a>
+    <a class="doc" href="plan-tab-layouts.html"><div class="title"><span class="pill html">HTML</span> Plan tab layouts</div></a>
+    <a class="doc" href="pill-card-reference.html"><div class="title"><span class="pill html">HTML</span> Pill card reference</div></a>
+    <a class="doc" href="puck-product-loop.html"><div class="title"><span class="pill html">HTML</span> Puck product loop</div></a>
+    <a class="doc" href="projects-mockup.html"><div class="title"><span class="pill html">HTML</span> Projects mockup</div></a>
+    <a class="doc" href="blitzit-theme-preview.html"><div class="title"><span class="pill html">HTML</span> Blitzit theme preview</div></a>
+    <a class="doc" href="blitzit-theme-preview-v2.html"><div class="title"><span class="pill html">HTML</span> Blitzit theme preview v2</div></a>
+    <a class="doc" href="blitzit-theme-preview-v3.html"><div class="title"><span class="pill html">HTML</span> Blitzit theme preview v3</div></a>
+    <a class="doc" href="deep-lush-reference.html"><div class="title"><span class="pill html">HTML</span> Deep lush reference</div></a>
+    <a class="doc" href="satin-v1-waves.html"><div class="title"><span class="pill html">HTML</span> Satin v1 (waves)</div></a>
+    <a class="doc" href="satin-v6-minimal.html"><div class="title"><span class="pill html">HTML</span> Satin v6 (minimal)</div></a>
+  </div>
+</details>
+
+<h2>📋 The convention</h2>
+<div class="convention">
+  <p style="color: var(--text);"><strong>Two layers, two purposes.</strong> Use the right one for the right job, and keep them separated by file extension and naming.</p>
+
+  <table>
+    <thead>
+      <tr><th>Layer</th><th>Format</th><th>Filename pattern</th><th>What it's for</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Reference</td>
+        <td>Markdown <span class="pill md">MD</span></td>
+        <td><code>docs/SUBSYSTEM_NAME.md</code> (UPPER_SNAKE_CASE)</td>
+        <td class="note">Evergreen source of truth. Updated when behavior changes. Rendered on GitHub. Source of truth for "how does this work right now."</td>
+      </tr>
+      <tr>
+        <td>Snapshot</td>
+        <td>HTML <span class="pill html">HTML</span></td>
+        <td><code>docs/topic-YYYY-MM-DD.html</code> (lowercase-kebab + date)</td>
+        <td class="note">Point-in-time visual report — audit, run log, decision doc, sprint plan. Never edit an old one — write a new one with a new date if state has changed.</td>
+      </tr>
+      <tr>
+        <td>Mockup</td>
+        <td>HTML <span class="pill html">HTML</span></td>
+        <td><code>docs/topic-vN-variant.html</code> (no date, has version)</td>
+        <td class="note">Visual design exploration. May or may not become the chosen direction. Keep around as reference.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 style="margin-top: 26px; text-transform: none; letter-spacing: 0; font-size: 15px; color: var(--text);">When you write something new, ask:</h3>
+  <ul style="color: var(--muted); font-size: 14px;">
+    <li><strong style="color: var(--text);">"Will this still be true in 6 months?"</strong> Yes → Markdown. No → dated HTML.</li>
+    <li><strong style="color: var(--text);">"Should this get diffed in PRs?"</strong> Yes → Markdown. No → HTML.</li>
+    <li><strong style="color: var(--text);">"Will I want to skim this in Chrome?"</strong> Yes → HTML. No → Markdown.</li>
+  </ul>
+
+  <h3 style="margin-top: 26px; text-transform: none; letter-spacing: 0; font-size: 15px; color: var(--text);">When you add a new HTML report:</h3>
+  <ol style="color: var(--muted); font-size: 14px;">
+    <li>Save it as <code>docs/&lt;topic&gt;-YYYY-MM-DD.html</code></li>
+    <li>Add a card to this <code>index.html</code> in the appropriate section (Reports &amp; audits, or Mockups)</li>
+    <li>Use the existing CSS variables and pill component classes — keeps everything visually consistent</li>
+    <li>Never edit an old dated report. If the state has changed, write a new one and link from the old one.</li>
+  </ol>
+
+  <blockquote>
+    The HTML reports are most useful when they're <em>dense</em>: status pills, color-coded comparisons, ranked lists, tables. Save the prose for Markdown.
+  </blockquote>
+</div>
+
+<h2>🌐 Cross-repo</h2>
+<p class="section-note">This project spans 4 repos. Logs that touch more than one repo live here per the CLAUDE.md cross-repo single-source-of-truth convention.</p>
+<div class="doc-list">
+  <a class="doc" href="overnight-run-2026-04-25.md">
+    <div class="title"><span class="pill md">MD</span><span class="pill dated">2026-04-25</span> Overnight cross-repo run log</div>
+    <div class="desc">Latest cross-repo work — iOS layout + design system, macOS CS tamper detection, partner dashboard Phase 2.</div>
+  </a>
+  <a class="doc" href="overnight-run-2026-04-24.md">
+    <div class="title"><span class="pill md">MD</span><span class="pill dated">2026-04-24</span> Overnight run log (prior)</div>
+    <div class="desc">Previous overnight session.</div>
+  </a>
+</div>
+
+<div class="footer">
+  <p>This is the project doc index. To add a new entry, edit <code>docs/index.html</code> directly. The convention card above describes naming + format. Last updated 2026-04-25.</p>
+  <p>Repos: <code>intentional-macos-app</code> · <code>puck-ios</code> · <code>intentional-backend</code> · <code>puck-partner-dashboard</code></p>
+</div>
+
+</div>
+</body>
+</html>

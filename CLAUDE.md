@@ -39,6 +39,35 @@ Keep updates minimal and precise — just add/modify the relevant sections. Do n
 
 ---
 
+## Documentation Patterns: Markdown vs HTML (MANDATORY)
+
+This project uses a **two-layer documentation system**. Use the right format for the job.
+
+**The entry point** is [`docs/index.html`](docs/index.html) — open it in Chrome to see the curated index of every doc, dated reports, and design mockups. Always update the index when you add a new doc that should be discoverable.
+
+| Layer | Format | Filename pattern | What it's for |
+|---|---|---|---|
+| **Reference** | Markdown | `docs/SUBSYSTEM_NAME.md` (UPPER_SNAKE_CASE) | Evergreen source of truth — updated when behavior changes. Renders on GitHub. Source for "how does this work right now." |
+| **Snapshot** | HTML | `docs/topic-YYYY-MM-DD.html` (kebab-case + ISO date) | Point-in-time visual report — audits, run logs, decision docs, sprint plans. **Never edit an old one** — write a new one with a new date if state has changed. |
+| **Mockup** | HTML | `docs/topic-vN-variant.html` (versioned, no date) | Visual design exploration. May or may not be the chosen direction. Reference, not normative. |
+
+**Decision rules — when writing a new doc, ask:**
+- "Will this still be true in 6 months?" Yes → Markdown. No → dated HTML.
+- "Should this get diffed in PRs?" Yes → Markdown. No → HTML.
+- "Will I want to skim this in Chrome?" Yes → HTML. No → Markdown.
+
+**HTML reports are most useful when they're dense.** Use status pills, color-coded tables, ranked lists. Save the prose for Markdown. Match the existing visual style (see `docs/feature-parity-2026-04-25.html` and `docs/index.html` for the CSS pattern — coral/gold accent, dark surface, pill components).
+
+**When you create a new HTML report:**
+1. Save as `docs/<topic>-YYYY-MM-DD.html` using today's date.
+2. Add a card to `docs/index.html` in the appropriate section (Reports & audits, Cross-repo, or Design mockups).
+3. Reuse the CSS variables and pill classes from existing pages — keep visual consistency.
+4. Don't update old dated reports. Write a new one and link from the old.
+
+**For cross-repo / overnight runs:** the Markdown log at `docs/overnight-run-YYYY-MM-DD.md` is the authoritative hand-off (per the cross-repo convention above). The Markdown is the source of truth; an accompanying HTML report is optional but helpful for visual summaries.
+
+---
+
 ## Product Overview
 
 Intentional is a macOS focus enforcement app that works with a companion Chrome extension. The Puck physical device provides a simple on/off toggle for blocking mode. Setting an intention upgrades blocking from dumb (block all distracting sites) to smart (AI scores relevance). See [docs/PUCK_SPEC.md](docs/PUCK_SPEC.md) for full product vision, blocking modes, and Puck branch changes.
