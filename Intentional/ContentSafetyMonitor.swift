@@ -202,6 +202,12 @@ class ContentSafetyMonitor {
             isEnabled = false
             stop()
         }
+        // Update the signed last-known-intended-state so the next startup's
+        // divergence check sees this legitimate toggle as the new baseline.
+        // Always run, even when no transition happened, in case the on-disk
+        // signed file is stale.
+        let deviceId = UserDefaults.standard.string(forKey: "deviceId") ?? ""
+        ContentSafetyStateGuard.write(enabled: enabled, deviceId: deviceId)
     }
 
     /// Trigger a test detection — captures screen, blurs it, shows overlay.

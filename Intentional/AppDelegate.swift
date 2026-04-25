@@ -711,13 +711,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Content Safety Monitor — on-device screen monitoring for explicit content
         contentSafetyMonitor = ContentSafetyMonitor(appDelegate: self)
-        // Load enabled state from persisted settings
-        let csSettingsURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("Intentional/onboarding_settings.json")
-        if let csData = try? Data(contentsOf: csSettingsURL),
-           let csJSON = try? JSONSerialization.jsonObject(with: csData) as? [String: Any],
-           let csSettings = csJSON["contentSafety"] as? [String: Any],
-           let csEnabled = csSettings["enabled"] as? Bool, csEnabled {
+
+        // Tamper-detection: compare onboarding_settings.json against the signed
+        // cs-state.json before loading the enabled flag. Detects users who edit
+        // the JSON between sessions to disable Content Safety silently. See
+        // docs/CONTENT_SAFETY_MONITOR.md → "Startup divergence check".
+        let csDeviceId = UserDefaults.standard.string(forKey: "deviceId") ?? ""
+        let csCheck = ContentSafetyStateGuard.performStartupDivergenceCheck(deviceId: csDeviceId)
+        postLog(csCheck.logMessage)
+        if let reason = csCheck.tamperReason {
+            Task { [weak self] in
+                await self?.backendClient?.reportContentSafetyTamper(
+                    eventType: reason,
+                    detail: csCheck.didForceEnable ? "force_enabled" : "logged_only"
+                )
+            }
+        }
+        // Apply the corrected effective state. After performStartupDivergenceCheck
+        // any necessary force-enable has already been written back to onboarding_settings.json.
+        if csCheck.effectiveEnabled {
             contentSafetyMonitor?.onSettingsChanged(enabled: true)
         }
         postLog("🛡️ ContentSafetyMonitor initialized")
@@ -835,6 +847,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Disconnect WebSocket
         focusWebSocketClient?.disconnect()
+
+        // Persist a signed snapshot of the current Content Safety enabled state.
+        // Read fresh from the on-disk settings so we always re-baseline against
+        // what the rest of the app considers truth at shutdown time.
+        let csShutdownDeviceId = UserDefaults.standard.string(forKey: "deviceId") ?? ""
+        let csShutdownEnabled = ContentSafetyStateGuard.readOnboardingEnabled() ?? (contentSafetyMonitor?.isEnabled ?? false)
+        ContentSafetyStateGuard.write(enabled: csShutdownEnabled, deviceId: csShutdownDeviceId)
+        postLog("🛡️ CS state guard: snapshot written on shutdown (enabled=\(csShutdownEnabled))")
 
         // Stop content safety monitor
         contentSafetyMonitor?.stop()
