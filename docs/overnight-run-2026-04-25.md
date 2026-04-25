@@ -292,3 +292,40 @@ The five iOS tabs as they render after all the porting work, on iPhone 16e (iOS 
 
 I'm done for the night. There's no half-finished work waiting in the air.
 
+---
+
+## Addendum — Partner Backend Wiring (later in the same overnight session)
+
+**Operator:** Claude Opus 4.7 (second autonomous task)
+**Task:** wire iOS Partner tab to real backend (was a stub).
+**Branch:** `puck-ios:feat/partner-backend-wiring` (one commit on top of `feat/ios-lock-state-awareness`)
+**Build:** `xcodebuild -scheme Puck -destination 'iPhone 16e'` → `** BUILD SUCCEEDED **` (verified after final commit).
+
+### What was done
+
+- `PartnerView` now calls `IntentionalAPIClient.setPartner / removePartner / getPartnerStatus` instead of writing to `@AppStorage` and lying to itself. Refresh on `.task` so `pending → confirmed` shows up when the user comes back to the tab.
+- All `@AppStorage` keys (`partnerName`, `partnerEmail`, `partnerConnected`, `partnerConnectedDate`) preserved as a local cache for other views (e.g. `SettingsView`'s lock banner). Added `partnerConsentStatus` so the UI can distinguish pending vs confirmed.
+- Buttons disable + show "Sending…" / "Removing…" while in-flight; errors surface as alerts. Pending invites get a one-shot confirmation alert explaining the email step.
+- Sole commit: `4d2f90d feat(partner): wire PartnerView to backend (replaces stub)` (puck-ios).
+
+### What I did NOT have to do (good news)
+
+The `IntentionalAPIClient` partner methods + `IntentionalLegacyDeviceID` actor were already shipped in the parallel `feat/ios-lock-state-awareness` branch (commits `e25198c`, `83d36a9`). `feat/partner-backend-wiring` is rebased on top of that branch, so all the API plumbing is one rebase away. No new files added, no `project.pbxproj` edits required.
+
+### Coordination note for the morning
+
+`feat/partner-backend-wiring` is **based on `feat/ios-lock-state-awareness`**, not `feat/design-system-port` as the original mandate said. Reason: the parallel agent that wrote the lock-state branch had ALREADY shipped the API plumbing (`AuthMode`, `IntentionalLegacyDeviceID`, `setPartner/removePartner/getPartnerStatus`, `PartnerStatus` struct) as part of their refactor. Re-implementing that on `design-system-port` would have produced two slightly-different copies of the same code — exactly the unification gap the user is trying to close.
+
+When merging: `feat/ios-lock-state-awareness` first (it carries the API foundation + Settings lock banner), then `feat/partner-backend-wiring` (which is just the PartnerView wiring on top). They're stacked and rebase cleanly.
+
+### Backend behaviour worth knowing
+
+- `/partner` is auth'd by `X-Device-ID` (legacy 64-char hex from `users` table), NOT by Supabase Bearer token. The two domains are linked server-side via `users.account_id`, but the endpoints don't accept each other's auth headers.
+- The pre-existing `IntentionalAPIClient` on `feat/design-system-port` had a `requireDeviceId` flag that resolved to `IntentionalDeviceRegistration.shared.storedDeviceId` — but that's the **UUID from `registered_devices`**, which `validate_device_id()` rejects (it requires 64-char hex). The lock-state branch fixed this with `IntentionalLegacyDeviceID` + lazy `POST /register`. Without that fix, `getUnlockStatus` would always 400 and `LockStateService` would always fail-open. This was a latent bug, not just a new feature.
+- Backend response field is `consent_status` not `status`. iOS now reads it correctly.
+
+### Nothing pushed
+
+`feat/partner-backend-wiring` exists locally only. Push when ready.
+
+
