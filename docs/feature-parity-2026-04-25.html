@@ -95,6 +95,18 @@
   <div class="eyebrow">Cross-app audit · 2026-04-25</div>
   <h1>Intentional <span class="accent">+ Puck</span><br>Feature parity &amp; unification plan</h1>
   <p class="lede">A side-by-side map of what each app does today, where they overlap, and what needs to be unified before they feel like one product.</p>
+
+  <div style="margin-top: 24px; padding: 18px 22px; background: rgba(111,181,142,0.08); border: 1px solid rgba(111,181,142,0.28); border-radius: 12px;">
+    <div style="font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--green); margin-bottom: 8px;">Live update · 2026-04-25</div>
+    <div style="font-size: 14.5px; color: var(--text); line-height: 1.55;">
+      <strong>Both P1 unifications shipped tonight</strong> on <code style="color: var(--green);">puck-ios:feat/partner-backend-wiring</code> (4 commits, build green):
+      <ul style="margin: 8px 0 0; padding-left: 22px; color: var(--muted); font-size: 14px;">
+        <li><strong style="color: var(--text);">Partner backend wiring</strong> — <code>PUT /partner</code> + <code>DELETE /partner</code> + <code>GET /partner/status</code> live. Send invite from iPhone → reaches partner inbox → Mac sees it. <span style="color: var(--dim);">(commit 4d2f90d)</span></li>
+        <li><strong style="color: var(--text);">Lock-state awareness</strong> — new <code>LockStateService</code> reads <code>GET /unlock/status</code> on launch + Settings appearance. Partner-locked iPhone now hides Sign Out / Delete Account / Emergency Unlocks behind a "Get a code from your accountability partner" indicator. <span style="color: var(--dim);">(commits e25198c · 83d36a9 · 10e7a3b)</span></li>
+      </ul>
+      <p style="margin: 10px 0 0; color: var(--muted); font-size: 13px;">The sections below are the original audit as written this morning — pills now reflect post-shipment state. P2/P3 items are still open.</p>
+    </div>
+  </div>
 </header>
 
 <h2>TL;DR</h2>
@@ -174,13 +186,13 @@
 <table>
   <thead><tr><th class="col-feat">Feature</th><th class="col-status">iOS</th><th class="col-status">macOS</th><th class="col-note">Status</th></tr></thead>
   <tbody>
-    <tr><td class="feat">Set partner email</td><td><span class="pill partial">UI ONLY</span></td><td><span class="pill full">FULL</span></td><td class="note"><strong>Critical gap.</strong> iOS PartnerView has the form + storage but <code>sendInvite()</code> just logs and writes <code>@AppStorage</code>. No backend call. Mac calls <code>PUT /partner</code> properly.</td></tr>
-    <tr><td class="feat">Partner consent flow</td><td><span class="pill none">NONE</span></td><td><span class="pill full">FULL</span></td><td class="note">Mac sends consent email, partner clicks confirm link, becomes active. iOS doesn't trigger this at all.</td></tr>
-    <tr><td class="feat">Lock mode (none/partner/self)</td><td><span class="pill none">NONE</span></td><td><span class="pill full">FULL</span></td><td class="note">Mac has full UI + backend. iOS doesn't read <code>lock_mode</code>. If you flip Mac to partner-locked, iOS doesn't know.</td></tr>
+    <tr><td class="feat">Set partner email</td><td><span class="pill full">FULL ✓</span></td><td><span class="pill full">FULL</span></td><td class="note">Shipped 2026-04-25 (commit 4d2f90d). iOS PartnerView now calls <code>PUT /partner</code> and refreshes status on tab appear.</td></tr>
+    <tr><td class="feat">Partner consent flow</td><td><span class="pill full">FULL ✓</span></td><td><span class="pill full">FULL</span></td><td class="note">Shipped — backend's existing email-confirmation flow now triggered from iOS too. UI shows "pending → confirmed" via <code>partnerConsentStatus</code>.</td></tr>
+    <tr><td class="feat">Lock mode (none/partner/self)</td><td><span class="pill partial">READ-ONLY ✓</span></td><td><span class="pill full">FULL</span></td><td class="note">Shipped 2026-04-25 (commits e25198c · 83d36a9 · 10e7a3b). iOS reads <code>GET /unlock/status</code> via new <code>LockStateService</code> and gates account actions when partner-locked. Setting lock state from iOS is still Mac-only — that's a P3 follow-up if you want it (most users only set lock once).</td></tr>
     <tr><td class="feat">Unlock-code request flow</td><td><span class="pill none">NONE</span></td><td><span class="pill full">FULL</span></td><td class="note">Mac requests a 6-digit code via partner email. iOS has no concept.</td></tr>
     <tr><td class="feat">Extra-time + AI-override codes</td><td><span class="pill none">NONE</span></td><td><span class="pill full">FULL</span></td><td class="note">Mac-only.</td></tr>
     <tr><td class="feat">Partner notifications (tamper, detection, unlock)</td><td><span class="pill none">NONE</span></td><td><span class="pill full">FULL</span></td><td class="note">Mac sends. iOS doesn't trigger any of these (because most don't apply to iOS yet — no CS, no lock).</td></tr>
-    <tr><td class="feat">Partner-tab "you're paired with X" state</td><td><span class="pill partial">PARTIAL</span></td><td><span class="pill full">FULL</span></td><td class="note">iOS shows a "connected" state from <code>@AppStorage</code> alone. The status doesn't actually verify against backend — if you remove your partner from the Mac, iOS still says "connected".</td></tr>
+    <tr><td class="feat">Partner-tab "you're paired with X" state</td><td><span class="pill full">FULL ✓</span></td><td><span class="pill full">FULL</span></td><td class="note">Shipped 2026-04-25. Tab now refreshes from <code>GET /partner/status</code> on appear; pending vs confirmed states distinguished. <code>@AppStorage</code> kept as a local cache so SettingsView's lock banner can read partner email synchronously.</td></tr>
   </tbody>
 </table>
 
@@ -264,11 +276,12 @@
   <tbody>
     <tr><td><code>POST /register</code></td><td>✅</td><td>✅</td><td class="note">Both register on first launch.</td></tr>
     <tr><td><code>POST /system-event</code> (heartbeat)</td><td>✅</td><td>❌</td><td class="note">iOS could send heartbeats too (background app refresh). Would let the dashboard show "iPhone seen 2 min ago".</td></tr>
-    <tr><td><code>PUT /partner</code></td><td>✅</td><td>❌ <span class="pill none">stubbed</span></td><td class="note"><strong>The biggest unify-win.</strong></td></tr>
-    <tr><td><code>GET /partner/status</code></td><td>✅</td><td>❌</td><td class="note">Would let iOS Partner tab show real status.</td></tr>
-    <tr><td><code>PUT /lock</code></td><td>✅</td><td>❌</td><td class="note">iOS doesn't write lock state.</td></tr>
-    <tr><td><code>GET /unlock/status</code></td><td>✅</td><td>❌</td><td class="note">iOS doesn't read it. Means iOS can't show "your settings are locked by your partner" UI.</td></tr>
-    <tr><td><code>GET /device/enforcement</code></td><td>✅</td><td>❌</td><td class="note">Mac uses this for the Reconciler force-correct loop. iOS could use it to honor partner-locked toggles.</td></tr>
+    <tr><td><code>PUT /partner</code></td><td>✅</td><td>✅ <span class="pill full">shipped 04-25</span></td><td class="note">iOS now calls this on Send Invite (commit 4d2f90d).</td></tr>
+    <tr><td><code>DELETE /partner</code></td><td>✅</td><td>✅ <span class="pill full">shipped 04-25</span></td><td class="note">iOS now calls this on Remove Partner (commit 4d2f90d). Server response is the source of truth; iOS no longer flips local state optimistically.</td></tr>
+    <tr><td><code>GET /partner/status</code></td><td>✅</td><td>✅ <span class="pill full">shipped 04-25</span></td><td class="note">iOS Partner tab refreshes from this on <code>.task</code>.</td></tr>
+    <tr><td><code>PUT /lock</code></td><td>✅</td><td>❌</td><td class="note">iOS still can't <em>write</em> lock state. Most users set it once on Mac so this is low priority.</td></tr>
+    <tr><td><code>GET /unlock/status</code></td><td>✅</td><td>✅ <span class="pill full">shipped 04-25</span></td><td class="note">iOS reads via new <code>LockStateService</code> on launch + Settings appearance. Auth is X-Device-ID legacy (not Bearer) — handled by <code>AuthMode.deviceId</code> in <code>IntentionalAPIClient</code>.</td></tr>
+    <tr><td><code>GET /device/enforcement</code></td><td>✅</td><td>❌</td><td class="note">Mac uses this for the Reconciler force-correct loop. iOS uses <code>/unlock/status</code> instead — leaner shape for iOS's read-only purposes.</td></tr>
     <tr><td><code>POST /sessions</code></td><td>✅</td><td>~partial</td><td class="note">iOS uses <code>IntentionalFocusSignalClient</code> on session start/end (different shape).</td></tr>
     <tr><td><code>GET/POST /settings/sync</code></td><td>✅</td><td>❌</td><td class="note">Settings divergence #1 cause.</td></tr>
     <tr><td><code>POST /content-safety/report</code></td><td>✅</td><td>❌</td><td class="note">Mac-only feature, expected.</td></tr>
@@ -282,13 +295,13 @@
 <h2>Unification priorities — ranked</h2>
 
 <ol class="steps">
-  <li>
-    <span class="pill priority1">P1</span> &nbsp; <b>Wire iOS Partner tab to <code>/partner</code> + <code>/partner/status</code></b>
-    <span class="why">The biggest visible bug. Today iOS users tap "Send invite" and nothing happens. After this, partner state lives in one place (backend), and changes on either app reflect on both.</span>
+  <li style="background: rgba(111,181,142,0.08); border-color: rgba(111,181,142,0.28);">
+    <span class="pill full">SHIPPED 04-25</span> &nbsp; <b>Wire iOS Partner tab to <code>/partner</code> + <code>/partner/status</code></b>
+    <span class="why">Done. Branch <code>feat/partner-backend-wiring</code>, commit 4d2f90d. Send invite now reaches partner; <code>partnerConsentStatus</code> distinguishes pending vs confirmed; remove-partner uses server response as source of truth.</span>
   </li>
-  <li>
-    <span class="pill priority1">P1</span> &nbsp; <b>iOS reads <code>lock_mode</code> + <code>/device/enforcement</code> on launch</b>
-    <span class="why">Without this, partner-locked Mac users can still freely change settings on iPhone — that's a real lockdown hole. Read on launch + every backgrounding refresh, gate emergency-unbrick + delete-account on the lock state.</span>
+  <li style="background: rgba(111,181,142,0.08); border-color: rgba(111,181,142,0.28);">
+    <span class="pill full">SHIPPED 04-25</span> &nbsp; <b>iOS reads <code>lock_mode</code> on launch (uses <code>/unlock/status</code>)</b>
+    <span class="why">Done. New <code>LockStateService</code> + Settings tab gating. Commits e25198c · 83d36a9 · 10e7a3b. Used <code>/unlock/status</code> instead of <code>/device/enforcement</code> — leaner for read-only iOS use case. Auth is X-Device-ID via new <code>AuthMode.deviceId</code> abstraction (the bearer/deviceId split lives in <code>IntentionalAPIClient</code> and is shared between both branches).</span>
   </li>
   <li>
     <span class="pill priority2">P2</span> &nbsp; <b>iOS sends heartbeats to <code>/system-event</code></b>
