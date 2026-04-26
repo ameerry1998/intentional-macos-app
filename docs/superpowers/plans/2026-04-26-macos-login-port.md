@@ -290,10 +290,8 @@ In `<style>`, add (before the state-container styles so it sits behind):
   overflow: hidden;
   pointer-events: none;
 }
-.bg-field::after {
-  content: ''; position: absolute; inset: 0;
-  background: radial-gradient(ellipse 70% 60% at 50% 50%, rgba(255, 122, 46, 0.10) 0%, transparent 60%);
-}
+/* No warm radial overlay — looked like an orange blob in the middle of the screen.
+   The stars + dark vignette do all the atmosphere we need. */
 .bg-field .stars { position: absolute; inset: 0; }
 .bg-field .stars i {
   position: absolute; border-radius: 50%;
