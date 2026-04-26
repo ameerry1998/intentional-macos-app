@@ -301,12 +301,37 @@
     .spinner { animation: none; }
   }
 
+  /* ── Field of Light starfield background ── */
+  .bg-field {
+    position: fixed; inset: 0; z-index: 0;
+    background: radial-gradient(ellipse at center, #0c0a08 0%, #050505 100%);
+    overflow: hidden;
+    pointer-events: none;
+  }
+  /* No warm radial overlay — looked like an orange blob in the middle of the screen.
+     The stars + dark vignette do all the atmosphere we need. */
+  .bg-field .stars { position: absolute; inset: 0; }
+  .bg-field .stars i {
+    position: absolute; border-radius: 50%;
+    animation: starTwinkle 4s ease-in-out infinite;
+  }
+  .bg-field .layer-near { animation: parallaxNear 32s ease-in-out infinite; }
+  .bg-field .layer-far  { animation: parallaxFar  56s ease-in-out infinite; }
+  @keyframes parallaxNear { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-12px,-6px); } }
+  @keyframes parallaxFar  { 0%,100% { transform: translate(0,0); } 50% { transform: translate(6px,3px); } }
+  @keyframes starTwinkle { 0%,100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 1; transform: scale(1.3); } }
+  @media (prefers-reduced-motion: reduce) {
+    .bg-field .stars i, .bg-field .layer-near, .bg-field .layer-far { animation: none !important; }
+  }
+
   /* State containers — hidden by default, JS toggles display:flex */
   [id^="state-"] {
     display: none;
     flex-direction: column;
     align-items: center;
     width: 100%;
+    position: relative;
+    z-index: 1;
   }
 </style>
 </head>
@@ -321,6 +346,11 @@
 </svg>
 
 <div class="surf">
+
+  <div class="bg-field" aria-hidden="true">
+    <div class="stars layer-far"></div>
+    <div class="stars layer-near"></div>
+  </div>
 
   <div class="auth-mac">
 
@@ -445,6 +475,44 @@
 </div>
 
 <script>
+(function spawnStarfield() {
+  const TINTS = [
+    { p: 0.60, rgba: '255,200,150' },
+    { p: 0.85, rgba: '255,160,100' },
+    { p: 1.00, rgba: '255,230,200' }
+  ];
+  const pickTint = () => {
+    const r = Math.random();
+    for (const t of TINTS) if (r <= t.p) return t.rgba;
+    return TINTS[0].rgba;
+  };
+  function fillLayer(el, count) {
+    let html = '';
+    for (let i = 0; i < count; i++) {
+      const x = (Math.random() * 100).toFixed(2);
+      const y = (Math.random() * 100).toFixed(2);
+      const size = (Math.random() * 1.2 + 0.6).toFixed(2);
+      const opacity = (Math.random() * 0.5 + 0.3).toFixed(2);
+      const delay = (Math.random() * 4).toFixed(2);
+      const dur = (Math.random() * 3 + 3).toFixed(2);
+      const tint = pickTint();
+      html += '<i style="left:' + x + '%;top:' + y + '%;width:' + size + 'px;height:' + size + 'px;background:rgba(' + tint + ',' + opacity + ');box-shadow:0 0 ' + (size*3).toFixed(1) + 'px rgba(' + tint + ',' + (opacity*0.7).toFixed(2) + ');animation-delay:' + delay + 's;animation-duration:' + dur + 's;"></i>';
+    }
+    el.innerHTML = html;
+  }
+  document.querySelectorAll('.bg-field').forEach(function(bg) {
+    const w = window.innerWidth || bg.clientWidth || 1280;
+    const h = window.innerHeight || bg.clientHeight || 800;
+    const total = Math.round((w * h) / 6500);
+    const nearCount = Math.round(total * 0.6);
+    const farCount  = total - nearCount;
+    const near = bg.querySelector('.layer-near');
+    const far  = bg.querySelector('.layer-far');
+    if (near) fillLayer(near, nearCount);
+    if (far)  fillLayer(far, farCount);
+  });
+})();
+
 (function () {
   'use strict';
 
