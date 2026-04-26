@@ -25,12 +25,14 @@ local + (in some cases) pushed to GitHub.
 
 ### iPhone — `feat/active-session-indicator` (`puck-ios`)
 
-Two commits, both build clean against iPhone 17 simulator (Xcode 26 / iOS 26):
+Four commits, all build clean against iPhone 17 simulator (Xcode 26 / iOS 26):
 
 | Commit | Subject | What changed |
 |---|---|---|
-| `8325ba1` | feat(home): show "No active session" card on idle home | New compact session-status card at the top of `idleContent` in `HomeView.swift`. Shows a grey dot + "No active session" + a contextual subtitle. Active state is unchanged (still uses `activeBlockingContent` with the larger banner). +40 lines, single file. |
-| `bb933d9` | feat(schedule): replace coming-soon placeholder with real today-blocks list | `RoutineView.swift` (the Schedule tab) replaced the "coming soon" card with a real today-blocks list. Queries `ScheduleBlock` from SwiftData, renders rows with start/end time, mode-color accent stripe, mode icon + name, duration. Empty state names the cross-device-editing limitation explicitly. +133 lines / -9 lines, single file. |
+| `8325ba1` | feat(home): show "No active session" card on idle home | New compact session-status card at the top of `idleContent` in `HomeView.swift`. Shows a grey dot + "No active session" + a contextual subtitle ("Tap your puck or pick a mode below to begin"). Active state is unchanged. +40 lines. |
+| `bb933d9` | feat(schedule): replace coming-soon placeholder with real today-blocks list | `RoutineView.swift` (the Schedule tab) replaced the "coming soon" card with a real today-blocks list. Queries `ScheduleBlock` from SwiftData, renders rows with start/end time, mode-color accent stripe, mode icon + name, duration. Empty state names the cross-device-editing limitation. +133 lines / -9 lines. |
+| `aad2903` | feat(home): make blockedAppsCard show real counts during active session | The "Apps blocked during this session" card was a flat placeholder. Now shows actual counts (apps, categories, websites) as small chips, plus the first 3 website URLs inline. Falls back to a "nothing configured" message if the active mode has no blocks set. +71 lines / -6 lines. |
+| `2ff0a74` | feat(home): show mode identity in activeBanner when no puck is involved | Sessions started without an NFC tap (mode tile tap, remote-start) used to show only a timer with no identifying info. Now falls through: activePuck → activeMode → BlockingState.modeName, so the banner is never an unlabelled timer. +18 lines. |
 
 Files touched:
 - `Puck/Views/Home/HomeView.swift`
