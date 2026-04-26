@@ -537,10 +537,14 @@ function postBridge(type, payload) {
 
   let currentState = State.AT_REST;
   let pendingEmail = '';
-  let otpCode = '';
   let otpFailCount = 0;
   let resendTimerEnd = 0;
   let resendTimerHandle = null;
+  let otpBounceHandle = null;
+  // True while a "Resend code" tap is awaiting the AUTH_LOGIN reply.
+  // Lets _authLoginResult surface failures even though currentState is OTP_VERIFY
+  // (and the normal stale-reply guard would otherwise swallow them).
+  let isResending = false;
 
   function setState(next) {
     // Defensive: silently fail-closed if called with an unknown state name.
@@ -562,6 +566,16 @@ function postBridge(type, payload) {
     const footer = document.getElementById('footer-block');
     if (footer) {
       footer.style.display = (next === State.AT_REST || next === State.SIGNED_OUT) ? 'block' : 'none';
+    }
+    // Cancel timers tied to the state we're leaving so they don't fire after
+    // the user has navigated away.
+    if (next !== State.OTP_VERIFY && resendTimerHandle) {
+      clearTimeout(resendTimerHandle);
+      resendTimerHandle = null;
+    }
+    if (next !== State.OTP_ERROR && otpBounceHandle) {
+      clearTimeout(otpBounceHandle);
+      otpBounceHandle = null;
     }
     currentState = next;
 
@@ -658,6 +672,29 @@ function postBridge(type, payload) {
 
   // ---------- AUTH_LOGIN reply ----------
   window._authLoginResult = function(result) {
+    // Resend path — user tapped "Resend code" while still on OTP_VERIFY.
+    // Surface success/failure inline without changing the state container.
+    if (isResending) {
+      isResending = false;
+      const line = document.getElementById('resend-line');
+      if (result && result.success) {
+        // Timer was already restarted optimistically when the user tapped.
+        // Nothing more to do; the next tick will render the countdown.
+      } else if (line) {
+        const msg = (result && result.message) || 'Couldn’t resend. Try again in a moment.';
+        line.innerHTML = '<span style="color: var(--error);">' + msg + '</span>';
+        // Stop the optimistic timer; let the user retry from a clean state.
+        if (resendTimerHandle) { clearTimeout(resendTimerHandle); resendTimerHandle = null; }
+        // After 4s, restore the resend link so they can try again.
+        setTimeout(() => {
+          if (currentState === State.OTP_VERIFY) {
+            line.innerHTML = 'Didn’t get it? <a href="#" id="resend-link">Resend code</a>';
+            wireResendLink();
+          }
+        }, 4000);
+      }
+      return;
+    }
     if (currentState !== State.LOADING) {
       // Stale reply — ignore. (User may have navigated back.)
       return;
@@ -685,21 +722,18 @@ function postBridge(type, payload) {
   }
 
   function tickResendTimer() {
+    // Bail if user navigated away — setState already cleared our handle, but
+    // the in-flight call can still arrive once. Check state before mutating DOM.
+    if (currentState !== State.OTP_VERIFY) {
+      resendTimerHandle = null;
+      return;
+    }
     const line = document.getElementById('resend-line');
     if (!line) return;
     const ms = resendTimerEnd - Date.now();
     if (ms <= 0) {
       line.innerHTML = 'Didn’t get it? <a href="#" id="resend-link">Resend code</a>';
-      const link = document.getElementById('resend-link');
-      if (link) {
-        link.addEventListener('click', (e) => {
-          e.preventDefault();
-          if (!pendingEmail) return;
-          line.textContent = 'Sending…';
-          postBridge('AUTH_LOGIN', { email: pendingEmail });
-          startResendTimer();
-        });
-      }
+      wireResendLink();
       return;
     }
     const seconds = Math.ceil(ms / 1000);
@@ -707,6 +741,20 @@ function postBridge(type, payload) {
     const ss = seconds % 60;
     line.innerHTML = 'Didn’t get it? Resend in <b>' + mm + ':' + (ss < 10 ? '0' + ss : ss) + '</b>';
     resendTimerHandle = setTimeout(tickResendTimer, 250);
+  }
+
+  function wireResendLink() {
+    const link = document.getElementById('resend-link');
+    if (!link) return;
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (!pendingEmail) return;
+      isResending = true;
+      const line = document.getElementById('resend-line');
+      if (line) line.textContent = 'Sending…';
+      postBridge('AUTH_LOGIN', { email: pendingEmail });
+      startResendTimer();
+    });
   }
 
   // ---------- Email error mirror buttons (state container 03) ----------
@@ -727,7 +775,6 @@ function postBridge(type, payload) {
   });
 
   function onOtpComplete(code) {
-    otpCode = code;
     setState(State.LOADING);
     postBridge('AUTH_VERIFY', { email: pendingEmail, code: code });
   }
@@ -755,9 +802,12 @@ function postBridge(type, payload) {
       // Clear OTP cells in state-otp-verify and refocus first.
       const cells = document.querySelectorAll('#state-otp-verify .otp-cell');
       cells.forEach(c => { c.value = ''; c.classList.remove('is-filled'); });
-      // After ~1200ms (lets the user see the error briefly), bounce back to verify
-      // so they can retype.
-      setTimeout(() => {
+      // After ~1200ms, bounce back to verify so user can retype. Capture the
+      // handle so setState() can cancel if the user navigates away (e.g. taps
+      // "Use different email") before the bounce fires.
+      otpBounceHandle = setTimeout(() => {
+        otpBounceHandle = null;
+        if (currentState !== State.OTP_ERROR) return;
         setState(State.OTP_VERIFY);
         const first = document.querySelector('#state-otp-verify .otp-cell');
         if (first) first.focus();
