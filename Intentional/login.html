@@ -371,7 +371,7 @@
     <div id="state-otp-verify">
       <div class="wm">puck</div>
       <div class="tagline">Check your <em>email.</em></div>
-      <div class="helper otp-helper">We sent a 6-digit code to <b id="otp-verify-email">you@email.com</b></div>
+      <div class="helper otp-helper">We sent a 6-digit code to <b id="otp-verify-email" class="otp-email-display">you@email.com</b></div>
       <div class="stack">
         <div id="otp-row" class="otp">
           <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
@@ -381,8 +381,8 @@
           <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" />
           <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" />
         </div>
-        <div id="resend-line" class="resend">Didn't get it? Resend in <b>0:42</b></div>
-        <button id="btn-back-from-otp" class="btn btn-ghost" type="button">← Use different email</button>
+        <div id="resend-line" class="resend">Didn't get it? Resend in <b>1:00</b></div>
+        <button id="btn-back-from-otp" class="btn btn-ghost" type="button" data-action="back-from-otp">← Use different email</button>
       </div>
     </div>
 
@@ -390,7 +390,7 @@
     <div id="state-otp-error">
       <div class="wm">puck</div>
       <div class="tagline">Check your <em>email.</em></div>
-      <div class="helper otp-helper">We sent a 6-digit code to <b data-mirror-otp-email>you@email.com</b></div>
+      <div class="helper otp-helper">We sent a 6-digit code to <b class="otp-email-display">you@email.com</b></div>
       <div class="stack">
         <div class="otp" data-otp-error-row>
           <input class="otp-cell is-error" type="text" maxlength="1" inputmode="numeric" />
@@ -431,7 +431,7 @@
   </div>
 
   <!-- Footer (visible across states; only useful for at-rest / signed-out per spec) -->
-  <div class="footer-block">
+  <div id="footer-block" class="footer-block">
     <div class="submgmt">Subscriptions managed on getpuck.com</div>
     <div class="legal">
       <span>Privacy Policy</span>
@@ -469,6 +469,11 @@
     });
     const target = document.getElementById('state-' + next);
     if (target) target.style.display = 'flex';
+    // Footer is only shown on at-rest and signed-out per the spec.
+    const footer = document.getElementById('footer-block');
+    if (footer) {
+      footer.style.display = (next === State.AT_REST || next === State.SIGNED_OUT) ? 'block' : 'none';
+    }
     currentState = next;
 
     // Sync pendingEmail into mirror inputs / labels when entering relevant states
@@ -485,7 +490,7 @@
       if (cells[0]) setTimeout(() => cells[0].focus(), 0);
     }
     if (next === State.OTP_ERROR) {
-      const m = document.querySelector('#state-otp-error [data-mirror-otp-email]');
+      const m = document.querySelector('#state-otp-error .otp-email-display');
       if (m) m.textContent = pendingEmail || 'you@email.com';
       const row = document.querySelector('#state-otp-error [data-otp-error-row]');
       if (row) {
@@ -564,10 +569,14 @@
   });
 
   // ---------- OTP verify ----------
-  const btnBackFromOtp = document.getElementById('btn-back-from-otp');
-  if (btnBackFromOtp) {
-    btnBackFromOtp.addEventListener('click', () => setState(State.EMAIL_ENTRY));
-  }
+  // Delegated handler covers both state-04 (#btn-back-from-otp) and state-05
+  // back buttons via data-action="back-from-otp".
+  document.addEventListener('click', (e) => {
+    const action = e.target.closest('[data-action]') && e.target.closest('[data-action]').dataset.action;
+    if (action === 'back-from-otp') {
+      setState(State.EMAIL_ENTRY);
+    }
+  });
 
   function wireOtpRow(rowSelector) {
     const cells = document.querySelectorAll(rowSelector + ' .otp-cell');
@@ -644,11 +653,6 @@
   }
 
   wireOtpRow('#otp-row');
-
-  // ---------- OTP error mirror buttons ----------
-  document.querySelectorAll('#state-otp-error [data-action="back-from-otp"]').forEach(el => {
-    el.addEventListener('click', () => setState(State.EMAIL_ENTRY));
-  });
 
   // ---------- Signed out mirror buttons ----------
   document.querySelectorAll('#state-signed-out [data-action="signed-out-email"]').forEach(el => {
