@@ -96,7 +96,7 @@ your latest start signal isn't there, the bug is at boundary ①.
 exists in Keychain). On `focus_signal` message, it fires `onFocusSignal`
 callback in `AppDelegate`.
 
-**The handler** (`AppDelegate.swift:573`) — as of fix `[FIXME insert SHA]`:
+**The handler** (`AppDelegate.swift:573`) — as of fix `1287d7f`:
 
 ```swift
 focusWebSocketClient?.onFocusSignal = { [weak self] action, sessionId, triggeredBy in
@@ -207,7 +207,7 @@ but enforcement doesn't engage.
 **Past root causes** (this very bug):
 - `onFocusSignal` handler called `showFocusStartOverlay()` (interactive picker)
   instead of `startFocusSession()` directly. User on iPhone never clicks Start
-  → enforcement never engages. **Fixed [insert commit SHA].**
+  → enforcement never engages. **Fixed in commit `1287d7f`.**
 - Default profile not set in `BlockingProfileManager` → `defaultProfileIds`
   is empty → no domains → `hasProfiles=false` → only `hasIntention` matters.
   If intention is `nil` (which the old code passed), guard fails, enforcement
