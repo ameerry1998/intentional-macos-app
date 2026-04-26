@@ -18,8 +18,13 @@ class PermissionManager: NSObject {
     struct PermissionStatus {
         var accessibility: Bool = false
         var notifications: Bool = false
+        var screenRecording: Bool = false
+        var sensitiveContentWarning: Bool = false
         var appleEvents: [String: Bool] = [:] // bundleID -> granted
     }
+
+    /// Track whether content safety permissions were previously fully granted (for revocation detection)
+    private var contentSafetyWasFullyGranted: Bool = false
 
     private(set) var status = PermissionStatus()
 
@@ -44,10 +49,11 @@ class PermissionManager: NSObject {
         // Check immediately
         checkAllPermissions()
 
-        // Prompt for Accessibility if not granted (needed for AppleScript + grayscale)
+        // Check accessibility silently — NEVER auto-prompt.
+        // The system dialog is disruptive and confusing on every launch.
+        // If missing, we log it and show status in the UI. User can grant manually.
         if !AXIsProcessTrusted() {
-            appDelegate?.postLog("⚠️ Accessibility permission not granted — prompting user")
-            requestAccessibilityPermission()
+            appDelegate?.postLog("⚠️ Accessibility permission not granted — features like grayscale and AppleScript require it")
         }
 
         // Check every 30 seconds
@@ -78,6 +84,7 @@ class PermissionManager: NSObject {
         checkAccessibilityPermission()
         checkNotificationPermissions()
         checkAppleEventsPermissions()
+        checkContentSafetyPermissions()
 
         // Post notification about permission status
         postPermissionStatusUpdate()
@@ -104,6 +111,52 @@ class PermissionManager: NSObject {
                 appDelegate?.postLog("⚠️ Accessibility permission missing — grayscale and AppleScript will not work")
             }
         }
+    }
+
+    // MARK: - Content Safety Permissions
+
+    /// Check Screen Recording + Sensitive Content Warning permissions.
+    /// Detects revocation and notifies partner if content safety was previously active.
+    private func checkContentSafetyPermissions() {
+        let hasScreenRecording = CGPreflightScreenCaptureAccess()
+        let hasSensitiveContent = appDelegate?.contentSafetyMonitor?.isAnalysisAvailable ?? false
+        let contentSafetyEnabled = appDelegate?.contentSafetyMonitor?.isEnabled ?? false
+
+        let prevScreen = status.screenRecording
+        let prevSensitive = status.sensitiveContentWarning
+
+        status.screenRecording = hasScreenRecording
+        status.sensitiveContentWarning = hasSensitiveContent
+
+        // Check if both permissions are now granted (for tracking revocation)
+        let fullyGranted = hasScreenRecording && hasSensitiveContent && contentSafetyEnabled
+        if fullyGranted && !contentSafetyWasFullyGranted {
+            contentSafetyWasFullyGranted = true
+            appDelegate?.postLog("🛡️ Content Safety: all permissions granted")
+        }
+
+        // Detect revocation: was fully granted, now something is missing
+        if contentSafetyWasFullyGranted && contentSafetyEnabled {
+            if prevScreen && !hasScreenRecording {
+                appDelegate?.postLog("🛡️ TAMPER: Screen Recording permission REVOKED")
+                Task {
+                    await appDelegate?.backendClient?.reportContentSafetyTamper(
+                        eventType: "permission_revoked", detail: "screen_recording"
+                    )
+                }
+            }
+            if prevSensitive && !hasSensitiveContent {
+                appDelegate?.postLog("🛡️ TAMPER: Sensitive Content Warning DISABLED")
+                Task {
+                    await appDelegate?.backendClient?.reportContentSafetyTamper(
+                        eventType: "permission_revoked", detail: "sensitive_content_warning"
+                    )
+                }
+            }
+        }
+
+        // Push updated status to dashboard
+        appDelegate?.contentSafetyMonitor?.pushPermissionStatus()
     }
 
     /// Prompt the user to grant Accessibility permission. Opens System Settings with the prompt.
@@ -150,40 +203,34 @@ class PermissionManager: NSObject {
     }
 
     private func checkAppleEventsPermission(for bundleId: String) -> Bool {
-        // Get the app path
+        // Use AEDeterminePermissionToAutomateTarget to check permission SILENTLY.
+        // This does NOT trigger any system dialog — it just returns the current state.
+        // The old approach (executing AppleScript) would trigger the "wants to control" dialog.
         guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
             return false
         }
 
-        // Try to execute a simple AppleScript that doesn't require the app to be running
-        let appPath = appURL.path
-        let testScript = """
-        tell application "\(appPath)"
-            if it is running then
-                return true
-            else
-                return false
-            end if
-        end tell
-        """
-
-        guard let appleScript = NSAppleScript(source: testScript) else {
-            return false
+        var addressDesc = AEAddressDesc()
+        let bundleIDData = bundleId.data(using: .utf8)!
+        let _ = bundleIDData.withUnsafeBytes { ptr in
+            AECreateDesc(
+                keyAddressAttr,
+                ptr.baseAddress!,
+                bundleIDData.count,
+                &addressDesc
+            )
         }
+        defer { AEDisposeDesc(&addressDesc) }
 
-        var error: NSDictionary?
-        appleScript.executeAndReturnError(&error)
+        let result = AEDeterminePermissionToAutomateTarget(
+            &addressDesc,
+            typeWildCard,
+            typeWildCard,
+            false  // false = don't prompt, just check
+        )
 
-        // If there's no error, we have permission
-        // If there's an error code -1743, it means permission denied
-        if let errorDict = error {
-            if let errorNumber = errorDict["NSAppleScriptErrorNumber"] as? Int {
-                return errorNumber != -1743 && errorNumber != -1728
-            }
-            return false
-        }
-
-        return true
+        // 0 = permitted, -1744 = not permitted, -600 = app not running (treat as unknown/ok)
+        return result == 0 || result == -600
     }
 
     // MARK: - Get Installed Browsers

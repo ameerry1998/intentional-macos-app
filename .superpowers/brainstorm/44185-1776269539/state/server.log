@@ -1,0 +1,6 @@
+{"type":"server-started","port":63507,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:63507","screen_dir":"/Users/arayan/Documents/GitHub/intentional-macos-app/.superpowers/brainstorm/44185-1776269539/content","state_dir":"/Users/arayan/Documents/GitHub/intentional-macos-app/.superpowers/brainstorm/44185-1776269539/state"}
+{"type":"screen-added","file":"/Users/arayan/Documents/GitHub/intentional-macos-app/.superpowers/brainstorm/44185-1776269539/content/coral-brand-preview.html"}
+{"type":"screen-added","file":"/Users/arayan/Documents/GitHub/intentional-macos-app/.superpowers/brainstorm/44185-1776269539/content/color-variations.html"}
+{"type":"screen-added","file":"/Users/arayan/Documents/GitHub/intentional-macos-app/.superpowers/brainstorm/44185-1776269539/content/background-variations.html"}
+{"type":"screen-added","file":"/Users/arayan/Documents/GitHub/intentional-macos-app/.superpowers/brainstorm/44185-1776269539/content/ember-forest-v2.html"}
+{"type":"server-stopped","reason":"idle timeout"}

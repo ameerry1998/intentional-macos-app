@@ -1,0 +1,1010 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>puck — Sign-in · Field of Light · Handoff</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:           #0a0c0a;
+    --grad-warm:    linear-gradient(160deg, #FF4D5E 0%, #FF7A2E 55%, #FFB347 100%);
+    --warm-1:       #FF4D5E;
+    --warm-2:       #FF7A2E;
+    --warm-3:       #FFB347;
+    --text-1:       #f7f8f8;
+    --text-2:       rgba(255,255,255,0.62);
+    --text-3:       rgba(255,255,255,0.36);
+    --text-4:       rgba(255,255,255,0.20);
+    --b-1:          rgba(255,255,255,0.06);
+    --b-2:          rgba(255,255,255,0.10);
+    --error:        #FF6B6B;
+    --font:         "Nunito", -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif;
+    --mono:         "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    background: #0a0a0a;
+    color: var(--text-1);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  .page-head { text-align: center; padding: 80px 24px 28px; max-width: 820px; margin: 0 auto; }
+  .page-head .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--text-3); }
+  .page-head h1 { font-size: 56px; font-weight: 800; letter-spacing: -1.6px; margin-top: 18px; line-height: 1.04; }
+  .page-head h1 em { font-style: normal; background: var(--grad-warm); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .page-head .desc { font-size: 15px; color: var(--text-2); margin-top: 18px; line-height: 1.6; max-width: 620px; margin-left: auto; margin-right: auto; }
+  .page-head .meta { display: inline-flex; gap: 24px; margin-top: 28px; padding: 14px 28px; border: 1px solid var(--b-1); border-radius: 999px; font-size: 12px; color: var(--text-3); font-family: var(--mono); }
+  .page-head .meta b { color: var(--text-1); font-weight: 500; }
+
+  /* Tokens reference card */
+  .tokens-ref {
+    max-width: 1100px; margin: 60px auto 0;
+    padding: 32px;
+    border: 1px solid var(--b-1);
+    border-radius: 14px;
+    background: rgba(255,255,255,0.015);
+  }
+  .tokens-ref h3 { font-size: 11px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--text-3); margin-bottom: 24px; }
+  .tokens-ref .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+  .tokens-ref .col h4 { font-size: 11px; font-weight: 700; color: var(--text-1); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+  .tokens-ref .row-tok { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 12px; font-family: var(--mono); color: var(--text-2); }
+  .tokens-ref .row-tok b { color: var(--text-1); font-weight: 500; }
+  .tokens-ref .sw { width: 16px; height: 16px; border-radius: 4px; flex: 0 0 16px; border: 0.5px solid var(--b-2); }
+
+  /* Section heading */
+  .section {
+    max-width: 1820px;
+    margin: 100px auto 0;
+    padding: 0 40px;
+  }
+  .section:last-of-type { padding-bottom: 140px; }
+  .s-head {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 40px;
+    padding-bottom: 28px; margin-bottom: 36px;
+    border-bottom: 1px solid var(--b-1);
+  }
+  .s-head .kind { font-size: 11px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--text-3); }
+  .s-head h2 { font-size: 48px; font-weight: 800; letter-spacing: -1.4px; margin-top: 6px; line-height: 1; }
+  .s-head h2 em { font-style: normal; background: var(--grad-warm); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .s-head .blurb { font-size: 15px; color: var(--text-2); margin-top: 16px; line-height: 1.6; max-width: 640px; }
+  .s-head .right { border-left: 1px solid var(--b-1); padding-left: 32px; font-family: var(--mono); font-size: 12px; }
+  .s-head .right .label { font-size: 10.5px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--text-3); font-family: var(--font); margin-top: 14px; }
+  .s-head .right .label:first-child { margin-top: 0; }
+  .s-head .right .stat { color: var(--text-2); margin-top: 6px; line-height: 1.5; }
+  .s-head .right .stat b { color: var(--text-1); font-weight: 500; }
+
+  /* Row */
+  .row {
+    display: grid;
+    grid-template-columns: 80px 1280px minmax(380px, 1fr);
+    gap: 32px;
+    align-items: start;
+    margin-bottom: 80px;
+  }
+  .row.row-ios { grid-template-columns: 80px 390px minmax(380px, 1fr); }
+  .row .index { padding-top: 8px; text-align: right; color: var(--text-3); }
+  .row .index .num { font-size: 32px; font-weight: 800; letter-spacing: -1px; color: var(--text-1); font-family: var(--font); line-height: 1; display: block; margin-bottom: 6px; }
+  .row .index .title { font-size: 13px; font-weight: 600; color: var(--text-2); line-height: 1.35; margin-top: 4px; }
+
+  /* Spec column */
+  .spec {
+    border-left: 1px solid var(--b-1);
+    padding-left: 24px;
+    font-size: 12px;
+    color: var(--text-2);
+    line-height: 1.6;
+    font-family: var(--mono);
+    min-width: 0;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+  .spec h4 { font-family: var(--font); font-size: 10.5px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--text-3); margin: 0 0 8px; }
+  .spec h4:not(:first-child) { margin-top: 18px; }
+  .spec dl { display: grid; grid-template-columns: 100px 1fr; column-gap: 12px; row-gap: 4px; }
+  .spec dt { color: var(--text-3); white-space: nowrap; }
+  .spec dd { color: var(--text-1); min-width: 0; }
+  .spec .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 5px; border: 0.5px solid var(--b-2); }
+
+  /* ─── Mac frame ─── */
+  .mac { width: 1280px; height: 800px; border-radius: 14px; overflow: hidden; position: relative; background: var(--bg); box-shadow: 0 0 0 0.5px rgba(255,255,255,0.06), 0 40px 100px rgba(0,0,0,0.55), 0 12px 28px rgba(0,0,0,0.32); }
+  .mac-tl { position: absolute; top: 16px; left: 16px; display: flex; gap: 8px; z-index: 50; }
+  .mac-tl span { width: 12px; height: 12px; border-radius: 50%; border: 0.5px solid rgba(0,0,0,0.25); }
+  .mac-tl .c { background: #ff5f57; } .mac-tl .m { background: #febc2e; } .mac-tl .x { background: #28c840; }
+
+  /* ─── iOS frame ─── */
+  .ios { width: 390px; height: 844px; border-radius: 56px; background: #000; padding: 12px; position: relative; box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 30px 80px rgba(0,0,0,0.55); }
+  .ios .screen { width: 100%; height: 100%; border-radius: 44px; overflow: hidden; position: relative; background: var(--bg); }
+  .ios .notch { position: absolute; top: 22px; left: 50%; transform: translateX(-50%); width: 120px; height: 34px; background: #000; border-radius: 22px; z-index: 60; }
+  .ios .stat { position: absolute; top: 28px; left: 0; right: 0; display: flex; justify-content: space-between; padding: 0 38px; z-index: 55; color: var(--text-1); font-size: 14px; font-weight: 600; }
+  .ios .stat .icns { display: flex; gap: 5px; align-items: center; }
+  .ios .home-ind { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 134px; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.55); z-index: 60; }
+
+  .surf { position: relative; width: 100%; height: 100%; background: var(--bg); color: var(--text-1); overflow: hidden; }
+
+  /* Auth columns */
+  .auth-mac { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 380px; display: flex; flex-direction: column; align-items: center; z-index: 5; }
+  .auth-ios { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); padding: 0 32px; display: flex; flex-direction: column; align-items: center; z-index: 5; }
+  .wm { font-weight: 800; letter-spacing: -0.04em; color: var(--text-1); line-height: 1; font-size: 16px; }
+  .tagline { font-weight: 700; letter-spacing: -0.8px; line-height: 1.15; color: var(--text-1); text-align: center; margin-top: 22px; }
+  .auth-mac .tagline { font-size: 30px; max-width: 360px; }
+  .auth-ios .tagline { font-size: 26px; max-width: 280px; letter-spacing: -0.6px; }
+  .tagline em { font-style: normal; background: var(--grad-warm); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .stack { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 44px; }
+  .auth-ios .stack { margin-top: 36px; }
+
+  .btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 52px; border-radius: 999px; font-weight: 600; letter-spacing: -0.1px; background: transparent; color: var(--text-1); cursor: pointer; font-family: inherit; font-size: 15px; transition: border-color 0.18s ease, background 0.18s ease; }
+  .btn-email { border: 1.5px solid rgba(255,255,255,0.70); }
+  .btn-apple { border: 1px solid rgba(255,255,255,0.40); color: rgba(255,255,255,0.85); }
+  .btn-primary { border: none; background: var(--grad-warm); color: #1a1110; font-weight: 700; }
+  .btn-ghost { border: none; background: transparent; color: var(--text-2); font-weight: 500; font-size: 13px; height: auto; }
+
+  .input-wrap { width: 100%; }
+  .input { width: 100%; height: 52px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.12); color: var(--text-1); font-family: inherit; font-size: 15px; padding: 0 16px; outline: none; transition: border-color 0.18s ease, background 0.18s ease; }
+  .input.is-focus { border-color: var(--warm-2); background: rgba(255,122,46,0.06); }
+  .input.is-error { border-color: var(--error); background: rgba(255,107,107,0.06); }
+  .helper { font-size: 12.5px; margin-top: 10px; color: var(--text-3); line-height: 1.5; }
+  .helper.is-error { color: var(--error); }
+
+  .otp { display: flex; gap: 10px; justify-content: center; width: 100%; }
+  .otp .cell { width: 48px; height: 56px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; color: var(--text-1); }
+  .otp .cell.is-filled { border-color: rgba(255,255,255,0.30); }
+  .otp .cell.is-active { border-color: var(--warm-2); background: rgba(255,122,46,0.06); }
+  .otp .cell.is-error { border-color: var(--error); background: rgba(255,107,107,0.06); }
+
+  .banner { width: 100%; padding: 12px 16px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--b-1); color: var(--text-2); font-size: 13px; text-align: center; margin-bottom: 16px; }
+
+  .spinner { width: 36px; height: 36px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,0.10); border-top-color: var(--warm-2); animation: spin 0.85s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .check { width: 64px; height: 64px; border-radius: 50%; background: var(--grad-warm); display: flex; align-items: center; justify-content: center; margin-bottom: 8px; box-shadow: 0 8px 32px rgba(255, 122, 46, 0.30); }
+  .check svg { width: 28px; height: 28px; }
+
+  .footer-block { position: absolute; left: 50%; transform: translateX(-50%); z-index: 5; }
+  .auth-mac ~ .footer-block { width: 380px; bottom: 32px; }
+  .ios .footer-block { width: 320px; bottom: 36px; }
+  .submgmt { text-align: center; font-size: 11.5px; color: var(--text-3); }
+  .legal { display: flex; justify-content: center; align-items: center; gap: 10px; font-size: 11px; color: var(--text-3); flex-wrap: wrap; margin-top: 14px; }
+  .legal .dot { width: 2px; height: 2px; background: var(--text-4); border-radius: 50%; }
+  .resend { margin-top: 14px; text-align: center; font-size: 12.5px; color: var(--text-3); }
+  .resend b { color: var(--text-1); font-weight: 600; }
+
+  /* FIELD OF LIGHT background */
+  .bg-field { position: absolute; inset: 0; background: radial-gradient(ellipse at center, #0c0a08 0%, #050505 100%); overflow: hidden; }
+  .bg-field .stars { position: absolute; inset: 0; }
+  .bg-field .stars i { position: absolute; border-radius: 50%; animation: starTwinkle 4s ease-in-out infinite; }
+  .bg-field .layer-near { animation: parallaxNear 32s ease-in-out infinite; }
+  .bg-field .layer-far  { animation: parallaxFar  56s ease-in-out infinite; }
+  @keyframes parallaxNear { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-12px,-6px); } }
+  @keyframes parallaxFar  { 0%,100% { transform: translate(0,0); } 50% { transform: translate(6px,3px); } }
+  @keyframes starTwinkle { 0%,100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 1; transform: scale(1.3); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bg-field .stars i, .bg-field .layer-near, .bg-field .layer-far, .spinner { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-apple" viewBox="0 0 17 20"><path fill="currentColor" d="M14.5 6.8c-.1.1-2.3 1.3-2.3 4 0 3.1 2.7 4.1 2.8 4.2 0 0-1.5 4.6-3.4 4.6-1 0-1.7-.6-2.7-.6-1 0-2.1.6-2.8.6C4.6 19.6 2 15.4 2 12c0-3.4 2.1-5.2 4.2-5.2 1 0 1.8.6 2.4.6.6 0 1.6-.7 2.7-.7 1 0 2.4.4 3.2 1.7zM10.7 4.7c.5-.6.8-1.5.7-2.4-.7 0-1.6.5-2.1 1.1-.5.6-.9 1.5-.7 2.3.8.1 1.6-.4 2.1-1z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path fill="none" stroke="#1a1110" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 18 12"><path fill="currentColor" d="M9 0C5.7 0 2.7 1.2.4 3.2c-.2.2-.2.5 0 .7l1.3 1.3c.2.2.5.2.7 0C4.2 3.6 6.5 2.7 9 2.7c2.5 0 4.8.9 6.6 2.5.2.2.5.2.7 0L17.6 4c.2-.2.2-.5 0-.7C15.3 1.2 12.3 0 9 0z"/></symbol>
+    <symbol id="i-batt" viewBox="0 0 27 12"><rect x="0.5" y="0.5" width="22" height="11" rx="2.5" fill="none" stroke="currentColor" stroke-opacity="0.5"/><rect x="2" y="2" width="19" height="8" rx="1.5" fill="currentColor"/><rect x="24" y="3.5" width="2" height="5" rx="1" fill="currentColor" opacity="0.5"/></symbol>
+  </defs>
+</svg>
+
+<div class="page-head">
+  <div class="eyebrow">puck · sign-in handoff</div>
+  <h1>Field of <em>light.</em></h1>
+  <p class="desc">Final spec for engineering. Eight states × two platforms. Each row pairs the artboard with copy-verbatim implementation values.</p>
+  <div class="meta">
+    <span><b>16</b> artboards</span>
+    <span><b>8</b> states</span>
+    <span><b>macOS</b> 1280×800</span>
+    <span><b>iOS</b> 390×844</span>
+  </div>
+</div>
+
+<!-- Tokens reference -->
+<div class="tokens-ref">
+  <h3>Token reference · use these everywhere</h3>
+  <div class="grid">
+    <div class="col">
+      <h4>Surface</h4>
+      <div class="row-tok"><span class="sw" style="background:#0a0c0a"></span><b>--bg</b> #0a0c0a</div>
+      <div class="row-tok"><span class="sw" style="background:#1a1110"></span><b>cta-text</b> #1a1110</div>
+      <div class="row-tok"><span class="sw" style="background:rgba(255,255,255,.04); outline:1px solid #222"></span><b>field-04</b> rgba(255,255,255,.04)</div>
+    </div>
+    <div class="col">
+      <h4>Warm gradient</h4>
+      <div class="row-tok"><span class="sw" style="background:#FF4D5E"></span><b>--warm-1</b> #FF4D5E</div>
+      <div class="row-tok"><span class="sw" style="background:#FF7A2E"></span><b>--warm-2</b> #FF7A2E</div>
+      <div class="row-tok"><span class="sw" style="background:#FFB347"></span><b>--warm-3</b> #FFB347</div>
+      <div class="row-tok"><span class="sw" style="background:linear-gradient(160deg,#FF4D5E,#FF7A2E,#FFB347)"></span><b>grad</b> 160°</div>
+    </div>
+    <div class="col">
+      <h4>Text</h4>
+      <div class="row-tok"><span class="sw" style="background:#f7f8f8"></span><b>text-1</b> #f7f8f8</div>
+      <div class="row-tok"><span class="sw" style="background:rgba(255,255,255,.62); outline:1px solid #222"></span><b>text-2</b> w/.62</div>
+      <div class="row-tok"><span class="sw" style="background:rgba(255,255,255,.36); outline:1px solid #222"></span><b>text-3</b> w/.36</div>
+      <div class="row-tok"><span class="sw" style="background:#FF6B6B"></span><b>error</b> #FF6B6B</div>
+    </div>
+    <div class="col">
+      <h4>Type</h4>
+      <div class="row-tok"><b>family</b> Nunito</div>
+      <div class="row-tok"><b>weights</b> 700 / 800</div>
+      <div class="row-tok"><b>tagline</b> 30pt mac · 26pt iOS</div>
+      <div class="row-tok"><b>wordmark</b> 16pt / 800 / -.04em</div>
+      <div class="row-tok"><b>btn</b> 15pt / 600</div>
+      <div class="row-tok"><b>helper</b> 12.5pt / 400</div>
+    </div>
+  </div>
+</div>
+
+<!-- Section -->
+<section class="section">
+  <div class="s-head">
+    <div class="left">
+      <div class="kind">Background system</div>
+      <h2>Field of <em>light.</em></h2>
+      <p class="blurb">Hundreds of warm dots faintly twinkling against the dark, with a slow parallax drift between near and far layers. A subtle warm radial wash at center suggests a horizon. Quiet, infinite, contemplative — and the same on every state, so it becomes the brand.</p>
+    </div>
+    <div class="right">
+      <div class="label">Star count</div>
+      <div class="stat"><b>~140</b> for macOS · <b>~50</b> for iOS · scale by area (1 star per 6500 px²)</div>
+      <div class="label">Two layers</div>
+      <div class="stat">60% near · 40% far · independent parallax</div>
+      <div class="label">Twinkle</div>
+      <div class="stat">3–6s loops · randomized · ease-in-out · scale 1→1.3, opacity → 1.0</div>
+      <div class="label">Parallax</div>
+      <div class="stat"><b>near</b> 32s ±12px · <b>far</b> 56s ±6px (opposite phase)</div>
+      <div class="label">Star tints</div>
+      <div class="stat">60% rgba(255,200,150) · 25% rgba(255,160,100) · 15% rgba(255,230,200)</div>
+      <div class="label">Star size</div>
+      <div class="stat">0.6–1.8pt random · glow box-shadow 0 0 (size×3)pt @ 70%</div>
+      <div class="label">Reduced motion</div>
+      <div class="stat">isReduceMotionEnabled → freeze parallax + twinkle, keep static field</div>
+    </div>
+  </div>
+
+  <!-- 01 At rest macOS -->
+  <div class="row">
+    <div class="index"><span class="num">01</span><div class="title">At rest<br/>macOS</div></div>
+    <div class="mac">
+      <div class="mac-tl"><span class="c"></span><span class="m"></span><span class="x"></span></div>
+      <div class="surf">
+        <div class="bg-field"><div class="stars layer-far"></div><div class="stars layer-near"></div></div>
+        <div class="auth-mac">
+          <div class="wm">puck</div>
+          <div class="tagline">Choose what gets <em>your attention.</em></div>
+          <div class="stack">
+            <button class="btn btn-email">Continue with email</button>
+            <button class="btn btn-apple"><svg width="14" height="16"><use href="#i-apple"/></svg>Continue with Apple</button>
+          </div>
+        </div>
+        <div class="footer-block">
+          <div class="submgmt">Subscriptions managed on getpuck.com</div>
+          <div class="legal"><span>Privacy Policy</span><span class="dot"></span><span>Terms of Service</span><span class="dot"></span><span>getpuck.com</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="spec">
+      <h4>Layout</h4>
+      <dl>
+        <dt>frame</dt><dd>1280 × 800pt</dd>
+        <dt>auth col</dt><dd>380pt · centered</dd>
+        <dt>wordmark</dt><dd>16pt / 800 / -.04em</dd>
+        <dt>tagline</dt><dd>30pt / 700 / -.8 LS · max 360pt</dd>
+        <dt>tag→stack</dt><dd>44pt</dd>
+        <dt>btn gap</dt><dd>10pt</dd>
+        <dt>btn h</dt><dd>52pt · radius 999pt</dd>
+        <dt>footer</dt><dd>32pt from bottom</dd>
+      </dl>
+      <h4>Buttons</h4>
+      <dl>
+        <dt>email</dt><dd>border 1.5pt rgba(255,255,255,.70) · text 100%</dd>
+        <dt>apple</dt><dd>border 1pt rgba(255,255,255,.40) · text rgba(255,255,255,.85)</dd>
+      </dl>
+      <h4>Hover (mac only)</h4>
+      <dl>
+        <dt>email</dt><dd>border .85 / bg rgba(255,255,255,.04) / 180ms ease</dd>
+        <dt>apple</dt><dd>border .55 / text 100% / 180ms ease</dd>
+      </dl>
+      <h4>Tagline accent</h4>
+      <dl>
+        <dt>"your attention"</dt><dd>warm gradient text-fill (160°)</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- 01 At rest iOS -->
+  <div class="row row-ios">
+    <div class="index"><span class="num">01</span><div class="title">At rest<br/>iOS</div></div>
+    <div class="ios">
+      <div class="screen surf">
+        <div class="bg-field"><div class="stars layer-far"></div><div class="stars layer-near"></div></div>
+        <div class="notch"></div>
+        <div class="stat"><span>9:41</span><span class="icns"><svg width="16" height="11"><use href="#i-wifi"/></svg><svg width="22" height="11"><use href="#i-batt"/></svg></span></div>
+        <div class="auth-ios">
+          <div class="wm">puck</div>
+          <div class="tagline">Choose what gets <em>your attention.</em></div>
+          <div class="stack">
+            <button class="btn btn-email">Continue with email</button>
+            <button class="btn btn-apple"><svg width="14" height="16"><use href="#i-apple"/></svg>Continue with Apple</button>
+          </div>
+        </div>
+        <div class="footer-block">
+          <div class="submgmt">Subscriptions on getpuck.com</div>
+          <div class="legal"><span>Privacy</span><span class="dot"></span><span>Terms</span></div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+    </div>
+    <div class="spec">
+      <h4>Layout</h4>
+      <dl>
+        <dt>frame</dt><dd>390 × 844pt (iPhone 14)</dd>
+        <dt>safe top</dt><dd>59pt</dd>
+        <dt>safe bot</dt><dd>34pt</dd>
+        <dt>h padding</dt><dd>32pt</dd>
+        <dt>tagline</dt><dd>26pt (vs 30pt mac)</dd>
+        <dt>btn h</dt><dd>52pt</dd>
+        <dt>footer</dt><dd>36pt above home indicator</dd>
+      </dl>
+      <h4>iOS specifics</h4>
+      <dl>
+        <dt>hover</dt><dd>none — DO NOT fake</dd>
+        <dt>press</dt><dd>opacity 0.7 / 100ms</dd>
+        <dt>haptic</dt><dd>UIImpactFeedback .light on tap</dd>
+        <dt>status bar</dt><dd>.lightContent</dd>
+        <dt>copy</dt><dd>Footer trims to 2 links</dd>
+      </dl>
+      <h4>Performance</h4>
+      <dl>
+        <dt>star count</dt><dd>~50 (390×844 ≈ 329k px²)</dd>
+        <dt>raster</dt><dd>shouldRasterize=true on parallax containers</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- 02 Email entry macOS -->
+  <div class="row">
+    <div class="index"><span class="num">02</span><div class="title">Email entry<br/>macOS</div></div>
+    <div class="mac">
+      <div class="mac-tl"><span class="c"></span><span class="m"></span><span class="x"></span></div>
+      <div class="surf">
+        <div class="bg-field"><div class="stars layer-far"></div><div class="stars layer-near"></div></div>
+        <div class="auth-mac">
+          <div class="wm">puck</div>
+          <div class="tagline">What's your <em>email?</em></div>
+          <div class="stack">
+            <div class="input-wrap">
+              <input class="input is-focus" value="alex@" placeholder="you@email.com" />
+              <div class="helper">We'll send you a sign-in code.</div>
+            </div>
+            <button class="btn btn-primary">Continue</button>
+            <button class="btn btn-ghost">← Back</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="spec">
+      <h4>Input</h4>
+      <dl>
+        <dt>height</dt><dd>52pt</dd>
+        <dt>radius</dt><dd>12pt</dd>
+        <dt>padding</dt><dd>0 16pt</dd>
+        <dt>font</dt><dd>15pt / 400</dd>
+        <dt>placeholder</dt><dd>text-3 (rgba(255,255,255,.36))</dd>
+        <dt>caret</dt><dd>#FF7A2E</dd>
+      </dl>
+      <h4>Default</h4>
+      <dl>
+        <dt>border</dt><dd>1.5pt rgba(255,255,255,.12)</dd>
+        <dt>bg</dt><dd>rgba(255,255,255,.04)</dd>
+      </dl>
+      <h4>Focus</h4>
+      <dl>
+        <dt>border</dt><dd>1.5pt #FF7A2E</dd>
+        <dt>bg</dt><dd>rgba(255,122,46,.06)</dd>
+        <dt>transition</dt><dd>180ms ease</dd>
+      </dl>
+      <h4>Primary CTA</h4>
+      <dl>
+        <dt>bg</dt><dd>warm grad 160°</dd>
+        <dt>text</dt><dd>#1a1110 / 700</dd>
+        <dt>disabled</dt><dd>opacity 0.5</dd>
+      </dl>
+      <h4>Validation</h4>
+      <dl>
+        <dt>regex</dt><dd>RFC-5322 lite</dd>
+        <dt>trigger</dt><dd>blur + submit</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- 02 Email entry iOS -->
+  <div class="row row-ios">
+    <div class="index"><span class="num">02</span><div class="title">Email entry<br/>iOS</div></div>
+    <div class="ios">
+      <div class="screen surf">
+        <div class="bg-field"><div class="stars layer-far"></div><div class="stars layer-near"></div></div>
+        <div class="notch"></div>
+        <div class="stat"><span>9:41</span><span class="icns"><svg width="16" height="11"><use href="#i-wifi"/></svg><svg width="22" height="11"><use href="#i-batt"/></svg></span></div>
+        <div class="auth-ios">
+          <div class="wm">puck</div>
+          <div class="tagline">What's your <em>email?</em></div>
+          <div class="stack">
+            <div class="input-wrap">
+              <input class="input is-focus" value="alex@" />
+              <div class="helper">We'll send you a sign-in code.</div>
+            </div>
+            <button class="btn btn-primary">Continue</button>
+            <button class="btn btn-ghost">← Back</button>
+          </div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+    </div>
+    <div class="spec">
+      <h4>iOS keyboard</h4>
+      <dl>
+        <dt>type</dt><dd>UIKeyboardType.emailAddress</dd>
+        <dt>autocap</dt><dd>none</dd>
+        <dt>autocorrect</dt><dd>off</dd>
+        <dt>return</dt><dd>continue</dd>
+      </dl>
+      <h4>Animation</h4>
+      <dl>
+        <dt>kbd in</dt><dd>250ms cubic-bezier(.25,.1,.25,1)</dd>
+        <dt>view shift</dt><dd>auth col stays centered above kbd</dd>
+        <dt>parallax</dt><dd>pause while kbd visible (saves CPU)</dd>
+      </dl>
+      <h4>Press feedback</h4>
+      <dl>
+        <dt>btn</dt><dd>opacity 0.7 / 100ms</dd>
+        <dt>haptic</dt><dd>.light on tap</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- 03 Email error macOS -->
+  <div class="row">
+    <div class="index"><span class="num">03</span><div class="title">Email error<br/>macOS</div></div>
+    <div class="mac">
+      <div class="mac-tl"><span class="c"></span><span class="m"></span><span class="x"></span></div>
+      <div class="surf">
+        <div class="bg-field"><div class="stars layer-far"></div><div class="stars layer-near"></div></div>
+        <div class="auth-mac">
+          <div class="wm">puck</div>
+          <div class="tagline">What's your <em>email?</em></div>
+          <div class="stack">
+            <div class="input-wrap">
+              <input class="input is-error" value="not-an-email" />
+              <div class="helper is-error">Please enter a valid email address.</div>
+            </div>
+            <button class="btn btn-primary">Continue</button>
+            <button class="btn btn-ghost">← Back</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="spec">
+      <h4>Error state</h4>
+      <dl>
+        <dt>border</dt><dd>1.5pt #FF6B6B</dd>
+        <dt>bg</dt><dd>rgba(255,107,107,.06)</dd>
+        <dt>helper</dt><dd>#FF6B6B / 12.5pt</dd>
+      </dl>
+      <h4>Shake</h4>
+      <dl>
+        <dt>keyframes</dt><dd>translateX -4 → 4 → -4 → 0</dd>
+        <dt>duration</dt><dd>320ms · 4 cycles · ease-out</dd>
+        <dt>trigger</dt><dd>on submit only</dd>
+      </dl>
+      <h4>Recovery</h4>
+      <dl>
+        <dt>on focus</dt><dd>error clears</dd>
+        <dt>on type</dt><dd>error clears after first key</dd>
+      </dl>
+      <h4>Copy variants</h4>
+      <dl>
+        <dt>format</dt><dd>"Please enter a valid email address."</dd>
+        <dt>API</dt><dd>"Couldn't reach server. Try again."</dd>
+        <dt>rate-limit</dt><dd>"Too many attempts. Try again in 60s."</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- 03 Email error iOS -->
+  <div class="row row-ios">
+    <div class="index"><span class="num">03</span><div class="title">Email error<br/>iOS</div></div>
+    <div class="ios">
+      <div class="screen surf">
+        <div class="bg-field"><div class="stars layer-far"></div><div class="stars layer-near"></div></div>
+        <div class="notch"></div>
+        <div class="stat"><span>9:41</span><span class="icns"><svg width="16" height="11"><use href="#i-wifi"/></svg><svg width="22" height="11"><use href="#i-batt"/></svg></span></div>
+        <div class="auth-ios">
+          <div class="wm">puck</div>
+          <div class="tagline">What's your <em>email?</em></div>
+          <div class="stack">
+            <div class="input-wrap">
+              <input class="input is-error" value="not-an-email" />
+              <div class="helper is-error">Please enter a valid email address.</div>
+            </div>
+            <button class="btn btn-primary">Continue</button>
+            <button class="btn btn-ghost">← Back</button>
+          </div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+    </div>
+    <div class="spec">
+      <h4>iOS specifics</h4>
+      <dl>
+        <dt>haptic</dt><dd>UINotificationFeedback .error on shake</dd>
+        <dt>shake</dt><dd>same as macOS · 320ms · 4 cycles</dd>
+        <dt>VoiceOver</dt><dd>UIAccessibility.post(.announcement, helper text)</dd>
+      </dl>
+      <h4>Voice-over label</h4>
+      <dl>
+        <dt>label</dt><dd>"Email, invalid format. Please enter a valid email address."</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- 04 OTP macOS -->
+  <div class="row">
+    <div class="index"><span class="num">04</span><div class="title">OTP / Verify<br/>macOS</div></div>
+    <div class="mac">
+      <div class="mac-tl"><span class="c"></span><span class="m"></span><span class="x"></span></div>
+      <div class="surf">
+        <div class="bg-field"><div class="stars layer-far"></div><div class="stars layer-near"></div></div>
+        <div class="auth-mac">
+          <div class="wm">puck</div>
+          <div class="tagline">Check your <em>email.</em></div>
+          <div class="helper" style="text-align:center; margin-top:10px;">We sent a 6-digit code to <b style="color:var(--text-1)"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="1978757c61597c61787469757c377a7674">[email&#160;protected]</a></b></div>
+          <div class="stack">
+            <div class="otp">
+              <div class="cell is-filled">4</div><div class="cell is-filled">7</div><div class="cell is-filled">2</div>
+              <div class="cell is-active">|</div><div class="cell"></div><div class="cell"></div>
+            </div>
+            <div class="resend">Didn't get it? Resend in <b>0:42</b></div>
+            <button class="btn btn-ghost">← Use different email</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="spec">
+      <h4>OTP cells</h4>
+      <dl>
+        <dt>count</dt><dd>6</dd>
+        <dt>w × h</dt><dd>48 × 56pt</dd>
+        <dt>gap</dt><dd>10pt</dd>
+        <dt>radius</dt><dd>10pt</dd>
+        <dt>font</dt><dd>22pt / 700</dd>
+      </dl>
+      <h4>Cell states</h4>
+      <dl>
+        <dt>empty</dt><dd>border .12 / bg .04</dd>
+        <dt>filled</dt><dd>border .30 / bg .04</dd>
+        <dt>active</dt><dd>border #FF7A2E / bg .06 warm</dd>
+        <dt>error</dt><dd>border #FF6B6B / bg .06 red</dd>
+      </dl>
+      <h4>Behavior</h4>
+      <dl>
+        <dt>auto-advance</dt><dd>on each digit</dd>
+        <dt>backspace</dt><dd>clears + retreats</dd>
+        <dt>paste</dt><dd>fills all 6 from clipboard</dd>
+        <dt>auto-submit</dt><dd>on 6th digit</dd>
+      </dl>
+      <h4>Resend timer</h4>
+      <dl>
+        <dt>start</dt><dd>60s</dd>
+        <dt>display</dt><dd>m:ss</dd>
+        <dt>at 0</dt><dd>becomes "Resend code" link</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- 04 OTP iOS -->
+  <div class="row row-ios">
+    <div class="index"><span class="num">04</span><div class="title">OTP / Verify<br/>iOS</div></div>
+    <div class="ios">
+      <div class="screen surf">
+        <div class="bg-field"><div class="stars layer-far"></div><div class="stars layer-near"></div></div>
+        <div class="notch"></div>
+        <div class="stat"><span>9:41</span><span class="icns"><svg width="16" height="11"><use href="#i-wifi"/></svg><svg width="22" height="11"><use href="#i-batt"/></svg></span></div>
+        <div class="auth-ios">
+          <div class="wm">puck</div>
+          <div class="tagline">Check your <em>email.</em></div>
+          <div class="helper" style="text-align:center; margin-top:10px;">Code sent to <b style="color:var(--text-1)"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="badbd6dfc2fadfc2dbd7cad6df94d9d5d7">[email&#160;protected]</a></b></div>
+          <div class="stack">
+            <div class="otp">
+              <div class="cell is-filled">4</div><div class="cell is-filled">7</div><div class="cell is-filled">2</div>
+              <div class="cell is-active">|</div><div class="cell"></div><div class="cell"></div>
+            </div>
+            <div class="resend">Resend in <b>0:42</b></div>
+            <button class="btn btn-ghost">← Use different email</button>
+          </div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+    </div>
+    <div class="spec">
+      <h4>iOS auto-fill</h4>
+      <dl>
+        <dt>contentType</dt><dd>.oneTimeCode</dd>
+        <dt>kbd type</dt><dd>numberPad</dd>
+        <dt>auto-fill</dt><dd>system banner above kbd · DO NOT block</dd>
+      </dl>
+      <h4>Cells (iOS sized)</h4>
+      <dl>
+        <dt>w × h</dt><dd>44 × 52pt</dd>
+        <dt>gap</dt><dd>8pt</dd>
+        <dt>font</dt><dd>20pt / 700</dd>
+      </dl>
+      <h4>Haptics</h4>
+      <dl>
+        <dt>per digit</dt><dd>.light selection</dd>
+        <dt>on submit</dt><dd>none until result</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- 05 OTP error macOS -->
+  <div class="row">
+    <div class="index"><span class="num">05</span><div class="title">OTP error<br/>macOS</div></div>
+    <div class="mac">
+      <div class="mac-tl"><span class="c"></span><span class="m"></span><span class="x"></span></div>
+      <div class="surf">
+        <div class="bg-field"><div class="stars layer-far"></div><div class="stars layer-near"></div></div>
+        <div class="auth-mac">
+          <div class="wm">puck</div>
+          <div class="tagline">Check your <em>email.</em></div>
+          <div class="helper" style="text-align:center; margin-top:10px;">We sent a 6-digit code to <b style="color:var(--text-1)"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="88e9e4edf0c8edf0e9e5f8e4eda6ebe7e5">[email&#160;protected]</a></b></div>
+          <div class="stack">
+            <div class="otp">
+              <div class="cell is-error"></div><div class="cell is-error"></div><div class="cell is-error"></div>
+              <div class="cell is-error"></div><div class="cell is-error"></div><div class="cell is-error"></div>
+            </div>
+            <div class="helper is-error" style="text-align:center; margin-top:14px;">That code didn't match. Try again.</div>
+            <button class="btn btn-ghost">← Use different email</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="spec">
+      <h4>Sequence</h4>
+      <dl>
+        <dt>step 1</dt><dd>API invalid → all cells flash error</dd>
+        <dt>step 2</dt><dd>shake row 320ms (4 cycles)</dd>
+        <dt>step 3</dt><dd>cells clear · focus → cell 1</dd>
+        <dt>step 4</dt><dd>helper appears below</dd>
+      </dl>
+      <h4>Cells (error)</h4>
+      <dl>
+        <dt>border</dt><dd>1.5pt #FF6B6B</dd>
+        <dt>bg</dt><dd>rgba(255,107,107,.06)</dd>
+      </dl>
+      <h4>Recovery</h4>
+      <dl>
+        <dt>on type</dt><dd>error clears</dd>
+        <dt>3 fails</dt><dd>helper escalates: "Too many attempts. Resend?"</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- 05 OTP error iOS -->
+  <div class="row row-ios">
+    <div class="index"><span class="num">05</span><div class="title">OTP error<br/>iOS</div></div>
+    <div class="ios">
+      <div class="screen surf">
+        <div class="bg-field"><div class="stars layer-far"></div><div class="stars layer-near"></div></div>
+        <div class="notch"></div>
+        <div class="stat"><span>9:41</span><span class="icns"><svg width="16" height="11"><use href="#i-wifi"/></svg><svg width="22" height="11"><use href="#i-batt"/></svg></span></div>
+        <div class="auth-ios">
+          <div class="wm">puck</div>
+          <div class="tagline">Check your <em>email.</em></div>
+          <div class="helper" style="text-align:center; margin-top:10px;">Code sent to <b style="color:var(--text-1)"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="1c7d7079645c79647d716c7079327f7371">[email&#160;protected]</a></b></div>
+          <div class="stack">
+            <div class="otp">
+              <div class="cell is-error"></div><div class="cell is-error"></div><div class="cell is-error"></div>
+              <div class="cell is-error"></div><div class="cell is-error"></div><div class="cell is-error"></div>
+            </div>
+            <div class="helper is-error" style="text-align:center; margin-top:14px;">That code didn't match. Try again.</div>
+            <button class="btn btn-ghost">← Use different email</button>
+          </div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+    </div>
+    <div class="spec">
+      <h4>iOS specifics</h4>
+      <dl>
+        <dt>haptic</dt><dd>UINotificationFeedback .error</dd>
+        <dt>kbd</dt><dd>stays open</dd>
+        <dt>focus</dt><dd>returns to cell 1 after clear</dd>
+        <dt>VO</dt><dd>announce "That code didn't match"</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- 06 Loading macOS -->
+  <div class="row">
+    <div class="index"><span class="num">06</span><div class="title">Loading<br/>macOS</div></div>
+    <div class="mac">
+      <div class="mac-tl"><span class="c"></span><span class="m"></span><span class="x"></span></div>
+      <div class="surf">
+        <div class="bg-field"><div class="stars layer-far"></div><div class="stars layer-near"></div></div>
+        <div class="auth-mac">
+          <div class="wm">puck</div>
+          <div class="tagline">Signing you <em>in…</em></div>
+          <div class="stack" style="align-items:center;">
+            <div class="spinner"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="spec">
+      <h4>Spinner</h4>
+      <dl>
+        <dt>size</dt><dd>36 × 36pt</dd>
+        <dt>border</dt><dd>2.5pt</dd>
+        <dt>track</dt><dd>rgba(255,255,255,.10)</dd>
+        <dt>arc</dt><dd>#FF7A2E</dd>
+        <dt>duration</dt><dd>850ms linear infinite</dd>
+      </dl>
+      <h4>Behavior</h4>
+      <dl>
+        <dt>min show</dt><dd>400ms (avoid flash)</dd>
+        <dt>on success</dt><dd>fade 200ms → state 07</dd>
+        <dt>timeout</dt><dd>15s → "Trouble connecting. Try again."</dd>
+      </dl>
+      <h4>Inputs</h4>
+      <dl>
+        <dt>state</dt><dd>all interactive elements disabled · opacity 0.5</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- 06 Loading iOS -->
+  <div class="row row-ios">
+    <div class="index"><span class="num">06</span><div class="title">Loading<br/>iOS</div></div>
+    <div class="ios">
+      <div class="screen surf">
+        <div class="bg-field"><div class="stars layer-far"></div><div class="stars layer-near"></div></div>
+        <div class="notch"></div>
+        <div class="stat"><span>9:41</span><span class="icns"><svg width="16" height="11"><use href="#i-wifi"/></svg><svg width="22" height="11"><use href="#i-batt"/></svg></span></div>
+        <div class="auth-ios">
+          <div class="wm">puck</div>
+          <div class="tagline">Signing you <em>in…</em></div>
+          <div class="stack" style="align-items:center;">
+            <div class="spinner"></div>
+          </div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+    </div>
+    <div class="spec">
+      <h4>iOS specifics</h4>
+      <dl>
+        <dt>spinner</dt><dd>same · 36pt / 850ms</dd>
+        <dt>kbd</dt><dd>dismissed before show</dd>
+        <dt>VO</dt><dd>.layoutChanged: "Signing in"</dd>
+        <dt>idle</dt><dd>UIApplication.isIdleTimerDisabled = true</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- 07 Welcome macOS -->
+  <div class="row">
+    <div class="index"><span class="num">07</span><div class="title">Welcome<br/>macOS</div></div>
+    <div class="mac">
+      <div class="mac-tl"><span class="c"></span><span class="m"></span><span class="x"></span></div>
+      <div class="surf">
+        <div class="bg-field"><div class="stars layer-far"></div><div class="stars layer-near"></div></div>
+        <div class="auth-mac">
+          <div class="check"><svg><use href="#i-check"/></svg></div>
+          <div class="wm" style="margin-top:8px;">puck</div>
+          <div class="tagline">Welcome, <em>Alex.</em></div>
+          <div class="helper" style="text-align:center; margin-top:10px; max-width:320px;">Let's set up your puck. It takes about 2 minutes — make sure your puck is plugged in.</div>
+          <div class="stack">
+            <button class="btn btn-primary">Set up my puck</button>
+            <button class="btn btn-ghost">I'll do this later</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="spec">
+      <h4>Check icon</h4>
+      <dl>
+        <dt>circle</dt><dd>64 × 64pt</dd>
+        <dt>bg</dt><dd>warm grad 160°</dd>
+        <dt>glow</dt><dd>0 8 32pt rgba(255,122,46,.30)</dd>
+        <dt>mark</dt><dd>24pt checkmark on #1a1110</dd>
+        <dt>check→wm</dt><dd>8pt</dd>
+      </dl>
+      <h4>Entry animation</h4>
+      <dl>
+        <dt>check</dt><dd>scale 0.6→1.0 + draw checkmark · 520ms cubic-bezier(.34,1.56,.64,1)</dd>
+        <dt>tagline</dt><dd>fade-up 16pt → 0 · delay 200ms · 360ms ease-out</dd>
+      </dl>
+      <h4>Buttons</h4>
+      <dl>
+        <dt>primary</dt><dd>warm grad bg · #1a1110 text</dd>
+        <dt>ghost</dt><dd>"I'll do this later" · text-2 / 13pt</dd>
+      </dl>
+      <h4>Copy variants</h4>
+      <dl>
+        <dt>has name</dt><dd>"Welcome, Alex."</dd>
+        <dt>no name</dt><dd>"Welcome to puck."</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- 07 Welcome iOS -->
+  <div class="row row-ios">
+    <div class="index"><span class="num">07</span><div class="title">Welcome<br/>iOS</div></div>
+    <div class="ios">
+      <div class="screen surf">
+        <div class="bg-field"><div class="stars layer-far"></div><div class="stars layer-near"></div></div>
+        <div class="notch"></div>
+        <div class="stat"><span>9:41</span><span class="icns"><svg width="16" height="11"><use href="#i-wifi"/></svg><svg width="22" height="11"><use href="#i-batt"/></svg></span></div>
+        <div class="auth-ios">
+          <div class="check"><svg><use href="#i-check"/></svg></div>
+          <div class="wm" style="margin-top:8px;">puck</div>
+          <div class="tagline">Welcome, <em>Alex.</em></div>
+          <div class="helper" style="text-align:center; margin-top:10px; max-width:280px;">Let's set up your puck. About 2 minutes.</div>
+          <div class="stack">
+            <button class="btn btn-primary">Set up my puck</button>
+            <button class="btn btn-ghost">I'll do this later</button>
+          </div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+    </div>
+    <div class="spec">
+      <h4>iOS specifics</h4>
+      <dl>
+        <dt>haptic</dt><dd>UINotificationFeedback .success on entry</dd>
+        <dt>kbd</dt><dd>dismissed before transition</dd>
+        <dt>BLE</dt><dd>system perm prompt on tap "Set up my puck"</dd>
+      </dl>
+      <h4>Copy</h4>
+      <dl>
+        <dt>helper</dt><dd>shorter than mac · drop the "plugged in" clause</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- 08 Signed out macOS -->
+  <div class="row">
+    <div class="index"><span class="num">08</span><div class="title">Signed out<br/>macOS</div></div>
+    <div class="mac">
+      <div class="mac-tl"><span class="c"></span><span class="m"></span><span class="x"></span></div>
+      <div class="surf">
+        <div class="bg-field"><div class="stars layer-far"></div><div class="stars layer-near"></div></div>
+        <div class="auth-mac">
+          <div class="banner">You've been signed out.</div>
+          <div class="wm">puck</div>
+          <div class="tagline">Choose what gets <em>your attention.</em></div>
+          <div class="stack">
+            <button class="btn btn-email">Continue with email</button>
+            <button class="btn btn-apple"><svg width="14" height="16"><use href="#i-apple"/></svg>Continue with Apple</button>
+          </div>
+        </div>
+        <div class="footer-block">
+          <div class="submgmt">Subscriptions managed on getpuck.com</div>
+          <div class="legal"><span>Privacy Policy</span><span class="dot"></span><span>Terms of Service</span><span class="dot"></span><span>getpuck.com</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="spec">
+      <h4>Banner</h4>
+      <dl>
+        <dt>width</dt><dd>matches col (380pt)</dd>
+        <dt>padding</dt><dd>12 × 16pt</dd>
+        <dt>radius</dt><dd>10pt</dd>
+        <dt>bg</dt><dd>rgba(255,255,255,.04)</dd>
+        <dt>border</dt><dd>1pt rgba(255,255,255,.06)</dd>
+        <dt>text</dt><dd>13pt / text-2</dd>
+        <dt>banner→wm</dt><dd>16pt</dd>
+      </dl>
+      <h4>Banner copy</h4>
+      <dl>
+        <dt>logout</dt><dd>"You've been signed out."</dd>
+        <dt>session</dt><dd>"Your session expired. Please sign in again."</dd>
+        <dt>force-out</dt><dd>"You were signed out on another device."</dd>
+      </dl>
+      <h4>Persistence</h4>
+      <dl>
+        <dt>show until</dt><dd>any auth interaction (focus / tap)</dd>
+        <dt>dismiss</dt><dd>fade 200ms</dd>
+      </dl>
+    </div>
+  </div>
+
+  <!-- 08 Signed out iOS -->
+  <div class="row row-ios">
+    <div class="index"><span class="num">08</span><div class="title">Signed out<br/>iOS</div></div>
+    <div class="ios">
+      <div class="screen surf">
+        <div class="bg-field"><div class="stars layer-far"></div><div class="stars layer-near"></div></div>
+        <div class="notch"></div>
+        <div class="stat"><span>9:41</span><span class="icns"><svg width="16" height="11"><use href="#i-wifi"/></svg><svg width="22" height="11"><use href="#i-batt"/></svg></span></div>
+        <div class="auth-ios">
+          <div class="banner">You've been signed out.</div>
+          <div class="wm">puck</div>
+          <div class="tagline">Choose what gets <em>your attention.</em></div>
+          <div class="stack">
+            <button class="btn btn-email">Continue with email</button>
+            <button class="btn btn-apple"><svg width="14" height="16"><use href="#i-apple"/></svg>Continue with Apple</button>
+          </div>
+        </div>
+        <div class="footer-block">
+          <div class="submgmt">Subscriptions on getpuck.com</div>
+          <div class="legal"><span>Privacy</span><span class="dot"></span><span>Terms</span></div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+    </div>
+    <div class="spec">
+      <h4>iOS specifics</h4>
+      <dl>
+        <dt>banner</dt><dd>same as mac · fits col w</dd>
+        <dt>VO</dt><dd>announce on appear: "Signed out."</dd>
+        <dt>kbd</dt><dd>not shown</dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+  (function () {
+    const TINTS = [
+      { p: 0.60, rgba: '255,200,150' },
+      { p: 0.85, rgba: '255,160,100' },
+      { p: 1.00, rgba: '255,230,200' }
+    ];
+    const pickTint = () => {
+      const r = Math.random();
+      for (const t of TINTS) if (r <= t.p) return t.rgba;
+      return TINTS[0].rgba;
+    };
+    function fillLayer(el, count) {
+      let html = '';
+      for (let i = 0; i < count; i++) {
+        const x = (Math.random() * 100).toFixed(2);
+        const y = (Math.random() * 100).toFixed(2);
+        const size = (Math.random() * 1.2 + 0.6).toFixed(2);
+        const opacity = (Math.random() * 0.5 + 0.3).toFixed(2);
+        const delay = (Math.random() * 4).toFixed(2);
+        const dur = (Math.random() * 3 + 3).toFixed(2);
+        const tint = pickTint();
+        html += `<i style="left:${x}%;top:${y}%;width:${size}px;height:${size}px;background:rgba(${tint},${opacity});box-shadow:0 0 ${(size*3).toFixed(1)}px rgba(${tint},${(opacity*0.7).toFixed(2)});animation-delay:${delay}s;animation-duration:${dur}s;"></i>`;
+      }
+      el.innerHTML = html;
+    }
+    document.querySelectorAll('.bg-field').forEach((bg) => {
+      const w = bg.clientWidth, h = bg.clientHeight;
+      const total = Math.round((w * h) / 6500);
+      const nearCount = Math.round(total * 0.6);
+      const farCount  = total - nearCount;
+      const near = bg.querySelector('.layer-near');
+      const far  = bg.querySelector('.layer-far');
+      if (near) fillLayer(near, nearCount);
+      if (far)  fillLayer(far, farCount);
+    });
+  })();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,10 @@
+{"type":"server-started","port":49219,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:49219","screen_dir":"/Users/arayan/Documents/GitHub/intentional-macos-app/.superpowers/brainstorm/92317-1776211339/content","state_dir":"/Users/arayan/Documents/GitHub/intentional-macos-app/.superpowers/brainstorm/92317-1776211339/state"}
+{"type":"screen-added","file":"/Users/arayan/Documents/GitHub/intentional-macos-app/.superpowers/brainstorm/92317-1776211339/content/current-distractions.html"}
+{"type":"screen-added","file":"/Users/arayan/Documents/GitHub/intentional-macos-app/.superpowers/brainstorm/92317-1776211339/content/proposed-distractions.html"}
+{"type":"screen-added","file":"/Users/arayan/Documents/GitHub/intentional-macos-app/.superpowers/brainstorm/92317-1776211339/content/three-concepts.html"}
+{"type":"screen-added","file":"/Users/arayan/Documents/GitHub/intentional-macos-app/.superpowers/brainstorm/92317-1776211339/content/drilldown-interactive.html"}
+{"type":"screen-added","file":"/Users/arayan/Documents/GitHub/intentional-macos-app/.superpowers/brainstorm/92317-1776211339/content/always-relevant-concepts.html"}
+{"type":"screen-added","file":"/Users/arayan/Documents/GitHub/intentional-macos-app/.superpowers/brainstorm/92317-1776211339/content/always-relevant-integrated.html"}
+{"type":"screen-added","file":"/Users/arayan/Documents/GitHub/intentional-macos-app/.superpowers/brainstorm/92317-1776211339/content/drilldown-v2.html"}
+{"type":"screen-added","file":"/Users/arayan/Documents/GitHub/intentional-macos-app/.superpowers/brainstorm/92317-1776211339/content/prototype.html"}
+{"type":"server-stopped","reason":"idle timeout"}

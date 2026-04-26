@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Intentional / Puck — Feature Parity & Unification Plan</title>
+<style>
+  :root {
+    --bg: #0a0c0a;
+    --bg-elevated: #11130f;
+    --card: rgba(255,255,255,0.03);
+    --card-strong: rgba(255,255,255,0.05);
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.14);
+    --text: #f7f8f8;
+    --muted: rgba(255,255,255,0.55);
+    --dim: rgba(255,255,255,0.36);
+    --coral: #E87461;
+    --gold: #F0B060;
+    --green: #6FB58E;
+    --blue: #6E8FE0;
+    --violet: #B287D9;
+    --amber: #E5A063;
+    --red: #D45050;
+    --teal: #5CA39B;
+    --grad: linear-gradient(135deg, var(--coral), var(--gold));
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; line-height: 1.55; }
+  body { background:
+    radial-gradient(ellipse at top left, rgba(232,116,97,0.08), transparent 60%),
+    radial-gradient(ellipse at bottom right, rgba(240,176,96,0.06), transparent 60%),
+    var(--bg);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 56px 32px 96px; }
+  header { margin-bottom: 48px; }
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--coral); margin-bottom: 10px; }
+  h1 { font-size: 38px; line-height: 1.15; letter-spacing: -0.8px; font-weight: 700; margin: 0 0 14px; }
+  h1 .accent { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lede { font-size: 17px; color: var(--muted); max-width: 720px; }
+  h2 { font-size: 24px; letter-spacing: -0.4px; font-weight: 600; margin: 56px 0 18px; padding-top: 8px; border-top: 1px solid var(--border); padding-top: 32px; }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+  h3 { font-size: 16px; font-weight: 600; margin: 28px 0 12px; letter-spacing: -0.2px; color: var(--text); }
+  p { color: var(--muted); }
+  p .strong, strong { color: var(--text); font-weight: 600; }
+  .tldr { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 22px 26px; margin-bottom: 8px; }
+  .tldr p { color: var(--text); font-size: 15.5px; }
+  .tldr ul { margin: 8px 0 0; padding-left: 20px; }
+  .tldr li { color: var(--muted); margin-bottom: 6px; }
+  .tldr li b { color: var(--text); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+  .card h3 { margin-top: 0; }
+  .card .meta { font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--dim); font-weight: 600; margin-bottom: 6px; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0 10px; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--dim); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 1.1px; background: rgba(255,255,255,0.02); }
+  tr:hover td { background: rgba(255,255,255,0.015); }
+  td.feat { color: var(--text); font-weight: 500; }
+  td.note { color: var(--muted); font-size: 13px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; }
+  .pill.full { background: rgba(111,181,142,0.12); color: var(--green); border: 1px solid rgba(111,181,142,0.28); }
+  .pill.partial { background: rgba(229,160,99,0.12); color: var(--amber); border: 1px solid rgba(229,160,99,0.28); }
+  .pill.none { background: rgba(212,80,80,0.10); color: var(--red); border: 1px solid rgba(212,80,80,0.24); }
+  .pill.shared { background: rgba(232,116,97,0.10); color: var(--coral); border: 1px solid rgba(232,116,97,0.28); }
+  .pill.priority1 { background: rgba(212,80,80,0.10); color: var(--red); border: 1px solid rgba(212,80,80,0.24); }
+  .pill.priority2 { background: rgba(229,160,99,0.12); color: var(--amber); border: 1px solid rgba(229,160,99,0.28); }
+  .pill.priority3 { background: rgba(110,143,224,0.12); color: var(--blue); border: 1px solid rgba(110,143,224,0.28); }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0 24px; }
+  .legend-item { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  ol.steps { padding-left: 0; counter-reset: step; list-style: none; }
+  ol.steps li { counter-increment: step; padding: 14px 18px 14px 56px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; position: relative; }
+  ol.steps li::before { content: counter(step); position: absolute; left: 16px; top: 14px; width: 28px; height: 28px; border-radius: 50%; background: var(--grad); color: #1a0f0a; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+  ol.steps li b { color: var(--text); font-weight: 600; }
+  ol.steps li .why { display: block; color: var(--muted); font-size: 14px; margin-top: 4px; }
+  code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 1px 6px; border-radius: 5px; color: var(--coral); white-space: nowrap; }
+  .col-feat { width: 28%; }
+  .col-status { width: 14%; white-space: nowrap; }
+  .col-note { width: auto; }
+  .footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--dim); font-size: 12px; }
+  .footer code { font-size: 11px; }
+  .stack-tags { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+  .stack-tag { font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(255,255,255,0.05); color: var(--muted); }
+  blockquote { margin: 14px 0; padding: 12px 18px; border-left: 3px solid var(--coral); background: rgba(232,116,97,0.05); border-radius: 0 8px 8px 0; color: var(--text); font-size: 14.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Cross-app audit · 2026-04-25</div>
+  <h1>Intentional <span class="accent">+ Puck</span><br>Feature parity &amp; unification plan</h1>
+  <p class="lede">A side-by-side map of what each app does today, where they overlap, and what needs to be unified before they feel like one product.</p>
+
+  <div style="margin-top: 24px; padding: 18px 22px; background: rgba(111,181,142,0.08); border: 1px solid rgba(111,181,142,0.28); border-radius: 12px;">
+    <div style="font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--green); margin-bottom: 8px;">Live update · 2026-04-25</div>
+    <div style="font-size: 14.5px; color: var(--text); line-height: 1.55;">
+      <strong>Both P1 unifications shipped tonight</strong> on <code style="color: var(--green);">puck-ios:feat/partner-backend-wiring</code> (4 commits, build green):
+      <ul style="margin: 8px 0 0; padding-left: 22px; color: var(--muted); font-size: 14px;">
+        <li><strong style="color: var(--text);">Partner backend wiring</strong> — <code>PUT /partner</code> + <code>DELETE /partner</code> + <code>GET /partner/status</code> live. Send invite from iPhone → reaches partner inbox → Mac sees it. <span style="color: var(--dim);">(commit 4d2f90d)</span></li>
+        <li><strong style="color: var(--text);">Lock-state awareness</strong> — new <code>LockStateService</code> reads <code>GET /unlock/status</code> on launch + Settings appearance. Partner-locked iPhone now hides Sign Out / Delete Account / Emergency Unlocks behind a "Get a code from your accountability partner" indicator. <span style="color: var(--dim);">(commits e25198c · 83d36a9 · 10e7a3b)</span></li>
+      </ul>
+      <p style="margin: 10px 0 0; color: var(--muted); font-size: 13px;">The sections below are the original audit as written this morning — pills now reflect post-shipment state. P2/P3 items are still open.</p>
+    </div>
+  </div>
+</header>
+
+<h2>TL;DR</h2>
+<div class="tldr">
+  <p><strong>You don't have feature parity, and you don't need it.</strong> The two apps have <em>different jobs</em>: the Mac is the enforcer (AI scoring, screen capture, browser blocking), and the iPhone is the trigger + bedtime + alarms. The problem isn't that features are missing on each side — it's that <strong>shared concepts (partner, lock state, settings, pucks, sessions) live in five different places</strong> and don't sync.</p>
+  <ul>
+    <li><b>What actually overlaps</b> — partner email, lock mode, focus modes, sessions, settings. <b>Of those, only sessions actually sync</b> (via the backend WebSocket). The other four diverge per device.</li>
+    <li><b>What only the Mac does</b> — AI relevance scoring, content safety, earned browse, scheduled work blocks, browser extension, full strict-mode lockdown, partner backend integration.</li>
+    <li><b>What only the iPhone does</b> — NFC puck reads, alarms, bedtime mode + Shortcuts, weekly habit goals, wake streak.</li>
+    <li><b>The single biggest gap</b> — the <b>iOS Partner tab is UI-only</b>. Tap "Send invite," nothing reaches your accountability partner. Mac has the full backend integration. This needs to ship before either app feels real.</li>
+  </ul>
+</div>
+
+<h2>How to read the comparison</h2>
+<div class="legend">
+  <span class="legend-item"><span class="pill full">FULL</span> implemented and working</span>
+  <span class="legend-item"><span class="pill partial">PARTIAL</span> partly implemented or stubbed</span>
+  <span class="legend-item"><span class="pill none">NONE</span> not implemented</span>
+  <span class="legend-item"><span class="pill shared">SHARED</span> both apps + backend</span>
+</div>
+
+<h2>Side-by-side feature map</h2>
+
+<h3>Identity &amp; account</h3>
+<table>
+  <thead><tr><th class="col-feat">Feature</th><th class="col-status">iOS</th><th class="col-status">macOS</th><th class="col-note">Status</th></tr></thead>
+  <tbody>
+    <tr><td class="feat">Email + OTP auth (Supabase)</td><td><span class="pill full">FULL</span></td><td><span class="pill full">FULL</span></td><td class="note">Both use Supabase. Different code paths but same backend identity. ✅ unified.</td></tr>
+    <tr><td class="feat">Sign-in-with-Apple</td><td><span class="pill full">FULL</span></td><td><span class="pill none">NONE</span></td><td class="note">Mac doesn't have AppleSignInHelper. iOS-only.</td></tr>
+    <tr><td class="feat">Device registration</td><td><span class="pill full">FULL</span></td><td><span class="pill full">FULL</span></td><td class="note">Both call <code>POST /register</code>. Each device gets its own row. iOS uses orphan rows — see "Account linking" below.</td></tr>
+    <tr><td class="feat">Account linking across devices</td><td><span class="pill partial">PARTIAL</span></td><td><span class="pill partial">PARTIAL</span></td><td class="note">Both authenticate but devices don't always end up under one <code>account_id</code>. The Mac is on an orphan row (<code>account_id=null</code>) per the CS playbook. Means iOS can't necessarily "see" the Mac's data — they may be in separate rows even with the same email.</td></tr>
+  </tbody>
+</table>
+
+<h3>Focus / blocking</h3>
+<table>
+  <thead><tr><th class="col-feat">Feature</th><th class="col-status">iOS</th><th class="col-status">macOS</th><th class="col-note">Status</th></tr></thead>
+  <tbody>
+    <tr><td class="feat">On-demand focus modes (Deep Work, Study, etc.)</td><td><span class="pill full">FULL</span></td><td><span class="pill partial">PARTIAL</span></td><td class="note">iOS has 5 named modes (FocusMode SwiftData model). Mac has block <em>types</em> (Deep Work / Focus Hours / Free Time) tied to schedule. Same concept, different shape.</td></tr>
+    <tr><td class="feat">Scheduled work blocks (calendar)</td><td><span class="pill none">NONE</span><br><span class="pill partial">model only</span></td><td><span class="pill full">FULL</span></td><td class="note">iOS has <code>PuckSchedule</code> + <code>ScheduleBlock</code> models but no UI. Mac has full daily calendar with drag/resize, AI-context goals, intention-setting rituals.</td></tr>
+    <tr><td class="feat">App-level blocking (FamilyControls)</td><td><span class="pill full">FULL</span></td><td><span class="pill none">NONE</span></td><td class="note">FamilyControls is iOS-only. Mac uses AppleScript / NEFilterDataProvider for browser sites + always-active profiles for apps. Fundamentally different mechanisms.</td></tr>
+    <tr><td class="feat">Website blocking</td><td><span class="pill partial">PARTIAL</span></td><td><span class="pill full">FULL</span></td><td class="note">iOS: <code>websiteURLs</code> field on FocusMode (Safari Content Blocker). Mac: WebsiteBlocker (AppleScript) + NEFilter system extension + browser-extension cooperation. Mac is much deeper.</td></tr>
+    <tr><td class="feat">AI relevance scoring</td><td><span class="pill none">NONE</span></td><td><span class="pill full">FULL</span></td><td class="note">Mac runs Qwen3-4B (or Apple Foundation Models) on-device. iOS has no AI scoring — relies on user-picked apps.</td></tr>
+    <tr><td class="feat">Browser extension integration</td><td><span class="pill none">NONE</span></td><td><span class="pill full">FULL</span></td><td class="note">Native messaging socket, session tracking, score requests. Mac-only since iOS has no desktop browser.</td></tr>
+    <tr><td class="feat">Earned-browse pool</td><td><span class="pill none">NONE</span></td><td><span class="pill full">FULL</span></td><td class="note">Mac has full earn/spend pool, multipliers (0x/2x/1x), intent bonus, delay escalation. iOS has nothing.</td></tr>
+    <tr><td class="feat">Block start/end rituals</td><td><span class="pill none">NONE</span></td><td><span class="pill full">FULL</span></td><td class="note">Mac shows full-screen intention-setting before work blocks + reflection cards after. iOS has no block ritual concept (modes activate instantly).</td></tr>
+    <tr><td class="feat">Floating pill timer</td><td><span class="pill none">NONE</span></td><td><span class="pill full">FULL</span></td><td class="note">Mac-only. The 300×70pt always-on-top pill with timer + focus dot. iOS has no equivalent (no concept of an always-running session indicator).</td></tr>
+    <tr><td class="feat">Intervention overlay (60-120s game)</td><td><span class="pill none">NONE</span></td><td><span class="pill full">FULL</span></td><td class="note">Mac-only. Triggered after 5 min cumulative distraction in a work block.</td></tr>
+    <tr><td class="feat">Context-switching countdown overlay</td><td><span class="pill none">NONE</span></td><td><span class="pill full">FULL</span></td><td class="note">Mac-only. New (April 2026), tier-based escalation.</td></tr>
+  </tbody>
+</table>
+
+<h3>Puck hardware</h3>
+<table>
+  <thead><tr><th class="col-feat">Feature</th><th class="col-status">iOS</th><th class="col-status">macOS</th><th class="col-note">Status</th></tr></thead>
+  <tbody>
+    <tr><td class="feat">NFC tap (read puck slug)</td><td><span class="pill full">FULL</span></td><td><span class="pill none">NONE</span></td><td class="note">Mac has no NFC hardware. By design. Mac receives the focus signal from iOS via backend.</td></tr>
+    <tr><td class="feat">NFC write (configure puck)</td><td><span class="pill full">FULL</span></td><td><span class="pill none">NONE</span></td><td class="note">iOS-only.</td></tr>
+    <tr><td class="feat">Puck → focus signal → Mac</td><td><span class="pill full">FULL</span></td><td><span class="pill full">FULL</span></td><td class="note">Implemented end-to-end (commit <code>c092dcd</code> on Mac side). iOS taps puck → backend → Mac activates BlockingProfileManager session. ✅ unified via backend.</td></tr>
+    <tr><td class="feat">Puck → mode mapping</td><td><span class="pill full">FULL</span></td><td><span class="pill partial">PARTIAL</span></td><td class="note">iOS knows which puck → which FocusMode. Mac knows which always-active profiles to activate. The mapping is per-app, not shared. A user binding a puck to "Study" mode on iOS doesn't tell Mac what to do with that tap.</td></tr>
+    <tr><td class="feat">Puck habit goal (frequency/week)</td><td><span class="pill full">FULL</span></td><td><span class="pill none">NONE</span></td><td class="note">iOS-only feature. Mac has no notion of "this puck should be tapped 4×/week".</td></tr>
+  </tbody>
+</table>
+
+<h3>Alarms / wake / bedtime</h3>
+<table>
+  <thead><tr><th class="col-feat">Feature</th><th class="col-status">iOS</th><th class="col-status">macOS</th><th class="col-note">Status</th></tr></thead>
+  <tbody>
+    <tr><td class="feat">Smart alarm (puck-dismiss)</td><td><span class="pill full">FULL</span></td><td><span class="pill none">NONE</span></td><td class="note">iOS-only. AlarmKit-based. Mac has no alarm concept.</td></tr>
+    <tr><td class="feat">Wake streak / heatmap</td><td><span class="pill full">FULL</span></td><td><span class="pill none">NONE</span></td><td class="note">iOS-only.</td></tr>
+    <tr><td class="feat">Bedtime mode (grayscale + brightness)</td><td><span class="pill full">FULL</span></td><td><span class="pill none">NONE</span></td><td class="note">iOS-only — iOS has system-level dimming/grayscale, Mac doesn't have an equivalent automation surface.</td></tr>
+    <tr><td class="feat">Shortcuts integration (bedtime)</td><td><span class="pill full">FULL</span></td><td><span class="pill none">NONE</span></td><td class="note">iOS-only.</td></tr>
+  </tbody>
+</table>
+
+<h3>Partner accountability</h3>
+<table>
+  <thead><tr><th class="col-feat">Feature</th><th class="col-status">iOS</th><th class="col-status">macOS</th><th class="col-note">Status</th></tr></thead>
+  <tbody>
+    <tr><td class="feat">Set partner email</td><td><span class="pill full">FULL ✓</span></td><td><span class="pill full">FULL</span></td><td class="note">Shipped 2026-04-25 (commit 4d2f90d). iOS PartnerView now calls <code>PUT /partner</code> and refreshes status on tab appear.</td></tr>
+    <tr><td class="feat">Partner consent flow</td><td><span class="pill full">FULL ✓</span></td><td><span class="pill full">FULL</span></td><td class="note">Shipped — backend's existing email-confirmation flow now triggered from iOS too. UI shows "pending → confirmed" via <code>partnerConsentStatus</code>.</td></tr>
+    <tr><td class="feat">Lock mode (none/partner/self)</td><td><span class="pill partial">READ-ONLY ✓</span></td><td><span class="pill full">FULL</span></td><td class="note">Shipped 2026-04-25 (commits e25198c · 83d36a9 · 10e7a3b). iOS reads <code>GET /unlock/status</code> via new <code>LockStateService</code> and gates account actions when partner-locked. Setting lock state from iOS is still Mac-only — that's a P3 follow-up if you want it (most users only set lock once).</td></tr>
+    <tr><td class="feat">Unlock-code request flow</td><td><span class="pill none">NONE</span></td><td><span class="pill full">FULL</span></td><td class="note">Mac requests a 6-digit code via partner email. iOS has no concept.</td></tr>
+    <tr><td class="feat">Extra-time + AI-override codes</td><td><span class="pill none">NONE</span></td><td><span class="pill full">FULL</span></td><td class="note">Mac-only.</td></tr>
+    <tr><td class="feat">Partner notifications (tamper, detection, unlock)</td><td><span class="pill none">NONE</span></td><td><span class="pill full">FULL</span></td><td class="note">Mac sends. iOS doesn't trigger any of these (because most don't apply to iOS yet — no CS, no lock).</td></tr>
+    <tr><td class="feat">Partner-tab "you're paired with X" state</td><td><span class="pill full">FULL ✓</span></td><td><span class="pill full">FULL</span></td><td class="note">Shipped 2026-04-25. Tab now refreshes from <code>GET /partner/status</code> on appear; pending vs confirmed states distinguished. <code>@AppStorage</code> kept as a local cache so SettingsView's lock banner can read partner email synchronously.</td></tr>
+  </tbody>
+</table>
+
+<h3>Content safety</h3>
+<table>
+  <thead><tr><th class="col-feat">Feature</th><th class="col-status">iOS</th><th class="col-status">macOS</th><th class="col-note">Status</th></tr></thead>
+  <tbody>
+    <tr><td class="feat">On-device NSFW screen monitoring</td><td><span class="pill none">NONE</span></td><td><span class="pill full">FULL</span></td><td class="note">SCSensitivityAnalyzer + OpenNSFW, partner email on detection. Mac-only by design (iOS can't capture screen the same way).</td></tr>
+    <tr><td class="feat">Tamper detection (settings divergence)</td><td><span class="pill none">NONE</span></td><td><span class="pill full">FULL</span></td><td class="note">Just shipped tonight on <code>feat/cs-tamper-detection</code>. Mac-only.</td></tr>
+    <tr><td class="feat">CS status indicator on iOS</td><td><span class="pill none">NONE</span></td><td>n/a</td><td class="note">iOS could surface "Content safety active on Mac" / "Mac CS hasn't checked in for 6h" — currently no indicator.</td></tr>
+  </tbody>
+</table>
+
+<h3>Strict mode / lockdown</h3>
+<table>
+  <thead><tr><th class="col-feat">Feature</th><th class="col-status">iOS</th><th class="col-status">macOS</th><th class="col-note">Status</th></tr></thead>
+  <tbody>
+    <tr><td class="feat">Local strict-mode toggle</td><td><span class="pill partial">PARTIAL</span></td><td><span class="pill full">FULL</span></td><td class="note">iOS has a <code>strictMode</code> UserDefaults flag that disables emergency unbrick. Mac has full LaunchAgent + watchdog + flag file + login item + Cmd+Q block. Different ambition levels.</td></tr>
+    <tr><td class="feat">Anti-tamper (re-launch on quit)</td><td><span class="pill none">NONE</span></td><td><span class="pill full">FULL</span></td><td class="note">iOS doesn't need this (apps can't be force-quit on iOS the same way).</td></tr>
+    <tr><td class="feat">Emergency unbrick quota (per week)</td><td><span class="pill full">FULL</span></td><td><span class="pill partial">PARTIAL</span></td><td class="note">iOS has weekly <code>emergencyUnbricksRemaining</code>. Mac has emergency unlock via <code>/unlock/request</code>. Different shapes — they're solving the same problem ("user needs an out, but rate-limited") with different vocabularies.</td></tr>
+  </tbody>
+</table>
+
+<h3>Settings &amp; sync</h3>
+<table>
+  <thead><tr><th class="col-feat">Feature</th><th class="col-status">iOS</th><th class="col-status">macOS</th><th class="col-note">Status</th></tr></thead>
+  <tbody>
+    <tr><td class="feat">Settings synced across devices</td><td><span class="pill none">NONE</span></td><td><span class="pill full">FULL</span></td><td class="note">Mac syncs to <code>/settings/sync</code>. iOS has its own <code>@AppStorage</code> set with no sync. Toggling "Weekly report" on iOS doesn't update the Mac, and vice versa.</td></tr>
+    <tr><td class="feat">Distracting sites list</td><td><span class="pill partial">PARTIAL</span></td><td><span class="pill full">FULL</span></td><td class="note">iOS keeps <code>websiteURLs</code> per FocusMode. Mac has a global list synced via backend. They don't share.</td></tr>
+    <tr><td class="feat">Notification preferences</td><td><span class="pill full">FULL</span></td><td><span class="pill full">FULL</span></td><td class="note">Both have UI. Neither syncs to the other. Pure independent state.</td></tr>
+    <tr><td class="feat">Theme / appearance</td><td><span class="pill partial">FIXED</span></td><td><span class="pill full">FULL</span></td><td class="note">Mac has 5 themes (Default/Classic/Emerald/Warm/Light). iOS is dark-only with the design-system port done tonight.</td></tr>
+  </tbody>
+</table>
+
+<h2>Where shared concepts diverge today</h2>
+
+<div class="grid2">
+  <div class="card">
+    <div class="meta">Concept</div>
+    <h3>Partner email</h3>
+    <p>Mac stores it in <code>onboarding_settings.json</code> + backend. iOS stores it in <code>@AppStorage("partnerEmail")</code> only. <strong>If you change it on one app, the other doesn't know.</strong></p>
+    <p style="color: var(--text);">Fix: iOS reads/writes through <code>GET/PUT /partner</code> like the Mac does. One source of truth = backend.</p>
+  </div>
+  <div class="card">
+    <div class="meta">Concept</div>
+    <h3>Lock mode</h3>
+    <p>Mac respects <code>lock_mode</code> from backend (none / partner / self). iOS doesn't read it at all. <strong>You can be partner-locked on Mac and unrestricted on iOS.</strong></p>
+    <p style="color: var(--text);">Fix: iOS fetches <code>lock_mode</code> on launch; if "partner" or "self", surfaces lock UI on Settings tab + gates emergency-unbrick toggle.</p>
+  </div>
+  <div class="card">
+    <div class="meta">Concept</div>
+    <h3>Focus mode / block</h3>
+    <p>iOS has on-demand modes (FocusMode SwiftData). Mac has scheduled blocks (FocusBlock + Deep Work / Focus Hours / Free Time). Same word, different model.</p>
+    <p style="color: var(--text);">Fix: pick one canonical shape. The Mac's block model is richer; iOS modes can map onto it as "named templates that produce a block when activated".</p>
+  </div>
+  <div class="card">
+    <div class="meta">Concept</div>
+    <h3>Pucks</h3>
+    <p>iOS has <code>RegisteredPuck</code> SwiftData. Mac doesn't have a puck registry — it just receives focus signals. <strong>If you re-pair a puck on iOS, Mac never finds out.</strong></p>
+    <p style="color: var(--text);">Fix: iOS posts puck registry to backend. Mac displays "Pucks registered to your account" in dashboard read-only.</p>
+  </div>
+  <div class="card">
+    <div class="meta">Concept</div>
+    <h3>Sessions</h3>
+    <p>Mac has <code>FocusSession</code> with rich data (focus score, intent, recovery count, app breakdown). iOS has its own <code>FocusSession</code> SwiftData (simpler). They both end up in <code>POST /sessions</code> but the iOS data is thinner.</p>
+    <p style="color: var(--text);">Fix: align the wire format. iOS doesn't need to fill every field, but the schema should match.</p>
+  </div>
+  <div class="card">
+    <div class="meta">Concept</div>
+    <h3>Onboarding</h3>
+    <p>iOS: 4-question quiz → ResultView → puck pairing. Mac: 6-step wizard → theme → extension → blocked platforms → partner → lock. <strong>Two completely different first-runs.</strong></p>
+    <p style="color: var(--text);">Fix: pick a shared first-run flow. Quiz can be iOS-only (it's about reclaiming time), but partner setup + lock-mode choice should be identical screens.</p>
+  </div>
+</div>
+
+<h2>The unified backend (already exists)</h2>
+<p>Both apps already point at <code>api.intentional.social</code>. Here's the current endpoint coverage:</p>
+
+<table>
+  <thead><tr><th>Endpoint</th><th>Mac uses</th><th>iOS uses</th><th class="col-note">Comment</th></tr></thead>
+  <tbody>
+    <tr><td><code>POST /register</code></td><td>✅</td><td>✅</td><td class="note">Both register on first launch.</td></tr>
+    <tr><td><code>POST /system-event</code> (heartbeat)</td><td>✅</td><td>❌</td><td class="note">iOS could send heartbeats too (background app refresh). Would let the dashboard show "iPhone seen 2 min ago".</td></tr>
+    <tr><td><code>PUT /partner</code></td><td>✅</td><td>✅ <span class="pill full">shipped 04-25</span></td><td class="note">iOS now calls this on Send Invite (commit 4d2f90d).</td></tr>
+    <tr><td><code>DELETE /partner</code></td><td>✅</td><td>✅ <span class="pill full">shipped 04-25</span></td><td class="note">iOS now calls this on Remove Partner (commit 4d2f90d). Server response is the source of truth; iOS no longer flips local state optimistically.</td></tr>
+    <tr><td><code>GET /partner/status</code></td><td>✅</td><td>✅ <span class="pill full">shipped 04-25</span></td><td class="note">iOS Partner tab refreshes from this on <code>.task</code>.</td></tr>
+    <tr><td><code>PUT /lock</code></td><td>✅</td><td>❌</td><td class="note">iOS still can't <em>write</em> lock state. Most users set it once on Mac so this is low priority.</td></tr>
+    <tr><td><code>GET /unlock/status</code></td><td>✅</td><td>✅ <span class="pill full">shipped 04-25</span></td><td class="note">iOS reads via new <code>LockStateService</code> on launch + Settings appearance. Auth is X-Device-ID legacy (not Bearer) — handled by <code>AuthMode.deviceId</code> in <code>IntentionalAPIClient</code>.</td></tr>
+    <tr><td><code>GET /device/enforcement</code></td><td>✅</td><td>❌</td><td class="note">Mac uses this for the Reconciler force-correct loop. iOS uses <code>/unlock/status</code> instead — leaner shape for iOS's read-only purposes.</td></tr>
+    <tr><td><code>POST /sessions</code></td><td>✅</td><td>~partial</td><td class="note">iOS uses <code>IntentionalFocusSignalClient</code> on session start/end (different shape).</td></tr>
+    <tr><td><code>GET/POST /settings/sync</code></td><td>✅</td><td>❌</td><td class="note">Settings divergence #1 cause.</td></tr>
+    <tr><td><code>POST /content-safety/report</code></td><td>✅</td><td>❌</td><td class="note">Mac-only feature, expected.</td></tr>
+    <tr><td><code>POST /content-safety/tamper</code></td><td>✅</td><td>❌</td><td class="note">Mac-only.</td></tr>
+    <tr><td><code>POST /focus/toggle</code> + <code>GET /focus/active</code></td><td>✅</td><td>✅</td><td class="note">Puck signal pipeline. Already wired both ways. ✅</td></tr>
+  </tbody>
+</table>
+
+<blockquote>The pattern is clear: the Mac is wired to the backend; iOS is mostly local-only. Three or four endpoint integrations on iOS would close 80% of the unification gap.</blockquote>
+
+<h2>Unification priorities — ranked</h2>
+
+<ol class="steps">
+  <li style="background: rgba(111,181,142,0.08); border-color: rgba(111,181,142,0.28);">
+    <span class="pill full">SHIPPED 04-25</span> &nbsp; <b>Wire iOS Partner tab to <code>/partner</code> + <code>/partner/status</code></b>
+    <span class="why">Done. Branch <code>feat/partner-backend-wiring</code>, commit 4d2f90d. Send invite now reaches partner; <code>partnerConsentStatus</code> distinguishes pending vs confirmed; remove-partner uses server response as source of truth.</span>
+  </li>
+  <li style="background: rgba(111,181,142,0.08); border-color: rgba(111,181,142,0.28);">
+    <span class="pill full">SHIPPED 04-25</span> &nbsp; <b>iOS reads <code>lock_mode</code> on launch (uses <code>/unlock/status</code>)</b>
+    <span class="why">Done. New <code>LockStateService</code> + Settings tab gating. Commits e25198c · 83d36a9 · 10e7a3b. Used <code>/unlock/status</code> instead of <code>/device/enforcement</code> — leaner for read-only iOS use case. Auth is X-Device-ID via new <code>AuthMode.deviceId</code> abstraction (the bearer/deviceId split lives in <code>IntentionalAPIClient</code> and is shared between both branches).</span>
+  </li>
+  <li>
+    <span class="pill priority2">P2</span> &nbsp; <b>iOS sends heartbeats to <code>/system-event</code></b>
+    <span class="why">Lets the partner dashboard show "iPhone last seen X min ago" alongside the Mac's heartbeat. Also surfaces if the iPhone has been off-grid (potential bypass attempt). Cheap to add.</span>
+  </li>
+  <li>
+    <span class="pill priority2">P2</span> &nbsp; <b>Settings sync via <code>/settings/sync</code></b>
+    <span class="why">Notification toggles, distracting sites, theme — sync these. Means the user only sets up Intentional once, not twice. Mac is already on this endpoint; iOS just needs to call it.</span>
+  </li>
+  <li>
+    <span class="pill priority2">P2</span> &nbsp; <b>Pucks registry → backend</b>
+    <span class="why">Currently <code>RegisteredPuck</code> only lives on the iPhone. Sync it so the Mac dashboard can show "Pucks paired to this account" + which mode each one triggers. Gives the partner visibility too.</span>
+  </li>
+  <li>
+    <span class="pill priority3">P3</span> &nbsp; <b>iOS surfaces the Mac's content-safety status</b>
+    <span class="why">Add a "Content Safety" row to the iOS Settings tab that reads from the Mac's reported state (last detection, monitor running). Read-only. Means CS protection is visible across both phones, not hidden in the Mac.</span>
+  </li>
+  <li>
+    <span class="pill priority3">P3</span> &nbsp; <b>iOS surfaces the Mac's earned-browse pool</b>
+    <span class="why">Show available minutes / cost multiplier on the iOS Home tab when the Mac is in a work block. Just observation — actually editing the pool stays on the Mac. Makes the apps feel like one product instead of two.</span>
+  </li>
+  <li>
+    <span class="pill priority3">P3</span> &nbsp; <b>Align onboarding flows</b>
+    <span class="why">Steps that aren't device-specific (account, partner, lock-mode choice) should be the same screens on both. Steps that are device-specific (iOS quiz + puck pairing, Mac extension install) stay separate.</span>
+  </li>
+  <li>
+    <span class="pill priority3">P3</span> &nbsp; <b>Cross-device account linking audit</b>
+    <span class="why">Today the Mac is on an orphan row (<code>account_id=null</code>). New Macs / new iOS installs may end up under different rows than each other. Audit the join logic and consolidate. Without this, the "one app" feeling falls apart anytime the user reinstalls.</span>
+  </li>
+</ol>
+
+<h2>What I'd ship first (concrete next sprint)</h2>
+
+<div class="grid2">
+  <div class="card">
+    <div class="meta">Sprint goal</div>
+    <h3>"Set up your partner once, see it everywhere"</h3>
+    <p>Single deliverable, shippable in ~2 days:</p>
+    <p style="margin-top: 4px;">
+      <strong>iOS</strong>: replace stubbed <code>PartnerView.sendInvite()</code> with a real call to <code>PUT /partner</code>; add a <code>GET /partner/status</code> fetch on tab appear; show real connection state.
+    </p>
+    <p>
+      <strong>Backend</strong>: nothing — endpoints already exist.
+    </p>
+    <p>
+      <strong>Mac</strong>: nothing — already correct.
+    </p>
+    <p>
+      <strong>Result</strong>: invite sent from iPhone → arrives in partner inbox → Mac sees the partner appear in dashboard. The single most "this is one app" moment available.
+    </p>
+  </div>
+  <div class="card">
+    <div class="meta">Sprint goal #2</div>
+    <h3>"Lock state is one number"</h3>
+    <p>Shippable in ~1 day after #1:</p>
+    <p style="margin-top: 4px;">
+      <strong>iOS</strong>: on launch + on Settings tab appear, fetch <code>GET /unlock/status</code>; if <code>lock_mode == "partner"</code>, gray out emergency-unbrick + sign-out + delete-account, show "Get code from your partner to unlock" inline.
+    </p>
+    <p>
+      <strong>Mac</strong>: nothing — already does this.
+    </p>
+    <p>
+      <strong>Result</strong>: when the user partner-locks on Mac, the iPhone instantly stops being a bypass route. Closes the most obvious lockdown gap.
+    </p>
+  </div>
+</div>
+
+<h2>What this DOESN'T mean</h2>
+<p>You don't need to make iOS and macOS feature-equivalent. The two apps have different jobs:</p>
+<ul>
+  <li><strong>iPhone</strong>: the trigger. Tap a puck → start a session. Wake up with a smart alarm. Sleep with bedtime mode. Show the partner state. Show the Mac's status. Be the always-with-you remote control.</li>
+  <li><strong>Mac</strong>: the enforcer. The work happens here — AI scoring, browser blocking, screen monitoring, the pill timer, the rituals. The Mac is where you get work done, the iPhone is the controller.</li>
+</ul>
+<p>The unification work is about <strong>shared state</strong> (partner, lock, settings, sessions) flowing through the backend, not about copying features sideways.</p>
+
+<div class="footer">
+  <p>
+    Generated 2026-04-25 from a parallel scan of <code>puck-ios/Puck</code> and <code>intentional-macos-app/Intentional</code>. See <code>docs/overnight-run-2026-04-25.md</code> for the latest cross-repo work log.
+  </p>
+  <p>Open in Chrome locally: <code>file:///Users/arayan/Documents/GitHub/intentional-macos-app/docs/feature-parity-2026-04-25.html</code></p>
+</div>
+
+</div>
+</body>
+</html>

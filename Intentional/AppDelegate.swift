@@ -8,6 +8,7 @@
 import Cocoa
 import Foundation
 import ServiceManagement
+import SwiftUI
 
 class AppDelegate: NSObject, NSApplicationDelegate {
 
@@ -37,8 +38,119 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Earn Your Browse budget system
     var earnedBrowseManager: EarnedBrowseManager?
 
-    // LLM-powered day planning coach
-    var planningCoach: PlanningCoach?
+    // Intentional Mode — screen lock until you plan
+    var intentionalModeController: IntentionalModeController?
+
+    // Content Safety — on-device screen monitoring for explicit content
+    var contentSafetyMonitor: ContentSafetyMonitor?
+
+    // Enforcement (Content Safety Lockdown) — verifies partner-locked settings
+    var enforcementReconciler: EnforcementReconciler?
+    var tamperOverlayController: TamperOverlayController?
+
+    // Context-switching overlay v1 — intervenes on switches from work to non-work
+    var switchCoordinator: SwitchInterventionCoordinator?
+    var switchOverlayController: SwitchOverlayController?
+
+    // Bedtime Enforcer — locks screen during bedtime hours
+    var bedtimeEnforcer: BedtimeEnforcer?
+
+    // Blocking Profiles & Focus Sessions (Puck integration)
+    var blockingProfileManager: BlockingProfileManager?
+
+    var projectStore: ProjectStore?
+
+    // Transient: which project's session is currently active (replaces
+    // FocusBlock.projectId; cleared on block end in onBlockChanged).
+    private(set) var activeProjectSession: (projectId: UUID, blockId: String)?
+
+    func setActiveProjectSession(projectId: UUID, blockId: String) {
+        self.activeProjectSession = (projectId, blockId)
+        Task { await self.refreshProjectEnforcement(for: projectId) }
+    }
+
+    func clearActiveProjectSession() {
+        self.activeProjectSession = nil
+        self.focusMonitor?.projectEnforcement = nil
+    }
+
+    /// Call after an in-session project edit so the new allow/block lists take effect.
+    func refreshActiveProjectEnforcement() {
+        guard let pid = activeProjectSession?.projectId else { return }
+        Task { await self.refreshProjectEnforcement(for: pid) }
+    }
+
+    /// Sync `activeProjectSession` to the current schedule block. Called on app startup
+    /// and whenever the active block changes — the in-memory session isn't otherwise
+    /// restored after a restart and queued sessions don't auto-activate when their
+    /// block becomes current.
+    func ensureProjectSessionMatchesCurrentBlock() {
+        guard let block = scheduleManager?.currentBlock else { return }
+        if activeProjectSession?.blockId == block.id { return }
+        guard let store = projectStore else { return }
+        Task {
+            let all = await store.list()
+            let match = all.first { p in
+                p.sessions.contains { $0.blockId?.uuidString == block.id }
+            }
+            guard let project = match else { return }
+            await MainActor.run {
+                guard self.scheduleManager?.currentBlock?.id == block.id else { return }
+                self.setActiveProjectSession(projectId: project.id, blockId: block.id)
+            }
+        }
+    }
+
+    private func refreshProjectEnforcement(for projectId: UUID) async {
+        guard let store = projectStore,
+              let project = await store.get(id: projectId) else {
+            await MainActor.run { self.focusMonitor?.projectEnforcement = nil }
+            return
+        }
+        let merged = blockingProfileManager?.mergedBlockList(profileIds: project.blocklistIds)
+        var allowedBundleIds = Set<String>()
+        var allowedDomains = Set<String>()
+        for item in project.allowed {
+            switch item.kind {
+            case .appBundleId: allowedBundleIds.insert(item.value)
+            case .domain: allowedDomains.insert(item.value.lowercased())
+            }
+        }
+        var blockedBundleIds = Set<String>()
+        var blockedDomains = Set<String>()
+        for item in project.blocked {
+            switch item.kind {
+            case .appBundleId: blockedBundleIds.insert(item.value)
+            case .domain: blockedDomains.insert(item.value.lowercased())
+            }
+        }
+        if let merged = merged {
+            for app in merged.appBundleIds { blockedBundleIds.insert(app) }
+            for d in merged.domains { blockedDomains.insert(d.lowercased()) }
+        }
+        let enforcement = FocusMonitor.ProjectEnforcement(
+            projectId: projectId,
+            allowedBundleIds: allowedBundleIds,
+            allowedDomains: allowedDomains,
+            blockedBundleIds: blockedBundleIds,
+            blockedDomains: blockedDomains
+        )
+        await MainActor.run {
+            guard self.activeProjectSession?.projectId == projectId else { return }
+            self.focusMonitor?.projectEnforcement = enforcement
+        }
+    }
+
+    var activeProjectId: UUID? { activeProjectSession?.projectId }
+
+    var focusSessionManager: FocusSessionManager?
+    var focusWebSocketClient: FocusWebSocketClient?
+    private var focusStartOverlayWindows: [NSWindow] = []
+    private var focusStartOverlayViewModel: FocusStartOverlayViewModel?
+    private var puckHotkeyMonitor: Any?
+
+    // Root daemon XPC client (tamper-resistant strict mode)
+    let daemonClient = DaemonXPCClient()
 
     // Native app heartbeat timer (Phase 2: Tamper Detection)
     var heartbeatTimer: Timer?
@@ -52,81 +164,145 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let appStartTime = Date()
 
     // MARK: - Strict Mode (Tamper-Resistant Persistence)
+    //
+    // Two paths:
+    // 1. Daemon installed (PKG): XPC to syspolicyd_helper — config in /private/var/, tamper-resistant
+    // 2. No daemon (dev/DMG): fallback to UserDefaults + flag file — bypassable but functional
 
-    /// Path to the strict mode flag file.
-    /// Watchdog checks this to decide whether to relaunch.
+    /// Path to the strict mode flag file (fallback when daemon is not running).
     func strictModeFlagPath() -> String {
         let appSupport = NSHomeDirectory() + "/Library/Application Support/Intentional"
         try? FileManager.default.createDirectory(atPath: appSupport, withIntermediateDirectories: true)
         return appSupport + "/strict-mode"
     }
 
-    /// Block Cmd+Q when strict mode is enabled.
+    /// Block Cmd+Q when strict mode is enabled — unless the daemon is running
+    /// (in which case, let the quit happen and the daemon will relaunch us).
+    /// This is critical for macOS permission changes (e.g. Screen Recording)
+    /// which require a full process restart to take effect.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        let strictEnabled = UserDefaults.standard.bool(forKey: "strictModeEnabled")
+        let strictEnabled = daemonClient.isStrictModeEnabledSync()
+        let decision = QuitPolicy.decide(
+            strictModeEnabled: strictEnabled,
+            daemonAvailable: daemonClient.isDaemonAvailable
+        )
 
-        if !strictEnabled {
+        switch decision {
+        case .allowQuit:
+            if strictEnabled {
+                postLog("🔒 Quit allowed — daemon will relaunch in seconds")
+            }
             return .terminateNow
+        case .blockQuit:
+            postLog("🔒 Quit blocked — strict mode ON, no daemon to relaunch")
+            let alert = NSAlert()
+            alert.messageText = "App Persistence is On"
+            alert.informativeText = "Intentional is set to keep running. To disable this, open settings and request a code from your accountability partner."
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "Keep Running")
+            alert.runModal()
+            return .terminateCancel
         }
-
-        // Strict mode is ON — block quit (requires partner code to disable via dashboard)
-        postLog("🔒 Quit blocked — strict mode ON (requires partner code to disable)")
-        let alert = NSAlert()
-        alert.messageText = "App Persistence is On"
-        alert.informativeText = "Intentional is set to keep running. To disable this, open settings and request a code from your accountability partner."
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "Keep Running")
-        alert.runModal()
-        return .terminateCancel
     }
 
-    /// Enable/disable strict mode based on the `strictModeEnabled` user preference.
-    /// Called on launch and whenever the user toggles strict mode.
+    /// Enable/disable strict mode.
+    /// If daemon is running, it is the AUTHORITY — UserDefaults cannot override it.
+    /// This prevents the `defaults write strictModeEnabled false` bypass.
     func updateStrictMode() {
-        let strictEnabled = UserDefaults.standard.bool(forKey: "strictModeEnabled")
+        var strictEnabled = UserDefaults.standard.bool(forKey: "strictModeEnabled")
+
+        // If daemon is available, check its state FIRST.
+        // If daemon says strict=true but UserDefaults says false, someone tampered
+        // with UserDefaults. Trust the daemon and restore UserDefaults.
+        if daemonClient.isDaemonAvailable {
+            let daemonState = daemonClient.isStrictModeEnabledSync()
+            if daemonState && !strictEnabled {
+                postLog("🔒 TAMPER DETECTED: UserDefaults says strict=false but daemon says true. Restoring.")
+                UserDefaults.standard.set(true, forKey: "strictModeEnabled")
+                strictEnabled = true
+            }
+        }
+
         postLog("🔒 updateStrictMode: strict=\(strictEnabled)")
 
-        // 1. Login item: auto-start on login
-        if #available(macOS 13.0, *) {
-            if strictEnabled {
-                do {
-                    try SMAppService.mainApp.register()
-                    postLog("✅ Login item registered (auto-start on login)")
-                } catch {
-                    postLog("⚠️ Failed to register login item: \(error)")
-                }
-            } else {
-                do {
-                    try SMAppService.mainApp.unregister()
-                    postLog("✅ Login item unregistered")
-                } catch {
-                    // Not registered — that's fine
+        // Sync to daemon (if running)
+        daemonClient.setStrictMode(enabled: strictEnabled) { [weak self] success, error in
+            if success {
+                self?.postLog("🔒 Daemon: strict mode synced")
+            } else if let error = error {
+                self?.postLog("🔒 Daemon: strict mode rejected — \(error)")
+            }
+        }
+
+        // Also sync partner state to daemon
+        var lockMode = UserDefaults.standard.string(forKey: "lockMode") ?? "none"
+        if lockMode == "self" { // "self" lock mode removed — migrate on startup
+            lockMode = "none"
+            UserDefaults.standard.set("none", forKey: "lockMode")
+        }
+        let isLocked = lockMode != "none"
+        let deviceId = UserDefaults.standard.string(forKey: "deviceId")
+        // Read partner email from settings file
+        let settingsURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("Intentional/onboarding_settings.json")
+        var partnerEmail: String?
+        if let data = try? Data(contentsOf: settingsURL),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            partnerEmail = json["partnerEmail"] as? String
+        }
+        daemonClient.updatePartnerLockState(isLocked: isLocked, partnerEmail: partnerEmail, deviceId: deviceId)
+
+        // Fallback: login item (only when daemon is NOT available)
+        if !daemonClient.isDaemonAvailable {
+            if #available(macOS 13.0, *) {
+                if strictEnabled {
+                    do {
+                        try SMAppService.mainApp.register()
+                        postLog("✅ Login item registered (fallback — no daemon)")
+                    } catch {
+                        postLog("⚠️ Failed to register login item: \(error)")
+                    }
+                } else {
+                    do {
+                        try SMAppService.mainApp.unregister()
+                        postLog("✅ Login item unregistered")
+                    } catch {}
                 }
             }
         }
 
-        // 2. Strict mode flag file (for watchdog + SIGTERM handler)
-        let flagPath = strictModeFlagPath()
-        if strictEnabled {
-            FileManager.default.createFile(atPath: flagPath, contents: "1".data(using: .utf8))
-            postLog("✅ Strict mode flag written: \(flagPath)")
+        // Fallback: flag file (only when daemon is NOT available)
+        if !daemonClient.isDaemonAvailable {
+            let flagPath = strictModeFlagPath()
+            if strictEnabled {
+                FileManager.default.createFile(atPath: flagPath, contents: "1".data(using: .utf8))
+                postLog("✅ Strict mode flag written (fallback)")
+            } else {
+                try? FileManager.default.removeItem(atPath: flagPath)
+                postLog("✅ Strict mode flag removed (fallback)")
+            }
+            updateWatchdog(enabled: strictEnabled)
         } else {
-            try? FileManager.default.removeItem(atPath: flagPath)
-            postLog("✅ Strict mode flag removed")
+            // Daemon is available, but main.swift still reads the flag file during SIGTERM
+            // to decide whether to write a no-relaunch marker. Keep it in sync.
+            let flagPath = strictModeFlagPath()
+            if strictEnabled {
+                FileManager.default.createFile(atPath: flagPath, contents: "1".data(using: .utf8))
+            } else {
+                try? FileManager.default.removeItem(atPath: flagPath)
+            }
+            postLog("🔒 Daemon available — flag file synced, skipping fallback watchdog")
         }
-
-        // 3. Watchdog LaunchAgent
-        updateWatchdog(enabled: strictEnabled)
     }
 
-    /// Register/unregister the watchdog LaunchAgent that relaunches the app if force-quit.
+    /// Register/unregister the watchdog LaunchAgent (fallback when daemon is not running).
     private func updateWatchdog(enabled: Bool) {
         if #available(macOS 13.0, *) {
             let agent = SMAppService.agent(plistName: "com.intentional.watchdog.plist")
             if enabled {
                 do {
                     try agent.register()
-                    postLog("✅ Watchdog agent registered")
+                    postLog("✅ Watchdog agent registered (fallback)")
                 } catch {
                     postLog("⚠️ Failed to register watchdog: \(error)")
                 }
@@ -179,6 +355,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         UserDefaults.standard.set(true, forKey: "allowAutoLaunchFromExtension")
         postLog("✅ Auto-launch from extensions enabled (app manually started)")
 
+        // Connect to root daemon (if installed via PKG)
+        daemonClient.connect()
+        if daemonClient.isDaemonAvailable {
+            postLog("🔒 Daemon connected — tamper-resistant mode")
+        } else {
+            postLog("🔒 Daemon not available — using UserDefaults fallback")
+        }
+
         // Initialize backend client
         backendClient = BackendClient(baseURL: "https://api.intentional.social")
         postLog("🔗 Backend URL: https://api.intentional.social")
@@ -188,10 +372,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         postLog("🪟 Main window created")
 
         // Bring window to front
+        postLog("🚨 ACTIVATE: AppDelegate.applicationDidFinishLaunching — initial launch")
         NSApp.activate(ignoringOtherApps: true)
 
         // Create menu bar icon
         setupMenuBar()
+        setupMainMenu()
         postLog("🔝 Menu bar icon added")
 
         // Start permission monitoring
@@ -206,16 +392,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Start website blocker (ScreenTime + AppleEvents fallback)
         websiteBlocker = WebsiteBlocker(backendClient: backendClient!, appDelegate: self)
         // Load custom distracting sites from settings
-        if let supportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-            let settingsURL = supportDir.appendingPathComponent("Intentional/onboarding_settings.json")
-            if let data = try? Data(contentsOf: settingsURL),
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let sites = json["distractingSites"] as? [String], !sites.isEmpty {
-                websiteBlocker?.updateDistractingSites(sites)
-            }
-        }
+        // Legacy distractingSites loading removed — blocking is now driven by
+        // BlockingProfileManager (always-active profiles + focus session profiles).
+        // WebsiteBlocker starts empty; applyAlwaysActiveProfiles() populates it below.
         websiteBlocker?.startBlocking()
-        postLog("✅ Website blocking initialized")
+        postLog("✅ Website blocking initialized (profile-driven)")
 
         // Start browser monitoring (all browsers)
         browserMonitor = BrowserMonitor(backendClient: backendClient!, appDelegate: self)
@@ -268,6 +449,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         earnedBrowseManager?.load()
         postLog("💰 EarnedBrowseManager initialized")
 
+        // Initialize Projects store
+        projectStore = ProjectStore()
+        postLog("📁 ProjectStore initialized")
+
         // Wire TimeTracker callback: deduct social media time from earned pool
         timeTracker?.onSocialMediaTimeRecorded = { [weak self] platform, minutes, isFreeBrowse in
             guard let mgr = self?.earnedBrowseManager else { return }
@@ -283,9 +468,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Initialize Daily Focus Plan (V2: schedule engine + relevance scoring)
         scheduleManager = ScheduleManager(appDelegate: self)
         relevanceScorer = RelevanceScorer(appDelegate: self)
-
-        // Initialize LLM-powered planning coach (reuses models from RelevanceScorer)
-        planningCoach = PlanningCoach(appDelegate: self)
+        relevanceScorer?.loadLearnedOverrides()
 
         // Initialize focus monitor and nudge window (V2: desktop app monitoring)
         nudgeController = NudgeWindowController(appDelegate: self)
@@ -299,14 +482,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         focusMonitor?.interventionController = interventionController
         // focusMonitor?.ritualController = BlockRitualController()  // Now pill-centric
         focusMonitor?.endRitualController = BlockEndRitualController()
-        // Load user-configured distracting apps from saved settings
+        // Legacy distractingApps loading removed — app blocking is now driven by
+        // BlockingProfileManager (always-active profiles + focus session profiles).
+        // FocusMonitor.distractingAppBundleIds is populated by applyAlwaysActiveProfiles() below.
         let settingsURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
             .appendingPathComponent("Intentional").appendingPathComponent("onboarding_settings.json")
         if let data = try? Data(contentsOf: settingsURL),
            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            if let apps = json["distractingApps"] as? [[String: Any]] {
-                focusMonitor?.distractingAppBundleIds = Set(apps.compactMap { $0["bundleId"] as? String })
-            }
             if let sites = json["alwaysRelevantSites"] as? [String] {
                 focusMonitor?.alwaysRelevantHostnames = Set(sites.map { $0.lowercased() })
                 postLog("👁️ Loaded \(sites.count) always-relevant site(s): \(sites)")
@@ -316,9 +498,109 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let partnerEmail = json["partnerEmail"] as? String ?? ""
             focusMonitor?.hasConfiguredPartner = !partnerEmail.isEmpty
         }
-        focusMonitor?.morningPlanOverlay = MorningPlanOverlayController()
+        // Step 15d: Switch intervention coordinator (context-switching overlay v1).
+        let switchCoordinator = SwitchInterventionCoordinator(
+            exemptBundleIds: Set(["com.arayan.intentional"])
+        )
+        let switchOverlayController = SwitchOverlayController()
+        focusMonitor?.switchCoordinator = switchCoordinator
+        focusMonitor?.switchOverlayController = switchOverlayController
+        self.switchCoordinator = switchCoordinator
+        self.switchOverlayController = switchOverlayController
+
+        // Seed session state from current schedule, in case the app starts mid-block.
+        if let block = scheduleManager?.currentBlock,
+           block.blockType == .deepWork || block.blockType == .focusHours {
+            switchCoordinator.sessionStarted(at: Date())
+            switchCoordinator.setInWorkSession(true)
+        }
+        postLog("👁️ SwitchInterventionCoordinator + SwitchOverlayController wired to FocusMonitor")
+
+        // Phase B: async backend fetch. Don't block startup.
+        Task { [weak self] in
+            await self?.enforcementReconciler?.runPhaseB()
+        }
+
         focusMonitor?.start()
         postLog("👁️ FocusMonitor + NudgeWindowController + FocusOverlayWindow + InterventionOverlay initialized")
+
+        // Initialize Intentional Mode (screen lock until you plan)
+        intentionalModeController = IntentionalModeController(appDelegate: self)
+        intentionalModeController?.scheduleManager = scheduleManager
+        intentionalModeController?.loadSettings()
+        intentionalModeController?.recalculateState()
+        intentionalModeController?.start()
+        postLog("🔒 IntentionalModeController initialized (enabled=\(intentionalModeController?.isEnabled ?? false))")
+
+        // Bedtime Enforcer
+        bedtimeEnforcer = BedtimeEnforcer(appDelegate: self)
+        sleepWakeMonitor?.onWake = { [weak self] in
+            self?.bedtimeEnforcer?.onMacWoke()
+        }
+        bedtimeEnforcer?.start()
+        postLog("🌙 BedtimeEnforcer initialized and started")
+
+        // Blocking Profiles & Focus Sessions
+        blockingProfileManager = BlockingProfileManager()
+        focusSessionManager = FocusSessionManager()
+
+        // Apply always-active profiles on startup
+        applyAlwaysActiveProfiles()
+
+        // Restore active focus session if app restarted mid-focus
+        if let session = focusSessionManager?.activeSession {
+            postLog("🎯 Restoring active focus session from disk")
+            applyFocusSession(session)
+        }
+
+        // Mock Puck trigger: Cmd+Shift+P global hotkey
+        puckHotkeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.modifierFlags.contains([.command, .shift]) && event.keyCode == 35 {
+                DispatchQueue.main.async { self?.togglePuckFocus() }
+            }
+        }
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.modifierFlags.contains([.command, .shift]) && event.keyCode == 35 {
+                DispatchQueue.main.async { self?.togglePuckFocus() }
+                return nil
+            }
+            return event
+        }
+        postLog("🎯 BlockingProfileManager + FocusSessionManager initialized")
+
+        // WebSocket focus signal client (receives start/stop from Puck via backend)
+        focusWebSocketClient = FocusWebSocketClient()
+        focusWebSocketClient?.onFocusSignal = { [weak self] action, sessionId, triggeredBy in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if action == "start" {
+                    self.postLog("🔌 Focus signal: START (session: \(sessionId), triggeredBy: \(triggeredBy))")
+                    self.focusWebSocketClient?.startHeartbeat(sessionId: sessionId)
+                    self.showFocusStartOverlay(isPuckTriggered: triggeredBy == "puck")
+                } else if action == "stop" {
+                    self.postLog("🔌 Focus signal: STOP (session: \(sessionId))")
+                    self.focusWebSocketClient?.stopHeartbeat()
+                    self.endFocusSession()
+                }
+            }
+        }
+        focusWebSocketClient?.onConnectionStateChanged = { [weak self] connected in
+            self?.postLog("🔌 WebSocket \(connected ? "connected" : "disconnected")")
+            if connected {
+                self?.checkForActiveFocusSession()
+            }
+        }
+
+        // Connect WebSocket if we have a JWT token
+        if let token = backendClient?.getAccessToken() {
+            focusWebSocketClient?.connect(token: token)
+            postLog("🔌 WebSocket connecting with stored token")
+
+            // Register this Mac with the Intentional backend (idempotent, one-shot)
+            IntentionalDeviceRegistration.shared.registerIfNeeded(token: token) { [weak self] msg in
+                self?.postLog(msg)
+            }
+        }
 
         // Wire schedule block changes: when the active block changes,
         // clear the relevance cache, reset focus monitor, and broadcast SCHEDULE_SYNC
@@ -337,6 +619,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // Set activeBlockId BEFORE focusMonitor re-evaluates (which may call recordWorkTick)
             self.earnedBrowseManager?.onBlockChanged(blockId: block?.id, blockTitle: block?.title)
             self.focusMonitor?.onBlockChanged()
+            self.intentionalModeController?.onBlockChanged(block: block, timeState: state)
             self.socketRelayServer?.broadcastScheduleSync()
             self.mainWindowController?.pushScheduleUpdate()
 
@@ -357,6 +640,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             // If celebration was skipped but pill was in blockComplete, resume deferred start
             self.focusMonitor?.resumeIfPendingBlockStart()
+
+            if let tracked = self.activeProjectSession?.blockId, block?.id != tracked {
+                // Finalize the session BEFORE clearing so we can look up the session id
+                // and snapshot the focus score for the just-ended block.
+                if let projectId = self.activeProjectSession?.projectId,
+                   let blockUUID = UUID(uuidString: tracked),
+                   let store = self.projectStore {
+                    let scorePct = self.earnedBrowseManager?.blockFocusStats[tracked]?.focusScore
+                    let scoreFraction: Double? = scorePct.map { Double($0) / 100.0 }
+                    Task {
+                        if let sid = await store.findActiveSession(projectId: projectId, blockId: blockUUID) {
+                            _ = await store.recordSessionEnd(
+                                projectId: projectId,
+                                sessionId: sid,
+                                focusScore: scoreFraction
+                            )
+                        }
+                    }
+                }
+                self.clearActiveProjectSession()
+            }
+            self.ensureProjectSessionMatchesCurrentBlock()
         }
 
         // ScheduleManager.init() already called recalculateState(), but the callback
@@ -366,7 +671,56 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             earnedBrowseManager?.onBlockChanged(blockId: block.id, blockTitle: block.title)
             // Also sync focusMonitor so the floating timer shows immediately on startup mid-block
             focusMonitor?.onBlockChanged()
+            ensureProjectSessionMatchesCurrentBlock()
         }
+
+        // Step 15b: Enforcement Reconciler — runs BEFORE ContentSafetyMonitor
+        // so CS reads a verified state.
+        tamperOverlayController = TamperOverlayController()
+        let enforcementDaemonClient = EnforcementDaemonClient(daemonClient: daemonClient)
+        enforcementReconciler = EnforcementReconciler(
+            appDelegate: self,
+            backendClient: backendClient!,
+            daemonClient: enforcementDaemonClient
+        )
+
+        // Phase A is async but fast (local XPC). Block startup briefly with a hard cap.
+        let enforcementSema = DispatchSemaphore(value: 0)
+        Task {
+            await enforcementReconciler?.runBlockingPhaseA()
+            enforcementSema.signal()
+        }
+        _ = enforcementSema.wait(timeout: .now() + 1.0)  // hard cap at 1s; if daemon hangs, proceed
+        postLog("🛡️ Enforcement: Phase A complete")
+
+        // Push daemon-available flag to dashboard for the degraded-mode banner.
+        let daemonAvailable = enforcementDaemonClient.daemonAvailable
+        DispatchQueue.main.async { [weak self] in
+            let js = "window._daemonAvailable && window._daemonAvailable(\(daemonAvailable ? "true" : "false"))"
+            self?.mainWindowController?.callJS(js)
+        }
+
+        // Observe post-unlock refresh notifications from MainWindow
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("enforcementShouldRefresh"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { await self?.enforcementReconciler?.refresh() }
+        }
+
+        // Content Safety Monitor — on-device screen monitoring for explicit content
+        contentSafetyMonitor = ContentSafetyMonitor(appDelegate: self)
+        // Load enabled state from persisted settings
+        let csSettingsURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("Intentional/onboarding_settings.json")
+        if let csData = try? Data(contentsOf: csSettingsURL),
+           let csJSON = try? JSONSerialization.jsonObject(with: csData) as? [String: Any],
+           let csSettings = csJSON["contentSafety"] as? [String: Any],
+           let csEnabled = csSettings["enabled"] as? Bool, csEnabled {
+            contentSafetyMonitor?.onSettingsChanged(enabled: true)
+        }
+        postLog("🛡️ ContentSafetyMonitor initialized")
 
         // All extension connections come through the socket relay server.
         // Chrome-launched processes are thin relays (in main.swift) that forward
@@ -425,6 +779,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Schedule recurring heartbeats every 2 minutes
         heartbeatTimer = Timer.scheduledTimer(withTimeInterval: heartbeatInterval, repeats: true) { [weak self] _ in
             self?.sendHeartbeat()
+            Task { [weak self] in
+                await self?.enforcementReconciler?.refreshIfDue()
+            }
         }
         postLog("💓 Heartbeat timer started (every \(Int(heartbeatInterval))s)")
     }
@@ -436,6 +793,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func sendHeartbeat() {
+        // Also ping the daemon so it knows the app is alive
+        daemonClient.sendHeartbeat()
+
         let uptime = Date().timeIntervalSince(appStartTime)
 
         // Collect running browsers for additional context
@@ -472,6 +832,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         stopHeartbeat()
         extensionRescanTimer?.invalidate()
         extensionRescanTimer = nil
+
+        // Disconnect WebSocket
+        focusWebSocketClient?.disconnect()
+
+        // Stop content safety monitor
+        contentSafetyMonitor?.stop()
 
         // Stop focus monitor
         focusMonitor?.stop()
@@ -534,13 +900,46 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
+        // Focus Session Toggle
+        menu.addItem(NSMenuItem(title: "Toggle Focus (\u{2318}\u{21E7}P)", action: #selector(menuToggleFocus), keyEquivalent: ""))
+
+        menu.addItem(NSMenuItem.separator())
+
         // Quit
         menu.addItem(NSMenuItem(title: "Quit Intentional", action: #selector(quitApp), keyEquivalent: "q"))
 
         statusBarItem?.menu = menu
     }
 
+    /// Set up the main menu bar with an Edit menu so Cmd+C/V/X work in WKWebView text fields.
+    func setupMainMenu() {
+        let mainMenu = NSMenu()
+
+        // App menu (required as first item)
+        let appMenuItem = NSMenuItem()
+        let appMenu = NSMenu()
+        appMenu.addItem(NSMenuItem(title: "Quit Intentional", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        appMenuItem.submenu = appMenu
+        mainMenu.addItem(appMenuItem)
+
+        // Edit menu — enables Cmd+C, Cmd+V, Cmd+X, Cmd+A, Cmd+Z in WKWebView
+        let editMenuItem = NSMenuItem()
+        let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(NSMenuItem(title: "Undo", action: Selector(("undo:")), keyEquivalent: "z"))
+        editMenu.addItem(NSMenuItem(title: "Redo", action: Selector(("redo:")), keyEquivalent: "Z"))
+        editMenu.addItem(NSMenuItem.separator())
+        editMenu.addItem(NSMenuItem(title: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x"))
+        editMenu.addItem(NSMenuItem(title: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c"))
+        editMenu.addItem(NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v"))
+        editMenu.addItem(NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"))
+        editMenuItem.submenu = editMenu
+        mainMenu.addItem(editMenuItem)
+
+        NSApp.mainMenu = mainMenu
+    }
+
     @objc func showMainWindow() {
+        postLog("🚨 ACTIVATE: AppDelegate.showMainWindow — caller: \(Thread.callStackSymbols.prefix(5).joined(separator: "\n"))")
         mainWindowController?.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -627,18 +1026,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Update in-memory components on the main thread
         await MainActor.run {
-            // Restore distracting sites into WebsiteBlocker
-            if let sites = backendSettings["distractingSites"] as? [String], !sites.isEmpty {
-                websiteBlocker?.updateDistractingSites(sites)
-                postLog("☁️ Settings restore: updated WebsiteBlocker with \(sites.count) distracting site(s)")
-            }
-
-            // Restore distracting apps into FocusMonitor
-            if let apps = backendSettings["distractingApps"] as? [[String: Any]] {
-                let bundleIds = Set(apps.compactMap { $0["bundleId"] as? String })
-                focusMonitor?.distractingAppBundleIds = bundleIds
-                postLog("☁️ Settings restore: updated FocusMonitor with \(bundleIds.count) distracting app(s)")
-            }
+            // Legacy distractingSites/distractingApps restore removed — blocking is now
+            // profile-driven via BlockingProfileManager. Backend settings may still contain
+            // these fields for backward compat but they no longer feed WebsiteBlocker/FocusMonitor.
+            // Re-apply always-active profiles after settings restore.
+            applyAlwaysActiveProfiles()
 
             // Restore always-relevant sites into FocusMonitor
             if let sites = backendSettings["alwaysRelevantSites"] as? [String] {
@@ -652,6 +1044,165 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             )
             postLog("☁️ Settings restore: broadcast to extensions complete")
         }
+    }
+
+    // MARK: - Focus Session Control
+
+    @objc func menuToggleFocus() {
+        togglePuckFocus()
+    }
+
+    func togglePuckFocus() {
+        if focusSessionManager?.isActive == true {
+            endFocusSession()
+        } else {
+            showFocusStartOverlay(isPuckTriggered: true)
+        }
+    }
+
+    func showFocusStartOverlay(isPuckTriggered: Bool) {
+        guard focusStartOverlayWindows.isEmpty else { return }
+
+        // Ensure profiles are loaded before showing the overlay
+        if blockingProfileManager == nil {
+            blockingProfileManager = BlockingProfileManager()
+        }
+
+        let vm = FocusStartOverlayViewModel()
+        vm.availableProfiles = blockingProfileManager?.profiles ?? []
+        vm.isPuckTriggered = isPuckTriggered
+        vm.aiScoringEnabled = UserDefaults.standard.bool(forKey: "aiScoringEnabled")
+
+        if isPuckTriggered, let defaultProfile = blockingProfileManager?.profiles.first(where: { $0.isDefault }) {
+            vm.selectedProfileIds = [defaultProfile.id]
+        }
+
+        vm.onStartFocus = { [weak self] profileIds, intention, aiEnabled in
+            self?.startFocusSession(profileIds: profileIds, intention: intention, aiEnabled: aiEnabled, triggeredByPuck: isPuckTriggered)
+            self?.dismissFocusStartOverlay()
+        }
+        vm.onCancel = { [weak self] in
+            self?.dismissFocusStartOverlay()
+        }
+        self.focusStartOverlayViewModel = vm
+
+        for screen in NSScreen.screens {
+            let view = FocusStartOverlayView(viewModel: vm)
+            let hostingView = NSHostingView(rootView: view)
+            hostingView.frame = screen.frame
+
+            let window = KeyableWindow(
+                contentRect: screen.frame,
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = hostingView
+            window.backgroundColor = .clear
+            window.isOpaque = false
+            window.hasShadow = false
+            window.level = .screenSaver
+            window.isReleasedWhenClosed = false
+            window.ignoresMouseEvents = false
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            window.setFrame(screen.frame, display: true)
+            window.makeKeyAndOrderFront(nil)
+            focusStartOverlayWindows.append(window)
+        }
+        postLog("🎯 Focus start overlay shown (puck=\(isPuckTriggered))")
+    }
+
+    func dismissFocusStartOverlay() {
+        for window in focusStartOverlayWindows { window.close() }
+        focusStartOverlayWindows.removeAll()
+        focusStartOverlayViewModel = nil
+    }
+
+    func startFocusSession(profileIds: [UUID], intention: String?, aiEnabled: Bool, triggeredByPuck: Bool) {
+        focusSessionManager?.startSession(profileIds: profileIds, intention: intention, aiEnabled: aiEnabled, triggeredByPuck: triggeredByPuck)
+        guard let session = focusSessionManager?.activeSession else { return }
+        applyFocusSession(session)
+        postLog("🎯 Focus session started (profiles=\(profileIds.count), intention=\(intention ?? "none"), puck=\(triggeredByPuck))")
+    }
+
+    func applyFocusSession(_ session: FocusSession) {
+        let merged = blockingProfileManager?.mergedBlockList(profileIds: session.activeProfileIds)
+        let domains = merged?.domains ?? []
+        let appBundleIds = merged?.appBundleIds ?? []
+        let hasProfiles = !session.activeProfileIds.isEmpty && !domains.isEmpty
+        let hasIntention = session.intention != nil && !session.intention!.isEmpty
+
+        // Only enforce if there's something to enforce
+        guard hasProfiles || hasIntention else {
+            postLog("🎯 Focus session has no profiles and no intention — skipping enforcement")
+            return
+        }
+
+        websiteBlocker?.updateDistractingSites(domains)
+        focusMonitor?.distractingAppBundleIds = Set(appBundleIds)
+
+        if hasIntention {
+            let now = Date()
+            let cal = Calendar.current
+            let block = ScheduleManager.FocusBlock(
+                id: UUID().uuidString,
+                title: session.intention!,
+                description: "",
+                startHour: cal.component(.hour, from: now),
+                startMinute: cal.component(.minute, from: now),
+                endHour: 23,
+                endMinute: 59,
+                blockType: hasProfiles ? .deepWork : .focusHours
+            )
+            scheduleManager?.injectFocusSessionBlock(block)
+        }
+        focusMonitor?.onBlockChanged()
+    }
+
+    func endFocusSession() {
+        focusSessionManager?.stopSession()
+
+        // Fall back to always-active profiles (or empty if none)
+        applyAlwaysActiveProfiles()
+
+        scheduleManager?.clearInjectedFocusSessionBlock()
+        focusMonitor?.stop()
+        focusMonitor?.start()
+        postLog("🎯 Focus session ended")
+    }
+
+    /// Enforce always-active profiles. Called on startup, after profile edits, and when focus sessions end.
+    func applyAlwaysActiveProfiles() {
+        let alwaysActive = blockingProfileManager?.alwaysActiveBlockList()
+        let domains = alwaysActive?.domains ?? []
+        let appBundleIds = alwaysActive?.appBundleIds ?? []
+        websiteBlocker?.updateDistractingSites(domains)
+        focusMonitor?.distractingAppBundleIds = Set(appBundleIds)
+        postLog("🎯 Always-active enforcement: \(domains.count) domains, \(appBundleIds.count) apps")
+    }
+
+    func checkForActiveFocusSession() {
+        guard let token = backendClient?.getAccessToken() else { return }
+        guard focusSessionManager?.isActive != true else { return } // Already in a session
+
+        #if DEBUG
+        let urlString = "http://localhost:8000/focus/active"
+        #else
+        let urlString = "https://api.intentional.social/focus/active"
+        #endif
+        var request = URLRequest(url: URL(string: urlString)!)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let active = json["active"] as? Bool, active else { return }
+
+            DispatchQueue.main.async {
+                self?.postLog("🔌 Found active Puck focus session on reconnect")
+                self?.showFocusStartOverlay(isPuckTriggered: true)
+            }
+        }.resume()
     }
 
     func postLog(_ message: String) {

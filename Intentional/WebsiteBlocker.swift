@@ -19,20 +19,10 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     private var monitorTimer: Timer?
     private let checkInterval: TimeInterval = 0.5  // Check every 0.5 seconds for faster blocking
 
-    // Core domains (always blocked when pool exhausted)
-    private let coreDomains = [
-        "youtube.com",
-        "www.youtube.com",
-        "m.youtube.com",
-        "instagram.com",
-        "www.instagram.com",
-        "m.instagram.com",
-        "facebook.com",
-        "www.facebook.com",
-        "m.facebook.com"
-    ]
+    // PUCK BRANCH: No hardcoded core domains — entirely user-configured via Distracting Websites list.
+    // Default suggestions are pre-populated in the dashboard UI, but the user controls the list.
 
-    // Dynamic blocked domains (core + custom distracting sites)
+    // Blocked domains (fully user-configured via dashboard Distracting Websites list)
     private var blockedDomains: [String]
 
     // Custom blocking page URL (will be in app bundle)
@@ -60,7 +50,12 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     // Prevents flooding the queue when scripts take longer than the 0.5s timer interval.
     private var checkInFlight: Set<String> = []
 
-    // Serial queue for AppleScript execution - prevents concurrent scripts to same browser
+    // Serial background queue for AppleScript execution. NSAppleScript.executeAndReturnError
+    // blocks on mach_msg waiting for the target browser's AE reply (200–600ms typical). Running
+    // on DispatchQueue.main froze the entire app — menu bar, pill, and dashboard — because the
+    // 0.5s check timer fired per-browser scripts continuously on the main thread. Apple Event
+    // Manager spins up its own nested CFRunLoop for reply delivery on whichever thread calls
+    // AESendMessage, so background execution works.
     private let appleScriptQueue = DispatchQueue(label: "com.intentional.applescript", qos: .userInitiated)
 
     // MARK: - Bypass Detection
@@ -80,14 +75,18 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     init(backendClient: BackendClient, appDelegate: AppDelegate) {
         self.backendClient = backendClient
         self.appDelegate = appDelegate
-        self.blockedDomains = coreDomains
+        self.blockedDomains = []
         super.init()
+        appDelegate.postLog("🌐🔍 WebsiteBlocker.init: blockedDomains is EMPTY (waiting for updateDistractingSites call)")
         setupNotifications()
     }
 
-    /// Update blocked domains with custom distracting sites (in addition to core domains)
+    /// Update blocked domains — this is the sole source of truth.
+    /// Called from MainWindow.handleSaveSettings when user updates their Distracting Websites list.
+    /// Also called from AppDelegate on launch when loading from settings file.
     func updateDistractingSites(_ sites: [String]) {
-        var allDomains = coreDomains
+        appDelegate?.postLog("🌐🔍 updateDistractingSites CALLED with \(sites.count) sites: \(sites)")
+        var allDomains: [String] = []
         for site in sites {
             let base = site.lowercased()
             if !allDomains.contains(base) {
@@ -96,8 +95,20 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
                 allDomains.append("m." + base)
             }
         }
+        let oldCount = blockedDomains.count
         blockedDomains = allDomains
-        appDelegate?.postLog("🌐 WebsiteBlocker: Updated domains (\(allDomains.count) total, \(sites.count) custom)")
+        appDelegate?.postLog("🌐🔍 WebsiteBlocker: blockedDomains updated: \(oldCount) → \(allDomains.count) domains from \(sites.count) user sites")
+        appDelegate?.postLog("🌐🔍 WebsiteBlocker: full domain list: \(allDomains)")
+    }
+
+    /// Log current blocking state (for debugging)
+    func logBlockingState() {
+        appDelegate?.postLog("🌐🔍 === WebsiteBlocker STATE ===")
+        appDelegate?.postLog("🌐🔍   isBlocking: \(isBlocking)")
+        appDelegate?.postLog("🌐🔍   blockedDomains count: \(blockedDomains.count)")
+        appDelegate?.postLog("🌐🔍   blockedDomains: \(blockedDomains)")
+        appDelegate?.postLog("🌐🔍   activeBrowsers: \(activeBrowsers)")
+        appDelegate?.postLog("🌐🔍 === END STATE ===")
     }
 
     // MARK: - Notifications Setup
@@ -213,6 +224,7 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
 
     func startBlocking() {
         appDelegate?.postLog("🛡️ Starting website blocking via AppleScript...")
+        logBlockingState()
 
         // Start tab monitoring
         monitorTimer = Timer.scheduledTimer(withTimeInterval: checkInterval, repeats: true) { [weak self] _ in
@@ -248,7 +260,10 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
 
     func updateBlockedBrowsers(browsers: [String]) {
         // Called by BrowserMonitor when unprotected browsers detected
-        appDelegate?.postLog("📣 updateBlockedBrowsers called with: \(browsers)")
+        // Only log changes, not repeated states
+        if Set(browsers) != activeBrowsers {
+            appDelegate?.postLog("📣 updateBlockedBrowsers: \(browsers)")
+        }
 
         activeBrowsers = Set(browsers)
 
@@ -258,7 +273,7 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         } else if browsers.isEmpty && isBlocking {
             stopBlocking()
         } else if !browsers.isEmpty && isBlocking {
-            appDelegate?.postLog("🔄 Blocking already active, updated browsers to: \(browsers)")
+            // Quiet: don't log repeated "already active" messages
         }
     }
 
@@ -977,7 +992,6 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
 
     private func shouldBlock(url: String) -> Bool {
         // Don't block our own blocking page (prevents infinite recursion)
-        // Check for file:// scheme, blocked.html, blocked= query param, or /Contents/Resources/ path
         let lowercasedURL = url.lowercased()
         if lowercasedURL.hasPrefix("file://") ||
            lowercasedURL.contains("blocked.html") ||
@@ -986,21 +1000,29 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
             return false
         }
 
-        // Parse URL to extract just the host (not query params)
-        // This prevents matching "youtube.com" in query strings
-        guard let urlObj = URL(string: url),
-              let host = urlObj.host?.lowercased() else {
-            // Fallback: if URL parsing fails, do simple check but exclude query strings
-            let urlWithoutQuery = url.components(separatedBy: "?").first ?? url
-            return blockedDomains.contains { domain in
-                urlWithoutQuery.lowercased().contains(domain)
-            }
+        // If no blocked domains configured, never block
+        if blockedDomains.isEmpty {
+            appDelegate?.postLog("🌐🔍 shouldBlock(\(url)): NO — blockedDomains is EMPTY")
+            return false
         }
 
-        // Check if the host matches any blocked domain
-        return blockedDomains.contains { domain in
+        guard let urlObj = URL(string: url),
+              let host = urlObj.host?.lowercased() else {
+            let urlWithoutQuery = url.components(separatedBy: "?").first ?? url
+            let result = blockedDomains.contains { domain in
+                urlWithoutQuery.lowercased().contains(domain)
+            }
+            appDelegate?.postLog("🌐🔍 shouldBlock(\(url)): \(result ? "YES" : "NO") (fallback parse, host=nil, \(blockedDomains.count) domains)")
+            return result
+        }
+
+        let result = blockedDomains.contains { domain in
             host == domain || host.hasSuffix("." + domain)
         }
+        if result {
+            appDelegate?.postLog("🌐🔍 shouldBlock(\(url)): YES — host '\(host)' matched in \(blockedDomains.count) domains")
+        }
+        return result
     }
 
     private func getSafeDomain(from url: String) -> String {
@@ -1017,22 +1039,23 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     private func executeScript(_ script: String, browserName: String, completion: @escaping ([String]) -> Void) {
         // Prevent queue flooding: skip if a check script is already queued/running for this key
         guard !checkInFlight.contains(browserName) else { return }
-        checkInFlight.insert(browserName)
 
         // Extract actual browser name for activeBrowsers check
         // (e.g., "Chrome-active" → "Chrome")
         let actualBrowser = browserName.components(separatedBy: "-").first ?? browserName
 
-        // IMPORTANT: NSAppleScript is NOT thread-safe. Use serial queue to prevent crashes.
+        // Guard on the caller's (main) thread — activeBrowsers is a Swift Set<String> and must
+        // only be read from the thread that mutates it. Callers are all main-queue timers.
+        guard activeBrowsers.contains(actualBrowser) else { return }
+
+        checkInFlight.insert(browserName)
+
         appleScriptQueue.async { [weak self] in
             guard let self = self else { return }
 
             defer {
                 DispatchQueue.main.async { self.checkInFlight.remove(browserName) }
             }
-
-            // Bail if browser was removed from active set while queued
-            guard self.activeBrowsers.contains(actualBrowser) else { return }
 
             guard let appleScript = NSAppleScript(source: script) else {
                 DispatchQueue.main.async {
@@ -1056,7 +1079,10 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
             }
 
             DispatchQueue.main.async {
-                self.appDelegate?.postLog("⏱️ \(browserName) script took \(String(format: "%.1f", elapsed))s")
+                // Quiet: script timing logged only for slow scripts
+                if elapsed > 5.0 {
+                    self.appDelegate?.postLog("⏱️ \(browserName) script took \(String(format: "%.1f", elapsed))s")
+                }
             }
 
             if let urlString = output.stringValue, !urlString.isEmpty {
@@ -1070,7 +1096,9 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func executeBlockingScript(_ script: String, browserName: String, blockedURL: String) {
-        // Use serial queue to prevent concurrent AppleScript execution
+        // Guard on main thread — Set<String> read must not race with mutations.
+        guard activeBrowsers.contains(browserName) else { return }
+
         appleScriptQueue.async { [weak self] in
             guard let self = self else { return }
 
@@ -1083,9 +1111,6 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
                     }
                 }
             }
-
-            // Bail if browser was removed from active set while queued
-            guard self.activeBrowsers.contains(browserName) else { return }
 
             guard let appleScript = NSAppleScript(source: script) else {
                 DispatchQueue.main.async {
@@ -1126,7 +1151,9 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     /// Execute blocking script and capture the result (for debugging)
     /// Uses a serial queue to prevent concurrent AppleScript execution which can cause hangs
     private func executeBlockingScriptWithResult(_ script: String, browserName: String, blockedURL: String) {
-        // Use serial queue to prevent concurrent AppleScript execution
+        // Guard on main thread — Set<String> read must not race with mutations.
+        guard activeBrowsers.contains(browserName) else { return }
+
         appleScriptQueue.async { [weak self] in
             guard let self = self else { return }
 
@@ -1139,9 +1166,6 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
                     }
                 }
             }
-
-            // Bail if browser was removed from active set while queued
-            guard self.activeBrowsers.contains(browserName) else { return }
 
             DispatchQueue.main.async {
                 self.appDelegate?.postLog("⏳ \(browserName): Starting AppleScript execution...")

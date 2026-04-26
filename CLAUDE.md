@@ -1,8 +1,33 @@
 # Intentional macOS App - Development Guide
 
+## Cross-repo / Overnight Work — Single Source of Truth (MANDATORY)
+
+When a task spans multiple repos (e.g. Puck integration touches `intentional-backend` + `puck-ios` + this repo) OR is an overnight autonomous run:
+
+- **Final progress log always lives in THIS repo** at `docs/overnight-run-YYYY-MM-DD.md` (or `docs/cross-repo-<feature>-YYYY-MM-DD.md` for non-overnight multi-repo features).
+- That file is the authoritative hand-off: what was completed, what was blocked, what's in which PR, what the user needs to do tomorrow morning.
+- Before starting a multi-repo or overnight task, check `docs/` for an existing log to append to.
+- When handing off to a subagent for multi-repo work, explicitly point them at this convention.
+- Sibling repos live at `/Users/arayan/Documents/GitHub/intentional-backend`, `/Users/arayan/Documents/GitHub/puck-ios`, `/Users/arayan/Documents/GitHub/puck-partner-dashboard`, `/Users/arayan/Documents/GitHub/intentional-extension`.
+
+---
+
+## Use Superpowers Skills at the Appropriate Times (MANDATORY)
+
+Every non-trivial task on this repo must route through the right skill — this is not optional:
+- **Before designing a new feature or behaviour change:** invoke `superpowers:brainstorming` to align on intent, scope, and trade-offs. Don't skip this even on "simple" changes.
+- **Before writing implementation code:** invoke `superpowers:writing-plans` once the design is approved. The plan goes to `docs/superpowers/plans/` and gets reviewed before code moves.
+- **Before debugging a bug, test failure, or unexpected behaviour:** invoke `superpowers:systematic-debugging` — do NOT guess at fixes without root-cause analysis.
+- **When executing a written plan:** invoke `superpowers:subagent-driven-development` — don't ask which execution mode to use, just start.
+- **Before claiming work is done:** invoke `superpowers:verification-before-completion` — evidence before assertions, always.
+
+Violating the letter of this process violates the spirit of the development approach. Use the skills.
+
+---
+
 ## Documentation Maintenance (MANDATORY)
 
-After completing any code changes, assess whether this CLAUDE.md needs updating. Update it if any of the following changed:
+After completing any code changes, assess whether this CLAUDE.md or the relevant `docs/` file needs updating. Update if any of the following changed:
 - New or modified message types (NativeMessagingHost ↔ extension)
 - Changes to EarnedBrowseManager, TimeTracker, or ScheduleManager state/APIs
 - New features or significant behavior changes
@@ -11,6 +36,43 @@ After completing any code changes, assess whether this CLAUDE.md needs updating.
 - Dashboard UI changes that affect extension ↔ app interaction
 
 Keep updates minimal and precise — just add/modify the relevant sections. Do not rewrite sections that haven't changed.
+
+---
+
+## Documentation Patterns: Markdown vs HTML (MANDATORY)
+
+This project uses a **two-layer documentation system**. Use the right format for the job.
+
+**The entry point** is [`docs/index.html`](docs/index.html) — open it in Chrome to see the curated index of every doc, dated reports, and design mockups. Always update the index when you add a new doc that should be discoverable.
+
+| Layer | Format | Filename pattern | What it's for |
+|---|---|---|---|
+| **Reference** | Markdown | `docs/SUBSYSTEM_NAME.md` (UPPER_SNAKE_CASE) | Evergreen source of truth — updated when behavior changes. Renders on GitHub. Source for "how does this work right now." |
+| **Snapshot** | HTML | `docs/topic-YYYY-MM-DD.html` (kebab-case + ISO date) | Point-in-time visual report — audits, run logs, decision docs, sprint plans. **Never edit an old one** — write a new one with a new date if state has changed. |
+| **Mockup** | HTML | `docs/topic-vN-variant.html` (versioned, no date) | Visual design exploration. May or may not be the chosen direction. Reference, not normative. |
+
+**Decision rules — when writing a new doc, ask:**
+- "Will this still be true in 6 months?" Yes → Markdown. No → dated HTML.
+- "Should this get diffed in PRs?" Yes → Markdown. No → HTML.
+- "Will I want to skim this in Chrome?" Yes → HTML. No → Markdown.
+
+**HTML reports are most useful when they're dense.** Use status pills, color-coded tables, ranked lists. Save the prose for Markdown. Match the existing visual style (see `docs/feature-parity-2026-04-25.html` and `docs/index.html` for the CSS pattern — coral/gold accent, dark surface, pill components).
+
+**When you create a new HTML report:**
+1. Save as `docs/<topic>-YYYY-MM-DD.html` using today's date.
+2. Add a card to `docs/index.html` in the appropriate section (Reports & audits, Cross-repo, or Design mockups).
+3. Reuse the CSS variables and pill classes from existing pages — keep visual consistency.
+4. Don't update old dated reports. Write a new one and link from the old.
+
+**For cross-repo / overnight runs:** the Markdown log at `docs/overnight-run-YYYY-MM-DD.md` is the authoritative hand-off (per the cross-repo convention above). The Markdown is the source of truth; an accompanying HTML report is optional but helpful for visual summaries.
+
+---
+
+## Product Overview
+
+Intentional is a macOS focus enforcement app that works with a companion Chrome extension. The Puck physical device provides a simple on/off toggle for blocking mode. Setting an intention upgrades blocking from dumb (block all distracting sites) to smart (AI scores relevance). See [docs/PUCK_SPEC.md](docs/PUCK_SPEC.md) for full product vision, blocking modes, and Puck branch changes.
+
+**Architecture Principle: Logic Lives Here.** All enforcement logic, overlays, timers, and behavioral features belong in this macOS app — NOT in the Chrome extension. The extension is a sensing layer for AI content scoring. The app has OS-level capabilities (AppleScript, NSWindow overlays, process monitoring) that the extension cannot replicate, and centralizing logic here avoids duplication and ensures cross-browser consistency.
 
 ---
 
@@ -35,121 +97,6 @@ This repo uses git worktrees for parallel feature development. Multiple Claude C
 
 ---
 
-Intentional is a macOS native app that serves as the centralized orchestrator for the Intentional ecosystem. It handles time tracking across all browsers, daily focus scheduling with AI relevance scoring, earned browse budgets, focus enforcement via progressive overlays, and accountability via partner locking. Works with a companion Chrome extension for in-browser content filtering.
-
-**Architecture Principle: Logic Lives Here.** All enforcement logic, overlays, timers, and behavioral features belong in this macOS app — NOT in the Chrome extension. The extension's role is limited to in-browser content filtering (ML checks), session UI (intent prompt, session bar), and platform-specific DOM manipulation. Everything else (focus enforcement, blocking overlays, tab redirects, timer widgets, grayscale effects, relevance scoring, earned browse tracking) goes here. The app has OS-level capabilities (AppleScript, NSWindow overlays, process monitoring) that the extension cannot replicate, and centralizing logic here avoids duplication and ensures cross-browser consistency.
-
-## Project Structure
-
-```
-intentional-macos-app/
-  Intentional/
-    main.swift                  # Entry point: single-instance enforcement, relay vs primary routing
-    AppDelegate.swift           # App initialization, component wiring, strict mode, heartbeat
-    MainWindow.swift            # WKWebView dashboard + JS message handler bridge
-    ScheduleManager.swift       # Daily schedule, time blocks, TimeState machine
-    EarnedBrowseManager.swift   # Earned browse pool, block focus stats, deep work detection
-    FocusMonitor.swift          # Desktop app monitoring, browser tab polling, overlay triggers
-    FocusOverlayWindow.swift    # Full-screen blocking overlay (native NSWindow)
-    NudgeWindowController.swift # Nudge toast (translucent red, below pill)
-    GrayscaleOverlayController.swift  # Full-screen desaturation overlay (Deep Work)
-    DeepWorkTimerController.swift     # Floating pill timer + celebration cards + start ritual + confetti
-    BlockRitualController.swift       # Block start ritual overlay (intent + if-then plan)
-    BlockEndRitualController.swift    # Block end ritual overlay (reflection + self-assessment)
-    RelevanceScorer.swift       # AI scoring (Apple Foundation Models + MLX Qwen3-4B)
-    SocketRelayServer.swift     # Unix socket server for extension communication
-    NativeMessagingHost.swift   # Chrome native messaging protocol (4-byte length + JSON)
-    NativeMessagingSetup.swift  # Auto-discover extensions, install native messaging manifests
-    TimeTracker.swift           # Cross-browser usage tracking, heartbeat deduplication
-    BrowserMonitor.swift        # Browser protection status, unprotected browser alerts
-    WebsiteBlocker.swift        # AppleScript tab blocking for browsers without extension
-    BackendClient.swift         # API client: lock/unlock, partner, device registration
-    PermissionManager.swift     # Accessibility permission monitoring
-    SleepWakeMonitor.swift      # Sleep/wake event handling
-    ProcessMonitor.swift        # Process observation utilities
-    BrowserDatabase.swift       # Browser discovery via Launch Services
-    BrowserDiscovery.swift      # Dynamic browser detection
-    LegacyMonitorView.swift     # Debug monitor window (SwiftUI)
-    dashboard.html              # Dashboard UI (calendar, earned browse, focus score)
-    onboarding.html             # First-run setup wizard
-    focus-blocked.html          # Browser redirect page for blocked tabs
-    blocked.html                # Generic blocked page for WebsiteBlocker
-    Info.plist                  # App configuration
-    Intentional.entitlements    # App sandbox entitlements
-  NativeMessaging/
-    com.intentional.social.json # Native messaging manifest template
-    install.sh                  # Manual manifest installer
-  docs/
-    CALENDAR_BLOCK_RULES.md     # Block manipulation rules (past locked, active limited, future editable)
-    FOCUS_MONITOR_LOGGING.md    # Always-allowed app logging spec
-    EARN_YOUR_BROWSE_IMPLEMENTATION.md
-    UNIFIED_BUDGET_DESIGN.md
-```
-
-## Architecture Overview
-
-```
-┌────────────────────┐    ┌──────────────────────────────────────────────┐
-│  Chrome Extension   │    │              macOS Native App                 │
-│  (content filtering,│    │                                              │
-│   session UI)       │    │  ┌──────────┐  ┌────────────────────────┐   │
-└────────┬───────────┘    │  │ Dashboard │  │     AppDelegate        │   │
-         │                 │  │ (WKWebView│  │ (wires all components) │   │
-         │ Native Messaging│  └─────┬────┘  └───────────┬────────────┘   │
-         │ (4-byte len +   │        │ JS bridge          │               │
-         │  JSON)          │  ┌─────┴────────────────────┴───────────┐   │
-         │                 │  │           MainWindow.swift            │   │
-         ▼                 │  │    (WKScriptMessageHandler bridge)    │   │
-┌────────────────────┐    │  └───────────────────────────────────────┘   │
-│  main.swift        │    │                                              │
-│  (relay process)   │──socket──▶ SocketRelayServer                     │
-│  stdin/stdout ↔    │    │         │                                    │
-│  Unix socket       │    │         ▼                                    │
-└────────────────────┘    │  NativeMessagingHost (per connection)        │
-                           │         │                                    │
-                           │         ▼                                    │
-                           │  ┌─────────────┐ ┌────────────────┐         │
-                           │  │ TimeTracker  │ │ScheduleManager │         │
-                           │  │ (usage dedup)│ │(blocks, state) │         │
-                           │  └──────┬──────┘ └───────┬────────┘         │
-                           │         │                 │                  │
-                           │         ▼                 ▼                  │
-                           │  ┌──────────────┐ ┌──────────────┐          │
-                           │  │EarnedBrowse  │ │FocusMonitor  │          │
-                           │  │Manager       │ │+ RelevanceAI │          │
-                           │  │(pool, rates) │ │(overlays)    │          │
-                           │  └──────────────┘ └──────────────┘          │
-                           │                                              │
-                           │  ┌──────────────┐ ┌──────────────┐          │
-                           │  │WebsiteBlocker│ │BrowserMonitor│          │
-                           │  │(AppleScript) │ │(protection)  │          │
-                           │  └──────────────┘ └──────────────┘          │
-                           └──────────────────────────────────────────────┘
-```
-
-## Process Model (main.swift)
-
-The app uses a relay architecture to survive Chrome's process management:
-
-1. **Extension-launched process** (Chrome spawns via native messaging):
-   - Detected by `chrome-extension://` or `moz-extension://` in args
-   - ALWAYS becomes a thin relay (never the primary app)
-   - Connects stdin/stdout to the primary app's Unix socket
-   - Chrome can SIGTERM/SIGKILL this freely without affecting the app
-   - If no primary is running, launches it via `NSWorkspace.openApplication` (background, no focus steal)
-   - Waits up to 7.5s (15 attempts x 500ms) for socket to become available
-
-2. **Primary process** (manually launched from Finder/Dock/Xcode):
-   - Writes PID to lock file (`/tmp/intentional-app.lock`)
-   - Duplicate manual launches activate existing window and exit
-   - Xcode launches terminate existing process first (for debug attach)
-   - Runs `NSApplicationMain` → `AppDelegate.applicationDidFinishLaunching`
-
-3. **SIGTERM handling**:
-   - Primary: writes no-relaunch marker (unless strict mode active)
-   - Relay: exits quietly
-   - Strict mode skips marker so watchdog can relaunch
-
 ## Initialization Order (AppDelegate)
 
 Order matters. Components have dependencies that must be wired in sequence.
@@ -166,12 +113,15 @@ Order matters. Components have dependencies that must be wired in sequence.
 9.  Strict mode init        → Reads `strictModeEnabled` from UserDefaults → login item, watchdog, flag file
 10. TimeTracker             → Cross-browser usage aggregation
 11. EarnedBrowseManager     → Load pool from disk
+11a. ProjectStore            → Load projects.json
 12. Wire TimeTracker.onSocialMediaTimeRecorded → EarnedBrowseManager.recordSocialMediaTime
 13. ScheduleManager         → Load schedule, recalculateState
 14. RelevanceScorer         → AI model initialization
 15. FocusMonitor            → Desktop monitoring (refs: ScheduleManager, RelevanceScorer)
 15a. BlockRitualController   → Wired to FocusMonitor.ritualController
 15b. BlockEndRitualController → Wired to FocusMonitor.endRitualController
+15c. ContentSafetyMonitor     → Load enabled from settings, start if enabled
+15d. SwitchInterventionCoordinator + SwitchOverlayController → Wired to FocusMonitor (context-switching overlay v1)
 16. Wire ScheduleManager.onBlockChanged callback  ← MUST be after all managers
 17. Manual activeBlockId sync                      ← Catches app-started-during-block
 18. NativeMessagingHost (template)
@@ -207,350 +157,7 @@ timeTracker.onSessionChanged = { platform in
 
 **Order invariant**: `earnedBrowseManager.onBlockChanged` must run BEFORE `focusMonitor.onBlockChanged` because FocusMonitor may call `recordWorkTick`, which needs the correct `activeBlockId`.
 
-## State Machine (ScheduleManager.TimeState)
-
-| State | Description |
-|-------|-------------|
-| `disabled` | Daily Focus Plan feature is off |
-| `noPlan` | No schedule set for today |
-| `snoozed` | User snoozed the planning prompt (max 1 snooze, 30 min) |
-| `workBlock` | Inside a scheduled work block (AI scoring active) |
-| `freeBlock` | Inside a scheduled break (social media costs 1x) |
-| `unplanned` | Between blocks (time not covered by schedule) |
-
-### FocusBlock Structure
-```swift
-struct FocusBlock: Codable {
-    let id: String          // UUID
-    var title: String       // Block name (used as AI context)
-    var description: String // Extra context for relevance scoring
-    var startHour: Int      // 0-23
-    var startMinute: Int    // 0-59
-    var endHour: Int        // 0-23
-    var endMinute: Int      // 0-59
-    var isFree: Bool        // true = free block, false = work block
-}
-```
-
-## Earned Browse System (EarnedBrowseManager)
-
-### Earning Rates
-
-| Condition | Rate | Meaning |
-|-----------|------|---------|
-| Standard work | 0.2 | 5 min work = 1 min browse |
-| Deep work (25 min continuous focus) | 0.3 | ~3.33 min work = 1 min browse |
-| Welcome credit | 5.0 min/day | Granted on first load of the day |
-
-### Cost Multipliers
-
-| Block Type | Multiplier | Effect |
-|------------|-----------|--------|
-| Deep Work | 0x | Social media blocked entirely — macOS app aggressively enforces (redirect at 20s), extension rejects sessions |
-| Focus Hours | 2x | ALL browsing costs 2x from pool (intent and free browse alike) |
-| Free Time | 1x | ALL browsing costs 1x. Setting an intent earns +10 min bonus (once per block) |
-
-### Intent Bonus (Free Time Incentive)
-- During Free Time blocks, starting a session with an intent (not free browse) grants +10 min to the earned pool
-- One bonus per block, tracked by `intentBonusGrantedBlockIds` (set of block IDs)
-- Granted in `NativeMessagingHost.handleSessionStart()` when `!freeBrowse && blockType == .freeTime`
-- `intentBonusAvailable` computed property: true when current block is Free Time and bonus hasn't been claimed
-- Broadcast to extension via `EARNED_MINUTES_UPDATE` after granting; fields: `intentBonusAvailable`, `intentBonusAmount`
-- Reset daily in `ensureToday()`, persisted in `earned_browse.json`
-
-### Delay Escalation (per work block, resets on block change)
-Steps: 30s → 60s → 120s → 300s. Increases with each social media visit during a work block.
-
-### Per-Block Tracking
-```swift
-struct BlockFocusStats {
-    var relevantTicks: Int     // Ticks where user was on-task
-    var totalTicks: Int        // Total ticks in the block
-    var earnedMinutes: Double  // Minutes earned this block
-    var focusScore: Double     // relevantTicks / totalTicks
-    var recoveryCount: Int     // Distraction→focus transitions this block
-    var selfRating: Int?       // 0-4 emoji scale from end ritual (nil = not rated)
-    var reflection: String     // "What went well?" text from end ritual
-}
-```
-
-### Pool State (synced to extension)
-```swift
-earnedMinutes          // Total earned today
-usedMinutes            // Total consumed today
-availableMinutes       // earnedMinutes - usedMinutes
-isPoolExhausted        // availableMinutes <= 0
-costMultiplier         // 0x deep work, 2x focus hours, 1x free time
-effectiveBrowseTime    // Available minutes / costMultiplier
-intentBonusAvailable   // True if +10 min bonus available for current block
-intentBonusAmount      // Bonus amount (10.0)
-```
-
-## Focus Enforcement (FocusMonitor)
-
-### Block Start Ritual (BlockRitualController)
-When a block starts, a ritual card shows BEFORE the timer and enforcement activate. The user sets their intention and if-then plan, then clicks Start (or it auto-starts after 3 min for work / 30s for free time).
-
-- **Deep Work / Focus Hours**: Full ritual card — focus question, 3 if-then plan options, Start/Edit/+15 min buttons, Skip link
-- **Free Time**: Simple transition card — "Enjoy your break. X min available." + Start button
-- While ritual is showing, `awaitingRitual = true` — `evaluateApp()` and `pollActiveTab()` return early (no enforcement)
-- Edit mode allows inline block title/time/type editing → calls `ScheduleManager.updateBlock()`
-- +15 min button calls `ScheduleManager.pushBlockBack(id:minutes:)` — shifts block start forward
-- If-then plan selection saved to `UserDefaults("defaultIfThenPlan")` for pre-filling next ritual
-- Focus question pre-fills from block description
-
-### Block End Ritual (BlockEndRitualController)
-When a focus block ends, a reflection card shows celebrating what the user accomplished.
-
-- **Work blocks**: Full card — "Session complete" header, block stats, earned minutes, focus bar (green ≥80%, amber ≥50%, red <50%), emoji self-assessment (5 options, 0-4), "What went well?" text field, next block preview, Done button
-- **Free Time blocks**: Simple "Break over" card — block type/time, next block preview, Done button
-- Does NOT set `awaitingRitual` — enforcement for the new block can begin alongside the end ritual
-- Auto-dismiss after 120s (saves whatever was entered)
-- Skip conditions: no previous block, same block ID (edit), 0 totalTicks, trivial free time (0 ticks)
-- Back-to-back blocks: end ritual shows first → Done dismisses → start ritual shows for new block
-- Self-assessment and reflection saved to `BlockFocusStats` (persisted in `earned_browse.json`)
-- Triggered in `AppDelegate.onBlockChanged` closure AFTER existing logic, captures previous block data BEFORE `earnedBrowseManager.onBlockChanged()` resets activeBlockId
-
-### Two Input Paths
-1. **Non-browser apps**: Detected via `NSWorkspace.didActivateApplicationNotification`, scored by app name
-2. **Browser tabs**: Read via AppleScript (title + URL), polled every 10s while browser is frontmost
-
-### Deep Work Enforcement (Aggressive)
-| Real Time | Cumulative | Event |
-|-----------|-----------|-------|
-| ~3-5s | 10s | AI scores tab → **Nudge** + timer dot turns red |
-| ~10s | 10s | **Auto-redirect** to last relevant URL + brief nudge + **grayscale starts** (30s fade) |
-| revisit | — | **Instant redirect** (0s grace) |
-| ~295s | 300s | **Intervention overlay** (60s mandatory game, escalating 90s/120s) |
-| return | — | Grayscale snaps back over 2s, timer dot turns indigo |
-
-Native apps: 5s grace → blocking overlay + grayscale starts.
-Justification: "This is relevant" accepted → 3 min suppression only (no permanent whitelist), grayscale pauses.
-
-**Floating timer widget**: Pill-shaped widget in top-right corner during all focus schedule blocks (Deep Work, Focus Hours, Free Time). Shows `[dot] block title [MM:SS]`. Dot: indigo=focused, red=distracted. Draggable. Auto-dismisses when block ends.
-
-**Unscheduled pill cards** (3-state `NoPlanData.CardState`):
-
-| State | Condition | Card | Dismiss |
-|-------|-----------|------|---------|
-| `noPlan` | `timeState == .noPlan` | "What are you working on?" + 3 quick-block buttons (Deep Work/Focus/Free Time) + "Plan Full Day →" + snooze | No dismiss — must snooze or act |
-| `gap` | `timeState == .unplanned` AND remaining blocks exist | "UNSCHEDULED" + "Up next in Xm" + accent-bar block list + "Schedule Now" button | − button minimizes to dock (30 min snooze) |
-| `doneForDay` | `timeState == .unplanned` AND no remaining blocks AND blocks existed | Green "DAY COMPLETE" + stats + focus badge | − button minimizes; auto-dismiss 30s |
-
-Quick-block buttons create a block starting now with default duration (adjusted for afternoon: shorter). "Schedule Now" opens the dashboard calendar with a pre-filled 1-hour focus block at the current time via `MainWindow.openScheduleWithNewBlock()`.
-
-**Darkening overlay**: Full-screen click-through overlay (`.floating` level, `ignoresMouseEvents = true`). Progressive black overlay: alpha 0.0→0.45 over 30s (0.5s steps). Snap-back: 2s to clear. Creates a drained/muted visual effect.
-
-### Focus Hours Enforcement (Gentle)
-| Real Time | Cumulative | Event |
-|-----------|-----------|-------|
-| ~3-5s | 10s | **Level 1 nudge #1** (auto-dismiss 8s) |
-| ~65s | 70s | **Level 1 nudge #2** + **grayscale starts** (30s fade) |
-| ~125s | 130s | **Level 1 nudge #3** |
-| ~185s | 190s | **Level 1 nudge #4** |
-| ~235s | 240s | **Red warning nudge** ("intervention in 60s") |
-| ~295s | 300s | **Intervention overlay** (60s mandatory game, escalating 90s/120s) |
-| return | — | Grayscale snaps back over 2s |
-
-### Irrelevance Threshold
-Cumulative: 300 seconds of cumulative distraction triggers escalation (both Deep Work and Focus Hours). Distraction counter decays when user returns to relevant content.
-
-### Social Media Delegation
-Social media sites (YouTube, Instagram, Facebook) are skipped by FocusMonitor — the Chrome extension handles enforcement for those.
-
-### Distracting Apps (User-Configured)
-User-configured distracting apps (`distractingAppBundleIds` set, synced from `onboarding_settings.json`) skip AI scoring and grace periods — enforcement is immediate:
-- Checked BEFORE always-allowed list (user intent overrides defaults)
-- `isCurrentlyIrrelevant` set to `true` immediately (no grace period limbo)
-- Gradual grayscale starts immediately via `startDesaturation()` (same progressive shift as browser tabs)
-- Deep Work: blocking overlay shown; Focus Hours: nudge shown
-- Cumulative distraction counter incremented on each evaluation
-
-### Always-Allowed Apps (~100 bundle IDs)
-Terminals, IDEs, code editors, password managers, system utilities. Auto-earn work ticks during work blocks. Logged to `relevance_log.jsonl` with reason "Always-allowed app".
-
-## AI Scoring (RelevanceScorer)
-
-### Scoring Pipeline (in order)
-1. **Keyword overlap** — fast path, checks title words against block title/description (excludes stop words)
-2. **User-approved whitelist** — pages user explicitly approved (cleared on block change)
-3. **Cache lookup** — key: `"intention|pageTitle"`, cleared on block change
-4. **LLM query** — Apple Foundation Models (macOS 26+) or MLX Qwen3-4B fallback
-
-### Content Types
-- `.webpage` — scores browser tab page title
-- `.application` — scores desktop app name
-
-### AI Models
-| Model | Availability | Notes |
-|-------|-------------|-------|
-| Apple Foundation Models | macOS 26+ (on-device ~3B) | Preferred, via `FoundationModels` framework |
-| MLX Qwen3-4B | Any macOS | Fallback, via `MLXLLM` + `MLXLMCommon` |
-
-### Fail-Closed Policy
-On LLM parse error: `relevant = false`, `confidence = 0`. This ensures broken AI doesn't silently allow everything.
-
-## Extension Communication
-
-### Socket Architecture
-Path: `/tmp/intentional-native-messaging-{UID}.sock`
-
-Protocol: Chrome Native Messaging (4-byte little-endian length prefix + JSON body).
-
-Each browser connection gets its own `NativeMessagingHost` instance managed by `SocketRelayServer`. Browser identity detected via process tree lookup (PID → parent PID → bundle ID).
-
-### App → Extension Broadcasts
-
-| Message | Purpose |
-|---------|---------|
-| `SESSION_SYNC` | Canonical session state per platform |
-| `SCHEDULE_SYNC` | Current block, time state, earned browse state |
-| `SETTINGS_SYNC` | Settings changed in dashboard |
-| `ONBOARDING_SYNC` | Onboarding settings from app |
-| `EARNED_MINUTES_UPDATE` | Earned pool changed (real-time) |
-| `POOL_EXHAUSTED` | Pool drained — block social media |
-| `SHOW_FOCUS_OVERLAY` | Show focus enforcement overlay in browser |
-| `HIDE_FOCUS_OVERLAY` | Hide focus enforcement overlay |
-
-### Extension → App Messages
-
-| Message | Purpose |
-|---------|---------|
-| `PING` / `PONG` | Connection keepalive |
-| `SESSION_START` | Start session (intent, categories, duration, platform) |
-| `SESSION_END` | End session |
-| `SESSION_UPDATE` | Timer change |
-| `USAGE_HEARTBEAT` | Periodic usage report (platform, seconds, browser, freeBrowse) |
-| `GET_USAGE` | Query cross-browser usage |
-| `SCORE_RELEVANCE` | Request AI relevance scoring for a page |
-| `FOCUS_OVERLAY_ACTION` | User action on focus overlay (dismiss, etc.) |
-| `GET_WORK_BLOCK_STATE` | Query current block/time state |
-| `GET_SETTINGS` | Retrieve settings |
-
-## Dashboard (MainWindow.swift)
-
-Uses WKWebView with `WKScriptMessageHandler` bridge. All communication via `window.webkit.messageHandlers.intentional.postMessage(msg)`.
-
-### Key JS → Swift Message Types
-
-| Message | Purpose |
-|---------|---------|
-| `GET_SCHEDULE_STATE` | Current time state + blocks + goals |
-| `SET_SCHEDULE` | Create/update today's schedule |
-| `GET_EARNED_STATUS` | Pool state + per-block focus stats |
-| `GET_BLOCK_ASSESSMENTS` | Query relevance_log.jsonl by time range |
-| `GET_FOCUS_SCORE` | Today's completion percentage |
-| `SAVE_SETTINGS` / `GET_SETTINGS` | Settings management (includes `soundTone`) |
-| `PREVIEW_SOUND` | Play a system sound by name (for settings preview) |
-| `REQUEST_UNLOCK` / `VERIFY_UNLOCK` | Accountability flow |
-| `SAVE_STRICT_MODE` | Toggle app persistence (strict mode) |
-| `OPEN_ONBOARDING` | Switch to onboarding page |
-
-### Dashboard Features
-- **Calendar**: Drag/resize blocks. Past blocks locked, active block limited edits, future blocks fully editable.
-- **Block assessment popover**: Click focus ring on a block to see per-app breakdown (time, %, AI justification).
-- **Earned browse card**: Earned/available/used breakdown with progress bar.
-- **Focus score**: Daily completion percentage.
-- **Goals section**: Today's goals from schedule.
-- **Weekly usage chart**: Historical usage visualization.
-
-## Website Blocking (WebsiteBlocker)
-
-For browsers WITHOUT the Intentional extension installed:
-- Polls active tabs via AppleScript every 0.5s
-- Redirects blocked domains (YouTube, Instagram, Facebook) to `blocked.html`
-- Serial queue prevents concurrent AppleScript to same browser
-- Domain-level caching prevents repeated blocking attempts
-
-Supported browsers: Chrome, Safari, Edge, Brave, Arc, Firefox, Opera, Vivaldi.
-
-## Browser Protection (BrowserMonitor)
-
-Determines whether each browser has the extension installed:
-1. **Socket connection** — definitive proof (live socket = protected)
-2. **File-based detection** — checks native messaging manifest directories
-3. **Unprotected browsers** → WebsiteBlocker handles blocking via AppleScript
-
-Cross-checks socket status with file-based status to avoid false positives on disconnect.
-
-## Strict Mode (App Persistence)
-
-Strict mode is an **independent toggle** (`strictModeEnabled` in UserDefaults), decoupled from lock mode but **gated by accountability partner**. It requires a confirmed accountability partner to enable, and a 6-digit code from the partner to disable.
-
-**Default: OFF.** Existing users upgrading will have strict mode off (UserDefaults returns false for missing keys).
-
-When `strictModeEnabled` is true:
-1. **Login item registered** — auto-start on login (macOS 13+, `SMAppService`)
-2. **Strict mode flag file** — `~/Library/Application Support/Intentional/strict-mode`
-3. **Watchdog LaunchAgent** — relaunches app if force-quit (checks flag file)
-4. **SIGTERM handler** — skips no-relaunch marker when strict mode active
-
-### Enabling Strict Mode
-- Requires `consentStatus == "confirmed"` (confirmed accountability partner)
-- User toggles ON in Accountability tab → confirmation dialog → `SAVE_STRICT_MODE { enabled: true }`
-- Swift validates partner status before saving
-
-### Disabling Strict Mode
-- Requires partner code (uses the existing `REQUEST_UNLOCK` / `VERIFY_UNLOCK` flow)
-- User clicks "Request Code to Disable" → code emailed to partner → inline code entry → verify → strict mode disabled
-- Swift validates `temporaryUnlockUntil` is in the future before allowing disable
-- Backend `/unlock/request` was modified to allow requests when `lock_mode == "none"` if user has a confirmed partner
-
-### Cmd+Q Behavior
-
-| Strict Mode | Cmd+Q Result |
-|-------------|-------------|
-| OFF | Quits immediately |
-| ON | "Keep Running" only (must disable via dashboard with partner code) |
-
-### Dashboard UI (Accountability Tab)
-
-The "App Persistence" card in `renderLockState()` has four states:
-1. **No confirmed partner** → grayed out toggle + info text ("Requires an accountability partner")
-2. **Partner confirmed, strict OFF** → toggleable, confirmation dialog on enable
-3. **Partner confirmed, strict ON** → checked/disabled toggle + "Request Code to Disable" button
-4. **Code entry** → inline 6-digit code input + Verify/Cancel (tracked by `strictDisableState` variable)
-
-### Edge Cases
-- **Partner removed** → `handleRemovePartner()` auto-disables strict mode (UserDefaults + settings file + `updateStrictMode()`)
-- **Cmd+Q with strict ON** → always blocks quit, regardless of lock mode
-
-## Persistence Files
-
-All stored in `~/Library/Application Support/Intentional/`:
-
-| File | Contents |
-|------|----------|
-| `onboarding_settings.json` | Platform settings, lock mode, partner email, strictModeEnabled |
-| `focus_profile.json` | User's work profile text (AI context) |
-| `focus_settings.json` | enabled, focusEnforcement, aiModel |
-| `daily_schedule.json` | Today's blocks, goals, dailyPlan |
-| `daily_usage.json` | Per-platform usage stats |
-| `platform_sessions.json` | Canonical sessions per platform (cross-browser) |
-| `earned_browse.json` | Pool state + blockFocusStats |
-| `relevance_log.jsonl` | Assessment log (append-only, queryable by time range) |
-| `strict-mode` | Flag file (presence = strict mode active) |
-
-Temporary files in `/tmp/`:
-
-| File | Contents |
-|------|----------|
-| `intentional-app.lock` | PID of primary process |
-| `intentional-no-relaunch` | Marker to prevent relaunch loops (30s TTL) |
-| `intentional-native-messaging-{UID}.sock` | Unix domain socket |
-| `intentional-debug.log` | Debug log output |
-| `intentional-launches.log` | Launch diagnostic log (rotated at 10MB) |
-
-## Backend API
-
-Base URL: `https://api.intentional.social`
-
-Used for: device registration, partner management, lock/unlock flow, consent management, heartbeat reporting.
-
-Device identified by anonymous `deviceId` (64-char hex, stored in `UserDefaults`).
-
-### Heartbeat
-Sent every 2 minutes via `BackendClient.sendEvent(type: "heartbeat")`. Includes uptime and running browser list. Backend uses absence of heartbeats to detect force-quit while computer is awake.
+---
 
 ## Known Bug Fixes
 
@@ -563,3 +170,68 @@ Sent every 2 minutes via `BackendClient.sendEvent(type: "heartbeat")`. Includes 
 4. **Chrome blocked by WebsiteBlocker with extension active**: `BrowserMonitor` now cross-checks socket connection status (definitive) with file-based detection, instead of immediately marking browser as unprotected on socket disconnect.
 
 5. **Extension-launched process killing the app**: Chrome SIGTERMs then SIGKILLs native messaging hosts. Fixed by relay architecture: extension-launched processes are always thin relays, primary app is launched independently via `NSWorkspace`.
+
+6. **Settings 800ms debounce losing changes**: `onSettingChange()` in dashboard.html uses an 800ms debounce before calling `saveAllSettings()`. If the user quits the app within 800ms of toggling, settings are lost. Fixed for Content Safety toggle (now saves immediately). Consider fixing for all toggles.
+
+7. **PKG build re-signs with Developer ID Application + Developer ID provisioning profile.** The archive is signed with Apple Development, then re-signed inside-out (FilterExtension → frameworks → main app) with Developer ID Application using transformed entitlements. The `sensitivecontentanalysis.client` entitlement is stripped from PKG builds because Apple doesn't support it for Developer ID distribution — the app falls back to OpenNSFW for NSFW detection. The `content-filter-provider` value is changed to `content-filter-provider-systemextension` for Developer ID. The source entitlements file is NOT modified.
+
+8. **NEVER strip or remove entitlements from the source file.** All entitlements exist for a reason. The build script handles transforming them for Developer ID signing. Do not modify `Intentional.entitlements` to remove capabilities.
+
+9. **Whole-app UI freeze from AppleScript on main queue.** `WebsiteBlocker.appleScriptQueue` was declared as `DispatchQueue.main`, and a 0.5s timer fired `NSAppleScript.executeAndReturnError` on it for every active browser. Each call blocks on `mach_msg` waiting for the browser's Apple Event reply (200–600ms). Result: menu bar, pill, and dashboard all sluggish; dashboard `fps=14–23` with `longTasks=0` (the stall was on the native main thread, not in JS). Fixed by moving `appleScriptQueue` to a background serial queue (`DispatchQueue(label: "com.intentional.applescript", qos: .userInitiated)`). Apple Event Manager spins up its own nested `CFRunLoop` for reply delivery on whatever thread calls `AESendMessage`, so background execution is safe. **Rule: never dispatch synchronous AppleScript, Apple Events, or sync XPC to `DispatchQueue.main`. Use a background serial queue.**
+
+10. **Queued project session does not auto-activate when its block becomes current.** `handleStartProjectSession` only sets `activeProjectSession` + calls `recordSessionStart` on the immediate path (no currentBlock). When a session is queued behind an existing block, the new FocusBlock is inserted but no active session is set and no `SessionEntry` is created until that block activates. Proper fix: observe `ScheduleManager.onBlockChanged` for the queued blockId and call `setActiveProjectSession` + `recordSessionStart` on activation. See [docs/PROJECTS.md](docs/PROJECTS.md).
+
+---
+
+## Build & Distribution
+
+### Development (Xcode)
+Standard `xcodebuild` or Xcode IDE. Debug builds run directly from DerivedData. Uses Apple Development signing with automatic provisioning.
+
+### Production (PKG Installer)
+**Build command:** `./scripts/build-pkg.sh`
+**Skip notarization:** `NOTARIZE=0 ./scripts/build-pkg.sh`
+**Output:** `/tmp/intentional-pkg-build/Intentional-{VERSION}.pkg`
+
+**CRITICAL:** Never re-sign the app binary after Xcode archives it. This causes AMFI Error 163 (SIGKILL, exit code 137, no crash report). See [docs/PKG_BUILD_GUIDE.md](docs/PKG_BUILD_GUIDE.md).
+
+**CRITICAL:** Never strip or remove entitlements from `Intentional.entitlements`. The build script transforms them for Developer ID signing. Fix signing/profile config instead.
+
+> Full build guide: [docs/PKG_BUILD_GUIDE.md](docs/PKG_BUILD_GUIDE.md)
+
+---
+
+## Reference Documentation
+
+Detailed docs for each subsystem live in `docs/`. Read the relevant doc when working on that feature area.
+
+| Doc | What's in it |
+|-----|-------------|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Project structure, architecture diagram, process model (relay/primary), state machine, persistence files, backend API |
+| [PUCK_SPEC.md](docs/PUCK_SPEC.md) | Product vision, Puck integration, blocking modes, new systems (April 2026), extension role changes |
+| [FOCUS_ENFORCEMENT.md](docs/FOCUS_ENFORCEMENT.md) | FocusMonitor enforcement timelines (Deep Work vs Focus Hours), block start/end rituals, pill widget, overlays, distracting apps, always-allowed apps |
+| [EARNED_BROWSE_SYSTEM.md](docs/EARNED_BROWSE_SYSTEM.md) | Earning rates, cost multipliers, intent bonus, delay escalation, per-block tracking, pool state |
+| [AI_SCORING.md](docs/AI_SCORING.md) | Relevance scorer pipeline (keyword→cache→LLM), Qwen3-4B / Apple FM models, fail-closed policy |
+| [CONTENT_SAFETY_MONITOR.md](docs/CONTENT_SAFETY_MONITOR.md) | On-device NSFW detection, two-pass capture, OpenNSFW for Developer ID builds, partner notification |
+| [CS_TESTING_WINDOW_PLAYBOOK.md](docs/CS_TESTING_WINDOW_PLAYBOOK.md) | How to pause CS emails + enforcement constraint for a debugging window, and how to fully reverse it. Paired scripts in `intentional-backend/scripts/` (`pause_cs_constraint.py` / `resume_cs_constraint.py`) + env var `CS_EMAILS_PAUSED_UNTIL` |
+| [CONTEXT_SWITCHING_OVERLAY.md](docs/CONTEXT_SWITCHING_OVERLAY.md) | Non-skippable countdown on app/tab switches during a work block. Coordinator, overlay, tier math, grace periods |
+| [EXTENSION_PROTOCOL.md](docs/EXTENSION_PROTOCOL.md) | Socket architecture, native messaging protocol, all message types (app↔extension and dashboard↔Swift) |
+| [PROJECTS.md](docs/PROJECTS.md) | Projects (intention-driven sessions): data model, ProjectStore actor API, 7 bridge messages, start-session queue/immediate/refuse rules, blocklist delete guard |
+| [STRICT_MODE.md](docs/STRICT_MODE.md) | App persistence, partner-gated enable/disable, Cmd+Q behavior, watchdog, edge cases |
+| [PRIORITY_TODOS.md](docs/PRIORITY_TODOS.md) | Implementation backlog: Intentional Mode, permission monitoring, NE integration, anti-tamper hardening |
+| [PKG_BUILD_GUIDE.md](docs/PKG_BUILD_GUIDE.md) | PKG build pipeline, signing details, daemon relaunch strategy, testing checklist |
+| [ROADMAP.md](docs/ROADMAP.md) | Product roadmap, psychology research, feature priorities (P0-P3), coaching language overhaul |
+| [EARN_YOUR_BROWSE_IMPLEMENTATION.md](docs/EARN_YOUR_BROWSE_IMPLEMENTATION.md) | Full earned browse implementation spec with UI mockups, extension changes, message protocol |
+| [CALENDAR_BLOCK_RULES.md](docs/CALENDAR_BLOCK_RULES.md) | Block manipulation rules (past locked, active limited, future editable) |
+| [BLOCK_TYPE_ENFORCEMENT_SETTINGS.md](docs/BLOCK_TYPE_ENFORCEMENT_SETTINGS.md) | Per-block enforcement toggles (6 mechanisms per block type) |
+
+---
+
+## Reminder: Use Superpowers Skills at the Appropriate Times
+
+Second placement because this is load-bearing and easy to skip. Before any meaningful work:
+- Non-trivial change? → `superpowers:brainstorming` first, then `superpowers:writing-plans`, then `superpowers:subagent-driven-development`.
+- Bug / unexpected behaviour? → `superpowers:systematic-debugging` before touching code.
+- About to say "done"? → `superpowers:verification-before-completion` first — run the thing, confirm output.
+
+Skipping these because a task "feels simple" is exactly when you get burned. Route through the skill.

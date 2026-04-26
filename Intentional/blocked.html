@@ -516,14 +516,21 @@
             // Update blocked domain (no emoji - just domain)
             document.getElementById('blockedDomain').textContent = domain;
 
-            // Update explanation
+            // PUCK BRANCH: Simple "blocked" message — no extension install nag
+            document.getElementById('explanation').textContent =
+                `This site is blocked during focus time.`;
+
+            // Hide install prompt and protected browsers list
+            const installPromptContainer = document.getElementById('installPrompt');
+            installPromptContainer.style.display = 'none';
+            const browsersContainer = document.getElementById('protectedBrowsers');
+            browsersContainer.style.display = 'none';
+
+            /* PUCK BRANCH: Extension install prompt and protected browsers stripped
             document.getElementById('explanation').textContent =
                 `${params.browser} doesn't have the extension.`;
 
-            // Show install prompt based on browser support
-            const installPromptContainer = document.getElementById('installPrompt');
             const installInfo = getInstallInfo(browser.type);
-
             if (browser.type === 'unsupported') {
                 installPromptContainer.innerHTML = `
                     <div class="not-supported-message">
@@ -543,12 +550,7 @@
                 installPromptContainer.style.display = 'block';
             }
 
-            // Parse and display protected browsers
             const protectedBrowsers = params.protected ? params.protected.split(',') : [];
-            const browsersContainer = document.getElementById('protectedBrowsers');
-
-            debugLog('PROTECTED BROWSERS', { count: protectedBrowsers.length, browsers: protectedBrowsers });
-
             if (protectedBrowsers.length > 0) {
                 browsersContainer.innerHTML = protectedBrowsers.map(browser => `
                     <div class="browser-item">
@@ -559,6 +561,7 @@
             } else {
                 browsersContainer.innerHTML = '<div class="browser-item">No protected browsers yet</div>';
             }
+            PUCK: stripped */
 
             // Pick a random video and play it
             const video = document.getElementById('bgVideo');

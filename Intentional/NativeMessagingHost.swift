@@ -791,14 +791,19 @@ class NativeMessagingHost {
         }
 
         // Score asynchronously — Foundation Models call can take ~500-1000ms
+        // Use OS-detected browser bundle ID if the relay populated it; otherwise best-effort
+        // default to Chrome since native messaging hosts run under Chromium browsers.
+        let browserBundleId = self.detectedBrowserBundleId ?? "com.google.Chrome"
         Task {
             let result = await scorer.scoreRelevance(
                 pageTitle: pageTitle,
                 intention: block.title,
-                profile: manager.profile,
+                intentionDescription: block.description,
+                profile: block.ignoreProfile ? "" : manager.profile,
                 dailyPlan: manager.todaySchedule?.dailyPlan ?? "",
                 url: url,
-                pageDescription: pageDescription
+                pageDescription: pageDescription,
+                bundleIdentifier: browserBundleId
             )
 
             var response: [String: Any] = [
@@ -849,6 +854,7 @@ class NativeMessagingHost {
             } else {
                 blockType = .focusHours
             }
+            let ignoreProfile = dict["ignoreProfile"] as? Bool ?? false
             return ScheduleManager.FocusBlock(
                 id: dict["id"] as? String ?? UUID().uuidString,
                 title: title,
@@ -857,7 +863,8 @@ class NativeMessagingHost {
                 startMinute: startMinute,
                 endHour: endHour,
                 endMinute: endMinute,
-                blockType: blockType
+                blockType: blockType,
+                ignoreProfile: ignoreProfile
             )
         }
 
@@ -884,6 +891,7 @@ class NativeMessagingHost {
         } else {
             blockType = .focusHours
         }
+        let ignoreProfile = message["ignoreProfile"] as? Bool ?? false
         let block = ScheduleManager.FocusBlock(
             id: message["id"] as? String ?? UUID().uuidString,
             title: title,
@@ -892,7 +900,8 @@ class NativeMessagingHost {
             startMinute: message["startMinute"] as? Int ?? 0,
             endHour: endHour,
             endMinute: message["endMinute"] as? Int ?? 0,
-            blockType: blockType
+            blockType: blockType,
+            ignoreProfile: ignoreProfile
         )
 
         DispatchQueue.main.async { [weak self] in

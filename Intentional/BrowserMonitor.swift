@@ -460,13 +460,20 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func checkForUnprotectedBrowsers(runningBrowsers: [String]) {
-        let connectedBundleIds = appDelegate?.socketRelayServer?.getConnectedBrowserBundleIds() ?? []
-        let browserStatuses = NativeMessagingSetup.shared.getBrowserStatus()
-
+        // PUCK BRANCH: WebsiteBlocker blocks ALL browsers — extension is optional sensing layer.
+        // Don't exempt browsers just because they have the extension installed.
         var unprotectedBrowserNames: [String] = []
 
         for (bundleId, browserInfo) in browsers {
-            // Only evaluate running browsers
+            guard browserStates[bundleId] == true else { continue }
+            unprotectedBrowserNames.append(browserInfo.name)
+        }
+
+        /* PUCK BRANCH: Original protection logic stripped — was exempting extension-installed browsers
+        let connectedBundleIds = appDelegate?.socketRelayServer?.getConnectedBrowserBundleIds() ?? []
+        let browserStatuses = NativeMessagingSetup.shared.getBrowserStatus()
+
+        for (bundleId, browserInfo) in browsers {
             guard browserStates[bundleId] == true else { continue }
 
             let status = protectionDecision(
@@ -475,7 +482,6 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
                 browserStatuses: browserStatuses
             )
 
-            // Build decision key for change detection
             let decisionKey: String
             switch status {
             case .protected(let reason):
@@ -485,15 +491,17 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
                 unprotectedBrowserNames.append(browserInfo.name)
             }
 
-            // Log on every check (verbose, but needed for debugging timing)
-            switch status {
-            case .protected(let reason):
-                appDelegate?.postLog("🛡️ \(browserInfo.name): PROTECTED — \(reason)")
-            case .unprotected(let reason):
-                appDelegate?.postLog("⚠️ \(browserInfo.name): UNPROTECTED — \(reason)")
+            if lastProtectionDecisions[bundleId] != decisionKey {
+                switch status {
+                case .protected(let reason):
+                    appDelegate?.postLog("🛡️ \(browserInfo.name): PROTECTED — \(reason)")
+                case .unprotected(let reason):
+                    appDelegate?.postLog("⚠️ \(browserInfo.name): UNPROTECTED — \(reason)")
+                }
             }
             lastProtectionDecisions[bundleId] = decisionKey
         }
+        PUCK: stripped */
 
         // Clean up decisions for browsers no longer running
         for bundleId in lastProtectionDecisions.keys {

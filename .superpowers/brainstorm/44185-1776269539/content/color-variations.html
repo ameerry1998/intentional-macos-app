@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Color Variations — Pick a Vibe</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif; background:#050508; color:#f7f8f8; padding:24px; }
+  h1 { font-size:20px; font-weight:700; text-align:center; margin-bottom:4px; }
+  .page-sub { text-align:center; color:rgba(255,255,255,0.55); font-size:13px; margin-bottom:8px; }
+
+  .switcher { display:flex; gap:0; justify-content:center; margin-bottom:28px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:3px; flex-wrap:wrap; max-width:700px; margin-left:auto; margin-right:auto; }
+  .sw-btn { padding:8px 16px; font-size:12px; font-weight:500; color:rgba(255,255,255,0.4); background:transparent; border:none; border-radius:9px; cursor:pointer; font-family:inherit; transition:all 0.15s; white-space:nowrap; }
+  .sw-btn.active { background:rgba(255,255,255,0.1); color:#f7f8f8; }
+  .sw-btn:hover { color:rgba(255,255,255,0.7); }
+
+  .variant { display:none; }
+  .variant.active { display:flex; gap:28px; justify-content:center; flex-wrap:wrap; }
+
+  /* Shared frame styles */
+  .phone { width:280px; height:520px; background:var(--bg,#0a0a0b); border-radius:32px; border:2px solid rgba(255,255,255,0.1); overflow:hidden; position:relative; flex-shrink:0; }
+  .phone-notch { width:100px; height:24px; background:#000; border-radius:0 0 14px 14px; margin:0 auto; }
+  .phone-screen { padding:14px; height:calc(100% - 64px); overflow-y:auto; }
+  .phone-tabs { position:absolute; bottom:0; left:0; right:0; height:44px; background:rgba(10,10,11,0.9); border-top:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-around; align-items:center; font-size:9px; }
+  .phone-tab { color:rgba(255,255,255,0.25); text-align:center; }
+  .phone-tab.active { color:var(--accent); }
+
+  .mac { width:480px; height:360px; background:var(--bg,#0a0a0b); border-radius:10px; border:1px solid rgba(255,255,255,0.08); overflow:hidden; display:flex; flex-direction:column; flex-shrink:0; box-shadow:0 20px 50px rgba(0,0,0,0.5); }
+  .mac-bar { background:rgba(255,255,255,0.02); border-bottom:1px solid rgba(255,255,255,0.05); padding:8px 12px; display:flex; align-items:center; gap:6px; flex-shrink:0; }
+  .mac-dot { width:10px; height:10px; border-radius:50%; }
+  .mac-body { display:flex; flex:1; overflow:hidden; }
+  .mac-side { width:140px; background:rgba(255,255,255,0.015); border-right:1px solid rgba(255,255,255,0.05); padding:12px 8px; }
+  .mac-side-brand { font-size:13px; font-weight:700; padding:4px 8px 14px; }
+  .mac-nav { padding:6px 8px; border-radius:5px; font-size:11px; color:rgba(255,255,255,0.45); margin-bottom:1px; }
+  .mac-nav.active { background:var(--accent-dim); color:var(--accent); }
+  .mac-content { flex:1; padding:16px; overflow-y:auto; }
+
+  /* Reusable components */
+  .g { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:14px; margin-bottom:8px; overflow:hidden; }
+  .gp { padding:12px; }
+  .puck-circle { width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 10px; font-size:12px; font-weight:800; color:#0a0a0b; letter-spacing:0.5px; }
+  .focus-dot { width:7px; height:7px; border-radius:50%; background:var(--accent); }
+  .tb { padding:7px 10px; border-radius:5px; margin-bottom:3px; font-size:10px; font-weight:500; }
+  .tb-focus { background:var(--accent-dim); border-left:2px solid var(--accent); color:var(--accent); }
+  .tb-bed { background:var(--bed-dim,rgba(129,140,248,0.15)); border-left:2px solid var(--bed,#818cf8); color:var(--bed,#818cf8); }
+  .pill { display:inline-block; font-size:9px; font-weight:600; padding:2px 8px; border-radius:100px; }
+  .pill-accent { background:var(--accent-dim); color:var(--accent); }
+  .pill-emerald { background:rgba(52,211,153,0.15); color:#34d399; }
+  .toggle-sm { width:36px; height:20px; border-radius:10px; background:var(--accent); position:relative; flex-shrink:0; }
+  .toggle-sm::after { content:''; width:16px; height:16px; border-radius:50%; background:white; position:absolute; top:2px; left:18px; }
+  .btn-accent { background:var(--accent); color:#0a0a0b; border:none; border-radius:12px; padding:10px 16px; font-size:12px; font-weight:600; width:100%; cursor:pointer; font-family:inherit; }
+  .swatch-row { display:flex; gap:6px; margin-top:12px; justify-content:center; }
+  .swatch { width:32px; height:32px; border-radius:8px; }
+  .var-label { text-align:center; font-size:14px; font-weight:700; margin-bottom:4px; }
+  .var-sub { text-align:center; font-size:11px; color:rgba(255,255,255,0.4); margin-bottom:16px; }
+</style>
+</head>
+<body>
+
+<h1>Color Variations</h1>
+<p class="page-sub">Same layout, different accent palettes. Click to compare.</p>
+
+<div class="switcher">
+  <button class="sw-btn active" onclick="show('a')">A · Pure Coral</button>
+  <button class="sw-btn" onclick="show('b')">B · Coral + Emerald Split</button>
+  <button class="sw-btn" onclick="show('c')">C · Warm Peach</button>
+  <button class="sw-btn" onclick="show('d')">D · Coral → Gold Gradient</button>
+  <button class="sw-btn" onclick="show('e')">E · Electric Coral</button>
+  <button class="sw-btn" onclick="show('f')">F · Sunset Duo</button>
+</div>
+
+<!-- ════════ A: PURE CORAL ════════ -->
+<div class="variant active" id="v-a" style="--accent:#E87461;--accent-dim:rgba(232,116,97,0.15);--bed:#818cf8;--bed-dim:rgba(129,140,248,0.15);">
+  <div>
+    <div class="var-label">A · Pure Coral</div>
+    <div class="var-sub">#E87461 everywhere. Clean, matches the Puck.</div>
+    <div class="phone">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div style="text-align:center;padding:16px 0 12px;">
+          <div class="puck-circle" style="background:#E87461;">PUCK</div>
+          <div style="font-size:16px;font-weight:700;">Ready to Focus</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:3px;">Tap your puck to start</div>
+        </div>
+        <div class="g gp" style="border-color:rgba(232,116,97,0.25);">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><div class="focus-dot"></div><span style="font-size:11px;font-weight:600;color:var(--accent);">Blocking Active · 45m</span></div>
+          <div style="font-size:16px;font-weight:700;">Deep Work</div>
+        </div>
+        <div class="g gp" style="display:flex;justify-content:space-around;text-align:center;">
+          <div><div style="font-size:18px;font-weight:700;color:var(--accent);">2h</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Focused</div></div>
+          <div><div style="font-size:18px;font-weight:700;">3</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Sessions</div></div>
+          <div><div style="font-size:18px;font-weight:700;color:#34d399;">87%</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">On-task</div></div>
+        </div>
+      </div>
+      <div class="phone-tabs"><div class="phone-tab active">⌂ Home</div><div class="phone-tab">☰</div><div class="phone-tab">⏰</div><div class="phone-tab">♡</div><div class="phone-tab">⚙</div></div>
+    </div>
+  </div>
+  <div>
+    <div class="var-label" style="visibility:hidden;">.</div>
+    <div class="var-sub" style="visibility:hidden;">.</div>
+    <div class="mac">
+      <div class="mac-bar"><div class="mac-dot" style="background:#ff5f57;"></div><div class="mac-dot" style="background:#ffbd2e;"></div><div class="mac-dot" style="background:#28c840;"></div></div>
+      <div class="mac-body">
+        <div class="mac-side"><div class="mac-side-brand">Intentional</div><div class="mac-nav active">◉ Today</div><div class="mac-nav">⊘ Distractions</div><div class="mac-nav">◎ Accountability</div><div class="mac-nav">⚙ Settings</div></div>
+        <div class="mac-content">
+          <div style="font-size:15px;font-weight:700;margin-bottom:10px;">Schedule</div>
+          <div style="display:flex;gap:5px;margin-bottom:10px;">
+            <button style="padding:4px 12px;border-radius:100px;font-size:10px;font-weight:600;border:none;background:var(--accent-dim);color:var(--accent);cursor:pointer;">+ Focus</button>
+            <button style="padding:4px 12px;border-radius:100px;font-size:10px;font-weight:600;border:1px solid rgba(255,255,255,0.08);background:none;color:rgba(255,255,255,0.5);cursor:pointer;">+ Free Time</button>
+          </div>
+          <div class="tb tb-focus">Focus · 8:00–10:00 AM</div>
+          <div class="tb" style="background:rgba(255,255,255,0.02);border-left:2px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.4);">Free Time · 10:00–10:30</div>
+          <div class="tb tb-bed">☽ Bedtime · 11 PM</div>
+          <div class="g" style="margin-top:8px;"><div style="display:flex;align-items:center;padding:8px 12px;gap:8px;"><div style="width:22px;height:22px;border-radius:5px;background:var(--accent-dim);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:10px;">⊞</div><span style="flex:1;font-size:11px;font-weight:500;">Focus Gate</span><div class="toggle-sm"></div></div></div>
+          <div class="g" style="border-color:rgba(232,116,97,0.2);"><div class="gp" style="display:flex;align-items:center;gap:8px;"><div class="focus-dot"></div><div><div style="font-size:11px;font-weight:600;color:var(--accent);">Focus Active</div><div style="font-size:9px;color:rgba(255,255,255,0.4);">Distracting Apps · 45m</div></div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="swatch-row">
+      <div class="swatch" style="background:#E87461;" title="#E87461"></div>
+      <div class="swatch" style="background:#34d399;" title="#34d399"></div>
+      <div class="swatch" style="background:#818cf8;" title="#818cf8"></div>
+      <div class="swatch" style="background:#fbbf24;" title="#fbbf24"></div>
+      <div class="swatch" style="background:#ef4444;" title="#ef4444"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ B: CORAL + EMERALD SPLIT ════════ -->
+<div class="variant" id="v-b" style="--accent:#E87461;--accent-dim:rgba(232,116,97,0.15);--accent2:#34d399;--accent2-dim:rgba(52,211,153,0.15);">
+  <div>
+    <div class="var-label">B · Coral + Emerald Split</div>
+    <div class="var-sub">Coral for brand/CTAs. Emerald for active focus states. Two-tone energy.</div>
+    <div class="phone">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div style="text-align:center;padding:16px 0 12px;">
+          <div class="puck-circle" style="background:#E87461;">PUCK</div>
+          <div style="font-size:16px;font-weight:700;">Ready to Focus</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:3px;">Tap your puck to start</div>
+        </div>
+        <div class="g gp" style="border-color:rgba(52,211,153,0.25);">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><div style="width:7px;height:7px;border-radius:50%;background:#34d399;"></div><span style="font-size:11px;font-weight:600;color:#34d399;">Blocking Active · 45m</span></div>
+          <div style="font-size:16px;font-weight:700;">Deep Work</div>
+        </div>
+        <div class="g gp" style="display:flex;justify-content:space-around;text-align:center;">
+          <div><div style="font-size:18px;font-weight:700;color:#34d399;">2h</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Focused</div></div>
+          <div><div style="font-size:18px;font-weight:700;">3</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Sessions</div></div>
+          <div><div style="font-size:18px;font-weight:700;color:#E87461;">87%</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Score</div></div>
+        </div>
+        <button class="btn-accent" style="margin-top:8px;">Start New Session</button>
+      </div>
+      <div class="phone-tabs"><div class="phone-tab" style="color:#E87461;">⌂ Home</div><div class="phone-tab">☰</div><div class="phone-tab">⏰</div><div class="phone-tab">♡</div><div class="phone-tab">⚙</div></div>
+    </div>
+  </div>
+  <div>
+    <div class="var-label" style="visibility:hidden;">.</div><div class="var-sub" style="visibility:hidden;">.</div>
+    <div class="mac">
+      <div class="mac-bar"><div class="mac-dot" style="background:#ff5f57;"></div><div class="mac-dot" style="background:#ffbd2e;"></div><div class="mac-dot" style="background:#28c840;"></div></div>
+      <div class="mac-body">
+        <div class="mac-side"><div class="mac-side-brand">Intentional</div><div class="mac-nav" style="background:rgba(232,116,97,0.12);color:#E87461;">◉ Today</div><div class="mac-nav">⊘ Distractions</div><div class="mac-nav">◎ Accountability</div><div class="mac-nav">⚙ Settings</div></div>
+        <div class="mac-content">
+          <div style="font-size:15px;font-weight:700;margin-bottom:10px;">Schedule</div>
+          <div style="display:flex;gap:5px;margin-bottom:10px;">
+            <button style="padding:4px 12px;border-radius:100px;font-size:10px;font-weight:600;border:none;background:rgba(232,116,97,0.15);color:#E87461;cursor:pointer;">+ Focus</button>
+            <button style="padding:4px 12px;border-radius:100px;font-size:10px;font-weight:600;border:1px solid rgba(255,255,255,0.08);background:none;color:rgba(255,255,255,0.5);cursor:pointer;">+ Free Time</button>
+          </div>
+          <div class="tb" style="background:rgba(52,211,153,0.12);border-left:2px solid #34d399;color:#34d399;">Focus · 8:00–10:00 AM</div>
+          <div class="tb" style="background:rgba(255,255,255,0.02);border-left:2px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.4);">Free Time · 10:00–10:30</div>
+          <div class="tb tb-bed">☽ Bedtime · 11 PM</div>
+          <div class="g" style="margin-top:8px;"><div style="display:flex;align-items:center;padding:8px 12px;gap:8px;"><div style="width:22px;height:22px;border-radius:5px;background:rgba(232,116,97,0.12);color:#E87461;display:flex;align-items:center;justify-content:center;font-size:10px;">⊞</div><span style="flex:1;font-size:11px;font-weight:500;">Focus Gate</span><div class="toggle-sm" style="background:#E87461;"></div></div></div>
+          <div class="g" style="border-color:rgba(52,211,153,0.2);"><div class="gp" style="display:flex;align-items:center;gap:8px;"><div style="width:7px;height:7px;border-radius:50%;background:#34d399;"></div><div><div style="font-size:11px;font-weight:600;color:#34d399;">Focus Active</div><div style="font-size:9px;color:rgba(255,255,255,0.4);">Distracting Apps · 45m</div></div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="swatch-row">
+      <div class="swatch" style="background:#E87461;"></div>
+      <div class="swatch" style="background:#34d399;"></div>
+      <div class="swatch" style="background:#818cf8;"></div>
+      <div class="swatch" style="background:#fbbf24;"></div>
+      <div class="swatch" style="background:#ef4444;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ C: WARM PEACH ════════ -->
+<div class="variant" id="v-c" style="--accent:#F4A68C;--accent-dim:rgba(244,166,140,0.12);">
+  <div>
+    <div class="var-label">C · Warm Peach</div>
+    <div class="var-sub">#F4A68C — softer, warmer coral. Less aggressive, more inviting.</div>
+    <div class="phone">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div style="text-align:center;padding:16px 0 12px;">
+          <div class="puck-circle" style="background:#F4A68C;">PUCK</div>
+          <div style="font-size:16px;font-weight:700;">Ready to Focus</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:3px;">Tap your puck to start</div>
+        </div>
+        <div class="g gp" style="border-color:rgba(244,166,140,0.25);">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><div style="width:7px;height:7px;border-radius:50%;background:#F4A68C;"></div><span style="font-size:11px;font-weight:600;color:#F4A68C;">Blocking Active · 45m</span></div>
+          <div style="font-size:16px;font-weight:700;">Deep Work</div>
+        </div>
+        <div class="g gp" style="display:flex;justify-content:space-around;text-align:center;">
+          <div><div style="font-size:18px;font-weight:700;color:#F4A68C;">2h</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Focused</div></div>
+          <div><div style="font-size:18px;font-weight:700;">3</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Sessions</div></div>
+          <div><div style="font-size:18px;font-weight:700;color:#34d399;">87%</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">On-task</div></div>
+        </div>
+        <button class="btn-accent" style="margin-top:8px;background:#F4A68C;">Start New Session</button>
+      </div>
+      <div class="phone-tabs"><div class="phone-tab" style="color:#F4A68C;">⌂ Home</div><div class="phone-tab">☰</div><div class="phone-tab">⏰</div><div class="phone-tab">♡</div><div class="phone-tab">⚙</div></div>
+    </div>
+  </div>
+  <div>
+    <div class="var-label" style="visibility:hidden;">.</div><div class="var-sub" style="visibility:hidden;">.</div>
+    <div class="mac">
+      <div class="mac-bar"><div class="mac-dot" style="background:#ff5f57;"></div><div class="mac-dot" style="background:#ffbd2e;"></div><div class="mac-dot" style="background:#28c840;"></div></div>
+      <div class="mac-body">
+        <div class="mac-side"><div class="mac-side-brand">Intentional</div><div class="mac-nav" style="background:rgba(244,166,140,0.1);color:#F4A68C;">◉ Today</div><div class="mac-nav">⊘ Distractions</div><div class="mac-nav">◎ Accountability</div><div class="mac-nav">⚙ Settings</div></div>
+        <div class="mac-content">
+          <div style="font-size:15px;font-weight:700;margin-bottom:10px;">Schedule</div>
+          <div style="display:flex;gap:5px;margin-bottom:10px;">
+            <button style="padding:4px 12px;border-radius:100px;font-size:10px;font-weight:600;border:none;background:rgba(244,166,140,0.12);color:#F4A68C;cursor:pointer;">+ Focus</button>
+            <button style="padding:4px 12px;border-radius:100px;font-size:10px;font-weight:600;border:1px solid rgba(255,255,255,0.08);background:none;color:rgba(255,255,255,0.5);cursor:pointer;">+ Free Time</button>
+          </div>
+          <div class="tb" style="background:rgba(244,166,140,0.1);border-left:2px solid #F4A68C;color:#F4A68C;">Focus · 8:00–10:00 AM</div>
+          <div class="tb" style="background:rgba(255,255,255,0.02);border-left:2px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.4);">Free Time · 10:00–10:30</div>
+          <div class="tb tb-bed">☽ Bedtime · 11 PM</div>
+          <div class="g" style="margin-top:8px;"><div style="display:flex;align-items:center;padding:8px 12px;gap:8px;"><div style="width:22px;height:22px;border-radius:5px;background:rgba(244,166,140,0.1);color:#F4A68C;display:flex;align-items:center;justify-content:center;font-size:10px;">⊞</div><span style="flex:1;font-size:11px;font-weight:500;">Focus Gate</span><div class="toggle-sm" style="background:#F4A68C;"></div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="swatch-row">
+      <div class="swatch" style="background:#F4A68C;"></div>
+      <div class="swatch" style="background:#34d399;"></div>
+      <div class="swatch" style="background:#818cf8;"></div>
+      <div class="swatch" style="background:#fbbf24;"></div>
+      <div class="swatch" style="background:#ef4444;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ D: CORAL → GOLD GRADIENT ════════ -->
+<div class="variant" id="v-d" style="--accent:#E87461;--accent-dim:rgba(232,116,97,0.15);">
+  <div>
+    <div class="var-label">D · Coral → Gold Gradient</div>
+    <div class="var-sub">Coral base with gold gradient accents. Warm, premium, alive.</div>
+    <div class="phone">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div style="text-align:center;padding:16px 0 12px;">
+          <div class="puck-circle" style="background:linear-gradient(135deg,#E87461,#F5A623);">PUCK</div>
+          <div style="font-size:16px;font-weight:700;">Ready to Focus</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:3px;">Tap your puck to start</div>
+        </div>
+        <div class="g gp" style="border-color:rgba(232,116,97,0.25);">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><div style="width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#E87461,#F5A623);"></div><span style="font-size:11px;font-weight:600;background:linear-gradient(135deg,#E87461,#F5A623);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Blocking Active · 45m</span></div>
+          <div style="font-size:16px;font-weight:700;">Deep Work</div>
+        </div>
+        <div class="g gp" style="display:flex;justify-content:space-around;text-align:center;">
+          <div><div style="font-size:18px;font-weight:700;background:linear-gradient(135deg,#E87461,#F5A623);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">2h</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Focused</div></div>
+          <div><div style="font-size:18px;font-weight:700;">3</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Sessions</div></div>
+          <div><div style="font-size:18px;font-weight:700;color:#34d399;">87%</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">On-task</div></div>
+        </div>
+        <button style="margin-top:8px;width:100%;padding:10px;border:none;border-radius:12px;font-size:12px;font-weight:600;color:#0a0a0b;background:linear-gradient(135deg,#E87461,#F5A623);cursor:pointer;font-family:inherit;">Start New Session</button>
+      </div>
+      <div class="phone-tabs"><div class="phone-tab" style="color:#E87461;">⌂ Home</div><div class="phone-tab">☰</div><div class="phone-tab">⏰</div><div class="phone-tab">♡</div><div class="phone-tab">⚙</div></div>
+    </div>
+  </div>
+  <div>
+    <div class="var-label" style="visibility:hidden;">.</div><div class="var-sub" style="visibility:hidden;">.</div>
+    <div class="mac">
+      <div class="mac-bar"><div class="mac-dot" style="background:#ff5f57;"></div><div class="mac-dot" style="background:#ffbd2e;"></div><div class="mac-dot" style="background:#28c840;"></div></div>
+      <div class="mac-body">
+        <div class="mac-side"><div class="mac-side-brand">Intentional</div><div class="mac-nav" style="background:rgba(232,116,97,0.12);color:#E87461;">◉ Today</div><div class="mac-nav">⊘ Distractions</div><div class="mac-nav">◎ Accountability</div><div class="mac-nav">⚙ Settings</div></div>
+        <div class="mac-content">
+          <div style="font-size:15px;font-weight:700;margin-bottom:10px;">Schedule</div>
+          <div style="display:flex;gap:5px;margin-bottom:10px;">
+            <button style="padding:4px 12px;border-radius:100px;font-size:10px;font-weight:600;border:none;background:linear-gradient(135deg,#E87461,#F5A623);color:#0a0a0b;cursor:pointer;">+ Focus</button>
+            <button style="padding:4px 12px;border-radius:100px;font-size:10px;font-weight:600;border:1px solid rgba(255,255,255,0.08);background:none;color:rgba(255,255,255,0.5);cursor:pointer;">+ Free Time</button>
+          </div>
+          <div class="tb" style="background:rgba(232,116,97,0.1);border-left:2px solid #E87461;color:#E87461;">Focus · 8:00–10:00 AM</div>
+          <div class="tb" style="background:rgba(255,255,255,0.02);border-left:2px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.4);">Free Time · 10:00–10:30</div>
+          <div class="tb tb-bed">☽ Bedtime · 11 PM</div>
+          <div class="g" style="margin-top:8px;border-color:rgba(232,116,97,0.2);"><div class="gp" style="display:flex;align-items:center;gap:8px;"><div style="width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#E87461,#F5A623);"></div><div><div style="font-size:11px;font-weight:600;background:linear-gradient(135deg,#E87461,#F5A623);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Focus Active</div><div style="font-size:9px;color:rgba(255,255,255,0.4);">45 min elapsed</div></div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="swatch-row">
+      <div class="swatch" style="background:linear-gradient(135deg,#E87461,#F5A623);"></div>
+      <div class="swatch" style="background:#34d399;"></div>
+      <div class="swatch" style="background:#818cf8;"></div>
+      <div class="swatch" style="background:#ef4444;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ E: ELECTRIC CORAL ════════ -->
+<div class="variant" id="v-e" style="--accent:#FF6B52;--accent-dim:rgba(255,107,82,0.15);">
+  <div>
+    <div class="var-label">E · Electric Coral</div>
+    <div class="var-sub">#FF6B52 — more saturated, more energy. Pops harder on dark.</div>
+    <div class="phone">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div style="text-align:center;padding:16px 0 12px;">
+          <div class="puck-circle" style="background:#FF6B52;">PUCK</div>
+          <div style="font-size:16px;font-weight:700;">Ready to Focus</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:3px;">Tap your puck to start</div>
+        </div>
+        <div class="g gp" style="border-color:rgba(255,107,82,0.3);">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><div style="width:7px;height:7px;border-radius:50%;background:#FF6B52;"></div><span style="font-size:11px;font-weight:600;color:#FF6B52;">Blocking Active · 45m</span></div>
+          <div style="font-size:16px;font-weight:700;">Deep Work</div>
+        </div>
+        <div class="g gp" style="display:flex;justify-content:space-around;text-align:center;">
+          <div><div style="font-size:18px;font-weight:700;color:#FF6B52;">2h</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Focused</div></div>
+          <div><div style="font-size:18px;font-weight:700;">3</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Sessions</div></div>
+          <div><div style="font-size:18px;font-weight:700;color:#34d399;">87%</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">On-task</div></div>
+        </div>
+        <button style="margin-top:8px;width:100%;padding:10px;border:none;border-radius:12px;font-size:12px;font-weight:600;color:#0a0a0b;background:#FF6B52;cursor:pointer;font-family:inherit;">Start New Session</button>
+      </div>
+      <div class="phone-tabs"><div class="phone-tab" style="color:#FF6B52;">⌂ Home</div><div class="phone-tab">☰</div><div class="phone-tab">⏰</div><div class="phone-tab">♡</div><div class="phone-tab">⚙</div></div>
+    </div>
+  </div>
+  <div>
+    <div class="var-label" style="visibility:hidden;">.</div><div class="var-sub" style="visibility:hidden;">.</div>
+    <div class="mac">
+      <div class="mac-bar"><div class="mac-dot" style="background:#ff5f57;"></div><div class="mac-dot" style="background:#ffbd2e;"></div><div class="mac-dot" style="background:#28c840;"></div></div>
+      <div class="mac-body">
+        <div class="mac-side"><div class="mac-side-brand">Intentional</div><div class="mac-nav" style="background:rgba(255,107,82,0.1);color:#FF6B52;">◉ Today</div><div class="mac-nav">⊘ Distractions</div><div class="mac-nav">◎ Accountability</div><div class="mac-nav">⚙ Settings</div></div>
+        <div class="mac-content">
+          <div style="font-size:15px;font-weight:700;margin-bottom:10px;">Schedule</div>
+          <div style="display:flex;gap:5px;margin-bottom:10px;">
+            <button style="padding:4px 12px;border-radius:100px;font-size:10px;font-weight:600;border:none;background:rgba(255,107,82,0.15);color:#FF6B52;cursor:pointer;">+ Focus</button>
+            <button style="padding:4px 12px;border-radius:100px;font-size:10px;font-weight:600;border:1px solid rgba(255,255,255,0.08);background:none;color:rgba(255,255,255,0.5);cursor:pointer;">+ Free Time</button>
+          </div>
+          <div class="tb" style="background:rgba(255,107,82,0.1);border-left:2px solid #FF6B52;color:#FF6B52;">Focus · 8:00–10:00 AM</div>
+          <div class="tb" style="background:rgba(255,255,255,0.02);border-left:2px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.4);">Free Time · 10:00–10:30</div>
+          <div class="tb tb-bed">☽ Bedtime · 11 PM</div>
+          <div class="g" style="margin-top:8px;"><div style="display:flex;align-items:center;padding:8px 12px;gap:8px;"><div style="width:22px;height:22px;border-radius:5px;background:rgba(255,107,82,0.12);color:#FF6B52;display:flex;align-items:center;justify-content:center;font-size:10px;">⊞</div><span style="flex:1;font-size:11px;font-weight:500;">Focus Gate</span><div class="toggle-sm" style="background:#FF6B52;"></div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="swatch-row">
+      <div class="swatch" style="background:#FF6B52;"></div>
+      <div class="swatch" style="background:#34d399;"></div>
+      <div class="swatch" style="background:#818cf8;"></div>
+      <div class="swatch" style="background:#fbbf24;"></div>
+      <div class="swatch" style="background:#ef4444;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ F: SUNSET DUO ════════ -->
+<div class="variant" id="v-f" style="--accent:#E87461;--accent-dim:rgba(232,116,97,0.12);">
+  <div>
+    <div class="var-label">F · Sunset Duo</div>
+    <div class="var-sub">Coral buttons + amber/gold active states. Warm sunset palette.</div>
+    <div class="phone">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div style="text-align:center;padding:16px 0 12px;">
+          <div class="puck-circle" style="background:linear-gradient(135deg,#E87461,#EDAB5E);">PUCK</div>
+          <div style="font-size:16px;font-weight:700;">Ready to Focus</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:3px;">Tap your puck to start</div>
+        </div>
+        <div class="g gp" style="border-color:rgba(237,171,94,0.3);">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><div style="width:7px;height:7px;border-radius:50%;background:#EDAB5E;"></div><span style="font-size:11px;font-weight:600;color:#EDAB5E;">Blocking Active · 45m</span></div>
+          <div style="font-size:16px;font-weight:700;">Deep Work</div>
+        </div>
+        <div class="g gp" style="display:flex;justify-content:space-around;text-align:center;">
+          <div><div style="font-size:18px;font-weight:700;color:#EDAB5E;">2h</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Focused</div></div>
+          <div><div style="font-size:18px;font-weight:700;">3</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Sessions</div></div>
+          <div><div style="font-size:18px;font-weight:700;color:#34d399;">87%</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">On-task</div></div>
+        </div>
+        <button style="margin-top:8px;width:100%;padding:10px;border:none;border-radius:12px;font-size:12px;font-weight:600;color:#0a0a0b;background:#E87461;cursor:pointer;font-family:inherit;">Start New Session</button>
+      </div>
+      <div class="phone-tabs"><div class="phone-tab" style="color:#E87461;">⌂ Home</div><div class="phone-tab">☰</div><div class="phone-tab">⏰</div><div class="phone-tab">♡</div><div class="phone-tab">⚙</div></div>
+    </div>
+  </div>
+  <div>
+    <div class="var-label" style="visibility:hidden;">.</div><div class="var-sub" style="visibility:hidden;">.</div>
+    <div class="mac">
+      <div class="mac-bar"><div class="mac-dot" style="background:#ff5f57;"></div><div class="mac-dot" style="background:#ffbd2e;"></div><div class="mac-dot" style="background:#28c840;"></div></div>
+      <div class="mac-body">
+        <div class="mac-side"><div class="mac-side-brand">Intentional</div><div class="mac-nav" style="background:rgba(232,116,97,0.1);color:#E87461;">◉ Today</div><div class="mac-nav">⊘ Distractions</div><div class="mac-nav">◎ Accountability</div><div class="mac-nav">⚙ Settings</div></div>
+        <div class="mac-content">
+          <div style="font-size:15px;font-weight:700;margin-bottom:10px;">Schedule</div>
+          <div style="display:flex;gap:5px;margin-bottom:10px;">
+            <button style="padding:4px 12px;border-radius:100px;font-size:10px;font-weight:600;border:none;background:#E87461;color:#0a0a0b;cursor:pointer;">+ Focus</button>
+            <button style="padding:4px 12px;border-radius:100px;font-size:10px;font-weight:600;border:1px solid rgba(255,255,255,0.08);background:none;color:rgba(255,255,255,0.5);cursor:pointer;">+ Free Time</button>
+          </div>
+          <div class="tb" style="background:rgba(237,171,94,0.1);border-left:2px solid #EDAB5E;color:#EDAB5E;">Focus · 8:00–10:00 AM</div>
+          <div class="tb" style="background:rgba(255,255,255,0.02);border-left:2px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.4);">Free Time · 10:00–10:30</div>
+          <div class="tb tb-bed">☽ Bedtime · 11 PM</div>
+          <div class="g" style="margin-top:8px;border-color:rgba(237,171,94,0.2);"><div class="gp" style="display:flex;align-items:center;gap:8px;"><div style="width:7px;height:7px;border-radius:50%;background:#EDAB5E;"></div><div><div style="font-size:11px;font-weight:600;color:#EDAB5E;">Focus Active</div><div style="font-size:9px;color:rgba(255,255,255,0.4);">45 min elapsed</div></div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="swatch-row">
+      <div class="swatch" style="background:#E87461;"></div>
+      <div class="swatch" style="background:#EDAB5E;"></div>
+      <div class="swatch" style="background:#34d399;"></div>
+      <div class="swatch" style="background:#818cf8;"></div>
+      <div class="swatch" style="background:#ef4444;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.variant').forEach(v => v.classList.remove('active'));
+  document.getElementById('v-' + id).classList.add('active');
+  document.querySelectorAll('.sw-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Intentional — Full UI Prototype</title>
+<style>
+  /* ═══════════════════════════════════════════
+     DESIGN TOKENS
+     ═══════════════════════════════════════════ */
+  :root {
+    color-scheme: dark;
+    --surface-base: #0e0e12;
+    --surface-raised: #1c1c1e;
+    --surface-elevated: #2c2c2e;
+    --surface-hover: rgba(255,255,255,0.04);
+    --surface-active: rgba(255,255,255,0.06);
+    --text-primary: #f2f2f7;
+    --text-secondary: #8e8e93;
+    --text-tertiary: #636366;
+    --accent: #8b5cf6;
+    --accent-dim: rgba(139,92,246,0.12);
+    --accent-hover: rgba(139,92,246,0.2);
+    --border-subtle: rgba(255,255,255,0.06);
+    --border-strong: rgba(255,255,255,0.14);
+    --danger: #ef4444;
+    --danger-dim: rgba(239,68,68,0.1);
+    --success: #4ade80;
+    --success-dim: rgba(74,222,128,0.08);
+    --success-border: rgba(74,222,128,0.15);
+    --warning: #f59e0b;
+    --deep-focus: #ef4444;
+    --focus: #8b5cf6;
+    --free-time: #34d399;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+    --radius-xl: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    background: #080810;
+    color: var(--text-primary);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 20px;
+    min-height: 100vh;
+  }
+
+  /* ═══════════════════════════════════════════
+     APP CHROME
+     ═══════════════════════════════════════════ */
+  .app {
+    width: 940px;
+    height: 660px;
+    background: var(--surface-base);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+    display: flex;
+    flex-direction: column;
+  }
+  .titlebar {
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    -webkit-user-select: none;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #ffbd2e; }
+  .dot-g { background: #28c840; }
+  .titlebar-center { flex:1; text-align:center; font-size:13px; color:var(--text-tertiary); font-weight: 500; }
+  .titlebar-right { font-size:11px; color:var(--success); display:flex; align-items:center; gap:5px; }
+  .status-dot { width:6px; height:6px; border-radius:50%; background:var(--success); }
+
+  .app-body { display: flex; flex: 1; overflow: hidden; }
+
+  /* ═══════════════════════════════════════════
+     SIDEBAR
+     ═══════════════════════════════════════════ */
+  .sidebar {
+    width: 200px;
+    background: rgba(255,255,255,0.015);
+    border-right: 1px solid var(--border-subtle);
+    padding: 16px 10px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .sidebar-brand {
+    font-size: 16px;
+    font-weight: 700;
+    padding: 4px 12px 20px;
+    color: var(--text-primary);
+  }
+  .nav-item {
+    padding: 9px 12px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.1s;
+    -webkit-user-select: none;
+  }
+  .nav-item:hover { background: var(--surface-hover); }
+  .nav-item.active { background: var(--accent-dim); color: #c4b5fd; }
+  .nav-icon { font-size: 14px; width: 18px; text-align: center; opacity: 0.7; }
+  .nav-item.active .nav-icon { opacity: 1; }
+
+  /* ═══════════════════════════════════════════
+     CONTENT AREA
+     ═══════════════════════════════════════════ */
+  .content { flex: 1; overflow: hidden; position: relative; }
+  .page {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    display: none;
+  }
+  .page.active { display: block; }
+
+  /* Shared page styles */
+  .page-header { padding: 24px 28px 4px; }
+  .page-title { font-size: 22px; font-weight: 700; }
+  .page-subtitle { font-size: 13px; color: var(--text-tertiary); margin-top: 4px; }
+  .section-label {
+    font-size: 11px; font-weight: 600; color: var(--text-tertiary);
+    letter-spacing: 0.5px; text-transform: uppercase; padding: 20px 28px 8px;
+  }
+  .section-label.green { color: var(--success); }
+
+  /* Cards */
+  .card {
+    background: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    margin: 10px 24px;
+    overflow: hidden;
+  }
+  .card-header { padding: 16px 20px 0; }
+  .card-title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+  .card-desc { font-size: 12px; color: var(--text-tertiary); padding: 4px 20px 12px; line-height: 1.5; }
+  .card-body { padding: 0 20px 16px; }
+
+  /* ═══════════════════════════════════════════
+     SHARED COMPONENTS
+     ═══════════════════════════════════════════ */
+
+  /* Chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; background: var(--surface-raised);
+    border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+    font-size: 13px; color: var(--text-primary); transition: border-color 0.1s;
+  }
+  .chip:hover { border-color: var(--border-strong); }
+  .chip .x { color: var(--text-tertiary); cursor: pointer; font-size: 14px; }
+  .chip .x:hover { color: var(--danger); }
+  .chip-icon { font-size: 14px; width: 16px; text-align: center; }
+  .chip-green { border-color: var(--success-border); background: var(--success-dim); }
+  .chip-label {
+    font-size: 9px; color: var(--text-tertiary); background: rgba(255,255,255,0.06);
+    padding: 1px 5px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .check-icon { color: var(--success); font-size: 11px; }
+
+  /* Buttons */
+  .btn {
+    padding: 8px 16px; border-radius: var(--radius-md); font-size: 13px;
+    font-weight: 500; cursor: pointer; font-family: inherit; border: none;
+    transition: background 0.1s, opacity 0.1s;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-secondary { background: transparent; border: 1px solid var(--border-strong); color: var(--text-secondary); }
+  .btn-secondary:hover { background: var(--surface-hover); color: var(--text-primary); }
+  .btn-danger { background: transparent; color: var(--danger); border: none; font-size: 12px; opacity: 0.5; }
+  .btn-danger:hover { opacity: 1; }
+  .btn-ghost { background: transparent; color: var(--accent); border: none; font-size: 12px; font-weight: 500; }
+  .btn-ghost:hover { text-decoration: underline; }
+  .btn-ghost.green { color: var(--success); }
+  .btn-dashed {
+    width: 100%; padding: 11px; background: transparent;
+    border: 1px dashed var(--border-strong); border-radius: var(--radius-lg);
+    color: var(--text-secondary); font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  .btn-dashed:hover { background: var(--surface-raised); color: var(--text-primary); }
+
+  /* Inputs */
+  .input {
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md); padding: 8px 12px; color: var(--text-primary);
+    font-size: 13px; font-family: inherit; outline: none; width: 100%;
+  }
+  .input:focus { border-color: var(--accent); }
+  .input::placeholder { color: var(--text-tertiary); }
+  .input-row { display: flex; gap: 8px; }
+
+  /* Toggle */
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 0; border-bottom: 1px solid var(--border-subtle);
+  }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-label { font-size: 13px; color: var(--text-primary); }
+  .toggle-desc { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+  .toggle {
+    width: 40px; height: 22px; border-radius: 11px; background: var(--surface-elevated);
+    position: relative; cursor: pointer; flex-shrink: 0; transition: background 0.15s;
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle::after {
+    content: ''; width: 18px; height: 18px; border-radius: 50%; background: white;
+    position: absolute; top: 2px; left: 2px; transition: transform 0.15s;
+  }
+  .toggle.on::after { transform: translateX(18px); }
+
+  /* Status badge */
+  .badge {
+    font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px;
+    display: inline-block;
+  }
+  .badge-accent { color: var(--accent); background: var(--accent-dim); }
+  .badge-success { color: var(--success); background: var(--success-dim); }
+  .badge-danger { color: var(--danger); background: var(--danger-dim); }
+  .badge-warning { color: var(--warning); background: rgba(245,158,11,0.1); }
+
+  /* Separator */
+  .separator { height: 1px; background: var(--border-subtle); margin: 20px 0; }
+
+  /* Empty state */
+  .empty {
+    padding: 16px; text-align: center; color: var(--text-tertiary); font-size: 12px;
+    border: 1px dashed var(--border-subtle); border-radius: var(--radius-md);
+  }
+
+  /* Hint text */
+  .hint { font-size: 11px; color: var(--text-tertiary); margin-bottom: 10px; line-height: 1.5; }
+
+  /* ═══════════════════════════════════════════
+     DRILL-DOWN TRANSITIONS
+     ═══════════════════════════════════════════ */
+  .view {
+    position: absolute; inset: 0; overflow-y: auto;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+  .view.out-left { transform: translateX(-30%); opacity: 0; pointer-events: none; }
+  .view.out-right { transform: translateX(100%); opacity: 0; pointer-events: none; }
+
+  .detail-nav {
+    padding: 16px 24px 12px; border-bottom: 1px solid var(--border-subtle);
+  }
+  .back-btn {
+    color: var(--accent); font-size: 13px; cursor: pointer; font-weight: 500;
+    display: inline-flex; align-items: center; gap: 4px; background: none;
+    border: none; font-family: inherit; padding: 4px 8px; border-radius: var(--radius-sm);
+  }
+  .back-btn:hover { background: var(--accent-dim); }
+  .detail-body { padding: 24px 28px; }
+  .detail-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .detail-subtitle { font-size: 12px; color: var(--text-tertiary); margin-bottom: 24px; }
+  .detail-section { margin-bottom: 24px; }
+  .detail-section-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+  }
+  .detail-section-label {
+    font-size: 11px; font-weight: 600; color: var(--text-secondary);
+    letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .detail-section-label.green { color: var(--success); }
+
+  /* ═══════════════════════════════════════════
+     PROFILE ROWS (Distractions list)
+     ═══════════════════════════════════════════ */
+  .profile-row {
+    display: flex; align-items: center; padding: 14px 28px; gap: 14px;
+    cursor: pointer; border-bottom: 1px solid var(--border-subtle); transition: background 0.1s;
+  }
+  .profile-row:hover { background: var(--surface-hover); }
+  .profile-row:active { background: var(--surface-active); }
+  .profile-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .profile-dot.active { background: var(--accent); }
+  .profile-dot.inactive { background: var(--text-tertiary); opacity: 0.4; }
+  .profile-info { flex: 1; }
+  .profile-name { font-size: 15px; font-weight: 500; }
+  .profile-meta { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+  .profile-arrow { color: var(--text-tertiary); font-size: 16px; }
+
+  /* ═══════════════════════════════════════════
+     TODAY PAGE — Schedule
+     ═══════════════════════════════════════════ */
+  .schedule-actions {
+    display: flex; gap: 8px; padding: 12px 28px;
+  }
+  .schedule-btn {
+    padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 500;
+    cursor: pointer; border: none; font-family: inherit;
+  }
+  .schedule-btn.deep { background: rgba(239,68,68,0.12); color: var(--deep-focus); }
+  .schedule-btn.focus { background: var(--accent-dim); color: var(--accent); }
+  .schedule-btn.free { background: rgba(52,211,153,0.12); color: var(--free-time); }
+  .schedule-btn:hover { opacity: 0.8; }
+
+  .timeline { padding: 8px 28px 16px; }
+  .time-slot {
+    display: flex; gap: 12px; min-height: 48px; position: relative;
+  }
+  .time-label {
+    width: 48px; font-size: 11px; color: var(--text-tertiary); padding-top: 2px;
+    text-align: right; flex-shrink: 0;
+  }
+  .time-track {
+    flex: 1; border-left: 1px solid var(--border-subtle); padding-left: 12px;
+    min-height: 48px;
+  }
+  .time-block {
+    padding: 8px 12px; border-radius: var(--radius-md); margin-bottom: 4px;
+    font-size: 13px; font-weight: 500;
+  }
+  .time-block.deep { background: rgba(239,68,68,0.1); border-left: 3px solid var(--deep-focus); color: var(--deep-focus); }
+  .time-block.focus { background: var(--accent-dim); border-left: 3px solid var(--accent); color: #c4b5fd; }
+  .time-block.free { background: rgba(52,211,153,0.08); border-left: 3px solid var(--free-time); color: var(--free-time); }
+  .time-block-meta { font-size: 11px; opacity: 0.7; font-weight: 400; margin-top: 2px; }
+
+  /* Earned browse */
+  .earned-card { margin: 12px 24px; }
+  .earned-bar-wrap { margin: 8px 0; }
+  .earned-bar {
+    height: 6px; border-radius: 3px; background: var(--surface-elevated); overflow: hidden;
+  }
+  .earned-bar-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, #06b6d4, #8b5cf6, #ec4899);
+  }
+  .earned-stats {
+    display: flex; justify-content: space-between; font-size: 12px; margin-top: 6px;
+  }
+
+  /* ═══════════════════════════════════════════
+     ACCOUNTABILITY PAGE
+     ═══════════════════════════════════════════ */
+  .lock-status-row {
+    display: flex; align-items: center; gap: 12px; padding: 12px 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .lock-status-label { font-size: 12px; color: var(--text-tertiary); width: 80px; }
+  .lock-status-value { font-size: 13px; color: var(--text-primary); flex: 1; }
+
+  /* ═══════════════════════════════════════════
+     SETTINGS PAGE
+     ═══════════════════════════════════════════ */
+  .theme-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  }
+  .theme-option {
+    padding: 12px; border-radius: var(--radius-md); border: 2px solid var(--border-subtle);
+    cursor: pointer; text-align: center; font-size: 12px; color: var(--text-secondary);
+    transition: border-color 0.1s;
+  }
+  .theme-option:hover { border-color: var(--border-strong); }
+  .theme-option.active { border-color: var(--accent); color: var(--accent); }
+  .theme-swatch {
+    width: 100%; height: 32px; border-radius: 4px; margin-bottom: 8px;
+  }
+
+  .setting-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid var(--border-subtle);
+  }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-label { font-size: 13px; }
+  .setting-select {
+    background: var(--surface-elevated); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm); padding: 5px 10px; color: var(--text-primary);
+    font-size: 12px; font-family: inherit;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="titlebar">
+    <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+    <span class="titlebar-center">Intentional</span>
+    <span class="titlebar-right"><span class="status-dot"></span> Arc connected</span>
+  </div>
+
+  <div class="app-body">
+    <!-- ═══ SIDEBAR ═══ -->
+    <div class="sidebar">
+      <div class="sidebar-brand">Intentional</div>
+      <div class="nav-item active" onclick="navigateTo('today')"><span class="nav-icon">◉</span> Today</div>
+      <div class="nav-item" onclick="navigateTo('distractions')"><span class="nav-icon">⊘</span> Distractions</div>
+      <div class="nav-item" onclick="navigateTo('accountability')"><span class="nav-icon">◎</span> Accountability</div>
+      <div class="nav-item" onclick="navigateTo('settings')"><span class="nav-icon">⚙</span> Settings</div>
+    </div>
+
+    <!-- ═══ CONTENT ═══ -->
+    <div class="content">
+
+      <!-- ════════════════════════════════════
+           TODAY PAGE
+           ════════════════════════════════════ -->
+      <div class="page active" id="page-today">
+        <div class="page-header">
+          <div class="page-title">Schedule</div>
+          <div class="page-subtitle">Monday, April 14</div>
+        </div>
+
+        <div class="schedule-actions">
+          <button class="schedule-btn deep">+ Deep Focus</button>
+          <button class="schedule-btn focus">+ Focus</button>
+          <button class="schedule-btn free">+ Free Time</button>
+        </div>
+
+        <div class="timeline">
+          <div class="time-slot">
+            <div class="time-label">7 PM</div>
+            <div class="time-track"></div>
+          </div>
+          <div class="time-slot">
+            <div class="time-label">8 PM</div>
+            <div class="time-track">
+              <div class="time-block deep">
+                Deep Focus
+                <div class="time-block-meta">8:00 PM – 9:30 PM · Building Intentional app</div>
+              </div>
+            </div>
+          </div>
+          <div class="time-slot">
+            <div class="time-label">9 PM</div>
+            <div class="time-track"></div>
+          </div>
+          <div class="time-slot">
+            <div class="time-label">10 PM</div>
+            <div class="time-track">
+              <div class="time-block free">
+                Free Time
+                <div class="time-block-meta">10:00 PM – 11:00 PM</div>
+              </div>
+            </div>
+          </div>
+          <div class="time-slot">
+            <div class="time-label">11 PM</div>
+            <div class="time-track">
+              <div class="time-block" style="background:rgba(139,92,246,0.06); border-left:3px solid var(--text-tertiary); color:var(--text-tertiary);">
+                🌙 Bedtime
+                <div class="time-block-meta">11:00 PM – 7:00 AM</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Earned Browse -->
+        <div class="card earned-card">
+          <div class="card-header"><div class="card-title">Earned Browse</div></div>
+          <div class="card-body">
+            <div class="earned-bar-wrap">
+              <div class="earned-bar"><div class="earned-bar-fill" style="width:35%"></div></div>
+            </div>
+            <div class="earned-stats">
+              <span style="color:var(--success);">5 min available</span>
+              <span style="color:var(--danger);">0 min used</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════
+           DISTRACTIONS PAGE
+           ════════════════════════════════════ -->
+      <div class="page" id="page-distractions" style="position:relative;">
+
+        <!-- List View -->
+        <div class="view" id="dist-list">
+          <div class="page-header">
+            <div class="page-title">Distractions</div>
+            <div class="page-subtitle">Manage what gets blocked during focus sessions</div>
+          </div>
+          <div class="section-label">Blocking Profiles</div>
+
+          <div class="profile-row" onclick="showProfile('default')">
+            <div class="profile-dot active"></div>
+            <div class="profile-info">
+              <div class="profile-name">Distracting Apps & Sites <span class="badge badge-accent">DEFAULT</span></div>
+              <div class="profile-meta">10 sites · 4 apps · 3 always relevant</div>
+            </div>
+            <span class="profile-arrow">›</span>
+          </div>
+
+          <div class="profile-row" onclick="showProfile('deepwork')">
+            <div class="profile-dot inactive"></div>
+            <div class="profile-info">
+              <div class="profile-name">Deep Work</div>
+              <div class="profile-meta">3 sites · 2 apps · 0 always relevant</div>
+            </div>
+            <span class="profile-arrow">›</span>
+          </div>
+
+          <div class="profile-row" onclick="showProfile('writing')">
+            <div class="profile-dot inactive"></div>
+            <div class="profile-info">
+              <div class="profile-name">Writing</div>
+              <div class="profile-meta">5 sites · 1 app · 4 always relevant</div>
+            </div>
+            <span class="profile-arrow">›</span>
+          </div>
+
+          <div style="padding:16px 28px;"><button class="btn-dashed">+ Create New Profile</button></div>
+        </div>
+
+        <!-- Profile Detail: Default -->
+        <div class="view out-right" id="profile-default">
+          <div class="detail-nav"><button class="back-btn" onclick="hideProfile()">‹ Distractions</button></div>
+          <div class="detail-body">
+            <div class="detail-title">Distracting Apps & Sites</div>
+            <div class="detail-subtitle">Default profile — always active during Puck focus sessions</div>
+
+            <div class="detail-section">
+              <div class="detail-section-header">
+                <span class="detail-section-label">Blocked Websites (10)</span>
+                <button class="btn-ghost">+ Add Website</button>
+              </div>
+              <div class="chips">
+                <div class="chip">reddit.com <span class="x">×</span></div>
+                <div class="chip">twitter.com <span class="x">×</span></div>
+                <div class="chip">x.com <span class="x">×</span></div>
+                <div class="chip">youtube.com <span class="x">×</span></div>
+                <div class="chip">instagram.com <span class="x">×</span></div>
+                <div class="chip">facebook.com <span class="x">×</span></div>
+                <div class="chip">tiktok.com <span class="x">×</span></div>
+                <div class="chip">twitch.tv <span class="x">×</span></div>
+                <div class="chip">discord.com <span class="x">×</span></div>
+                <div class="chip">snapchat.com <span class="x">×</span></div>
+              </div>
+            </div>
+
+            <div class="detail-section">
+              <div class="detail-section-header">
+                <span class="detail-section-label">Blocked Apps (4)</span>
+                <button class="btn-ghost">+ Add App</button>
+              </div>
+              <div class="chips">
+                <div class="chip"><span class="chip-icon">🎵</span> Spotify <span class="x">×</span></div>
+                <div class="chip"><span class="chip-icon">💬</span> Discord <span class="x">×</span></div>
+                <div class="chip"><span class="chip-icon">📺</span> Twitch <span class="x">×</span></div>
+                <div class="chip"><span class="chip-icon">🎮</span> Steam <span class="x">×</span></div>
+              </div>
+            </div>
+
+            <div class="separator"></div>
+
+            <div class="detail-section">
+              <div class="detail-section-header">
+                <span class="detail-section-label green">Always Relevant (3)</span>
+                <button class="btn-ghost green">+ Add</button>
+              </div>
+              <div class="hint">These sites and apps are never flagged as distracting when this profile is active.</div>
+              <div class="chips">
+                <div class="chip chip-green"><span class="check-icon">✓</span> gmail.com <span class="x">×</span></div>
+                <div class="chip chip-green"><span class="check-icon">✓</span> slack.com <span class="x">×</span></div>
+                <div class="chip chip-green"><span class="check-icon">✓</span> notion.so <span class="x">×</span></div>
+              </div>
+            </div>
+
+            <div class="separator"></div>
+            <button class="btn-danger">Delete Profile</button>
+          </div>
+        </div>
+
+        <!-- Profile Detail: Deep Work -->
+        <div class="view out-right" id="profile-deepwork">
+          <div class="detail-nav"><button class="back-btn" onclick="hideProfile()">‹ Distractions</button></div>
+          <div class="detail-body">
+            <div class="detail-title">Deep Work</div>
+            <div class="detail-subtitle">Maximum focus — blocks additional sites on top of default</div>
+
+            <div class="detail-section">
+              <div class="detail-section-header">
+                <span class="detail-section-label">Blocked Websites (3)</span>
+                <button class="btn-ghost">+ Add Website</button>
+              </div>
+              <div class="chips">
+                <div class="chip">news.ycombinator.com <span class="x">×</span></div>
+                <div class="chip">linkedin.com <span class="x">×</span></div>
+                <div class="chip">threads.net <span class="x">×</span></div>
+              </div>
+            </div>
+
+            <div class="detail-section">
+              <div class="detail-section-header">
+                <span class="detail-section-label">Blocked Apps (2)</span>
+                <button class="btn-ghost">+ Add App</button>
+              </div>
+              <div class="chips">
+                <div class="chip"><span class="chip-icon">💬</span> Slack <span class="x">×</span></div>
+                <div class="chip"><span class="chip-icon">✉️</span> Mail <span class="x">×</span></div>
+              </div>
+            </div>
+
+            <div class="separator"></div>
+
+            <div class="detail-section">
+              <div class="detail-section-header">
+                <span class="detail-section-label green">Always Relevant (0)</span>
+                <button class="btn-ghost green">+ Add</button>
+              </div>
+              <div class="hint">These sites and apps are never flagged as distracting when this profile is active.</div>
+              <div class="empty">Nothing set — AI will score everything not on the block list</div>
+            </div>
+
+            <div class="separator"></div>
+            <button class="btn-danger">Delete Profile</button>
+          </div>
+        </div>
+
+        <!-- Profile Detail: Writing -->
+        <div class="view out-right" id="profile-writing">
+          <div class="detail-nav"><button class="back-btn" onclick="hideProfile()">‹ Distractions</button></div>
+          <div class="detail-body">
+            <div class="detail-title">Writing</div>
+            <div class="detail-subtitle">Focus on writing — communication tools stay available</div>
+
+            <div class="detail-section">
+              <div class="detail-section-header">
+                <span class="detail-section-label">Blocked Websites (5)</span>
+                <button class="btn-ghost">+ Add Website</button>
+              </div>
+              <div class="chips">
+                <div class="chip">reddit.com <span class="x">×</span></div>
+                <div class="chip">youtube.com <span class="x">×</span></div>
+                <div class="chip">twitter.com <span class="x">×</span></div>
+                <div class="chip">instagram.com <span class="x">×</span></div>
+                <div class="chip">news.ycombinator.com <span class="x">×</span></div>
+              </div>
+            </div>
+
+            <div class="detail-section">
+              <div class="detail-section-header">
+                <span class="detail-section-label">Blocked Apps (1)</span>
+                <button class="btn-ghost">+ Add App</button>
+              </div>
+              <div class="chips">
+                <div class="chip"><span class="chip-icon">🎮</span> Steam <span class="x">×</span></div>
+              </div>
+            </div>
+
+            <div class="separator"></div>
+
+            <div class="detail-section">
+              <div class="detail-section-header">
+                <span class="detail-section-label green">Always Relevant (4)</span>
+                <button class="btn-ghost green">+ Add</button>
+              </div>
+              <div class="hint">These sites and apps are never flagged as distracting when this profile is active.</div>
+              <div class="chips">
+                <div class="chip chip-green"><span class="check-icon">✓</span> docs.google.com <span class="x">×</span></div>
+                <div class="chip chip-green"><span class="check-icon">✓</span> notion.so <span class="x">×</span></div>
+                <div class="chip chip-green"><span class="chip-icon">💬</span> Slack <span class="chip-label">APP</span> <span class="x">×</span></div>
+                <div class="chip chip-green"><span class="chip-icon">✉️</span> Mail <span class="chip-label">APP</span> <span class="x">×</span></div>
+              </div>
+            </div>
+
+            <div class="separator"></div>
+            <button class="btn-danger">Delete Profile</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════
+           ACCOUNTABILITY PAGE
+           ════════════════════════════════════ -->
+      <div class="page" id="page-accountability">
+        <div class="page-header">
+          <div class="page-title">Accountability</div>
+          <div class="page-subtitle">Partner-based settings protection</div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">Partner Lock</div></div>
+          <div class="card-body">
+            <div class="lock-status-row">
+              <span class="lock-status-label">Status</span>
+              <span class="lock-status-value"><span class="badge badge-danger">Locked</span></span>
+            </div>
+            <div class="lock-status-row">
+              <span class="lock-status-label">Mode</span>
+              <span class="lock-status-value">Partner Lock</span>
+            </div>
+            <div class="lock-status-row">
+              <span class="lock-status-label">Partner</span>
+              <span class="lock-status-value">Sarah · sarah@example.com</span>
+            </div>
+            <div style="padding-top:12px;">
+              <div class="hint">Platform toggles, thresholds, content blocking, budgets, and app persistence are protected.</div>
+              <button class="btn btn-primary" style="width:100%;">Request Unlock Code</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px;">
+          <div class="card-header"><div class="card-title">Content Safety</div></div>
+          <div class="card-body">
+            <div class="toggle-row">
+              <div>
+                <div class="toggle-label">Screen Monitoring</div>
+                <div class="toggle-desc">Scans screen for explicit content every 2 seconds</div>
+              </div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════
+           SETTINGS PAGE
+           ════════════════════════════════════ -->
+      <div class="page" id="page-settings">
+        <div class="page-header">
+          <div class="page-title">Settings</div>
+          <div class="page-subtitle">Configure Intentional</div>
+        </div>
+
+        <!-- Theme -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">Theme</div></div>
+          <div class="card-desc">Choose the look and feel of your dashboard</div>
+          <div class="card-body">
+            <div class="theme-grid">
+              <div class="theme-option active">
+                <div class="theme-swatch" style="background:linear-gradient(135deg,#1a1025,#0e0e12,#15102a);"></div>
+                Iridescent
+              </div>
+              <div class="theme-option">
+                <div class="theme-swatch" style="background:#1a1a2e;"></div>
+                Classic
+              </div>
+              <div class="theme-option">
+                <div class="theme-swatch" style="background:linear-gradient(135deg,#0a1a12,#0e1510);"></div>
+                Emerald
+              </div>
+              <div class="theme-option">
+                <div class="theme-swatch" style="background:linear-gradient(135deg,#1a1510,#12100e);"></div>
+                Warm
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Focus Plan -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">Focus Plan</div></div>
+          <div class="card-body">
+            <div class="setting-row">
+              <span class="setting-label">Enable Daily Focus Plan</span>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="setting-row">
+              <span class="setting-label">Block irrelevant tabs</span>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="setting-row">
+              <span class="setting-label">AI Model</span>
+              <select class="setting-select">
+                <option>Qwen3 4B (on-device)</option>
+                <option>Apple 3B</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Intentional Mode -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">Intentional Mode</div></div>
+          <div class="card-body">
+            <div class="toggle-row">
+              <div>
+                <div class="toggle-label">Screen Lock</div>
+                <div class="toggle-desc">Block your screen until you set an intention for your time</div>
+              </div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="setting-row">
+              <span class="setting-label">Schedule</span>
+              <select class="setting-select">
+                <option>Always</option>
+                <option>Custom Hours</option>
+                <option>Puck Only</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <span class="setting-label">Grace Period</span>
+              <select class="setting-select">
+                <option>1 min</option>
+                <option selected>3 min</option>
+                <option>5 min</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bedtime -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">Bedtime</div></div>
+          <div class="card-body">
+            <div class="toggle-row">
+              <div>
+                <div class="toggle-label">Bedtime Enforcer</div>
+                <div class="toggle-desc">Wind-down at 10:45 PM, lockout at 11:00 PM, wake at 7:00 AM</div>
+              </div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reset -->
+        <div class="card" style="margin-bottom:24px;">
+          <div class="card-header"><div class="card-title">Reset & Delete</div></div>
+          <div class="card-body">
+            <button class="btn btn-danger" style="font-size:13px; padding:8px 0;">Reset all settings</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // Navigation
+  function navigateTo(page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    event.target.closest('.nav-item').classList.add('active');
+    // Reset drill-down if leaving distractions
+    if (page !== 'distractions') hideProfile();
+  }
+
+  // Drill-down for profiles
+  let currentProfile = null;
+  function showProfile(id) {
+    document.getElementById('dist-list').classList.add('out-left');
+    document.querySelectorAll('[id^="profile-"]').forEach(v => {
+      if (v.id !== 'profile-' + id) v.classList.add('out-right');
+    });
+    document.getElementById('profile-' + id).classList.remove('out-right');
+    currentProfile = id;
+  }
+  function hideProfile() {
+    document.getElementById('dist-list').classList.remove('out-left');
+    if (currentProfile) {
+      document.getElementById('profile-' + currentProfile).classList.add('out-right');
+      currentProfile = null;
+    }
+  }
+</script>
+
+</body>
+</html>

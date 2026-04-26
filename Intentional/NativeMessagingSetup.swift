@@ -62,11 +62,21 @@ class NativeMessagingSetup {
 
     // MARK: - Logging Helper
 
-    /// Log to both stdout and debug file
-    private func log(_ message: String) {
-        print(message)  // Still print to stdout for debugging
+    private var initialScanComplete = false
 
-        // Also write to debug log file
+    /// Log to both stdout and debug file. After initial scan, suppress verbose browser discovery logs.
+    private func log(_ message: String) {
+        // After first scan, suppress the noisy per-browser/per-profile logs
+        if initialScanComplete && (message.contains("🔍") || message.contains("📁") || message.contains("👤") ||
+            message.contains("📊") || message.contains("📋") || message.contains("✅ Found browser") ||
+            message.contains("✅ Installed manifest") || message.contains("📦 Installed manifests") ||
+            message.contains("Profiles:") || message.contains("Data path:") || message.contains("Extensions folder") ||
+            message.contains("Preferences has") || message.contains("extension files") || message.contains("⏭️ Skipping") ||
+            message.contains("⚠️ Could not determine") || message.contains("⚠️ No data path") ||
+            message.contains("extension scanning requires")) {
+            return
+        }
+        print(message)
         if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
             appDelegate.postLog(message)
         }
@@ -262,6 +272,8 @@ class NativeMessagingSetup {
             hasCompletedInitialScan = true
             initialScanCompletedAt = Date()
             log("[NativeMessagingSetup] ✅ Initial extension scan complete")
+            initialScanComplete = true
+            BrowserDiscovery.verbose = false
         }
 
         return newlyDiscovered.count
@@ -363,13 +375,16 @@ class NativeMessagingSetup {
                 return extensionId
             }
 
-            // Method 2: For unpacked extensions (location=4), read manifest from path
+            // Method 2: For unpacked extensions (location=4), match by path name.
+            // Do NOT read manifest.json from disk — if the extension lives in ~/Documents/
+            // (common for dev), FileManager access triggers a macOS TCC "Documents folder" prompt
+            // every 60 seconds from the auto-discovery timer.
             if location == 4, let extPath = path {
-                let manifestPath = extPath + "/manifest.json"
-                if isIntentionalExtension(manifestPath: manifestPath) {
+                let pathLower = extPath.lowercased()
+                if pathLower.contains("intentional") {
                     browserExtensionMap[browserName] = extensionId
                     browserExtensionEnabledMap[browserName] = isEnabled
-                    log("[NativeMessagingSetup]   ✅ Found Intentional (unpacked extension): \(extensionId)")
+                    log("[NativeMessagingSetup]   ✅ Found Intentional (unpacked, path match): \(extensionId)")
                     log("[NativeMessagingSetup]      Type: unpacked (dev mode)")
                     log("[NativeMessagingSetup]      State: \(stateDescription)")
                     log("[NativeMessagingSetup]      Path: \(extPath)")

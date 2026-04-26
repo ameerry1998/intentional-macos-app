@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>3 Distractions Page Concepts</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --surface-base: #111111;
+    --surface-raised: #1c1c1e;
+    --surface-elevated: #2c2c2e;
+    --surface-hover: #3a3a3c;
+    --text-primary: #f2f2f7;
+    --text-secondary: #8e8e93;
+    --text-tertiary: #636366;
+    --accent: #8b5cf6;
+    --accent-dim: rgba(139,92,246,0.12);
+    --border-subtle: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.18);
+    --danger: #ef4444;
+    --success: #4ade80;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    background: #0a0a0a;
+    color: var(--text-primary);
+    padding: 32px;
+  }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .page-subtitle { color: var(--text-secondary); font-size: 14px; margin-bottom: 40px; }
+
+  .concept { margin-bottom: 56px; }
+  .concept-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .concept-letter {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    background: var(--accent-dim);
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .concept-title { font-size: 18px; font-weight: 600; }
+  .concept-desc { color: var(--text-secondary); font-size: 13px; margin-bottom: 16px; margin-left: 40px; }
+
+  /* Mockup frame */
+  .frame {
+    background: var(--surface-base);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    overflow: hidden;
+    max-width: 620px;
+  }
+  .frame-bar {
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .d { width: 10px; height: 10px; border-radius: 50%; }
+  .d1 { background: #ff5f57; }
+  .d2 { background: #ffbd2e; }
+  .d3 { background: #28c840; }
+  .frame-body { padding: 0; }
+
+  /* Shared components */
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 16px 20px 8px;
+  }
+  .chip-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 20px 16px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-primary);
+  }
+  .chip .x { color: var(--text-tertiary); cursor: pointer; font-size: 13px; }
+  .add-link { color: var(--accent); font-size: 12px; cursor: pointer; }
+
+  /* ====== CONCEPT A: Expandable Cards ====== */
+  .card-a {
+    margin: 8px 16px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--surface-raised);
+  }
+  .card-a.open { background: var(--surface-base); border-color: var(--border-strong); }
+  .card-a-header {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    cursor: pointer;
+    gap: 12px;
+  }
+  .card-a-chevron {
+    color: var(--text-tertiary);
+    font-size: 12px;
+    transition: transform 0.15s;
+    width: 16px;
+    text-align: center;
+  }
+  .card-a.open .card-a-chevron { transform: rotate(90deg); }
+  .card-a-name { flex: 1; font-size: 14px; font-weight: 500; }
+  .card-a-meta { font-size: 11px; color: var(--text-tertiary); }
+  .card-a-body {
+    padding: 0 16px 14px 44px;
+    display: none;
+  }
+  .card-a.open .card-a-body { display: block; }
+  .card-a-sub { font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.3px; margin: 8px 0 6px; font-weight: 600; }
+  .card-a-add {
+    margin: 8px 16px 16px;
+  }
+  .card-a-add button {
+    width: 100%;
+    padding: 10px;
+    background: transparent;
+    border: 1px dashed var(--border-strong);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .card-a-add button:hover { background: var(--surface-raised); color: var(--text-primary); }
+
+  /* ====== CONCEPT B: Tab-based ====== */
+  .tabs-b {
+    display: flex;
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 0 16px;
+    gap: 0;
+  }
+  .tab-b {
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    font-weight: 500;
+  }
+  .tab-b.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .tab-b-body { padding: 16px 20px; }
+  .tab-b-desc { font-size: 12px; color: var(--text-tertiary); margin-bottom: 12px; }
+  .tab-b-input-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .tab-b-input {
+    flex: 1;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border-subtle);
+    border-radius: 7px;
+    padding: 8px 12px;
+    color: var(--text-primary);
+    font-size: 13px;
+    outline: none;
+  }
+  .tab-b-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 7px;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ====== CONCEPT C: Simple single-scroll ====== */
+  .c-profile-row {
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
+    gap: 12px;
+    border-bottom: 1px solid var(--border-subtle);
+    cursor: pointer;
+  }
+  .c-profile-row:hover { background: rgba(255,255,255,0.02); }
+  .c-profile-row.selected { background: var(--accent-dim); }
+  .c-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+    flex-shrink: 0;
+  }
+  .c-dot.active { background: var(--accent); }
+  .c-profile-info { flex: 1; }
+  .c-profile-name { font-size: 14px; font-weight: 500; }
+  .c-profile-meta { font-size: 11px; color: var(--text-tertiary); margin-top: 1px; }
+  .c-arrow { color: var(--text-tertiary); font-size: 14px; }
+  .c-detail-header {
+    padding: 20px 20px 12px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .c-back {
+    color: var(--accent);
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .c-detail-title {
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .pros-cons {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    margin-left: 40px;
+    font-size: 12px;
+    max-width: 620px;
+  }
+  .pros-cons > div { flex: 1; }
+  .pros-cons h4 { color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .pros-cons ul { padding-left: 16px; color: var(--text-tertiary); line-height: 1.8; }
+</style>
+</head>
+<body>
+
+<h1>3 Concepts for the Distractions Page</h1>
+<p class="page-subtitle">Each one handles profiles differently. Pick the one that feels clearest.</p>
+
+<!-- ============ CONCEPT A ============ -->
+<div class="concept">
+  <div class="concept-header">
+    <span class="concept-letter">A</span>
+    <span class="concept-title">Expandable Cards</span>
+  </div>
+  <p class="concept-desc">Each profile is a collapsible card. Tap to expand and see/edit its contents. Everything on one scrollable page. Simple, familiar, like an FAQ accordion.</p>
+
+  <div class="frame">
+    <div class="frame-bar"><div class="d d1"></div><div class="d d2"></div><div class="d d3"></div></div>
+    <div class="frame-body">
+      <div class="section-label" style="padding-top:20px;">Blocking Profiles</div>
+
+      <!-- Open card -->
+      <div class="card-a open">
+        <div class="card-a-header">
+          <span class="card-a-chevron">▶</span>
+          <span class="card-a-name">Distracting Apps & Sites <span style="font-size:10px; color:var(--accent); background:var(--accent-dim); padding:2px 6px; border-radius:3px; margin-left:6px;">DEFAULT</span></span>
+          <span class="card-a-meta">10 sites · 4 apps</span>
+        </div>
+        <div class="card-a-body">
+          <div class="card-a-sub">Websites</div>
+          <div class="chip-wrap" style="padding-left:0;">
+            <div class="chip">reddit.com <span class="x">×</span></div>
+            <div class="chip">twitter.com <span class="x">×</span></div>
+            <div class="chip">youtube.com <span class="x">×</span></div>
+            <div class="chip">instagram.com <span class="x">×</span></div>
+            <div class="chip">facebook.com <span class="x">×</span></div>
+            <div class="chip">tiktok.com <span class="x">×</span></div>
+            <span class="add-link">+ Add</span>
+          </div>
+          <div class="card-a-sub">Apps</div>
+          <div class="chip-wrap" style="padding-left:0;">
+            <div class="chip">🎵 Spotify <span class="x">×</span></div>
+            <div class="chip">💬 Discord <span class="x">×</span></div>
+            <div class="chip">📺 Twitch <span class="x">×</span></div>
+            <div class="chip">🎮 Steam <span class="x">×</span></div>
+            <span class="add-link">+ Add</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Collapsed cards -->
+      <div class="card-a">
+        <div class="card-a-header">
+          <span class="card-a-chevron">▶</span>
+          <span class="card-a-name">Deep Work</span>
+          <span class="card-a-meta">3 sites · 2 apps</span>
+        </div>
+      </div>
+
+      <div class="card-a">
+        <div class="card-a-header">
+          <span class="card-a-chevron">▶</span>
+          <span class="card-a-name">News Block</span>
+          <span class="card-a-meta">5 sites · 0 apps</span>
+        </div>
+      </div>
+
+      <div class="card-a-add">
+        <button>+ Create New Profile</button>
+      </div>
+
+      <!-- Always relevant (separate, below profiles) -->
+      <div style="border-top: 1px solid var(--border-subtle); margin-top: 8px;">
+        <div class="section-label">Always Relevant (Global)</div>
+        <div style="font-size:11px; color:var(--text-tertiary); padding:0 20px 8px;">Always counted as productive, regardless of profile.</div>
+        <div class="chip-wrap">
+          <div class="chip" style="border-color:rgba(74,222,128,0.15);"><span style="color:var(--success)">✓</span> gmail.com <span class="x">×</span></div>
+          <div class="chip" style="border-color:rgba(74,222,128,0.15);"><span style="color:var(--success)">✓</span> slack.com <span class="x">×</span></div>
+          <span class="add-link" style="padding:0 20px;">+ Add</span>
+        </div>
+      </div>
+
+      <div style="height:16px"></div>
+    </div>
+  </div>
+
+  <div class="pros-cons">
+    <div><h4>Strengths</h4><ul>
+      <li>One scrollable page — nothing hidden</li>
+      <li>Familiar accordion pattern</li>
+      <li>Easy to scan profile names at a glance</li>
+      <li>Works well with 2-5 profiles</li>
+    </ul></div>
+    <div><h4>Tradeoffs</h4><ul>
+      <li>Gets long with many profiles open</li>
+      <li>Editing inline can feel cramped</li>
+      <li>No dedicated space for profile settings</li>
+    </ul></div>
+  </div>
+</div>
+
+<!-- ============ CONCEPT B ============ -->
+<div class="concept">
+  <div class="concept-header">
+    <span class="concept-letter">B</span>
+    <span class="concept-title">Tabbed Profiles</span>
+  </div>
+  <p class="concept-desc">Each profile is a tab. Click a tab to see and edit that profile. Clean, focused — you only see one profile at a time. Like browser tabs.</p>
+
+  <div class="frame">
+    <div class="frame-bar"><div class="d d1"></div><div class="d d2"></div><div class="d d3"></div></div>
+    <div class="frame-body">
+      <div class="section-label" style="padding-top:16px;">Blocking Profiles</div>
+
+      <div class="tabs-b">
+        <div class="tab-b active">Distracting Apps & Sites</div>
+        <div class="tab-b">Deep Work</div>
+        <div class="tab-b">News</div>
+        <div class="tab-b" style="color:var(--text-tertiary); opacity:0.5;">+</div>
+      </div>
+
+      <div class="tab-b-body">
+        <div class="tab-b-desc">Default profile — blocked during all focus sessions.</div>
+
+        <div class="card-a-sub" style="margin-top:0;">Blocked Websites</div>
+        <div class="chip-wrap" style="padding:4px 0 12px;">
+          <div class="chip">reddit.com <span class="x">×</span></div>
+          <div class="chip">twitter.com <span class="x">×</span></div>
+          <div class="chip">youtube.com <span class="x">×</span></div>
+          <div class="chip">instagram.com <span class="x">×</span></div>
+          <div class="chip">facebook.com <span class="x">×</span></div>
+          <div class="chip">tiktok.com <span class="x">×</span></div>
+        </div>
+        <div class="tab-b-input-row">
+          <input class="tab-b-input" placeholder="Add website, e.g. news.ycombinator.com">
+          <button class="tab-b-btn">Add</button>
+        </div>
+
+        <div class="card-a-sub" style="margin-top:20px;">Blocked Apps</div>
+        <div class="chip-wrap" style="padding:4px 0 12px;">
+          <div class="chip">🎵 Spotify <span class="x">×</span></div>
+          <div class="chip">💬 Discord <span class="x">×</span></div>
+          <div class="chip">📺 Twitch <span class="x">×</span></div>
+          <div class="chip">🎮 Steam <span class="x">×</span></div>
+        </div>
+        <button style="background:transparent; border:1px dashed var(--border-strong); border-radius:8px; padding:8px 16px; color:var(--text-secondary); font-size:12px; cursor:pointer; width:100%;">+ Add App</button>
+
+        <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border-subtle);">
+          <button style="background:none; border:none; color:var(--danger); font-size:12px; cursor:pointer; opacity:0.6;">Delete Profile</button>
+        </div>
+      </div>
+
+      <!-- Always relevant -->
+      <div style="border-top: 1px solid var(--border-subtle); margin-top: 8px;">
+        <div class="section-label">Always Relevant (Global)</div>
+        <div style="font-size:11px; color:var(--text-tertiary); padding:0 20px 8px;">Always counted as productive, regardless of profile.</div>
+        <div class="chip-wrap">
+          <div class="chip" style="border-color:rgba(74,222,128,0.15);"><span style="color:var(--success)">✓</span> gmail.com <span class="x">×</span></div>
+          <div class="chip" style="border-color:rgba(74,222,128,0.15);"><span style="color:var(--success)">✓</span> slack.com <span class="x">×</span></div>
+        </div>
+        <div class="tab-b-input-row" style="padding:0 20px 16px;">
+          <input class="tab-b-input" placeholder="Add site, e.g. notion.so">
+          <button class="tab-b-btn">Add</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pros-cons">
+    <div><h4>Strengths</h4><ul>
+      <li>Clean — one profile at a time, full width</li>
+      <li>Familiar tab pattern</li>
+      <li>Plenty of room for chips + inputs</li>
+      <li>Easy to add profiles (+ tab)</li>
+    </ul></div>
+    <div><h4>Tradeoffs</h4><ul>
+      <li>Can't see all profiles' contents at once</li>
+      <li>Tab bar gets crowded with 5+ profiles</li>
+      <li>Less visual hierarchy than cards</li>
+    </ul></div>
+  </div>
+</div>
+
+<!-- ============ CONCEPT C ============ -->
+<div class="concept">
+  <div class="concept-header">
+    <span class="concept-letter">C</span>
+    <span class="concept-title">Drill-Down (Mobile-Style)</span>
+  </div>
+  <p class="concept-desc">Profile list → tap → full-page editor. Like iOS Settings or Apple's Screen Time. Back button returns to the list. Maximum breathing room.</p>
+
+  <div style="display: flex; gap: 16px;">
+    <!-- List view -->
+    <div class="frame" style="max-width:300px; flex-shrink:0;">
+      <div class="frame-bar"><div class="d d1"></div><div class="d d2"></div><div class="d d3"></div></div>
+      <div class="frame-body">
+        <div class="section-label" style="padding-top:16px;">Blocking Profiles</div>
+
+        <div class="c-profile-row selected">
+          <div class="c-dot active"></div>
+          <div class="c-profile-info">
+            <div class="c-profile-name">Distracting Apps & Sites <span style="font-size:9px; color:var(--accent); background:var(--accent-dim); padding:1px 5px; border-radius:3px;">DEFAULT</span></div>
+            <div class="c-profile-meta">10 sites · 4 apps</div>
+          </div>
+          <span class="c-arrow">›</span>
+        </div>
+
+        <div class="c-profile-row">
+          <div class="c-dot"></div>
+          <div class="c-profile-info">
+            <div class="c-profile-name">Deep Work</div>
+            <div class="c-profile-meta">3 sites · 2 apps</div>
+          </div>
+          <span class="c-arrow">›</span>
+        </div>
+
+        <div class="c-profile-row">
+          <div class="c-dot"></div>
+          <div class="c-profile-info">
+            <div class="c-profile-name">News Block</div>
+            <div class="c-profile-meta">5 sites · 0 apps</div>
+          </div>
+          <span class="c-arrow">›</span>
+        </div>
+
+        <div style="padding:12px 16px;">
+          <button style="width:100%; padding:10px; background:transparent; border:1px dashed var(--border-strong); border-radius:8px; color:var(--text-secondary); font-size:13px; cursor:pointer;">+ Create Profile</button>
+        </div>
+
+        <div style="border-top: 1px solid var(--border-subtle); margin-top: 4px;">
+          <div class="section-label">Always Relevant</div>
+          <div class="chip-wrap">
+            <div class="chip" style="border-color:rgba(74,222,128,0.15);"><span style="color:var(--success)">✓</span> gmail.com</div>
+            <div class="chip" style="border-color:rgba(74,222,128,0.15);"><span style="color:var(--success)">✓</span> slack.com</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Arrow -->
+    <div style="display:flex; align-items:center; color:var(--text-tertiary); font-size:24px;">→</div>
+
+    <!-- Detail view -->
+    <div class="frame" style="max-width:300px; flex-shrink:0;">
+      <div class="frame-bar"><div class="d d1"></div><div class="d d2"></div><div class="d d3"></div></div>
+      <div class="frame-body">
+        <div class="c-detail-header">
+          <span class="c-back">‹ Back</span>
+          <span class="c-detail-title">Distracting Apps & Sites</span>
+        </div>
+
+        <div style="padding:16px 20px;">
+          <div class="card-a-sub" style="margin-top:0;">Blocked Websites (10)</div>
+          <div class="chip-wrap" style="padding:4px 0 8px;">
+            <div class="chip">reddit.com <span class="x">×</span></div>
+            <div class="chip">twitter.com <span class="x">×</span></div>
+            <div class="chip">youtube.com <span class="x">×</span></div>
+            <div class="chip">instagram.com <span class="x">×</span></div>
+            <div class="chip">facebook.com <span class="x">×</span></div>
+            <div class="chip">tiktok.com <span class="x">×</span></div>
+          </div>
+          <span class="add-link">+ Add Website</span>
+
+          <div class="card-a-sub" style="margin-top:16px;">Blocked Apps (4)</div>
+          <div class="chip-wrap" style="padding:4px 0 8px;">
+            <div class="chip">🎵 Spotify <span class="x">×</span></div>
+            <div class="chip">💬 Discord <span class="x">×</span></div>
+            <div class="chip">📺 Twitch <span class="x">×</span></div>
+            <div class="chip">🎮 Steam <span class="x">×</span></div>
+          </div>
+          <span class="add-link">+ Add App</span>
+
+          <div style="margin-top:24px; padding-top:16px; border-top:1px solid var(--border-subtle);">
+            <button style="background:none; border:none; color:var(--danger); font-size:12px; cursor:pointer; opacity:0.6;">Delete Profile</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pros-cons">
+    <div><h4>Strengths</h4><ul>
+      <li>Maximum space for editing — full width</li>
+      <li>Clean, uncluttered at every level</li>
+      <li>Scales to any number of profiles</li>
+      <li>Familiar iOS/macOS Settings pattern</li>
+    </ul></div>
+    <div><h4>Tradeoffs</h4><ul>
+      <li>Can't see list + detail simultaneously</li>
+      <li>Extra click to get to editing</li>
+      <li>Navigating back and forth can feel slow</li>
+    </ul></div>
+  </div>
+</div>
+
+<div style="max-width: 620px; margin-top: 32px; padding: 20px; background: var(--surface-raised); border-radius: 10px; border: 1px solid var(--border-subtle);">
+  <h3 style="font-size: 15px; margin-bottom: 8px;">My recommendation: A (Expandable Cards)</h3>
+  <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.7;">
+    Most users will have 1-3 profiles. The accordion keeps everything visible and scannable without navigation. It's the simplest to build (no routing) and the easiest to understand. For a settings page you visit occasionally, reducing clicks matters more than reducing scrolling.
+  </p>
+</div>
+
+</body>
+</html>

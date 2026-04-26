@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intentional — Deep Lush Design Reference</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-base: #060806;
+  --bg-card: rgba(255, 255, 255, 0.025);
+  --bg-card-hover: rgba(255, 255, 255, 0.04);
+  --bg-sidebar: rgba(255, 255, 255, 0.01);
+  --accent-coral: #E87461;
+  --accent-gold: #F0B060;
+  --accent-gradient: linear-gradient(135deg, #E87461, #F0B060);
+  --success-gradient: linear-gradient(135deg, #5cc09a, #c0b060);
+  --bedtime-gradient: linear-gradient(135deg, #a898c8, #c898a8);
+  --warning-gradient: linear-gradient(135deg, #F0B060, #E87461);
+  --danger-gradient: linear-gradient(135deg, #d45050, #aa3333);
+  --text-primary: #f7f8f8;
+  --text-secondary: rgba(255, 255, 255, 0.5);
+  --text-tertiary: rgba(255, 255, 255, 0.25);
+  --text-disabled: rgba(255, 255, 255, 0.15);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-active: rgba(232, 116, 97, 0.15);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ===== Layout ===== */
+.app-shell {
+  display: flex;
+  height: 100vh;
+}
+
+/* ===== Sidebar ===== */
+.sidebar {
+  width: 200px;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-subtle);
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+.sidebar::before {
+  content: '';
+  position: absolute;
+  top: -80px;
+  left: -80px;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(232, 116, 97, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+.sidebar-logo {
+  font-size: 15px;
+  font-weight: 700;
+  padding: 8px 12px 20px;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+.nav-item:hover { background: rgba(255, 255, 255, 0.03); color: var(--text-primary); }
+.nav-item.active {
+  background: rgba(232, 116, 97, 0.08);
+  color: var(--accent-coral);
+}
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--accent-gradient);
+}
+.nav-icon { font-size: 15px; width: 20px; text-align: center; opacity: 0.7; }
+.nav-item.active .nav-icon { opacity: 1; }
+.nav-spacer { flex: 1; }
+.nav-section {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-tertiary);
+  padding: 16px 12px 6px;
+}
+
+/* ===== Main Content ===== */
+.main {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+}
+/* Ambient glows */
+.main::before, .main::after {
+  content: '';
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+}
+.main::before {
+  top: -200px;
+  right: -100px;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(232, 116, 97, 0.10) 0%, transparent 70%);
+}
+.main::after {
+  bottom: -200px;
+  left: -100px;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(40, 160, 110, 0.08) 0%, transparent 70%);
+}
+.page {
+  position: relative;
+  z-index: 1;
+  padding: 28px 32px;
+  display: none;
+  max-width: 720px;
+}
+.page.active { display: block; }
+.page-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 24px;
+}
+
+/* ===== Glass Card ===== */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 16px;
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  margin-bottom: 10px;
+  transition: all 0.15s;
+}
+.card:hover {
+  background: var(--bg-card-hover);
+}
+.card-active {
+  border-color: var(--border-active);
+  background: rgba(232, 116, 97, 0.04);
+}
+
+/* ===== Focus Gate Card ===== */
+.focus-gate {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.focus-gate-left { flex: 1; }
+.focus-gate-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.focus-gate-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+.focus-gate-detail {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+.focus-gate-configure {
+  font-size: 12px;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  cursor: pointer;
+}
+
+/* ===== Toggle ===== */
+.toggle {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.toggle.on {
+  background: var(--accent-gradient);
+  box-shadow: 0 0 12px rgba(232, 116, 97, 0.2);
+}
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  transition: all 0.2s;
+}
+.toggle.on::after { left: 18px; }
+
+/* ===== Section Label ===== */
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-tertiary);
+  margin: 20px 0 10px;
+}
+
+/* ===== Buttons ===== */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: var(--accent-gradient);
+  color: #0a0a0b;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(232, 116, 97, 0.2);
+}
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.btn-danger {
+  display: inline-flex;
+  padding: 10px 16px;
+  background: rgba(212, 80, 80, 0.1);
+  border: 1px solid rgba(212, 80, 80, 0.2);
+  color: #d45050;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.btn-pill {
+  display: inline-flex;
+  padding: 4px 14px;
+  border-radius: 100px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+}
+.btn-pill-primary {
+  background: var(--accent-gradient);
+  color: #0a0a0b;
+}
+.btn-pill-secondary {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+}
+
+/* ===== Gradient Text ===== */
+.text-gradient {
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.text-success-gradient {
+  background: var(--success-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.text-bedtime-gradient {
+  background: var(--bedtime-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ===== Schedule Timeline ===== */
+.timeline {
+  position: relative;
+  margin-top: 16px;
+}
+.timeline-hour {
+  display: flex;
+  align-items: flex-start;
+  min-height: 48px;
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+}
+.timeline-label {
+  width: 50px;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  padding-top: 4px;
+  flex-shrink: 0;
+}
+.timeline-block {
+  flex: 1;
+  margin: 2px 0;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  border-left: 3px solid;
+}
+.timeline-block-focus {
+  background: rgba(232, 116, 97, 0.06);
+  border-left-color: var(--accent-coral);
+  color: var(--text-primary);
+}
+.timeline-block-free {
+  background: rgba(255, 255, 255, 0.02);
+  border-left-color: rgba(255, 255, 255, 0.15);
+  color: var(--text-secondary);
+}
+.timeline-block-bedtime {
+  background: rgba(168, 152, 200, 0.04);
+  border-left-color: rgba(168, 152, 200, 0.4);
+  color: rgba(200, 170, 220, 0.8);
+}
+.timeline-block-title { font-weight: 600; }
+.timeline-block-sub {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+/* ===== Now Indicator ===== */
+.now-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+.now-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  box-shadow: 0 0 10px rgba(232, 116, 97, 0.3);
+  flex-shrink: 0;
+}
+.now-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, rgba(232, 116, 97, 0.4), transparent);
+}
+
+/* ===== Settings Drill-down ===== */
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+}
+.settings-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.settings-icon-coral { background: rgba(232, 116, 97, 0.1); color: var(--accent-coral); }
+.settings-icon-green { background: rgba(92, 192, 154, 0.1); color: #5cc09a; }
+.settings-icon-purple { background: rgba(168, 152, 200, 0.1); color: #a898c8; }
+.settings-icon-red { background: rgba(212, 80, 80, 0.1); color: #d45050; }
+.settings-icon-gold { background: rgba(240, 176, 96, 0.1); color: var(--accent-gold); }
+.settings-content { flex: 1; }
+.settings-title { font-size: 14px; font-weight: 600; }
+.settings-subtitle { font-size: 12px; color: var(--text-tertiary); margin-top: 1px; }
+.settings-chevron { color: var(--text-tertiary); font-size: 13px; }
+
+/* ===== Profile Chips ===== */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid;
+  cursor: pointer;
+}
+.chip-selected {
+  background: rgba(232, 116, 97, 0.1);
+  border-color: rgba(232, 116, 97, 0.3);
+  color: var(--accent-coral);
+}
+.chip-unselected {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+}
+.chip-always {
+  background: rgba(92, 192, 154, 0.08);
+  border-color: rgba(92, 192, 154, 0.2);
+  color: #5cc09a;
+}
+
+/* ===== Status Badges ===== */
+.badge {
+  display: inline-flex;
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.badge-success { background: rgba(92, 192, 154, 0.12); color: #5cc09a; }
+.badge-warning { background: rgba(240, 176, 96, 0.12); color: var(--accent-gold); }
+.badge-danger { background: rgba(212, 80, 80, 0.12); color: #d45050; }
+.badge-neutral { background: rgba(255, 255, 255, 0.06); color: var(--text-secondary); }
+
+/* ===== Distractions Profile Card ===== */
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.profile-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  box-shadow: 0 0 8px rgba(232, 116, 97, 0.25);
+  flex-shrink: 0;
+}
+.profile-info { flex: 1; }
+.profile-name { font-size: 14px; font-weight: 600; }
+.profile-meta { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+.profile-badges { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+
+/* ===== Accountability ===== */
+.partner-card {
+  text-align: center;
+  padding: 24px;
+}
+.partner-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0a0a0b;
+  margin: 0 auto 12px;
+}
+.partner-name { font-size: 15px; font-weight: 600; }
+.partner-email { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+.partner-status { margin-top: 12px; }
+
+/* ===== Stat Row ===== */
+.stat-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.stat-card {
+  flex: 1;
+  text-align: center;
+  padding: 14px;
+}
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+}
+.stat-label {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ===== Page tabs ===== */
+.tab-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  padding: 3px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
+  width: fit-content;
+}
+.tab {
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+.tab.active {
+  background: rgba(232, 116, 97, 0.1);
+  color: var(--accent-coral);
+}
+
+/* ===== Misc ===== */
+.divider { height: 1px; background: var(--border-subtle); margin: 16px 0; }
+.flex { display: flex; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.gap-8 { gap: 8px; }
+.gap-12 { gap: 12px; }
+.mt-8 { margin-top: 8px; }
+.mt-16 { margin-top: 16px; }
+.mb-16 { margin-bottom: 16px; }
+
+/* ===== Demo Navigation ===== */
+.demo-nav {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 100;
+  display: flex;
+  gap: 6px;
+}
+.demo-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.8);
+  color: var(--text-secondary);
+  backdrop-filter: blur(20px);
+}
+.demo-btn.active {
+  background: var(--accent-gradient);
+  color: #0a0a0b;
+  border-color: transparent;
+}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-logo">Intentional</div>
+    <div class="nav-item active" onclick="showPage('today')">
+      <span class="nav-icon">◉</span> Today
+    </div>
+    <div class="nav-item" onclick="showPage('distractions')">
+      <span class="nav-icon">⊘</span> Distractions
+    </div>
+    <div class="nav-item" onclick="showPage('accountability')">
+      <span class="nav-icon">◫</span> Accountability
+    </div>
+    <div class="nav-item" onclick="showPage('settings')">
+      <span class="nav-icon">⚙</span> Settings
+    </div>
+    <div class="nav-spacer"></div>
+    <div class="nav-section">Session</div>
+    <div style="padding: 8px 12px;">
+      <div style="font-size: 11px; color: var(--text-tertiary);">Free Time</div>
+      <div style="font-size: 10px; color: var(--text-tertiary); margin-top: 2px;">No active session</div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main">
+
+    <!-- ===== TODAY PAGE ===== -->
+    <div class="page active" id="page-today">
+      <div class="page-title">Today</div>
+
+      <!-- Stats Row -->
+      <div class="stat-row">
+        <div class="card stat-card">
+          <div class="stat-value text-success-gradient">73%</div>
+          <div class="stat-label">On Task</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value" style="color: var(--text-primary);">4h 12m</div>
+          <div class="stat-label">Focus Time</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value" style="color: var(--text-secondary);">2</div>
+          <div class="stat-label">Interventions</div>
+        </div>
+      </div>
+
+      <!-- Focus Gate Card -->
+      <div class="card card-active" style="margin-bottom: 16px;">
+        <div class="focus-gate">
+          <div class="focus-gate-left">
+            <div class="focus-gate-title">Focus Gate</div>
+            <div class="focus-gate-desc">Asks what you're working on each hour</div>
+            <div class="focus-gate-detail">Grace period: 3 min</div>
+            <div class="focus-gate-configure" style="margin-top: 6px;">Configure ›</div>
+          </div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+      </div>
+
+      <!-- Active Profiles -->
+      <div class="section-label">Active Profiles</div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+        <div class="chip chip-always">◉ Social Media — always active</div>
+      </div>
+
+      <!-- Schedule Timeline -->
+      <div class="section-label">Schedule</div>
+      <div class="flex-between" style="margin-bottom: 12px;">
+        <div></div>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn-pill btn-pill-primary">+ Focus</button>
+          <button class="btn-pill btn-pill-secondary">+ Free Time</button>
+        </div>
+      </div>
+
+      <div class="timeline">
+        <div class="timeline-hour">
+          <div class="timeline-label">8 AM</div>
+          <div class="timeline-block timeline-block-focus">
+            <div class="timeline-block-title">Focus Session</div>
+            <div class="timeline-block-sub">Social Media, Gaming · "Working on dashboard redesign"</div>
+          </div>
+        </div>
+        <div class="timeline-hour">
+          <div class="timeline-label">10 AM</div>
+          <div></div>
+        </div>
+        <div class="timeline-hour">
+          <div class="timeline-label">11 AM</div>
+          <div style="flex: 1; padding-top: 4px;">
+            <div class="now-indicator">
+              <div class="now-dot"></div>
+              <div class="now-line"></div>
+            </div>
+          </div>
+        </div>
+        <div class="timeline-hour">
+          <div class="timeline-label">12 PM</div>
+          <div class="timeline-block timeline-block-free">
+            <div class="timeline-block-title">Free Time</div>
+          </div>
+        </div>
+        <div class="timeline-hour">
+          <div class="timeline-label">1 PM</div>
+          <div class="timeline-block timeline-block-focus">
+            <div class="timeline-block-title">Focus Session</div>
+            <div class="timeline-block-sub">Social Media, Gaming, News · "Build Puck NFC integration"</div>
+          </div>
+        </div>
+        <div class="timeline-hour">
+          <div class="timeline-label">5 PM</div>
+          <div></div>
+        </div>
+        <div class="timeline-hour">
+          <div class="timeline-label">10 PM</div>
+          <div class="timeline-block timeline-block-bedtime">
+            <div class="timeline-block-title">Bedtime</div>
+            <div class="timeline-block-sub">Wind-down → Lockout at 11:00 PM</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DISTRACTIONS PAGE ===== -->
+    <div class="page" id="page-distractions">
+      <div class="page-title">Distractions</div>
+
+      <div class="section-label">Blocking Profiles</div>
+
+      <!-- Profile: Social Media -->
+      <div class="card" style="margin-bottom: 10px;">
+        <div class="profile-card">
+          <div class="profile-dot"></div>
+          <div class="profile-info">
+            <div class="profile-name">Social Media</div>
+            <div class="profile-meta">8 sites · 3 apps</div>
+            <div class="profile-badges">
+              <span class="badge badge-success">Always Active</span>
+            </div>
+          </div>
+          <span class="settings-chevron">›</span>
+        </div>
+      </div>
+
+      <!-- Profile: Gaming -->
+      <div class="card" style="margin-bottom: 10px;">
+        <div class="profile-card">
+          <div class="profile-dot" style="background: linear-gradient(135deg, #5cc09a, #c0b060); box-shadow: 0 0 8px rgba(92, 192, 154, 0.25);"></div>
+          <div class="profile-info">
+            <div class="profile-name">Gaming</div>
+            <div class="profile-meta">4 sites · 5 apps</div>
+            <div class="profile-badges">
+              <span class="badge badge-neutral">Focus Only</span>
+            </div>
+          </div>
+          <span class="settings-chevron">›</span>
+        </div>
+      </div>
+
+      <!-- Profile: News -->
+      <div class="card" style="margin-bottom: 10px;">
+        <div class="profile-card">
+          <div class="profile-dot" style="background: linear-gradient(135deg, #F0B060, #E87461); box-shadow: 0 0 8px rgba(240, 176, 96, 0.25);"></div>
+          <div class="profile-info">
+            <div class="profile-name">News & Media</div>
+            <div class="profile-meta">12 sites · 0 apps</div>
+            <div class="profile-badges">
+              <span class="badge badge-neutral">Focus Only</span>
+            </div>
+          </div>
+          <span class="settings-chevron">›</span>
+        </div>
+      </div>
+
+      <div style="margin-top: 16px;">
+        <button class="btn-secondary">+ New Profile</button>
+      </div>
+
+      <!-- Example drill-down (shown below) -->
+      <div class="divider" style="margin: 28px 0;"></div>
+      <div style="color: var(--text-tertiary); font-size: 11px; margin-bottom: 12px;">DRILL-DOWN PREVIEW (when tapping a profile):</div>
+
+      <div class="flex-between mb-16">
+        <div style="font-size: 13px; color: var(--accent-coral); cursor: pointer;">← Back</div>
+        <div class="page-title" style="margin: 0;">Social Media</div>
+        <div style="width: 40px;"></div>
+      </div>
+
+      <div class="flex-between card" style="margin-bottom: 12px;">
+        <div>
+          <div style="font-size: 14px; font-weight: 600;">Always Active</div>
+          <div style="font-size: 11px; color: var(--text-tertiary); margin-top: 2px;">Block even during free time</div>
+        </div>
+        <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+      </div>
+
+      <div class="section-label">Blocked Websites</div>
+      <div class="card">
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+          <span class="chip chip-selected">twitter.com ×</span>
+          <span class="chip chip-selected">instagram.com ×</span>
+          <span class="chip chip-selected">facebook.com ×</span>
+          <span class="chip chip-selected">tiktok.com ×</span>
+          <span class="chip chip-selected">reddit.com ×</span>
+          <span class="chip chip-selected">youtube.com ×</span>
+          <span class="chip chip-selected">linkedin.com ×</span>
+          <span class="chip chip-selected">threads.net ×</span>
+        </div>
+        <div style="margin-top: 10px;">
+          <input type="text" placeholder="Add website..." style="
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: var(--text-primary);
+            font-size: 13px;
+            width: 200px;
+            outline: none;
+          ">
+        </div>
+      </div>
+
+      <div class="section-label">Blocked Apps</div>
+      <div class="card">
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+          <span class="chip chip-selected">Twitter ×</span>
+          <span class="chip chip-selected">Instagram ×</span>
+          <span class="chip chip-selected">Discord ×</span>
+        </div>
+        <div style="margin-top: 10px;">
+          <button class="btn-secondary" style="font-size: 12px; padding: 6px 12px;">+ Add App</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ACCOUNTABILITY PAGE ===== -->
+    <div class="page" id="page-accountability">
+      <div class="page-title">Accountability</div>
+
+      <!-- Partner Card -->
+      <div class="card partner-card">
+        <div class="partner-avatar">S</div>
+        <div class="partner-name">Sarah Chen</div>
+        <div class="partner-email">sarah@example.com</div>
+        <div class="partner-status">
+          <span class="badge badge-success">Connected</span>
+        </div>
+      </div>
+
+      <div class="section-label">Lock Status</div>
+      <div class="card">
+        <div class="flex-between">
+          <div>
+            <div style="font-size: 14px; font-weight: 600;">Partner Lock</div>
+            <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 2px;">
+              Settings locked by partner. Code required to change.
+            </div>
+          </div>
+          <span class="badge badge-warning">Locked</span>
+        </div>
+      </div>
+
+      <div class="section-label">Unlock</div>
+      <div class="card">
+        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 10px;">
+          Enter the code from your partner to unlock settings
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" placeholder="Enter code..." style="
+            flex: 1;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+            letter-spacing: 4px;
+            text-align: center;
+          ">
+          <button class="btn-primary" style="padding: 10px 20px;">Unlock</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SETTINGS PAGE ===== -->
+    <div class="page" id="page-settings">
+      <div class="page-title">Settings</div>
+
+      <div class="card" style="margin-bottom: 10px; cursor: pointer;">
+        <div class="settings-row">
+          <div class="settings-icon settings-icon-coral">⊕</div>
+          <div class="settings-content">
+            <div class="settings-title">Account</div>
+            <div class="settings-subtitle">arayan@intentional.social</div>
+          </div>
+          <span class="settings-chevron">›</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 10px; cursor: pointer;">
+        <div class="settings-row">
+          <div class="settings-icon settings-icon-coral">◐</div>
+          <div class="settings-content">
+            <div class="settings-title">Theme</div>
+            <div class="settings-subtitle">Deep Lush</div>
+          </div>
+          <span class="settings-chevron">›</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 10px; cursor: pointer;">
+        <div class="settings-row">
+          <div class="settings-icon settings-icon-gold">◎</div>
+          <div class="settings-content">
+            <div class="settings-title">AI Scoring</div>
+            <div class="settings-subtitle">Qwen3 4B · Enabled</div>
+          </div>
+          <span class="settings-chevron">›</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 10px; cursor: pointer;">
+        <div class="settings-row">
+          <div class="settings-icon settings-icon-coral">◈</div>
+          <div class="settings-content">
+            <div class="settings-title">Enforcement</div>
+            <div class="settings-subtitle">Nudge, Grayscale, Intervention</div>
+          </div>
+          <span class="settings-chevron">›</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 10px; cursor: pointer;">
+        <div class="settings-row">
+          <div class="settings-icon settings-icon-green">◉</div>
+          <div class="settings-content">
+            <div class="settings-title">Content Safety</div>
+            <div class="settings-subtitle">Enabled · Monitoring active</div>
+          </div>
+          <span class="settings-chevron">›</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 10px; cursor: pointer;">
+        <div class="settings-row">
+          <div class="settings-icon settings-icon-purple">☾</div>
+          <div class="settings-content">
+            <div class="settings-title">Bedtime</div>
+            <div class="settings-subtitle">10:30 PM – 7:00 AM</div>
+          </div>
+          <span class="settings-chevron">›</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 10px; cursor: pointer;">
+        <div class="settings-row">
+          <div class="settings-icon settings-icon-coral">⊞</div>
+          <div class="settings-content">
+            <div class="settings-title">Browsers</div>
+            <div class="settings-subtitle">Chrome, Safari</div>
+          </div>
+          <span class="settings-chevron">›</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 10px; cursor: pointer;">
+        <div class="settings-row">
+          <div class="settings-icon settings-icon-coral">◉</div>
+          <div class="settings-content">
+            <div class="settings-title">Focus Gate</div>
+            <div class="settings-subtitle">Enabled · Grace period 3 min</div>
+          </div>
+          <span class="settings-chevron">›</span>
+        </div>
+      </div>
+
+      <div class="card" style="cursor: pointer;">
+        <div class="settings-row">
+          <div class="settings-icon settings-icon-red">⊖</div>
+          <div class="settings-content">
+            <div class="settings-title">Reset & Delete</div>
+            <div class="settings-subtitle">Reset settings, delete account, uninstall</div>
+          </div>
+          <span class="settings-chevron">›</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Demo page switcher -->
+<div class="demo-nav">
+  <button class="demo-btn active" onclick="showPage('today')">Today</button>
+  <button class="demo-btn" onclick="showPage('distractions')">Distractions</button>
+  <button class="demo-btn" onclick="showPage('accountability')">Accountability</button>
+  <button class="demo-btn" onclick="showPage('settings')">Settings</button>
+</div>
+
+<script>
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick')?.includes(id)) n.classList.add('active');
+  });
+  document.querySelectorAll('.demo-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

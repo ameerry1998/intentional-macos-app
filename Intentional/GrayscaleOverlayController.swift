@@ -68,11 +68,11 @@ class GrayscaleOverlayController {
     /// Whether the effect is active
     private var grayscaleEnabled = false
 
-    /// Full-screen click-through window for vignette overlay
-    private var vignetteWindow: NSWindow?
+    /// Full-screen click-through windows for vignette overlay (one per screen)
+    private var vignetteWindows: [NSWindow] = []
 
-    /// The gradient layer rendering the atmospheric vignette
-    private var vignetteLayer: CAGradientLayer?
+    /// Gradient layers rendering the atmospheric vignette (one per window)
+    private var vignetteLayers: [CAGradientLayer] = []
 
     // MARK: - Public Properties
 
@@ -154,68 +154,76 @@ class GrayscaleOverlayController {
     // MARK: - Vignette Window
 
     private func setupVignetteWindow() {
-        guard let screen = NSScreen.main else { return }
-        let window = NSWindow(
-            contentRect: screen.frame,
-            styleMask: .borderless,
-            backing: .buffered,
-            defer: false
-        )
-        window.level = .screenSaver
-        window.ignoresMouseEvents = true
-        window.backgroundColor = .clear
-        window.isOpaque = false
-        window.hasShadow = false
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        for screen in NSScreen.screens {
+            let window = NSWindow(
+                contentRect: screen.frame,
+                styleMask: .borderless,
+                backing: .buffered,
+                defer: false
+            )
+            window.level = .screenSaver
+            window.ignoresMouseEvents = true
+            window.backgroundColor = .clear
+            window.isOpaque = false
+            window.hasShadow = false
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-        let hostView = NSView(frame: screen.frame)
-        hostView.wantsLayer = true
-        hostView.layer?.backgroundColor = NSColor.clear.cgColor
-        window.contentView = hostView
+            let hostView = NSView(frame: screen.frame)
+            hostView.wantsLayer = true
+            hostView.layer?.backgroundColor = NSColor.clear.cgColor
+            window.contentView = hostView
 
-        window.orderFrontRegardless()
-        vignetteWindow = window
-        NSLog("🌫️ [VIGNETTE] Window created \(Int(screen.frame.width))x\(Int(screen.frame.height))")
+            window.orderFrontRegardless()
+            vignetteWindows.append(window)
+        }
+        NSLog("🌫️ [VIGNETTE] Windows created on \(NSScreen.screens.count) screen(s)")
     }
 
     private func teardownVignette() {
-        vignetteLayer = nil
-        vignetteWindow?.orderOut(nil)
-        vignetteWindow = nil
+        vignetteLayers.removeAll()
+        for window in vignetteWindows {
+            window.orderOut(nil)
+        }
+        vignetteWindows.removeAll()
         NSLog("🌫️ [VIGNETTE] Torn down")
     }
 
     // MARK: - Atmospheric Vignette
 
     private func setupVignette() {
-        guard let layer = vignetteWindow?.contentView?.layer,
-              let frame = vignetteWindow?.frame else { return }
+        for window in vignetteWindows {
+            guard let layer = window.contentView?.layer else { continue }
+            let frame = window.frame
 
-        let grad = CAGradientLayer()
-        grad.type = .radial
-        grad.frame = CGRect(origin: .zero, size: frame.size)
-        grad.startPoint = CGPoint(x: 0.5, y: 0.5)
-        grad.endPoint = CGPoint(x: 1.0, y: 1.0)
-        // Warm orange-red tones, very low opacity
-        grad.colors = [
-            NSColor(red: 1.0, green: 0.35, blue: 0.1, alpha: 0.0).cgColor,
-            NSColor(red: 1.0, green: 0.3, blue: 0.08, alpha: 0.0).cgColor,
-            NSColor(red: 0.95, green: 0.25, blue: 0.05, alpha: 0.05).cgColor,
-            NSColor(red: 0.9, green: 0.2, blue: 0.05, alpha: 0.12).cgColor,
-            NSColor(red: 0.85, green: 0.15, blue: 0.05, alpha: 0.20).cgColor,
-        ]
-        // Barely perceptible start, wide coverage
-        grad.locations = [0.0, 0.25, 0.45, 0.7, 1.0]
-        grad.opacity = 0.0
+            let grad = CAGradientLayer()
+            grad.type = .radial
+            grad.frame = CGRect(origin: .zero, size: frame.size)
+            grad.startPoint = CGPoint(x: 0.5, y: 0.5)
+            grad.endPoint = CGPoint(x: 1.0, y: 1.0)
+            // Warm orange-red tones, very low opacity
+            grad.colors = [
+                NSColor(red: 1.0, green: 0.35, blue: 0.1, alpha: 0.0).cgColor,
+                NSColor(red: 1.0, green: 0.3, blue: 0.08, alpha: 0.0).cgColor,
+                NSColor(red: 0.95, green: 0.25, blue: 0.05, alpha: 0.05).cgColor,
+                NSColor(red: 0.9, green: 0.2, blue: 0.05, alpha: 0.12).cgColor,
+                NSColor(red: 0.85, green: 0.15, blue: 0.05, alpha: 0.20).cgColor,
+            ]
+            // Barely perceptible start, wide coverage
+            grad.locations = [0.0, 0.25, 0.45, 0.7, 1.0]
+            grad.opacity = 0.0
 
-        layer.addSublayer(grad)
-        vignetteLayer = grad
-        NSLog("🌫️ [VIGNETTE] Atmospheric setup — warm orange-red, max 0.20")
+            layer.addSublayer(grad)
+            vignetteLayers.append(grad)
+        }
+        NSLog("🌫️ [VIGNETTE] Atmospheric setup — warm orange-red, max 0.20 (\(vignetteLayers.count) layers)")
     }
 
     /// Update vignette layer opacity to match current intensity.
     private func applyVignette(_ intensity: CGGammaValue) {
-        vignetteLayer?.opacity = Float(intensity)
+        let opacity = Float(intensity)
+        for layer in vignetteLayers {
+            layer.opacity = opacity
+        }
     }
 
     deinit {

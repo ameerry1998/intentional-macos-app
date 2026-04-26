@@ -14,7 +14,7 @@ class KeyableWindow: NSWindow {
 class FocusOverlayWindowController {
 
     weak var appDelegate: AppDelegate?
-    private var overlayWindow: NSWindow?
+    private var overlayWindows: [NSWindow] = []
 
     /// Called when the user clicks "Back to work" or "Open Intentional"
     var onBackToWork: (() -> Void)?
@@ -24,6 +24,10 @@ class FocusOverlayWindowController {
     var onStartQuickBlock: ((String, Int, Bool) -> Void)?
     /// Called when the user clicks "Plan My Day" to open the full dashboard
     var onPlanDay: (() -> Void)?
+    /// Called when the user clicks "Approve for this block" in the Why? disclosure
+    var onApproveForBlock: (() -> Void)?
+    /// Called when the user clicks "This was wrong" in the Why? disclosure
+    var onMarkWrong: (() -> Void)?
 
     init(appDelegate: AppDelegate?) {
         self.appDelegate = appDelegate
@@ -39,7 +43,12 @@ class FocusOverlayWindowController {
         nextBlockTitle: String? = nil,
         nextBlockTime: String? = nil,
         minutesUntilNextBlock: Int? = nil,
-        displayName: String? = nil
+        displayName: String? = nil,
+        confidence: Int = 0,
+        urlString: String? = nil,
+        path: ScoringPath? = nil,
+        ocrExcerpt: String? = nil,
+        trace: [TraceStep] = []
     ) {
         // Close any existing overlay
         dismiss()
@@ -53,7 +62,12 @@ class FocusOverlayWindowController {
             nextBlockTitle: nextBlockTitle,
             nextBlockTime: nextBlockTime,
             minutesUntilNextBlock: minutesUntilNextBlock,
-            displayName: displayName
+            displayName: displayName,
+            confidence: confidence,
+            urlString: urlString,
+            path: path,
+            ocrExcerpt: ocrExcerpt,
+            trace: trace
         )
 
         viewModel.onBackToWork = { [weak self] in
@@ -76,45 +90,61 @@ class FocusOverlayWindowController {
             self?.dismiss()
         }
 
-        let view = FocusOverlayView(viewModel: viewModel)
-        let hostingView = NSHostingView(rootView: view)
+        viewModel.onApproveForBlock = { [weak self] in
+            // Controller callback is responsible for dismissing (it calls handleOverlayAction
+            // which eventually dismisses); dismiss here too to guarantee teardown.
+            self?.onApproveForBlock?()
+            self?.dismiss()
+        }
 
-        guard let screen = NSScreen.main else { return }
-        let screenFrame = screen.frame
+        viewModel.onMarkWrong = { [weak self] in
+            self?.onMarkWrong?()
+            self?.dismiss()
+        }
 
-        hostingView.frame = screenFrame
+        // Create overlay windows on ALL screens (same pattern as ContentSafetyMonitor)
+        for (index, screen) in NSScreen.screens.enumerated() {
+            let view = FocusOverlayView(viewModel: viewModel)
+            let hostingView = NSHostingView(rootView: view)
+            let screenFrame = screen.frame
 
-        let window = KeyableWindow(
-            contentRect: screenFrame,
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
-        )
+            hostingView.frame = screenFrame
 
-        window.contentView = hostingView
-        window.backgroundColor = .clear
-        window.isOpaque = false
-        window.hasShadow = false
-        window.level = .screenSaver
-        window.isReleasedWhenClosed = false
-        window.ignoresMouseEvents = false
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            let window = KeyableWindow(
+                contentRect: screenFrame,
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: false
+            )
 
-        window.setFrame(screenFrame, display: true)
-        window.makeKeyAndOrderFront(nil)
-        overlayWindow = window
+            window.contentView = hostingView
+            window.backgroundColor = .clear
+            window.isOpaque = false
+            window.hasShadow = false
+            window.level = .screenSaver
+            window.isReleasedWhenClosed = false
+            window.ignoresMouseEvents = false
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-        appDelegate?.postLog("🌑 Native focus overlay shown: \"\(intention)\" (isNoPlan: \(isNoPlan))")
+            window.setFrame(screenFrame, display: true)
+            appDelegate?.postLog("🚨 ACTIVATE: FocusOverlayWindow.showOverlay — makeKeyAndOrderFront (screen \(index))")
+            window.makeKeyAndOrderFront(nil)
+            overlayWindows.append(window)
+        }
+
+        appDelegate?.postLog("🌑 Native focus overlay shown on \(NSScreen.screens.count) screen(s): \"\(intention)\" (isNoPlan: \(isNoPlan))")
     }
 
-    /// Dismiss the overlay window.
+    /// Dismiss all overlay windows.
     func dismiss() {
-        overlayWindow?.close()
-        overlayWindow = nil
+        for window in overlayWindows {
+            window.close()
+        }
+        overlayWindows.removeAll()
     }
 
     var isShowing: Bool {
-        overlayWindow != nil
+        !overlayWindows.isEmpty
     }
 }
 
@@ -141,6 +171,16 @@ class FocusOverlayViewModel: ObservableObject {
     let nextBlockTime: String?
     let minutesUntilNextBlock: Int?
 
+    // Why? disclosure context (deep-work overlay only)
+    let confidence: Int
+    let urlString: String?
+    let path: ScoringPath?
+    let ocrExcerpt: String?
+    /// Step-by-step journey (keyword → cache → metadata → OCR), each stamped with elapsed-ms.
+    /// Surfaced in the Why panel's Trace section so the user can see which stages ran.
+    let trace: [TraceStep]
+    @Published var showWhyDetails: Bool = false
+
     // Quick block creation (unplanned overlay)
     @Published var quickBlockTitle: String = ""
     @Published var selectedDuration: Int = 60
@@ -150,6 +190,8 @@ class FocusOverlayViewModel: ObservableObject {
     var onSnooze: (() -> Void)?
     var onStartQuickBlock: ((String, Int, Bool) -> Void)?
     var onPlanDay: (() -> Void)?
+    var onApproveForBlock: (() -> Void)?
+    var onMarkWrong: (() -> Void)?
 
     var durationOptions: [DurationOption] {
         var options = [
@@ -173,7 +215,10 @@ class FocusOverlayViewModel: ObservableObject {
     init(intention: String, reason: String, focusDurationMinutes: Int,
          isNoPlan: Bool = false, canSnooze: Bool = false,
          nextBlockTitle: String? = nil, nextBlockTime: String? = nil, minutesUntilNextBlock: Int? = nil,
-         displayName: String? = nil) {
+         displayName: String? = nil,
+         confidence: Int = 0, urlString: String? = nil,
+         path: ScoringPath? = nil, ocrExcerpt: String? = nil,
+         trace: [TraceStep] = []) {
         self.intention = intention
         self.reason = reason
         self.focusDurationMinutes = focusDurationMinutes
@@ -183,6 +228,11 @@ class FocusOverlayViewModel: ObservableObject {
         self.nextBlockTitle = nextBlockTitle
         self.nextBlockTime = nextBlockTime
         self.minutesUntilNextBlock = minutesUntilNextBlock
+        self.confidence = confidence
+        self.urlString = urlString
+        self.path = path
+        self.ocrExcerpt = ocrExcerpt
+        self.trace = trace
     }
 }
 
@@ -495,5 +545,178 @@ struct FocusOverlayView: View {
                 .cornerRadius(12)
         }
         .buttonStyle(.plain)
+
+        // Why? disclosure — reveals block/page/url/reason/confidence and the two override actions.
+        Button(action: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                viewModel.showWhyDetails.toggle()
+            }
+        }) {
+            Text(viewModel.showWhyDetails ? "Hide details" : "Why?")
+                .font(.system(size: 12))
+                .foregroundColor(textTertiary)
+                .underline()
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 14)
+
+        if viewModel.showWhyDetails {
+            whyDetailsPanel
+                .padding(.top, 14)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+
+    // MARK: - Why? Disclosure Panel
+
+    private func verdictPathLabel(_ path: ScoringPath) -> String {
+        switch path {
+        case .metadataRelevant, .metadataOffTask: return "Metadata only"
+        case .metadataOffTaskLowConf: return "Metadata only (low confidence — not enforced)"
+        case .ocrVerifiedRelevant, .ocrVerifiedOffTask: return "OCR-verified"
+        }
+    }
+
+    @ViewBuilder
+    private var whyDetailsPanel: some View {
+        let isOCRVerified: Bool = {
+            guard let p = viewModel.path else { return false }
+            return p == .ocrVerifiedRelevant || p == .ocrVerifiedOffTask
+        }()
+        let verifiedSuffix: String = isOCRVerified ? " (verified)" : ""
+
+        VStack(alignment: .leading, spacing: 8) {
+            whyRow(label: "Block", value: viewModel.intention)
+            whyRow(label: "Page", value: (viewModel.displayName?.isEmpty == false) ? viewModel.displayName! : "—")
+            if let url = viewModel.urlString, !url.isEmpty {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("URL")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(textTertiary)
+                        .frame(width: 72, alignment: .leading)
+                    Text(url)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(textSecondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+            if !viewModel.reason.isEmpty {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("Reason")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(textTertiary)
+                        .frame(width: 72, alignment: .leading)
+                    Text(viewModel.reason)
+                        .font(.system(size: 12))
+                        .foregroundColor(textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            whyRow(label: "Confidence", value: "\(viewModel.confidence)%\(verifiedSuffix)")
+            if let p = viewModel.path {
+                whyRow(label: "Verdict path", value: verdictPathLabel(p))
+            }
+            if let excerpt = viewModel.ocrExcerpt, !excerpt.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("OCR excerpt")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.45))
+                    Text(excerpt)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.65))
+                        .lineLimit(6)
+                        .truncationMode(.tail)
+                        .padding(8)
+                        .background(Color.white.opacity(0.04))
+                        .cornerRadius(4)
+                }
+            }
+
+            if !viewModel.trace.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Trace")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.45))
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(Array(viewModel.trace.enumerated()), id: \.offset) { _, step in
+                            HStack(spacing: 8) {
+                                Text("+\(step.elapsedMs)ms")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundColor(.white.opacity(0.45))
+                                    .frame(width: 52, alignment: .trailing)
+                                Text(step.step)
+                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                    .foregroundColor(.white.opacity(0.75))
+                                    .frame(width: 78, alignment: .leading)
+                                Text(step.detail)
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundColor(.white.opacity(0.65))
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                            }
+                        }
+                    }
+                    .padding(8)
+                    .background(Color.white.opacity(0.04))
+                    .cornerRadius(4)
+                }
+            }
+
+            HStack(spacing: 10) {
+                Button(action: { viewModel.onApproveForBlock?() }) {
+                    Text("Approve for this block")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(
+                            LinearGradient(colors: [accentStart, accentEnd],
+                                           startPoint: .leading, endPoint: .trailing)
+                        )
+                        .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+
+                Button(action: { viewModel.onMarkWrong?() }) {
+                    Text("This was wrong")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(textSecondary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color.white.opacity(0.04))
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.top, 6)
+        }
+        .frame(maxWidth: 380, alignment: .leading)
+        .padding(14)
+        .background(Color.white.opacity(0.03))
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    @ViewBuilder
+    private func whyRow(label: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(label)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(textTertiary)
+                .frame(width: 72, alignment: .leading)
+            Text(value)
+                .font(.system(size: 12))
+                .foregroundColor(textSecondary)
+                .lineLimit(2)
+                .truncationMode(.middle)
+        }
     }
 }

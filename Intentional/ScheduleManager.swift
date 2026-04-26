@@ -24,17 +24,18 @@ class ScheduleManager {
         var endHour: Int     // 0-23
         var endMinute: Int   // 0-59
         var blockType: BlockType
+        var ignoreProfile: Bool  // When true, the AI scorer omits the user's profile for this block.
 
         /// Backwards compat
         var isFree: Bool { blockType == .freeTime }
 
         // Custom coding to migrate legacy `isFree` → `blockType`
         enum CodingKeys: String, CodingKey {
-            case id, title, description, startHour, startMinute, endHour, endMinute, blockType, isFree
+            case id, title, description, startHour, startMinute, endHour, endMinute, blockType, isFree, ignoreProfile
         }
 
         init(id: String, title: String, description: String, startHour: Int, startMinute: Int,
-             endHour: Int, endMinute: Int, blockType: BlockType) {
+             endHour: Int, endMinute: Int, blockType: BlockType, ignoreProfile: Bool = false) {
             self.id = id
             self.title = title
             self.description = description
@@ -43,6 +44,7 @@ class ScheduleManager {
             self.endHour = endHour
             self.endMinute = endMinute
             self.blockType = blockType
+            self.ignoreProfile = ignoreProfile
         }
 
         init(from decoder: Decoder) throws {
@@ -62,6 +64,8 @@ class ScheduleManager {
             } else {
                 blockType = .focusHours
             }
+            // Migration: ignoreProfile added later; default false when absent.
+            ignoreProfile = (try? container.decode(Bool.self, forKey: .ignoreProfile)) ?? false
         }
 
         func encode(to encoder: Encoder) throws {
@@ -74,6 +78,7 @@ class ScheduleManager {
             try container.encode(endHour, forKey: .endHour)
             try container.encode(endMinute, forKey: .endMinute)
             try container.encode(blockType, forKey: .blockType)
+            try container.encode(ignoreProfile, forKey: .ignoreProfile)
         }
 
         /// Start time as minutes from midnight
@@ -107,6 +112,31 @@ class ScheduleManager {
         var blockingOverlay: Bool
         var interventionExercises: Bool
         var backgroundAudioDetection: Bool
+        var contextSwitchOverlay: Bool
+
+        init(nudgeNotifications: Bool, screenRedShift: Bool, autoRedirect: Bool,
+             blockingOverlay: Bool, interventionExercises: Bool,
+             backgroundAudioDetection: Bool, contextSwitchOverlay: Bool = true) {
+            self.nudgeNotifications = nudgeNotifications
+            self.screenRedShift = screenRedShift
+            self.autoRedirect = autoRedirect
+            self.blockingOverlay = blockingOverlay
+            self.interventionExercises = interventionExercises
+            self.backgroundAudioDetection = backgroundAudioDetection
+            self.contextSwitchOverlay = contextSwitchOverlay
+        }
+
+        // Custom decode so persisted settings that predate contextSwitchOverlay decode cleanly (defaults to on for work blocks).
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            self.nudgeNotifications = try c.decode(Bool.self, forKey: .nudgeNotifications)
+            self.screenRedShift = try c.decode(Bool.self, forKey: .screenRedShift)
+            self.autoRedirect = try c.decode(Bool.self, forKey: .autoRedirect)
+            self.blockingOverlay = try c.decode(Bool.self, forKey: .blockingOverlay)
+            self.interventionExercises = try c.decode(Bool.self, forKey: .interventionExercises)
+            self.backgroundAudioDetection = try c.decode(Bool.self, forKey: .backgroundAudioDetection)
+            self.contextSwitchOverlay = (try? c.decode(Bool.self, forKey: .contextSwitchOverlay)) ?? true
+        }
 
         func toDict() -> [String: Bool] {
             return [
@@ -115,7 +145,8 @@ class ScheduleManager {
                 "autoRedirect": autoRedirect,
                 "blockingOverlay": blockingOverlay,
                 "interventionExercises": interventionExercises,
-                "backgroundAudioDetection": backgroundAudioDetection
+                "backgroundAudioDetection": backgroundAudioDetection,
+                "contextSwitchOverlay": contextSwitchOverlay
             ]
         }
     }
@@ -130,7 +161,8 @@ class ScheduleManager {
             case .focusHours: return focusHours
             case .freeTime: return BlockEnforcementSettings(
                 nudgeNotifications: false, screenRedShift: false, autoRedirect: false,
-                blockingOverlay: false, interventionExercises: false, backgroundAudioDetection: false)
+                blockingOverlay: false, interventionExercises: false, backgroundAudioDetection: false,
+                contextSwitchOverlay: false)
             }
         }
 
@@ -158,6 +190,7 @@ class ScheduleManager {
         case blockingOverlay
         case interventionExercises
         case backgroundAudioDetection
+        case contextSwitchOverlay
     }
 
     enum TimeState: String {
@@ -171,6 +204,21 @@ class ScheduleManager {
 
         /// Whether this is a monitored work state (deep work or focus hours)
         var isWork: Bool { self == .deepWork || self == .focusHours }
+    }
+
+    // MARK: - Focus Session Injection
+
+    /// When set, this block overrides the schedule (used by FocusSessionManager).
+    private(set) var injectedFocusBlock: FocusBlock?
+
+    func injectFocusSessionBlock(_ block: FocusBlock) {
+        injectedFocusBlock = block
+        recalculateState(forceCallback: true)
+    }
+
+    func clearInjectedFocusSessionBlock() {
+        injectedFocusBlock = nil
+        recalculateState(forceCallback: true)
     }
 
     // MARK: - State
@@ -299,6 +347,7 @@ class ScheduleManager {
         case .blockingOverlay: return settings.blockingOverlay
         case .interventionExercises: return settings.interventionExercises
         case .backgroundAudioDetection: return settings.backgroundAudioDetection
+        case .contextSwitchOverlay: return settings.contextSwitchOverlay
         }
     }
 
@@ -375,7 +424,8 @@ class ScheduleManager {
             startMinute: newStartMinutes % 60,
             endHour: block.endHour,
             endMinute: block.endMinute,
-            blockType: block.blockType
+            blockType: block.blockType,
+            ignoreProfile: block.ignoreProfile
         )
         // Only apply if the block still has positive duration
         guard block.startMinutes < block.endMinutes else { return }
@@ -470,6 +520,21 @@ class ScheduleManager {
             currentBlock = nil
             if forceCallback || previousState != .disabled {
                 onBlockChanged?(nil, .disabled)
+            }
+            return
+        }
+
+        // Focus session block overrides normal schedule
+        if let injected = injectedFocusBlock {
+            currentBlock = injected
+            switch injected.blockType {
+            case .deepWork: currentTimeState = .deepWork
+            case .focusHours: currentTimeState = .focusHours
+            case .freeTime: currentTimeState = .freeTime
+            }
+            if forceCallback || currentTimeState != previousState || currentBlock?.id != previousBlockId {
+                appDelegate?.postLog("📋 State: \(previousState.rawValue) → \(currentTimeState.rawValue) (injected focus session)")
+                onBlockChanged?(currentBlock, currentTimeState)
             }
             return
         }
@@ -705,7 +770,8 @@ class ScheduleManager {
             "endHour": block.endHour,
             "endMinute": block.endMinute,
             "blockType": block.blockType.rawValue,
-            "isFree": block.isFree  // backwards compat for extension
+            "isFree": block.isFree,  // backwards compat for extension
+            "ignoreProfile": block.ignoreProfile
         ]
     }
 

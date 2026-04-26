@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Background Variations — Coral→Gold Gradient + Interesting Backgrounds</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif; background:#030305; color:#f7f8f8; padding:24px; }
+  h1 { font-size:20px; font-weight:700; text-align:center; margin-bottom:4px; }
+  .page-sub { text-align:center; color:rgba(255,255,255,0.5); font-size:13px; margin-bottom:8px; }
+
+  .switcher { display:flex; gap:0; justify-content:center; margin-bottom:28px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:3px; flex-wrap:wrap; max-width:740px; margin-left:auto; margin-right:auto; }
+  .sw-btn { padding:8px 14px; font-size:11px; font-weight:500; color:rgba(255,255,255,0.4); background:transparent; border:none; border-radius:9px; cursor:pointer; font-family:inherit; transition:all 0.15s; white-space:nowrap; }
+  .sw-btn.active { background:rgba(255,255,255,0.1); color:#f7f8f8; }
+  .sw-btn:hover { color:rgba(255,255,255,0.7); }
+
+  .variant { display:none; }
+  .variant.active { display:flex; gap:28px; justify-content:center; flex-wrap:wrap; }
+
+  .grad-text { background:linear-gradient(135deg,#E87461,#F5A623); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .grad-bg { background:linear-gradient(135deg,#E87461,#F5A623); }
+  .grad-btn { background:linear-gradient(135deg,#E87461,#F5A623); color:#0a0a0b; border:none; border-radius:12px; padding:10px 16px; font-size:12px; font-weight:600; width:100%; cursor:pointer; font-family:inherit; }
+
+  /* Shared frames */
+  .phone { width:280px; height:520px; border-radius:32px; border:2px solid rgba(255,255,255,0.08); overflow:hidden; position:relative; flex-shrink:0; }
+  .phone-notch { width:100px; height:24px; background:#000; border-radius:0 0 14px 14px; margin:0 auto; position:relative; z-index:2; }
+  .phone-screen { padding:14px; height:calc(100% - 64px); overflow-y:auto; position:relative; z-index:1; }
+  .phone-tabs { position:absolute; bottom:0; left:0; right:0; height:44px; border-top:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-around; align-items:center; font-size:9px; z-index:2; }
+  .phone-tab { color:rgba(255,255,255,0.25); }
+  .phone-tab.active { color:#E87461; }
+
+  .mac { width:480px; height:360px; border-radius:10px; border:1px solid rgba(255,255,255,0.06); overflow:hidden; display:flex; flex-direction:column; flex-shrink:0; box-shadow:0 20px 50px rgba(0,0,0,0.5); }
+  .mac-bar { border-bottom:1px solid rgba(255,255,255,0.04); padding:8px 12px; display:flex; align-items:center; gap:6px; flex-shrink:0; }
+  .mac-dot { width:10px; height:10px; border-radius:50%; }
+  .mac-body { display:flex; flex:1; overflow:hidden; }
+  .mac-side { width:140px; border-right:1px solid rgba(255,255,255,0.04); padding:12px 8px; }
+  .mac-side-brand { font-size:13px; font-weight:700; padding:4px 8px 14px; }
+  .mac-nav { padding:6px 8px; border-radius:5px; font-size:11px; color:rgba(255,255,255,0.4); margin-bottom:1px; }
+  .mac-nav.active { background:rgba(232,116,97,0.1); color:#E87461; }
+  .mac-content { flex:1; padding:16px; overflow-y:auto; }
+
+  .g { background:rgba(255,255,255,0.035); border:1px solid rgba(255,255,255,0.06); border-radius:14px; margin-bottom:8px; overflow:hidden; }
+  .gp { padding:12px; }
+  .puck-circle { width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 10px; font-size:12px; font-weight:800; color:#0a0a0b; letter-spacing:0.5px; }
+  .tb { padding:7px 10px; border-radius:5px; margin-bottom:3px; font-size:10px; font-weight:500; }
+  .toggle-sm { width:36px; height:20px; border-radius:10px; position:relative; flex-shrink:0; }
+  .toggle-sm::after { content:''; width:16px; height:16px; border-radius:50%; background:white; position:absolute; top:2px; left:18px; }
+
+  .var-label { text-align:center; font-size:14px; font-weight:700; margin-bottom:4px; }
+  .var-sub { text-align:center; font-size:11px; color:rgba(255,255,255,0.4); margin-bottom:16px; max-width:480px; margin-left:auto; margin-right:auto; }
+</style>
+</head>
+<body>
+
+<h1>Background + Gradient Variations</h1>
+<p class="page-sub">Coral→Gold gradient accents. Different background treatments. Click to compare.</p>
+
+<div class="switcher">
+  <button class="sw-btn active" onclick="show('a')">A · Deep Ocean</button>
+  <button class="sw-btn" onclick="show('b')">B · Emerald Mist</button>
+  <button class="sw-btn" onclick="show('c')">C · Aurora Glow</button>
+  <button class="sw-btn" onclick="show('d')">D · Warm Void</button>
+  <button class="sw-btn" onclick="show('e')">E · Teal Depth</button>
+  <button class="sw-btn" onclick="show('f')">F · Ember + Forest</button>
+</div>
+
+<!-- ════════ A: DEEP OCEAN — dark with subtle emerald-teal gradient at edges ════════ -->
+<div class="variant active" id="v-a">
+  <div>
+    <div class="var-label">A · Deep Ocean</div>
+    <div class="var-sub">Near-black center, subtle emerald glow at edges. Feels deep and alive without being distracting.</div>
+    <div class="phone" style="background:radial-gradient(ellipse at 50% 0%, rgba(16,60,50,0.5) 0%, #060a09 50%, #050808 100%);">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div style="text-align:center;padding:16px 0 12px;">
+          <div class="puck-circle grad-bg">PUCK</div>
+          <div style="font-size:16px;font-weight:700;">Ready to Focus</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:3px;">Tap your puck to start</div>
+        </div>
+        <div class="g gp" style="border-color:rgba(232,116,97,0.2);background:rgba(255,255,255,0.03);">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><div style="width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#E87461,#F5A623);"></div><span class="grad-text" style="font-size:11px;font-weight:600;">Blocking Active · 45m</span></div>
+          <div style="font-size:16px;font-weight:700;">Deep Work</div>
+        </div>
+        <div class="g gp" style="display:flex;justify-content:space-around;text-align:center;">
+          <div><div class="grad-text" style="font-size:18px;font-weight:700;">2h</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Focused</div></div>
+          <div><div style="font-size:18px;font-weight:700;">3</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Sessions</div></div>
+          <div><div style="font-size:18px;font-weight:700;color:#34d399;">87%</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">On-task</div></div>
+        </div>
+        <button class="grad-btn" style="margin-top:8px;">Start Session</button>
+      </div>
+      <div class="phone-tabs" style="background:rgba(6,10,9,0.9);"><div class="phone-tab active">⌂ Home</div><div class="phone-tab">☰</div><div class="phone-tab">⏰</div><div class="phone-tab">♡</div><div class="phone-tab">⚙</div></div>
+    </div>
+  </div>
+  <div>
+    <div class="var-label" style="visibility:hidden;">.</div><div class="var-sub" style="visibility:hidden;">.</div>
+    <div class="mac" style="background:radial-gradient(ellipse at 70% 20%, rgba(16,60,50,0.35) 0%, #070a09 60%, #050808 100%);">
+      <div class="mac-bar" style="background:rgba(7,10,9,0.8);"><div class="mac-dot" style="background:#ff5f57;"></div><div class="mac-dot" style="background:#ffbd2e;"></div><div class="mac-dot" style="background:#28c840;"></div></div>
+      <div class="mac-body">
+        <div class="mac-side" style="background:rgba(255,255,255,0.01);"><div class="mac-side-brand">Intentional</div><div class="mac-nav active">◉ Today</div><div class="mac-nav">⊘ Distractions</div><div class="mac-nav">◎ Accountability</div><div class="mac-nav">⚙ Settings</div></div>
+        <div class="mac-content">
+          <div style="font-size:15px;font-weight:700;margin-bottom:10px;">Schedule</div>
+          <div style="display:flex;gap:5px;margin-bottom:10px;"><button class="grad-btn" style="width:auto;padding:4px 14px;border-radius:100px;font-size:10px;">+ Focus</button><button style="padding:4px 12px;border-radius:100px;font-size:10px;font-weight:600;border:1px solid rgba(255,255,255,0.06);background:none;color:rgba(255,255,255,0.4);cursor:pointer;">+ Free Time</button></div>
+          <div class="tb" style="background:rgba(232,116,97,0.08);border-left:2px solid #E87461;"><span class="grad-text">Focus</span><span style="color:rgba(255,255,255,0.35);"> · 8:00–10:00 AM</span></div>
+          <div class="tb" style="background:rgba(255,255,255,0.02);border-left:2px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.35);">Free Time · 10:00–10:30</div>
+          <div class="tb" style="background:rgba(129,140,248,0.08);border-left:2px solid #818cf8;color:#818cf8;">☽ Bedtime · 11 PM</div>
+          <div class="g" style="margin-top:8px;border-color:rgba(232,116,97,0.15);"><div class="gp" style="display:flex;align-items:center;gap:8px;"><div style="width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#E87461,#F5A623);"></div><div><div class="grad-text" style="font-size:11px;font-weight:600;">Focus Active</div><div style="font-size:9px;color:rgba(255,255,255,0.35);">45 min elapsed</div></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ B: EMERALD MIST — emerald glow from bottom ════════ -->
+<div class="variant" id="v-b">
+  <div>
+    <div class="var-label">B · Emerald Mist</div>
+    <div class="var-sub">Emerald fog rising from the bottom. Warm coral accents float above cool green depth.</div>
+    <div class="phone" style="background:linear-gradient(180deg, #080a0a 0%, #060d0b 40%, rgba(10,40,30,0.6) 100%);">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div style="text-align:center;padding:16px 0 12px;">
+          <div class="puck-circle grad-bg">PUCK</div>
+          <div style="font-size:16px;font-weight:700;">Ready to Focus</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:3px;">Tap your puck to start</div>
+        </div>
+        <div class="g gp" style="border-color:rgba(232,116,97,0.2);background:rgba(255,255,255,0.03);">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><div style="width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#E87461,#F5A623);"></div><span class="grad-text" style="font-size:11px;font-weight:600;">Blocking Active · 45m</span></div>
+          <div style="font-size:16px;font-weight:700;">Deep Work</div>
+        </div>
+        <div class="g gp" style="display:flex;justify-content:space-around;text-align:center;">
+          <div><div class="grad-text" style="font-size:18px;font-weight:700;">2h</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Focused</div></div>
+          <div><div style="font-size:18px;font-weight:700;">3</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Sessions</div></div>
+          <div><div style="font-size:18px;font-weight:700;color:#34d399;">87%</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">On-task</div></div>
+        </div>
+        <button class="grad-btn" style="margin-top:8px;">Start Session</button>
+      </div>
+      <div class="phone-tabs" style="background:rgba(6,13,11,0.9);"><div class="phone-tab active">⌂ Home</div><div class="phone-tab">☰</div><div class="phone-tab">⏰</div><div class="phone-tab">♡</div><div class="phone-tab">⚙</div></div>
+    </div>
+  </div>
+  <div>
+    <div class="var-label" style="visibility:hidden;">.</div><div class="var-sub" style="visibility:hidden;">.</div>
+    <div class="mac" style="background:linear-gradient(160deg, #080a0a 0%, #060d0b 50%, rgba(10,40,30,0.4) 100%);">
+      <div class="mac-bar" style="background:rgba(8,10,10,0.8);"><div class="mac-dot" style="background:#ff5f57;"></div><div class="mac-dot" style="background:#ffbd2e;"></div><div class="mac-dot" style="background:#28c840;"></div></div>
+      <div class="mac-body">
+        <div class="mac-side" style="background:rgba(255,255,255,0.01);"><div class="mac-side-brand">Intentional</div><div class="mac-nav active">◉ Today</div><div class="mac-nav">⊘ Distractions</div><div class="mac-nav">◎ Accountability</div><div class="mac-nav">⚙ Settings</div></div>
+        <div class="mac-content">
+          <div style="font-size:15px;font-weight:700;margin-bottom:10px;">Schedule</div>
+          <div style="display:flex;gap:5px;margin-bottom:10px;"><button class="grad-btn" style="width:auto;padding:4px 14px;border-radius:100px;font-size:10px;">+ Focus</button><button style="padding:4px 12px;border-radius:100px;font-size:10px;font-weight:600;border:1px solid rgba(255,255,255,0.06);background:none;color:rgba(255,255,255,0.4);cursor:pointer;">+ Free Time</button></div>
+          <div class="tb" style="background:rgba(232,116,97,0.08);border-left:2px solid #E87461;"><span class="grad-text">Focus</span><span style="color:rgba(255,255,255,0.35);"> · 8:00–10:00</span></div>
+          <div class="tb" style="background:rgba(255,255,255,0.02);border-left:2px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.35);">Free Time · 10:00–10:30</div>
+          <div class="tb" style="background:rgba(129,140,248,0.08);border-left:2px solid #818cf8;color:#818cf8;">☽ Bedtime · 11 PM</div>
+          <div class="g" style="margin-top:8px;border-color:rgba(232,116,97,0.15);"><div class="gp" style="display:flex;align-items:center;gap:8px;"><div style="width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#E87461,#F5A623);"></div><div><div class="grad-text" style="font-size:11px;font-weight:600;">Focus Active</div><div style="font-size:9px;color:rgba(255,255,255,0.35);">45 min</div></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ C: AURORA GLOW — emerald + coral ambient glow spots ════════ -->
+<div class="variant" id="v-c">
+  <div>
+    <div class="var-label">C · Aurora Glow</div>
+    <div class="var-sub">Two ambient glow spots — emerald top-left, coral bottom-right. Northern lights energy.</div>
+    <div class="phone" style="background:#070808; overflow:hidden;">
+      <div style="position:absolute;top:-30%;left:-20%;width:200px;height:200px;background:radial-gradient(circle,rgba(52,211,153,0.12) 0%,transparent 70%);z-index:0;"></div>
+      <div style="position:absolute;bottom:-20%;right:-20%;width:200px;height:200px;background:radial-gradient(circle,rgba(232,116,97,0.1) 0%,transparent 70%);z-index:0;"></div>
+      <div class="phone-notch" style="z-index:2;"></div>
+      <div class="phone-screen" style="z-index:1;">
+        <div style="text-align:center;padding:16px 0 12px;">
+          <div class="puck-circle grad-bg">PUCK</div>
+          <div style="font-size:16px;font-weight:700;">Ready to Focus</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:3px;">Tap your puck to start</div>
+        </div>
+        <div class="g gp" style="border-color:rgba(232,116,97,0.2);backdrop-filter:blur(20px);background:rgba(255,255,255,0.035);">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><div style="width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#E87461,#F5A623);"></div><span class="grad-text" style="font-size:11px;font-weight:600;">Blocking Active · 45m</span></div>
+          <div style="font-size:16px;font-weight:700;">Deep Work</div>
+        </div>
+        <div class="g gp" style="display:flex;justify-content:space-around;text-align:center;backdrop-filter:blur(20px);background:rgba(255,255,255,0.035);">
+          <div><div class="grad-text" style="font-size:18px;font-weight:700;">2h</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Focused</div></div>
+          <div><div style="font-size:18px;font-weight:700;">3</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Sessions</div></div>
+          <div><div style="font-size:18px;font-weight:700;color:#34d399;">87%</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">On-task</div></div>
+        </div>
+        <button class="grad-btn" style="margin-top:8px;">Start Session</button>
+      </div>
+      <div class="phone-tabs" style="background:rgba(7,8,8,0.85);backdrop-filter:blur(20px);z-index:2;"><div class="phone-tab active">⌂ Home</div><div class="phone-tab">☰</div><div class="phone-tab">⏰</div><div class="phone-tab">♡</div><div class="phone-tab">⚙</div></div>
+    </div>
+  </div>
+  <div>
+    <div class="var-label" style="visibility:hidden;">.</div><div class="var-sub" style="visibility:hidden;">.</div>
+    <div class="mac" style="background:#070808; position:relative; overflow:hidden;">
+      <div style="position:absolute;top:-10%;left:60%;width:300px;height:300px;background:radial-gradient(circle,rgba(52,211,153,0.08) 0%,transparent 70%);z-index:0;"></div>
+      <div style="position:absolute;bottom:-10%;left:10%;width:250px;height:250px;background:radial-gradient(circle,rgba(232,116,97,0.06) 0%,transparent 70%);z-index:0;"></div>
+      <div class="mac-bar" style="background:rgba(7,8,8,0.8);position:relative;z-index:1;"><div class="mac-dot" style="background:#ff5f57;"></div><div class="mac-dot" style="background:#ffbd2e;"></div><div class="mac-dot" style="background:#28c840;"></div></div>
+      <div class="mac-body" style="position:relative;z-index:1;">
+        <div class="mac-side" style="background:rgba(255,255,255,0.01);"><div class="mac-side-brand">Intentional</div><div class="mac-nav active">◉ Today</div><div class="mac-nav">⊘ Distractions</div><div class="mac-nav">◎ Accountability</div><div class="mac-nav">⚙ Settings</div></div>
+        <div class="mac-content">
+          <div style="font-size:15px;font-weight:700;margin-bottom:10px;">Schedule</div>
+          <div style="display:flex;gap:5px;margin-bottom:10px;"><button class="grad-btn" style="width:auto;padding:4px 14px;border-radius:100px;font-size:10px;">+ Focus</button><button style="padding:4px 12px;border-radius:100px;font-size:10px;font-weight:600;border:1px solid rgba(255,255,255,0.06);background:none;color:rgba(255,255,255,0.4);cursor:pointer;">+ Free Time</button></div>
+          <div class="tb" style="background:rgba(232,116,97,0.08);border-left:2px solid #E87461;"><span class="grad-text">Focus</span><span style="color:rgba(255,255,255,0.35);"> · 8:00–10:00</span></div>
+          <div class="tb" style="background:rgba(255,255,255,0.02);border-left:2px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.35);">Free Time · 10:00–10:30</div>
+          <div class="tb" style="background:rgba(129,140,248,0.08);border-left:2px solid #818cf8;color:#818cf8;">☽ Bedtime · 11 PM</div>
+          <div class="g" style="margin-top:8px;border-color:rgba(232,116,97,0.15);backdrop-filter:blur(20px);"><div class="gp" style="display:flex;align-items:center;gap:8px;"><div style="width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#E87461,#F5A623);"></div><div><div class="grad-text" style="font-size:11px;font-weight:600;">Focus Active</div><div style="font-size:9px;color:rgba(255,255,255,0.35);">45 min</div></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ D: WARM VOID — dark with very subtle warm tint ════════ -->
+<div class="variant" id="v-d">
+  <div>
+    <div class="var-label">D · Warm Void</div>
+    <div class="var-sub">The black has a warm brown-green undertone. Not cold. Feels like rich dark wood.</div>
+    <div class="phone" style="background:linear-gradient(180deg, #0c0a08 0%, #0a0b08 50%, #080a07 100%);">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div style="text-align:center;padding:16px 0 12px;">
+          <div class="puck-circle grad-bg">PUCK</div>
+          <div style="font-size:16px;font-weight:700;">Ready to Focus</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:3px;">Tap your puck to start</div>
+        </div>
+        <div class="g gp" style="border-color:rgba(232,116,97,0.2);background:rgba(255,255,255,0.03);">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><div style="width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#E87461,#F5A623);"></div><span class="grad-text" style="font-size:11px;font-weight:600;">Blocking Active · 45m</span></div>
+          <div style="font-size:16px;font-weight:700;">Deep Work</div>
+        </div>
+        <div class="g gp" style="display:flex;justify-content:space-around;text-align:center;">
+          <div><div class="grad-text" style="font-size:18px;font-weight:700;">2h</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Focused</div></div>
+          <div><div style="font-size:18px;font-weight:700;">3</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Sessions</div></div>
+          <div><div style="font-size:18px;font-weight:700;color:#34d399;">87%</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">On-task</div></div>
+        </div>
+        <button class="grad-btn" style="margin-top:8px;">Start Session</button>
+      </div>
+      <div class="phone-tabs" style="background:rgba(12,10,8,0.9);"><div class="phone-tab active">⌂ Home</div><div class="phone-tab">☰</div><div class="phone-tab">⏰</div><div class="phone-tab">♡</div><div class="phone-tab">⚙</div></div>
+    </div>
+  </div>
+  <div>
+    <div class="var-label" style="visibility:hidden;">.</div><div class="var-sub" style="visibility:hidden;">.</div>
+    <div class="mac" style="background:linear-gradient(160deg, #0c0a08 0%, #0a0b08 50%, #080a07 100%);">
+      <div class="mac-bar" style="background:rgba(12,10,8,0.8);"><div class="mac-dot" style="background:#ff5f57;"></div><div class="mac-dot" style="background:#ffbd2e;"></div><div class="mac-dot" style="background:#28c840;"></div></div>
+      <div class="mac-body">
+        <div class="mac-side" style="background:rgba(255,255,255,0.01);"><div class="mac-side-brand">Intentional</div><div class="mac-nav active">◉ Today</div><div class="mac-nav">⊘ Distractions</div><div class="mac-nav">◎ Accountability</div><div class="mac-nav">⚙ Settings</div></div>
+        <div class="mac-content">
+          <div style="font-size:15px;font-weight:700;margin-bottom:10px;">Schedule</div>
+          <div style="display:flex;gap:5px;margin-bottom:10px;"><button class="grad-btn" style="width:auto;padding:4px 14px;border-radius:100px;font-size:10px;">+ Focus</button><button style="padding:4px 12px;border-radius:100px;font-size:10px;font-weight:600;border:1px solid rgba(255,255,255,0.06);background:none;color:rgba(255,255,255,0.4);cursor:pointer;">+ Free Time</button></div>
+          <div class="tb" style="background:rgba(232,116,97,0.08);border-left:2px solid #E87461;"><span class="grad-text">Focus</span><span style="color:rgba(255,255,255,0.35);"> · 8:00–10:00</span></div>
+          <div class="tb" style="background:rgba(255,255,255,0.02);border-left:2px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.35);">Free Time · 10:00–10:30</div>
+          <div class="tb" style="background:rgba(129,140,248,0.08);border-left:2px solid #818cf8;color:#818cf8;">☽ Bedtime · 11 PM</div>
+          <div class="g" style="margin-top:8px;border-color:rgba(232,116,97,0.15);"><div class="gp" style="display:flex;align-items:center;gap:8px;"><div style="width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#E87461,#F5A623);"></div><div><div class="grad-text" style="font-size:11px;font-weight:600;">Focus Active</div><div style="font-size:9px;color:rgba(255,255,255,0.35);">45 min</div></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ E: TEAL DEPTH — rich teal-emerald with coral pop ════════ -->
+<div class="variant" id="v-e">
+  <div>
+    <div class="var-label">E · Teal Depth</div>
+    <div class="var-sub">Richer emerald-teal throughout. The coral gradient POPS against the green. Maximum contrast.</div>
+    <div class="phone" style="background:linear-gradient(180deg, #061210 0%, #071411 50%, #0a1814 100%);">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div style="text-align:center;padding:16px 0 12px;">
+          <div class="puck-circle grad-bg">PUCK</div>
+          <div style="font-size:16px;font-weight:700;">Ready to Focus</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:3px;">Tap your puck to start</div>
+        </div>
+        <div class="g gp" style="border-color:rgba(232,116,97,0.25);background:rgba(255,255,255,0.04);">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><div style="width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#E87461,#F5A623);"></div><span class="grad-text" style="font-size:11px;font-weight:600;">Blocking Active · 45m</span></div>
+          <div style="font-size:16px;font-weight:700;">Deep Work</div>
+        </div>
+        <div class="g gp" style="display:flex;justify-content:space-around;text-align:center;background:rgba(255,255,255,0.04);">
+          <div><div class="grad-text" style="font-size:18px;font-weight:700;">2h</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Focused</div></div>
+          <div><div style="font-size:18px;font-weight:700;">3</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Sessions</div></div>
+          <div><div style="font-size:18px;font-weight:700;color:#5ee8b7;">87%</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">On-task</div></div>
+        </div>
+        <button class="grad-btn" style="margin-top:8px;">Start Session</button>
+      </div>
+      <div class="phone-tabs" style="background:rgba(6,18,16,0.9);"><div class="phone-tab active">⌂ Home</div><div class="phone-tab">☰</div><div class="phone-tab">⏰</div><div class="phone-tab">♡</div><div class="phone-tab">⚙</div></div>
+    </div>
+  </div>
+  <div>
+    <div class="var-label" style="visibility:hidden;">.</div><div class="var-sub" style="visibility:hidden;">.</div>
+    <div class="mac" style="background:linear-gradient(160deg, #061210 0%, #071411 60%, #0a1814 100%);">
+      <div class="mac-bar" style="background:rgba(6,18,16,0.8);"><div class="mac-dot" style="background:#ff5f57;"></div><div class="mac-dot" style="background:#ffbd2e;"></div><div class="mac-dot" style="background:#28c840;"></div></div>
+      <div class="mac-body">
+        <div class="mac-side" style="background:rgba(255,255,255,0.015);"><div class="mac-side-brand">Intentional</div><div class="mac-nav active">◉ Today</div><div class="mac-nav">⊘ Distractions</div><div class="mac-nav">◎ Accountability</div><div class="mac-nav">⚙ Settings</div></div>
+        <div class="mac-content">
+          <div style="font-size:15px;font-weight:700;margin-bottom:10px;">Schedule</div>
+          <div style="display:flex;gap:5px;margin-bottom:10px;"><button class="grad-btn" style="width:auto;padding:4px 14px;border-radius:100px;font-size:10px;">+ Focus</button><button style="padding:4px 12px;border-radius:100px;font-size:10px;font-weight:600;border:1px solid rgba(255,255,255,0.08);background:none;color:rgba(255,255,255,0.4);cursor:pointer;">+ Free Time</button></div>
+          <div class="tb" style="background:rgba(232,116,97,0.1);border-left:2px solid #E87461;"><span class="grad-text">Focus</span><span style="color:rgba(255,255,255,0.35);"> · 8:00–10:00</span></div>
+          <div class="tb" style="background:rgba(255,255,255,0.02);border-left:2px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.35);">Free Time · 10:00–10:30</div>
+          <div class="tb" style="background:rgba(129,140,248,0.08);border-left:2px solid #818cf8;color:#818cf8;">☽ Bedtime · 11 PM</div>
+          <div class="g" style="margin-top:8px;border-color:rgba(232,116,97,0.2);"><div class="gp" style="display:flex;align-items:center;gap:8px;"><div style="width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#E87461,#F5A623);"></div><div><div class="grad-text" style="font-size:11px;font-weight:600;">Focus Active</div><div style="font-size:9px;color:rgba(255,255,255,0.35);">45 min</div></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ F: EMBER + FOREST — warm coral glow top, emerald glow bottom ════════ -->
+<div class="variant" id="v-f">
+  <div>
+    <div class="var-label">F · Ember + Forest</div>
+    <div class="var-sub">Coral warmth glows from top, emerald forest from bottom. Both brand colors in the background. Alive.</div>
+    <div class="phone" style="background:#080808; overflow:hidden;">
+      <div style="position:absolute;top:-15%;left:30%;width:200px;height:200px;background:radial-gradient(circle,rgba(232,116,97,0.1) 0%,transparent 70%);z-index:0;"></div>
+      <div style="position:absolute;bottom:5%;left:10%;width:250px;height:250px;background:radial-gradient(circle,rgba(52,211,153,0.08) 0%,transparent 70%);z-index:0;"></div>
+      <div class="phone-notch" style="z-index:2;"></div>
+      <div class="phone-screen" style="z-index:1;">
+        <div style="text-align:center;padding:16px 0 12px;">
+          <div class="puck-circle grad-bg">PUCK</div>
+          <div style="font-size:16px;font-weight:700;">Ready to Focus</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:3px;">Tap your puck to start</div>
+        </div>
+        <div class="g gp" style="border-color:rgba(232,116,97,0.2);backdrop-filter:blur(30px);background:rgba(255,255,255,0.035);">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><div style="width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#E87461,#F5A623);"></div><span class="grad-text" style="font-size:11px;font-weight:600;">Blocking Active · 45m</span></div>
+          <div style="font-size:16px;font-weight:700;">Deep Work</div>
+        </div>
+        <div class="g gp" style="display:flex;justify-content:space-around;text-align:center;backdrop-filter:blur(30px);background:rgba(255,255,255,0.035);">
+          <div><div class="grad-text" style="font-size:18px;font-weight:700;">2h</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Focused</div></div>
+          <div><div style="font-size:18px;font-weight:700;">3</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">Sessions</div></div>
+          <div><div style="font-size:18px;font-weight:700;color:#34d399;">87%</div><div style="font-size:9px;color:rgba(255,255,255,0.3);">On-task</div></div>
+        </div>
+        <button class="grad-btn" style="margin-top:8px;">Start Session</button>
+      </div>
+      <div class="phone-tabs" style="background:rgba(8,8,8,0.85);backdrop-filter:blur(20px);z-index:2;"><div class="phone-tab active">⌂ Home</div><div class="phone-tab">☰</div><div class="phone-tab">⏰</div><div class="phone-tab">♡</div><div class="phone-tab">⚙</div></div>
+    </div>
+  </div>
+  <div>
+    <div class="var-label" style="visibility:hidden;">.</div><div class="var-sub" style="visibility:hidden;">.</div>
+    <div class="mac" style="background:#080808; position:relative; overflow:hidden;">
+      <div style="position:absolute;top:-5%;right:10%;width:300px;height:200px;background:radial-gradient(circle,rgba(232,116,97,0.06) 0%,transparent 70%);z-index:0;"></div>
+      <div style="position:absolute;bottom:-10%;left:20%;width:350px;height:250px;background:radial-gradient(circle,rgba(52,211,153,0.06) 0%,transparent 70%);z-index:0;"></div>
+      <div class="mac-bar" style="background:rgba(8,8,8,0.8);position:relative;z-index:1;"><div class="mac-dot" style="background:#ff5f57;"></div><div class="mac-dot" style="background:#ffbd2e;"></div><div class="mac-dot" style="background:#28c840;"></div></div>
+      <div class="mac-body" style="position:relative;z-index:1;">
+        <div class="mac-side" style="background:rgba(255,255,255,0.01);"><div class="mac-side-brand">Intentional</div><div class="mac-nav active">◉ Today</div><div class="mac-nav">⊘ Distractions</div><div class="mac-nav">◎ Accountability</div><div class="mac-nav">⚙ Settings</div></div>
+        <div class="mac-content">
+          <div style="font-size:15px;font-weight:700;margin-bottom:10px;">Schedule</div>
+          <div style="display:flex;gap:5px;margin-bottom:10px;"><button class="grad-btn" style="width:auto;padding:4px 14px;border-radius:100px;font-size:10px;">+ Focus</button><button style="padding:4px 12px;border-radius:100px;font-size:10px;font-weight:600;border:1px solid rgba(255,255,255,0.06);background:none;color:rgba(255,255,255,0.4);cursor:pointer;">+ Free Time</button></div>
+          <div class="tb" style="background:rgba(232,116,97,0.08);border-left:2px solid #E87461;"><span class="grad-text">Focus</span><span style="color:rgba(255,255,255,0.35);"> · 8:00–10:00</span></div>
+          <div class="tb" style="background:rgba(255,255,255,0.02);border-left:2px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.35);">Free Time · 10:00–10:30</div>
+          <div class="tb" style="background:rgba(129,140,248,0.08);border-left:2px solid #818cf8;color:#818cf8;">☽ Bedtime · 11 PM</div>
+          <div class="g" style="margin-top:8px;border-color:rgba(232,116,97,0.15);backdrop-filter:blur(30px);"><div class="gp" style="display:flex;align-items:center;gap:8px;"><div style="width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#E87461,#F5A623);"></div><div><div class="grad-text" style="font-size:11px;font-weight:600;">Focus Active</div><div style="font-size:9px;color:rgba(255,255,255,0.35);">45 min</div></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.variant').forEach(v => v.classList.remove('active'));
+  document.getElementById('v-' + id).classList.add('active');
+  document.querySelectorAll('.sw-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

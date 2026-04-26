@@ -8,11 +8,11 @@ Tracked issues with the macOS app's dashboard and Swift backend. Ordered by seve
 
 **Status:** FIXED
 
-**Problem:** The accountability system was purely decorative. When `lockMode = 'partner'` or `'self'`, the Accountability tab correctly showed "Settings Locked", but the YouTube/Instagram/Facebook settings pages remained fully editable.
+**Problem:** The accountability system was purely decorative. When `lockMode = 'partner'`, the Accountability tab correctly showed "Settings Locked", but the YouTube/Instagram/Facebook settings pages remained fully editable.
 
 **Fix applied:**
 1. **Dashboard CSS:** `.setting-row.locked` dims and disables interaction, `.locked-banner` shows red-tinted lock notice
-2. **Dashboard JS:** `enforceLockMode()` disables 9 protected inputs (platform enables, thresholds, blocking toggles) when lock state is `locked`, `unlock_code_entry`, or `self_countdown`. Shows lock banners with "Request unlock" link on all platform pages.
+2. **Dashboard JS:** `enforceLockMode()` disables 9 protected inputs (platform enables, thresholds, blocking toggles) when lock state is `locked` or `unlock_code_entry`. Shows lock banners with "Request unlock" link on all platform pages.
 3. **Swift backend:** `handleSaveSettings()` validates locked fields before saving — rejects if any platform is disabled, threshold lowered, or blocking toggle turned off while locked (unless temporarily unlocked via valid code).
 
 ---

@@ -1,0 +1,94 @@
+<h2>The probe pillar — 8 ideas built around your failure mode</h2>
+<p class="subtitle">Not ambient display. Not full-screen blocking. Active probes: a question fires, you answer from memory, the gap is the insight. Forces executive re-engagement, produces calibration data you'll actually care about seeing. Tap the ones that resonate — multi-select.</p>
+
+<div class="options" data-multiselect>
+
+  <div class="option" data-choice="time-check" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content">
+      <h3>Time Check <span style="opacity:0.5;font-weight:400;">— your idea, sharpened</span></h3>
+      <p><strong>Trigger:</strong> 2–4× / day, pseudo-random (never during a Zoom, never in the first 10 min of a block).<br>
+      <strong>Prompt:</strong> "Guess the time." Single number input, 5 seconds.<br>
+      <strong>Reveal:</strong> Actual time · your error this time · your rolling 30-day error. Nothing else.<br>
+      <strong>Why it works:</strong> The probe snaps hyperfocus without scolding. After 2 weeks you literally see your internal-clock calibration curve compressing. Marx 2022 says time-estimation is the most trainable deficit in ADHD — this is the mechanism.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="promise-check" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content">
+      <h3>The Promise Check <span style="opacity:0.5;font-weight:400;">— the one I'd build first</span></h3>
+      <p><strong>Trigger:</strong> mid-afternoon (2pm-ish) and end-of-day.<br>
+      <strong>Prompt:</strong> "What did you promise yourself this morning?" Free-text or voice.<br>
+      <strong>Reveal:</strong> Your morning intention, verbatim. Did you keep it? Yes / partial / no. No streak, no scold.<br>
+      <strong>Why it works:</strong> You told me "breaking promises to myself" is the core pain. This is the ONLY metric in the whole app that actually measures that. The forgetting is the data. Over time you'll see the gap — which is the most painful and most useful number in the product.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="calendar-recall" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content">
+      <h3>Calendar Recall <span style="opacity:0.5;font-weight:400;">— your idea #2</span></h3>
+      <p><strong>Trigger:</strong> morning (before laptop opens, on iPhone).<br>
+      <strong>Prompt:</strong> "What's on your calendar today?" Speak or type, 15 seconds.<br>
+      <strong>Reveal:</strong> What you missed — shown as a diff against the actual calendar.<br>
+      <strong>Why it works:</strong> ADHD prospective memory is event-based-good, time-based-bad. Forcing morning recall pre-loads the day into your head. The miss-count is an honest metric of how much the calendar is actually in your head vs. on a screen you don't check.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="task-recall" onclick="toggleSelect(this)">
+    <div class="letter">4</div>
+    <div class="content">
+      <h3>Priority Recall</h3>
+      <p><strong>Trigger:</strong> random, once per workday, never before 10am.<br>
+      <strong>Prompt:</strong> "What are your 3 priorities today?" — no hints.<br>
+      <strong>Reveal:</strong> What you actually wrote this morning.<br>
+      <strong>Why it works:</strong> If you can't recall them, the morning ritual didn't land — that's useful diagnostic info for you and for tuning the ritual. If you can, it's a re-anchor against the drift your hyperfocus is creating.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="elapsed-check" onclick="toggleSelect(this)">
+    <div class="letter">5</div>
+    <div class="content">
+      <h3>Elapsed-Time Check</h3>
+      <p><strong>Trigger:</strong> when you close a long session (or switch focus for >5 min).<br>
+      <strong>Prompt:</strong> "How long do you think you just worked on that?"<br>
+      <strong>Reveal:</strong> Actual duration · your error · rolling calibration.<br>
+      <strong>Why it works:</strong> Duration estimation is separable from clock-time estimation. You sink in for 3 hours thinking it was 45 minutes. The probe names the gap at the moment it happened, while the memory is fresh.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="what-doing" onclick="toggleSelect(this)">
+    <div class="letter">6</div>
+    <div class="content">
+      <h3>"What are you doing?"</h3>
+      <p><strong>Trigger:</strong> random, once per deep-work block.<br>
+      <strong>Prompt:</strong> "Describe what you're doing right now in one sentence."<br>
+      <strong>Reveal:</strong> Your declared block intention, for comparison. Never flagged as "wrong" — just shown side-by-side. System logs a similarity score silently.<br>
+      <strong>Why it works:</strong> Your drift isn't Twitter — it's into adjacent work that eats the day. This makes the drift visible without blocking it. The similarity-trend over weeks is a measurement of intention-to-reality alignment that no focus app currently gives anyone.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="next-action" onclick="toggleSelect(this)">
+    <div class="letter">7</div>
+    <div class="content">
+      <h3>Next-Action Probe <span style="opacity:0.5;font-weight:400;">— Leroy, reframed</span></h3>
+      <p><strong>Trigger:</strong> session end, meeting-imminent, Puck pause-tap.<br>
+      <strong>Prompt:</strong> "What's the next action when you sit back down?" One line, 10 seconds.<br>
+      <strong>Reveal:</strong> Pinned as a sticky on the first screen of the next session on this task.<br>
+      <strong>Why it works:</strong> Leroy 2018 RCT-grade evidence. The probe framing (not a form) removes friction. Handles your "forget what I had to do later" directly — you never have to remember, because the last version of you wrote it down at the exact moment the memory was loaded.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="week-quiz" onclick="toggleSelect(this)">
+    <div class="letter">8</div>
+    <div class="content">
+      <h3>Monday Week-Quiz <span style="opacity:0.5;font-weight:400;">— your idea #1</span></h3>
+      <p><strong>Trigger:</strong> Monday morning, once a week.<br>
+      <strong>Prompt:</strong> "What's on your calendar this week that matters most?" Then: "What's the one thing that, if you don't do it, the week is wasted?"<br>
+      <strong>Reveal:</strong> That answer becomes a sticky reference in the Promise Check for the rest of the week.<br>
+      <strong>Why it works:</strong> Barkley's cross-temporal self-regulation fails at the weekly scale worst. A 60-second Monday probe pre-loads the week. Dai et al. "fresh start effect" says Mondays have outsized leverage for commitment.</p>
+    </div>
+  </div>
+
+</div>

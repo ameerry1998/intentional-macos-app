@@ -1,4 +1,6 @@
 import Foundation
+import AppKit
+import CryptoKit
 
 #if canImport(FoundationModels)
 import FoundationModels
@@ -9,12 +11,12 @@ import MLXLMCommon  // LanguageModel protocol
 import MLX          // GPU cache configuration
 
 /// Scores activity relevance against the current work block intention
-/// using Apple Foundation Models (on-device ~3B LLM, macOS 26+).
-/// Falls back to "always relevant" on older macOS versions.
+/// using MLX Qwen3-4B-Instruct (on-device LLM via Apple Silicon GPU).
+/// Falls back to Apple Foundation Models on macOS 26+ if Qwen is not selected.
 ///
-/// Supports two content types:
-/// - `.webpage`: Scores a browser tab's page title
-/// - `.application`: Scores a desktop application name (e.g., "Messages", "Xcode")
+/// Supports two content types with separate optimized prompts:
+/// - `.webpage`: Scores a browser tab's page title + URL
+/// - `.application`: Scores a desktop application with metadata enrichment
 class RelevanceScorer {
 
     weak var appDelegate: AppDelegate?
@@ -28,11 +30,49 @@ class RelevanceScorer {
         var relevant: Bool
         var confidence: Int  // 0-100
         var reason: String
+        var path: ScoringPath = .metadataRelevant
+        /// First ~300 chars of OCR-extracted on-screen text; non-nil only on ocrVerified* paths.
+        var ocrExcerpt: String? = nil
+        /// Timestamped journey of which pipeline stages ran for this verdict. Populated
+        /// by `ScoringTracer` inside scoreRelevance. Stripped/overwritten on cache hits
+        /// so the trace always reflects THIS decision, not the one that seeded the cache.
+        var trace: [TraceStep] = []
     }
 
-    // Cache: "intention|pageTitle" → Result
-    private var cache: [String: Result] = [:]
+    // MARK: - Cache
+
+    /// Unified cache entry: result + timestamp. Cache key already encodes the page title,
+    /// so a title change produces a new key and a natural cache miss — no extra titleHash needed.
+    private struct CacheEntry {
+        let result: Result
+        let stampedAt: Date
+    }
+
+    private var cache: [String: CacheEntry] = [:]
     private var currentIntention: String = ""
+
+    /// Hosts where the URL doesn't reliably identify the content — same URL serves
+    /// wildly different content as the user navigates. Approvals are time-limited
+    /// on these hosts to prevent permanent whitelisting of one on-task video/page
+    /// from laundering all future content on the same host.
+    private let containerAppDomains: Set<String> = [
+        "youtube.com",
+        "twitter.com",
+        "x.com",
+        "reddit.com",
+        "claude.ai",
+        "chat.openai.com",
+        "chatgpt.com",
+        "notion.so",
+        "docs.google.com",
+        "substack.com",
+        "news.ycombinator.com"
+    ]
+
+    /// Default TTL for metadata-relevant approvals on container apps (3 min).
+    private let containerAppApprovalTTL: TimeInterval = 180
+    /// TTL for OCR-verified-relevant verdicts on container apps (10 min — grounded in content).
+    private let ocrVerifiedRelevantTTL: TimeInterval = 600
 
     // MLX model state
     private var mlxContext: ModelContext?
@@ -40,11 +80,15 @@ class RelevanceScorer {
     private var mlxModelLoading = false
     private(set) var mlxModelLoaded = false
 
-    /// Expose MLX model context for reuse by other components (e.g., PlanningCoach)
+    /// Expose MLX model context for reuse by other components
     var modelContext: ModelContext? { mlxContext }
 
     // User-approved pages (survives cache clears within a block, cleared on block change)
     private var userApproved: Set<String> = []
+
+    /// True after any successful SCScreenshotManager capture this session.
+    /// Used to skip the `CGPreflightScreenCaptureAccess` gate once we know permission exists.
+    private var hasCapturedBefore: Bool = false
 
     // Stop words excluded from keyword overlap matching
     private static let stopWords: Set<String> = [
@@ -53,7 +97,43 @@ class RelevanceScorer {
         "find", "check", "need", "want", "will", "can", "all", "any", "more"
     ]
 
-    // System prompt — focused solely on task vs. activity matching (no profile)
+    // MARK: - Split System Prompts (Qwen3-optimized)
+
+    /// System prompt for desktop app classification — short, affirmative-first
+    private let appSystemPrompt = """
+    You classify whether a desktop application is relevant to the user's current work task.
+
+    Applications are relevant when their category directly belongs to the same professional workflow as the task. Video editing software is relevant to video production and filming tasks. IDEs and code editors are relevant to coding tasks. Design tools are relevant to design tasks. Audio editors are relevant to podcast and music tasks.
+
+    Applications are NOT relevant when their domain differs from the task, regardless of indirect connections.
+
+    TASK TITLE IS LITERAL — treat it as a specific project name, not a general concept. "Working on intentional" means a project called Intentional, not deliberate behavior.
+
+    <output-format>
+    Respond with exactly one JSON object, no markdown, no preface:
+    {"reason": "one sentence", "relevant": true/false, "confidence": 0-100}
+    </output-format>
+    """
+
+    /// System prompt for webpage classification — includes URL/path rules
+    private let webSystemPrompt = """
+    You classify whether a webpage is relevant to the user's current work task.
+
+    Webpages are relevant when: the title or URL shows task-specific content; documentation, tutorials, or forums directly address the task subject; tools and editors used for the task are open.
+
+    Webpages are NOT relevant when: the platform is entertainment or social media without task-specific content; the title is generic (e.g., "YouTube", "Reddit") without a task-relevant path; connecting the page to the task requires interpretation.
+
+    A URL path like /r/learnpython IS relevant to "Learning Python". "YouTube" alone is NOT relevant to "Studying chemistry" — but "Organic Chemistry Lecture - YouTube" IS relevant.
+
+    TASK TITLE IS LITERAL — treat it as a specific project name, not a general concept. "Working on intentional" means a project called Intentional, not deliberate behavior.
+
+    <output-format>
+    Respond with exactly one JSON object, no markdown, no preface:
+    {"reason": "one sentence", "relevant": true/false, "confidence": 0-100}
+    </output-format>
+    """
+
+    // Keep the combined prompt for Apple Foundation Models (uses @Generable, not JSON)
     private let systemPrompt = """
     Determine if the user's current activity (a webpage or desktop application) is \
     directly related to their current work task.
@@ -68,13 +148,17 @@ class RelevanceScorer {
     NOT relevant: entertainment, news, social media, videos, or content that requires \
     creative interpretation to connect to the task. If you have to construct a chain of \
     reasoning to justify relevance, it is NOT relevant.
-    CRITICAL: Judge the ACTUAL page content shown in the title, not the platform's POTENTIAL. \
-    A generic homepage like "YouTube", "Reddit", or "Twitter" is NOT relevant just because \
-    the platform COULD be used for the task. The title must show specific content related to \
-    the task. "YouTube" alone is NOT relevant to "Studying for chemistry exam" — but \
+    CRITICAL: Consider the platform's primary purpose when judging ambiguous titles. \
+    Platforms exist on a spectrum from creation to consumption: \
+    - Creation/productivity tools (document editors, spreadsheets, design tools, IDEs, \
+    project management) are built for work. A generic title like "Untitled document" on a \
+    document editor is likely someone starting work, not procrastinating. Default to relevant \
+    unless the title clearly indicates off-task content. \
+    - Entertainment/consumption platforms (video streaming, social media, forums, news) are \
+    built for browsing. A generic title like "YouTube" or "Reddit" is NOT relevant just \
+    because the platform COULD be used for the task. The title must show specific on-task \
+    content. "YouTube" alone is NOT relevant to "Studying for chemistry" — but \
     "Organic Chemistry Lecture - YouTube" IS relevant. \
-    Similarly, "Reddit" is NOT relevant to "Learning Python" — but \
-    "r/learnpython - How to use decorators" IS relevant.
     Use all available context (title, URL path, page description) to determine relevance. \
     A generic title like "Reddit" with URL path "/r/learnpython" IS relevant to "Learning Python". \
     A generic title like "Home - GitHub" with URL path "/myorg/myapp/pull/234" IS relevant to working on that project.
@@ -84,6 +168,208 @@ class RelevanceScorer {
     If the block is "reading news" then news sites are relevant. \
     If the block is "doing taxes" then tax preparation sites and tax-related pages are relevant.
     """
+
+    // MARK: - App Metadata Enrichment
+
+    /// Curated descriptions for common apps where the name alone is ambiguous.
+    /// Keyed by bundle identifier → human-readable description.
+    private static let appDescriptions: [String: String] = [
+        // Video/Audio Production
+        "com.adobe.PremierePro": "professional video editing software",
+        "com.adobe.PremierePro.24": "professional video editing software",
+        "com.adobe.AfterEffects": "motion graphics and visual effects software",
+        "com.apple.FinalCut": "professional video editing software",
+        "com.apple.iMovieApp": "video editing software",
+        "com.blackmagic-design.DaVinciResolve": "professional video editing and color grading software",
+        "com.blackmagic-design.DaVinciResolve.ProjectManager": "video editing project manager",
+        "com.apple.garageband": "music creation and audio recording software",
+        "com.apple.Logic10": "professional music production and audio editing software",
+        "com.audacityteam.audacity": "audio editing and recording software",
+        "com.rogueamoeba.SoundSource": "audio routing and processing utility",
+        "com.macpaw.CleanMyMac-setapp": "system maintenance utility",
+        "com.telestream.screenflow10": "screen recording and video editing software",
+        "com.techsmith.camtasia2": "screen recording and video editing software",
+        "com.loom.desktop": "screen recording and video messaging tool",
+        "com.obsproject.obs-studio": "live streaming and screen recording software",
+
+        // Design/Creative
+        "com.figma.Desktop": "collaborative interface design tool",
+        "com.bohemiancoding.sketch3": "vector graphics and UI design tool",
+        "com.adobe.Photoshop": "image editing and graphic design software",
+        "com.adobe.Illustrator": "vector graphics design software",
+        "com.adobe.Lightroom": "photo editing and management software",
+        "com.adobe.LightroomClassicCC7": "photo editing and management software",
+        "com.adobe.InDesign": "page layout and publishing software",
+        "com.canva.CanvaDesktop": "graphic design platform",
+        "com.pixelmatorteam.pixelmator.x": "image editing software",
+        "com.cocoatech.Frenzic": "design utility",
+        "com.arturia.Analog-Lab": "virtual instrument and sound design",
+
+        // Development
+        "com.apple.dt.Xcode": "Apple platform IDE and development environment",
+        "com.microsoft.VSCode": "code editor for software development",
+        "com.sublimetext.4": "code and text editor for development",
+        "com.todesktop.230313mzl4w4u92": "AI-powered code editor (Cursor)",
+        "com.panic.Nova": "native macOS code editor",
+        "com.jetbrains.intellij": "Java and Kotlin IDE",
+        "com.jetbrains.intellij.ce": "Java and Kotlin IDE",
+        "com.jetbrains.pycharm": "Python IDE",
+        "com.jetbrains.pycharm.ce": "Python IDE",
+        "com.jetbrains.WebStorm": "JavaScript and TypeScript IDE",
+        "com.jetbrains.goland": "Go IDE",
+        "com.jetbrains.CLion": "C/C++ IDE",
+        "com.jetbrains.rider": ".NET IDE",
+        "com.jetbrains.rubymine": "Ruby IDE",
+        "com.jetbrains.fleet": "polyglot code editor",
+        "com.github.GitHubClient": "Git repository management",
+        "com.todesktop.iterm2": "terminal emulator for development",
+        "com.googlecode.iterm2": "terminal emulator for development",
+        "net.kovidgoyal.kitty": "terminal emulator for development",
+        "com.docker.docker": "container platform for development",
+        "com.postmanlabs.mac": "API development and testing tool",
+        "com.insomnia.app": "API development and testing tool",
+        "io.tableplus.TablePlus": "database management tool",
+        "com.sequel-pro.sequel-pro": "database management tool",
+        "com.tinyapp.TableTool": "CSV and data viewer",
+
+        // Writing/Notes
+        "notion.id": "workspace for notes, docs, and project management",
+        "md.obsidian": "knowledge base and note-taking app",
+        "net.shinyfrog.bear": "note-taking and writing app",
+        "com.ulyssesapp.mac": "writing and publishing app",
+        "com.literatureandlatte.scrivener3": "long-form writing and manuscript editor",
+        "pro.writer.mac": "distraction-free writing app",
+        "com.multimarkdown.composer.mac": "Markdown writing app",
+        "abnerworks.Typora": "Markdown editor",
+        "com.logseq.logseq": "knowledge graph and note-taking",
+
+        // Productivity/Office
+        "com.apple.iWork.Pages": "document editor and word processor",
+        "com.apple.iWork.Keynote": "presentation software",
+        "com.apple.iWork.Numbers": "spreadsheet application",
+        "com.microsoft.Word": "document editor and word processor",
+        "com.microsoft.Excel": "spreadsheet and data analysis application",
+        "com.microsoft.Powerpoint": "presentation software",
+        "com.microsoft.onenote.mac": "digital notebook and note-taking",
+        "com.airtable.mac": "spreadsheet-database hybrid for project tracking",
+
+        // Project Management
+        "com.linear": "project tracking and issue management",
+        "com.atlassian.jira.mac": "project tracking and issue management",
+        "com.asana.app": "project and task management",
+        "com.trello.desktop": "kanban-style project management",
+        "com.clickup.desktop-app": "project management platform",
+        "com.monday.desktop": "work management platform",
+        "com.todoist.mac.Todoist": "task management",
+        "com.culturedcode.ThingsMac": "personal task manager",
+        "com.omnigroup.OmniFocus4": "task and project management",
+
+        // Communication
+        "com.tinyspeck.slackmacgap": "team communication and messaging",
+        "us.zoom.xos": "video conferencing",
+        "com.microsoft.teams2": "team communication and video conferencing",
+        "com.microsoft.teams": "team communication and video conferencing",
+        "com.hnc.Discord": "community messaging platform",
+        "com.apple.MobileSMS": "text messaging",
+        "com.apple.mail": "email client",
+        "com.readdle.smartemail-macos": "email client (Spark)",
+
+        // Entertainment/Consumption (explicit so the model knows these are NOT work tools)
+        "com.spotify.client": "music streaming service",
+        "com.apple.Music": "music player and streaming",
+        "com.apple.TV": "video streaming service",
+        "com.netflix.Netflix": "video streaming service",
+        "tv.twitch.TwitchDesktop": "live streaming entertainment platform",
+        "com.apple.podcasts": "podcast listening app",
+    ]
+
+    /// Map macOS LSApplicationCategoryType to human-readable labels
+    private static let lsCategoryLabels: [String: String] = [
+        "public.app-category.business": "business software",
+        "public.app-category.developer-tools": "developer tools",
+        "public.app-category.education": "education software",
+        "public.app-category.entertainment": "entertainment",
+        "public.app-category.finance": "finance software",
+        "public.app-category.games": "game",
+        "public.app-category.action-games": "game",
+        "public.app-category.adventure-games": "game",
+        "public.app-category.arcade-games": "game",
+        "public.app-category.board-games": "game",
+        "public.app-category.card-games": "game",
+        "public.app-category.casino-games": "game",
+        "public.app-category.dice-games": "game",
+        "public.app-category.educational-games": "educational game",
+        "public.app-category.family-games": "game",
+        "public.app-category.kids-games": "game",
+        "public.app-category.music-games": "game",
+        "public.app-category.puzzle-games": "game",
+        "public.app-category.racing-games": "game",
+        "public.app-category.role-playing-games": "game",
+        "public.app-category.simulation-games": "game",
+        "public.app-category.sports-games": "game",
+        "public.app-category.strategy-games": "game",
+        "public.app-category.trivia-games": "game",
+        "public.app-category.word-games": "game",
+        "public.app-category.graphics-design": "graphic design tool",
+        "public.app-category.healthcare-fitness": "health and fitness",
+        "public.app-category.lifestyle": "lifestyle app",
+        "public.app-category.medical": "medical software",
+        "public.app-category.music": "music creation tool",
+        "public.app-category.news": "news app",
+        "public.app-category.photography": "photography tool",
+        "public.app-category.productivity": "productivity tool",
+        "public.app-category.reference": "reference tool",
+        "public.app-category.social-networking": "social networking app",
+        "public.app-category.sports": "sports app",
+        "public.app-category.travel": "travel app",
+        "public.app-category.utilities": "system utility",
+        "public.app-category.video": "video creation tool",
+        "public.app-category.weather": "weather app",
+    ]
+
+    /// Enrich an app name with a description for the LLM.
+    /// Returns e.g. "Adobe Premiere Pro (professional video editing software)"
+    private func enrichAppName(_ localizedName: String, bundleIdentifier: String) -> String {
+        // 1. Check curated dictionary first
+        if let desc = Self.appDescriptions[bundleIdentifier] {
+            return "\(localizedName) (\(desc))"
+        }
+
+        // 2. Try to read LSApplicationCategoryType from the app's Info.plist
+        if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier),
+           let bundle = Bundle(url: appURL) {
+            let infoDict = bundle.infoDictionary ?? [:]
+            if let category = infoDict["LSApplicationCategoryType"] as? String,
+               let label = Self.lsCategoryLabels[category] {
+                return "\(localizedName) (\(label))"
+            }
+        }
+
+        // 3. No enrichment available — return name as-is
+        return localizedName
+    }
+
+    // MARK: - Few-Shot Examples
+
+    /// Few-shot examples for app classification — 3 examples with a bridging case last
+    private func appFewShotExamples() -> String {
+        return """
+        Examples:
+        Task: "editing a podcast" | App: "Logic Pro (professional music production and audio editing software)" → {"reason": "Logic Pro is an audio editor directly used for podcast production", "relevant": true, "confidence": 95}
+        Task: "editing a podcast" | App: "Spotify (music streaming service)" → {"reason": "Spotify is for listening to music, not editing audio", "relevant": false, "confidence": 92}
+        Task: "filming a video" | App: "Adobe Premiere Pro (professional video editing software)" → {"reason": "Premiere Pro is a video editor; post-production is part of the video creation workflow", "relevant": true, "confidence": 90}
+        """
+    }
+
+    /// Few-shot examples for webpage classification
+    private func webFewShotExamples() -> String {
+        return """
+        Examples:
+        Task: "learning Python" | Page: "Python List Comprehensions - Real Python" URL: /tutorials/list-comprehensions → {"reason": "Tutorial directly about Python programming concepts", "relevant": true, "confidence": 95}
+        Task: "learning Python" | Page: "Reddit - Pair Programming" URL: /r/learnpython/comments/abc → {"reason": "Learn Python subreddit directly addresses the learning task", "relevant": true, "confidence": 85}
+        Task: "writing a report" | Page: "YouTube" URL: /feed → {"reason": "YouTube feed is entertainment browsing, not report writing", "relevant": false, "confidence": 90}
+        """
+    }
 
     #if canImport(FoundationModels)
     @available(macOS 26.0, *)
@@ -111,6 +397,35 @@ class RelevanceScorer {
     }
     #endif
 
+    // MARK: - Learned Override Store
+
+    private let learnedOverrideStore = LearnedOverrideStore()
+
+    /// Load the learned-override store from UserDefaults (or scan the JSONL if first launch).
+    /// Call once from AppDelegate after RelevanceScorer is initialized.
+    func loadLearnedOverrides() {
+        let logPath = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("Intentional/relevance_log.jsonl")
+        Task { [weak self] in
+            guard let self else { return }
+            await self.learnedOverrideStore.loadFromUserDefaults(logPath: logPath)
+            let promoted = await self.learnedOverrideStore.promotedHostsSnapshot()
+            self.appDelegate?.postLog("🧠 LearnedOverrideStore loaded — \(promoted.count) promoted host(s): \(promoted.sorted().joined(separator: ", "))")
+        }
+    }
+
+    /// Record a user correction for the given host.
+    /// Called by FocusMonitor when the user taps "This was wrong" on the blocking overlay.
+    func recordUserOverride(host: String, at date: Date = Date()) {
+        Task { [weak self] in
+            guard let self else { return }
+            await self.learnedOverrideStore.recordOverride(host: host, at: date)
+            let promoted = await self.learnedOverrideStore.isPromoted(host: host)
+            self.appDelegate?.postLog("🧠 LearnedOverride recorded for \"\(host)\" — promoted: \(promoted)")
+        }
+    }
+
     init(appDelegate: AppDelegate?) {
         self.appDelegate = appDelegate
         appDelegate?.postLog("🧠 RelevanceScorer initialized")
@@ -129,6 +444,9 @@ class RelevanceScorer {
         #endif
         // MLX: reset session so it doesn't carry context from previous block
         mlxSession = mlxContext.map { ChatSession($0) }
+        if let s = mlxSession {
+            s.generateParameters.temperature = 0.2
+        }
         appDelegate?.postLog("🧠 Relevance cache cleared")
     }
 
@@ -136,14 +454,93 @@ class RelevanceScorer {
     /// Persists until block changes (cleared by clearCache()).
     func approvePageTitle(_ pageTitle: String, for intention: String) {
         let cacheKey = "\(intention)|\(pageTitle)"
-        let result = Result(relevant: true, confidence: 100, reason: "User-approved")
-        cache[cacheKey] = result
+        let result = Result(relevant: true, confidence: 100, reason: "User-approved", path: .metadataRelevant)
+        cache[cacheKey] = CacheEntry(result: result, stampedAt: Date())
         userApproved.insert(cacheKey)
         appDelegate?.postLog("🧠 User approved: \"\(pageTitle)\" for \"\(intention)\"")
     }
 
+    // MARK: - shouldVerifyWithOCR
+
+    /// Confidence threshold above which metadata off-task verdicts are trusted without OCR.
+    /// When the title is specific enough for the LLM to render a strong verdict (e.g.
+    /// "Northeastern post bacc program — Claude" is clearly medical), running OCR adds
+    /// risk: on platforms like Claude.ai the OCR captures sidebar/history chrome that
+    /// may reference unrelated topics (past engineering conversations) and can flip a
+    /// correct off-task verdict into a wrong relevant one.
+    private let ocrEscalationMaxConfidence: Int = 70
+
+    /// Gate: should we run a second-chance OCR pass for this off-task verdict?
+    /// Returns true only when metadata said off-task with MODERATE confidence (below the
+    /// threshold) AND either:
+    ///   (a) the URL is a container app (dynamic content, same URL), OR
+    ///   (b) the host has been promoted via learned overrides (3+ user corrections in 30 days).
+    ///
+    /// High-confidence off-task verdicts are trusted directly; OCR is reserved for
+    /// ambiguous cases where the title alone isn't enough to decide.
+    private func shouldVerifyWithOCR(metadataResult: Result, url: String, bundleIdentifier: String) async -> Bool {
+        guard !metadataResult.relevant else { return false }
+        // Trust high-confidence off-task metadata verdicts — don't let OCR chrome override them.
+        if metadataResult.confidence >= ocrEscalationMaxConfidence { return false }
+        if isContainerAppURL(url) { return true }
+        let host = URLComponents(string: url)?.host ?? ""
+        return await learnedOverrideStore.isPromoted(host: host)
+    }
+
+    // MARK: - OCR Screen-Recording Permission Gate
+
+    /// Show a gentle NSAlert prompting the user to enable screen recording for OCR verification.
+    ///
+    /// Rules:
+    /// - Never called in DEBUG builds (CGPreflightScreenCaptureAccess() lies in Xcode builds).
+    /// - Capped at once per 24 hours via "lastOCRPromptDate" in UserDefaults.
+    /// - Fire-and-forget: called after capture returns nil; scoring already returns metadataOffTask.
+    /// - Must run on the main thread (NSAlert requirement).
+    private func promptForScreenRecordingIfNeeded() async {
+        #if DEBUG
+        // Preflight always returns false in Xcode builds — never prompt.
+        return
+        #else
+        // Skip if preflight says permission is already granted, or if we've captured before.
+        if hasCapturedBefore || CGPreflightScreenCaptureAccess() { return }
+
+        // Throttle: at most once per 24 hours (cheap early-exit, NOT authoritative — race guard below).
+        let defaults = UserDefaults.standard
+        if let lastDate = defaults.object(forKey: "lastOCRPromptDate") as? Date,
+           Date().timeIntervalSince(lastDate) < 86400 { return }
+
+        await MainActor.run {
+            // Authoritative re-check with main-thread exclusivity (race guard: two concurrent Tasks
+            // can both pass the outer throttle before either writes; re-reading here under the
+            // MainActor serializes the write and prevents a double-prompt).
+            if let lastDate = defaults.object(forKey: "lastOCRPromptDate") as? Date,
+               Date().timeIntervalSince(lastDate) < 86400 { return }
+            defaults.set(Date(), forKey: "lastOCRPromptDate")
+
+            let alert = NSAlert()
+            alert.messageText = "Enable Content Verification?"
+            alert.informativeText = "Intentional uses on-screen text to verify that what you're viewing matches your focus intention. This runs entirely on your Mac — nothing is uploaded."
+            alert.addButton(withTitle: "Enable in Settings")
+            alert.addButton(withTitle: "Not Now")
+            alert.alertStyle = .informational
+
+            let response = alert.runModal()
+            if response == .alertFirstButtonReturn {
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+        }
+        #endif
+    }
+
+    // MARK: - scoreRelevance
+
     /// Score a page title or app name against the current work intention.
     /// Returns cached result if available.
+    ///
+    /// For container-app URLs where metadata scores off-task, kicks off a second-chance
+    /// OCR verification pass before returning a blocking verdict.
     func scoreRelevance(
         pageTitle: String,
         intention: String,
@@ -152,11 +549,45 @@ class RelevanceScorer {
         dailyPlan: String,
         url: String = "",
         pageDescription: String = "",
-        contentType: ContentType = .webpage
+        contentType: ContentType = .webpage,
+        bundleIdentifier: String = ""
     ) async -> Result {
-        // Include URL path in cache key so same-title pages on different URLs get scored separately
-        let urlPath = URL(string: url)?.path ?? ""
-        let cacheKey = "\(intention)|\(pageTitle)|\(urlPath)"
+        let tracer = ScoringTracer()
+        // Helper that stamps the terminal "final" step, attaches the trace to the result,
+        // and emits a one-line trace summary to postLog. Every return path goes through this
+        // so the user sees the full step-by-step journey for every verdict.
+        let traceLabel = "\"\(pageTitle)\"" + (url.isEmpty ? "" : " " + (URL(string: url)?.host ?? ""))
+        func finalize(_ r: Result) -> Result {
+            tracer.record("final", "relevant=\(r.relevant) conf=\(r.confidence) path=\(r.path.rawValue)")
+            var out = r
+            out.trace = tracer.steps
+            appDelegate?.postLog(tracer.summary(label: traceLabel))
+            return out
+        }
+
+        // Include URL in cache key so same-title pages on different URLs get scored separately.
+        // Append a short hash of profile+dailyPlan so edits to either invalidate stale cache entries.
+        //
+        // Include the query string so different YouTube videos (/watch?v=X vs /watch?v=Y) don't
+        // collide on the shared `/watch` path.
+        let parsedURL = URL(string: url)
+        let urlPath = parsedURL?.path ?? ""
+        let urlPathWithQuery = urlPath + (parsedURL?.query.map { "?\($0)" } ?? "")
+        let urlHost = parsedURL?.host?.lowercased() ?? ""
+        let contextHash: String = {
+            let bytes = Array("\(profile)|\(dailyPlan)".utf8)
+            let digest = SHA256.hash(data: bytes)
+            return digest.prefix(4).map { String(format: "%02x", $0) }.joined()
+        }()
+        let isContainer = isContainerAppURL(url)
+        // For container apps (Claude, YouTube, Notion, docs.google.com) the tab title churns
+        // as the conversation/video/doc state changes, which made the title-keyed cache miss
+        // whenever the user tabbed away and back. Key off host+path+query only for these
+        // hosts — stable per-content-item, so a verdict sticks across tab switches.
+        // Non-container webpages still use the title (some static pages share a path).
+        let cacheKey: String = isContainer
+            ? "\(intention)|@\(urlHost)\(urlPathWithQuery)|\(contextHash)"
+            : "\(intention)|\(pageTitle)|\(urlPath)|\(contextHash)"
 
         // Keyword overlap: catch obvious matches without hitting the LLM
         let urlSegments = urlPathSegments(url)
@@ -164,21 +595,52 @@ class RelevanceScorer {
         let urlMatch = !url.isEmpty && hasKeywordOverlap(intention: intention, pageTitle: urlSegments)
         if titleMatch || urlMatch {
             let matchSource = titleMatch ? "title" : "URL path"
+            tracer.record("keyword", "hit(\(matchSource))")
             appDelegate?.postLog("🧠 [Keyword] Match in \(matchSource): \"\(pageTitle)\" url=\(url.isEmpty ? "(none)" : url)")
-            let result = Result(relevant: true, confidence: 95, reason: "Keyword match with task (\(matchSource))")
-            cache[cacheKey] = result
-            return result
+            var result = Result(relevant: true, confidence: 95, reason: "Keyword match with task (\(matchSource))")
+            result.path = .metadataRelevant
+            let finalR = finalize(result)
+            cache[cacheKey] = CacheEntry(result: finalR, stampedAt: Date())
+            return finalR
         }
+        tracer.record("keyword", "miss")
 
-        // User-approved whitelist (from justification) — keyed by title only (no URL)
+        // User-approved whitelist (from justification) — keyed by title only (no URL).
+        // Approved pages never trigger OCR; they return early here.
         let approvalKey = "\(intention)|\(pageTitle)"
         if userApproved.contains(approvalKey) {
-            return Result(relevant: true, confidence: 100, reason: "User-approved")
+            tracer.record("approval", "hit")
+            return finalize(Result(relevant: true, confidence: 100, reason: "User-approved", path: .metadataRelevant))
         }
 
         // Check cache
-        if let cached = cache[cacheKey] {
-            return cached
+        if let entry = cache[cacheKey] {
+            let ageSec = Int(Date().timeIntervalSince(entry.stampedAt))
+            if isContainer {
+                if entry.result.relevant {
+                    // Apply path-aware TTL
+                    let ttl: TimeInterval = entry.result.path == .ocrVerifiedRelevant
+                        ? ocrVerifiedRelevantTTL
+                        : containerAppApprovalTTL
+                    if Date().timeIntervalSince(entry.stampedAt) < ttl {
+                        tracer.record("cache", "hit(age=\(ageSec)s path=\(entry.result.path.rawValue))")
+                        return finalize(entry.result)
+                    }
+                    // TTL elapsed: drop stale entry and fall through to fresh scoring.
+                    cache.removeValue(forKey: cacheKey)
+                    tracer.record("cache", "expired(age=\(ageSec)s)")
+                    appDelegate?.postLog("🧠 [Cache] Container-app TTL expired for \"\(pageTitle)\" on \(urlHost.isEmpty ? "?" : urlHost) — re-scoring")
+                } else {
+                    // Off-task cached result for container app — always re-score (don't cache off-task)
+                    cache.removeValue(forKey: cacheKey)
+                    tracer.record("cache", "stale-offtask")
+                }
+            } else {
+                tracer.record("cache", "hit(age=\(ageSec)s path=\(entry.result.path.rawValue))")
+                return finalize(entry.result)
+            }
+        } else {
+            tracer.record("cache", "miss")
         }
 
         // Track intention changes — clear cache when block switches
@@ -187,15 +649,24 @@ class RelevanceScorer {
             currentIntention = intention
         }
 
+        // Grab frontmost PID at scoring entry for drift detection on the OCR path.
+        // Compared later to capture.pid so we discard OCR output if the user switched apps
+        // between scoring-start and capture-time. Only needed when the OCR path is possible.
+        let startPID: pid_t? = isContainer
+            ? await MainActor.run { NSWorkspace.shared.frontmostApplication?.processIdentifier }
+            : nil
+
         // Check which AI model to use
         let aiModel = appDelegate?.scheduleManager?.aiModel ?? "apple"
 
+        // --- Metadata scoring pass ---
+        var metadataResult: Result? = nil
+
         if aiModel == "qwen" {
-            // MLX path: load model if needed, then score
             await loadMLXModelIfNeeded()
             if mlxModelLoaded {
                 do {
-                    let result = try await scoreWithMLX(
+                    metadataResult = try await scoreWithMLX(
                         pageTitle: pageTitle,
                         intention: intention,
                         intentionDescription: intentionDescription,
@@ -203,21 +674,19 @@ class RelevanceScorer {
                         dailyPlan: dailyPlan,
                         url: url,
                         pageDescription: pageDescription,
-                        contentType: contentType
+                        contentType: contentType,
+                        bundleIdentifier: bundleIdentifier
                     )
-                    cache[cacheKey] = result
-                    return result
                 } catch {
                     appDelegate?.postLog("⚠️ RelevanceScorer: MLX scoring error: \(error)")
-                    // Fall through to Foundation Models if MLX fails
                 }
             }
         }
 
         #if canImport(FoundationModels)
-        if #available(macOS 26.0, *) {
+        if #available(macOS 26.0, *), metadataResult == nil {
             do {
-                let result = try await scoreWithFoundationModels(
+                metadataResult = try await scoreWithFoundationModels(
                     pageTitle: pageTitle,
                     intention: intention,
                     intentionDescription: intentionDescription,
@@ -225,31 +694,188 @@ class RelevanceScorer {
                     dailyPlan: dailyPlan,
                     url: url,
                     pageDescription: pageDescription,
-                    contentType: contentType
+                    contentType: contentType,
+                    bundleIdentifier: bundleIdentifier
                 )
-                cache[cacheKey] = result
-                return result
             } catch {
                 appDelegate?.postLog("⚠️ RelevanceScorer: Foundation Models error: \(error)")
             }
         }
         #endif
 
-        // Fallback: assume relevant (don't block if scoring unavailable)
-        let fallback = Result(relevant: true, confidence: 0, reason: "Scoring unavailable on this macOS version")
-        return fallback
+        // Fallback if all scoring paths failed
+        guard var rawResult = metadataResult else {
+            tracer.record("metadata", "unavailable")
+            return finalize(Result(relevant: true, confidence: 0, reason: "Scoring unavailable on this macOS version", path: .metadataRelevant))
+        }
+        tracer.record("metadata", "\(rawResult.relevant ? "relevant" : "off-task")/\(rawResult.confidence)")
+
+        // --- OCR verification pass (second-chance for off-task verdicts on container apps) ---
+        let gateAllowsOCR = await shouldVerifyWithOCR(metadataResult: rawResult, url: url, bundleIdentifier: bundleIdentifier)
+        if gateAllowsOCR {
+            tracer.record("ocr-gate", "yes")
+            // Serial capture only when OCR is actually needed. This avoids window-server
+            // contention with ContentSafetyMonitor's CGWindowListCreateImage poll.
+            let captureResult = (try? await ScreenCapture().captureFrontmostWindow()) ?? nil
+            if captureResult != nil {
+                await MainActor.run { self.hasCapturedBefore = true }
+            }
+
+            // PID drift guard (Flag 1): compare startPID (sampled at scoring entry) with
+            // capture.pid. If they differ the user switched apps mid-flight — discard capture.
+            if let capture = captureResult,
+               capture.pid == startPID {
+                tracer.record("ocr-capture", "ok")
+                let ocrEngine = OCREngine()
+                let ocrText = (try? await ocrEngine.extractText(from: capture.image)) ?? ""
+
+                if !ocrText.isEmpty {
+                    tracer.record("ocr-ocr", "\(ocrText.count)ch")
+                    appDelegate?.postLog("🧠 [OCR] Running verification pass for \"\(pageTitle)\" (\(ocrText.count) chars)")
+                    let verifiedResult = await rescoreWithOCR(
+                        pageTitle: pageTitle,
+                        intention: intention,
+                        intentionDescription: intentionDescription,
+                        profile: profile,
+                        dailyPlan: dailyPlan,
+                        url: url,
+                        pageDescription: pageDescription,
+                        contentType: contentType,
+                        bundleIdentifier: bundleIdentifier,
+                        ocrText: ocrText
+                    )
+                    tracer.record("ocr-rescore", "\(verifiedResult.relevant ? "relevant" : "off-task")/\(verifiedResult.confidence)")
+                    var finalResult = verifiedResult
+                    finalResult.path = verifiedResult.relevant ? .ocrVerifiedRelevant : .ocrVerifiedOffTask
+                    finalResult.ocrExcerpt = String(ocrText.prefix(300))
+                    appDelegate?.postLog("🧠 [OCR] Verdict: \"\(pageTitle)\" → \(finalResult.relevant ? "relevant" : "NOT relevant") (\(finalResult.confidence)%) path=\(finalResult.path.rawValue)")
+                    let finalized = finalize(finalResult)
+                    // Cache OCR-verified relevant results; don't cache off-task (re-score on next tick)
+                    if finalized.relevant {
+                        cache[cacheKey] = CacheEntry(result: finalized, stampedAt: Date())
+                    }
+                    return finalized
+                } else {
+                    tracer.record("ocr-ocr", "empty")
+                    appDelegate?.postLog("🧠 [OCR] Empty OCR text for \"\(pageTitle)\" — falling through to metadata verdict")
+                }
+            } else if captureResult == nil && !hasCapturedBefore {
+                // Capture returned nil — likely denied permission. Show gentle prompt (capped 1/24h, skipped in DEBUG).
+                tracer.record("ocr-capture", "nil(no-perm?)")
+                appDelegate?.postLog("🧠 [OCR] Capture returned nil for \"\(pageTitle)\" — prompting for screen recording if needed")
+                Task { [weak self] in await self?.promptForScreenRecordingIfNeeded() }
+            } else {
+                // PID drifted — user switched apps between capture and scoring.
+                tracer.record("ocr-capture", "drift")
+                appDelegate?.postLog("🧠 [OCR] PID drift for \"\(pageTitle)\" — using metadata verdict")
+            }
+
+            // Fall-through: OCR unavailable/drifted — return metadata off-task verdict without caching
+            rawResult.path = .metadataOffTask
+            return finalize(rawResult)
+        }
+        tracer.record("ocr-gate", "no")
+
+        // Metadata-only path: label correctly based on verdict
+        rawResult.path = rawResult.relevant ? .metadataRelevant : .metadataOffTask
+        let finalized = finalize(rawResult)
+        // Cache relevant results; for container apps use stampedAt for TTL tracking
+        if finalized.relevant {
+            cache[cacheKey] = CacheEntry(result: finalized, stampedAt: Date())
+        }
+        // Don't cache off-task metadata verdicts for container apps — re-score each tick
+        // For non-container-app off-task, cache normally (no TTL)
+        if !finalized.relevant && !isContainer {
+            cache[cacheKey] = CacheEntry(result: finalized, stampedAt: Date())
+        }
+        return finalized
+    }
+
+    // MARK: - OCR Rescore
+
+    /// Re-score relevance using both metadata AND on-screen OCR text.
+    ///
+    /// IMPORTANT — Flag 2 (clean prompt): this builds a FRESH prompt that includes the OCR excerpt
+    /// as additional context. It does NOT reference a prior verdict, does NOT say "re-evaluate,"
+    /// and does NOT anchor the model on a previous decision. The model sees exactly the same
+    /// metadata it would have seen in the regular pass, plus the on-screen text.
+    private func rescoreWithOCR(
+        pageTitle: String,
+        intention: String,
+        intentionDescription: String,
+        profile: String,
+        dailyPlan: String,
+        url: String,
+        pageDescription: String,
+        contentType: ContentType,
+        bundleIdentifier: String,
+        ocrText: String
+    ) async -> Result {
+        let aiModel = appDelegate?.scheduleManager?.aiModel ?? "apple"
+
+        if aiModel == "qwen" && mlxModelLoaded {
+            do {
+                return try await scoreWithMLX(
+                    pageTitle: pageTitle,
+                    intention: intention,
+                    intentionDescription: intentionDescription,
+                    profile: profile,
+                    dailyPlan: dailyPlan,
+                    url: url,
+                    pageDescription: pageDescription,
+                    contentType: contentType,
+                    bundleIdentifier: bundleIdentifier,
+                    ocrText: ocrText
+                )
+            } catch {
+                appDelegate?.postLog("⚠️ RelevanceScorer: OCR rescore MLX error: \(error)")
+            }
+        }
+
+        #if canImport(FoundationModels)
+        if #available(macOS 26.0, *) {
+            do {
+                return try await scoreWithFoundationModels(
+                    pageTitle: pageTitle,
+                    intention: intention,
+                    intentionDescription: intentionDescription,
+                    profile: profile,
+                    dailyPlan: dailyPlan,
+                    url: url,
+                    pageDescription: pageDescription,
+                    contentType: contentType,
+                    bundleIdentifier: bundleIdentifier,
+                    ocrText: ocrText
+                )
+            } catch {
+                appDelegate?.postLog("⚠️ RelevanceScorer: OCR rescore Foundation Models error: \(error)")
+            }
+        }
+        #endif
+
+        // Could not rescore — return fail-closed off-task
+        return Result(relevant: false, confidence: 0, reason: "OCR rescore unavailable", path: .ocrVerifiedOffTask)
     }
 
     // MARK: - Keyword Overlap
 
-    /// Check if any keyword from the intention shares a common stem with a word in the page title.
-    /// Uses prefix matching (min 3 chars) to handle basic morphological variants (e.g. "taxes" ↔ "tax").
+    /// Check if a keyword from the intention matches a word in the page title strongly
+    /// enough to short-circuit the LLM.
+    ///
+    /// A positive verdict here skips the LLM entirely, so the bar is intentionally high:
+    ///   - exact match on a ≥4-char word, OR
+    ///   - shared prefix of ≥5 chars between two ≥5-char words (catches "engineer"↔"engineering",
+    ///     "program"↔"programming", but NOT "apply"↔"application" which share only 4 chars)
+    ///
+    /// The previous `hasPrefix` rule (min 3 chars) allowed weak single-word matches like
+    /// "tech"↔"technology" to falsely mark a page RELEVANT before the LLM ever ran.
     private func hasKeywordOverlap(intention: String, pageTitle: String) -> Bool {
         let intentWords = extractKeywords(intention)
         let titleWords = extractKeywords(pageTitle)
         for iw in intentWords {
             for tw in titleWords {
-                if iw.count >= 3 && tw.count >= 3 && (iw.hasPrefix(tw) || tw.hasPrefix(iw)) {
+                if iw == tw && iw.count >= 4 { return true }
+                if iw.count >= 5 && tw.count >= 5 && iw.commonPrefix(with: tw).count >= 5 {
                     return true
                 }
             }
@@ -264,6 +890,18 @@ class RelevanceScorer {
             .filter { $0.count >= 3 && !Self.stopWords.contains($0) }
     }
 
+    /// Returns true if the URL's host matches or is a subdomain of a container-app domain.
+    /// Example: "www.youtube.com" → matches "youtube.com"; "m.reddit.com" → matches "reddit.com".
+    private func isContainerAppURL(_ url: String) -> Bool {
+        guard let host = URL(string: url)?.host?.lowercased() else { return false }
+        for domain in containerAppDomains {
+            if host == domain || host.hasSuffix(".\(domain)") {
+                return true
+            }
+        }
+        return false
+    }
+
     /// Extract readable words from a URL path (split on /, -, _, %20).
     /// e.g. "https://reddit.com/r/learnpython/comments/abc" → "r learnpython comments abc"
     private func urlPathSegments(_ url: String) -> String {
@@ -275,8 +913,20 @@ class RelevanceScorer {
             .joined(separator: " ")
     }
 
+    /// Build the shared profile/plan header lines used by both scoring backends.
+    /// Returns an empty string when both inputs are empty/whitespace.
+    private func contextHeader(profile: String, dailyPlan: String) -> String {
+        let p = profile.trimmingCharacters(in: .whitespacesAndNewlines)
+        let d = dailyPlan.trimmingCharacters(in: .whitespacesAndNewlines)
+        let profileLine = p.isEmpty ? "" : "About the user: \(p)\n"
+        let planLine    = d.isEmpty ? "" : "Today's focus: \(d)\n"
+        return profileLine + planLine
+    }
+
     #if canImport(FoundationModels)
     @available(macOS 26.0, *)
+    /// When `ocrText` is provided (OCR verification pass), it is appended as additional context.
+    /// No reference to a prior verdict is included (Flag 2).
     private func scoreWithFoundationModels(
         pageTitle: String,
         intention: String,
@@ -285,24 +935,52 @@ class RelevanceScorer {
         dailyPlan: String,
         url: String = "",
         pageDescription: String = "",
-        contentType: ContentType = .webpage
+        contentType: ContentType = .webpage,
+        bundleIdentifier: String = "",
+        ocrText: String = ""
     ) async throws -> Result {
-        let contentLabel = contentType == .webpage ? "Webpage title" : "Application in use"
         let descLine = intentionDescription.isEmpty ? "" : "\nBlock description: \(intentionDescription)"
         let urlLine = url.isEmpty ? "" : "\nURL path: \(URL(string: url)?.path ?? url)"
         let pageDescLine = pageDescription.isEmpty ? "" : "\nPage description: \(pageDescription)"
+        let ocrBlock = ocrText.isEmpty ? "" : """
+
+        On-screen text (may include sidebar, history, and navigation chrome — use to CONFIRM the page title's topic, not to override a clearly off-task title):
+        \(ocrText)
+        """
         // Clean page title: strip HTML entities and non-ASCII punctuation that confuse the model
         let cleanTitle = pageTitle
             .replacingOccurrences(of: #"&[a-zA-Z0-9#]+;"#, with: " ", options: .regularExpression)
             .replacingOccurrences(of: "®", with: "")
             .replacingOccurrences(of: "™", with: "")
             .trimmingCharacters(in: .whitespaces)
+
+        // Enrich app name for application scoring
+        let displayTitle: String
+        let contentLabel: String
+        if contentType == .application {
+            displayTitle = enrichAppName(cleanTitle, bundleIdentifier: bundleIdentifier)
+            contentLabel = "Application in use"
+        } else {
+            displayTitle = cleanTitle
+            contentLabel = "Webpage title"
+        }
+
+        // App line: prefer `App: <bundleID> ("<displayTitle>")` when bundleIdentifier is present,
+        // otherwise fall back to `<contentLabel>: "<displayTitle>"`. Names are always quoted so
+        // values containing parentheses (e.g. "Visual Studio Code (Insiders)") don't confuse the model.
+        let appLine: String
+        if !bundleIdentifier.isEmpty {
+            appLine = "App: \(bundleIdentifier) (\"\(displayTitle)\")"
+        } else {
+            appLine = "\(contentLabel): \"\(displayTitle)\""
+        }
+
         let userMessage = """
-        Current time block task: "\(intention)"\(descLine)
-        \(contentLabel): "\(cleanTitle)"\(urlLine)\(pageDescLine)
+        \(contextHeader(profile: profile, dailyPlan: dailyPlan))Current time block task: "\(intention)"\(descLine)
+        \(appLine)\(urlLine)\(pageDescLine)\(ocrBlock)
         """
 
-        appDelegate?.postLog("🧠 [Prompt] Foundation Models input:\n\(userMessage)")
+        appDelegate?.postLog("🧠 [Prompt] Foundation Models input\(ocrText.isEmpty ? "" : " +OCR"):\n\(userMessage)")
 
         let response = try await session.respond(to: userMessage, generating: RelevanceOutput.self)
         let output = response.content
@@ -321,7 +999,6 @@ class RelevanceScorer {
     // MARK: - MLX (Qwen3-4B)
 
     /// Lazily load the MLX Qwen3-4B model on first use.
-    /// Ensure the MLX model is loaded (called internally + by PlanningCoach).
     func loadMLXModelIfNeeded() async {
         guard !mlxModelLoaded && !mlxModelLoading else { return }
         mlxModelLoading = true
@@ -331,16 +1008,21 @@ class RelevanceScorer {
                 id: "mlx-community/Qwen3-4B-Instruct-2507-4bit"
             )
             mlxContext = model
-            mlxSession = ChatSession(model)
+            let session = ChatSession(model)
+            // Use low temperature for deterministic classification
+            session.generateParameters.temperature = 0.2
+            mlxSession = session
             mlxModelLoaded = true
-            appDelegate?.postLog("🧠 MLX Qwen3-4B loaded successfully")
+            appDelegate?.postLog("🧠 MLX Qwen3-4B (4-bit) loaded successfully")
         } catch {
             appDelegate?.postLog("⚠️ MLX model load failed: \(error)")
         }
         mlxModelLoading = false
     }
 
-    /// Score relevance using MLX Qwen3-4B model.
+    /// Score relevance using MLX Qwen3-4B with split prompts, enrichment, and few-shot examples.
+    /// When `ocrText` is provided (OCR verification pass), it is appended as additional context
+    /// to the same prompt structure — no reference to a prior verdict (Flag 2).
     private func scoreWithMLX(
         pageTitle: String,
         intention: String,
@@ -349,37 +1031,81 @@ class RelevanceScorer {
         dailyPlan: String,
         url: String = "",
         pageDescription: String = "",
-        contentType: ContentType
+        contentType: ContentType,
+        bundleIdentifier: String = "",
+        ocrText: String = ""
     ) async throws -> Result {
         guard let session = mlxSession else {
             throw NSError(domain: "RelevanceScorer", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: "MLX model not loaded"])
         }
 
-        let contentLabel = contentType == .webpage ? "Webpage title" : "Application in use"
-        let descLine = intentionDescription.isEmpty ? "" : "\nBlock description: \(intentionDescription)"
-        let urlLine = url.isEmpty ? "" : "\nURL path: \(URL(string: url)?.path ?? url)"
-        let pageDescLine = pageDescription.isEmpty ? "" : "\nPage description: \(pageDescription)"
+        let header = contextHeader(profile: profile, dailyPlan: dailyPlan)
+        let descLine = intentionDescription.isEmpty ? "" : "\nDescription: \(intentionDescription)"
         let cleanTitle = pageTitle
             .replacingOccurrences(of: #"&[a-zA-Z0-9#]+;"#, with: " ", options: .regularExpression)
             .replacingOccurrences(of: "®", with: "")
             .replacingOccurrences(of: "™", with: "")
             .trimmingCharacters(in: .whitespaces)
 
-        let userPart = """
-        Current time block task: "\(intention)"\(descLine)
-        \(contentLabel): "\(cleanTitle)"\(urlLine)\(pageDescLine)
+        // Select prompt and build user message based on content type
+        let selectedSystemPrompt: String
+        let fewShot: String
+        let evaluationPart: String
+
+        // OCR excerpt block — appended only when present. The preface warns the model that
+        // the text may include platform chrome (sidebars, conversation history, nav links)
+        // and should CONFIRM — not override — what the page title says. Without this guard,
+        // a single tangential URL in Claude's sidebar (e.g. "anthropic.com/engineering/...")
+        // was flipping clearly off-task medical/personal pages to RELEVANT for coding tasks.
+        let ocrBlock = ocrText.isEmpty ? "" : """
+
+        On-screen text (may include sidebar, history, and navigation chrome — use to CONFIRM the page title's topic, not to override a clearly off-task title):
+        \(ocrText)
         """
 
-        appDelegate?.postLog("🧠 [Prompt] MLX input:\n\(userPart)")
+        if contentType == .application {
+            selectedSystemPrompt = appSystemPrompt
+            fewShot = appFewShotExamples()
 
+            let enrichedName = enrichAppName(cleanTitle, bundleIdentifier: bundleIdentifier)
+            let appLine: String
+            if !bundleIdentifier.isEmpty {
+                appLine = "App: \(bundleIdentifier) (\"\(enrichedName)\")"
+            } else {
+                appLine = "App: \"\(enrichedName)\""
+            }
+            evaluationPart = """
+            \(header)Now classify:
+            Task: "\(intention)"\(descLine)
+            \(appLine)\(ocrBlock)
+            """
+        } else {
+            selectedSystemPrompt = webSystemPrompt
+            fewShot = webFewShotExamples()
+
+            let browserLine = bundleIdentifier.isEmpty ? "" : "Browser: \(bundleIdentifier)\n"
+            let urlLine = url.isEmpty ? "" : "\nURL: \(URL(string: url)?.path ?? url)"
+            let pageDescLine = pageDescription.isEmpty ? "" : "\nPage description: \(pageDescription)"
+            evaluationPart = """
+            \(header)Now classify:
+            Task: "\(intention)"\(descLine)
+            \(browserLine)Page: "\(cleanTitle)"\(urlLine)\(pageDescLine)\(ocrBlock)
+            """
+        }
+
+        // Build the full prompt: system + few-shot + evaluation + /no_think
         let prompt = """
-        \(systemPrompt)
+        \(selectedSystemPrompt)
 
-        \(userPart)
+        \(fewShot)
 
-        Respond with ONLY a JSON object: {"reason":"...","relevant":true/false,"confidence":0-100}
+        \(evaluationPart)
+
+        /no_think
         """
+
+        appDelegate?.postLog("🧠 [Prompt] MLX (\(contentType == .application ? "app" : "web")\(ocrText.isEmpty ? "" : "+OCR")):\n\(evaluationPart)")
 
         let response = try await session.respond(to: prompt)
 
@@ -391,17 +1117,26 @@ class RelevanceScorer {
 
     /// Parse JSON response from MLX model output.
     private func parseMLXResponse(_ text: String) -> Result {
+        // Strip any <think>...</think> blocks that might appear despite /no_think
+        var cleanedText = text
+        if let thinkStart = cleanedText.range(of: "<think>"),
+           let thinkEnd = cleanedText.range(of: "</think>") {
+            cleanedText.removeSubrange(thinkStart.lowerBound...thinkEnd.upperBound)
+        }
+
         // Try to extract JSON object from the response
-        guard let jsonStart = text.firstIndex(of: "{"),
-              let jsonEnd = text[jsonStart...].lastIndex(of: "}") else {
+        guard let jsonStart = cleanedText.firstIndex(of: "{"),
+              let jsonEnd = cleanedText[jsonStart...].lastIndex(of: "}") else {
+            appDelegate?.postLog("⚠️ MLX: No JSON found in response: \(text.prefix(200))")
             return Result(relevant: false, confidence: 0, reason: "Could not assess - AI model error")
         }
 
-        let jsonString = String(text[jsonStart...jsonEnd])
+        let jsonString = String(cleanedText[jsonStart...jsonEnd])
         guard let data = jsonString.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let relevant = json["relevant"] as? Bool,
               let reason = json["reason"] as? String else {
+            appDelegate?.postLog("⚠️ MLX: Failed to parse JSON: \(jsonString.prefix(200))")
             return Result(relevant: false, confidence: 0, reason: "Could not assess - AI model error")
         }
 
@@ -423,6 +1158,8 @@ class RelevanceScorer {
         Do NOT approve vague reasons like "I need a break" or "checking something".
 
         Respond with JSON: {"approved": true/false, "reason": "one sentence explanation"}
+
+        /no_think
         """
 
         // Try MLX model first if configured

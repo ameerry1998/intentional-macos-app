@@ -1,0 +1,86 @@
+<h2>Current Distractions Page</h2>
+<p class="subtitle">This is how the Distractions page looks right now — a flat list with no profile concept</p>
+
+<div class="mockup">
+  <div class="mockup-header">Current: Intentional → Distractions</div>
+  <div class="mockup-body" style="background: #0e0e12; padding: 0; font-family: -apple-system, system-ui, sans-serif;">
+
+    <!-- Lock banner -->
+    <div style="background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.3); border-radius: 10px; margin: 20px; padding: 12px 16px; display: flex; align-items: center; gap: 10px;">
+      <span style="font-size: 16px;">🔒</span>
+      <span style="color: #a78bfa; font-size: 13px;">Settings are locked by your accountability partner.</span>
+      <span style="color: #8b5cf6; font-size: 13px; text-decoration: underline; cursor: pointer; margin-left: auto;">Request unlock</span>
+    </div>
+
+    <!-- Section title -->
+    <div style="color: #fff; font-size: 22px; font-weight: 700; padding: 10px 20px 0;">DISTRACTIONS</div>
+
+    <!-- Distracting Websites -->
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; margin: 16px 20px; padding: 0;">
+      <div style="color: #e2e8f0; font-size: 15px; font-weight: 600; padding: 16px 20px 0;">DISTRACTING WEBSITES</div>
+      <div style="color: #64748b; font-size: 12px; padding: 2px 20px 8px;">These sites are blocked when blocking mode is on.</div>
+
+      <!-- Site list -->
+      <div style="padding: 4px 20px 12px;">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
+          <span style="font-size: 18px;">🌐</span>
+          <span style="color: #e2e8f0; font-size: 14px; font-weight: 500; flex: 1;">reddit.com</span>
+          <span style="background: #f59e0b22; color: #f59e0b; font-size: 11px; padding: 3px 8px; border-radius: 6px;">Tracking</span>
+          <span style="color: #64748b; cursor: pointer;">×</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
+          <span style="font-size: 18px;">🌐</span>
+          <span style="color: #e2e8f0; font-size: 14px; font-weight: 500; flex: 1;">twitter.com</span>
+          <span style="background: #f59e0b22; color: #f59e0b; font-size: 11px; padding: 3px 8px; border-radius: 6px;">Tracking</span>
+          <span style="color: #64748b; cursor: pointer;">×</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0;">
+          <span style="font-size: 18px;">🌐</span>
+          <span style="color: #e2e8f0; font-size: 14px; font-weight: 500; flex: 1;">youtube.com</span>
+          <span style="background: #f59e0b22; color: #f59e0b; font-size: 11px; padding: 3px 8px; border-radius: 6px;">Tracking</span>
+          <span style="color: #64748b; cursor: pointer;">×</span>
+        </div>
+      </div>
+
+      <!-- Add input -->
+      <div style="display: flex; gap: 8px; padding: 8px 20px 14px;">
+        <input type="text" placeholder="e.g. reddit.com, twitter.com" style="flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 14px; color: #e2e8f0; font-size: 13px; outline: none;">
+        <button style="background: #8b5cf6; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;">Add</button>
+      </div>
+    </div>
+
+    <!-- Distracting Apps -->
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; margin: 16px 20px; padding: 0;">
+      <div style="color: #e2e8f0; font-size: 15px; font-weight: 600; padding: 16px 20px 0;">DISTRACTING APPS</div>
+      <div style="color: #64748b; font-size: 12px; padding: 2px 20px 8px;">These apps are always marked as off-task during work blocks.</div>
+
+      <div style="padding: 8px 20px 14px;">
+        <button style="width: 100%; background: rgba(139,92,246,0.15); border: 1px dashed rgba(139,92,246,0.4); border-radius: 10px; padding: 12px; color: #a78bfa; font-size: 14px; font-weight: 500; cursor: pointer;">+ Add App</button>
+      </div>
+    </div>
+
+    <!-- Always-Relevant Sites -->
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; margin: 16px 20px; padding: 0;">
+      <div style="color: #e2e8f0; font-size: 15px; font-weight: 600; padding: 16px 20px 0;">ALWAYS-RELEVANT SITES</div>
+      <div style="color: #64748b; font-size: 12px; padding: 2px 20px 12px;">These sites are always counted as productive during work blocks. Use for tools like email or chat where the AI can't tell if you're working.</div>
+
+      <div style="display: flex; gap: 8px; padding: 8px 20px 14px;">
+        <input type="text" placeholder="e.g. gmail.com, slack.com, notion.so" style="flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 14px; color: #e2e8f0; font-size: 13px; outline: none;">
+        <button style="background: #8b5cf6; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;">Add</button>
+      </div>
+    </div>
+
+    <div style="height: 40px;"></div>
+  </div>
+</div>
+
+<div style="margin-top: 24px; padding: 16px; background: rgba(255,255,255,0.03); border-radius: 8px;">
+  <h3 style="margin: 0 0 8px;">What's wrong with this?</h3>
+  <ul style="margin: 0; padding-left: 20px; color: #94a3b8; line-height: 1.8;">
+    <li><strong>No profiles</strong> — one flat list applies to everything. Can't have different block lists for different types of work.</li>
+    <li><strong>No defaults</strong> — new users see empty lists. No guidance on what to block.</li>
+    <li><strong>Sites and apps are separate cards</strong> — but they should be grouped per profile (a "Social Media" profile blocks both the apps AND the sites).</li>
+    <li><strong>Always-Relevant is orphaned</strong> — it's on the same page but has nothing to do with blocking profiles.</li>
+    <li><strong>No visual indication of which profile is active</strong> during a focus session.</li>
+  </ul>
+</div>

@@ -1,0 +1,901 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Sign in to Puck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0a0c0a;
+    --cta-text:  #1a1110;
+    --warm-1:    #FF4D5E;
+    --warm-2:    #FF7A2E;
+    --warm-3:    #FFB347;
+    --grad-warm: linear-gradient(160deg, #FF4D5E 0%, #FF7A2E 55%, #FFB347 100%);
+    --text-1:    #f7f8f8;
+    --text-2:    rgba(255,255,255,0.62);
+    --text-3:    rgba(255,255,255,0.36);
+    --text-4:    rgba(255,255,255,0.20);
+    --b-1:       rgba(255,255,255,0.06);
+    --b-2:       rgba(255,255,255,0.10);
+    --error:     #FF6B6B;
+    --font:      "Nunito", -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif;
+  }
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    background: var(--bg);
+    color: var(--text-1);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Surface — fullscreen, solid bg. Task 3 will lay starfield on top. */
+  .surf {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text-1);
+    overflow: hidden;
+  }
+
+  /* Auth column — centered 380pt wide */
+  .auth-mac {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 380px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 5;
+  }
+
+  .wm {
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    color: var(--text-1);
+    line-height: 1;
+    font-size: 16px;
+  }
+
+  .tagline {
+    font-weight: 700;
+    letter-spacing: -0.8px;
+    line-height: 1.15;
+    color: var(--text-1);
+    text-align: center;
+    margin-top: 22px;
+    font-size: 30px;
+    max-width: 360px;
+  }
+  .tagline em {
+    font-style: normal;
+    background: var(--grad-warm);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    margin-top: 44px;
+  }
+
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    height: 52px;
+    border-radius: 999px;
+    font-weight: 600;
+    letter-spacing: -0.1px;
+    background: transparent;
+    color: var(--text-1);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 15px;
+    transition: border-color 0.18s ease, background 0.18s ease, opacity 0.18s ease;
+  }
+  .btn:disabled { cursor: not-allowed; opacity: 0.5; }
+
+  .btn-email { border: 1.5px solid rgba(255,255,255,0.70); }
+  .btn-email:hover:not(:disabled) {
+    border-color: rgba(255,255,255,0.85);
+    background: rgba(255,255,255,0.04);
+  }
+
+  .btn-apple {
+    border: 1px solid rgba(255,255,255,0.40);
+    color: rgba(255,255,255,0.85);
+  }
+
+  .btn-primary {
+    border: none;
+    background: var(--grad-warm);
+    color: var(--cta-text);
+    font-weight: 700;
+  }
+
+  .btn-ghost {
+    border: none;
+    background: transparent;
+    color: var(--text-2);
+    font-weight: 500;
+    font-size: 13px;
+    height: auto;
+    padding: 8px 0;
+  }
+
+  .input-wrap { width: 100%; }
+  .input {
+    width: 100%;
+    height: 52px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1.5px solid rgba(255,255,255,0.12);
+    color: var(--text-1);
+    font-family: inherit;
+    font-size: 15px;
+    padding: 0 16px;
+    outline: none;
+    transition: border-color 0.18s ease, background 0.18s ease;
+    caret-color: var(--warm-2);
+  }
+  .input::placeholder { color: var(--text-3); }
+  .input:focus {
+    border-color: var(--warm-2);
+    background: rgba(255,122,46,0.06);
+  }
+  .input.is-error {
+    border-color: var(--error);
+    background: rgba(255,107,107,0.06);
+  }
+
+  .helper {
+    font-size: 12.5px;
+    margin-top: 10px;
+    color: var(--text-3);
+    line-height: 1.5;
+  }
+  .helper.is-error { color: var(--error); }
+  .helper b { color: var(--text-1); font-weight: 600; }
+
+  .otp {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    width: 100%;
+  }
+  .otp-cell {
+    width: 48px;
+    height: 56px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1.5px solid rgba(255,255,255,0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-1);
+    font-family: inherit;
+    text-align: center;
+    outline: none;
+    padding: 0;
+    transition: border-color 0.18s ease, background 0.18s ease;
+    caret-color: var(--warm-2);
+  }
+  .otp-cell:focus {
+    border-color: var(--warm-2);
+    background: rgba(255,122,46,0.06);
+  }
+  .otp-cell.is-filled { border-color: rgba(255,255,255,0.30); }
+  .otp-cell.is-error {
+    border-color: var(--error);
+    background: rgba(255,107,107,0.06);
+  }
+
+  .banner {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--b-1);
+    color: var(--text-2);
+    font-size: 13px;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  .spinner {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2.5px solid rgba(255,255,255,0.10);
+    border-top-color: var(--warm-2);
+    animation: spin 0.85s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .footer-block {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    width: 380px;
+    bottom: 32px;
+  }
+  .submgmt {
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--text-3);
+  }
+  .legal {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    color: var(--text-3);
+    flex-wrap: wrap;
+    margin-top: 14px;
+  }
+  .legal .dot {
+    width: 2px;
+    height: 2px;
+    background: var(--text-4);
+    border-radius: 50%;
+  }
+
+  .resend {
+    margin-top: 14px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--text-3);
+  }
+  .resend b { color: var(--text-1); font-weight: 600; }
+  .resend a {
+    color: var(--warm-2);
+    text-decoration: none;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .resend a:hover { text-decoration: underline; }
+
+  /* OTP verify — helper centered above the cells */
+  .otp-helper {
+    text-align: center;
+    margin-top: 10px;
+  }
+  .otp-error-helper {
+    text-align: center;
+    margin-top: 14px;
+  }
+
+  /* Loading stack centered */
+  .stack-center { align-items: center; }
+
+  /* Shake animation for errors */
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    50% { transform: translateX(4px); }
+    75% { transform: translateX(-4px); }
+  }
+  .shake { animation: shake 320ms ease-out; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .shake { animation: none; }
+    .spinner { animation: none; }
+  }
+
+  /* ── Field of Light starfield background ── */
+  .bg-field {
+    position: fixed; inset: 0; z-index: 0;
+    background: radial-gradient(ellipse at center, #0c0a08 0%, #050505 100%);
+    overflow: hidden;
+    pointer-events: none;
+  }
+  /* No warm radial overlay — looked like an orange blob in the middle of the screen.
+     The stars + dark vignette do all the atmosphere we need. */
+  .bg-field .stars { position: absolute; inset: 0; }
+  .bg-field .stars i {
+    position: absolute; border-radius: 50%;
+    animation: starTwinkle 4s ease-in-out infinite;
+  }
+  .bg-field .layer-near { animation: parallaxNear 32s ease-in-out infinite; }
+  .bg-field .layer-far  { animation: parallaxFar  56s ease-in-out infinite; }
+  @keyframes parallaxNear { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-12px,-6px); } }
+  @keyframes parallaxFar  { 0%,100% { transform: translate(0,0); } 50% { transform: translate(6px,3px); } }
+  @keyframes starTwinkle { 0%,100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 1; transform: scale(1.3); } }
+  @media (prefers-reduced-motion: reduce) {
+    .bg-field .stars i, .bg-field .layer-near, .bg-field .layer-far { animation: none !important; }
+  }
+
+  /* State containers — hidden by default, JS toggles display:flex */
+  [id^="state-"] {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    position: relative;
+    z-index: 1;
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-apple" viewBox="0 0 17 20">
+      <path fill="currentColor" d="M14.5 6.8c-.1.1-2.3 1.3-2.3 4 0 3.1 2.7 4.1 2.8 4.2 0 0-1.5 4.6-3.4 4.6-1 0-1.7-.6-2.7-.6-1 0-2.1.6-2.8.6C4.6 19.6 2 15.4 2 12c0-3.4 2.1-5.2 4.2-5.2 1 0 1.8.6 2.4.6.6 0 1.6-.7 2.7-.7 1 0 2.4.4 3.2 1.7zM10.7 4.7c.5-.6.8-1.5.7-2.4-.7 0-1.6.5-2.1 1.1-.5.6-.9 1.5-.7 2.3.8.1 1.6-.4 2.1-1z"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="surf">
+
+  <div class="bg-field" aria-hidden="true">
+    <div class="stars layer-far"></div>
+    <div class="stars layer-near"></div>
+  </div>
+
+  <div class="auth-mac">
+
+    <!-- 01 At rest -->
+    <div id="state-at-rest">
+      <div class="wm">puck</div>
+      <div class="tagline">Choose what gets <em>your attention.</em></div>
+      <div class="stack">
+        <button id="btn-email" class="btn btn-email" type="button">Continue with email</button>
+        <button id="btn-apple" class="btn btn-apple" type="button" disabled title="Apple Sign In coming soon">
+          <svg width="14" height="16" aria-hidden="true"><use href="#i-apple"/></svg>
+          Continue with Apple
+        </button>
+      </div>
+    </div>
+
+    <!-- 02 Email entry -->
+    <div id="state-email-entry">
+      <div class="wm">puck</div>
+      <div class="tagline">What's your <em>email?</em></div>
+      <div class="stack">
+        <div class="input-wrap">
+          <input id="input-email" class="input" type="email" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="you@email.com" />
+          <div id="helper-email" class="helper">We'll send you a sign-in code.</div>
+        </div>
+        <button id="btn-continue-email" class="btn btn-primary" type="button">Continue</button>
+        <button id="btn-back-from-email" class="btn btn-ghost" type="button">← Back</button>
+      </div>
+    </div>
+
+    <!-- 03 Email error (rendered when EMAIL_ERROR state is active) -->
+    <!-- Email error reuses the email-entry visuals; we toggle classes on #input-email + #helper-email. -->
+    <!-- For the spec's "every state container has its own DOM" contract, this container mirrors the email-entry markup. -->
+    <div id="state-email-error">
+      <div class="wm">puck</div>
+      <div class="tagline">What's your <em>email?</em></div>
+      <div class="stack">
+        <div class="input-wrap">
+          <input class="input is-error" type="email" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="you@email.com" data-mirror-email />
+          <div class="helper is-error">Please enter a valid email address.</div>
+        </div>
+        <button class="btn btn-primary" type="button" data-action="continue-email">Continue</button>
+        <button class="btn btn-ghost" type="button" data-action="back-from-email">← Back</button>
+      </div>
+    </div>
+
+    <!-- 04 OTP / Verify -->
+    <div id="state-otp-verify">
+      <div class="wm">puck</div>
+      <div class="tagline">Check your <em>email.</em></div>
+      <div class="helper otp-helper">We sent a 6-digit code to <b id="otp-verify-email" class="otp-email-display">you@email.com</b></div>
+      <div class="stack">
+        <div id="otp-row" class="otp">
+          <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
+          <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
+          <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
+          <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
+          <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
+          <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
+        </div>
+        <div id="resend-line" class="resend">Didn't get it? Resend in <b>1:00</b></div>
+        <button id="btn-back-from-otp" class="btn btn-ghost" type="button" data-action="back-from-otp">← Use different email</button>
+      </div>
+    </div>
+
+    <!-- 05 OTP error -->
+    <div id="state-otp-error">
+      <div class="wm">puck</div>
+      <div class="tagline">Check your <em>email.</em></div>
+      <div class="helper otp-helper">We sent a 6-digit code to <b class="otp-email-display">you@email.com</b></div>
+      <div class="stack">
+        <div class="otp" data-otp-error-row>
+          <input class="otp-cell is-error" type="text" maxlength="1" inputmode="numeric" />
+          <input class="otp-cell is-error" type="text" maxlength="1" inputmode="numeric" />
+          <input class="otp-cell is-error" type="text" maxlength="1" inputmode="numeric" />
+          <input class="otp-cell is-error" type="text" maxlength="1" inputmode="numeric" />
+          <input class="otp-cell is-error" type="text" maxlength="1" inputmode="numeric" />
+          <input class="otp-cell is-error" type="text" maxlength="1" inputmode="numeric" />
+        </div>
+        <div id="helper-otp" class="helper is-error otp-error-helper" role="alert" aria-live="assertive">That code didn't match. Try again.</div>
+        <button class="btn btn-ghost" type="button" data-action="back-from-otp">← Use different email</button>
+      </div>
+    </div>
+
+    <!-- 06 Loading -->
+    <div id="state-loading">
+      <div class="wm">puck</div>
+      <div class="tagline">Signing you <em>in…</em></div>
+      <div class="stack stack-center">
+        <div class="spinner" role="progressbar" aria-label="Signing in"></div>
+      </div>
+    </div>
+
+    <!-- 08 Signed out -->
+    <div id="state-signed-out">
+      <div class="banner" aria-live="polite">You've been signed out.</div>
+      <div class="wm">puck</div>
+      <div class="tagline">Choose what gets <em>your attention.</em></div>
+      <div class="stack">
+        <button class="btn btn-email" type="button" data-action="signed-out-email">Continue with email</button>
+        <button class="btn btn-apple" type="button" disabled title="Apple Sign In coming soon">
+          <svg width="14" height="16" aria-hidden="true"><use href="#i-apple"/></svg>
+          Continue with Apple
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer (visible across states; only useful for at-rest / signed-out per spec) -->
+  <div id="footer-block" class="footer-block">
+    <div class="submgmt">Subscriptions managed on getpuck.com</div>
+    <div class="legal">
+      <span>Privacy Policy</span>
+      <span class="dot"></span>
+      <span>Terms of Service</span>
+      <span class="dot"></span>
+      <span>getpuck.com</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function spawnStarfield() {
+  const TINTS = [
+    { p: 0.60, rgba: '255,200,150' },
+    { p: 0.85, rgba: '255,160,100' },
+    { p: 1.00, rgba: '255,230,200' }
+  ];
+  const pickTint = () => {
+    const r = Math.random();
+    for (const t of TINTS) if (r <= t.p) return t.rgba;
+    return TINTS[0].rgba;
+  };
+  function fillLayer(el, count) {
+    let html = '';
+    for (let i = 0; i < count; i++) {
+      const x = (Math.random() * 100).toFixed(2);
+      const y = (Math.random() * 100).toFixed(2);
+      const size = (Math.random() * 1.2 + 0.6).toFixed(2);
+      const opacity = (Math.random() * 0.5 + 0.3).toFixed(2);
+      const delay = (Math.random() * 4).toFixed(2);
+      const dur = (Math.random() * 3 + 3).toFixed(2);
+      const tint = pickTint();
+      html += '<i style="left:' + x + '%;top:' + y + '%;width:' + size + 'px;height:' + size + 'px;background:rgba(' + tint + ',' + opacity + ');box-shadow:0 0 ' + (size*3).toFixed(1) + 'px rgba(' + tint + ',' + (opacity*0.7).toFixed(2) + ');animation-delay:' + delay + 's;animation-duration:' + dur + 's;"></i>';
+    }
+    el.innerHTML = html;
+  }
+  document.querySelectorAll('.bg-field').forEach(function(bg) {
+    const w = window.innerWidth || bg.clientWidth || 1280;
+    const h = window.innerHeight || bg.clientHeight || 800;
+    const total = Math.round((w * h) / 6500);
+    const nearCount = Math.round(total * 0.6);
+    const farCount  = total - nearCount;
+    const near = bg.querySelector('.layer-near');
+    const far  = bg.querySelector('.layer-far');
+    if (near) fillLayer(near, nearCount);
+    if (far)  fillLayer(far, farCount);
+  });
+})();
+
+function postBridge(type, payload) {
+  if (!window.webkit || !window.webkit.messageHandlers || !window.webkit.messageHandlers.intentional) {
+    console.warn('[login] bridge unavailable for ' + type + ' — running in browser?');
+    return;
+  }
+  const msg = Object.assign({ type: type }, payload || {});
+  window.webkit.messageHandlers.intentional.postMessage(msg);
+}
+
+(function () {
+  'use strict';
+
+  const State = {
+    AT_REST:     'at-rest',
+    EMAIL_ENTRY: 'email-entry',
+    EMAIL_ERROR: 'email-error',
+    OTP_VERIFY:  'otp-verify',
+    OTP_ERROR:   'otp-error',
+    LOADING:     'loading',
+    SIGNED_OUT:  'signed-out',
+  };
+
+  let currentState = State.AT_REST;
+  let pendingEmail = '';
+  let otpFailCount = 0;
+  let resendTimerEnd = 0;
+  let resendTimerHandle = null;
+  let otpBounceHandle = null;
+  // True while a "Resend code" tap is awaiting the AUTH_LOGIN reply.
+  // Lets _authLoginResult surface failures even though currentState is OTP_VERIFY
+  // (and the normal stale-reply guard would otherwise swallow them).
+  let isResending = false;
+
+  function setState(next) {
+    // Defensive: silently fail-closed if called with an unknown state name.
+    // Without this guard, a typo would hide all containers and leave a blank screen.
+    if (!Object.values(State).includes(next)) {
+      console.warn('[login] unknown state ignored:', next);
+      return;
+    }
+    const target = document.getElementById('state-' + next);
+    if (!target) {
+      console.warn('[login] no container for state:', next);
+      return;
+    }
+    document.querySelectorAll('[id^="state-"]').forEach(el => {
+      el.style.display = 'none';
+    });
+    target.style.display = 'flex';
+    // Footer is only shown on at-rest and signed-out per the spec.
+    const footer = document.getElementById('footer-block');
+    if (footer) {
+      footer.style.display = (next === State.AT_REST || next === State.SIGNED_OUT) ? 'block' : 'none';
+    }
+    // Cancel timers tied to the state we're leaving so they don't fire after
+    // the user has navigated away.
+    if (next !== State.OTP_VERIFY && resendTimerHandle) {
+      clearTimeout(resendTimerHandle);
+      resendTimerHandle = null;
+    }
+    if (next !== State.OTP_ERROR && otpBounceHandle) {
+      clearTimeout(otpBounceHandle);
+      otpBounceHandle = null;
+    }
+    currentState = next;
+
+    // Sync pendingEmail into mirror inputs / labels when entering relevant states
+    if (next === State.EMAIL_ERROR) {
+      const mirror = document.querySelector('#state-email-error [data-mirror-email]');
+      if (mirror) mirror.value = pendingEmail;
+    }
+    if (next === State.OTP_VERIFY) {
+      const slot = document.getElementById('otp-verify-email');
+      if (slot) slot.textContent = pendingEmail || 'you@email.com';
+      // Clear OTP cells + focus first
+      const cells = document.querySelectorAll('#state-otp-verify .otp-cell');
+      cells.forEach(c => { c.value = ''; c.classList.remove('is-filled'); });
+      if (cells[0]) setTimeout(() => cells[0].focus(), 0);
+    }
+    if (next === State.OTP_ERROR) {
+      const m = document.querySelector('#state-otp-error .otp-email-display');
+      if (m) m.textContent = pendingEmail || 'you@email.com';
+      const row = document.querySelector('#state-otp-error [data-otp-error-row]');
+      if (row) {
+        row.classList.remove('shake');
+        void row.offsetWidth;
+        row.classList.add('shake');
+      }
+    }
+    if (next === State.EMAIL_ENTRY) {
+      const input = document.getElementById('input-email');
+      if (input) {
+        input.value = pendingEmail;
+        input.classList.remove('is-error');
+        setTimeout(() => input.focus(), 0);
+      }
+    }
+  }
+
+  function isValidEmail(s) {
+    return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(s);
+  }
+
+  function shake(elementId) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    el.classList.remove('shake');
+    void el.offsetWidth;
+    el.classList.add('shake');
+  }
+
+  // ---------- At rest ----------
+  const btnEmail = document.getElementById('btn-email');
+  if (btnEmail) {
+    btnEmail.addEventListener('click', () => setState(State.EMAIL_ENTRY));
+  }
+
+  // ---------- Email entry ----------
+  const inputEmail = document.getElementById('input-email');
+  const helperEmail = document.getElementById('helper-email');
+  const btnContinueEmail = document.getElementById('btn-continue-email');
+  const btnBackFromEmail = document.getElementById('btn-back-from-email');
+
+  function submitEmail() {
+    const v = (inputEmail && inputEmail.value || '').trim();
+    pendingEmail = v;
+    if (!isValidEmail(v)) {
+      if (inputEmail) inputEmail.classList.add('is-error');
+      shake('input-email');
+      if (helperEmail) helperEmail.textContent = 'Please enter a valid email address.';
+      return;
+    }
+    // Reset helper to default before submit (in case it was showing an error).
+    if (helperEmail) helperEmail.textContent = 'We’ll send you a sign-in code.';
+    if (inputEmail) inputEmail.classList.remove('is-error');
+    setState(State.LOADING);
+    postBridge('AUTH_LOGIN', { email: v });
+  }
+
+  if (btnContinueEmail) btnContinueEmail.addEventListener('click', submitEmail);
+  if (btnBackFromEmail) btnBackFromEmail.addEventListener('click', () => setState(State.AT_REST));
+  if (inputEmail) {
+    inputEmail.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitEmail();
+      }
+    });
+    inputEmail.addEventListener('input', () => {
+      inputEmail.classList.remove('is-error');
+      if (helperEmail) {
+        helperEmail.classList.remove('is-error');
+        helperEmail.textContent = 'We’ll send you a sign-in code.';
+      }
+    });
+  }
+
+  // ---------- AUTH_LOGIN reply ----------
+  window._authLoginResult = function(result) {
+    // Resend path — user tapped "Resend code" while still on OTP_VERIFY.
+    // Surface success/failure inline without changing the state container.
+    if (isResending) {
+      isResending = false;
+      const line = document.getElementById('resend-line');
+      if (result && result.success) {
+        // Timer was already restarted optimistically when the user tapped.
+        // Nothing more to do; the next tick will render the countdown.
+      } else if (line) {
+        const msg = (result && result.message) || 'Couldn’t resend. Try again in a moment.';
+        line.innerHTML = '<span style="color: var(--error);">' + msg + '</span>';
+        // Stop the optimistic timer; let the user retry from a clean state.
+        if (resendTimerHandle) { clearTimeout(resendTimerHandle); resendTimerHandle = null; }
+        // After 4s, restore the resend link so they can try again.
+        setTimeout(() => {
+          if (currentState === State.OTP_VERIFY) {
+            line.innerHTML = 'Didn’t get it? <a href="#" id="resend-link">Resend code</a>';
+            wireResendLink();
+          }
+        }, 4000);
+      }
+      return;
+    }
+    if (currentState !== State.LOADING) {
+      // Stale reply — ignore. (User may have navigated back.)
+      return;
+    }
+    if (result && result.success) {
+      setState(State.OTP_VERIFY);
+      // OTP cells get cleared + first cell focused inside setState() already.
+      startResendTimer();
+    } else {
+      setState(State.EMAIL_ENTRY);
+      if (inputEmail) inputEmail.classList.add('is-error');
+      shake('input-email');
+      if (helperEmail) {
+        helperEmail.textContent = (result && result.message) || 'Couldn’t reach server. Try again.';
+        helperEmail.classList.add('is-error');
+      }
+    }
+  };
+
+  // ---------- Resend timer ----------
+  function startResendTimer() {
+    resendTimerEnd = Date.now() + 60000;
+    if (resendTimerHandle) clearTimeout(resendTimerHandle);
+    tickResendTimer();
+  }
+
+  function tickResendTimer() {
+    // Bail if user navigated away — setState already cleared our handle, but
+    // the in-flight call can still arrive once. Check state before mutating DOM.
+    if (currentState !== State.OTP_VERIFY) {
+      resendTimerHandle = null;
+      return;
+    }
+    const line = document.getElementById('resend-line');
+    if (!line) return;
+    const ms = resendTimerEnd - Date.now();
+    if (ms <= 0) {
+      line.innerHTML = 'Didn’t get it? <a href="#" id="resend-link">Resend code</a>';
+      wireResendLink();
+      return;
+    }
+    const seconds = Math.ceil(ms / 1000);
+    const mm = Math.floor(seconds / 60);
+    const ss = seconds % 60;
+    line.innerHTML = 'Didn’t get it? Resend in <b>' + mm + ':' + (ss < 10 ? '0' + ss : ss) + '</b>';
+    resendTimerHandle = setTimeout(tickResendTimer, 250);
+  }
+
+  function wireResendLink() {
+    const link = document.getElementById('resend-link');
+    if (!link) return;
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (!pendingEmail) return;
+      isResending = true;
+      const line = document.getElementById('resend-line');
+      if (line) line.textContent = 'Sending…';
+      postBridge('AUTH_LOGIN', { email: pendingEmail });
+      startResendTimer();
+    });
+  }
+
+  // ---------- Email error mirror buttons (state container 03) ----------
+  document.querySelectorAll('#state-email-error [data-action="continue-email"]').forEach(el => {
+    el.addEventListener('click', () => setState(State.EMAIL_ENTRY));
+  });
+  document.querySelectorAll('#state-email-error [data-action="back-from-email"]').forEach(el => {
+    el.addEventListener('click', () => setState(State.AT_REST));
+  });
+
+  // ---------- OTP verify ----------
+  // Scoped to OTP state containers only — avoids capturing future
+  // data-action attributes added elsewhere in the page.
+  document.querySelectorAll(
+    '#state-otp-verify [data-action="back-from-otp"], #state-otp-error [data-action="back-from-otp"]'
+  ).forEach(el => {
+    el.addEventListener('click', () => setState(State.EMAIL_ENTRY));
+  });
+
+  function onOtpComplete(code) {
+    setState(State.LOADING);
+    postBridge('AUTH_VERIFY', { email: pendingEmail, code: code });
+  }
+
+  // ---------- AUTH_VERIFY reply ----------
+  window._authVerifyResult = function(result) {
+    if (currentState !== State.LOADING) {
+      return; // Stale reply
+    }
+    if (result && result.success) {
+      // Hold on LOADING for a beat to avoid flash, then hand off to Swift to swap pages.
+      setTimeout(() => {
+        postBridge('AUTH_COMPLETE');
+        // Don't change state — Swift will swap the WebView to dashboard.html.
+      }, 250);
+    } else {
+      otpFailCount += 1;
+      setState(State.OTP_ERROR);
+      const helperOtp = document.getElementById('helper-otp');
+      if (helperOtp) {
+        helperOtp.textContent = otpFailCount >= 3
+          ? 'Too many attempts. Resend?'
+          : ((result && result.message) || "That code didn’t match. Try again.");
+      }
+      // Clear OTP cells in state-otp-verify and refocus first.
+      const cells = document.querySelectorAll('#state-otp-verify .otp-cell');
+      cells.forEach(c => { c.value = ''; c.classList.remove('is-filled'); });
+      // After ~1200ms, bounce back to verify so user can retype. Capture the
+      // handle so setState() can cancel if the user navigates away (e.g. taps
+      // "Use different email") before the bounce fires.
+      otpBounceHandle = setTimeout(() => {
+        otpBounceHandle = null;
+        if (currentState !== State.OTP_ERROR) return;
+        setState(State.OTP_VERIFY);
+        const first = document.querySelector('#state-otp-verify .otp-cell');
+        if (first) first.focus();
+      }, 1200);
+    }
+  };
+
+  function wireOtpRow(rowSelector) {
+    const cells = document.querySelectorAll(rowSelector + ' .otp-cell');
+    if (!cells.length) return;
+
+    cells.forEach((cell, idx) => {
+      cell.addEventListener('input', (e) => {
+        const v = (cell.value || '').replace(/[^0-9]/g, '').slice(0, 1);
+        cell.value = v;
+        if (v) {
+          cell.classList.add('is-filled');
+          cell.classList.remove('is-error');
+          const next = cells[idx + 1];
+          if (next) next.focus();
+        } else {
+          cell.classList.remove('is-filled');
+        }
+
+        // If all 6 cells filled — submit
+        const code = Array.from(cells).map(c => c.value).join('');
+        if (code.length === 6) {
+          onOtpComplete(code);
+        }
+      });
+
+      cell.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace') {
+          if (cell.value) {
+            cell.value = '';
+            cell.classList.remove('is-filled');
+          } else {
+            const prev = cells[idx - 1];
+            if (prev) {
+              prev.focus();
+              prev.value = '';
+              prev.classList.remove('is-filled');
+            }
+          }
+          e.preventDefault();
+        } else if (e.key === 'ArrowLeft') {
+          const prev = cells[idx - 1];
+          if (prev) prev.focus();
+          e.preventDefault();
+        } else if (e.key === 'ArrowRight') {
+          const next = cells[idx + 1];
+          if (next) next.focus();
+          e.preventDefault();
+        }
+      });
+
+      cell.addEventListener('paste', (e) => {
+        const text = (e.clipboardData || window.clipboardData).getData('text');
+        const digits = (text || '').replace(/[^0-9]/g, '').slice(0, 6);
+        if (!digits) return;
+        e.preventDefault();
+        digits.split('').forEach((d, i) => {
+          if (cells[i]) {
+            cells[i].value = d;
+            cells[i].classList.add('is-filled');
+            cells[i].classList.remove('is-error');
+          }
+        });
+        const lastIdx = Math.min(digits.length, cells.length) - 1;
+        if (cells[lastIdx]) cells[lastIdx].focus();
+        if (digits.length === 6) {
+          onOtpComplete(digits);
+        }
+      });
+    });
+  }
+
+  wireOtpRow('#otp-row');
+
+  // ---------- Signed out mirror buttons ----------
+  document.querySelectorAll('#state-signed-out [data-action="signed-out-email"]').forEach(el => {
+    el.addEventListener('click', () => setState(State.EMAIL_ENTRY));
+  });
+
+  // Render initial state
+  setState(State.AT_REST);
+})();
+</script>
+
+</body>
+</html>

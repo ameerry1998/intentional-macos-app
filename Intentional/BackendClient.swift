@@ -8,11 +8,35 @@
 import Foundation
 import Cocoa
 import Security
+import CommonCrypto
+
+struct EnforcementFetchResult {
+    let success: Bool
+    let lockMode: String
+    let enforcementActive: Bool
+    let constraints: [String: [String: Any]]
+    let temporaryUnlockUntil: String?
+    let updatedAt: String?
+    let deviceId: String
+    let rawJSON: Data  // the bytes we'll hand to daemon for signing
+    let error: String?
+}
 
 class BackendClient {
 
     private let baseURL: String
     private let deviceId: String
+    private static var loggedFailures: Set<String> = []
+
+    /// SHA-256 fingerprint of the backend leaf certificate for the /device/enforcement call.
+    /// Empty array = pinning disabled (dev/staging). In production, populate with uppercase
+    /// colon-separated hex. When the cert is about to rotate, ship an app update with BOTH
+    /// fingerprints (old + new), then drop the old after users have upgraded.
+    ///
+    /// To compute: `openssl s_client -connect api.intentional.social:443 -servername api.intentional.social </dev/null 2>/dev/null | openssl x509 -fingerprint -sha256 -noout`
+    private static let pinnedBackendCertSHA256: [String] = [
+        // TODO(ops): fill in actual fingerprint before production ship.
+    ]
 
     init(baseURL: String) {
         self.baseURL = baseURL
@@ -66,20 +90,21 @@ class BackendClient {
 
             let (data, response) = try await URLSession.shared.data(for: request)
 
-            if let httpResponse = response as? HTTPURLResponse {
-                let appDelegate = NSApplication.shared.delegate as? AppDelegate
-                if httpResponse.statusCode == 200 {
-                    appDelegate?.postLog("✅ Event sent: \(type)")
-                } else {
-                    appDelegate?.postLog("⚠️ Event failed: \(type) - Status \(httpResponse.statusCode)")
-                    if let body = String(data: data, encoding: .utf8) {
-                        appDelegate?.postLog("   Response: \(body)")
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+                let statusCode = httpResponse.statusCode
+                await MainActor.run {
+                    if !Self.loggedFailures.contains(type) {
+                        Self.loggedFailures.insert(type)
+                        let appDelegate = NSApplication.shared.delegate as? AppDelegate
+                        appDelegate?.postLog("⚠️ Event failed: \(type) - Status \(statusCode)")
                     }
                 }
             }
         } catch {
-            if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
-                appDelegate.postLog("❌ Network error sending event \(type): \(error.localizedDescription)")
+            await MainActor.run {
+                if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+                    appDelegate.postLog("❌ Network error sending event \(type): \(error.localizedDescription)")
+                }
             }
         }
     }
@@ -202,7 +227,6 @@ class BackendClient {
         let message: String
         let statusCode: Int
         let mode: String?
-        let selfUnlockAvailableAt: String?
     }
 
     /// Request an unlock code from the backend
@@ -210,7 +234,7 @@ class BackendClient {
         let endpoint = "\(baseURL)/unlock/request"
 
         guard let url = URL(string: endpoint) else {
-            return UnlockResult(success: false, message: "Invalid URL", statusCode: 0, mode: nil, selfUnlockAvailableAt: nil)
+            return UnlockResult(success: false, message: "Invalid URL", statusCode: 0, mode: nil)
         }
 
         var request = URLRequest(url: url)
@@ -226,17 +250,16 @@ class BackendClient {
                 let json = parseJSON(data)
                 let msg = (json?["message"] as? String) ?? errorMessage(from: data)
                 let mode = json?["mode"] as? String
-                let sua = json?["self_unlock_available_at"] as? String
                 if isSuccess(httpResponse.statusCode) {
-                    return UnlockResult(success: true, message: msg, statusCode: httpResponse.statusCode, mode: mode, selfUnlockAvailableAt: sua)
+                    return UnlockResult(success: true, message: msg, statusCode: httpResponse.statusCode, mode: mode)
                 } else {
-                    return UnlockResult(success: false, message: msg, statusCode: httpResponse.statusCode, mode: mode, selfUnlockAvailableAt: nil)
+                    return UnlockResult(success: false, message: msg, statusCode: httpResponse.statusCode, mode: mode)
                 }
             }
         } catch {
-            return UnlockResult(success: false, message: error.localizedDescription, statusCode: 0, mode: nil, selfUnlockAvailableAt: nil)
+            return UnlockResult(success: false, message: error.localizedDescription, statusCode: 0, mode: nil)
         }
-        return UnlockResult(success: false, message: "Unknown error", statusCode: 0, mode: nil, selfUnlockAvailableAt: nil)
+        return UnlockResult(success: false, message: "Unknown error", statusCode: 0, mode: nil)
     }
 
     // MARK: - Verify Unlock Code
@@ -487,8 +510,7 @@ class BackendClient {
             success: result.success,
             message: result.success ? "Settings re-locked" : result.message,
             statusCode: result.statusCode,
-            mode: currentMode,
-            selfUnlockAvailableAt: nil
+            mode: currentMode
         )
     }
 
@@ -504,7 +526,6 @@ class BackendClient {
         let temporaryUnlockUntil: String?
         let autoRelock: Bool
         let hasPendingRequest: Bool
-        let selfUnlockAvailableAt: String?
     }
 
     /// Get current lock/unlock status from backend
@@ -531,8 +552,7 @@ class BackendClient {
                     isTemporarilyUnlocked: json["is_temporarily_unlocked"] as? Bool ?? false,
                     temporaryUnlockUntil: json["temporary_unlock_until"] as? String,
                     autoRelock: json["auto_relock"] as? Bool ?? true,
-                    hasPendingRequest: json["has_pending_request"] as? Bool ?? false,
-                    selfUnlockAvailableAt: json["self_unlock_available_at"] as? String
+                    hasPendingRequest: json["has_pending_request"] as? Bool ?? false
                 )
             }
         } catch {
@@ -885,6 +905,12 @@ class BackendClient {
         return keychainGet("access_token") != nil
     }
 
+    /// Returns the stored JWT access token, or nil if not logged in.
+    /// Used by FocusWebSocketClient for WebSocket authentication.
+    func getAccessToken() -> String? {
+        return keychainGet("access_token")
+    }
+
     var storedEmail: String? {
         return keychainGet("email")
     }
@@ -1091,5 +1117,181 @@ class BackendClient {
             return AuthResult(success: false, message: error.localizedDescription, data: nil)
         }
         return AuthResult(success: false, message: "Unknown error", data: nil)
+    }
+
+    // MARK: - Content Safety
+
+    /// Report a content safety detection to the backend.
+    /// The backend sends a blurred screenshot to the accountability partner.
+    /// Returns true if the report was accepted (email may or may not have been sent).
+    func reportContentSafety(blurredImageBase64: String, timestamp: String) async -> Bool {
+        let endpoint = "\(baseURL)/content-safety/report"
+
+        guard let url = URL(string: endpoint) else { return false }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        // Longer timeout for large base64 payloads
+        request.timeoutInterval = 30
+
+        let payload: [String: Any] = [
+            "timestamp": timestamp,
+            "blurred_image_base64": blurredImageBase64
+        ]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 200 {
+                    appDelegate?.postLog("🛡️ Content safety report accepted")
+                    return true
+                } else if httpResponse.statusCode == 429 {
+                    appDelegate?.postLog("🛡️ Content safety report rate-limited (429)")
+                    return false
+                } else {
+                    if let body = String(data: data, encoding: .utf8) {
+                        appDelegate?.postLog("⚠️ Content safety report failed (\(httpResponse.statusCode)): \(body)")
+                    }
+                    return false
+                }
+            }
+        } catch {
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            appDelegate?.postLog("❌ Content safety report error: \(error.localizedDescription)")
+        }
+
+        return false
+    }
+
+    // MARK: - Enforcement
+
+    /// Fetch authoritative enforcement state. Uses cert-pinned URLSession when pinning
+    /// fingerprints are configured; otherwise falls back to the default session with a
+    /// warning log (dev/staging).
+    func fetchEnforcement() async -> EnforcementFetchResult? {
+        let endpoint = "\(baseURL)/device/enforcement"
+        guard let url = URL(string: endpoint) else { return nil }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        let session = Self.pinnedBackendCertSHA256.isEmpty
+            ? URLSession.shared
+            : URLSession(configuration: .default,
+                         delegate: CertPinningDelegate(pinned: Self.pinnedBackendCertSHA256),
+                         delegateQueue: nil)
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                let appDelegate = NSApplication.shared.delegate as? AppDelegate
+                appDelegate?.postLog("⚠️ fetchEnforcement non-200: \(String(describing: (response as? HTTPURLResponse)?.statusCode))")
+                return nil
+            }
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                return nil
+            }
+            let constraints = (json["constraints"] as? [String: [String: Any]]) ?? [:]
+            return EnforcementFetchResult(
+                success: (json["success"] as? Bool) ?? false,
+                lockMode: (json["lock_mode"] as? String) ?? "none",
+                enforcementActive: (json["enforcement_active"] as? Bool) ?? false,
+                constraints: constraints,
+                temporaryUnlockUntil: json["temporary_unlock_until"] as? String,
+                updatedAt: json["updated_at"] as? String,
+                deviceId: (json["device_id"] as? String) ?? deviceId,
+                rawJSON: data,
+                error: nil
+            )
+        } catch {
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            appDelegate?.postLog("⚠️ fetchEnforcement failed: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    /// Report a tamper event (permission revoked or feature disabled).
+    /// Backend notifies the accountability partner.
+    func reportContentSafetyTamper(eventType: String, detail: String) async {
+        let endpoint = "\(baseURL)/content-safety/tamper"
+
+        guard let url = URL(string: endpoint) else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        let payload: [String: Any] = [
+            "event_type": eventType,
+            "detail": detail,
+            "timestamp": ISO8601DateFormatter().string(from: Date())
+        ]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (_, response) = try await URLSession.shared.data(for: request)
+
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                appDelegate?.postLog("🛡️ Tamper event reported: \(eventType)/\(detail)")
+            }
+        } catch {
+            let appDelegate = NSApplication.shared.delegate as? AppDelegate
+            appDelegate?.postLog("⚠️ Tamper report error: \(error.localizedDescription)")
+        }
+    }
+}
+
+// MARK: - TLS Certificate Pinning
+
+final class CertPinningDelegate: NSObject, URLSessionDelegate {
+    let pinned: [String]
+
+    init(pinned: [String]) { self.pinned = pinned }
+
+    func urlSession(_ session: URLSession,
+                    didReceive challenge: URLAuthenticationChallenge,
+                    completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+              let trust = challenge.protectionSpace.serverTrust else {
+            completionHandler(.cancelAuthenticationChallenge, nil)
+            return
+        }
+        // Let system evaluate trust first (chain + expiry).
+        var error: CFError?
+        guard SecTrustEvaluateWithError(trust, &error) else {
+            completionHandler(.cancelAuthenticationChallenge, nil)
+            return
+        }
+        // Then check the leaf cert SHA-256 against our pinned list.
+        guard let chain = SecTrustCopyCertificateChain(trust) as? [SecCertificate],
+              let leaf = chain.first else {
+            completionHandler(.cancelAuthenticationChallenge, nil)
+            return
+        }
+        let data = SecCertificateCopyData(leaf) as Data
+        let fingerprint = data.sha256HexColons.uppercased()
+        if pinned.map({ $0.uppercased() }).contains(fingerprint) {
+            completionHandler(.useCredential, URLCredential(trust: trust))
+        } else {
+            completionHandler(.cancelAuthenticationChallenge, nil)
+        }
+    }
+}
+
+private extension Data {
+    var sha256HexColons: String {
+        var hash = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
+        self.withUnsafeBytes { buf in
+            _ = CC_SHA256(buf.baseAddress, CC_LONG(self.count), &hash)
+        }
+        return hash.map { String(format: "%02X", $0) }.joined(separator: ":")
     }
 }

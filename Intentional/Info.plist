@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.intentional.app</string>
+	<string>com.arayan.intentional</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -28,6 +28,8 @@
 	<string>Intentional needs to monitor browser tabs to block distracting websites when you're not using the browser extension.</string>
 	<key>NSSystemExtensionUsageDescription</key>
 	<string>Intentional uses Screen Time to block distracting websites across all browsers for your accountability.</string>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>Intentional needs Screen Recording permission to monitor for explicit content across all screens when Content Safety is enabled.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

@@ -12,6 +12,7 @@ class SleepWakeMonitor {
 
     private let backendClient: BackendClient
     private weak var appDelegate: AppDelegate?
+    var onWake: (() -> Void)?
 
     init(backendClient: BackendClient, appDelegate: AppDelegate) {
         self.backendClient = backendClient
@@ -73,6 +74,7 @@ class SleepWakeMonitor {
         }
 
         appDelegate?.postEventNotification(type: "computer_sleeping")
+        appDelegate?.contentSafetyMonitor?.onSleep()
     }
 
     private func computerDidWake() {
@@ -85,6 +87,8 @@ class SleepWakeMonitor {
         }
 
         appDelegate?.postEventNotification(type: "computer_waking")
+        appDelegate?.contentSafetyMonitor?.onWake()
+        onWake?()
     }
 
     private func screenDidLock() {

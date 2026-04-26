@@ -114,22 +114,63 @@ if !launchedViaExtension {
                     // Xcode debug launch: terminate the existing (watchdog-launched) process
                     // so the debugger can attach to this new instance instead.
                     appendLog("XCODE LAUNCH - Terminating existing PID \(existingPID) to allow debug session")
+
+                    // Disable ALL persistence mechanisms FIRST so launchd won't relaunch
+                    // the PKG after we kill it.
+                    // 1. KeepAlive LaunchAgent (installed by PKG)
+                    let agentTask = Process()
+                    agentTask.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+                    agentTask.arguments = ["bootout", "gui/\(getuid())/com.intentional.agent"]
+                    agentTask.standardOutput = FileHandle.nullDevice
+                    agentTask.standardError = FileHandle.nullDevice
+                    try? agentTask.run()
+                    agentTask.waitUntilExit()
+
+                    // 2. Login Item (SMAppService — auto-relaunches on macOS 14+)
+                    let findPipe = Pipe()
+                    let findTask = Process()
+                    findTask.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+                    findTask.arguments = ["list"]
+                    findTask.standardOutput = findPipe
+                    findTask.standardError = FileHandle.nullDevice
+                    try? findTask.run()
+                    findTask.waitUntilExit()
+                    if let output = String(data: findPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) {
+                        for line in output.components(separatedBy: "\n") {
+                            if line.contains("application.com.arayan.intentional") ||
+                               line.contains("com.intentional.") {
+                                let parts = line.components(separatedBy: "\t")
+                                if let label = parts.last?.trimmingCharacters(in: .whitespaces), !label.isEmpty {
+                                    let bootTask = Process()
+                                    bootTask.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+                                    bootTask.arguments = ["bootout", "gui/\(getuid())/\(label)"]
+                                    bootTask.standardOutput = FileHandle.nullDevice
+                                    bootTask.standardError = FileHandle.nullDevice
+                                    try? bootTask.run()
+                                    bootTask.waitUntilExit()
+                                    appendLog("XCODE LAUNCH - Disabled: \(label)")
+                                }
+                            }
+                        }
+                    }
+                    appendLog("XCODE LAUNCH - Disabled all persistence mechanisms")
+
+                    // Now kill the old process. Its SIGTERM handler will remove the lock file.
                     kill(existingPID, SIGTERM)
-                    // Wait briefly for the old process to exit and release the lock
                     for _ in 0..<20 {
                         usleep(100_000) // 100ms
                         if kill(existingPID, 0) != 0 { break }
                     }
-                    try? fileManager.removeItem(atPath: lockFilePath)
+
+                    // Re-write lock file AFTER old process exits (its SIGTERM handler deletes it)
+                    try? "\(myPID)".write(toFile: lockFilePath, atomically: true, encoding: .utf8)
                     // Remove no-relaunch marker the old process may have written
                     try? fileManager.removeItem(atPath: noRelaunchMarkerPath)
                 } else {
-                    // Normal duplicate launch — activate existing window and exit
-                    appendLog("DUPLICATE DETECTED - Existing PID: \(existingPID) is alive, activating window")
-                    let runningApps = NSWorkspace.shared.runningApplications
-                    if let existing = runningApps.first(where: { $0.processIdentifier == existingPID }) {
-                        existing.activate(options: .activateIgnoringOtherApps)
-                    }
+                    // Normal duplicate launch — silently exit without stealing focus.
+                    // KeepAlive LaunchAgent respawns every ~10s, so calling activate()
+                    // here would pop the app to the front every 10 seconds.
+                    appendLog("DUPLICATE DETECTED - Existing PID: \(existingPID) is alive, exiting silently")
                     exit(0)
                 }
             } else {

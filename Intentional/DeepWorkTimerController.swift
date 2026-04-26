@@ -215,6 +215,7 @@ class DeepWorkTimerController {
 
         positionWindow(window, width: windowWidth, height: windowHeight)
 
+        print("🚨 ACTIVATE: DeepWorkTimerController.showFocusPill(timer) — orderFrontRegardless")
         window.orderFrontRegardless()
         timerWindow = window
         startTrackingPosition()
@@ -478,6 +479,7 @@ class DeepWorkTimerController {
 
         positionWindow(window, width: windowWidth, height: windowHeight)
 
+        print("🚨 ACTIVATE: DeepWorkTimerController.showNoPlan — orderFrontRegardless")
         window.orderFrontRegardless()
         timerWindow = window
         startTrackingPosition()

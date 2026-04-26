@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Intentional Mode — Design Variations</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', system-ui, sans-serif; background: #1a1a1a; color: white; }
+
+/* Tab navigation */
+.tab-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; gap: 0; background: #2a2a2a; border-bottom: 1px solid #444;
+  padding: 0 20px;
+}
+.tab {
+  padding: 12px 24px; cursor: pointer; font-size: 13px; font-weight: 500;
+  color: rgba(255,255,255,0.5); border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+.tab:hover { color: rgba(255,255,255,0.8); }
+.tab.active { color: white; border-bottom-color: #007AFF; }
+
+/* Variation container — simulates a Mac screen */
+.variation {
+  display: none; width: 100vw; height: 100vh; padding-top: 44px;
+  position: relative; overflow: hidden;
+}
+.variation.active { display: block; }
+
+/* Fake desktop background behind the overlay */
+.desktop-bg {
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, #1e3a5f, #2d1b4e, #1a3d2e);
+}
+
+/* ========== VARIATION A: Apple Downtime Light ========== */
+.v-a .overlay {
+  position: absolute; inset: 0; top: 44px;
+  background: rgba(235, 235, 235, 0.97);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.v-a .icon {
+  font-size: 52px; color: rgba(0,0,0,0.25); margin-bottom: 16px;
+}
+.v-a .title {
+  font-size: 21px; font-weight: 500; color: rgba(0,0,0,0.85); margin-bottom: 4px;
+}
+.v-a .subtitle {
+  font-size: 13px; color: rgba(0,0,0,0.4); margin-bottom: 32px;
+}
+.v-a .card {
+  width: 380px; background: white; border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06); overflow: hidden;
+  margin-bottom: 20px;
+}
+.v-a .type-row {
+  display: flex; height: 72px;
+}
+.v-a .type-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 5px; cursor: pointer; font-size: 11px; font-weight: 500;
+  color: rgba(0,0,0,0.4); border: none; background: none;
+  border-right: 0.5px solid #e5e5e5;
+}
+.v-a .type-btn:last-child { border-right: none; }
+.v-a .type-btn.selected { color: #007AFF; background: rgba(0,122,255,0.06); }
+.v-a .type-btn .ico { font-size: 20px; }
+.v-a .divider { height: 0.5px; background: #e5e5e5; }
+.v-a .field {
+  padding: 14px 16px; font-size: 15px; color: #1a1a1a;
+  border: none; width: 100%; outline: none; background: transparent;
+}
+.v-a .field::placeholder { color: rgba(0,0,0,0.3); }
+.v-a .dur-row {
+  display: flex; align-items: center; padding: 12px 16px; gap: 8px;
+}
+.v-a .dur-label { font-size: 13px; color: rgba(0,0,0,0.4); flex: 1; }
+.v-a .dur-pill {
+  padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 500;
+  cursor: pointer; border: none; color: rgba(0,0,0,0.4); background: #f0f0f0;
+}
+.v-a .dur-pill.selected { background: #007AFF; color: white; }
+.v-a .start-btn {
+  width: 380px; height: 44px; border-radius: 10px; border: none;
+  background: #007AFF; color: white; font-size: 16px; font-weight: 500;
+  cursor: pointer;
+}
+
+/* ========== VARIATION B: Frosted Dark (matches app theme) ========== */
+.v-b .overlay {
+  position: absolute; inset: 0; top: 44px;
+  background: rgba(20, 20, 22, 0.92);
+  backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.v-b .icon {
+  font-size: 48px; color: rgba(255,255,255,0.2); margin-bottom: 16px;
+}
+.v-b .title {
+  font-size: 21px; font-weight: 500; color: rgba(255,255,255,0.9); margin-bottom: 4px;
+}
+.v-b .subtitle {
+  font-size: 13px; color: rgba(255,255,255,0.35); margin-bottom: 32px;
+}
+.v-b .card {
+  width: 380px; background: rgba(255,255,255,0.07);
+  border: 0.5px solid rgba(255,255,255,0.1);
+  border-radius: 14px; overflow: hidden; margin-bottom: 20px;
+}
+.v-b .type-row { display: flex; height: 72px; }
+.v-b .type-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 5px; cursor: pointer; font-size: 11px; font-weight: 500;
+  color: rgba(255,255,255,0.35); border: none; background: none;
+  border-right: 0.5px solid rgba(255,255,255,0.08);
+}
+.v-b .type-btn:last-child { border-right: none; }
+.v-b .type-btn.selected { color: #6366f1; background: rgba(99,102,241,0.12); }
+.v-b .divider { height: 0.5px; background: rgba(255,255,255,0.08); }
+.v-b .field {
+  padding: 14px 16px; font-size: 15px; color: white;
+  border: none; width: 100%; outline: none; background: transparent;
+}
+.v-b .field::placeholder { color: rgba(255,255,255,0.2); }
+.v-b .dur-row {
+  display: flex; align-items: center; padding: 12px 16px; gap: 8px;
+}
+.v-b .dur-label { font-size: 13px; color: rgba(255,255,255,0.35); flex: 1; }
+.v-b .dur-pill {
+  padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 500;
+  cursor: pointer; border: none; color: rgba(255,255,255,0.35); background: rgba(255,255,255,0.06);
+}
+.v-b .dur-pill.selected { background: #6366f1; color: white; }
+.v-b .start-btn {
+  width: 380px; height: 44px; border-radius: 10px; border: none;
+  background: #6366f1; color: white; font-size: 16px; font-weight: 500;
+  cursor: pointer;
+}
+
+/* ========== VARIATION C: Minimal (just text, no card) ========== */
+.v-c .overlay {
+  position: absolute; inset: 0; top: 44px;
+  background: rgba(245, 245, 245, 0.98);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.v-c .icon {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: rgba(0,0,0,0.06); display: flex; align-items: center; justify-content: center;
+  font-size: 28px; color: rgba(0,0,0,0.3); margin-bottom: 20px;
+}
+.v-c .title {
+  font-size: 24px; font-weight: 600; color: rgba(0,0,0,0.85); margin-bottom: 6px;
+}
+.v-c .subtitle {
+  font-size: 14px; color: rgba(0,0,0,0.4); margin-bottom: 40px;
+}
+.v-c .form-group {
+  width: 340px; margin-bottom: 16px;
+}
+.v-c .form-label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.5px; color: rgba(0,0,0,0.3); margin-bottom: 8px;
+}
+.v-c .type-row { display: flex; gap: 8px; margin-bottom: 20px; }
+.v-c .type-chip {
+  flex: 1; padding: 10px; border-radius: 10px; text-align: center;
+  font-size: 13px; font-weight: 500; cursor: pointer; border: none;
+  color: rgba(0,0,0,0.4); background: rgba(0,0,0,0.04);
+  border: 1.5px solid transparent;
+}
+.v-c .type-chip.selected {
+  color: #007AFF; background: rgba(0,122,255,0.06);
+  border-color: rgba(0,122,255,0.3);
+}
+.v-c .field {
+  width: 100%; padding: 12px 0; font-size: 18px; font-weight: 400;
+  color: #1a1a1a; border: none; border-bottom: 1.5px solid rgba(0,0,0,0.1);
+  outline: none; background: transparent; margin-bottom: 24px;
+}
+.v-c .field:focus { border-bottom-color: #007AFF; }
+.v-c .field::placeholder { color: rgba(0,0,0,0.2); }
+.v-c .dur-row { display: flex; gap: 8px; margin-bottom: 32px; }
+.v-c .dur-chip {
+  flex: 1; padding: 10px 0; border-radius: 8px; text-align: center;
+  font-size: 14px; font-weight: 500; cursor: pointer; border: none;
+  color: rgba(0,0,0,0.4); background: rgba(0,0,0,0.04);
+}
+.v-c .dur-chip.selected { background: #007AFF; color: white; }
+.v-c .start-btn {
+  width: 340px; height: 48px; border-radius: 24px; border: none;
+  background: #007AFF; color: white; font-size: 16px; font-weight: 600;
+  cursor: pointer; letter-spacing: 0.3px;
+}
+
+/* ========== VARIATION D: Screen Time Style (iOS-like) ========== */
+.v-d .overlay {
+  position: absolute; inset: 0; top: 44px;
+  background: linear-gradient(180deg, rgba(28,28,30,0.96) 0%, rgba(28,28,30,0.99) 100%);
+  backdrop-filter: blur(50px); -webkit-backdrop-filter: blur(50px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.v-d .icon-ring {
+  width: 80px; height: 80px; border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.12);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 20px;
+}
+.v-d .icon-ring .ico { font-size: 32px; color: rgba(255,255,255,0.5); }
+.v-d .title {
+  font-size: 22px; font-weight: 600; color: white; margin-bottom: 6px;
+}
+.v-d .subtitle {
+  font-size: 14px; color: rgba(255,255,255,0.45); margin-bottom: 36px;
+  max-width: 280px; text-align: center; line-height: 1.4;
+}
+.v-d .card {
+  width: 360px; background: rgba(44,44,46,0.8);
+  border-radius: 14px; overflow: hidden; margin-bottom: 16px;
+}
+.v-d .row {
+  display: flex; align-items: center; padding: 14px 16px;
+  border-bottom: 0.5px solid rgba(255,255,255,0.08);
+}
+.v-d .row:last-child { border-bottom: none; }
+.v-d .row-label { font-size: 15px; color: white; flex: 1; }
+.v-d .row-value {
+  font-size: 15px; color: rgba(255,255,255,0.45);
+}
+.v-d .type-row { display: flex; padding: 8px; gap: 4px; }
+.v-d .type-seg {
+  flex: 1; padding: 8px 0; border-radius: 8px; text-align: center;
+  font-size: 13px; font-weight: 500; cursor: pointer; border: none;
+  color: rgba(255,255,255,0.5); background: transparent;
+}
+.v-d .type-seg.selected {
+  color: white; background: rgba(99,102,241,0.5);
+}
+.v-d .field {
+  width: 100%; padding: 14px 16px; font-size: 15px; color: white;
+  border: none; outline: none; background: transparent;
+}
+.v-d .field::placeholder { color: rgba(255,255,255,0.25); }
+.v-d .dur-row { display: flex; gap: 6px; padding: 10px 16px; }
+.v-d .dur-seg {
+  flex: 1; padding: 7px 0; border-radius: 7px; text-align: center;
+  font-size: 13px; font-weight: 500; cursor: pointer; border: none;
+  color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.06);
+}
+.v-d .dur-seg.selected { background: rgba(99,102,241,0.5); color: white; }
+.v-d .start-btn {
+  width: 360px; height: 50px; border-radius: 14px; border: none;
+  background: #6366f1; color: white; font-size: 17px; font-weight: 600;
+  cursor: pointer;
+}
+
+/* ========== VARIATION E: Ultra Minimal (Notion-like) ========== */
+.v-e .overlay {
+  position: absolute; inset: 0; top: 44px;
+  background: #ffffff;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.v-e .title {
+  font-size: 32px; font-weight: 700; color: #111; margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+.v-e .subtitle {
+  font-size: 15px; color: #999; margin-bottom: 48px;
+}
+.v-e .field {
+  width: 400px; padding: 0 0 12px 0; font-size: 20px; font-weight: 400;
+  color: #111; border: none; border-bottom: 2px solid #eee;
+  outline: none; background: transparent; margin-bottom: 32px;
+  text-align: center;
+}
+.v-e .field:focus { border-bottom-color: #111; }
+.v-e .field::placeholder { color: #ccc; }
+.v-e .options-row {
+  display: flex; gap: 12px; margin-bottom: 16px;
+}
+.v-e .opt-group {
+  display: flex; gap: 6px;
+}
+.v-e .opt-label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 1px; color: #bbb; margin-bottom: 8px; text-align: center;
+}
+.v-e .chip {
+  padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500;
+  cursor: pointer; border: 1px solid #eee; color: #999; background: white;
+}
+.v-e .chip.selected { border-color: #111; color: #111; background: #f8f8f8; }
+.v-e .start-btn {
+  width: 200px; height: 44px; border-radius: 8px; border: none;
+  background: #111; color: white; font-size: 15px; font-weight: 600;
+  cursor: pointer; margin-top: 32px;
+}
+
+</style>
+</head>
+<body>
+
+<div class="tab-bar">
+  <div class="tab active" onclick="showVariation('a')">A: Downtime Light</div>
+  <div class="tab" onclick="showVariation('b')">B: Frosted Dark</div>
+  <div class="tab" onclick="showVariation('c')">C: Minimal</div>
+  <div class="tab" onclick="showVariation('d')">D: iOS Screen Time</div>
+  <div class="tab" onclick="showVariation('e')">E: Ultra Minimal</div>
+</div>
+
+<!-- A: Apple Downtime Light -->
+<div class="variation v-a active" id="var-a">
+  <div class="desktop-bg"></div>
+  <div class="overlay">
+    <div class="icon">&#9203;</div>
+    <div class="title">Time to be intentional</div>
+    <div class="subtitle">Set an intention to continue using your Mac</div>
+    <div class="card">
+      <div class="type-row">
+        <button class="type-btn" onclick="selectType(this)"><span class="ico">&#128293;</span>Deep Work</button>
+        <button class="type-btn selected" onclick="selectType(this)"><span class="ico">&#128065;</span>Focus</button>
+        <button class="type-btn" onclick="selectType(this)"><span class="ico">&#9749;</span>Free Time</button>
+      </div>
+      <div class="divider"></div>
+      <input class="field" placeholder="What are you working on?">
+      <div class="divider"></div>
+      <div class="dur-row">
+        <span class="dur-label">Duration</span>
+        <button class="dur-pill" onclick="selectDur(this)">30m</button>
+        <button class="dur-pill selected" onclick="selectDur(this)">1h</button>
+        <button class="dur-pill" onclick="selectDur(this)">1.5h</button>
+        <button class="dur-pill" onclick="selectDur(this)">2h</button>
+      </div>
+    </div>
+    <button class="start-btn">Start</button>
+  </div>
+</div>
+
+<!-- B: Frosted Dark -->
+<div class="variation v-b" id="var-b">
+  <div class="desktop-bg"></div>
+  <div class="overlay">
+    <div class="icon">&#9203;</div>
+    <div class="title">Time to be intentional</div>
+    <div class="subtitle">Set an intention to continue using your Mac</div>
+    <div class="card">
+      <div class="type-row">
+        <button class="type-btn" onclick="selectType(this)"><span class="ico">&#128293;</span>Deep Work</button>
+        <button class="type-btn selected" onclick="selectType(this)"><span class="ico">&#128065;</span>Focus</button>
+        <button class="type-btn" onclick="selectType(this)"><span class="ico">&#9749;</span>Free Time</button>
+      </div>
+      <div class="divider"></div>
+      <input class="field" placeholder="What are you working on?">
+      <div class="divider"></div>
+      <div class="dur-row">
+        <span class="dur-label">Duration</span>
+        <button class="dur-pill" onclick="selectDur(this)">30m</button>
+        <button class="dur-pill selected" onclick="selectDur(this)">1h</button>
+        <button class="dur-pill" onclick="selectDur(this)">1.5h</button>
+        <button class="dur-pill" onclick="selectDur(this)">2h</button>
+      </div>
+    </div>
+    <button class="start-btn">Start</button>
+  </div>
+</div>
+
+<!-- C: Minimal -->
+<div class="variation v-c" id="var-c">
+  <div class="desktop-bg"></div>
+  <div class="overlay">
+    <div class="icon">&#9203;</div>
+    <div class="title">What's your intention?</div>
+    <div class="subtitle">You can't use your Mac without one</div>
+    <div class="form-group">
+      <div class="type-row">
+        <button class="type-chip" onclick="selectType(this)">Deep Work</button>
+        <button class="type-chip selected" onclick="selectType(this)">Focus</button>
+        <button class="type-chip" onclick="selectType(this)">Free Time</button>
+      </div>
+      <input class="field" placeholder="e.g., Build auth module">
+      <div class="dur-row">
+        <button class="dur-chip" onclick="selectDur(this)">30m</button>
+        <button class="dur-chip selected" onclick="selectDur(this)">1h</button>
+        <button class="dur-chip" onclick="selectDur(this)">1.5h</button>
+        <button class="dur-chip" onclick="selectDur(this)">2h</button>
+      </div>
+    </div>
+    <button class="start-btn">Start</button>
+  </div>
+</div>
+
+<!-- D: iOS Screen Time Style -->
+<div class="variation v-d" id="var-d">
+  <div class="desktop-bg"></div>
+  <div class="overlay">
+    <div class="icon-ring"><span class="ico">&#9203;</span></div>
+    <div class="title">Time Limit</div>
+    <div class="subtitle">Set an intention for your next block to continue using your Mac</div>
+    <div class="card">
+      <div class="type-row">
+        <button class="type-seg" onclick="selectType(this)">Deep Work</button>
+        <button class="type-seg selected" onclick="selectType(this)">Focus</button>
+        <button class="type-seg" onclick="selectType(this)">Free Time</button>
+      </div>
+      <div class="row">
+        <input class="field" placeholder="What are you working on?">
+      </div>
+      <div class="dur-row">
+        <button class="dur-seg" onclick="selectDur(this)">30m</button>
+        <button class="dur-seg selected" onclick="selectDur(this)">1h</button>
+        <button class="dur-seg" onclick="selectDur(this)">1.5h</button>
+        <button class="dur-seg" onclick="selectDur(this)">2h</button>
+      </div>
+    </div>
+    <button class="start-btn">Start</button>
+  </div>
+</div>
+
+<!-- E: Ultra Minimal -->
+<div class="variation v-e" id="var-e">
+  <div class="desktop-bg"></div>
+  <div class="overlay">
+    <div class="title">What are you doing?</div>
+    <div class="subtitle">Set an intention to unlock your Mac</div>
+    <input class="field" placeholder="Type your intention...">
+    <div class="options-row">
+      <div>
+        <div class="opt-label">Mode</div>
+        <div class="opt-group">
+          <button class="chip" onclick="selectType(this)">Deep Work</button>
+          <button class="chip selected" onclick="selectType(this)">Focus</button>
+          <button class="chip" onclick="selectType(this)">Free Time</button>
+        </div>
+      </div>
+      <div>
+        <div class="opt-label">Duration</div>
+        <div class="opt-group">
+          <button class="chip" onclick="selectDur(this)">30m</button>
+          <button class="chip selected" onclick="selectDur(this)">1h</button>
+          <button class="chip" onclick="selectDur(this)">1.5h</button>
+          <button class="chip" onclick="selectDur(this)">2h</button>
+        </div>
+      </div>
+    </div>
+    <button class="start-btn">Start</button>
+  </div>
+</div>
+
+<script>
+function showVariation(id) {
+  document.querySelectorAll('.variation').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('var-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function selectType(el) {
+  el.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function selectDur(el) {
+  el.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+}
+</script>
+
+</body>
+</html>
