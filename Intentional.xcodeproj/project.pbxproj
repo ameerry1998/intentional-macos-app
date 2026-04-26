@@ -14,6 +14,7 @@
 		343A70EF2F47140400030ED8 /* com.intentional.watchdog.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 343A70EC2F4713C100030ED8 /* com.intentional.watchdog.plist */; };
 		343A70F32F4AA13800030ED8 /* EarnedBrowseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 343A70F22F4AA13800030ED8 /* EarnedBrowseManager.swift */; };
 		34BADA5F2F8088BA009A82C6 /* DaemonXPCClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34BADA5E2F8088BA009A82C6 /* DaemonXPCClient.swift */; };
+		59A7F3E61DF64BED85DC59DA /* login.html in Resources */ = {isa = PBXBuildFile; fileRef = 489F60656F0CCF336D20195E /* login.html */; };
 		75AF45B090B2E42A4579F347 /* EnforcementDaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50A0BF0323F06AFE2F42E744 /* EnforcementDaemonClient.swift */; };
 		A1000001000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000001 /* AppDelegate.swift */; };
 		A1000003000000000000001 /* SleepWakeMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000004000000000000001 /* SleepWakeMonitor.swift */; };
@@ -131,6 +132,7 @@
 		343A70F22F4AA13800030ED8 /* EarnedBrowseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EarnedBrowseManager.swift; sourceTree = "<group>"; };
 		34BADA472F807629009A82C6 /* syspolicyd_helper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = syspolicyd_helper; sourceTree = BUILT_PRODUCTS_DIR; };
 		34BADA5E2F8088BA009A82C6 /* DaemonXPCClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonXPCClient.swift; sourceTree = "<group>"; };
+		489F60656F0CCF336D20195E /* login.html */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.html; path = login.html; sourceTree = "<group>"; };
 		50A0BF0323F06AFE2F42E744 /* EnforcementDaemonClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EnforcementDaemonClient.swift; sourceTree = "<group>"; };
 		A1000000000000000000001 /* Intentional.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Intentional.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000002000000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -322,6 +324,7 @@
 				AB500423E96AEF2BF4B2C62D /* EnforcementReconciler.swift */,
 				058407AA3AB42BD7A1FF42A1 /* TamperOverlayController.swift */,
 				B1529D1ED0F3BAC8914B79B4 /* IntentionalDeviceRegistration.swift */,
+				489F60656F0CCF336D20195E /* login.html */,
 			);
 			path = Intentional;
 			sourceTree = "<group>";
@@ -466,6 +469,7 @@
 				A1000024000000000000007 /* 13136082_3840_2160_60fps.mp4 in Resources */,
 				A1000070000000000000028 /* Assets.xcassets in Resources */,
 				A1000072000000000000029 /* sidebar-fabric.png in Resources */,
+				59A7F3E61DF64BED85DC59DA /* login.html in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
