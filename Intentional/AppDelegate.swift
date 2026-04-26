@@ -576,7 +576,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if action == "start" {
                     self.postLog("🔌 Focus signal: START (session: \(sessionId), triggeredBy: \(triggeredBy))")
                     self.focusWebSocketClient?.startHeartbeat(sessionId: sessionId)
-                    self.showFocusStartOverlay(isPuckTriggered: triggeredBy == "puck")
+
+                    // Cross-device start: the user is on the originating device
+                    // (iPhone, puck), not at the Mac. Showing the intention picker
+                    // and waiting for a click means enforcement never engages —
+                    // exactly the bug we hit before this change. Auto-engage with
+                    // the default profile + a placeholder intention so the full
+                    // enforcement chain (websiteBlocker, focusMonitor, schedule
+                    // block injection, ritual controller, switch coordinator)
+                    // fires immediately.
+                    //
+                    // If a stale intention picker is already on screen from a
+                    // prior cross-device signal or local Cmd+Shift+P, dismiss it
+                    // first so it doesn't compete with the auto-started session.
+                    self.dismissFocusStartOverlay()
+
+                    let defaultProfileIds = self.blockingProfileManager?.profiles
+                        .filter { $0.isDefault }
+                        .map { $0.id } ?? []
+                    let intention = triggeredBy == "puck"
+                        ? "Focus session (started on phone)"
+                        : "Focus session"
+                    self.startFocusSession(
+                        profileIds: defaultProfileIds,
+                        intention: intention,
+                        aiEnabled: false,
+                        triggeredByPuck: triggeredBy == "puck"
+                    )
                 } else if action == "stop" {
                     self.postLog("🔌 Focus signal: STOP (session: \(sessionId))")
                     self.focusWebSocketClient?.stopHeartbeat()
