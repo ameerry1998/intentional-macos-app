@@ -994,7 +994,40 @@ class BackendClient {
     }
 
     /// POST /auth/refresh — rotate tokens
+    /// Serialised refresh: concurrent callers share a single in-flight task.
+    /// Without this, two paths (DeviceRegister + WebSocket, or two API calls)
+    /// hitting 401 at the same time both POST `/auth/refresh` with the same
+    /// refresh token. The first succeeds (rotates the refresh token); the
+    /// second uses the now-invalidated old refresh token, gets rejected, and
+    /// — under the previous logic — called `clearAuthTokens()`, wiping
+    /// BOTH the access AND refresh tokens that the first call had just
+    /// written. Net effect: race losers logged the user out.
+    private let refreshLock = NSLock()
+    private var refreshTask: Task<Bool, Never>?
+
     func authRefresh() async -> Bool {
+        // Coalesce: if a refresh is already running, await its result.
+        refreshLock.lock()
+        if let inFlight = refreshTask {
+            refreshLock.unlock()
+            return await inFlight.value
+        }
+        let task = Task<Bool, Never> { [weak self] in
+            guard let self = self else { return false }
+            return await self.performAuthRefresh()
+        }
+        refreshTask = task
+        refreshLock.unlock()
+
+        let result = await task.value
+
+        refreshLock.lock()
+        refreshTask = nil
+        refreshLock.unlock()
+        return result
+    }
+
+    private func performAuthRefresh() async -> Bool {
         guard let refreshToken = keychainGet("refresh_token") else { return false }
 
         let endpoint = "\(baseURL)/auth/refresh"
@@ -1014,10 +1047,18 @@ class BackendClient {
                 if let t = json["refresh_token"] as? String { keychainSet(t, forKey: "refresh_token") }
                 return true
             } else {
-                clearAuthTokens()
+                // Defensive: only clear tokens on a 4xx (definitive "refresh
+                // token is invalid"). Don't clear on 5xx / network error /
+                // ambiguous failure — those are transient and the user should
+                // be allowed to retry without being signed out.
+                let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+                if (400..<500).contains(statusCode) {
+                    clearAuthTokens()
+                }
                 return false
             }
         } catch {
+            // Network error — leave tokens alone, user can retry.
             return false
         }
     }
