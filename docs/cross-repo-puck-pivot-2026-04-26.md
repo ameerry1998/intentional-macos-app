@@ -61,7 +61,7 @@ Each agent appends to its own section below. Do not overwrite the other agent's 
 
 ---
 
-## Summary — what shipped tonight
+## Summary — what shipped tonight (Phase 1)
 
 | Repo | Branch | Commit | Verified |
 |------|--------|--------|----------|
@@ -70,7 +70,105 @@ Each agent appends to its own section below. Do not overwrite the other agent's 
 | puck-ios | `feat/ios-app-icon` | `4f04125` | iPhone 17 sim ✅ |
 | puck-ios | `feat/home-restructure` | `28a9f87` | iPhone 17 sim ✅ |
 
-None of these have been pushed or merged. They sit on local branches awaiting user review. Per the user's brief, the macOS-login agent owns `puck`; nothing here touched that branch or its locked files.
+All four pushed to origin in Phase 2 (below). Per the user's brief, the macOS-login agent owns `puck`; nothing here touched that branch or its locked files.
+
+---
+
+## Phase 2 — autonomous overnight run (2026-04-26, 03:30 onward)
+
+User authorized "fix everything" autonomous mode. Coordinated with a second agent (the "session indicator agent") who picked up the active session indicator + future Phase B/C/D work — see "Coordination handoff" below.
+
+### 6. Pushed Phase 1 branches to GitHub
+All four Phase 1 branches are now on origin and visible for PR creation:
+- `feat/mac-app-icon` → `https://github.com/ameerry1998/intentional-macos-app/pull/new/feat/mac-app-icon`
+- `docs/puck-pivot-suite` → `https://github.com/ameerry1998/intentional-macos-app/pull/new/docs/puck-pivot-suite`
+- `feat/ios-app-icon` → `https://github.com/ameerry1998/puck-ios/pull/new/feat/ios-app-icon`
+- `feat/home-restructure` → `https://github.com/ameerry1998/puck-ios/pull/new/feat/home-restructure`
+
+### 7. Partner sync — backend (Option A from the investigation doc)
+- Repo: `intentional-backend`
+- Branch: `feat/account-based-partner` (PR-able at `https://github.com/ameerry1998/intentional-backend/pull/new/feat/account-based-partner`)
+- Commit: `7491228` — *feat(partner): account-scoped partner sync across sibling devices (Option A)*
+- Status: **shipped + tests pass** (34/34 existing tests green; no schema migration required)
+- Changes:
+  - `PUT /partner` propagates `partner_email`/`partner_name` to all sibling `users` rows with the same `account_id`. Dedupes consent emails — if any sibling already has confirmed consent for the same partner, skip the new email and return confirmed.
+  - `DELETE /partner` clears the partner from the calling row AND all siblings.
+  - `GET /partner/status` falls back to the most-recently-active sibling row when the calling row has no partner but is account-linked.
+  - **NEW endpoint** `POST /devices/link-legacy` (Bearer auth) — sets `users.account_id` for a legacy device row from the JWT. Idempotent; 409 if already linked to a different account; 404 if the device hasn't been registered. Required for the iOS client to participate in sibling fan-out (iOS auths via Supabase directly, never calling `/auth/verify`).
+  - New helpers `_sibling_user_ids()` and `_account_partner_via_siblings()` — additive, behavior unchanged for unlinked devices.
+  - New Pydantic models in `models.py`: `LinkLegacyDeviceRequest`, `LinkLegacyDeviceResponse`.
+
+**Note:** Backend code is committed locally + pushed; **NOT deployed to production**. User decides when to deploy. No data migration required because changes are backwards compatible.
+
+### 8. Partner sync — iOS client
+- Repo: `puck-ios`
+- Branch: `feat/partner-link-account` (PR-able at `https://github.com/ameerry1998/puck-ios/pull/new/feat/partner-link-account`)
+- Commit: `90f3100` — *feat(partner): link legacy device to account on Supabase login*
+- Status: **shipped + build verified** (iPhone 17 simulator)
+- Changes:
+  - `IntentionalAPIClient` extended with `linkLegacyDeviceToAccount(deviceId:)` — Bearer-auth call to the new backend endpoint.
+  - `AuthService.triggerPostAuthBackendCalls` now also calls `linkLegacyDeviceToAccountIfNeeded()`. Fires from all three Supabase auth paths (verifyOTP, signInWithApple, listenForAuthChanges → initialSession/signedIn). Failures logged and swallowed; not user-facing.
+- **End-to-end behavior after both 7+8 deploy:** user signs in on iPhone → iOS calls `/devices/link-legacy` → iOS users row gets `account_id` → next `GET /partner/status` from iOS finds Mac's partner via sibling fallback → PartnerView shows the partner. macOS continues to work unchanged because Mac's `/auth/verify` already linked its row.
+
+### 9. Distractions hasApps guard expansion
+- Repo: `puck-ios`
+- Branch: `feat/distractions-guard` (PR-able at `https://github.com/ameerry1998/puck-ios/pull/new/feat/distractions-guard`)
+- Commit: `a939ac0` — *feat(distractions): empty-mode confirmation across all activation paths*
+- Worktree: `puck-ios/.claude/worktrees/distractions` (created to avoid stomping the session indicator agent who's working in the main `puck-ios` checkout)
+- Status: **shipped + build verified** (iPhone 17 simulator)
+- Changes:
+  - `PuckCoordinator`: new `onEmptyModeActivation` callback. `activateMode()` detects blocking modes with no apps/categories/websites, routes through the callback if wired (else falls through with audit log). Refactored actual activation into private `performActivation()`.
+  - `ContentView`: wires the callback to a SwiftUI `.alert` ("No apps configured" / "Start anyway" / "Cancel"). New `PendingEmptyModeActivation` payload struct.
+  - `ContentView.ModePickerSheet`: same guard inline + own confirmation alert (modal sheet can't host the parent's alert).
+  - HomeView's existing `hasApps` long-press alert (`HomeView.swift:63`) left untouched — already correct, and other agent owns HomeView this session.
+- This is the narrow guard from the design note. The bigger account-scoped mode-metadata sync (Phase D in the spec doc, below) is the other agent's pickup.
+
+### 10. Schedule + session sync — implementation spec (no code)
+- Repo: `intentional-macos-app`
+- Branch: `docs/puck-pivot-suite`
+- Commit: `4b65ae2` — *docs(plans): schedule + session sync — full implementation spec*
+- File: [`docs/superpowers/plans/2026-04-26-schedule-and-session-sync.md`](./superpowers/plans/2026-04-26-schedule-and-session-sync.md) — 469 lines
+- Status: **spec ready for review, NOT implemented**
+- Covers: new `schedule_blocks` backend table + migration sketch, three new endpoints (`GET/PUT/DELETE /schedule`), extension to `broadcast_focus_signal` + `GET /focus/state`, iOS code skeletons (`ScheduleStore`, `FocusStateService`, ScheduleView layout), Mac changes (push schedule on edit, enrich session signal), 7 enumerated risks (timezone, websocket reliability, source-of-truth migration, etc.), phased rollout (B → C → D), smoke-test recipe.
+- Estimated 10-12 focused hours of implementation across all phases.
+
+### Coordination handoff with the session indicator agent
+
+Mid-run, a second agent (running concurrently in another Claude Code session) was working on partner sync and active session indicator. We split the work:
+
+**Pivot suite agent (this one) owns:**
+- All backend code (intentional-backend feat/account-based-partner)
+- iOS partner link wiring (IntentionalAPIClient.swift, AuthService.swift) on `feat/partner-link-account`
+- iOS distractions hasApps guard (PuckCoordinator.swift, ContentView.swift) on `feat/distractions-guard`
+- Schedule + session sync spec doc
+- This cross-repo log
+
+**Session indicator agent owns:**
+- Local-only active session indicator on iOS Home (already shipped: `8325ba1` on `feat/active-session-indicator` — touches HomeView.swift only)
+- Will pick up the **implementation** of the schedule + session sync spec (Phases B and C in the spec) once we sync up tomorrow
+- Will pick up the bigger account-scoped distractions / mode metadata sync (Phase D in the spec) — beyond the narrow hasApps guard
+
+**Coordination cleanup performed:**
+- I accidentally committed my partner-link work onto the session indicator agent's `feat/active-session-indicator` branch (the main puck-ios checkout was on their branch when I committed). Cherry-picked to my `feat/partner-link-account` branch and reset their branch ref back to their tip (`8325ba1`) using `git branch -f`. Their work is intact.
+- Created a worktree at `puck-ios/.claude/worktrees/distractions` for the distractions guard so future iOS work doesn't collide with their checkout.
+- Symlinked the gitignored `Puck/Config.plist` (Supabase secrets) into the worktree so the build resolves it.
+
+---
+
+## Updated summary — everything across both phases
+
+| Repo | Branch | Tip commit | Pushed | Verified |
+|------|--------|-----------|--------|----------|
+| intentional-macos-app | `feat/mac-app-icon` | `a62639f` | ✅ | macOS build ✅ |
+| intentional-macos-app | `docs/puck-pivot-suite` | (final) | ✅ | (docs) |
+| intentional-backend | `feat/account-based-partner` | `7491228` | ✅ | 34/34 tests ✅ |
+| puck-ios | `feat/ios-app-icon` | `4f04125` | ✅ | iOS sim ✅ |
+| puck-ios | `feat/home-restructure` | `28a9f87` | ✅ | iOS sim ✅ |
+| puck-ios | `feat/partner-link-account` | `90f3100` | ✅ | iOS sim ✅ |
+| puck-ios | `feat/distractions-guard` | `a939ac0` | ✅ | iOS sim ✅ |
+| puck-ios | `feat/active-session-indicator` | `8325ba1` (other agent) | (their call) | (their work) |
+
+**Six branches I own + one shared with the other agent.** All on local + remote. Nothing merged into any `main`. Nothing deployed to production backend.
 
 ## Bugs surfaced
 
@@ -78,11 +176,13 @@ None of these have been pushed or merged. They sit on local branches awaiting us
 
 ## Pending decisions for the user
 
-1. **Partner sync fix path** — Option A (smallest backend change + iOS device-link) vs Option B (promote partner to `accounts` table). Recommended Option A as the smallest viable change; Option B if there's appetite for the migration. Either way, iOS needs to learn to link its legacy device_id to the account.
-2. **Where to merge the four pivot-suite branches** — directly into `main` (clean, all small) or wait for the macOS-login work on `puck` to land first to avoid simultaneous merges. Recommend merging the icon + docs branches into `main` immediately (they're independent), and the iOS home-restructure branch into `main` after a quick visual check on a real device or simulator.
-3. **Routine tab name** — left as "Routine" in the tab bar (renaming to "Schedule" would be a clean follow-up but felt like overreach for tonight given the user's "don't over-build" guidance).
-4. **Reclaimed-time-this-week sparkline** — fully removed from home; consider a future "Stats" page that revives it if the data is meaningful enough to warrant a dedicated home for it.
-5. **Distractions / blocklist sync model** — see design note below.
+1. **~~Partner sync fix path~~** — DECIDED unilaterally: implemented Option A end-to-end (backend `feat/account-based-partner` + iOS `feat/partner-link-account`). Tests pass; not deployed. **Action**: review the backend diff (~150 LOC), deploy when ready, then merge iOS. After deploy + iOS merge + iPhone re-launch, the partner that was set on Mac will appear on iPhone within one PartnerView refresh.
+2. **Where to merge the seven pivot-suite branches** — Recommended sequence: (a) merge `feat/mac-app-icon`, `feat/ios-app-icon`, `feat/home-restructure` into `main` immediately (all visually verified on commit). (b) Merge backend `feat/account-based-partner` to `main` and deploy whenever convenient. (c) Once backend is live, merge iOS `feat/partner-link-account`. (d) Merge `feat/distractions-guard` (no backend dependency). (e) Coordinate with the session indicator agent on `feat/active-session-indicator` (their work). (f) `docs/puck-pivot-suite` can merge whenever.
+3. **Routine tab name** — left as "Routine" in the tab bar; should be renamed to "Schedule" when the spec doc's Phase B implementation lands. Trivial change, just hadn't done it yet.
+4. **Reclaimed-time-this-week sparkline** — fully removed from home; consider a future "Stats" page that revives it.
+5. **Distractions / blocklist sync model** — design note below has been refined twice (lazy-prompt + empty-mode guard). The narrow hasApps guard already shipped on `feat/distractions-guard`. The bigger account-scoped mode-metadata sync is queued as Phase D in the schedule+session-sync spec.
+6. **Schedule + session sync spec** — review [`docs/superpowers/plans/2026-04-26-schedule-and-session-sync.md`](./superpowers/plans/2026-04-26-schedule-and-session-sync.md). The session indicator agent will turn it into code in a follow-up session if approved. ~10-12 hours of implementation across Phase B (schedule sync) and Phase C (cross-device session sync). Phase D (iOS edits + distractions sync) is sequenced for later.
+7. **Production backend deploy timing** — backend changes on `feat/account-based-partner` are tested but undeployed. The migration (none required) and fan-out logic are backwards-compatible, so deploying mid-day is safe. Deploy whenever convenient.
 
 ---
 
