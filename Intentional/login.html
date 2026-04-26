@@ -513,6 +513,15 @@
   });
 })();
 
+function postBridge(type, payload) {
+  if (!window.webkit || !window.webkit.messageHandlers || !window.webkit.messageHandlers.intentional) {
+    console.warn('[login] bridge unavailable for ' + type + ' — running in browser?');
+    return;
+  }
+  const msg = Object.assign({ type: type }, payload || {});
+  window.webkit.messageHandlers.intentional.postMessage(msg);
+}
+
 (function () {
   'use strict';
 
@@ -530,6 +539,8 @@
   let pendingEmail = '';
   let otpCode = '';
   let otpFailCount = 0;
+  let resendTimerEnd = 0;
+  let resendTimerHandle = null;
 
   function setState(next) {
     // Defensive: silently fail-closed if called with an unknown state name.
@@ -607,6 +618,7 @@
 
   // ---------- Email entry ----------
   const inputEmail = document.getElementById('input-email');
+  const helperEmail = document.getElementById('helper-email');
   const btnContinueEmail = document.getElementById('btn-continue-email');
   const btnBackFromEmail = document.getElementById('btn-back-from-email');
 
@@ -616,12 +628,14 @@
     if (!isValidEmail(v)) {
       if (inputEmail) inputEmail.classList.add('is-error');
       shake('input-email');
-      // Keep the user in EMAIL_ENTRY so they can fix it; visual error is on the input itself.
-      // The dedicated EMAIL_ERROR state remains routable via __loginDebugState for spec parity.
+      if (helperEmail) helperEmail.textContent = 'Please enter a valid email address.';
       return;
     }
+    // Reset helper to default before submit (in case it was showing an error).
+    if (helperEmail) helperEmail.textContent = 'We’ll send you a sign-in code.';
+    if (inputEmail) inputEmail.classList.remove('is-error');
     setState(State.LOADING);
-    setTimeout(() => setState(State.OTP_VERIFY), 600);
+    postBridge('AUTH_LOGIN', { email: v });
   }
 
   if (btnContinueEmail) btnContinueEmail.addEventListener('click', submitEmail);
@@ -635,7 +649,64 @@
     });
     inputEmail.addEventListener('input', () => {
       inputEmail.classList.remove('is-error');
+      if (helperEmail) {
+        helperEmail.classList.remove('is-error');
+        helperEmail.textContent = 'We’ll send you a sign-in code.';
+      }
     });
+  }
+
+  // ---------- AUTH_LOGIN reply ----------
+  window._authLoginResult = function(result) {
+    if (currentState !== State.LOADING) {
+      // Stale reply — ignore. (User may have navigated back.)
+      return;
+    }
+    if (result && result.success) {
+      setState(State.OTP_VERIFY);
+      // OTP cells get cleared + first cell focused inside setState() already.
+      startResendTimer();
+    } else {
+      setState(State.EMAIL_ENTRY);
+      if (inputEmail) inputEmail.classList.add('is-error');
+      shake('input-email');
+      if (helperEmail) {
+        helperEmail.textContent = (result && result.message) || 'Couldn’t reach server. Try again.';
+        helperEmail.classList.add('is-error');
+      }
+    }
+  };
+
+  // ---------- Resend timer ----------
+  function startResendTimer() {
+    resendTimerEnd = Date.now() + 60000;
+    if (resendTimerHandle) clearTimeout(resendTimerHandle);
+    tickResendTimer();
+  }
+
+  function tickResendTimer() {
+    const line = document.getElementById('resend-line');
+    if (!line) return;
+    const ms = resendTimerEnd - Date.now();
+    if (ms <= 0) {
+      line.innerHTML = 'Didn’t get it? <a href="#" id="resend-link">Resend code</a>';
+      const link = document.getElementById('resend-link');
+      if (link) {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (!pendingEmail) return;
+          line.textContent = 'Sending…';
+          postBridge('AUTH_LOGIN', { email: pendingEmail });
+          startResendTimer();
+        });
+      }
+      return;
+    }
+    const seconds = Math.ceil(ms / 1000);
+    const mm = Math.floor(seconds / 60);
+    const ss = seconds % 60;
+    line.innerHTML = 'Didn’t get it? Resend in <b>' + mm + ':' + (ss < 10 ? '0' + ss : ss) + '</b>';
+    resendTimerHandle = setTimeout(tickResendTimer, 250);
   }
 
   // ---------- Email error mirror buttons (state container 03) ----------
@@ -654,6 +725,45 @@
   ).forEach(el => {
     el.addEventListener('click', () => setState(State.EMAIL_ENTRY));
   });
+
+  function onOtpComplete(code) {
+    otpCode = code;
+    setState(State.LOADING);
+    postBridge('AUTH_VERIFY', { email: pendingEmail, code: code });
+  }
+
+  // ---------- AUTH_VERIFY reply ----------
+  window._authVerifyResult = function(result) {
+    if (currentState !== State.LOADING) {
+      return; // Stale reply
+    }
+    if (result && result.success) {
+      // Hold on LOADING for a beat to avoid flash, then hand off to Swift to swap pages.
+      setTimeout(() => {
+        postBridge('AUTH_COMPLETE');
+        // Don't change state — Swift will swap the WebView to dashboard.html.
+      }, 250);
+    } else {
+      otpFailCount += 1;
+      setState(State.OTP_ERROR);
+      const helperOtp = document.getElementById('helper-otp');
+      if (helperOtp) {
+        helperOtp.textContent = otpFailCount >= 3
+          ? 'Too many attempts. Resend?'
+          : ((result && result.message) || "That code didn’t match. Try again.");
+      }
+      // Clear OTP cells in state-otp-verify and refocus first.
+      const cells = document.querySelectorAll('#state-otp-verify .otp-cell');
+      cells.forEach(c => { c.value = ''; c.classList.remove('is-filled'); });
+      // After ~1200ms (lets the user see the error briefly), bounce back to verify
+      // so they can retype.
+      setTimeout(() => {
+        setState(State.OTP_VERIFY);
+        const first = document.querySelector('#state-otp-verify .otp-cell');
+        if (first) first.focus();
+      }, 1200);
+    }
+  };
 
   function wireOtpRow(rowSelector) {
     const cells = document.querySelectorAll(rowSelector + ' .otp-cell');
@@ -675,9 +785,7 @@
         // If all 6 cells filled — submit
         const code = Array.from(cells).map(c => c.value).join('');
         if (code.length === 6) {
-          otpCode = code;
-          setState(State.LOADING);
-          setTimeout(() => setState(State.AT_REST), 800);
+          onOtpComplete(code);
         }
       });
 
@@ -721,9 +829,7 @@
         const lastIdx = Math.min(digits.length, cells.length) - 1;
         if (cells[lastIdx]) cells[lastIdx].focus();
         if (digits.length === 6) {
-          otpCode = digits;
-          setState(State.LOADING);
-          setTimeout(() => setState(State.AT_REST), 800);
+          onOtpComplete(digits);
         }
       });
     });
