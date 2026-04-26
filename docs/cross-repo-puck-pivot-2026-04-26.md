@@ -112,7 +112,18 @@ None of these have been pushed or merged. They sit on local branches awaiting us
 
 **UX implication for the iOS Mode editor:** show a "Synced from Mac" badge on the metadata section, and a "On this iPhone" header above the FamilyControls picker. Sets the right expectation that picking apps is a one-time per-device chore, not duplicate data entry.
 
-**UX implication for new-user onboarding:** if a user logs in on iOS and already has Modes set up on Mac, those Modes should appear in iOS with name/icon/websites populated but a "Pick apps" CTA on each — not silently empty.
+**UX implication for new-user onboarding — refined:** the friction case is the Mac user who already has 5 modes and signs in on iPhone for the first time. Five mostly-configured modes that each need a one-time picker tap is a wall of work that lands before the user has done anything intentional with the app. Two ways to soften it:
+
+1. **Lazy-prompt (recommended).** Modes appear with a quiet "App picker pending" badge but don't force the picker on sign-in. The first time the user actually activates that mode on iPhone, intercept the activation and run the FamilyControls picker as a one-shot setup. The work lands at the moment the user is already paying attention to that mode, and modes feel like "ready to use, one tap to finish setup" rather than "broken until you fix it."
+2. **Batch onboarding.** After first sign-in, show a single "Set up your modes for iPhone" screen that walks through all 5 in sequence. More explicit, more upfront cost, all done in one sitting.
+
+Lean toward #1 — matches attention, doesn't pre-load 5 dialogs, and the badge sits quietly until needed.
+
+**Default behavior for an "empty" iOS mode (zero app/category tokens):** today's iOS code treats this as block-nothing on the device. Synced website URLs would still apply *if* iOS has a Safari content-blocker hook, but if it doesn't, activating an empty mode is a silent no-op — the user thinks they're in a blocked session but nothing is actually blocked. That's a worse failure mode than no sync at all.
+
+The home-restructure commit (`28a9f87`) already added a partial guard for this in the remote-start confirmation alert: `let hasApps = !mode.appTokens.isEmpty || !mode.categoryTokens.isEmpty || !mode.websiteURLs.isEmpty` in `HomeView.swift:63`. The alert message branches between "Start \(mode.name) blocking without scanning your NFC puck" and "This mode has no apps configured yet. Start session anyway?" That existing check is the right shape; the sync work needs to make sure it fires on **every** activation path (NFC tap, focus-modes-grid play button, deep link, mode picker sheet) — not just the long-press-to-remote-start flow it currently covers.
+
+Combine the two: when a synced-from-Mac mode with no iOS tokens is activated, route through the picker first (lazy-prompt), then start the session. Don't silently start a no-op session.
 
 **Status:** design direction only. No backend schema, no client work. Pulling forward when the partner-sync fix (decision #1 above) is also in flight, since both touch account-scoped sync of per-device data.
 
