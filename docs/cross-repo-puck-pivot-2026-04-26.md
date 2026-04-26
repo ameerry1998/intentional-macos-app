@@ -82,6 +82,39 @@ None of these have been pushed or merged. They sit on local branches awaiting us
 2. **Where to merge the four pivot-suite branches** — directly into `main` (clean, all small) or wait for the macOS-login work on `puck` to land first to avoid simultaneous merges. Recommend merging the icon + docs branches into `main` immediately (they're independent), and the iOS home-restructure branch into `main` after a quick visual check on a real device or simulator.
 3. **Routine tab name** — left as "Routine" in the tab bar (renaming to "Schedule" would be a clean follow-up but felt like overreach for tonight given the user's "don't over-build" guidance).
 4. **Reclaimed-time-this-week sparkline** — fully removed from home; consider a future "Stats" page that revives it if the data is meaningful enough to warrant a dedicated home for it.
+5. **Distractions / blocklist sync model** — see design note below.
+
+---
+
+## Design note — distractions list across macOS and iOS
+
+**Question raised:** "Should the distractions list be synced or both — or should there be a Mac and an iPhone distractions list and they can be separate?"
+
+**Recommendation: hybrid.** Sync the mode metadata (name, icon, intent text, default duration, websites). Keep per-platform blocklists for the OS-native objects (macOS apps + AppleScript-driven browser tabs; iOS FamilyControls app/category tokens).
+
+**Why hybrid is the only honest answer:**
+
+- **iOS FamilyControls tokens cannot cross devices.** Per `puck-ios/CLAUDE.md` ("Backend Readiness" section, line 313): *"FamilyControls tokens (app/category) are device-specific and cannot be synced — only the mode metadata (name, icon, behavior, duration) can sync."* This is an Apple platform constraint, not an implementation choice. The token is an opaque on-device handle into the user's Screen Time graph; there is no portable representation.
+- **Even if tokens could sync, the conceptual map is one-to-many, not one-to-one.** Twitter on iOS is the Twitter app + the X app + the embedded WebKit shield. On Mac it's `twitter.com`, `x.com`, plus tabs in 5 different browsers. "Block Twitter" is one *intent* but two different *blocklists* under the hood.
+- **macOS websites and iOS websites *can* sync** — both are URL strings — and probably should, because that's where the user's mental model holds without friction.
+
+**Proposed split (when this lands):**
+
+| Field | Synced? | Lives where |
+|---|---|---|
+| Mode name, icon, color | yes | shared (account-scoped, backend) |
+| Mode default duration | yes | shared |
+| Mode intent text (the "why") | yes | shared |
+| Website blocklist (URLs) | yes | shared |
+| macOS app bundle IDs | per-device | macOS local store |
+| macOS browser-tab keyword rules | per-device | macOS local store |
+| iOS FamilyControls app/category tokens | per-device | iOS local SwiftData |
+
+**UX implication for the iOS Mode editor:** show a "Synced from Mac" badge on the metadata section, and a "On this iPhone" header above the FamilyControls picker. Sets the right expectation that picking apps is a one-time per-device chore, not duplicate data entry.
+
+**UX implication for new-user onboarding:** if a user logs in on iOS and already has Modes set up on Mac, those Modes should appear in iOS with name/icon/websites populated but a "Pick apps" CTA on each — not silently empty.
+
+**Status:** design direction only. No backend schema, no client work. Pulling forward when the partner-sync fix (decision #1 above) is also in flight, since both touch account-scoped sync of per-device data.
 
 ## Visual verification still recommended
 
