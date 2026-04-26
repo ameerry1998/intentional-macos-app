@@ -370,6 +370,11 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             appDelegate?.postLog("✅ AUTH_COMPLETE received — swapping page")
             DispatchQueue.main.async { [weak self] in
                 self?.loadCurrentPage()
+                // Sign-in just wrote fresh tokens to Keychain. The WebSocket
+                // connect logic only fires at app launch — so a user who
+                // launched with no tokens AND signed in mid-session would
+                // never get a WS subscription. Trigger the connect here.
+                self?.appDelegate?.connectFocusWebSocketIfNeeded()
             }
 
         case "GET_USAGE_HISTORY":

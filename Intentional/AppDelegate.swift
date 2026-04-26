@@ -639,37 +639,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // Connect WebSocket if we have a JWT token
-        if let token = backendClient?.getAccessToken() {
-            focusWebSocketClient?.connect(token: token)
-            postLog("🔌 WebSocket connecting with stored token")
-
-            // Register this Mac with the Intentional backend (idempotent, one-shot).
-            // On 401, refresh the token and retry registration once — same recovery
-            // path as the WebSocket above, so cross-device focus survives an
-            // expired access token without manual re-signin.
-            IntentionalDeviceRegistration.shared.registerIfNeeded(
-                token: token,
-                log: { [weak self] msg in self?.postLog(msg) },
-                onAuthExpired: { [weak self] in
-                    guard let self = self else { return }
-                    Task { [weak self] in
-                        guard let self = self else { return }
-                        let refreshed = await self.backendClient?.authRefresh() ?? false
-                        await MainActor.run { [weak self] in
-                            guard let self = self,
-                                  refreshed,
-                                  let newToken = self.backendClient?.getAccessToken() else { return }
-                            self.postLog("🔌 DeviceRegister retry with refreshed token")
-                            IntentionalDeviceRegistration.shared.registerIfNeeded(
-                                token: newToken,
-                                log: { msg in self.postLog(msg) }
-                            )
-                        }
-                    }
-                }
-            )
-        }
+        // Connect WebSocket + register device. Extracted so MainWindow's
+        // AUTH_COMPLETE handler can call it after a mid-session sign-in
+        // (cold launches with no token would otherwise leave the WS
+        // permanently disconnected even after the user signs in via login.html).
+        connectFocusWebSocketIfNeeded()
 
         // Wire schedule block changes: when the active block changes,
         // clear the relevance cache, reset focus monitor, and broadcast SCHEDULE_SYNC
@@ -1185,6 +1159,47 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         for window in focusStartOverlayWindows { window.close() }
         focusStartOverlayWindows.removeAll()
         focusStartOverlayViewModel = nil
+    }
+
+    /// Connect the focus WebSocket and register this device with the backend,
+    /// using whatever access token is currently in Keychain. Idempotent: safe
+    /// to call multiple times — the WS bails out internally if it's already
+    /// connected, and device-register is upsert-by-(account, type, name).
+    ///
+    /// Call this on every transition that *could* introduce a fresh token:
+    /// app launch, mid-session sign-in (AUTH_COMPLETE bridge message), and
+    /// after a successful authRefresh. Without this, a user who signs in via
+    /// the in-app login screen has a valid token but a disconnected WebSocket,
+    /// because the original connect logic only ran once at app boot.
+    func connectFocusWebSocketIfNeeded() {
+        guard let token = backendClient?.getAccessToken() else {
+            postLog("🔌 connectFocusWebSocketIfNeeded: no access token, skipping")
+            return
+        }
+        focusWebSocketClient?.connect(token: token)
+        postLog("🔌 WebSocket connecting with stored token")
+
+        IntentionalDeviceRegistration.shared.registerIfNeeded(
+            token: token,
+            log: { [weak self] msg in self?.postLog(msg) },
+            onAuthExpired: { [weak self] in
+                guard let self = self else { return }
+                Task { [weak self] in
+                    guard let self = self else { return }
+                    let refreshed = await self.backendClient?.authRefresh() ?? false
+                    await MainActor.run { [weak self] in
+                        guard let self = self,
+                              refreshed,
+                              let newToken = self.backendClient?.getAccessToken() else { return }
+                        self.postLog("🔌 DeviceRegister retry with refreshed token")
+                        IntentionalDeviceRegistration.shared.registerIfNeeded(
+                            token: newToken,
+                            log: { msg in self.postLog(msg) }
+                        )
+                    }
+                }
+            }
+        )
     }
 
     func startFocusSession(profileIds: [UUID], intention: String?, aiEnabled: Bool, triggeredByPuck: Bool) {
