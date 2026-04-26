@@ -616,16 +616,59 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.checkForActiveFocusSession()
             }
         }
+        // When backend rejects WS auth (expired JWT), refresh the token and
+        // reconnect. Without this, the WS retries forever with the same
+        // expired token and cross-device focus signals stop arriving until
+        // the user manually re-signs in.
+        focusWebSocketClient?.onAuthExpired = { [weak self] in
+            guard let self = self else { return }
+            self.postLog("🔌 WebSocket auth expired — refreshing token")
+            Task { [weak self] in
+                guard let self = self else { return }
+                let refreshed = await self.backendClient?.authRefresh() ?? false
+                await MainActor.run { [weak self] in
+                    guard let self = self else { return }
+                    if refreshed, let newToken = self.backendClient?.getAccessToken() {
+                        self.postLog("🔌 Token refreshed — reconnecting WebSocket")
+                        self.focusWebSocketClient?.reconnect(token: newToken)
+                        IntentionalDeviceRegistration.shared.registerIfNeeded(token: newToken, log: { msg in self.postLog(msg) })
+                    } else {
+                        self.postLog("🔌 Token refresh failed — user must sign in again")
+                    }
+                }
+            }
+        }
 
         // Connect WebSocket if we have a JWT token
         if let token = backendClient?.getAccessToken() {
             focusWebSocketClient?.connect(token: token)
             postLog("🔌 WebSocket connecting with stored token")
 
-            // Register this Mac with the Intentional backend (idempotent, one-shot)
-            IntentionalDeviceRegistration.shared.registerIfNeeded(token: token) { [weak self] msg in
-                self?.postLog(msg)
-            }
+            // Register this Mac with the Intentional backend (idempotent, one-shot).
+            // On 401, refresh the token and retry registration once — same recovery
+            // path as the WebSocket above, so cross-device focus survives an
+            // expired access token without manual re-signin.
+            IntentionalDeviceRegistration.shared.registerIfNeeded(
+                token: token,
+                log: { [weak self] msg in self?.postLog(msg) },
+                onAuthExpired: { [weak self] in
+                    guard let self = self else { return }
+                    Task { [weak self] in
+                        guard let self = self else { return }
+                        let refreshed = await self.backendClient?.authRefresh() ?? false
+                        await MainActor.run { [weak self] in
+                            guard let self = self,
+                                  refreshed,
+                                  let newToken = self.backendClient?.getAccessToken() else { return }
+                            self.postLog("🔌 DeviceRegister retry with refreshed token")
+                            IntentionalDeviceRegistration.shared.registerIfNeeded(
+                                token: newToken,
+                                log: { msg in self.postLog(msg) }
+                            )
+                        }
+                    }
+                }
+            )
         }
 
         // Wire schedule block changes: when the active block changes,

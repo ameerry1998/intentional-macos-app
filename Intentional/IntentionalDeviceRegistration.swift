@@ -15,7 +15,18 @@ final class IntentionalDeviceRegistration {
 
     /// Register this Mac. Pass the current access token (intentional JWT or Supabase JWT).
     /// Fire-and-forget: errors are logged via the `log` callback, never thrown.
-    func registerIfNeeded(token: String, log: @escaping (String) -> Void) {
+    ///
+    /// On 401 the registration self-recovers by calling `onAuthExpired` (if
+    /// provided), expecting the caller to refresh the token and re-invoke
+    /// `registerIfNeeded`. Without this, an expired access token causes
+    /// device registration to fail forever — and because the WebSocket auth
+    /// uses the same token, cross-device focus signals stop working until
+    /// the user manually signs out and back in.
+    func registerIfNeeded(
+        token: String,
+        log: @escaping (String) -> Void,
+        onAuthExpired: (() -> Void)? = nil
+    ) {
         guard !token.isEmpty else { return }
 
         #if DEBUG
@@ -47,6 +58,10 @@ final class IntentionalDeviceRegistration {
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
                 let code = (response as? HTTPURLResponse)?.statusCode ?? -1
                 log("🔌 DeviceRegister non-2xx status: \(code)")
+                if code == 401, let recover = onAuthExpired {
+                    log("🔌 DeviceRegister: triggering token refresh")
+                    DispatchQueue.main.async { recover() }
+                }
                 return
             }
             guard let data = data,

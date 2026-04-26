@@ -16,19 +16,27 @@ class FocusWebSocketClient {
     /// Called when connection state changes
     var onConnectionStateChanged: ((_ connected: Bool) -> Void)?
 
+    /// Called when the backend rejects auth (token expired / invalid).
+    /// Caller should refresh the access token and call `reconnect(token:)`
+    /// with the new token. Without this hook, an expired token causes the
+    /// WS to retry forever with the same bad token — silently dropping
+    /// every cross-device focus signal until the user manually re-signs in.
+    var onAuthExpired: (() -> Void)?
+
     private(set) var isConnected = false
 
     // Heartbeat — keeps the WS connection warm and bumps last_seen on the server.
     private var heartbeatTimer: Timer?
     private var heartbeatSessionId: String?
 
-    // Backend URL — change for production
+    // Backend URL — prod only. Override via INTENTIONAL_WS_URL env var for local dev.
+    // (The previous #if DEBUG branch pointed at ws://localhost:8000, which is a phantom
+    // when no local backend is running — silent connect-failure.)
     private let baseURL: String = {
-        #if DEBUG
-        return "ws://localhost:8000"
-        #else
+        if let override = ProcessInfo.processInfo.environment["INTENTIONAL_WS_URL"], !override.isEmpty {
+            return override
+        }
         return "wss://api.intentional.social"
-        #endif
     }()
 
     func connect(token: String) {
@@ -142,9 +150,14 @@ class FocusWebSocketClient {
         case "error":
             let message = json["message"] as? String ?? "Unknown error"
             print("[WS] Server error: \(message)")
-            // Auth failure — don't reconnect (token is bad)
+            // Auth failure — token is bad. Mark disconnected and ask the
+            // caller to refresh; once they do, they can call reconnect(token:).
             isConnected = false
-            DispatchQueue.main.async { self.onConnectionStateChanged?(false) }
+            isIntentionallyDisconnected = true  // suppress auto-reconnect with stale token
+            DispatchQueue.main.async {
+                self.onConnectionStateChanged?(false)
+                self.onAuthExpired?()
+            }
 
         case "focus_signal":
             let action = json["action"] as? String ?? ""
