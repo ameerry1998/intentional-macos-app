@@ -1203,6 +1203,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func startFocusSession(profileIds: [UUID], intention: String?, aiEnabled: Bool, triggeredByPuck: Bool) {
+        // Pre-flight: don't create a "phantom" session if there's nothing to
+        // enforce. The previous shape called focusSessionManager.startSession()
+        // first, then bailed inside applyFocusSession on the (no-profiles &&
+        // no-intention) guard — leaving focusSessionManager.isActive=true with
+        // no actual enforcement. That phantom would then block legitimate
+        // engagement paths (notably checkForActiveFocusSession, which guards
+        // on isActive). Validate first; persist only if real work to do.
+        let hasIntention = intention != nil && !(intention!.isEmpty)
+        if profileIds.isEmpty && !hasIntention {
+            postLog("🎯 startFocusSession: no profiles + no intention — ignoring (would have created phantom session)")
+            return
+        }
         focusSessionManager?.startSession(profileIds: profileIds, intention: intention, aiEnabled: aiEnabled, triggeredByPuck: triggeredByPuck)
         guard let session = focusSessionManager?.activeSession else { return }
         applyFocusSession(session)
@@ -1267,7 +1279,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func checkForActiveFocusSession() {
         guard let token = backendClient?.getAccessToken() else { return }
-        guard focusSessionManager?.isActive != true else { return } // Already in a session
+        // Don't bail on focusSessionManager.isActive — local state may be a
+        // phantom (see startFocusSession). Backend is the source of truth for
+        // whether there's an active cross-device session.
 
         #if DEBUG
         let urlString = "http://localhost:8000/focus/active"
@@ -1281,10 +1295,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             guard let data = data,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let active = json["active"] as? Bool, active else { return }
+            let triggeredBy = (json["triggered_by"] as? String) ?? "puck"
+            let sessionId = (json["session_id"] as? String) ?? ""
 
-            DispatchQueue.main.async {
-                self?.postLog("🔌 Found active Puck focus session on reconnect")
-                self?.showFocusStartOverlay(isPuckTriggered: true)
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                self.postLog("🔌 Found active Puck focus session on reconnect — engaging enforcement (session=\(sessionId), triggeredBy=\(triggeredBy))")
+
+                // Auto-engage with default profile + placeholder intention,
+                // matching the WS-signal handler. Don't show the interactive
+                // picker — the user expressed intent on the originating device
+                // (their phone) and isn't here to click anything.
+                self.dismissFocusStartOverlay()
+                let defaultProfileIds = self.blockingProfileManager?.profiles
+                    .filter { $0.isDefault }
+                    .map { $0.id } ?? []
+                let intention = triggeredBy == "puck"
+                    ? "Focus session (recovered from phone)"
+                    : "Focus session (recovered)"
+                self.startFocusSession(
+                    profileIds: defaultProfileIds,
+                    intention: intention,
+                    aiEnabled: false,
+                    triggeredByPuck: triggeredBy == "puck"
+                )
+                if !sessionId.isEmpty {
+                    self.focusWebSocketClient?.startHeartbeat(sessionId: sessionId)
+                }
             }
         }.resume()
     }
