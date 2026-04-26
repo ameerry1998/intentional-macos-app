@@ -164,6 +164,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     // MARK: - Page Loading
 
     func loadCurrentPage() {
+        // Login gate: if there's no JWT in Keychain, show login.html.
+        // Once login completes, login.html posts AUTH_COMPLETE which calls
+        // loadCurrentPage() again — at which point isLoggedIn is true and we
+        // route to dashboard/onboarding as today.
+        if appDelegate?.backendClient?.isLoggedIn == false {
+            loadPage("login")
+            return
+        }
         let isComplete = UserDefaults.standard.bool(forKey: "onboardingComplete")
         if isComplete {
             loadPage("dashboard")
@@ -357,6 +365,12 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         case "AUTH_DELETE":
             handleAuthDelete()
+
+        case "AUTH_COMPLETE":
+            appDelegate?.postLog("✅ AUTH_COMPLETE received — swapping page")
+            DispatchQueue.main.async { [weak self] in
+                self?.loadCurrentPage()
+            }
 
         case "GET_USAGE_HISTORY":
             handleGetUsageHistory()
@@ -1970,6 +1984,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             _ = await appDelegate?.backendClient?.authLogout()
             await MainActor.run {
                 self.callJS("window._authLogoutResult && window._authLogoutResult({ success: true })")
+                self.loadCurrentPage() // swap to login.html now that token is cleared
             }
         }
     }
