@@ -375,11 +375,11 @@
       <div class="stack">
         <div id="otp-row" class="otp">
           <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
-          <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" />
-          <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" />
-          <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" />
-          <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" />
-          <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" />
+          <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
+          <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
+          <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
+          <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
+          <input class="otp-cell" type="text" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
         </div>
         <div id="resend-line" class="resend">Didn't get it? Resend in <b>1:00</b></div>
         <button id="btn-back-from-otp" class="btn btn-ghost" type="button" data-action="back-from-otp">← Use different email</button>
@@ -400,7 +400,7 @@
           <input class="otp-cell is-error" type="text" maxlength="1" inputmode="numeric" />
           <input class="otp-cell is-error" type="text" maxlength="1" inputmode="numeric" />
         </div>
-        <div id="helper-otp" class="helper is-error otp-error-helper">That code didn't match. Try again.</div>
+        <div id="helper-otp" class="helper is-error otp-error-helper" role="alert" aria-live="assertive">That code didn't match. Try again.</div>
         <button class="btn btn-ghost" type="button" data-action="back-from-otp">← Use different email</button>
       </div>
     </div>
@@ -464,11 +464,21 @@
   let otpFailCount = 0;
 
   function setState(next) {
+    // Defensive: silently fail-closed if called with an unknown state name.
+    // Without this guard, a typo would hide all containers and leave a blank screen.
+    if (!Object.values(State).includes(next)) {
+      console.warn('[login] unknown state ignored:', next);
+      return;
+    }
+    const target = document.getElementById('state-' + next);
+    if (!target) {
+      console.warn('[login] no container for state:', next);
+      return;
+    }
     document.querySelectorAll('[id^="state-"]').forEach(el => {
       el.style.display = 'none';
     });
-    const target = document.getElementById('state-' + next);
-    if (target) target.style.display = 'flex';
+    target.style.display = 'flex';
     // Footer is only shown on at-rest and signed-out per the spec.
     const footer = document.getElementById('footer-block');
     if (footer) {
@@ -569,13 +579,12 @@
   });
 
   // ---------- OTP verify ----------
-  // Delegated handler covers both state-04 (#btn-back-from-otp) and state-05
-  // back buttons via data-action="back-from-otp".
-  document.addEventListener('click', (e) => {
-    const action = e.target.closest('[data-action]') && e.target.closest('[data-action]').dataset.action;
-    if (action === 'back-from-otp') {
-      setState(State.EMAIL_ENTRY);
-    }
+  // Scoped to OTP state containers only — avoids capturing future
+  // data-action attributes added elsewhere in the page.
+  document.querySelectorAll(
+    '#state-otp-verify [data-action="back-from-otp"], #state-otp-error [data-action="back-from-otp"]'
+  ).forEach(el => {
+    el.addEventListener('click', () => setState(State.EMAIL_ENTRY));
   });
 
   function wireOtpRow(rowSelector) {
