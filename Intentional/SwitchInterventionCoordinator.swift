@@ -44,11 +44,14 @@ final class SwitchInterventionCoordinator {
     static let tierGraduationCount: [Int] = [3, 6]
     static let tierDecayDwellSeconds: TimeInterval = 15 * 60
 
+    // MARK: - Dependencies
+
+    weak var focusModeController: FocusModeController?
+
     // MARK: - State (session-scoped)
 
     private let exemptBundleIds: Set<String>
     private var sessionStart: Date?
-    private var inWorkSession: Bool = false
     private var onBreak: Bool = false
     private var lastBreakEnd: Date?
     private var completedSwitchCount: Int = 0
@@ -77,7 +80,6 @@ final class SwitchInterventionCoordinator {
 
     func sessionEnded() {
         sessionStart = nil
-        inWorkSession = false
         onBreak = false
         completedSwitchCount = 0
         dwellLedger = [:]
@@ -87,8 +89,17 @@ final class SwitchInterventionCoordinator {
         lastBreakEnd = nil
     }
 
-    func setInWorkSession(_ on: Bool) {
-        inWorkSession = on
+    /// Clear all per-session tracking. Called by AppDelegate when Focus Mode
+    /// transitions to .off so the next focus session starts with a clean slate.
+    func reset() {
+        sessionStart = nil
+        completedSwitchCount = 0
+        dwellLedger = [:]
+        targetHistory = []
+        currentTarget = nil
+        currentTargetSince = nil
+        lastBreakEnd = nil
+        onBreak = false
     }
 
     func breakStarted(at now: Date) {
@@ -107,7 +118,9 @@ final class SwitchInterventionCoordinator {
     func onSwitch(to target: SwitchTarget, at now: Date) -> SwitchDecision {
         flushDwell(at: now)
 
-        if !inWorkSession { return .suppress(reason: .notInWorkSession) }
+        if focusModeController?.isOn != true {
+            return .suppress(reason: .notInWorkSession)
+        }
         if onBreak { return .suppress(reason: .onBreak) }
         if exemptBundleIds.contains(target.bundleId) {
             beginDwell(target: target, at: now)

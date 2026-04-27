@@ -891,9 +891,7 @@ class FocusMonitor {
         if let block = scheduleManager?.currentBlock,
            block.blockType == .deepWork || block.blockType == .focusHours {
             coord.sessionStarted(at: Date())
-            coord.setInWorkSession(true)
         } else {
-            coord.setInWorkSession(false)
             coord.sessionEnded()
         }
         if switchOverlayController?.isShowing == true {

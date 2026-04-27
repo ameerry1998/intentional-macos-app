@@ -513,7 +513,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let block = scheduleManager?.currentBlock,
            block.blockType == .deepWork || block.blockType == .focusHours {
             switchCoordinator.sessionStarted(at: Date())
-            switchCoordinator.setInWorkSession(true)
         }
         postLog("👁️ SwitchInterventionCoordinator + SwitchOverlayController wired to FocusMonitor")
 
@@ -531,6 +530,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         focusModeController = FocusModeController()
         postLog("✅ FocusModeController initialized (state=off)")
         focusMonitor?.focusModeController = focusModeController
+        self.switchCoordinator?.focusModeController = focusModeController
 
         focusModeController?.onStateChanged = { [weak self] old, new, period in
             guard let self = self else { return }
@@ -540,6 +540,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.focusMonitor?.onBlockChanged()  // re-evaluate immediately
             self.socketRelayServer?.broadcastScheduleSync()
             self.mainWindowController?.pushScheduleUpdate()
+            if new == .off {
+                self.switchCoordinator?.reset()
+            }
         }
 
         // Initialize Intentional Mode (screen lock until you plan)
