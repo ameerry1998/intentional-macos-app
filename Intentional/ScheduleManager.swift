@@ -194,16 +194,13 @@ class ScheduleManager {
     }
 
     enum TimeState: String {
-        case deepWork = "deep_work"
-        case focusHours = "focus_hours"
-        case freeTime = "free"
-        case unplanned = "unplanned"
-        case snoozed = "snoozed"
-        case noPlan = "no_plan"
-        case disabled = "disabled"
+        case off
+        case focus
+        case bedtime
 
-        /// Whether this is a monitored work state (deep work or focus hours)
-        var isWork: Bool { self == .deepWork || self == .focusHours }
+        /// Compatibility shim: same semantics as before — true when the schedule
+        /// expects work to happen.
+        var isWork: Bool { self == .focus }
     }
 
     // MARK: - Focus Session Injection
@@ -236,7 +233,7 @@ class ScheduleManager {
     private(set) var currentBlock: FocusBlock?
 
     /// Current time state
-    private(set) var currentTimeState: TimeState = .disabled
+    private(set) var currentTimeState: TimeState = .off
 
     /// Enforcement mode: "nudge" (notify only) or "block" (nudge + redirect tab)
     private(set) var focusEnforcement: String = "block"
@@ -516,10 +513,10 @@ class ScheduleManager {
         let previousBlockId = currentBlock?.id
 
         guard isEnabled else {
-            currentTimeState = .disabled
+            currentTimeState = .off
             currentBlock = nil
-            if forceCallback || previousState != .disabled {
-                onBlockChanged?(nil, .disabled)
+            if forceCallback || previousState != .off {
+                onBlockChanged?(nil, .off)
             }
             return
         }
@@ -528,9 +525,8 @@ class ScheduleManager {
         if let injected = injectedFocusBlock {
             currentBlock = injected
             switch injected.blockType {
-            case .deepWork: currentTimeState = .deepWork
-            case .focusHours: currentTimeState = .focusHours
-            case .freeTime: currentTimeState = .freeTime
+            case .deepWork, .focusHours: currentTimeState = .focus
+            case .freeTime: currentTimeState = .off
             }
             if forceCallback || currentTimeState != previousState || currentBlock?.id != previousBlockId {
                 appDelegate?.postLog("📋 State: \(previousState.rawValue) → \(currentTimeState.rawValue) (injected focus session)")
@@ -551,12 +547,12 @@ class ScheduleManager {
         }
 
         guard let schedule = todaySchedule, schedule.date == Self.todayString() else {
-            // No plan — check snooze
+            // No plan — check snooze. Both snoozed and no-plan collapse to .off.
             if let snooze = snoozeUntil, Date() < snooze {
-                currentTimeState = .snoozed
+                currentTimeState = .off
                 currentBlock = nil
             } else {
-                currentTimeState = .noPlan
+                currentTimeState = .off
                 currentBlock = nil
                 // Reset snooze if expired
                 if snoozeUntil != nil && Date() >= snoozeUntil! {
@@ -575,13 +571,12 @@ class ScheduleManager {
         if let block = schedule.blocks.first(where: { $0.contains(minuteOfDay: minuteOfDay) }) {
             currentBlock = block
             switch block.blockType {
-            case .deepWork: currentTimeState = .deepWork
-            case .focusHours: currentTimeState = .focusHours
-            case .freeTime: currentTimeState = .freeTime
+            case .deepWork, .focusHours: currentTimeState = .focus
+            case .freeTime: currentTimeState = .off
             }
         } else {
             currentBlock = nil
-            currentTimeState = .unplanned
+            currentTimeState = .off  // unplanned gap collapses to .off
         }
 
         if forceCallback || currentTimeState != previousState || currentBlock?.id != previousBlockId {
