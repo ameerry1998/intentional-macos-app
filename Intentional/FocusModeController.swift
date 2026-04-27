@@ -69,11 +69,14 @@ final class FocusModeController {
             guard let existing = currentPeriod else { return }
             let newIntention = intention ?? existing.intention
             let intentionChanged = newIntention != existing.intention
+            // Preserve the ORIGINAL source — represents "what kicked off this session."
+            // If puck started a session, a subsequent schedule tick that refreshes
+            // intention shouldn't relabel it as schedule-driven (Task 8 review #1).
             currentPeriod = Period(
                 id: existing.id,
                 startedAt: existing.startedAt,
                 intention: newIntention,
-                source: source
+                source: existing.source
             )
             if intentionChanged {
                 notify(old: old, new: state, period: currentPeriod)
