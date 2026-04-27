@@ -114,16 +114,24 @@ The app uses a relay architecture to survive Chrome's process management:
    - Relay: exits quietly
    - Strict mode skips marker so watchdog can relaunch
 
+### Focus Mode (the master state)
+
+`FocusModeController` is the single source of truth for whether the app is enforcing. Three states:
+- `.off` — free time. No enforcement runs.
+- `.focus` — full intervention bundle (blocking, switch overlay, AI scoring, pill, etc.).
+- `.bedtime` — wind-down enforcement.
+
+All triggers (schedule transitions, dashboard toggle, Cmd+Shift+P, iPhone tap-puck via WS) call into `FocusModeController.activate()` / `.deactivate()` / `.activateBedtime()`. The controller fans out via its `onStateChanged` closure to: FocusMonitor (cache clear + re-eval), SwitchInterventionCoordinator (gate update), SocketRelayServer (broadcast), MainWindow (dashboard push).
+
+`ScheduleManager.TimeState` collapses to the same three cases — it now describes "what mode should Focus Mode be in for the current block," not "what enforcement should run."
+
 ## State Machine (ScheduleManager.TimeState)
 
 | State | Description |
 |-------|-------------|
-| `disabled` | Daily Focus Plan feature is off |
-| `noPlan` | No schedule set for today |
-| `snoozed` | User snoozed the planning prompt (max 1 snooze, 30 min) |
-| `workBlock` | Inside a scheduled work block (AI scoring active) |
-| `freeBlock` | Inside a scheduled break (social media costs 1x) |
-| `unplanned` | Between blocks (time not covered by schedule) |
+| `off` | No active block — free time, no enforcement |
+| `focus` | Inside a scheduled work block (AI scoring + full enforcement active) |
+| `bedtime` | Wind-down period (bedtime blocklist, separate enforcement ramp) |
 
 ### FocusBlock Structure
 ```swift

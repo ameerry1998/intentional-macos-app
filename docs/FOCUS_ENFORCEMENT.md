@@ -1,5 +1,11 @@
 # Focus Enforcement (FocusMonitor)
 
+## When Does Enforcement Run?
+
+Enforcement runs IFF `FocusModeController.isOn == true`. The controller has three states (off/focus/bedtime); only `.focus` engages full enforcement. Bedtime is a separate concept (wind-down ramp, different blocklist).
+
+All enforcement entry points (`FocusMonitor.evaluateApp()`, `FocusMonitor.pollActiveTab()`, `SwitchInterventionCoordinator`) gate on `focusModeController.isOn`. The controller is the single activation path — schedule transitions, dashboard toggle, cross-device WS, and puck all call `focusModeController.activate()` / `.deactivate()` / `.activateBedtime()`. There is no separate `intentionalModeEnabled` flag or `focusSession.isActive` gate predicate.
+
 ## Block Start Ritual (BlockRitualController)
 When a block starts, a ritual card shows BEFORE the timer and enforcement activate. The user sets their intention and if-then plan, then clicks Start (or it auto-starts after 3 min for work / 30s for free time).
 
@@ -45,9 +51,9 @@ Justification: "This is relevant" accepted → 3 min suppression only (no perman
 
 | State | Condition | Card | Dismiss |
 |-------|-----------|------|---------|
-| `noPlan` | `timeState == .noPlan` | "What are you working on?" + 3 quick-block buttons (Deep Work/Focus/Free Time) + "Plan Full Day →" + snooze | No dismiss — must snooze or act |
-| `gap` | `timeState == .unplanned` AND remaining blocks exist | "UNSCHEDULED" + "Up next in Xm" + accent-bar block list + "Schedule Now" button | − button minimizes to dock (30 min snooze) |
-| `doneForDay` | `timeState == .unplanned` AND no remaining blocks AND blocks existed | Green "DAY COMPLETE" + stats + focus badge | − button minimizes; auto-dismiss 30s |
+| `noPlan` | `focusModeController.isOn == false` AND no schedule set | "What are you working on?" + 3 quick-block buttons (Deep Work/Focus/Free Time) + "Plan Full Day →" + snooze | No dismiss — must snooze or act |
+| `gap` | `focusModeController.isOn == false` AND remaining blocks exist | "UNSCHEDULED" + "Up next in Xm" + accent-bar block list + "Schedule Now" button | − button minimizes to dock (30 min snooze) |
+| `doneForDay` | `focusModeController.isOn == false` AND no remaining blocks AND blocks existed | Green "DAY COMPLETE" + stats + focus badge | − button minimizes; auto-dismiss 30s |
 
 Quick-block buttons create a block starting now with default duration (adjusted for afternoon: shorter). "Schedule Now" opens the dashboard calendar with a pre-filled 1-hour focus block at the current time via `MainWindow.openScheduleWithNewBlock()`.
 

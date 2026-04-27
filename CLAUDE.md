@@ -118,12 +118,13 @@ Order matters. Components have dependencies that must be wired in sequence.
 13. ScheduleManager         → Load schedule, recalculateState
 14. RelevanceScorer         → AI model initialization
 15. FocusMonitor            → Desktop monitoring (refs: ScheduleManager, RelevanceScorer)
-15a. BlockRitualController   → Wired to FocusMonitor.ritualController
-15b. BlockEndRitualController → Wired to FocusMonitor.endRitualController
-15c. ContentSafetyMonitor     → Load enabled from settings, start if enabled
-15d. SwitchInterventionCoordinator + SwitchOverlayController → Wired to FocusMonitor (context-switching overlay v1)
-16. Wire ScheduleManager.onBlockChanged callback  ← MUST be after all managers
-17. Manual activeBlockId sync                      ← Catches app-started-during-block
+15a. FocusModeController    → Single source of truth for is-app-enforcing (3 states: off/focus/bedtime). Replaces IntentionalModeController + FocusSessionManager.
+15b. BlockRitualController   → Wired to FocusMonitor.ritualController
+15c. BlockEndRitualController → Wired to FocusMonitor.endRitualController
+15d. ContentSafetyMonitor     → Load enabled from settings, start if enabled
+15e. SwitchInterventionCoordinator + SwitchOverlayController → Gate now reads FocusModeController.isOn
+16. Wire ScheduleManager.onBlockChanged → FocusModeController.activate / .deactivate / .activateBedtime
+17. Manual activeBlockId sync + initial Focus Mode activation if a block is currently active
 18. NativeMessagingHost (template)
 19. SocketRelayServer       → Start accepting extension connections
 20. NativeMessagingSetup    → Auto-discover extensions, install manifests
@@ -133,13 +134,25 @@ Order matters. Components have dependencies that must be wired in sequence.
 ### Critical Callback Wiring
 
 ```swift
-// ScheduleManager.onBlockChanged → runs when active block changes
+// ScheduleManager.onBlockChanged → triggers Focus Mode transitions
 scheduleManager.onBlockChanged = { block, state in
+    switch state {
+    case .focus:    focusModeController.activate(intention: block?.title, source: .schedule)
+    case .bedtime:  focusModeController.activateBedtime(source: .bedtimeSchedule)
+    case .off:      focusModeController.deactivate(source: .schedule)
+    }
+    // Domain logic (project sessions, celebration display) preserved separately
+}
+
+// FocusModeController.onStateChanged → fans out enforcement
+focusModeController.onStateChanged = { old, new, period in
     relevanceScorer.clearCache()
-    earnedBrowseManager.onBlockChanged(blockId:blockTitle:)  // Set activeBlockId FIRST
-    focusMonitor.onBlockChanged()                             // Then re-evaluate (may recordWorkTick)
+    earnedBrowseManager.onBlockChanged(blockId:blockTitle:)  // before focusMonitor — preserves activeBlockId-before-recordWorkTick invariant
+    focusMonitor.onBlockChanged()
     socketRelayServer.broadcastScheduleSync()
     mainWindow.pushScheduleUpdate()
+    mainWindow.pushFocusModeUpdate(state: new)
+    if new == .off { switchCoordinator.reset() }
 }
 
 // TimeTracker.onSocialMediaTimeRecorded → deduct from earned pool
@@ -180,6 +193,8 @@ timeTracker.onSessionChanged = { platform in
 9. **Whole-app UI freeze from AppleScript on main queue.** `WebsiteBlocker.appleScriptQueue` was declared as `DispatchQueue.main`, and a 0.5s timer fired `NSAppleScript.executeAndReturnError` on it for every active browser. Each call blocks on `mach_msg` waiting for the browser's Apple Event reply (200–600ms). Result: menu bar, pill, and dashboard all sluggish; dashboard `fps=14–23` with `longTasks=0` (the stall was on the native main thread, not in JS). Fixed by moving `appleScriptQueue` to a background serial queue (`DispatchQueue(label: "com.intentional.applescript", qos: .userInitiated)`). Apple Event Manager spins up its own nested `CFRunLoop` for reply delivery on whatever thread calls `AESendMessage`, so background execution is safe. **Rule: never dispatch synchronous AppleScript, Apple Events, or sync XPC to `DispatchQueue.main`. Use a background serial queue.**
 
 10. **Queued project session does not auto-activate when its block becomes current.** `handleStartProjectSession` only sets `activeProjectSession` + calls `recordSessionStart` on the immediate path (no currentBlock). When a session is queued behind an existing block, the new FocusBlock is inserted but no active session is set and no `SessionEntry` is created until that block activates. Proper fix: observe `ScheduleManager.onBlockChanged` for the queued blockId and call `setActiveProjectSession` + `recordSessionStart` on activation. See [docs/PROJECTS.md](docs/PROJECTS.md).
+
+11. **Tangled focus state (April 2026 consolidation).** Nine overlapping concepts — Focus Gate, Intentional Mode, Focus Session, Always-Active Blocking, TimeState (7 cases), etc. — caused recurring desync bugs (screen red on YouTube without a session, focus gate not engaging on cross-device signal, phantom sessions, focus session active on phone but Mac doesn't know). Consolidated into `FocusModeController` with three states (OFF/FOCUS/BEDTIME). Schedule + cross-device WS + manual toggle + puck all flow through the same controller. Enforcement components (`FocusMonitor`, `SwitchInterventionCoordinator`) read `focusModeController.isOn`. `IntentionalModeController` and `FocusSessionManager` deleted (~700 lines net). See `docs/FOCUS_CONCEPTS_SIMPLIFICATION.md` and `docs/superpowers/plans/2026-04-27-focus-mode-consolidation.md`.
 
 ---
 

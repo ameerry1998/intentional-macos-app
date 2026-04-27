@@ -292,6 +292,48 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// One-time migration: clear local focus state when this build runs for the first
+    /// time. Account auth, schedule, distractions list, partner config are preserved.
+    /// Cleared: any focus-session leftovers, intentional-mode state, blocking-profile
+    /// "active" selections, intervention preferences (will fall back to defaults).
+    private func runFocusModeMigrationIfNeeded() {
+        let migrationKey = "focus_mode_v1_migration_complete"
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: migrationKey) else { return }
+
+        postLog("🔄 Running Focus Mode v1 migration — wiping local focus state")
+
+        // 1. Clear UserDefaults keys related to old controllers.
+        let keysToWipe = [
+            "intentionalModeEnabled",
+            "intentionalModeSchedule",
+            "intentionalModeGracePeriod",
+            "intentionalModeCustomSchedule",
+            "intentionalMode.lastShown",
+            "intentionalMode.recoveryCount",
+            "focusSession.activeId",
+            "focusSession.startedAt",
+            "focusGate.todayEnabled",
+            "blockingProfile.activeIds"
+        ]
+        for k in keysToWipe { defaults.removeObject(forKey: k) }
+
+        // 2. Clear any on-disk JSON state files that the old controllers wrote.
+        let fm = FileManager.default
+        if let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            let intentionalDir = appSupport.appendingPathComponent("Intentional", isDirectory: true)
+            for filename in ["intentional_mode_state.json", "focus_session.json"] {
+                let url = intentionalDir.appendingPathComponent(filename)
+                if fm.fileExists(atPath: url.path) {
+                    try? fm.removeItem(at: url)
+                }
+            }
+        }
+
+        defaults.set(true, forKey: migrationKey)
+        postLog("✅ Focus Mode v1 migration complete")
+    }
+
     /// Register/unregister the watchdog LaunchAgent (fallback when daemon is not running).
     private func updateWatchdog(enabled: Bool) {
         if #available(macOS 13.0, *) {
@@ -343,6 +385,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         "applicationDidFinishLaunching called at \(Date())\n".appendLine(to: logPath)
 
         postLog("✅ Intentional app launched")
+
+        // One-time migration: clear legacy focus state from old controllers
+        runFocusModeMigrationIfNeeded()
 
         // Safety net: restore color in case previous instance was killed with grayscale active
         GrayscaleOverlayController.forceRestoreSaturation()
