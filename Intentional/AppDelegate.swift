@@ -530,6 +530,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // docs/superpowers/plans/2026-04-27-focus-mode-consolidation.md)
         focusModeController = FocusModeController()
         postLog("✅ FocusModeController initialized (state=off)")
+        focusMonitor?.focusModeController = focusModeController
+
+        focusModeController?.onStateChanged = { [weak self] old, new, period in
+            guard let self = self else { return }
+            let intentionStr = period?.intention.map { " (\"\($0)\")" } ?? ""
+            self.postLog("🎯 Focus Mode: \(old.rawValue) → \(new.rawValue)\(intentionStr)")
+            self.relevanceScorer?.clearCache()
+            self.focusMonitor?.onBlockChanged()  // re-evaluate immediately
+            self.socketRelayServer?.broadcastScheduleSync()
+            self.mainWindowController?.pushScheduleUpdate()
+        }
 
         // Initialize Intentional Mode (screen lock until you plan)
         intentionalModeController = IntentionalModeController(appDelegate: self)

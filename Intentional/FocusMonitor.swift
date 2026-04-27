@@ -33,6 +33,11 @@ class FocusMonitor {
     weak var appDelegate: AppDelegate?
     weak var scheduleManager: ScheduleManager?
     weak var relevanceScorer: RelevanceScorer?
+
+    /// Source of truth for "should we be enforcing right now."
+    /// Replaces the old TimeState-based allowlist. Wired by AppDelegate
+    /// after init.
+    weak var focusModeController: FocusModeController?
     var nudgeController: NudgeWindowController?
     var overlayController: FocusOverlayWindowController?
     var interventionController: InterventionOverlayController?
@@ -1614,15 +1619,11 @@ class FocusMonitor {
         let state = manager.currentTimeState
         debugLog("👁️ State check: enabled=\(manager.isEnabled), state=\(state.rawValue), hasPlan=\(manager.todaySchedule != nil), blocks=\(manager.todaySchedule?.blocks.count ?? 0)")
 
-        // States where browsing is allowed freely.
-        // .off covers: feature disabled, scheduled free time, snoozed, unplanned gap, no plan.
-        //   MERGE NOTE: Previously .unplanned and .noPlan showed a pill card (see removed block below).
-        //   Now all .off sub-states allow browsing freely. Task 5 will replace this gate entirely
-        //   with focusModeController.isOn, at which point the pill card logic will need a
-        //   separate signal (e.g. scheduleManager.hasPlanToday) rather than TimeState.
-        // .bedtime: TODO — no enforcement yet, allow freely.
-        if state == .off || state == .bedtime {
-            debugLog("👁️ EXIT: state=\(state.rawValue) — browsing allowed freely")
+        // Enforcement runs IFF Focus Mode is ON. Bedtime and Off both bypass.
+        // (Replaces the TimeState allowlist — disabled, freeTime, snoozed, unplanned
+        // all now route through Focus Mode being off rather than this gate.)
+        guard focusModeController?.isOn == true else {
+            debugLog("👁️ EXIT: focus mode not on (state=\(focusModeController?.state.rawValue ?? "nil")) — browsing allowed freely")
             handleRelevantContent()
             stopBrowserPolling()
             return
