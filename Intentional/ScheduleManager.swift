@@ -205,7 +205,8 @@ class ScheduleManager {
 
     // MARK: - Focus Session Injection
 
-    /// When set, this block overrides the schedule (used by FocusSessionManager).
+    /// When set, this block overrides the schedule (used by manual / cross-device
+    /// focus session injection from AppDelegate.startFocusSession).
     private(set) var injectedFocusBlock: FocusBlock?
 
     func injectFocusSessionBlock(_ block: FocusBlock) {
