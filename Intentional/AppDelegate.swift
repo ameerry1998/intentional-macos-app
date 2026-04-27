@@ -645,6 +645,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // permanently disconnected even after the user signs in via login.html).
         connectFocusWebSocketIfNeeded()
 
+        // Start the focus-state debug dump timer. Writes JSON every 5s to
+        // /tmp/.../intentional-focus-state.json so scripts/focus-debug.py
+        // can show GROUND-TRUTH Mac state instead of log-scraped guesses.
+        startFocusDebugStateTimer()
+
         // Wire schedule block changes: when the active block changes,
         // clear the relevance cache, reset focus monitor, and broadcast SCHEDULE_SYNC
         scheduleManager?.onBlockChanged = { [weak self] block, state in
@@ -1159,6 +1164,84 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         for window in focusStartOverlayWindows { window.close() }
         focusStartOverlayWindows.removeAll()
         focusStartOverlayViewModel = nil
+    }
+
+    /// Dump live focus / WS / auth state to a JSON file for the debug page.
+    /// The file is the source of truth for `scripts/focus-debug.py` so its
+    /// dashboard reflects ACTUAL Mac state, not log-scraped approximations.
+    /// Called every 5s by `focusDebugStateTimer`.
+    func writeFocusDebugState() {
+        let now = ISO8601DateFormatter().string(from: Date())
+        let session = focusSessionManager?.activeSession
+        let block = scheduleManager?.currentBlock
+
+        var blockJSON: [String: Any] = ["present": false]
+        if let block = block {
+            blockJSON = [
+                "present": true,
+                "id": block.id,
+                "title": block.title,
+                "type": block.blockType.rawValue,
+                "startHour": block.startHour,
+                "startMinute": block.startMinute,
+                "endHour": block.endHour,
+                "endMinute": block.endMinute,
+            ]
+        }
+
+        var sessionJSON: [String: Any] = ["active": false]
+        if let session = session {
+            sessionJSON = [
+                "active": true,
+                "intention": session.intention as Any,
+                "profileIds": session.activeProfileIds.map { $0.uuidString },
+                "triggeredByPuck": session.triggeredByPuck,
+                "startedAt": ISO8601DateFormatter().string(from: session.startedAt),
+            ]
+        }
+
+        let merged = focusSessionManager?.activeSession.flatMap {
+            blockingProfileManager?.mergedBlockList(profileIds: $0.activeProfileIds)
+        }
+        let blockedDomainsCount = merged?.domains.count ?? 0
+        let blockedAppsCount = merged?.appBundleIds.count ?? 0
+
+        let payload: [String: Any] = [
+            "generated_at": now,
+            "process_pid": ProcessInfo.processInfo.processIdentifier,
+            "websocket": [
+                "is_connected": focusWebSocketClient?.isConnected ?? false,
+            ],
+            "auth": [
+                "is_logged_in": backendClient?.isLoggedIn ?? false,
+                "has_access_token": backendClient?.getAccessToken() != nil,
+            ],
+            "focus_session": sessionJSON,
+            "current_block": blockJSON,
+            "enforcement": [
+                "is_session_active_locally": focusSessionManager?.isActive ?? false,
+                "blocked_domains_count": blockedDomainsCount,
+                "blocked_apps_count": blockedAppsCount,
+                "distracting_app_bundle_ids_count": focusMonitor?.distractingAppBundleIds.count ?? 0,
+            ],
+        ]
+
+        guard let data = try? JSONSerialization.data(withJSONObject: payload, options: .prettyPrinted) else { return }
+        let path = NSTemporaryDirectory() + "intentional-focus-state.json"
+        try? data.write(to: URL(fileURLWithPath: path), options: .atomic)
+    }
+
+    private var focusDebugStateTimer: Timer?
+
+    func startFocusDebugStateTimer() {
+        focusDebugStateTimer?.invalidate()
+        let timer = Timer(timeInterval: 5.0, repeats: true) { [weak self] _ in
+            self?.writeFocusDebugState()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        focusDebugStateTimer = timer
+        // Fire once immediately so the file exists right after launch.
+        writeFocusDebugState()
     }
 
     /// Connect the focus WebSocket and register this device with the backend,
