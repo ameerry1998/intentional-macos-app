@@ -89,17 +89,12 @@ final class SwitchInterventionCoordinator {
         lastBreakEnd = nil
     }
 
-    /// Clear all per-session tracking. Called by AppDelegate when Focus Mode
-    /// transitions to .off so the next focus session starts with a clean slate.
+    /// Clear all per-session tracking. Called when Focus Mode transitions
+    /// to .off so the coordinator doesn't expose stale dwell/history data
+    /// (e.g., via preferredReturnTarget) until the next session begins.
+    /// Intentionally aliases sessionEnded() — the two are semantically equivalent.
     func reset() {
-        sessionStart = nil
-        completedSwitchCount = 0
-        dwellLedger = [:]
-        targetHistory = []
-        currentTarget = nil
-        currentTargetSince = nil
-        lastBreakEnd = nil
-        onBreak = false
+        sessionEnded()
     }
 
     func breakStarted(at now: Date) {
