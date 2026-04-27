@@ -1615,8 +1615,18 @@ class FocusMonitor {
         debugLog("👁️ State check: enabled=\(manager.isEnabled), state=\(state.rawValue), hasPlan=\(manager.todaySchedule != nil), blocks=\(manager.todaySchedule?.blocks.count ?? 0)")
 
         // States where browsing is allowed freely
-        // disabled = feature off, freeTime = scheduled break, snoozed = user chose to delay
-        if state == .disabled || state == .freeTime || state == .snoozed {
+        // disabled = feature off
+        // freeTime = scheduled break
+        // snoozed = user chose to delay
+        // unplanned = no scheduled block, no active session — user isn't
+        //   trying to focus, so we shouldn't enforce as if they were.
+        //   Previously this fell through to enforcement, causing YouTube
+        //   (etc.) to trigger AI scoring + grayscale red-shift even at
+        //   3 AM with no plan or session active. The "you should plan
+        //   your day" feature lives in IntentionalModeController and
+        //   surfaces as the lock-screen overlay during work hours;
+        //   running grayscale enforcement in unplanned time was wrong.
+        if state == .disabled || state == .freeTime || state == .snoozed || state == .unplanned {
             debugLog("👁️ EXIT: state=\(state.rawValue) — browsing allowed freely")
             handleRelevantContent()
             stopBrowserPolling()
