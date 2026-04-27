@@ -33,6 +33,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var scheduleManager: ScheduleManager?
     var relevanceScorer: RelevanceScorer?
     var focusMonitor: FocusMonitor?
+    var focusModeController: FocusModeController?
     var nudgeController: NudgeWindowController?
 
     // Earn Your Browse budget system
@@ -523,6 +524,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         focusMonitor?.start()
         postLog("👁️ FocusMonitor + NudgeWindowController + FocusOverlayWindow + InterventionOverlay initialized")
+
+        // Step 15.5: FocusModeController — single source of truth for "is the app enforcing"
+        // (replaces IntentionalModeController + FocusSessionManager — see plan
+        // docs/superpowers/plans/2026-04-27-focus-mode-consolidation.md)
+        focusModeController = FocusModeController()
+        postLog("✅ FocusModeController initialized (state=off)")
 
         // Initialize Intentional Mode (screen lock until you plan)
         intentionalModeController = IntentionalModeController(appDelegate: self)
