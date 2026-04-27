@@ -135,4 +135,5 @@ final class FocusModeController {
 
 extension Notification.Name {
     static let focusModeChanged = Notification.Name("focusModeChanged")
+    static let interventionToggleChanged = Notification.Name("interventionToggleChanged")
 }

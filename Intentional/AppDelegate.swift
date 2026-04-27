@@ -547,6 +547,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if new == .off {
                 self.switchCoordinator?.reset()
             }
+            self.mainWindowController?.pushFocusModeUpdate(state: new)
         }
 
         // Bedtime Enforcer

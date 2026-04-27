@@ -512,6 +512,12 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 handlePromoteLearnedSite(body)
             }
 
+        case "FOCUS_MODE_TOGGLE":
+            handleFocusModeToggle(body: body)
+
+        case "INTERVENTION_TOGGLE_SET":
+            handleInterventionToggleSet(body: body)
+
         default:
             appDelegate?.postLog("⚠️ WKWebView: Unknown message type: \(type)")
         }
@@ -2887,6 +2893,51 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
            let json = String(data: data, encoding: .utf8) {
             callJS("window._contentSafetyStatus && window._contentSafetyStatus(\(json))")
         }
+    }
+
+    /// Push focus mode state to the dashboard toggle (called by AppDelegate onStateChanged).
+    func pushFocusModeUpdate(state: FocusModeController.State) {
+        let js = """
+            if (typeof onFocusModeStateUpdate === 'function') {
+                onFocusModeStateUpdate('\(state.rawValue)');
+            }
+        """
+        callJS(js)
+    }
+
+    // MARK: - Focus Mode Toggle Bridge
+
+    /// Body: { "on": Bool }
+    /// Manual dashboard toggle of Focus Mode. ON => activate(.manual); OFF => deactivate(.manual).
+    private func handleFocusModeToggle(body: [String: Any]) {
+        guard let on = body["on"] as? Bool else { return }
+        let app = NSApp.delegate as? AppDelegate
+        if on {
+            app?.focusModeController?.activate(intention: nil, source: .manual)
+        } else {
+            app?.focusModeController?.deactivate(source: .manual)
+        }
+    }
+
+    /// Body: { "key": String, "enabled": Bool }
+    /// Persists the user's preference for an individual intervention. Honoring the
+    /// preference (i.e., gating the actual intervention logic on this flag) is
+    /// follow-up work — Task 10 only persists the UI state.
+    /// key ∈ { "distractions_blocking", "switch_overlay", "ai_relevance",
+    ///         "screen_red_shift", "off_task_nudge", "block_start_ritual",
+    ///         "block_end_ritual", "pill_widget", "force_quit_apps",
+    ///         "earned_browse_mode" }
+    private func handleInterventionToggleSet(body: [String: Any]) {
+        guard let key = body["key"] as? String,
+              let enabled = body["enabled"] as? Bool else { return }
+        let defaultsKey = "intervention.\(key)"
+        UserDefaults.standard.set(enabled, forKey: defaultsKey)
+        NotificationCenter.default.post(
+            name: .interventionToggleChanged,
+            object: nil,
+            userInfo: ["key": key, "enabled": enabled]
+        )
+        appDelegate?.postLog("🔧 INTERVENTION_TOGGLE_SET: \(key)=\(enabled)")
     }
 
     // MARK: - JS Helpers
