@@ -57,19 +57,26 @@ final class FocusModeController {
 
     // MARK: API
 
-    /// Transition to .focus. Idempotent — calling while already in .focus updates
-    /// the intention/source on the current period without re-firing onStateChanged.
+    /// Transition to .focus. Idempotent on state — calling while already in .focus
+    /// updates the intention/source on the current period. Fires onStateChanged if
+    /// the intention changes (e.g., Deep Work A → Deep Work B with same .focus state)
+    /// so downstream consumers (cache clear, focusMonitor re-eval) still run.
     func activate(intention: String?, source: ActivationSource) {
         let old = state
         if state == .focus {
-            // Already on; refresh metadata only.
-            if let existing = currentPeriod {
-                currentPeriod = Period(
-                    id: existing.id,
-                    startedAt: existing.startedAt,
-                    intention: intention ?? existing.intention,
-                    source: source
-                )
+            // Already on; refresh metadata. Notify only if intention actually
+            // changed — same-state idempotent reactivations don't re-fan-out.
+            guard let existing = currentPeriod else { return }
+            let newIntention = intention ?? existing.intention
+            let intentionChanged = newIntention != existing.intention
+            currentPeriod = Period(
+                id: existing.id,
+                startedAt: existing.startedAt,
+                intention: newIntention,
+                source: source
+            )
+            if intentionChanged {
+                notify(old: old, new: state, period: currentPeriod)
             }
             return
         }

@@ -537,9 +537,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let intentionStr = period?.intention.map { " (\"\($0)\")" } ?? ""
             self.postLog("🎯 Focus Mode: \(old.rawValue) → \(new.rawValue)\(intentionStr)")
             self.relevanceScorer?.clearCache()
-            self.focusMonitor?.onBlockChanged()  // re-evaluate immediately
+
+            // earnedBrowseManager.onBlockChanged MUST run before focusMonitor.onBlockChanged
+            // — recordWorkTick reads activeBlockId. (CLAUDE.md Known Bug Fixes #2.)
+            // Read currentBlock from the schedule because Period doesn't carry blockId.
+            let block = self.scheduleManager?.currentBlock
+            self.earnedBrowseManager?.onBlockChanged(blockId: block?.id, blockTitle: block?.title)
+
+            self.focusMonitor?.onBlockChanged()
             self.socketRelayServer?.broadcastScheduleSync()
             self.mainWindowController?.pushScheduleUpdate()
+
             if new == .off {
                 self.switchCoordinator?.reset()
             }
@@ -623,26 +631,37 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // Wire schedule block changes: when the active block changes,
-        // clear the relevance cache, reset focus monitor, and broadcast SCHEDULE_SYNC
+        // Wire schedule block changes: the schedule is a trigger source for
+        // FocusModeController. All enforcement fanout (cache clear, focusMonitor
+        // re-eval, broadcasts, dashboard push) lives in focusModeController.onStateChanged.
+        // This closure only:
+        //   (a) routes the new TimeState into FocusModeController, and
+        //   (b) handles domain logic (project sessions, celebration) that is NOT fanout.
         scheduleManager?.onBlockChanged = { [weak self] block, state in
             guard let self = self else { return }
             self.postLog("📋 Block changed → \(state.rawValue)" + (block != nil ? " (\(block!.title))" : ""))
 
-            // Capture previous block data BEFORE resetting activeBlockId
+            // Capture previous block data BEFORE transitioning state (used for
+            // celebration and project-session bookkeeping below).
             let prevBlockId = self.earnedBrowseManager?.activeBlockId
             let prevStats = prevBlockId.flatMap { self.earnedBrowseManager?.blockFocusStats[$0] }
             let prevBlock = prevBlockId.flatMap { id in
                 self.scheduleManager?.todaySchedule?.blocks.first(where: { $0.id == id })
             }
 
-            self.relevanceScorer?.clearCache()
-            // Set activeBlockId BEFORE focusMonitor re-evaluates (which may call recordWorkTick)
-            self.earnedBrowseManager?.onBlockChanged(blockId: block?.id, blockTitle: block?.title)
-            self.focusMonitor?.onBlockChanged()
+            // Route into FocusModeController. Fanout (clearCache, earnedBrowse, focusMonitor,
+            // broadcasts) runs via focusModeController.onStateChanged.
+            switch state {
+            case .focus:
+                self.focusModeController?.activate(intention: block?.title, source: .schedule)
+            case .bedtime:
+                self.focusModeController?.activateBedtime(source: .bedtimeSchedule)
+            case .off:
+                self.focusModeController?.deactivate(source: .schedule)
+            }
+
+            // Legacy hook — preserved until IntentionalModeController is deleted in Task 9.
             self.intentionalModeController?.onBlockChanged(block: block, timeState: state)
-            self.socketRelayServer?.broadcastScheduleSync()
-            self.mainWindowController?.pushScheduleUpdate()
 
             // Show celebration in the pill for the block that just ended
             if let prevBlock = prevBlock, let prevStats = prevStats,
@@ -693,6 +712,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // Also sync focusMonitor so the floating timer shows immediately on startup mid-block
             focusMonitor?.onBlockChanged()
             ensureProjectSessionMatchesCurrentBlock()
+        }
+
+        // Initial sync: if a block is already active when the app starts, activate
+        // Focus Mode immediately. (Catches app-started-during-block.) FocusModeController
+        // fanout will then trigger downstream re-eval.
+        if let currentBlock = scheduleManager?.currentBlock {
+            let timeState = scheduleManager?.currentTimeState ?? .off
+            switch timeState {
+            case .focus:
+                focusModeController?.activate(intention: currentBlock.title, source: .schedule)
+            case .bedtime:
+                focusModeController?.activateBedtime(source: .bedtimeSchedule)
+            case .off:
+                break  // already off
+            }
         }
 
         // Step 15b: Enforcement Reconciler — runs BEFORE ContentSafetyMonitor
