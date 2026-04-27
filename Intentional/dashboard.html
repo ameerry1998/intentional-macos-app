@@ -5185,17 +5185,6 @@ function onFocusModeStateUpdate(stateRaw) {
   }
 }
 
-// Legacy stub — kept for any remaining references; routes through new function.
-function onFocusGateTodayToggle(enabled) {
-  onFocusModeToggle(enabled);
-}
-
-// Sync focus-mode-toggle initial state from FocusModeController via loaded settings.
-function syncFocusModeTodayToggle(isOn) {
-  var toggle = document.getElementById("focus-mode-toggle");
-  if (toggle) toggle.checked = !!isOn;
-}
-
 // ===== Interventions =====
 var INTERVENTIONS = [
   { key: "distractions_blocking", label: "Distractions blocking",      desc: "Hard block apps + sites in your distractions list.", defaultOn: true },

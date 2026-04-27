@@ -2911,11 +2911,10 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     /// Manual dashboard toggle of Focus Mode. ON => activate(.manual); OFF => deactivate(.manual).
     private func handleFocusModeToggle(body: [String: Any]) {
         guard let on = body["on"] as? Bool else { return }
-        let app = NSApp.delegate as? AppDelegate
         if on {
-            app?.focusModeController?.activate(intention: nil, source: .manual)
+            appDelegate?.focusModeController?.activate(intention: nil, source: .manual)
         } else {
-            app?.focusModeController?.deactivate(source: .manual)
+            appDelegate?.focusModeController?.deactivate(source: .manual)
         }
     }
 
