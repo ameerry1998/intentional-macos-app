@@ -18,7 +18,7 @@ class IntentionalModeController {
     weak var scheduleManager: ScheduleManager?
 
     var isPuckFocusActive: Bool {
-        appDelegate?.focusSessionManager?.activeSession?.triggeredByPuck == true
+        appDelegate?.focusModeController?.currentPeriod?.source == .puck
     }
 
     // MARK: - State

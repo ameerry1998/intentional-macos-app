@@ -571,16 +571,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Blocking Profiles & Focus Sessions
         blockingProfileManager = BlockingProfileManager()
-        focusSessionManager = FocusSessionManager()
 
         // Apply always-active profiles on startup
         applyAlwaysActiveProfiles()
-
-        // Restore active focus session if app restarted mid-focus
-        if let session = focusSessionManager?.activeSession {
-            postLog("🎯 Restoring active focus session from disk")
-            applyFocusSession(session)
-        }
 
         // Mock Puck trigger: Cmd+Shift+P global hotkey
         puckHotkeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -595,7 +588,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
             return event
         }
-        postLog("🎯 BlockingProfileManager + FocusSessionManager initialized")
+        postLog("🎯 BlockingProfileManager initialized")
 
         // WebSocket focus signal client (receives start/stop from Puck via backend)
         focusWebSocketClient = FocusWebSocketClient()
@@ -605,11 +598,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if action == "start" {
                     self.postLog("🔌 Focus signal: START (session: \(sessionId), triggeredBy: \(triggeredBy))")
                     self.focusWebSocketClient?.startHeartbeat(sessionId: sessionId)
-                    self.showFocusStartOverlay(isPuckTriggered: triggeredBy == "puck")
+                    self.dismissFocusStartOverlay()  // close any picker if open
+
+                    let intention = triggeredBy == "puck"
+                        ? "Focus session (started on phone)"
+                        : "Focus session"
+                    let source: FocusModeController.ActivationSource = triggeredBy == "puck" ? .puck : .crossDevice
+                    self.focusModeController?.activate(intention: intention, source: source)
                 } else if action == "stop" {
                     self.postLog("🔌 Focus signal: STOP (session: \(sessionId))")
                     self.focusWebSocketClient?.stopHeartbeat()
-                    self.endFocusSession()
+                    self.focusModeController?.deactivate(source: .crossDevice)
                 }
             }
         }
@@ -1108,7 +1107,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func togglePuckFocus() {
-        if focusSessionManager?.isActive == true {
+        if focusModeController?.isOn == true {
             endFocusSession()
         } else {
             showFocusStartOverlay(isPuckTriggered: true)
@@ -1174,18 +1173,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func startFocusSession(profileIds: [UUID], intention: String?, aiEnabled: Bool, triggeredByPuck: Bool) {
-        focusSessionManager?.startSession(profileIds: profileIds, intention: intention, aiEnabled: aiEnabled, triggeredByPuck: triggeredByPuck)
-        guard let session = focusSessionManager?.activeSession else { return }
-        applyFocusSession(session)
+        let source: FocusModeController.ActivationSource = triggeredByPuck ? .puck : .manual
+        focusModeController?.activate(intention: intention, source: source)
+        applyFocusSession(profileIds: profileIds, intention: intention)
         postLog("🎯 Focus session started (profiles=\(profileIds.count), intention=\(intention ?? "none"), puck=\(triggeredByPuck))")
     }
 
-    func applyFocusSession(_ session: FocusSession) {
-        let merged = blockingProfileManager?.mergedBlockList(profileIds: session.activeProfileIds)
+    func applyFocusSession(profileIds: [UUID], intention: String?) {
+        let merged = blockingProfileManager?.mergedBlockList(profileIds: profileIds)
         let domains = merged?.domains ?? []
         let appBundleIds = merged?.appBundleIds ?? []
-        let hasProfiles = !session.activeProfileIds.isEmpty && !domains.isEmpty
-        let hasIntention = session.intention != nil && !session.intention!.isEmpty
+        let hasProfiles = !profileIds.isEmpty && !domains.isEmpty
+        let hasIntention = intention != nil && !intention!.isEmpty
 
         // Only enforce if there's something to enforce
         guard hasProfiles || hasIntention else {
@@ -1201,7 +1200,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let cal = Calendar.current
             let block = ScheduleManager.FocusBlock(
                 id: UUID().uuidString,
-                title: session.intention!,
+                title: intention!,
                 description: "",
                 startHour: cal.component(.hour, from: now),
                 startMinute: cal.component(.minute, from: now),
@@ -1215,7 +1214,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func endFocusSession() {
-        focusSessionManager?.stopSession()
+        focusModeController?.deactivate(source: .manual)
 
         // Fall back to always-active profiles (or empty if none)
         applyAlwaysActiveProfiles()
@@ -1238,7 +1237,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func checkForActiveFocusSession() {
         guard let token = backendClient?.getAccessToken() else { return }
-        guard focusSessionManager?.isActive != true else { return } // Already in a session
+        guard focusModeController?.isOn != true else { return } // Already in a session
 
         #if DEBUG
         let urlString = "http://localhost:8000/focus/active"
