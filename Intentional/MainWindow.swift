@@ -974,23 +974,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         result["theme"] = (savedSettings["theme"] as? String) ?? "iridescent"
         result["strictModeEnabled"] = UserDefaults.standard.bool(forKey: "strictModeEnabled")
 
-        // Intentional Mode settings
-        let imController = appDelegate?.intentionalModeController
-        result["intentionalModeEnabled"] = imController?.isEnabled ?? false
-        result["intentionalModeSchedule"] = imController?.schedule.rawValue ?? "always"
-        result["intentionalModeGracePeriod"] = imController?.gracePeriodMinutes ?? 3
-        if let cs = imController?.customSchedule {
-            result["intentionalModeCustomSchedule"] = [
-                "weekdayStartHour": cs.weekdayStartHour,
-                "weekdayStartMinute": cs.weekdayStartMinute,
-                "weekdayEndHour": cs.weekdayEndHour,
-                "weekdayEndMinute": cs.weekdayEndMinute,
-                "weekendEnabled": cs.weekendEnabled,
-                "weekendStartHour": cs.weekendStartHour,
-                "weekendStartMinute": cs.weekendStartMinute,
-                "weekendEndHour": cs.weekendEndHour,
-                "weekendEndMinute": cs.weekendEndMinute
-            ] as [String: Any]
+        // Intentional Mode settings — read directly from UserDefaults (controller deleted in Task 9)
+        let defaults = UserDefaults.standard
+        result["intentionalModeEnabled"] = defaults.bool(forKey: "intentionalModeEnabled")
+        result["intentionalModeSchedule"] = defaults.string(forKey: "intentionalModeSchedule") ?? "always"
+        let rawGrace = defaults.integer(forKey: "intentionalModeGracePeriod")
+        result["intentionalModeGracePeriod"] = rawGrace == 0 ? 3 : rawGrace
+        if let csData = defaults.data(forKey: "intentionalModeCustomSchedule"),
+           let csJson = try? JSONSerialization.jsonObject(with: csData) as? [String: Any] {
+            result["intentionalModeCustomSchedule"] = csJson
         }
 
         result["userEmail"] = appDelegate?.backendClient?.storedEmail ?? ""
@@ -1598,32 +1590,22 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     // MARK: - Intentional Mode
 
     private func handleSaveIntentionalMode(_ body: [String: Any]) {
-        guard let controller = appDelegate?.intentionalModeController else { return }
-
+        // IntentionalModeController deleted in Task 9 — persist directly to UserDefaults
+        // so the dashboard settings round-trip continues to work.
         let enabled = body["enabled"] as? Bool ?? false
         let scheduleRaw = body["schedule"] as? String ?? "always"
         let grace = body["gracePeriodMinutes"] as? Int ?? 3
 
-        controller.isEnabled = enabled
-        controller.schedule = IntentionalModeController.Schedule(rawValue: scheduleRaw) ?? .always
-        controller.gracePeriodMinutes = grace
+        let defaults = UserDefaults.standard
+        defaults.set(enabled, forKey: "intentionalModeEnabled")
+        defaults.set(scheduleRaw, forKey: "intentionalModeSchedule")
+        defaults.set(grace, forKey: "intentionalModeGracePeriod")
 
-        if let custom = body["customSchedule"] as? [String: Any] {
-            controller.customSchedule = IntentionalModeController.CustomSchedule(
-                weekdayStartHour: custom["weekdayStartHour"] as? Int ?? 8,
-                weekdayStartMinute: custom["weekdayStartMinute"] as? Int ?? 0,
-                weekdayEndHour: custom["weekdayEndHour"] as? Int ?? 18,
-                weekdayEndMinute: custom["weekdayEndMinute"] as? Int ?? 0,
-                weekendEnabled: custom["weekendEnabled"] as? Bool ?? false,
-                weekendStartHour: custom["weekendStartHour"] as? Int ?? 9,
-                weekendStartMinute: custom["weekendStartMinute"] as? Int ?? 0,
-                weekendEndHour: custom["weekendEndHour"] as? Int ?? 17,
-                weekendEndMinute: custom["weekendEndMinute"] as? Int ?? 0
-            )
+        if let custom = body["customSchedule"] as? [String: Any],
+           let data = try? JSONSerialization.data(withJSONObject: custom) {
+            defaults.set(data, forKey: "intentionalModeCustomSchedule")
         }
 
-        controller.saveSettings()
-        controller.recalculateState()
         appDelegate?.postLog("🔒 SAVE_INTENTIONAL_MODE: enabled=\(enabled), schedule=\(scheduleRaw), grace=\(grace)min")
     }
 

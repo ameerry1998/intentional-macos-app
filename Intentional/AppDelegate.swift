@@ -39,9 +39,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Earn Your Browse budget system
     var earnedBrowseManager: EarnedBrowseManager?
 
-    // Intentional Mode — screen lock until you plan
-    var intentionalModeController: IntentionalModeController?
-
     // Content Safety — on-device screen monitoring for explicit content
     var contentSafetyMonitor: ContentSafetyMonitor?
 
@@ -144,7 +141,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     var activeProjectId: UUID? { activeProjectSession?.projectId }
 
-    var focusSessionManager: FocusSessionManager?
     var focusWebSocketClient: FocusWebSocketClient?
     private var focusStartOverlayWindows: [NSWindow] = []
     private var focusStartOverlayViewModel: FocusStartOverlayViewModel?
@@ -553,14 +549,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // Initialize Intentional Mode (screen lock until you plan)
-        intentionalModeController = IntentionalModeController(appDelegate: self)
-        intentionalModeController?.scheduleManager = scheduleManager
-        intentionalModeController?.loadSettings()
-        intentionalModeController?.recalculateState()
-        intentionalModeController?.start()
-        postLog("🔒 IntentionalModeController initialized (enabled=\(intentionalModeController?.isEnabled ?? false))")
-
         // Bedtime Enforcer
         bedtimeEnforcer = BedtimeEnforcer(appDelegate: self)
         sleepWakeMonitor?.onWake = { [weak self] in
@@ -658,9 +646,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             case .off:
                 self.focusModeController?.deactivate(source: .schedule)
             }
-
-            // Legacy hook — preserved until IntentionalModeController is deleted in Task 9.
-            self.intentionalModeController?.onBlockChanged(block: block, timeState: state)
 
             // Show celebration in the pill for the block that just ended
             if let prevBlock = prevBlock, let prevStats = prevStats,
