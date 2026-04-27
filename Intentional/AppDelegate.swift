@@ -292,10 +292,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// One-time migration: clear local focus state when this build runs for the first
-    /// time. Account auth, schedule, distractions list, partner config are preserved.
-    /// Cleared: any focus-session leftovers, intentional-mode state, blocking-profile
-    /// "active" selections, intervention preferences (will fall back to defaults).
+    /// One-time migration: clear local Intentional Mode state on first launch
+    /// of the new build (the focus consolidation drops the IntentionalModeController
+    /// + FocusSessionManager — these stale settings would persist otherwise).
+    /// Wiped: 4 IntentionalMode UserDefaults keys + focus_session.json on disk.
+    /// Preserved: account auth, schedule, distractions list, partner config,
+    /// strict mode, content safety, intervention preferences.
     private func runFocusModeMigrationIfNeeded() {
         let migrationKey = "focus_mode_v1_migration_complete"
         let defaults = UserDefaults.standard
@@ -304,28 +306,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         postLog("🔄 Running Focus Mode v1 migration — wiping local focus state")
 
         // 1. Clear UserDefaults keys related to old controllers.
+        // Settings written by the now-deleted IntentionalModeController. The
+        // dashboard still reads/writes these keys via handleSaveIntentionalMode
+        // (Task 10 left that handler as documented dead code) — wiping them
+        // gives the user a fresh start.
         let keysToWipe = [
             "intentionalModeEnabled",
             "intentionalModeSchedule",
             "intentionalModeGracePeriod",
-            "intentionalModeCustomSchedule",
-            "intentionalMode.lastShown",
-            "intentionalMode.recoveryCount",
-            "focusSession.activeId",
-            "focusSession.startedAt",
-            "focusGate.todayEnabled",
-            "blockingProfile.activeIds"
+            "intentionalModeCustomSchedule"
         ]
         for k in keysToWipe { defaults.removeObject(forKey: k) }
 
-        // 2. Clear any on-disk JSON state files that the old controllers wrote.
+        // 2. Clear on-disk state files that the old controllers wrote.
+        // FocusSessionManager wrote `focus_session.json`. IntentionalModeController
+        // didn't persist to disk (UserDefaults only) — the speculative
+        // `intentional_mode_state.json` is kept as a defensive guard against any
+        // future build that may have written it.
         let fm = FileManager.default
         if let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
             let intentionalDir = appSupport.appendingPathComponent("Intentional", isDirectory: true)
-            for filename in ["intentional_mode_state.json", "focus_session.json"] {
+            for filename in ["focus_session.json", "intentional_mode_state.json"] {
                 let url = intentionalDir.appendingPathComponent(filename)
-                if fm.fileExists(atPath: url.path) {
-                    try? fm.removeItem(at: url)
+                guard fm.fileExists(atPath: url.path) else { continue }
+                do {
+                    try fm.removeItem(at: url)
+                    postLog("🗑️ Focus migration: removed \(filename)")
+                } catch {
+                    postLog("⚠️ Focus migration: failed to remove \(filename): \(error.localizedDescription)")
                 }
             }
         }
