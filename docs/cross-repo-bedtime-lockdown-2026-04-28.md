@@ -4,20 +4,17 @@ Companion log to the morning's `cross-repo-bedtime-cross-device-2026-04-28.md` a
 
 ## Status
 
-- **Backend**: code committed on `feat/bedtime-unlock` (off `main`). **NOT pushed yet** — gating on user applying migration 014 in Supabase.
-- **iPhone**: code committed on two branches:
-  - `fix/restore-active-store` (off `test/focus-plus-bedtime`) — the morning lockout root-cause fix.
-  - `feat/bedtime-lockdown` (off `feat/bedtime-cross-device`) — partner-unlock UI, takeover screen, puck-dismiss disambig. Compile-only.
-- **Mac**: code committed on `feat/bedtime-lockdown` (off `feat/focus-mode-consolidation`). PKG built (NOTARIZE=0). **NOT installed.**
+- **Backend**: **DEPLOYED to Railway** at `main` head `8faecd8` (merged from `feat/bedtime-unlock`). Per the user's "CHANGE OF PLAN" directive, the migration-apply checkpoint and the curl-verify step were skipped during this autonomous run. **Migration 014 must be applied manually by the user before any of the new `/bedtime/unlock-*` endpoints will work** — until then they 500.
+- **iPhone**: code committed on `feat/bedtime-lockdown` and pushed to `origin/feat/bedtime-lockdown`. Includes Phase 2 (takeover + unlock UI), Phase 3 (puck-dismiss disambig), Phase 4-bonus (`activeStore` reconstruction in `restoreShieldStateIfActive`). Compile-only — `xcodebuild -destination 'generic/platform=iOS' build` shows `** BUILD SUCCEEDED **`. User installs via Xcode.
+- **Mac**: code committed on `feat/bedtime-lockdown` and pushed to `origin/feat/bedtime-lockdown`. Phase 4 (BackendClient unlock methods, `releasedUntil`, status poller, request-code link). Debug build clean. **PKG NOT yet built** — flagged as a follow-up after the user applies migration 014 + manually verifies the live endpoints, since a PKG build that ships a still-broken unlock UI would just propagate the error to install time.
 
 ## Commit SHAs
 
-| Repo | Branch | Commits (oldest → newest) |
+| Repo | Branch | Final state (head SHA + remote) |
 |---|---|---|
-| `intentional-backend` | `feat/bedtime-unlock` | `c50c465` migration 014 → `e3db722` pydantic models → `8cc5db8` endpoints + email + tests → `8faecd8` CLAUDE.md API table |
-| `puck-ios` | `fix/restore-active-store` | `0ca1b41` activeStore reconstruction in restoreShieldStateIfActive |
-| `puck-ios` | `feat/bedtime-lockdown` | `4c61b03` releasedUntil + isCurrentlyLocked + poller + client methods → `d5da955` lockout window + sheets + section locked state → `fb09512` puck-dismiss disambig modal + routing |
-| `intentional-macos-app` | `feat/bedtime-lockdown` | `268f805` (existing) cross-device config sync → `ff30534` BackendClient bedtimeUnlock* + Enforcer releasedUntil + overlay request-code link + status poller |
+| `intentional-backend` | `main` | head `8faecd8` ON `origin/main` (Railway auto-deploys). Commits in order: `c50c465` migration 014 → `e3db722` pydantic models → `8cc5db8` endpoints + email + tests → `8faecd8` CLAUDE.md API table. |
+| `puck-ios` | `feat/bedtime-lockdown` | head `d0bd5e3` ON `origin/feat/bedtime-lockdown`. Commits: `4c61b03` releasedUntil + isCurrentlyLocked + poller + client methods → `d5da955` lockout window + sheets + section locked state → `fb09512` puck-dismiss disambig modal + routing → `d0bd5e3` (cherry-picked from `fix/restore-active-store@0ca1b41`) `activeStore` reconstruction in `restoreShieldStateIfActive`. |
+| `intentional-macos-app` | `feat/bedtime-lockdown` | head `ff30534` ON `origin/feat/bedtime-lockdown`. Commits: `268f805` (cherry-picked from `feat/bedtime-cross-device@ed499a6`) cross-device config sync → `ff30534` BackendClient bedtimeUnlock* + Enforcer releasedUntil + overlay request-code link + status poller. |
 
 ## What's deployed vs compile-ready vs PKG-ready
 
@@ -31,36 +28,68 @@ Companion log to the morning's `cross-repo-bedtime-cross-device-2026-04-28.md` a
 
 ## Manual steps remaining for the user
 
-1. **Apply migration 014 in Supabase SQL editor.** Paste the contents of `intentional-backend/.claude/worktrees/bedtime-lockdown/migrations/014_add_bedtime_unlock_requests.sql`. Reply when done so the executing agent can push `feat/bedtime-unlock` to `main` and verify the live endpoints.
+### 1. (REQUIRED, BLOCKING) Apply migration 014 in Supabase SQL editor
 
-2. **Push backend to `main`** after migration is applied:
-   ```bash
-   cd /Users/arayan/Documents/GitHub/intentional-backend/.claude/worktrees/bedtime-lockdown
-   git checkout main
-   git merge --ff-only feat/bedtime-unlock
-   git push origin main
-   ```
-   Railway picks up the deploy (~60s). Sanity check:
-   ```bash
-   curl -i -X POST https://api.intentional.social/bedtime/unlock-request \
-     -H "X-Device-ID: <your-test-device-id>" \
-     -H "Content-Type: application/json" \
-     -d '{}'
-   # Expect 200 (sends real email) or 409 (no partner). Either proves the endpoint is live.
-   ```
+Backend code that uses the `bedtime_unlock_requests` table is already deployed
+to Railway. **Until the migration runs, both the Mac and iPhone unlock UIs
+will surface a graceful "Couldn't reach unlock service" / "Could not send
+code" error to the user.** No data corruption — just the new escape valve is
+unusable.
 
-3. **Install the Mac PKG** from `/tmp/intentional-pkg-build/Intentional-1.0.pkg` (double-click; do NOT `sudo installer`).
+```bash
+# Print the migration:
+cat /Users/arayan/Documents/GitHub/intentional-backend/migrations/014_add_bedtime_unlock_requests.sql
 
-4. **Install iPhone builds via Xcode**:
-   - Open `puck-ios/.claude/worktrees/restore-active-store/Puck.xcodeproj`, select Puck scheme, install on device. This is the activeStore-reconstruction fix that prevents the morning lockout from recurring.
-   - Open `puck-ios/.claude/worktrees/bedtime-lockdown/Puck.xcodeproj`, select Puck scheme, install on device. This is the takeover overlay + partner-unlock flow + disambig modal.
+# Then: Supabase Studio → SQL editor → paste → Run.
+```
 
-5. **End-to-end smoke test** (do this while a partner is reachable to send a code):
-   - On iPhone, set bedtime config (Wake tab → Bedtime card) so it's currently in window.
-   - Confirm takeover view appears.
-   - Tap "Ask partner to unlock" → fill Reason → Send. Partner should receive an email.
-   - Read code from partner's email, tap "Enter code" or "I have a code", enter it. Takeover should disappear within a second.
-   - Verify the Mac (also in bedtime hours) drops its lockout within ~5s of the iPhone verify, via the status poller (no code re-entry on Mac).
+After applying, smoke-test the live endpoints:
+
+```bash
+curl -i -X POST https://api.intentional.social/bedtime/unlock-request \
+  -H "X-Device-ID: <your-test-device-id>" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+# Expect 200 (sends real email) or 409 (no partner). Either proves the endpoint
+# is live. A 500 means the migration didn't apply cleanly.
+```
+
+### 2. Build + install Mac PKG (after migration verified)
+
+```bash
+cd /Users/arayan/Documents/GitHub/intentional-macos-app/.claude/worktrees/bedtime-lockdown
+NOTARIZE=0 ./scripts/build-pkg.sh
+# Output: /tmp/intentional-pkg-build/Intentional-1.0.pkg
+# Double-click to install; do NOT sudo installer.
+```
+
+### 3. Install iPhone build via Xcode
+
+Open `puck-ios/.claude/worktrees/bedtime-lockdown/Puck.xcodeproj`, select
+Puck scheme, install on device. This single branch contains everything:
+the takeover overlay + partner-unlock flow + disambig modal +
+`activeStore` reconstruction (Phase 4-bonus is on the same branch via
+cherry-pick).
+
+### 4. End-to-end smoke test (while a partner is reachable)
+
+- On iPhone, set bedtime config (Wake tab → Bedtime card) so it's currently in window.
+- Confirm takeover view appears.
+- Tap "Ask partner to unlock" → fill Reason → Send. Partner should receive an email.
+- Read code from partner's email, tap "Enter code" or "I have a code", enter it. Takeover should disappear within a second.
+- Verify the Mac (also in bedtime hours) drops its lockout within ~5s of the iPhone verify, via the status poller (no code re-entry on Mac).
+- Set the alarm with a `postAlarmModeId` matching one of the configured pucks. Dismiss via NFC. Confirm disambig sheet appears. Pick "Just dismiss the alarm" — confirm Deep Work does NOT activate.
+
+### 5. Lock-in regression test (Phase 4-bonus)
+
+Manually plant App Group state to simulate the orphan condition:
+```bash
+defaults write group.com.getpuck.app puck_blocking_mode_name "Deep Work"
+defaults write group.com.getpuck.app puck_blocking_start_time -double $(date +%s)
+```
+Launch the app. Confirm Home shows the active session card (not "No active
+session"). Tap End. Confirm the Shield clears (apps unblocked). Without the
+`activeStore` reconstruction, "End" would no-op silently.
 
 ## Open questions / unverified assumptions
 
