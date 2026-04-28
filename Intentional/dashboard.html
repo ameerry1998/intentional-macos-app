@@ -10192,6 +10192,7 @@ function formatFocusDuration(minutes) {
 renderThemePicker('iridescent');
 sendMessage({ type: 'GET_SETTINGS' });
 sendMessage({ type: 'GET_PARTNER_STATUS' });
+sendMessage({ type: 'GET_FOCUS_MODE' });
 refresh();
 loadFocusState();
 sendMessage({ type: 'GET_RELEVANCE_LOG' });

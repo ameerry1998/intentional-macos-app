@@ -911,6 +911,14 @@ class BackendClient {
         return keychainGet("access_token")
     }
 
+    /// Returns the stable 64-char hex device ID. Linked to the user's account
+    /// after `/auth/verify`. Used as `X-Device-ID` on legacy endpoints and
+    /// (via FocusStatePoller) on `/focus/active` for long-lived auth that
+    /// doesn't suffer 15-min JWT expiry.
+    func getDeviceId() -> String {
+        return deviceId
+    }
+
     var storedEmail: String? {
         return keychainGet("email")
     }

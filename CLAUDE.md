@@ -74,6 +74,8 @@ Intentional is a macOS focus enforcement app that works with a companion Chrome 
 
 **Architecture Principle: Logic Lives Here.** All enforcement logic, overlays, timers, and behavioral features belong in this macOS app — NOT in the Chrome extension. The extension is a sensing layer for AI content scoring. The app has OS-level capabilities (AppleScript, NSWindow overlays, process monitoring) that the extension cannot replicate, and centralizing logic here avoids duplication and ensures cross-browser consistency.
 
+**Architecture Principle: Backend is Source of Truth for Cross-Device State.** Focus session state (`is the user focused right now`) lives canonically in `focus_sessions` on the backend. Each client (Mac, iPhone) treats its local representation as a cache. Mac polls `/focus/active` every 2s via `X-Device-ID` auth (no JWT TTL pain). iPhone reconciles on foreground/boot. Backend rows have `expires_at` TTL safety net so sessions where no client ever sent stop self-expire after 12h. See `docs/cross-repo-focus-sync-2026-04-28.md` for the full architecture, why it changed, and what's still follow-up.
+
 ---
 
 ## Parallel Development (Worktree Workflow)
@@ -118,7 +120,7 @@ Order matters. Components have dependencies that must be wired in sequence.
 13. ScheduleManager         → Load schedule, recalculateState
 14. RelevanceScorer         → AI model initialization
 15. FocusMonitor            → Desktop monitoring (refs: ScheduleManager, RelevanceScorer)
-15a. FocusModeController    → Single source of truth for is-app-enforcing (3 states: off/focus/bedtime). Replaces IntentionalModeController + FocusSessionManager.
+15a. FocusModeController    → Single source of truth for is-app-enforcing (3 states: off/focus/bedtime). Replaces IntentionalModeController + FocusSessionManager. Persists state to disk on every notify(); rehydrates on init so app-restart doesn't briefly show "off" while a session is active.
 15b. BlockRitualController   → Wired to FocusMonitor.ritualController
 15c. BlockEndRitualController → Wired to FocusMonitor.endRitualController
 15d. ContentSafetyMonitor     → Load enabled from settings, start if enabled
@@ -129,6 +131,8 @@ Order matters. Components have dependencies that must be wired in sequence.
 19. SocketRelayServer       → Start accepting extension connections
 20. NativeMessagingSetup    → Auto-discover extensions, install manifests
 21. Heartbeat timer (2 min interval)
+22. FocusStatePoller       → Polls /focus/active every 2s with X-Device-ID auth. On state transition, drives FocusModeController.activate/.deactivate. Backend-as-master cross-device sync; no JWT-expiry pain.
+23. (boot reconcile)       → If FocusModeController.state == .focus from disk restore, applyDefaultBlockingProfile() + focusMonitor?.onBlockChanged() to re-engage enforcement.
 ```
 
 ### Critical Callback Wiring

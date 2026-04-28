@@ -53,7 +53,90 @@ final class FocusModeController {
 
     // MARK: Lifecycle
 
-    init() {}
+    init() {
+        loadFromDisk()
+    }
+
+    // MARK: Persistence
+
+    /// Persistence schema. Versioned so we can evolve without breaking existing
+    /// installs. Bump `schemaVersion` when changing the disk shape.
+    private struct PersistedState: Codable {
+        let schemaVersion: Int
+        let stateRaw: String
+        let periodId: String?
+        let periodStartedAt: Date?
+        let periodIntention: String?
+        let periodSourceRaw: String?
+    }
+    private static let persistenceSchemaVersion = 1
+
+    /// Cached path. Resolved (with directory creation) once per process; nil if
+    /// the Application Support directory itself is unreachable (sandbox edge
+    /// case). Reused for every saveToDisk()/loadFromDisk() to avoid a syscall
+    /// per state transition.
+    private static let persistencePath: URL? = {
+        guard let support = try? FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        ) else { return nil }
+        let dir = support.appendingPathComponent("Intentional", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("focus_mode_state.json")
+    }()
+
+    private static let persistenceEncoder: JSONEncoder = {
+        let e = JSONEncoder()
+        e.dateEncodingStrategy = .iso8601
+        return e
+    }()
+    private static let persistenceDecoder: JSONDecoder = {
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = .iso8601
+        return d
+    }()
+
+    /// Read the last-persisted state on init. If a session was active when the
+    /// app was last killed (force quit, crash, OS restart), this rehydrates it
+    /// immediately so enforcement engages on the very first frame after launch
+    /// rather than waiting up to 2s for the first /focus/active poll. The poll
+    /// will reconcile if disk and backend disagree (backend wins).
+    private func loadFromDisk() {
+        guard let path = Self.persistencePath,
+              let data = try? Data(contentsOf: path),
+              let persisted = try? Self.persistenceDecoder.decode(PersistedState.self, from: data),
+              persisted.schemaVersion == Self.persistenceSchemaVersion,
+              let restoredState = State(rawValue: persisted.stateRaw),
+              restoredState != .off else { return }
+        state = restoredState
+        if let id = persisted.periodId.flatMap(UUID.init),
+           let startedAt = persisted.periodStartedAt {
+            let source = persisted.periodSourceRaw.flatMap(ActivationSource.init(rawValue:)) ?? .crossDevice
+            currentPeriod = Period(
+                id: id,
+                startedAt: startedAt,
+                intention: persisted.periodIntention,
+                source: source
+            )
+        }
+    }
+
+    private func saveToDisk() {
+        guard let path = Self.persistencePath else { return }
+        let persisted = PersistedState(
+            schemaVersion: Self.persistenceSchemaVersion,
+            stateRaw: state.rawValue,
+            periodId: currentPeriod?.id.uuidString,
+            periodStartedAt: currentPeriod?.startedAt,
+            periodIntention: currentPeriod?.intention,
+            periodSourceRaw: currentPeriod?.source.rawValue
+        )
+        if let data = try? Self.persistenceEncoder.encode(persisted) {
+            try? data.write(to: path, options: .atomic)
+        }
+    }
 
     // MARK: API
 
@@ -121,6 +204,10 @@ final class FocusModeController {
     // MARK: Internal
 
     private func notify(old: State, new: State, period: Period?) {
+        // Persist BEFORE dispatching to main: writing happens on whatever queue
+        // notify was called from, so even if main is blocked we don't lose the
+        // transition on a crash. atomic write keeps it consistent.
+        saveToDisk()
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.onStateChanged?(old, new, period)

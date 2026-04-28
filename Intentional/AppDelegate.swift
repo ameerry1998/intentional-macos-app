@@ -142,6 +142,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var activeProjectId: UUID? { activeProjectSession?.projectId }
 
     var focusWebSocketClient: FocusWebSocketClient?
+    var focusStatePoller: FocusStatePoller?
     private var focusStartOverlayWindows: [NSWindow] = []
     private var focusStartOverlayViewModel: FocusStartOverlayViewModel?
     private var puckHotkeyMonitor: Any?
@@ -577,7 +578,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // (replaces IntentionalModeController + FocusSessionManager — see plan
         // docs/superpowers/plans/2026-04-27-focus-mode-consolidation.md)
         focusModeController = FocusModeController()
-        postLog("✅ FocusModeController initialized (state=off)")
+        let restoredState = focusModeController?.state ?? .off
+        postLog("✅ FocusModeController initialized (state=\(restoredState.rawValue))")
         focusMonitor?.focusModeController = focusModeController
         self.switchCoordinator?.focusModeController = focusModeController
 
@@ -597,8 +599,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.socketRelayServer?.broadcastScheduleSync()
             self.mainWindowController?.pushScheduleUpdate()
 
+            if new == .focus && old != .focus {
+                // Cross-device, schedule, and dashboard-toggle paths activate
+                // FocusModeController without going through startFocusSession's
+                // profile picker — so the blocklist is never propagated to
+                // WebsiteBlocker. Apply the user's default profile here so
+                // those paths actually block. The picker path runs AFTER this
+                // and overrides with its explicit profileIds.
+                self.applyDefaultBlockingProfile()
+            }
             if new == .off {
                 self.switchCoordinator?.reset()
+                self.applyAlwaysActiveProfiles()
             }
             self.mainWindowController?.pushFocusModeUpdate(state: new)
         }
@@ -616,6 +628,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Apply always-active profiles on startup
         applyAlwaysActiveProfiles()
+
+        // If FocusModeController restored .focus from disk (Mac was killed
+        // mid-session — force quit, crash, OS restart), re-engage enforcement
+        // now that BlockingProfileManager + FocusMonitor are ready. Without
+        // this, the controller's in-memory state is correct but no blocklist
+        // is applied until the next state transition. Poller will reconcile
+        // within 2s if disk and backend disagree (backend wins).
+        if focusModeController?.state == .focus {
+            postLog("🎯 Restored .focus from disk — re-engaging enforcement")
+            applyDefaultBlockingProfile()
+            focusMonitor?.onBlockChanged()
+        }
 
         // Mock Puck trigger: Cmd+Shift+P global hotkey
         puckHotkeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -672,6 +696,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        // Polling fallback for cross-device focus signal. Runs in parallel with the
+        // WebSocket — whichever path detects the transition first wins. activate /
+        // deactivate on FocusModeController are idempotent. Polling is more robust
+        // against the WS reconnect-after-offline failure mode.
+        if let controller = focusModeController {
+            focusStatePoller = FocusStatePoller(
+                appDelegate: self,
+                focusModeController: controller
+            )
+            focusStatePoller?.start()
+        }
+
         // Wire schedule block changes: the schedule is a trigger source for
         // FocusModeController. All enforcement fanout (cache clear, focusMonitor
         // re-eval, broadcasts, dashboard push) lives in focusModeController.onStateChanged.
@@ -695,10 +731,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             switch state {
             case .focus:
                 self.focusModeController?.activate(intention: block?.title, source: .schedule)
+                self.postFocusToggleToBackend(action: "start")
             case .bedtime:
                 self.focusModeController?.activateBedtime(source: .bedtimeSchedule)
+                // Bedtime is phone-and-Mac local for now — separate backend
+                // surface will be added by the bedtime cross-device feature
+                // (docs/superpowers/plans/2026-04-27-bedtime-cross-device.md).
+                // Don't reuse /focus/toggle for bedtime; semantically different.
             case .off:
                 self.focusModeController?.deactivate(source: .schedule)
+                self.postFocusToggleToBackend(action: "stop")
             }
 
             // Show celebration in the pill for the block that just ended
@@ -928,6 +970,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Disconnect WebSocket
         focusWebSocketClient?.disconnect()
+        focusStatePoller?.stop()
 
         // Stop content safety monitor
         contentSafetyMonitor?.stop()
@@ -1272,6 +1315,51 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         websiteBlocker?.updateDistractingSites(domains)
         focusMonitor?.distractingAppBundleIds = Set(appBundleIds)
         postLog("🎯 Always-active enforcement: \(domains.count) domains, \(appBundleIds.count) apps")
+    }
+
+    /// POST /focus/toggle to the backend with X-Device-ID auth. Used by:
+    /// - Mac dashboard toggle (manual)
+    /// - Mac scheduler (when a focus block starts/ends)
+    /// Local FocusModeController.activate/deactivate runs FIRST for instant
+    /// feedback; this fires async to mirror the change to backend so other
+    /// devices (iPhone, future) and the Mac's own poller see it. On failure
+    /// the next poller tick reconciles (backend wins).
+    func postFocusToggleToBackend(action: String) {
+        guard let deviceId = backendClient?.getDeviceId(),
+              let url = URL(string: "https://api.intentional.social/focus/toggle") else { return }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: ["action": action])
+        req.timeoutInterval = 5
+        URLSession.shared.dataTask(with: req) { [weak self] _, response, error in
+            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+            if let error = error {
+                self?.postLog("⚠️ /focus/toggle \(action) failed: \(error.localizedDescription)")
+            } else if status >= 400 {
+                self?.postLog("⚠️ /focus/toggle \(action) HTTP \(status)")
+            } else {
+                self?.postLog("🎯 /focus/toggle \(action) → backend OK")
+            }
+        }.resume()
+    }
+
+    /// Apply the user's default blocking profile (the one with `isDefault: true`).
+    /// Used by FocusModeController.onStateChanged when entering .focus from any path
+    /// that doesn't explicitly select profiles (cross-device puck, schedule, manual
+    /// dashboard toggle). Falls back to always-active if no default profile exists.
+    func applyDefaultBlockingProfile() {
+        guard let manager = blockingProfileManager,
+              let defaultProfile = manager.profiles.first(where: { $0.isDefault }) else {
+            postLog("🎯 No default blocking profile — falling back to always-active")
+            applyAlwaysActiveProfiles()
+            return
+        }
+        let merged = manager.mergedBlockList(profileIds: [defaultProfile.id])
+        websiteBlocker?.updateDistractingSites(merged.domains)
+        focusMonitor?.distractingAppBundleIds = Set(merged.appBundleIds)
+        postLog("🎯 Default profile '\(defaultProfile.name)' applied: \(merged.domains.count) domains, \(merged.appBundleIds.count) apps")
     }
 
     func checkForActiveFocusSession() {

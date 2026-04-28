@@ -292,6 +292,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "GET_SETTINGS":
             handleGetSettings()
 
+        case "GET_FOCUS_MODE":
+            handleGetFocusMode()
+
         case "TEST_CONTENT_SAFETY":
             appDelegate?.contentSafetyMonitor?.triggerTestDetection()
 
@@ -2905,16 +2908,31 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         callJS(js)
     }
 
+    /// Handle GET_FOCUS_MODE — dashboard pulls current state on load. Pairs with
+    /// pushFocusModeUpdate (which can race the page-load JS parse and silently
+    /// drop). The pull guarantees the toggle reflects reality once JS is ready.
+    private func handleGetFocusMode() {
+        let stateRaw = appDelegate?.focusModeController?.state.rawValue ?? "off"
+        pushFocusModeUpdate(state: FocusModeController.State(rawValue: stateRaw) ?? .off)
+    }
+
     // MARK: - Focus Mode Toggle Bridge
 
     /// Body: { "on": Bool }
-    /// Manual dashboard toggle of Focus Mode. ON => activate(.manual); OFF => deactivate(.manual).
+    /// Manual dashboard toggle of Focus Mode. Local activate/deactivate fires
+    /// immediately for instant UI feedback. Same toggle is also propagated to
+    /// the backend so other devices see it (and so the poller doesn't stomp on
+    /// the local state by reconciling against a stale backend "no session").
+    /// If the backend POST fails, local stays as-is; the next poller tick will
+    /// reconcile if disk and backend disagree (backend wins on conflict).
     private func handleFocusModeToggle(body: [String: Any]) {
         guard let on = body["on"] as? Bool else { return }
         if on {
             appDelegate?.focusModeController?.activate(intention: nil, source: .manual)
+            appDelegate?.postFocusToggleToBackend(action: "start")
         } else {
             appDelegate?.focusModeController?.deactivate(source: .manual)
+            appDelegate?.postFocusToggleToBackend(action: "stop")
         }
     }
 
