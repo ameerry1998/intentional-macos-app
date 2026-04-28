@@ -95,3 +95,35 @@ URL-level blocking of known adult domains — catches 90% of porn before screens
 - `com.Cvnt.start.plist`: LaunchAgent with `KeepAlive: true` + `RunAtLoad: true`
 - `com.cvnt.ceclassifierd.plist`: separate root classifier Mach service
 - `com.cvnt.cehostsd.plist`: watches `/etc/hosts` for DNS tampering
+
+---
+
+## Cross-Device Schedule Sync (Mac ↔ iPhone)
+
+**Status:** designed, not built. Bedtime cross-device sync (2026-04-28) showed the path.
+
+The bedtime feature now stores its schedule on the backend (`bedtime_config` table) and each device caches locally. The general work block schedule (`ScheduleManager.dailySchedule` on Mac) is NOT yet on the backend — it lives in `~/Library/Application Support/Intentional/daily_schedule.json` and is invisible to iPhone.
+
+iPhone has its own scaffolding for schedules:
+- `Puck/Models/PuckSchedule.swift` — SwiftData model for a daily schedule with blocks
+- `Puck/Models/PuckSchedule.swift::BedtimeConfig` — small struct for bedtime tied to a schedule (legacy / unfinished)
+
+Neither is wired to UI or backend. Should NOT be deleted yet — they're scaffolding for the eventual cross-device schedule sync.
+
+**Long-term direction (design, not commitment):**
+- Move schedule storage to backend: new `schedule_blocks` table or similar, account-scoped
+- New endpoints: `GET /schedule`, `PUT /schedule` (dual auth like `/focus/*` and `/bedtime/config`)
+- Mac's `ScheduleManager` becomes a cache of backend state, mirrors the bedtime pattern
+- iPhone's `PuckSchedule` model becomes the iPhone-side cache; UI in puck-ios shows the same blocks
+- Backend's bedtime + focus sessions remain separate concerns; this just unifies the "what's on my calendar" data
+
+**Reason to defer:**
+- Focus mode cross-device just landed and needs to bake
+- Bedtime cross-device just landed and needs to bake
+- Adding a third cross-device sync stream right now multiplies edge cases
+- Existing local schedule on Mac works for the user today
+
+**Things to clean up when this lands:**
+- Either flesh out `BedtimeConfig` struct in `PuckSchedule.swift` into the new schedule-driven bedtime, or remove it (currently unused)
+- Resolve the mild naming overlap with the new `BedtimeScheduleConfig` SwiftData model (cross-device bedtime)
+
