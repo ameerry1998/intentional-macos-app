@@ -320,8 +320,15 @@ class BedtimeEnforcer {
             countdownTimer?.invalidate()
             snoozeUsedTonight = true
             snoozeTimer = Timer.scheduledTimer(withTimeInterval: 600.0, repeats: false) { [weak self] _ in
-                self?.appDelegate?.postLog("🌙 Snooze expired — returning to lockout")
-                self?.transition(to: .lockedOut)
+                // Re-evaluate via recalculate() rather than transitioning
+                // straight to .lockedOut. If the user (or backend) has
+                // disabled bedtime in the snooze window, recalculate's
+                // settings.enabled guard takes us to .inactive instead of
+                // re-locking. Without this, the snoozeTimer fires forever
+                // even after bedtime is turned off — caused a real
+                // mid-day forced-sleep on 2026-04-28.
+                self?.appDelegate?.postLog("🌙 Snooze expired — re-evaluating")
+                self?.recalculate()
             }
 
         case .overridden:
