@@ -1309,6 +1309,134 @@ class BackendClient {
             return false
         }
     }
+
+    // MARK: - Bedtime Unlock (partner-issued codes for ending bedtime early)
+
+    struct BedtimeUnlockRequestResponseDTO: Codable {
+        let request_id: String
+        let partner_email: String
+        let expires_at: String   // ISO-8601 from backend
+    }
+
+    struct BedtimeUnlockVerifyResponseDTO: Codable {
+        let released_until: String   // ISO-8601
+        let request_id: String
+    }
+
+    struct BedtimeUnlockStatusDTO: Codable {
+        let released: Bool
+        let released_until: String?
+        let pending_request: Bool
+        let pending_expires_at: String?
+    }
+
+    enum BedtimeUnlockError: Error, LocalizedError {
+        case invalidCode             // 403 from /unlock-verify
+        case expiredOrConsumed       // 404 from /unlock-verify (no pending row)
+        case noPartnerOrConsent      // 409 from /unlock-request
+        case server(Int)             // any other non-2xx
+        case transport(Error)
+
+        var errorDescription: String? {
+            switch self {
+            case .invalidCode: return "Invalid code"
+            case .expiredOrConsumed: return "Code already used or expired"
+            case .noPartnerOrConsent: return "No partner configured"
+            case .server(let code): return "Server error \(code)"
+            case .transport(let e): return e.localizedDescription
+            }
+        }
+    }
+
+    /// POST /bedtime/unlock-request. Emails the partner a 6-digit code.
+    /// Returns the request ID + partner email (for UI confirmation) + ISO
+    /// expires_at. Throws BedtimeUnlockError on partner/consent issues or
+    /// transport failures so the caller can show the right copy.
+    func bedtimeUnlockRequest(reason: String?, note: String?) async throws -> BedtimeUnlockRequestResponseDTO {
+        let endpoint = "\(baseURL)/bedtime/unlock-request"
+        guard let url = URL(string: endpoint) else {
+            throw BedtimeUnlockError.server(0)
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        var body: [String: Any] = [:]
+        if let reason { body["reason"] = reason }
+        if let note { body["note"] = note }
+        do {
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse else {
+                throw BedtimeUnlockError.server(0)
+            }
+            switch http.statusCode {
+            case 200:
+                return try JSONDecoder().decode(BedtimeUnlockRequestResponseDTO.self, from: data)
+            case 409:
+                throw BedtimeUnlockError.noPartnerOrConsent
+            default:
+                throw BedtimeUnlockError.server(http.statusCode)
+            }
+        } catch let err as BedtimeUnlockError {
+            throw err
+        } catch {
+            throw BedtimeUnlockError.transport(error)
+        }
+    }
+
+    /// POST /bedtime/unlock-verify. On success returns released_until ISO
+    /// string; the caller should ISO8601-parse and hand to BedtimeEnforcer.
+    func bedtimeUnlockVerify(code: String) async throws -> BedtimeUnlockVerifyResponseDTO {
+        let endpoint = "\(baseURL)/bedtime/unlock-verify"
+        guard let url = URL(string: endpoint) else {
+            throw BedtimeUnlockError.server(0)
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            req.httpBody = try JSONSerialization.data(withJSONObject: ["code": code])
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse else {
+                throw BedtimeUnlockError.server(0)
+            }
+            switch http.statusCode {
+            case 200:
+                return try JSONDecoder().decode(BedtimeUnlockVerifyResponseDTO.self, from: data)
+            case 403:
+                throw BedtimeUnlockError.invalidCode
+            case 404:
+                throw BedtimeUnlockError.expiredOrConsumed
+            default:
+                throw BedtimeUnlockError.server(http.statusCode)
+            }
+        } catch let err as BedtimeUnlockError {
+            throw err
+        } catch {
+            throw BedtimeUnlockError.transport(error)
+        }
+    }
+
+    /// GET /bedtime/unlock-status. Returns nil on transport failure so the
+    /// poller can simply retry on its next tick.
+    func bedtimeUnlockStatus() async -> BedtimeUnlockStatusDTO? {
+        let endpoint = "\(baseURL)/bedtime/unlock-status"
+        guard let url = URL(string: endpoint) else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                return nil
+            }
+            return try JSONDecoder().decode(BedtimeUnlockStatusDTO.self, from: data)
+        } catch {
+            return nil
+        }
+    }
 }
 
 // MARK: - TLS Certificate Pinning

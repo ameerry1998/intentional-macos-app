@@ -8,10 +8,15 @@ class BedtimeOverlayViewModel: ObservableObject {
     @Published var showCodeEntry: Bool = false
     @Published var codeText: String = ""
     @Published var codeError: String = ""
+    /// Confirmation copy after the user requests a code. Cleared on retry.
+    @Published var partnerEmailSentTo: String?
 
     var onSnooze: (() -> Void)?
     var onSleepNow: (() -> Void)?
     var onCodeSubmit: ((String) -> Void)?
+    /// Request a new partner-issued code. Backend emails the partner;
+    /// `partnerEmailSentTo` is set on success.
+    var onRequestCode: (() -> Void)?
 
     var countdownFormatted: String {
         let min = countdownSeconds / 60
@@ -226,8 +231,13 @@ struct BedtimeOverlayView: View {
                 }
                 .padding(.bottom, 8)
 
-            // Error message
-            if !viewModel.codeError.isEmpty {
+            // Error / sent-confirmation message
+            if let sentTo = viewModel.partnerEmailSentTo {
+                Text("Code sent to \(sentTo)")
+                    .font(.system(size: 13))
+                    .foregroundColor(buttonTextDim)
+                    .padding(.bottom, 8)
+            } else if !viewModel.codeError.isEmpty {
                 Text(viewModel.codeError)
                     .font(.system(size: 13))
                     .foregroundColor(errorColor)
@@ -235,6 +245,19 @@ struct BedtimeOverlayView: View {
             } else {
                 Spacer().frame(height: 21) // Reserve space for error
             }
+
+            // Request a new code from the partner via backend.
+            Button(action: {
+                viewModel.partnerEmailSentTo = nil
+                viewModel.codeError = ""
+                viewModel.onRequestCode?()
+            }) {
+                Text("Request code from partner")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(linkColor)
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, 8)
 
             Spacer().frame(height: 16)
 

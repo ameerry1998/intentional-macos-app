@@ -150,11 +150,17 @@ class BedtimeEnforcer {
     private var overlayWindows: [NSWindow] = []
     private var overlayViewModel: BedtimeOverlayViewModel?
 
+    /// When non-nil and in the future, suppress the in-window lockout.
+    /// Set on a successful partner-unlock verify (8h window) or by the
+    /// status poller seeing released=true. Mirrors iOS BedtimeScheduleService.
+    private(set) var releasedUntil: Date?
+
     // Timers
     private var tickTimer: Timer?
     private var countdownTimer: Timer?
     private var snoozeTimer: Timer?
     private var ntpTimer: Timer?
+    private var unlockPollTimer: Timer?
     private var countdownSeconds: Int = 180
 
     // Clock
@@ -243,6 +249,7 @@ class BedtimeEnforcer {
             if state != .inactive {
                 transition(to: .inactive)
             }
+            stopUnlockPoller()
             return
         }
 
@@ -251,11 +258,24 @@ class BedtimeEnforcer {
             appDelegate?.postLog("🚨 Clock tamper detected — enforcing bedtime")
             if state != .lockedOut && state != .overridden {
                 transition(to: .lockedOut)
+                startUnlockPoller()
             }
             return
         }
 
         let now = trustedClock.now()
+
+        // Honor a backend-issued release window. Once releasedUntil is
+        // in the future, treat as inactive regardless of schedule. Same
+        // semantics as iOS BedtimeScheduleService.isCurrentlyLocked.
+        if let release = releasedUntil, release > now {
+            if state != .inactive {
+                transition(to: .inactive)
+            }
+            // Keep poller running so the release window can be revoked
+            // (or extended by a fresh verify) without waiting for next tick.
+            return
+        }
 
         // Don't override partner code or snooze states
         if state == .overridden || state == .snoozed { return }
@@ -265,6 +285,7 @@ class BedtimeEnforcer {
             if state != .lockedOut {
                 transition(to: .lockedOut)
             }
+            startUnlockPoller()
             return
         }
 
@@ -272,6 +293,7 @@ class BedtimeEnforcer {
         let phase = BedtimeLogic.windDownPhase(at: now, settings: settings)
         if phase != .none {
             transition(to: .windDown(phase))
+            stopUnlockPoller()
             return
         }
 
@@ -280,6 +302,17 @@ class BedtimeEnforcer {
             snoozeUsedTonight = false
             transition(to: .inactive)
         }
+        stopUnlockPoller()
+    }
+
+    /// Set or clear the partner-unlock release window. Called by the overlay
+    /// (on successful verify) and by the status poller (when backend reports
+    /// released=true on another device). Triggers an immediate recalculate
+    /// so the lockout drops without waiting for the 10s tick timer.
+    func markReleased(until: Date?) {
+        releasedUntil = until
+        appDelegate?.postLog("🌙 Bedtime releasedUntil set to \(String(describing: until))")
+        recalculate()
     }
 
     // MARK: - State Transitions
@@ -366,6 +399,12 @@ class BedtimeEnforcer {
         vm.onSnooze = { [weak self] in self?.transition(to: .snoozed) }
         vm.onSleepNow = { [weak self] in self?.forceSleep() }
         vm.onCodeSubmit = { [weak self] code in self?.verifyCode(code) }
+        vm.onRequestCode = { [weak self] in
+            // No reason/note from the simple Mac overlay — partner gets a generic
+            // "user is asking to end bedtime early" email. The iPhone flow asks
+            // for a richer reason; the Mac flow keeps the overlay minimal.
+            self?.requestPartnerCode(reason: nil, note: nil)
+        }
         self.overlayViewModel = vm
 
         for screen in NSScreen.screens {
@@ -428,17 +467,126 @@ class BedtimeEnforcer {
         try? process.run()
     }
 
-    // MARK: - Partner Code
+    // MARK: - Partner Code (backend-issued)
 
+    /// Verify a 6-digit partner-issued code via /bedtime/unlock-verify.
+    /// On success: mark released for the 8h window the backend returns,
+    /// drop the lockout. On failure: show inline error in the overlay.
     private func verifyCode(_ code: String) {
-        appDelegate?.daemonClient.verifyUnlockCode(code) { [weak self] valid in
-            DispatchQueue.main.async {
-                if valid {
-                    self?.appDelegate?.postLog("🌙 Partner code accepted — bedtime overridden")
-                    self?.transition(to: .overridden)
-                } else {
-                    self?.overlayViewModel?.codeError = "Invalid code"
-                    self?.appDelegate?.postLog("🌙 Invalid partner code entered")
+        guard let backend = appDelegate?.backendClient else {
+            self.overlayViewModel?.codeError = "Backend unavailable"
+            return
+        }
+        Task { [weak self] in
+            do {
+                let resp = try await backend.bedtimeUnlockVerify(code: code)
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                let releasedUntil =
+                    formatter.date(from: resp.released_until) ??
+                    {
+                        let f = ISO8601DateFormatter()
+                        f.formatOptions = [.withInternetDateTime]
+                        return f.date(from: resp.released_until)
+                    }() ??
+                    Date().addingTimeInterval(8 * 3600)
+                await MainActor.run {
+                    guard let self else { return }
+                    self.appDelegate?.postLog("🌙 Bedtime unlock verified; released until \(releasedUntil)")
+                    self.markReleased(until: releasedUntil)
+                }
+            } catch {
+                await MainActor.run {
+                    guard let self else { return }
+                    let message: String
+                    if let unlockErr = error as? BackendClient.BedtimeUnlockError {
+                        switch unlockErr {
+                        case .invalidCode: message = "Invalid code"
+                        case .expiredOrConsumed: message = "Code already used or expired"
+                        case .noPartnerOrConsent: message = "No partner configured"
+                        case .server(let code): message = "Server error \(code)"
+                        case .transport: message = "Network error — try again"
+                        }
+                    } else {
+                        message = "Could not verify"
+                    }
+                    self.overlayViewModel?.codeError = message
+                    self.appDelegate?.postLog("🌙 Bedtime unlock verify failed: \(message)")
+                }
+            }
+        }
+    }
+
+    /// Public entry point used by the overlay's "Request code from partner"
+    /// button (added in Task 4.2). Triggers POST /bedtime/unlock-request.
+    /// Reports the partner email back via the view-model so the overlay
+    /// can show "Code sent to <email>".
+    func requestPartnerCode(reason: String?, note: String?) {
+        guard let backend = appDelegate?.backendClient else {
+            self.overlayViewModel?.codeError = "Backend unavailable"
+            return
+        }
+        Task { [weak self] in
+            do {
+                let resp = try await backend.bedtimeUnlockRequest(reason: reason, note: note)
+                await MainActor.run {
+                    self?.overlayViewModel?.codeError = ""
+                    self?.overlayViewModel?.partnerEmailSentTo = resp.partner_email
+                    self?.appDelegate?.postLog("🌙 Bedtime unlock code sent to \(resp.partner_email)")
+                }
+            } catch {
+                await MainActor.run {
+                    let msg = (error as? BackendClient.BedtimeUnlockError)?.errorDescription ?? "Could not send code"
+                    self?.overlayViewModel?.codeError = msg
+                    self?.appDelegate?.postLog("🌙 Bedtime unlock request failed: \(msg)")
+                }
+            }
+        }
+    }
+
+    // MARK: - Status Poller
+
+    /// Polls /bedtime/unlock-status every 5 seconds while in lockout. If the
+    /// backend reports released=true (e.g. user verified on iPhone), apply
+    /// the release locally so the lockout drops without a code re-entry.
+    private func startUnlockPoller() {
+        guard unlockPollTimer == nil else { return }
+        appDelegate?.postLog("🌙 BedtimeUnlockPoller: start")
+        unlockPollTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            self?.pollUnlockStatus()
+        }
+        // Fire once immediately so a release set just before lockout shows up
+        // without a 5s lag.
+        pollUnlockStatus()
+    }
+
+    private func stopUnlockPoller() {
+        guard unlockPollTimer != nil else { return }
+        appDelegate?.postLog("🌙 BedtimeUnlockPoller: stop")
+        unlockPollTimer?.invalidate()
+        unlockPollTimer = nil
+    }
+
+    private func pollUnlockStatus() {
+        guard let backend = appDelegate?.backendClient else { return }
+        Task { [weak self] in
+            guard let status = await backend.bedtimeUnlockStatus() else { return }
+            await MainActor.run {
+                guard let self else { return }
+                if status.released, let isoString = status.released_until {
+                    let f = ISO8601DateFormatter()
+                    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                    let parsed = f.date(from: isoString) ?? {
+                        let f2 = ISO8601DateFormatter()
+                        f2.formatOptions = [.withInternetDateTime]
+                        return f2.date(from: isoString)
+                    }()
+                    if let parsed, parsed > Date(), self.releasedUntil != parsed {
+                        self.markReleased(until: parsed)
+                    }
+                } else if !status.released, self.releasedUntil != nil {
+                    // Backend revoked the release (or it expired).
+                    self.markReleased(until: nil)
                 }
             }
         }
