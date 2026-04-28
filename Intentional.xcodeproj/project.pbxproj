@@ -66,6 +66,7 @@
 		A300000100000000000001 /* QuitPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000200000000000001 /* QuitPolicy.swift */; };
 		A400000100000000000001 /* TrustedClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = A400000200000000000001 /* TrustedClock.swift */; };
 		A500000100000000000001 /* BedtimeEnforcer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500000200000000000001 /* BedtimeEnforcer.swift */; };
+		A500000300000000000001 /* BedtimeConfigSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500000400000000000001 /* BedtimeConfigSync.swift */; };
 		A600000100000000000001 /* BedtimeOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A600000200000000000001 /* BedtimeOverlayView.swift */; };
 		A700000100000000000001 /* BlockingProfileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A700000200000000000001 /* BlockingProfileManager.swift */; };
 		A900000100000000000001 /* FocusStartOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A900000200000000000001 /* FocusStartOverlay.swift */; };
@@ -184,6 +185,7 @@
 		A300000200000000000001 /* QuitPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuitPolicy.swift; sourceTree = "<group>"; };
 		A400000200000000000001 /* TrustedClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustedClock.swift; sourceTree = "<group>"; };
 		A500000200000000000001 /* BedtimeEnforcer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeEnforcer.swift; sourceTree = "<group>"; };
+		A500000400000000000001 /* BedtimeConfigSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeConfigSync.swift; sourceTree = "<group>"; };
 		A600000200000000000001 /* BedtimeOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeOverlayView.swift; sourceTree = "<group>"; };
 		A700000200000000000001 /* BlockingProfileManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockingProfileManager.swift; sourceTree = "<group>"; };
 		A900000200000000000001 /* FocusStartOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusStartOverlay.swift; sourceTree = "<group>"; };
@@ -271,6 +273,7 @@
 				AD00000200000000000001 /* ConstraintEvaluator.swift */,
 				A400000200000000000001 /* TrustedClock.swift */,
 				A500000200000000000001 /* BedtimeEnforcer.swift */,
+				A500000400000000000001 /* BedtimeConfigSync.swift */,
 				A600000200000000000001 /* BedtimeOverlayView.swift */,
 				34BADA5E2F8088BA009A82C6 /* DaemonXPCClient.swift */,
 				A1000011000000000000002 /* MainWindow.swift */,
@@ -519,6 +522,7 @@
 				A300000100000000000001 /* QuitPolicy.swift in Sources */,
 				A400000100000000000001 /* TrustedClock.swift in Sources */,
 				A500000100000000000001 /* BedtimeEnforcer.swift in Sources */,
+				A500000300000000000001 /* BedtimeConfigSync.swift in Sources */,
 				A600000100000000000001 /* BedtimeOverlayView.swift in Sources */,
 				A700000100000000000001 /* BlockingProfileManager.swift in Sources */,
 				AB00000100000000000001 /* ProjectStore.swift in Sources */,

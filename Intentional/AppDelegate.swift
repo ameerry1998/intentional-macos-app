@@ -52,6 +52,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Bedtime Enforcer — locks screen during bedtime hours
     var bedtimeEnforcer: BedtimeEnforcer?
+    var bedtimeConfigSync: BedtimeConfigSync?
 
     // Blocking Profiles & Focus Sessions (Puck integration)
     var blockingProfileManager: BlockingProfileManager?
@@ -615,13 +616,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.mainWindowController?.pushFocusModeUpdate(state: new)
         }
 
-        // Bedtime Enforcer
+        // Bedtime Enforcer + cross-device sync
         bedtimeEnforcer = BedtimeEnforcer(appDelegate: self)
         sleepWakeMonitor?.onWake = { [weak self] in
             self?.bedtimeEnforcer?.onMacWoke()
         }
         bedtimeEnforcer?.start()
         postLog("🌙 BedtimeEnforcer initialized and started")
+
+        if let enforcer = bedtimeEnforcer, let backend = backendClient {
+            bedtimeConfigSync = BedtimeConfigSync(
+                appDelegate: self, enforcer: enforcer, backendClient: backend
+            )
+            bedtimeConfigSync?.start()
+            postLog("🌙 BedtimeConfigSync started")
+        }
 
         // Blocking Profiles & Focus Sessions
         blockingProfileManager = BlockingProfileManager()
