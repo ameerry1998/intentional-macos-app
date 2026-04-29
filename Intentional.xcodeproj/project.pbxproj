@@ -66,7 +66,6 @@
 		A300000100000000000001 /* QuitPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000200000000000001 /* QuitPolicy.swift */; };
 		A400000100000000000001 /* TrustedClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = A400000200000000000001 /* TrustedClock.swift */; };
 		A500000100000000000001 /* BedtimeEnforcer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500000200000000000001 /* BedtimeEnforcer.swift */; };
-		A600000100000000000001 /* BedtimeOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A600000200000000000001 /* BedtimeOverlayView.swift */; };
 		B500000100000000000001 /* BedtimeLockLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = B500000200000000000001 /* BedtimeLockLoop.swift */; };
 		B600000100000000000001 /* BedtimeWindDownController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B600000200000000000001 /* BedtimeWindDownController.swift */; };
 		B700000100000000000001 /* BedtimeUnlockRequestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B700000200000000000001 /* BedtimeUnlockRequestView.swift */; };
@@ -187,7 +186,6 @@
 		A300000200000000000001 /* QuitPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuitPolicy.swift; sourceTree = "<group>"; };
 		A400000200000000000001 /* TrustedClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustedClock.swift; sourceTree = "<group>"; };
 		A500000200000000000001 /* BedtimeEnforcer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeEnforcer.swift; sourceTree = "<group>"; };
-		A600000200000000000001 /* BedtimeOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeOverlayView.swift; sourceTree = "<group>"; };
 		B500000200000000000001 /* BedtimeLockLoop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeLockLoop.swift; sourceTree = "<group>"; };
 		B600000200000000000001 /* BedtimeWindDownController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeWindDownController.swift; sourceTree = "<group>"; };
 		B700000200000000000001 /* BedtimeUnlockRequestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeUnlockRequestView.swift; sourceTree = "<group>"; };
@@ -277,7 +275,6 @@
 				AD00000200000000000001 /* ConstraintEvaluator.swift */,
 				A400000200000000000001 /* TrustedClock.swift */,
 				A500000200000000000001 /* BedtimeEnforcer.swift */,
-				A600000200000000000001 /* BedtimeOverlayView.swift */,
 				B500000200000000000001 /* BedtimeLockLoop.swift */,
 				B600000200000000000001 /* BedtimeWindDownController.swift */,
 				B700000200000000000001 /* BedtimeUnlockRequestView.swift */,
@@ -528,7 +525,6 @@
 				A300000100000000000001 /* QuitPolicy.swift in Sources */,
 				A400000100000000000001 /* TrustedClock.swift in Sources */,
 				A500000100000000000001 /* BedtimeEnforcer.swift in Sources */,
-				A600000100000000000001 /* BedtimeOverlayView.swift in Sources */,
 				B500000100000000000001 /* BedtimeLockLoop.swift in Sources */,
 				B600000100000000000001 /* BedtimeWindDownController.swift in Sources */,
 				B700000100000000000001 /* BedtimeUnlockRequestView.swift in Sources */,

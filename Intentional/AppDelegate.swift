@@ -621,6 +621,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.bedtimeEnforcer?.onMacWoke()
         }
         bedtimeEnforcer?.start()
+        // BedtimeLockLoop reads state from the enforcer on every tick to
+        // self-cancel when bedtime ends (R10 mitigation). Bind once here
+        // so the loop knows which enforcer to consult.
+        if let enforcer = bedtimeEnforcer {
+            DispatchQueue.main.async {
+                BedtimeLockLoop.shared.bind(to: enforcer)
+            }
+        }
         postLog("🌙 BedtimeEnforcer initialized and started")
 
         // Blocking Profiles & Focus Sessions

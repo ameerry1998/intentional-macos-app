@@ -62,7 +62,7 @@ final class BedtimeLockLoop {
         // Self-cancel if the enforcer transitioned away from .locked while
         // we were sleeping. Without this guard the timer would keep locking
         // the screen even after bedtime ended (Risk R10 in the plan).
-        if let enforcer, enforcer.state != .lockedOut {
+        if let enforcer, enforcer.state != .locked {
             stop()
             return
         }

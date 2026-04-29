@@ -133,27 +133,36 @@ struct BedtimeLogicTests {
         // windDownPhase tests
         // -----------------------------------------------------------
 
-        test("8. 22:45 (T-15) -> .notification") {
-            let date = makeDate(hour: 22, minute: 45)
-            assertEqual(BedtimeLogic.windDownPhase(at: date, settings: defaultSettings()), .notification)
+        // Phases per Apr 2026 rewrite: t30 (16-30 min) / t15 (6-15 min) /
+        // t5 (2-5 min) / t1 (1 min). Legacy notification/redShift/grayscale
+        // phases are gone — bedtime no longer drives screen desaturation.
+
+        test("8. 22:35 (T-25) -> .t30") {
+            let date = makeDate(hour: 22, minute: 35)
+            assertEqual(BedtimeLogic.windDownPhase(at: date, settings: defaultSettings()), .t30)
         }
 
-        test("9. 22:50 (T-10) -> .redShift") {
+        test("9. 22:50 (T-10) -> .t15") {
             let date = makeDate(hour: 22, minute: 50)
-            assertEqual(BedtimeLogic.windDownPhase(at: date, settings: defaultSettings()), .redShift)
+            assertEqual(BedtimeLogic.windDownPhase(at: date, settings: defaultSettings()), .t15)
         }
 
-        test("10. 22:55 (T-5) -> .grayscale") {
-            let date = makeDate(hour: 22, minute: 55)
-            assertEqual(BedtimeLogic.windDownPhase(at: date, settings: defaultSettings()), .grayscale)
+        test("10. 22:57 (T-3) -> .t5") {
+            let date = makeDate(hour: 22, minute: 57)
+            assertEqual(BedtimeLogic.windDownPhase(at: date, settings: defaultSettings()), .t5)
         }
 
-        test("11. 22:30 -> .none (too early for wind-down)") {
-            let date = makeDate(hour: 22, minute: 30)
+        test("11. 22:59 (T-1) -> .t1") {
+            let date = makeDate(hour: 22, minute: 59)
+            assertEqual(BedtimeLogic.windDownPhase(at: date, settings: defaultSettings()), .t1)
+        }
+
+        test("12. 22:25 -> .none (too early — outside 30 min window)") {
+            let date = makeDate(hour: 22, minute: 25)
             assertEqual(BedtimeLogic.windDownPhase(at: date, settings: defaultSettings()), .none)
         }
 
-        test("12. 23:00 -> .none (bedtime already started, not wind-down)") {
+        test("13. 23:00 -> .none (bedtime already started, not wind-down)") {
             let date = makeDate(hour: 23, minute: 0)
             assertEqual(BedtimeLogic.windDownPhase(at: date, settings: defaultSettings()), .none)
         }
