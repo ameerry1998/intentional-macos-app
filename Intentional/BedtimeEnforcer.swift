@@ -171,9 +171,17 @@ enum BedtimeLogic {
 class BedtimeEnforcer {
     weak var appDelegate: AppDelegate?
 
+    /// Notified on every state transition. AppDelegate uses this to drive
+    /// the pill widget (windDown / locked / dismiss). Old → New.
+    var onStateChanged: ((BedtimeState, BedtimeState) -> Void)?
+
     // State
     private(set) var state: BedtimeState = .inactive
     private var settings: BedtimeSettings?
+
+    // Cached for clients (e.g. pill rendering) so they don't have to read
+    // the file from disk again.
+    var currentSettings: BedtimeSettings? { settings }
 
     // Timers
     private var tickTimer: Timer?
@@ -330,7 +338,7 @@ class BedtimeEnforcer {
         case .windDown:
             // Wind-down notifications are pre-scheduled by
             // scheduleWindDownForTonight(); pill mode transitions are driven
-            // by AppDelegate observing `state` (Phase 3). Stop the lock
+            // by onStateChanged → AppDelegate (Phase 3). Stop the lock
             // loop just in case (defensive — should already be stopped).
             Task { @MainActor in BedtimeLockLoop.shared.stop() }
 
@@ -343,6 +351,10 @@ class BedtimeEnforcer {
         case .released:
             Task { @MainActor in BedtimeLockLoop.shared.stop() }
         }
+
+        // Broadcast to UI layer (pill, dashboard) — last so Lock-loop
+        // start/stop happens before the UI react.
+        onStateChanged?(oldState, newState)
     }
 
     /// Mark the user as released until the given timestamp (e.g. partner

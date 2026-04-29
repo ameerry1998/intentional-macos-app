@@ -620,6 +620,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         sleepWakeMonitor?.onWake = { [weak self] in
             self?.bedtimeEnforcer?.onMacWoke()
         }
+        // Drive the pill widget from bedtime state transitions.
+        // - .windDown(phase) → bedtimeWindDown pill (allowMinimize only at T-30)
+        // - .locked          → bedtimeLocked pill with Ask Partner button
+        // - .inactive / .released → dismiss bedtime pill (other pill modes
+        //   such as deep-work timer are owned by FocusMonitor and unaffected)
+        bedtimeEnforcer?.onStateChanged = { [weak self] oldState, newState in
+            self?.handleBedtimeStateChange(from: oldState, to: newState)
+        }
         bedtimeEnforcer?.start()
         // BedtimeLockLoop reads state from the enforcer on every tick to
         // self-cancel when bedtime ends (R10 mitigation). Bind once here
@@ -1392,6 +1400,84 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.showFocusStartOverlay(isPuckTriggered: true)
             }
         }.resume()
+    }
+
+    // MARK: - Bedtime → Pill bridge
+
+    /// Drive the pill widget from BedtimeEnforcer state transitions.
+    /// Wired in `applicationDidFinishLaunching` after the enforcer is
+    /// created. Runs on the main queue (state transitions originate from
+    /// the recalc tickTimer, which is a main-queue Timer).
+    func handleBedtimeStateChange(from old: BedtimeState, to new: BedtimeState) {
+        guard let pill = focusMonitor?.deepWorkTimerController else { return }
+
+        switch new {
+        case .inactive, .released:
+            // Bedtime pill should go away. We only dismiss when the pill
+            // is currently in a bedtime mode — otherwise we'd kill an
+            // active deep-work / focus-hours timer that's unrelated.
+            if let mode = pill.viewModel?.mode, mode == .bedtimeWindDown || mode == .bedtimeLocked {
+                pill.dismiss()
+            }
+
+        case .windDown(let phase):
+            guard let settings = bedtimeEnforcer?.currentSettings else { return }
+            let cal = Calendar.current
+            let now = Date()
+            // Same logic as scheduleWindDownForTonight — the next bedtime
+            // boundary on the user's wall clock.
+            guard let candidate = cal.date(
+                bySettingHour: settings.bedtimeStart.hour,
+                minute: settings.bedtimeStart.minute,
+                second: 0,
+                of: now
+            ) else { return }
+            let nextBedtime = candidate > now
+                ? candidate
+                : (cal.date(byAdding: .day, value: 1, to: candidate) ?? candidate)
+            let minutesUntil = max(1, Int((nextBedtime.timeIntervalSince(now) / 60).rounded()))
+
+            // T-30 phase only allows minimize / push-10. Beyond that, the
+            // user has to wait or ask partner — no escape.
+            let allowMinimize = (phase == .t30)
+            let push10Handler: (() -> Void)? = allowMinimize ? { [weak self] in
+                self?.focusMonitor?.deepWorkTimerController?.minimize()
+            } : nil
+
+            pill.showBedtimeWindDown(
+                minutesUntilBedtime: minutesUntil,
+                bedtime: nextBedtime,
+                allowMinimize: allowMinimize,
+                onPush10: push10Handler,
+                onAskPartner: nil
+            )
+
+        case .locked:
+            guard let settings = bedtimeEnforcer?.currentSettings else { return }
+            let cal = Calendar.current
+            let now = Date()
+            // Wake time on tomorrow's clock if bedtime crosses midnight,
+            // else today.
+            guard let candidate = cal.date(
+                bySettingHour: settings.wakeTime.hour,
+                minute: settings.wakeTime.minute,
+                second: 0,
+                of: now
+            ) else { return }
+            let wakeTime = candidate > now
+                ? candidate
+                : (cal.date(byAdding: .day, value: 1, to: candidate) ?? candidate)
+
+            pill.showBedtimeLocked(wakeTime: wakeTime) { [weak self] in
+                self?.openBedtimeUnlockRequestSheet()
+            }
+        }
+    }
+
+    /// Stub — opens the bedtime unlock-request sheet. Wired in Task 4.3.
+    func openBedtimeUnlockRequestSheet() {
+        // TODO Phase 4 Task 4.3: present BedtimeUnlockRequestView modal.
+        postLog("🌙 [TODO] open BedtimeUnlockRequestView")
     }
 
     func postLog(_ message: String) {
