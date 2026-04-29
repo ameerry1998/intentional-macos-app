@@ -52,6 +52,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Bedtime Enforcer — locks screen during bedtime hours
     var bedtimeEnforcer: BedtimeEnforcer?
+    /// Floating window hosting BedtimeUnlockRequestView. Singleton so
+    /// repeat taps from the pill's "Ask partner" button don't open a
+    /// window stack.
+    var bedtimeUnlockWindow: NSWindow?
 
     // Blocking Profiles & Focus Sessions (Puck integration)
     var blockingProfileManager: BlockingProfileManager?
@@ -1474,10 +1478,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Stub — opens the bedtime unlock-request sheet. Wired in Task 4.3.
+    /// Open the bedtime unlock-request sheet in a floating window.
+    /// Hosts BedtimeUnlockRequestView in a SwiftUI NSHostingController.
+    /// The window is reused across taps so multiple openings don't pile
+    /// up (single source of truth — the underlying request flow is
+    /// already idempotent, but window proliferation is a UX papercut).
     func openBedtimeUnlockRequestSheet() {
-        // TODO Phase 4 Task 4.3: present BedtimeUnlockRequestView modal.
-        postLog("🌙 [TODO] open BedtimeUnlockRequestView")
+        if let existing = bedtimeUnlockWindow {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        let host = NSHostingController(rootView: BedtimeUnlockRequestView())
+        let window = NSWindow(contentViewController: host)
+        window.title = "Ask Partner to Unlock"
+        window.styleMask = [.titled, .closable]
+        window.level = .floating
+        window.center()
+        window.isReleasedWhenClosed = false
+        // Track close so the next tap re-creates the window with fresh
+        // state (slider snaps back to default 30 min, etc.).
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            self?.bedtimeUnlockWindow = nil
+        }
+        bedtimeUnlockWindow = window
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     func postLog(_ message: String) {
