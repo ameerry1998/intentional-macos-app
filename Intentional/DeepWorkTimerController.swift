@@ -157,24 +157,23 @@ class DeepWorkTimerController {
         moveObserver = nil
     }
 
-    /// Position a window using the saved top-right corner, or fall back to screen top-right.
+    /// Snap the pill window to the top-right of the active display.
+    ///
+    /// Per the user's spec (April 2026): every new session resets the pill
+    /// to top-right; users have lost the pill off-screen too many times.
+    /// Drag-during-session is still honored (the user can move the pill
+    /// after this snap), but the next `show()` snaps it back. Saved
+    /// positions in UserDefaults are intentionally ignored — the legacy
+    /// pillWindowTopRight key is no longer read.
     private func positionWindow(_ window: NSWindow, width: CGFloat, height: CGFloat) {
-        if let saved = UserDefaults.standard.string(forKey: Self.positionKey) {
-            let topRight = NSPointFromString(saved)
-            if topRight.x > 0 && topRight.y > 0 {
-                let origin = NSPoint(x: topRight.x - width, y: topRight.y - height)
-                window.setFrameOrigin(origin)
-                return
-            }
-        }
-        // Fallback: top-right corner with 20px padding
-        if let screenFrame = NSScreen.main?.visibleFrame {
-            let origin = NSPoint(
-                x: screenFrame.maxX - width - 20,
-                y: screenFrame.maxY - height - 20
-            )
-            window.setFrameOrigin(origin)
-        }
+        guard let screenFrame = NSScreen.main?.visibleFrame else { return }
+        // 16pt below menu bar / 16pt from right edge per spec; screenFrame
+        // is already in visibleFrame coordinates so menu bar is excluded.
+        let origin = NSPoint(
+            x: screenFrame.maxX - width - 16,
+            y: screenFrame.maxY - height - 16
+        )
+        window.setFrameOrigin(origin)
     }
 
     // MARK: - Public API
