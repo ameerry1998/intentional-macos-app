@@ -2197,6 +2197,31 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         appDelegate?.bedtimeEnforcer?.saveSettings(settings)
         appDelegate?.postLog("🌙 Bedtime settings saved: \(enabled ? "ON" : "OFF") \(startHour):\(String(format: "%02d", startMin)) → \(endHour):\(String(format: "%02d", endMin))")
+
+        // Push the change to the backend so the iPhone (and any future
+        // Mac sibling) picks it up on its next poll. ISO weekdays
+        // (1=Mon..7=Sun) on the wire vs Mac internal Sunday-based.
+        if let backend = appDelegate?.backendClient {
+            let dto = BackendClient.BedtimeConfigDTO(
+                enabled: enabled,
+                bedtime_start: .init(hour: startHour, minute: startMin),
+                wake: .init(hour: endHour, minute: endMin),
+                active_days: BedtimeConfigSync.sundayBasedToISO(activeDays),
+                allowlist_bundle_ids: [],
+                partner_locked: partnerLocked,
+                updated_at: nil
+            )
+            Task {
+                let ok = await backend.putBedtimeConfig(dto)
+                await MainActor.run {
+                    if ok {
+                        appDelegate?.postLog("🌙 Bedtime config pushed to backend (cross-device)")
+                    } else {
+                        appDelegate?.postLog("⚠️ Bedtime config push to backend failed; local save still applied")
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Blocking Profile Handlers

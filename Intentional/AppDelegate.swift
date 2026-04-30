@@ -52,6 +52,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Bedtime Enforcer — locks screen during bedtime hours
     var bedtimeEnforcer: BedtimeEnforcer?
+    /// Cross-device sync for bedtime config (start/end/enabled/active days).
+    /// Pulls from `/bedtime/config` on launch + active + every 60s and feeds
+    /// the result into BedtimeEnforcer via applyRemoteSettings. Closes the
+    /// gap where Mac and iPhone bedtime configs would diverge (each device
+    /// previously read only its local file).
+    var bedtimeConfigSync: BedtimeConfigSync?
     /// Floating window hosting BedtimeUnlockRequestView. Singleton so
     /// repeat taps from the pill's "Ask partner" button don't open a
     /// window stack.
@@ -642,6 +648,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         postLog("🌙 BedtimeEnforcer initialized and started")
+
+        // Cross-device bedtime config sync. Pulls /bedtime/config on launch +
+        // didBecomeActive + every 60s. Pushes user edits to backend (via
+        // MainWindow's saveSettings handler) so a change on Mac is mirrored
+        // on iPhone within ~60s, and vice versa. Migrates the legacy local
+        // bedtime_settings.json to the backend on first run.
+        if let enforcer = bedtimeEnforcer, let backend = backendClient {
+            bedtimeConfigSync = BedtimeConfigSync(
+                appDelegate: self, enforcer: enforcer, backendClient: backend
+            )
+            bedtimeConfigSync?.start()
+            postLog("🌙 BedtimeConfigSync started")
+        }
 
         // Blocking Profiles & Focus Sessions
         blockingProfileManager = BlockingProfileManager()

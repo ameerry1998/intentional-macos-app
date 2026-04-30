@@ -223,6 +223,16 @@ class BedtimeEnforcer {
         recalculate()
     }
 
+    /// Apply settings pulled from the backend by `BedtimeConfigSync`. Distinct
+    /// from `saveSettings(_:)` (the legacy "user edited locally on Mac" path).
+    /// The cross-device source of truth is the backend; the on-disk cache is
+    /// overwritten with the DTO format by `BedtimeConfigSync` so we don't
+    /// rewrite it here. Just take the new values and recalculate.
+    func applyRemoteSettings(_ newSettings: BedtimeSettings) {
+        self.settings = newSettings
+        recalculate()
+    }
+
     // MARK: - Lifecycle
 
     func start() {

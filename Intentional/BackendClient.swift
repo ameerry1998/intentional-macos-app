@@ -562,6 +562,62 @@ class BackendClient {
         return nil
     }
 
+    // MARK: - Bedtime Config (cross-device sync)
+
+    struct BedtimeTimeOfDayDTO: Codable, Equatable {
+        let hour: Int
+        let minute: Int
+    }
+
+    struct BedtimeConfigDTO: Codable, Equatable {
+        let enabled: Bool
+        let bedtime_start: BedtimeTimeOfDayDTO
+        let wake: BedtimeTimeOfDayDTO
+        let active_days: [Int]   // ISO 1=Mon..7=Sun
+        let allowlist_bundle_ids: [String]
+        let partner_locked: Bool
+        let updated_at: String?
+    }
+
+    /// GET /bedtime/config — returns nil on any failure (offline, 4xx, decode error).
+    /// Caller falls back to the on-disk cache.
+    func getBedtimeConfig() async -> BedtimeConfigDTO? {
+        let endpoint = "\(baseURL)/bedtime/config"
+        guard let url = URL(string: endpoint) else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                return nil
+            }
+            return try JSONDecoder().decode(BedtimeConfigDTO.self, from: data)
+        } catch {
+            return nil
+        }
+    }
+
+    /// PUT /bedtime/config — replaces the full config on the backend so
+    /// sibling devices (iPhone) pick up the change on their next pull.
+    /// Returns true on 2xx.
+    @discardableResult
+    func putBedtimeConfig(_ config: BedtimeConfigDTO) async -> Bool {
+        let endpoint = "\(baseURL)/bedtime/config"
+        guard let url = URL(string: endpoint) else { return false }
+        var req = URLRequest(url: url)
+        req.httpMethod = "PUT"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            req.httpBody = try JSONEncoder().encode(config)
+            let (_, response) = try await URLSession.shared.data(for: req)
+            return (response as? HTTPURLResponse).map { (200..<300).contains($0.statusCode) } ?? false
+        } catch {
+            return false
+        }
+    }
+
     // MARK: - Bedtime Unlock
 
     /// Errors specific to the bedtime-unlock flow. Surfaced to the UI so
