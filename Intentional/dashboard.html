@@ -8997,16 +8997,26 @@ function onCalendarHourClick(event, hour) {
   if (hasBlockOverlap(startMin, endMin, null)) return;
 
   var newBlock = {
-    id: generateFocusUUID(), title: '',
+    id: generateFocusUUID(),
+    title: '',
+    description: '',
     startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
     endHour: Math.floor(endMin / 60), endMinute: endMin % 60,
     blockType: 'focusHours',
-    ignoreProfile: false
+    isFree: false,
+    ignoreProfile: false,
+    intention_id: null,        // Spec 2: bind via picker later
+    intensity: 'focusHours'    // Spec 2: mirrors blockType
   };
   focusState.blocks.push(newBlock);
-  markFocusDirty();
+  // Draft pattern: do NOT call markFocusDirty() here. The block is a draft
+  // until the user fills in a title and clicks Done in the editor. On
+  // dismissal without Done, closeBlockEditor() removes the draft from
+  // focusState.blocks so nothing ever gets saved. Mirrors addFocusBlock
+  // (work-block branch) and openNewBlockDraft.
   renderCalendarBlocks();
   openBlockEditor(newBlock.id, event);
+  focusState.draftBlockId = newBlock.id;
 }
 
 function hasBlockOverlap(startMin, endMin, excludeId) {
