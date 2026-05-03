@@ -1553,7 +1553,8 @@ struct DeepWorkTimerView: View {
 
         let nextTypeColor = blockTypeColor(next.blockType)
         let nextTypeLabel = blockTypeLabel(next.blockType)
-        let nextIsFreeTime = next.blockType == .freeTime
+        // Spec 2: .freeTime removed from BlockType.
+        let nextIsFreeTime = false
         let nextDuration: Int = (next.endHour * 60 + next.endMinute) - (next.startHour * 60 + next.startMinute)
         let durationStr: String = {
             let h = nextDuration / 60, m = nextDuration % 60
@@ -2033,12 +2034,7 @@ struct DeepWorkTimerView: View {
                             color: focusHoursColor,
                             action: { data.onQuickBlock?(.focusHours, 30) }
                         )
-                        quickBlockButton(
-                            label: "Free Time",
-                            duration: "30 min",
-                            color: freeTimeColor,
-                            action: { data.onQuickBlock?(.freeTime, 30) }
-                        )
+                        // Spec 2: Free Time quick block removed — free time = absence of block.
                     }
                     .padding(.horizontal, 12)
                     .padding(.bottom, 10)
@@ -2199,7 +2195,6 @@ struct DeepWorkTimerView: View {
             switch block.blockType {
             case .deepWork: return "Deep Focus"
             case .focusHours: return "Focus"
-            case .freeTime: return "Free Time"
             }
         }()
         let duration = block.endMinutes - block.startMinutes
@@ -2545,7 +2540,6 @@ struct DeepWorkTimerView: View {
             switch next.blockType {
             case .deepWork: return "Deep Focus"
             case .focusHours: return "Focus"
-            case .freeTime: return "Free Time"
             }
         }()
 
@@ -2581,7 +2575,6 @@ struct DeepWorkTimerView: View {
         switch type {
         case .deepWork: return deepWorkColor
         case .focusHours: return focusHoursColor
-        case .freeTime: return freeTimeColor
         }
     }
 
@@ -2589,7 +2582,6 @@ struct DeepWorkTimerView: View {
         switch type {
         case .deepWork: return "DEEP FOCUS"
         case .focusHours: return "FOCUS"
-        case .freeTime: return "FREE TIME"
         }
     }
 

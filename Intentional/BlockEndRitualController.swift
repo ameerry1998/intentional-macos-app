@@ -22,10 +22,8 @@ class BlockEndRitualController {
     ) {
         dismiss()
 
-        let isFreeTime = block.blockType == .freeTime
-
-        // Skip trivial free time blocks (0 ticks)
-        if isFreeTime && stats.totalTicks == 0 { return }
+        // Spec 2: .freeTime removed from BlockType — every block is deepWork or focusHours.
+        let isFreeTime = false
 
         // Load app breakdown for work blocks
         var appBreakdown: [(appName: String, seconds: Int)] = []
@@ -188,7 +186,6 @@ class BlockEndRitualViewModel: ObservableObject {
         switch blockType {
         case .deepWork: return "DEEP FOCUS"
         case .focusHours: return "FOCUS"
-        case .freeTime: return "FREE TIME"
         }
     }
 
@@ -326,7 +323,6 @@ struct BlockEndRitualView: View {
         switch viewModel.blockType {
         case .deepWork: return deepWorkColor
         case .focusHours: return focusHoursColor
-        case .freeTime: return freeTimeColor
         }
     }
 
@@ -672,7 +668,6 @@ struct BlockEndRitualView: View {
             switch blockType {
             case .deepWork: return deepWorkColor
             case .focusHours: return focusHoursColor
-            case .freeTime: return freeTimeColor
             case .none: return Color(white: 0.50)
             }
         }()
@@ -681,7 +676,6 @@ struct BlockEndRitualView: View {
             switch blockType {
             case .deepWork: return "Deep Focus"
             case .focusHours: return "Focus"
-            case .freeTime: return "Free Time"
             case .none: return ""
             }
         }()
