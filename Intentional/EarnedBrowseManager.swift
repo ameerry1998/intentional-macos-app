@@ -159,20 +159,22 @@ class EarnedBrowseManager {
 
     /// Record social media time usage. Called by TimeTracker.onSocialMediaTimeRecorded.
     /// Deducts minutes × costMultiplier from pool based on block type.
+    /// Spec 2: blockType is now Optional — nil means "no current block" (free time).
     /// Returns remaining available minutes after deduction.
     @discardableResult
-    func recordSocialMediaTime(minutes: Double, blockType: ScheduleManager.BlockType, isFreeBrowse: Bool = false) -> Double {
+    func recordSocialMediaTime(minutes: Double, blockType: ScheduleManager.BlockType?, isFreeBrowse: Bool = false) -> Double {
         guard EarnedBrowseManager.featureEnabled else { return 0 }
         ensureToday()
         let multiplier: Double
         if isFreeBrowse {
             multiplier = focusHoursCost  // 2x — free browse costs double
-        } else {
+        } else if let blockType = blockType {
             switch blockType {
             case .deepWork: multiplier = deepWorkCost
             case .focusHours: multiplier = focusHoursCost
-            case .freeTime: multiplier = freeTimeCost
             }
+        } else {
+            multiplier = freeTimeCost  // Spec 2: no block = free time
         }
         usedMinutes += minutes * multiplier
         save()
@@ -333,12 +335,21 @@ class EarnedBrowseManager {
     }
 
     /// Whether the intent bonus is available for the current block.
-    /// True only during Free Time blocks where the bonus hasn't been claimed yet.
+    /// Spec 2: free time = absence of a block. When no block is active, the intent bonus is
+    /// available (modulo per-period claim tracking via "no_block_<date>" sentinel id).
     var intentBonusAvailable: Bool {
         guard EarnedBrowseManager.featureEnabled else { return false }
-        guard let blockId = appDelegate?.scheduleManager?.currentBlock?.id else { return false }
-        let blockType = appDelegate?.scheduleManager?.currentBlock?.blockType ?? .freeTime
-        return blockType == .freeTime && !intentBonusGrantedBlockIds.contains(blockId)
+        // Active block: never bonus-eligible (Deep Work / Focus Hours).
+        if appDelegate?.scheduleManager?.currentBlock != nil { return false }
+        // No block — eligible if not yet claimed today.
+        let sentinelId = "no_block_\(Self.todayDate())"
+        return !intentBonusGrantedBlockIds.contains(sentinelId)
+    }
+
+    private static func todayDate() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
     }
 
     // MARK: - Last Active App
@@ -373,13 +384,18 @@ class EarnedBrowseManager {
             ]
         }
         ensureToday()
-        let blockType = appDelegate?.scheduleManager?.currentBlock?.blockType ?? .freeTime
+        // Spec 2: absence of a block = free time.
+        let blockTypeOpt = appDelegate?.scheduleManager?.currentBlock?.blockType
+        let blockType: ScheduleManager.BlockType = blockTypeOpt ?? .focusHours  // payload key fallback
         let timeState = appDelegate?.scheduleManager?.currentTimeState
         let costMultiplier: Double
-        switch blockType {
-        case .deepWork: costMultiplier = deepWorkCost
-        case .focusHours: costMultiplier = focusHoursCost
-        case .freeTime: costMultiplier = freeTimeCost
+        if blockTypeOpt == nil {
+            costMultiplier = freeTimeCost  // no block = free time multiplier
+        } else {
+            switch blockType {
+            case .deepWork: costMultiplier = deepWorkCost
+            case .focusHours: costMultiplier = focusHoursCost
+            }
         }
         let effectiveBrowseTime = costMultiplier > 0 ? availableMinutes / costMultiplier : availableMinutes
 

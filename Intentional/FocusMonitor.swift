@@ -833,30 +833,8 @@ class FocusMonitor {
                 deepWorkTimerController?.showStartRitual(block: block, endsAt: endOfBlock, data: data)
                 return
 
-            } else if block.blockType == .freeTime {
-                awaitingRitual = true
-                lastRitualShownForBlockId = block.id
-                appDelegate?.postLog("🧘 Block ritual (pill): showing free time transition for \"\(block.title)\"")
-
-                let data = StartRitualData(
-                    block: block,
-                    availableMinutes: availableMinutes,
-                    isFreeTime: true,
-                    onStart: { [weak self] in
-                        guard let self = self else { return }
-                        self.awaitingRitual = false
-                        self.appDelegate?.postLog("🧘 Block ritual: free time started — showing timer")
-                        self.showTimerForCurrentBlock()
-                    }
-                )
-
-                let now = Date()
-                let endOfBlock = Calendar.current.date(
-                    bySettingHour: block.endHour, minute: block.endMinute, second: 0, of: now
-                ) ?? now
-                deepWorkTimerController?.showStartRitual(block: block, endsAt: endOfBlock, data: data)
-                return
             }
+            // Spec 2: .freeTime removed — was a dead branch (block.blockType is always deepWork/focusHours).
         }
 
         // No ritual (nil block or no ritual controller) — proceed as before
@@ -1005,10 +983,8 @@ class FocusMonitor {
         onDone: @escaping () -> Void
     ) {
         celebrationForBlockId = block.id
-        let isFreeTime = block.blockType == .freeTime
-
-        // Skip trivial free time blocks (0 ticks)
-        if isFreeTime && stats.totalTicks == 0 { return }
+        // Spec 2: .freeTime removed — every block is deepWork or focusHours.
+        let isFreeTime = false
 
         // Load app breakdown for work blocks
         var appBreakdown: [(appName: String, seconds: Int)] = []
@@ -1114,25 +1090,8 @@ class FocusMonitor {
                     deepWorkTimerController?.enterStartRitual(data: data)
                     return
 
-                } else if block.blockType == .freeTime {
-                    awaitingRitual = true
-
-                    let data = StartRitualData(
-                        block: block,
-                        availableMinutes: availableMinutes,
-                        isFreeTime: true,
-                        onStart: { [weak self] in
-                            guard let self = self else { return }
-                            self.awaitingRitual = false
-                            self.appDelegate?.postLog("🧘 Block ritual: free time started — showing timer")
-                            self.showTimerForCurrentBlock()
-                        }
-                    )
-
-                    celebrationForBlockId = nil
-                    deepWorkTimerController?.enterStartRitual(data: data)
-                    return
                 }
+                // Spec 2: .freeTime branch removed — was a dead path.
             }
         }
 
@@ -2841,8 +2800,6 @@ class FocusMonitor {
             case .focusHours:
                 handleFocusHoursBrowserIrrelevance(targetKey: targetKey, displayName: displayName,
                                                     intention: intention, confidence: confidence, reason: reason)
-            case .freeTime:
-                break // Should never reach here — freeTime is filtered out earlier
             }
         } else {
             // ── Native app enforcement ──
@@ -3349,9 +3306,6 @@ class FocusMonitor {
                 showNudgeForContent(intention: intention, displayName: currentTarget,
                                    escalated: true, distractionMinutes: max(1, distractionMinutes))
             }
-
-        case .freeTime:
-            break
         }
     }
 
@@ -3547,10 +3501,10 @@ class FocusMonitor {
         switch type {
         case .deepWork: title = "Deep Focus"
         case .focusHours: title = "Focus"
-        case .freeTime: title = "Free Time"
         }
         deepWorkTimerController?.dismiss()
-        handleStartQuickBlock(title: title, durationMinutes: duration, isFree: type == .freeTime, blockType: type)
+        // Spec 2: .freeTime removed; isFree always false for explicit quick blocks.
+        handleStartQuickBlock(title: title, durationMinutes: duration, isFree: false, blockType: type)
     }
 
     /// Handle minimize (−) from gap/doneForDay pill card — hide to dock + snooze 30 min.
@@ -3571,7 +3525,9 @@ class FocusMonitor {
         let endHour = calendar.component(.hour, from: endDate)
         let endMinute = calendar.component(.minute, from: endDate)
 
-        let resolvedBlockType: ScheduleManager.BlockType = blockType ?? (isFree ? .freeTime : .focusHours)
+        // Spec 2: .freeTime removed; isFree=true legacy callers map to .focusHours (no enforcement).
+        let resolvedBlockType: ScheduleManager.BlockType = blockType ?? .focusHours
+        _ = isFree  // unused now; retained in signature for legacy callers
 
         let block = ScheduleManager.FocusBlock(
             id: UUID().uuidString,
