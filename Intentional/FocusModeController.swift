@@ -32,7 +32,16 @@ final class FocusModeController {
         let id: UUID
         let startedAt: Date
         let intention: String?
+        let intentionId: UUID?   // Spec 1 — backend-resident Intention id (nil for legacy/manual no-id activations)
         let source: ActivationSource
+
+        init(id: UUID, startedAt: Date, intention: String?, intentionId: UUID? = nil, source: ActivationSource) {
+            self.id = id
+            self.startedAt = startedAt
+            self.intention = intention
+            self.intentionId = intentionId
+            self.source = source
+        }
     }
 
     // MARK: State
@@ -67,9 +76,12 @@ final class FocusModeController {
         let periodId: String?
         let periodStartedAt: Date?
         let periodIntention: String?
+        let periodIntentionId: String?   // Spec 1 — added in schemaVersion=2
         let periodSourceRaw: String?
     }
-    private static let persistenceSchemaVersion = 1
+    /// schemaVersion=2 added periodIntentionId (Spec 1). v1 deserialization is forward-compat
+    /// because all new fields are optional Strings — older blobs decode with nil intentionId.
+    private static let persistenceSchemaVersion = 2
 
     /// Cached path. Resolved (with directory creation) once per process; nil if
     /// the Application Support directory itself is unreachable (sandbox edge
@@ -107,7 +119,8 @@ final class FocusModeController {
         guard let path = Self.persistencePath,
               let data = try? Data(contentsOf: path),
               let persisted = try? Self.persistenceDecoder.decode(PersistedState.self, from: data),
-              persisted.schemaVersion == Self.persistenceSchemaVersion,
+              // Accept both v1 and v2 — v2 added an optional field.
+              persisted.schemaVersion <= Self.persistenceSchemaVersion,
               let restoredState = State(rawValue: persisted.stateRaw),
               restoredState != .off else { return }
         state = restoredState
@@ -118,6 +131,7 @@ final class FocusModeController {
                 id: id,
                 startedAt: startedAt,
                 intention: persisted.periodIntention,
+                intentionId: persisted.periodIntentionId.flatMap(UUID.init),
                 source: source
             )
         }
@@ -131,6 +145,7 @@ final class FocusModeController {
             periodId: currentPeriod?.id.uuidString,
             periodStartedAt: currentPeriod?.startedAt,
             periodIntention: currentPeriod?.intention,
+            periodIntentionId: currentPeriod?.intentionId?.uuidString,
             periodSourceRaw: currentPeriod?.source.rawValue
         )
         if let data = try? Self.persistenceEncoder.encode(persisted) {
@@ -144,14 +159,15 @@ final class FocusModeController {
     /// updates the intention/source on the current period. Fires onStateChanged if
     /// the intention changes (e.g., Deep Work A → Deep Work B with same .focus state)
     /// so downstream consumers (cache clear, focusMonitor re-eval) still run.
-    func activate(intention: String?, source: ActivationSource) {
+    func activate(intention: String?, intentionId: UUID? = nil, source: ActivationSource) {
         let old = state
         if state == .focus {
             // Already on; refresh metadata. Notify only if intention actually
             // changed — same-state idempotent reactivations don't re-fan-out.
             guard let existing = currentPeriod else { return }
             let newIntention = intention ?? existing.intention
-            let intentionChanged = newIntention != existing.intention
+            let newIntentionId = intentionId ?? existing.intentionId
+            let intentionChanged = newIntention != existing.intention || newIntentionId != existing.intentionId
             // Preserve the ORIGINAL source — represents "what kicked off this session."
             // If puck started a session, a subsequent schedule tick that refreshes
             // intention shouldn't relabel it as schedule-driven (Task 8 review #1).
@@ -159,6 +175,7 @@ final class FocusModeController {
                 id: existing.id,
                 startedAt: existing.startedAt,
                 intention: newIntention,
+                intentionId: newIntentionId,
                 source: existing.source
             )
             if intentionChanged {
@@ -170,6 +187,7 @@ final class FocusModeController {
             id: UUID(),
             startedAt: Date(),
             intention: intention,
+            intentionId: intentionId,
             source: source
         )
         state = .focus
