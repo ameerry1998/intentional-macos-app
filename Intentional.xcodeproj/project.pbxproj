@@ -68,6 +68,9 @@
 		A500000100000000000001 /* BedtimeEnforcer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500000200000000000001 /* BedtimeEnforcer.swift */; };
 		B500000100000000000001 /* BedtimeLockLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = B500000200000000000001 /* BedtimeLockLoop.swift */; };
 		BC00000100000000000001 /* BedtimeConfigSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC00000200000000000001 /* BedtimeConfigSync.swift */; };
+		BD00000100000000000001 /* Intention.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000200000000000001 /* Intention.swift */; };
+		BD00000300000000000001 /* IntentionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000400000000000001 /* IntentionStore.swift */; };
+		BD00000500000000000001 /* IntentionMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000600000000000001 /* IntentionMigration.swift */; };
 		B600000100000000000001 /* BedtimeWindDownController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B600000200000000000001 /* BedtimeWindDownController.swift */; };
 		B700000100000000000001 /* BedtimeUnlockRequestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B700000200000000000001 /* BedtimeUnlockRequestView.swift */; };
 		A700000100000000000001 /* BlockingProfileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A700000200000000000001 /* BlockingProfileManager.swift */; };
@@ -190,6 +193,9 @@
 		A500000200000000000001 /* BedtimeEnforcer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeEnforcer.swift; sourceTree = "<group>"; };
 		B500000200000000000001 /* BedtimeLockLoop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeLockLoop.swift; sourceTree = "<group>"; };
 		BC00000200000000000001 /* BedtimeConfigSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeConfigSync.swift; sourceTree = "<group>"; };
+		BD00000200000000000001 /* Intention.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Intention.swift; sourceTree = "<group>"; };
+		BD00000400000000000001 /* IntentionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentionStore.swift; sourceTree = "<group>"; };
+		BD00000600000000000001 /* IntentionMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentionMigration.swift; sourceTree = "<group>"; };
 		B600000200000000000001 /* BedtimeWindDownController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeWindDownController.swift; sourceTree = "<group>"; };
 		B700000200000000000001 /* BedtimeUnlockRequestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeUnlockRequestView.swift; sourceTree = "<group>"; };
 		A700000200000000000001 /* BlockingProfileManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockingProfileManager.swift; sourceTree = "<group>"; };
@@ -282,6 +288,9 @@
 				A500000200000000000001 /* BedtimeEnforcer.swift */,
 				B500000200000000000001 /* BedtimeLockLoop.swift */,
 				BC00000200000000000001 /* BedtimeConfigSync.swift */,
+				BD00000200000000000001 /* Intention.swift */,
+				BD00000400000000000001 /* IntentionStore.swift */,
+				BD00000600000000000001 /* IntentionMigration.swift */,
 				B600000200000000000001 /* BedtimeWindDownController.swift */,
 				B700000200000000000001 /* BedtimeUnlockRequestView.swift */,
 				34BADA5E2F8088BA009A82C6 /* DaemonXPCClient.swift */,
@@ -533,6 +542,9 @@
 				A500000100000000000001 /* BedtimeEnforcer.swift in Sources */,
 				B500000100000000000001 /* BedtimeLockLoop.swift in Sources */,
 				BC00000100000000000001 /* BedtimeConfigSync.swift in Sources */,
+				BD00000100000000000001 /* Intention.swift in Sources */,
+				BD00000300000000000001 /* IntentionStore.swift in Sources */,
+				BD00000500000000000001 /* IntentionMigration.swift in Sources */,
 				B600000100000000000001 /* BedtimeWindDownController.swift in Sources */,
 				B700000100000000000001 /* BedtimeUnlockRequestView.swift in Sources */,
 				A700000100000000000001 /* BlockingProfileManager.swift in Sources */,
