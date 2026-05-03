@@ -532,11 +532,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         projectStore = ProjectStore()
         postLog("📁 ProjectStore initialized")
 
-        // Spec 1: IntentionStore (cross-device focus presets via backend)
+        // Spec 1: IntentionStore (cross-device focus presets via backend) + one-time migration
         intentionStore = IntentionStore.shared
-        Task {
+        Task { @MainActor in
             await intentionStore?.wire(backend: backendClient!, appDelegate: self)
             await intentionStore?.pull()
+
+            // Run one-time migration of local projects.json → backend Intentions.
+            // Idempotent + resumable; receipt at ~/Library/Application Support/Intentional/migration_intentions_v1.json
+            let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            let dir = support.appendingPathComponent("Intentional", isDirectory: true)
+            let migration = IntentionMigration(
+                projectStore: self.projectStore,
+                blockingProfileManager: self.blockingProfileManager,
+                intentionStore: self.intentionStore!,
+                backend: self.backendClient!,
+                settingsDir: dir
+            )
+            await migration.run(log: { msg in
+                Task { @MainActor in self.postLog(msg) }
+            })
         }
         intentionStore?.startSyncTimer()
         postLog("🎯 IntentionStore wired and pulling")
