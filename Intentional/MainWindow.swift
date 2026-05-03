@@ -121,6 +121,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         // PartnerSyncService finishes its periodic /partner/status pull.
         observePartnerSyncUpdates()
 
+        // Spec 1 — re-push intentions list to dashboard whenever IntentionStore
+        // pulls fresh data (60s timer, didBecomeActive, or any push CRUD).
+        NotificationCenter.default.addObserver(
+            forName: .intentionsDidChange, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.handleGetIntentions()
+        }
+
         // Load appropriate page
         loadCurrentPage()
     }
@@ -568,6 +576,39 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "PROMOTE_LEARNED_SITE":
             if let body = message.body as? [String: Any] {
                 handlePromoteLearnedSite(body)
+            }
+
+        // Spec 1 — Intentions (new handlers; project handlers above kept as deprecated aliases)
+        case "GET_INTENTIONS":
+            handleGetIntentions()
+
+        case "GET_INTENTION":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String,
+               let id = UUID(uuidString: idStr) {
+                handleGetIntention(id: id)
+            }
+
+        case "CREATE_INTENTION":
+            if let body = message.body as? [String: Any] {
+                handleCreateIntention(body)
+            }
+
+        case "UPDATE_INTENTION":
+            if let body = message.body as? [String: Any] {
+                handleUpdateIntention(body)
+            }
+
+        case "DELETE_INTENTION":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String,
+               let id = UUID(uuidString: idStr) {
+                handleDeleteIntention(id: id)
+            }
+
+        case "START_INTENTION_SESSION":
+            if let body = message.body as? [String: Any] {
+                handleStartIntentionSession(body)
             }
 
         case "FOCUS_MODE_TOGGLE":
@@ -3080,6 +3121,216 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             return
         }
         callJS("window.\(callbackName) && window.\(callbackName)(\(jsonStr))")
+    }
+
+    // MARK: - Intentions (Spec 1)
+
+    private func handleGetIntentions() {
+        Task {
+            let intentions = await IntentionStore.shared.active()
+            let items = intentions.map { i -> [String: Any] in
+                return [
+                    "id": i.id.uuidString,
+                    "name": i.name,
+                    "description": i.description ?? "",
+                    "color_hex": i.colorHex ?? "",
+                    "icon": i.icon ?? "",
+                    "mac_websites": i.macWebsites,
+                    "mac_bundle_ids": i.macBundleIds,
+                    "version": i.version,
+                    "created_at": ISO8601DateFormatter().string(from: i.createdAt),
+                    "updated_at": ISO8601DateFormatter().string(from: i.updatedAt),
+                ]
+            }
+            await MainActor.run {
+                self.emitIntentionsList(items)
+            }
+        }
+    }
+
+    private func handleGetIntention(id: UUID) {
+        Task {
+            let intention = await IntentionStore.shared.intention(id: id)
+            await MainActor.run {
+                if let i = intention {
+                    let dict: [String: Any] = [
+                        "id": i.id.uuidString,
+                        "name": i.name,
+                        "description": i.description ?? "",
+                        "color_hex": i.colorHex ?? "",
+                        "icon": i.icon ?? "",
+                        "mac_websites": i.macWebsites,
+                        "mac_bundle_ids": i.macBundleIds,
+                        "version": i.version,
+                    ]
+                    self.emitIntentionDetail(dict)
+                } else {
+                    self.emitIntentionDetail(["error": "Intention not found"])
+                }
+            }
+        }
+    }
+
+    private func handleCreateIntention(_ body: [String: Any]) {
+        Task {
+            let payload = IntentionCreatePayload(
+                name: body["name"] as? String ?? "Untitled",
+                description: body["description"] as? String,
+                colorHex: body["color_hex"] as? String,
+                icon: body["icon"] as? String,
+                macWebsites: body["mac_websites"] as? [String] ?? [],
+                macBundleIds: body["mac_bundle_ids"] as? [String] ?? [],
+                iosAppTokensB64: nil,
+                iosCategoryTokensB64: nil
+            )
+            do {
+                let created = try await IntentionStore.shared.create(payload)
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "created", "id": created.id.uuidString
+                    ])
+                }
+            } catch {
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "error", "error": error.localizedDescription
+                    ])
+                }
+            }
+        }
+    }
+
+    private func handleUpdateIntention(_ body: [String: Any]) {
+        guard let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) else { return }
+        guard let version = body["version"] as? Int else {
+            emitIntentionMutationResult(["status": "error", "error": "Missing version"])
+            return
+        }
+        Task {
+            // Fetch existing for fallthrough fields not in the patch.
+            guard let existing = await IntentionStore.shared.intention(id: id) else {
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "error", "error": "Intention not found"
+                    ])
+                }
+                return
+            }
+            let payload = IntentionUpdatePayload(
+                name: body["name"] as? String ?? existing.name,
+                description: body["description"] as? String ?? existing.description,
+                colorHex: body["color_hex"] as? String ?? existing.colorHex,
+                icon: body["icon"] as? String ?? existing.icon,
+                macWebsites: body["mac_websites"] as? [String] ?? existing.macWebsites,
+                macBundleIds: body["mac_bundle_ids"] as? [String] ?? existing.macBundleIds,
+                iosAppTokensB64: existing.iosAppTokensB64,
+                iosCategoryTokensB64: existing.iosCategoryTokensB64,
+                version: version
+            )
+            do {
+                let updated = try await IntentionStore.shared.update(id: id, payload: payload)
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "updated", "id": updated.id.uuidString,
+                        "version": updated.version
+                    ])
+                }
+            } catch BackendClient.IntentionError.versionConflict(let serverV) {
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "version_conflict",
+                        "server_version": serverV ?? -1
+                    ])
+                }
+            } catch {
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "error", "error": error.localizedDescription
+                    ])
+                }
+            }
+        }
+    }
+
+    private func handleDeleteIntention(id: UUID) {
+        Task {
+            let ok = await IntentionStore.shared.delete(id: id)
+            await MainActor.run {
+                self.emitIntentionMutationResult([
+                    "status": ok ? "deleted" : "error",
+                    "id": id.uuidString
+                ])
+            }
+        }
+    }
+
+    private func handleStartIntentionSession(_ body: [String: Any]) {
+        guard let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) else {
+            emitSessionResult(["status": "refused", "reason": "Missing intention id"])
+            return
+        }
+        Task {
+            // Look up intention name for local enforcement
+            guard let intention = await IntentionStore.shared.intention(id: id),
+                  intention.deletedAt == nil else {
+                await MainActor.run {
+                    self.emitSessionResult(["status": "refused", "reason": "Intention not found"])
+                }
+                return
+            }
+            // Optimistic local activation
+            await MainActor.run {
+                self.appDelegate?.focusModeController?.activate(
+                    intention: intention.name,
+                    intentionId: id,
+                    source: .manual
+                )
+                self.appDelegate?.setActiveProjectSession(
+                    projectId: id, blockId: "manual-\(UUID().uuidString)"
+                )
+            }
+            // Backend POST (fire-and-forget; rollback on failure)
+            let result = await self.appDelegate?.backendClient?.postFocusToggle(
+                action: .start, intentionId: id, triggeredBy: "mac_manual"
+            )
+            if result == nil {
+                // Roll back local activation on backend failure
+                await MainActor.run {
+                    self.appDelegate?.focusModeController?.deactivate(source: .manual)
+                    self.emitSessionResult([
+                        "status": "error",
+                        "reason": "Backend unreachable — local enforcement reverted"
+                    ])
+                }
+                return
+            }
+            await MainActor.run {
+                self.emitSessionResult([
+                    "status": "started", "intentionId": id.uuidString,
+                    "sessionId": result?.sessionId ?? ""
+                ])
+            }
+        }
+    }
+
+    // MARK: - Intention emit helpers
+
+    private func emitIntentionsList(_ items: [[String: Any]]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: items),
+              let json = String(data: data, encoding: .utf8) else { return }
+        callJS("window._intentionsList && window._intentionsList(\(json))")
+    }
+
+    private func emitIntentionDetail(_ dict: [String: Any]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: dict),
+              let json = String(data: data, encoding: .utf8) else { return }
+        callJS("window._intentionDetail && window._intentionDetail(\(json))")
+    }
+
+    private func emitIntentionMutationResult(_ dict: [String: Any]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: dict),
+              let json = String(data: data, encoding: .utf8) else { return }
+        callJS("window._intentionMutationResult && window._intentionMutationResult(\(json))")
     }
 
 }
