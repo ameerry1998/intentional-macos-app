@@ -25,17 +25,23 @@ class ScheduleManager {
         var endMinute: Int   // 0-59
         var blockType: BlockType
         var ignoreProfile: Bool  // When true, the AI scorer omits the user's profile for this block.
+        // Spec 2: optional binding to an Intention (drives blocklist + AI context)
+        var intentionId: UUID?
+        // Spec 2: intensity mirrors blockType today; preserved as separate field so the
+        // semantic axis (deep_work vs focus_hours) is decoupled from legacy block_type.
+        var intensity: BlockType
 
         /// Backwards compat
         var isFree: Bool { blockType == .freeTime }
 
         // Custom coding to migrate legacy `isFree` → `blockType`
         enum CodingKeys: String, CodingKey {
-            case id, title, description, startHour, startMinute, endHour, endMinute, blockType, isFree, ignoreProfile
+            case id, title, description, startHour, startMinute, endHour, endMinute, blockType, isFree, ignoreProfile, intentionId, intensity
         }
 
         init(id: String, title: String, description: String, startHour: Int, startMinute: Int,
-             endHour: Int, endMinute: Int, blockType: BlockType, ignoreProfile: Bool = false) {
+             endHour: Int, endMinute: Int, blockType: BlockType, ignoreProfile: Bool = false,
+             intentionId: UUID? = nil, intensity: BlockType? = nil) {
             self.id = id
             self.title = title
             self.description = description
@@ -45,6 +51,8 @@ class ScheduleManager {
             self.endMinute = endMinute
             self.blockType = blockType
             self.ignoreProfile = ignoreProfile
+            self.intentionId = intentionId
+            self.intensity = intensity ?? blockType
         }
 
         init(from decoder: Decoder) throws {
@@ -66,6 +74,9 @@ class ScheduleManager {
             }
             // Migration: ignoreProfile added later; default false when absent.
             ignoreProfile = (try? container.decode(Bool.self, forKey: .ignoreProfile)) ?? false
+            // Spec 2: tolerate missing keys for forward-compat with old JSON
+            intentionId = try? container.decodeIfPresent(UUID.self, forKey: .intentionId)
+            intensity = (try? container.decodeIfPresent(BlockType.self, forKey: .intensity)) ?? blockType
         }
 
         func encode(to encoder: Encoder) throws {
@@ -79,6 +90,8 @@ class ScheduleManager {
             try container.encode(endMinute, forKey: .endMinute)
             try container.encode(blockType, forKey: .blockType)
             try container.encode(ignoreProfile, forKey: .ignoreProfile)
+            try container.encodeIfPresent(intentionId, forKey: .intentionId)
+            try container.encode(intensity, forKey: .intensity)
         }
 
         /// Start time as minutes from midnight
