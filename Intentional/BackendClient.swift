@@ -1602,6 +1602,70 @@ class BackendClient {
             return nil
         }
     }
+
+    // MARK: - Time Blocks (Spec 2)
+
+    struct TimeBlockDTO: Codable, Equatable {
+        let block_id: String
+        let title: String
+        let block_type: String  // "deep_work" | "focus_hours" (legacy carryover)
+        let intention_id: String?
+        let intensity: String  // "deep_work" | "focus_hours"
+        let start_hour: Int
+        let start_minute: Int
+        let end_hour: Int
+        let end_minute: Int
+        let active_days: [Int]   // ISO 1=Mon..7=Sun
+        let enabled: Bool
+        let updated_at: String?
+    }
+
+    struct TimeBlocksResponse: Codable {
+        let blocks: [TimeBlockDTO]
+    }
+
+    /// GET /time_blocks — returns nil on network failure, [] when truly empty.
+    func getTimeBlocks() async -> [TimeBlockDTO]? {
+        guard let url = URL(string: "\(baseURL)/time_blocks") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                return nil
+            }
+            return try JSONDecoder().decode(TimeBlocksResponse.self, from: data).blocks
+        } catch {
+            return nil
+        }
+    }
+
+    /// PUT /time_blocks — atomic replace. Returns the new blocks list on success.
+    @discardableResult
+    func putTimeBlocks(_ blocks: [TimeBlockDTO]) async -> [TimeBlockDTO]? {
+        guard let url = URL(string: "\(baseURL)/time_blocks") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "PUT"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let encoder = JSONEncoder()
+            let blocksData = try encoder.encode(blocks)
+            guard let blocksArray = try JSONSerialization.jsonObject(with: blocksData) as? [[String: Any]] else {
+                return nil
+            }
+            let payload: [String: Any] = ["blocks": blocksArray]
+            req.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                return nil
+            }
+            return try JSONDecoder().decode(TimeBlocksResponse.self, from: data).blocks
+        } catch {
+            return nil
+        }
+    }
 }
 
 // MARK: - TLS Certificate Pinning
