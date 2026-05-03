@@ -489,6 +489,7 @@ class ScheduleManager {
         saveSchedule()
         recalculateState(forceCallback: true)
         appDelegate?.postLog("📋 Schedule set: \(blocks.count) blocks, \(goals.count) goals")
+        Task { await pushToBackend() }  // Spec 2
     }
 
     /// Add a single block to today's schedule (e.g., "Quick: free block" from extension)
@@ -506,6 +507,7 @@ class ScheduleManager {
         saveSchedule()
         recalculateState(forceCallback: true)
         appDelegate?.postLog("📋 Block added: \"\(block.title)\" \(block.startHour):\(String(format: "%02d", block.startMinute))–\(block.endHour):\(String(format: "%02d", block.endMinute))")
+        Task { await pushToBackend() }  // Spec 2
     }
 
     /// Update an existing block
@@ -517,6 +519,7 @@ class ScheduleManager {
         todaySchedule = schedule
         saveSchedule()
         recalculateState(forceCallback: true)
+        Task { await pushToBackend() }  // Spec 2
     }
 
     /// Remove a block
@@ -524,6 +527,7 @@ class ScheduleManager {
         todaySchedule?.blocks.removeAll { $0.id == id }
         saveSchedule()
         recalculateState(forceCallback: true)
+        Task { await pushToBackend() }  // Spec 2
     }
 
     /// Push a block's start time forward by N minutes.
@@ -552,6 +556,7 @@ class ScheduleManager {
         saveSchedule()
         recalculateState(forceCallback: true)
         appDelegate?.postLog("📋 Block \"\(block.title)\" pushed back \(minutes) min → \(block.startHour):\(String(format: "%02d", block.startMinute))")
+        Task { await pushToBackend() }  // Spec 2
     }
 
     /// Snooze the morning planning prompt (30 min, up to 3 times)
