@@ -1424,6 +1424,136 @@ class BackendClient {
             appDelegate?.postLog("⚠️ Tamper report error: \(error.localizedDescription)")
         }
     }
+
+    // MARK: - Intentions (Spec 1)
+
+    /// Custom error for /intentions PUT 409 (stale version).
+    enum IntentionError: Error, LocalizedError {
+        case versionConflict(currentServerVersion: Int?)
+        case notFound
+        case network(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .versionConflict(let v):
+                return "Server has a newer version (\(v.map(String.init) ?? "?")). Refetch and retry."
+            case .notFound:
+                return "Intention not found on server"
+            case .network(let s):
+                return s
+            }
+        }
+    }
+
+    private func intentionsJSONDecoder() -> JSONDecoder {
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = .iso8601
+        return d
+    }
+    private func intentionsJSONEncoder() -> JSONEncoder {
+        let e = JSONEncoder()
+        e.dateEncodingStrategy = .iso8601
+        return e
+    }
+
+    /// GET /intentions — returns nil on network failure, [] when truly empty.
+    /// `includeDeleted` true returns tombstones (used for session-history rendering).
+    func getIntentions(includeDeleted: Bool = false) async -> [Intention]? {
+        var components = URLComponents(string: "\(baseURL)/intentions")
+        if includeDeleted {
+            components?.queryItems = [URLQueryItem(name: "include_deleted", value: "true")]
+        }
+        guard let url = components?.url else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                return nil
+            }
+            let resp = try intentionsJSONDecoder().decode(IntentionListResponse.self, from: data)
+            return resp.intentions
+        } catch {
+            return nil
+        }
+    }
+
+    /// GET /intentions/{id} — includes soft-deleted (for history). Returns nil on 404.
+    func getIntention(id: UUID) async -> Intention? {
+        guard let url = URL(string: "\(baseURL)/intentions/\(id.uuidString)") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                return nil
+            }
+            return try intentionsJSONDecoder().decode(Intention.self, from: data)
+        } catch {
+            return nil
+        }
+    }
+
+    /// POST /intentions — server assigns id and version=1.
+    func createIntention(_ payload: IntentionCreatePayload) async throws -> Intention {
+        guard let url = URL(string: "\(baseURL)/intentions") else {
+            throw IntentionError.network("Bad URL")
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        req.httpBody = try intentionsJSONEncoder().encode(payload)
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+            throw IntentionError.network("HTTP \(code)")
+        }
+        return try intentionsJSONDecoder().decode(Intention.self, from: data)
+    }
+
+    /// PUT /intentions/{id} — caller must include current version. Throws .versionConflict on 409.
+    func updateIntention(id: UUID, payload: IntentionUpdatePayload) async throws -> Intention {
+        guard let url = URL(string: "\(baseURL)/intentions/\(id.uuidString)") else {
+            throw IntentionError.network("Bad URL")
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "PUT"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        req.httpBody = try intentionsJSONEncoder().encode(payload)
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+        if code == 409 {
+            // Try to refetch the current version for the error
+            let current = await getIntention(id: id)
+            throw IntentionError.versionConflict(currentServerVersion: current?.version)
+        }
+        if code == 404 || code == 410 {
+            throw IntentionError.notFound
+        }
+        guard code == 200 else {
+            throw IntentionError.network("HTTP \(code)")
+        }
+        return try intentionsJSONDecoder().decode(Intention.self, from: data)
+    }
+
+    /// DELETE /intentions/{id} — soft delete. Returns true on 204.
+    @discardableResult
+    func deleteIntention(id: UUID) async -> Bool {
+        guard let url = URL(string: "\(baseURL)/intentions/\(id.uuidString)") else { return false }
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (_, response) = try await URLSession.shared.data(for: req)
+            return ((response as? HTTPURLResponse)?.statusCode ?? -1) == 204
+        } catch {
+            return false
+        }
+    }
 }
 
 // MARK: - TLS Certificate Pinning
