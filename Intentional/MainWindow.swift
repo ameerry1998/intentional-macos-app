@@ -2181,9 +2181,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             let blockType: ScheduleManager.BlockType
             if let bt = dict["blockType"] as? String, let parsed = ScheduleManager.BlockType(rawValue: bt) {
                 blockType = parsed
-            } else if dict["isFree"] as? Bool == true {
-                blockType = .freeTime
             } else {
+                // Spec 2: legacy isFree=true → focusHours (free time = absence of block).
                 blockType = .focusHours
             }
             let ignoreProfile = dict["ignoreProfile"] as? Bool ?? false
@@ -2880,12 +2879,18 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
     private func handleGetEarnedStatus() {
         guard let mgr = appDelegate?.earnedBrowseManager else { return }
-        let blockType = appDelegate?.scheduleManager?.currentBlock?.blockType ?? .freeTime
+        // Spec 2: absence of block = free time.
+        let blockTypeOpt = appDelegate?.scheduleManager?.currentBlock?.blockType
+        let blockType: ScheduleManager.BlockType = blockTypeOpt ?? .focusHours
+        let isFreeTime = (blockTypeOpt == nil)
         let costMultiplier: Double
-        switch blockType {
-        case .deepWork: costMultiplier = mgr.deepWorkCost
-        case .focusHours: costMultiplier = mgr.focusHoursCost
-        case .freeTime: costMultiplier = mgr.freeTimeCost
+        if isFreeTime {
+            costMultiplier = mgr.freeTimeCost
+        } else {
+            switch blockType {
+            case .deepWork: costMultiplier = mgr.deepWorkCost
+            case .focusHours: costMultiplier = mgr.focusHoursCost
+            }
         }
         let effectiveBrowseTime = costMultiplier > 0 ? mgr.availableMinutes / costMultiplier : mgr.availableMinutes
 
@@ -2919,11 +2924,11 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             "usedMinutes": mgr.usedMinutes,
             "availableMinutes": mgr.availableMinutes,
             "effectiveBrowseTime": effectiveBrowseTime,
-            "blockType": blockType.rawValue,
-            "isWorkBlock": blockType != .freeTime,
+            "blockType": isFreeTime ? "freeTime" : blockType.rawValue,
+            "isWorkBlock": !isFreeTime,
             "costMultiplier": costMultiplier,
             "poolExhausted": mgr.isPoolExhausted,
-            "isDeepWork": blockType == .deepWork || mgr.isDeepWork,
+            "isDeepWork": !isFreeTime && (blockType == .deepWork || mgr.isDeepWork),
             "blockFocusStats": blockStats,
             "hasPartner": hasPartner,
             "partnerName": partnerName.isEmpty ? "your partner" : partnerName

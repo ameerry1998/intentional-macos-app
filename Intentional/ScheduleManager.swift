@@ -13,7 +13,9 @@ class ScheduleManager {
     enum BlockType: String, Codable {
         case deepWork = "deepWork"
         case focusHours = "focusHours"
-        case freeTime = "freeTime"
+        // Spec 2: .freeTime removed — represented by absence of a block.
+        // Decoding of legacy "freeTime" rows is handled in FocusBlock.init(from:) by
+        // mapping it to .focusHours (which then displays/enforces accordingly).
     }
 
     struct FocusBlock: Codable, Equatable {
@@ -32,8 +34,9 @@ class ScheduleManager {
         // semantic axis (deep_work vs focus_hours) is decoupled from legacy block_type.
         var intensity: BlockType
 
-        /// Backwards compat
-        var isFree: Bool { blockType == .freeTime }
+        /// Backwards compat (Spec 2: .freeTime removed; always false for new blocks).
+        /// Old extension code paths that branch on isFree no longer trigger.
+        var isFree: Bool { false }
 
         // Custom coding to migrate legacy `isFree` → `blockType`
         enum CodingKeys: String, CodingKey {
@@ -65,11 +68,18 @@ class ScheduleManager {
             startMinute = try container.decode(Int.self, forKey: .startMinute)
             endHour = try container.decode(Int.self, forKey: .endHour)
             endMinute = try container.decode(Int.self, forKey: .endMinute)
-            // Migration: try blockType first, fall back to isFree
-            if let bt = try? container.decode(BlockType.self, forKey: .blockType) {
+            // Migration: try blockType first, fall back to isFree.
+            // Spec 2: .freeTime is removed — old "freeTime" rows decode as .focusHours.
+            if let raw = try? container.decode(String.self, forKey: .blockType) {
+                if raw == "freeTime" {
+                    blockType = .focusHours  // legacy mapping
+                } else {
+                    blockType = BlockType(rawValue: raw) ?? .focusHours
+                }
+            } else if let bt = try? container.decode(BlockType.self, forKey: .blockType) {
                 blockType = bt
             } else if let free = try? container.decode(Bool.self, forKey: .isFree) {
-                blockType = free ? .freeTime : .focusHours
+                blockType = free ? .focusHours : .focusHours  // legacy: free → focusHours
             } else {
                 blockType = .focusHours
             }
@@ -215,10 +225,6 @@ class ScheduleManager {
             switch blockType {
             case .deepWork: return deepWork
             case .focusHours: return focusHours
-            case .freeTime: return BlockEnforcementSettings(
-                nudgeNotifications: false, screenRedShift: false, autoRedirect: false,
-                blockingOverlay: false, interventionExercises: false, backgroundAudioDetection: false,
-                contextSwitchOverlay: false)
             }
         }
 
@@ -697,7 +703,6 @@ class ScheduleManager {
             currentBlock = injected
             switch injected.blockType {
             case .deepWork, .focusHours: currentTimeState = .focus
-            case .freeTime: currentTimeState = .off
             }
             if forceCallback || currentTimeState != previousState || currentBlock?.id != previousBlockId {
                 appDelegate?.postLog("📋 State: \(previousState.rawValue) → \(currentTimeState.rawValue) (injected focus session)")
@@ -743,7 +748,6 @@ class ScheduleManager {
             currentBlock = block
             switch block.blockType {
             case .deepWork, .focusHours: currentTimeState = .focus
-            case .freeTime: currentTimeState = .off
             }
         } else {
             currentBlock = nil

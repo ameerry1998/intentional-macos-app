@@ -39,7 +39,8 @@ class BlockRitualController {
     ) {
         dismiss()
 
-        let isFreeTime = block.blockType == .freeTime
+        // Spec 2: .freeTime removed from BlockType.
+        let isFreeTime = false
         let defaultPlan = UserDefaults.standard.integer(forKey: "defaultIfThenPlan")
         let savedVariant = UserDefaults.standard.integer(forKey: "blockRitualDesign")
 
@@ -150,7 +151,6 @@ class BlockRitualViewModel: ObservableObject {
         switch blockType {
         case .deepWork: return "DEEP FOCUS"
         case .focusHours: return "FOCUS"
-        case .freeTime: return "FREE TIME"
         }
     }
 
@@ -238,7 +238,6 @@ struct BlockRitualView: View {
         switch viewModel.blockType {
         case .deepWork: return deepWorkColor
         case .focusHours: return accentStart
-        case .freeTime: return freeTimeColor
         }
     }
 

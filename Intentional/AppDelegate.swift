@@ -559,7 +559,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Wire TimeTracker callback: deduct social media time from earned pool
         timeTracker?.onSocialMediaTimeRecorded = { [weak self] platform, minutes, isFreeBrowse in
             guard let mgr = self?.earnedBrowseManager else { return }
-            let blockType = self?.scheduleManager?.currentBlock?.blockType ?? .freeTime
+            // Spec 2: nil block = free time (absence of block).
+            let blockType = self?.scheduleManager?.currentBlock?.blockType
             let remaining = mgr.recordSocialMediaTime(
                 minutes: minutes, blockType: blockType, isFreeBrowse: isFreeBrowse
             )
