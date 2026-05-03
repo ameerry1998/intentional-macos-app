@@ -4582,16 +4582,12 @@ body.theme-effects-warm::after {
     </div>
   </div>
 
-  <!-- Page: Accountability / Lock -->
+  <!-- Page: Accountability / Partner — three states: paired / pending / empty -->
+  <!-- See docs/design_handoff_partner. The full identity card (avatar + name + -->
+  <!-- email + status pill) is rendered by renderLockState() inside #lock-content. -->
   <div class="page" id="page-lock">
-    <div class="section-title">Accountability</div>
-
-    <!-- Partner avatar card (shown when partner exists, updated by JS) -->
-    <div id="partner-avatar-card" class="settings-card" style="display:none;text-align:center;padding:24px;">
-      <div id="partner-avatar" style="width:48px;height:48px;border-radius:50%;background:var(--accent-gradient);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#0a0a0b;margin:0 auto 12px;"></div>
-      <div id="partner-display-name" style="font-size:15px;font-weight:600;"></div>
-      <div id="partner-display-email" style="font-size:12px;color:var(--text-tertiary);margin-top:2px;"></div>
-    </div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:6px;">Accountability</div>
+    <div class="section-title" style="margin-bottom:18px;">Partner</div>
 
     <div class="lock-container" id="lock-content">
       <div class="lock-title" style="color:rgba(255,255,255,0.5); text-align:center; padding:20px 0;">Loading...</div>
@@ -6531,19 +6527,8 @@ function renderLockState() {
   var state = getLockState();
   var email = escapeHtml(settings.partnerEmail || '');
   var name = escapeHtml(settings.partnerName || '');
-  var partnerDisplay = name ? name + ' (' + email + ')' : email;
-
-  // Update partner avatar card
-  var avatarCard = document.getElementById('partner-avatar-card');
-  if (avatarCard && email) {
-    avatarCard.style.display = '';
-    var initial = (name || email).charAt(0).toUpperCase();
-    document.getElementById('partner-avatar').textContent = initial;
-    document.getElementById('partner-display-name').textContent = name || '';
-    document.getElementById('partner-display-email').textContent = email;
-  } else if (avatarCard) {
-    avatarCard.style.display = 'none';
-  }
+  var firstName = (name.split(' ')[0]) || (email.split('@')[0] || 'your partner');
+  var initial = ((name || email).charAt(0) || '?').toUpperCase();
 
   // Clear any running countdown
   if (countdownInterval) {
@@ -6551,70 +6536,94 @@ function renderLockState() {
     countdownInterval = null;
   }
 
+  // Build the unified identity card used by paired + pending. Avatar style
+  // (filled gradient vs dashed border) and pill (active/green vs invite/amber)
+  // differ per state.
+  function buildIdentityCard(opts) {
+    // opts: { avatarStyle: 'filled'|'dashed', pillText, pillTint }
+    var avatarStyle = opts.avatarStyle === 'dashed'
+      ? 'background:rgba(255,122,46,0.10);color:var(--accent-primary);border:1.5px dashed rgba(255,122,46,0.45);'
+      : 'background:var(--accent-gradient);color:#1a0f0a;';
+    return '<div class="settings-card" style="display:flex;align-items:center;gap:18px;padding:20px 22px;margin-bottom:14px;">' +
+      '<div style="width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;flex-shrink:0;' + avatarStyle + '">' + initial + '</div>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:15px;font-weight:700;letter-spacing:-0.1px;">' + (name || email) + '</div>' +
+        (name ? '<div style="font-size:12px;color:var(--text-tertiary);margin-top:2px;">' + email + '</div>' : '') +
+      '</div>' +
+      '<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:' + opts.pillTint + ';color:' + opts.pillColor + ';font-size:11.5px;font-weight:600;flex-shrink:0;">' +
+        '<span style="width:6px;height:6px;border-radius:50%;background:' + opts.pillColor + ';"></span>' +
+        opts.pillText +
+      '</div>' +
+    '</div>';
+  }
+
   switch (state) {
     case 'pending':
       el.innerHTML =
-        '<div class="settings-card">' +
-          '<div class="setting-row">' +
-            '<div class="setting-label">Status</div>' +
-            '<span class="status-badge pending">Pending</span>' +
-          '</div>' +
-          '<div class="setting-row">' +
-            '<div class="setting-label">Sent to</div>' +
-            '<span class="setting-value">' + partnerDisplay + '</span>' +
-          '</div>' +
+        buildIdentityCard({
+          avatarStyle: 'dashed',
+          pillText: 'Invite sent',
+          pillTint: 'rgba(229,160,99,0.12)',
+          pillColor: '#E5A063'
+        }) +
+        '<div class="lock-btn-row" style="margin-bottom:18px;">' +
+          '<button class="btn-secondary" id="resend-invite-btn" onclick="resendInvite()" style="flex:1;">Resend invite</button>' +
+          '<button class="btn-danger" onclick="removePartner()" style="flex:1;">Cancel invite</button>' +
         '</div>' +
-        '<div class="lock-helper-text">Partner needs to confirm via email before lock mode can activate.</div>' +
-        '<div class="lock-btn-row">' +
-          '<button class="btn-primary" id="resend-invite-btn" onclick="resendInvite()">Resend</button>' +
-          '<button class="btn-secondary" onclick="changePartner()">Change Partner</button>' +
+        '<div style="font-size:12px;color:var(--text-tertiary);text-align:center;line-height:1.5;">' +
+          'We\'ll email you when ' + firstName + ' accepts. You can pick a different person anytime.' +
         '</div>';
       startConsentPolling();
       break;
 
     case 'confirmed':
+      // Paired but lock mode not yet engaged. Same identity card as locked,
+      // but the primary CTA enables the partner lock instead of requesting
+      // an unlock code.
       el.innerHTML =
-        '<div class="settings-card">' +
-          '<div class="setting-row">' +
-            '<div class="setting-label">Status</div>' +
-            '<span class="status-badge confirmed">Confirmed</span>' +
+        buildIdentityCard({
+          avatarStyle: 'filled',
+          pillText: 'Active · ready to lock',
+          pillTint: 'rgba(111,181,142,0.12)',
+          pillColor: '#6FB58E'
+        }) +
+        '<button class="btn-primary" id="enable-partner-btn" onclick="enableLockMode(\'partner\')" style="width:100%;margin-bottom:14px;">Enable Partner Lock</button>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:var(--card-bg, rgba(255,255,255,0.04));border:1px solid var(--border-subtle, rgba(255,255,255,0.08));border-radius:10px;">' +
+          '<div>' +
+            '<div style="font-size:13.5px;font-weight:600;">Remove partner</div>' +
+            '<div style="font-size:11.5px;color:var(--text-tertiary);margin-top:2px;">You\'ll keep your own access. ' + firstName + ' is notified.</div>' +
           '</div>' +
-          '<div class="setting-row">' +
-            '<div class="setting-label">Partner</div>' +
-            '<span class="setting-value">' + partnerDisplay + '</span>' +
-          '</div>' +
+          '<button class="btn-danger" onclick="removePartner()" style="padding:8px 14px;">Remove</button>' +
         '</div>' +
-        '<div class="lock-helper-text">Partner is ready. Choose how to lock your settings:</div>' +
-        '<div class="lock-btn-row">' +
-          '<button class="btn-primary" id="enable-partner-btn" onclick="enableLockMode(\'partner\')">Partner Lock</button>' +
-        '</div>' +
-        '<div class="lock-btn-row" style="margin-top:4px;">' +
-          '<button class="btn-secondary" onclick="changePartner()">Change</button>' +
-          '<button class="btn-danger" id="remove-partner-btn" onclick="removePartner()">Remove</button>' +
+        '<div style="font-size:11px;color:var(--text-tertiary);text-align:center;margin-top:18px;line-height:1.5;">' +
+          firstName + ' can revoke their role anytime from their device.' +
         '</div>';
       stopConsentPolling();
       break;
 
     case 'locked':
-      var modeLabel = 'Partner Lock';
       el.innerHTML =
-        '<div class="settings-card">' +
-          '<div class="setting-row">' +
-            '<div class="setting-label">Status</div>' +
-            '<span class="status-badge locked">Locked</span>' +
-          '</div>' +
-          '<div class="setting-row">' +
-            '<div class="setting-label">Mode</div>' +
-            '<span class="setting-value">' + modeLabel + '</span>' +
-          '</div>' +
-          (partnerDisplay ?
-          '<div class="setting-row">' +
-            '<div class="setting-label">Partner</div>' +
-            '<span class="setting-value">' + partnerDisplay + '</span>' +
-          '</div>' : '') +
+        buildIdentityCard({
+          avatarStyle: 'filled',
+          pillText: 'Active · locked',
+          pillTint: 'rgba(111,181,142,0.12)',
+          pillColor: '#6FB58E'
+        }) +
+        '<button class="btn-primary" id="request-unlock-btn" onclick="requestUnlock()" style="width:100%;margin-bottom:14px;">Request unlock code</button>' +
+        '<div style="display:flex;gap:10px;margin-bottom:22px;">' +
+          '<button class="btn-secondary" onclick="messagePartner()" style="flex:1;">Message ' + firstName + '</button>' +
+          '<button class="btn-secondary" onclick="showWhatsShared()" style="flex:1;">What\'s shared</button>' +
         '</div>' +
-        '<div class="lock-helper-text" style="color:rgba(255,255,255,0.3);">Platform toggles, thresholds, content blocking, budgets, and app persistence are protected.</div>' +
-        '<button class="btn-primary" id="request-unlock-btn" onclick="requestUnlock()" style="width:100%;">Request Unlock Code</button>';
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:var(--card-bg, rgba(255,255,255,0.04));border:1px solid var(--border-subtle, rgba(255,255,255,0.08));border-radius:10px;">' +
+          '<div>' +
+            '<div style="font-size:13.5px;font-weight:600;">Remove partner</div>' +
+            '<div style="font-size:11.5px;color:var(--text-tertiary);margin-top:2px;">You\'ll keep your own access. ' + firstName + ' is notified.</div>' +
+          '</div>' +
+          '<button class="btn-danger" onclick="removePartner()" style="padding:8px 14px;">Remove</button>' +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--text-tertiary);text-align:center;margin-top:18px;line-height:1.5;">' +
+          firstName + ' can revoke their role anytime from their device.' +
+        '</div>';
       stopConsentPolling();
       break;
 
@@ -6726,28 +6735,17 @@ function renderLockState() {
       stopConsentPolling();
       break;
 
-    default: // 'setup'
-      var noneSelected = selectedLockMode === 'none' || !selectedLockMode ? ' selected' : '';
-      var partnerSelected = selectedLockMode === 'partner' ? ' selected' : '';
-      var showPartner = (selectedLockMode && selectedLockMode !== 'none') ? '' : ' style="display:none"';
+    default: // 'setup' — no partner yet. Empty state per design.
       el.innerHTML =
-        '<div class="settings-card">' +
-          '<div class="lock-mode-option' + noneSelected + '" data-mode="none" onclick="selectLockMode(\'none\')">' +
-            '<div class="lock-mode-radio"></div>' +
-            '<div>' +
-              '<div class="setting-label">Unlocked</div>' +
-              '<div class="setting-desc">Anyone can change settings</div>' +
-            '</div>' +
-          '</div>' +
-          '<div class="lock-mode-option' + partnerSelected + '" data-mode="partner" onclick="selectLockMode(\'partner\')">' +
-            '<div class="lock-mode-radio"></div>' +
-            '<div>' +
-              '<div class="setting-label">Partner Lock</div>' +
-              '<div class="setting-desc">Partner receives unlock codes via email</div>' +
-            '</div>' +
+        '<div class="settings-card" style="padding:28px 26px;margin-bottom:16px;text-align:center;">' +
+          '<div style="width:56px;height:56px;margin:0 auto 14px;border-radius:14px;background:rgba(232,116,97,0.10);color:var(--accent-primary);display:flex;align-items:center;justify-content:center;font-size:26px;">👥</div>' +
+          '<div style="font-size:17px;font-weight:700;letter-spacing:-0.2px;margin-bottom:6px;">Bring someone along</div>' +
+          '<div style="font-size:13px;color:var(--text-secondary);line-height:1.55;max-width:380px;margin:0 auto;">' +
+            'They\'ll be quietly looped in if you revoke Screen Time access or burn an emergency unlock.' +
           '</div>' +
         '</div>' +
-        '<div class="settings-card" id="partner-fields-card"' + showPartner + '>' +
+        '<div style="font-size:10.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:8px;">Invite</div>' +
+        '<div class="settings-card" style="padding:14px 16px;margin-bottom:14px;">' +
           '<div class="setting-row">' +
             '<div class="setting-label" style="min-width:40px;">Name</div>' +
             '<input class="setting-input" id="lock-partner-name" placeholder="Optional" value="' + name + '">' +
@@ -6757,98 +6755,68 @@ function renderLockState() {
             '<input class="setting-input" id="lock-partner-email" placeholder="partner@email.com" type="email" value="' + email + '">' +
           '</div>' +
         '</div>' +
-        '<button class="btn-primary" id="save-lock-btn" onclick="saveLockSettings()" style="width:100%;">Save</button>';
+        '<button class="btn-primary" id="save-lock-btn" onclick="savePartnerInviteOnly()" style="width:100%;margin-bottom:22px;">Send invite</button>' +
+        '<div style="font-size:10.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:8px;">How it works</div>' +
+        '<div class="settings-card" style="padding:0;">' +
+          buildHowRow('1', 'Send the invite', 'They get an email with a link to confirm.', false) +
+          buildHowRow('2', 'Choose what\'s shared', 'Revocations, emergency unlocks, weekly summary.', false) +
+          buildHowRow('3', 'Stay accountable', 'They see what you commit to — and what slips.', true) +
+        '</div>';
       stopConsentPolling();
   }
 
-  // Append AI Override toggle
-  var overridePartnerRequired = settings.overridePartnerRequired || false;
-  el.innerHTML +=
-    '<div class="settings-card" style="margin-top:10px;">' +
-      '<div class="setting-row">' +
-        '<div>' +
-          '<div class="setting-label">Require partner for AI overrides</div>' +
-          '<div class="setting-desc">During work blocks, overriding AI requires your partner\'s approval code</div>' +
-        '</div>' +
-        '<label class="toggle">' +
-          '<input type="checkbox" id="override-partner-required" ' + (overridePartnerRequired ? 'checked' : '') + ' onchange="onSettingChange()">' +
-          '<span class="toggle-track"></span>' +
-        '</label>' +
-      '</div>' +
-    '</div>';
-
-  // Append strict mode (app persistence) card
-  var strictEnabled = settings.strictModeEnabled || false;
-  var hasPartner = settings.consentStatus === 'confirmed';
-
-  if (strictDisableState === 'code_entry') {
-    el.innerHTML +=
-      '<div class="settings-card" style="margin-top:10px;" id="strict-mode-card">' +
-        '<div class="setting-row">' +
-          '<div>' +
-            '<div class="setting-label">App Persistence</div>' +
-            '<div class="setting-desc">Enter the code sent to your partner</div>' +
-          '</div>' +
-        '</div>' +
-        '<div style="padding:0 14px 10px;text-align:center;">' +
-          '<input type="text" class="unlock-code-input" id="strict-disable-code" maxlength="6" placeholder="000000" oninput="onStrictCodeInput(this)">' +
-        '</div>' +
-        '<div class="lock-btn-row">' +
-          '<button class="btn-primary" id="strict-verify-btn" onclick="verifyStrictDisable()" disabled>Verify</button>' +
-          '<button class="btn-secondary" onclick="cancelStrictDisable()">Cancel</button>' +
-        '</div>' +
-      '</div>';
-    setTimeout(function() {
-      var inp = document.getElementById('strict-disable-code');
-      if (inp) inp.focus();
-    }, 100);
-  } else if (!hasPartner) {
-    el.innerHTML +=
-      '<div class="settings-card" style="margin-top:10px;opacity:0.5;" id="strict-mode-card">' +
-        '<div class="setting-row">' +
-          '<div>' +
-            '<div class="setting-label">App Persistence</div>' +
-            '<div class="setting-desc">Prevents quitting and auto-restarts if force-quit. Requires an accountability partner.</div>' +
-          '</div>' +
-          '<label class="toggle">' +
-            '<input type="checkbox" disabled>' +
-            '<span class="toggle-track"></span>' +
-          '</label>' +
-        '</div>' +
-      '</div>';
-  } else if (!strictEnabled) {
-    el.innerHTML +=
-      '<div class="settings-card" style="margin-top:10px;" id="strict-mode-card">' +
-        '<div class="setting-row">' +
-          '<div>' +
-            '<div class="setting-label">App Persistence</div>' +
-            '<div class="setting-desc">Prevents quitting and auto-restarts if force-quit</div>' +
-          '</div>' +
-          '<label class="toggle">' +
-            '<input type="checkbox" id="strict-mode-toggle" onchange="toggleStrictMode(this.checked)">' +
-            '<span class="toggle-track"></span>' +
-          '</label>' +
-        '</div>' +
-      '</div>';
-  } else {
-    el.innerHTML +=
-      '<div class="settings-card" style="margin-top:10px;" id="strict-mode-card">' +
-        '<div class="setting-row">' +
-          '<div>' +
-            '<div class="setting-label">App Persistence</div>' +
-            '<div class="setting-desc">Active · requires partner code to disable</div>' +
-          '</div>' +
-          '<label class="toggle">' +
-            '<input type="checkbox" checked disabled>' +
-            '<span class="toggle-track"></span>' +
-          '</label>' +
-        '</div>' +
-        '<button class="btn-secondary" id="strict-disable-btn" onclick="requestStrictDisable()" style="width:100%;margin-top:4px;">Request Code to Disable</button>' +
-      '</div>';
-  }
+  // Per design_handoff_partner: AI overrides toggle + App Persistence
+  // toggle removed from this page. They live elsewhere (Settings) if needed.
 
   // Enforce lock on platform settings pages
   enforceLockMode();
+}
+
+// Numbered row used by the empty-state "How it works" list. Mirrors the
+// HowRowMac component in the design handoff.
+function buildHowRow(n, title, sub, last) {
+  return '<div style="display:flex;align-items:flex-start;gap:14px;padding:14px 18px;' +
+    (last ? '' : 'border-bottom:1px solid var(--border-subtle, rgba(255,255,255,0.08));') + '">' +
+    '<div style="width:24px;height:24px;border-radius:50%;background:rgba(232,116,97,0.12);color:var(--accent-primary);font-size:11.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">' + n + '</div>' +
+    '<div style="flex:1;">' +
+      '<div style="font-size:13.5px;font-weight:600;">' + title + '</div>' +
+      '<div style="font-size:11.5px;color:var(--text-tertiary);margin-top:2px;line-height:1.45;">' + sub + '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+// Empty-state CTA: send the partner invite without forcing the user to
+// also pick a lock mode. The legacy `saveLockSettings` flow expected the
+// user to pre-select a lock mode in the same form; the new design defers
+// that until after the partner confirms (handled in the `confirmed` branch).
+function savePartnerInviteOnly() {
+  var emailInput = document.getElementById('lock-partner-email');
+  var nameInput = document.getElementById('lock-partner-name');
+  if (!emailInput) return;
+  var partnerEmail = (emailInput.value || '').trim();
+  var partnerName = (nameInput && nameInput.value || '').trim();
+  if (!partnerEmail) {
+    showToast('Enter your partner\'s email');
+    return;
+  }
+  // Pre-select partner lock so the existing save flow (which writes
+  // settings.lockMode + settings.partnerEmail and triggers the consent
+  // email) does the right thing.
+  selectedLockMode = 'partner';
+  saveLockSettings();
+}
+
+// Quick-action stubs for the paired state. Kept tiny on purpose — full
+// detail pages are a follow-up.
+function messagePartner() {
+  var email = (settings.partnerEmail || '').trim();
+  if (!email) return;
+  // Open default mail composer pre-addressed to the partner.
+  window.location.href = 'mailto:' + email;
+}
+
+function showWhatsShared() {
+  showToast('"What\'s shared" detail coming soon');
 }
 
 // ===== Strict Mode (App Persistence) =====
