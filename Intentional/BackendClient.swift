@@ -1554,6 +1554,54 @@ class BackendClient {
             return false
         }
     }
+
+    // MARK: - Focus Toggle (Spec 1 — extended with intention_id)
+
+    enum FocusToggleAction: String { case start, stop }
+
+    struct FocusToggleResult {
+        let sessionId: String?
+        let status: String  // "started" | "stopped" | "no_active_session"
+    }
+
+    /// POST /focus/toggle. `intentionId` and `triggeredBy` are optional —
+    /// when sent on start, the backend stamps focus_sessions.intention_id and
+    /// pushes a silent APNs to peer iOS devices.
+    @discardableResult
+    func postFocusToggle(
+        action: FocusToggleAction,
+        intentionId: UUID? = nil,
+        triggeredBy: String = "mac_manual"
+    ) async -> FocusToggleResult? {
+        guard let url = URL(string: "\(baseURL)/focus/toggle") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        var body: [String: Any] = [
+            "action": action.rawValue,
+            "triggered_by": triggeredBy,
+        ]
+        if let intentionId {
+            body["intention_id"] = intentionId.uuidString
+        }
+        do {
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                return nil
+            }
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                return nil
+            }
+            return FocusToggleResult(
+                sessionId: json["session_id"] as? String,
+                status: json["status"] as? String ?? "unknown"
+            )
+        } catch {
+            return nil
+        }
+    }
 }
 
 // MARK: - TLS Certificate Pinning
