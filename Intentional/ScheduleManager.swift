@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 /// Manages the daily focus schedule — time blocks, goals, plan text.
 /// Determines the current time state (work block, free block, unplanned, no plan).
@@ -279,6 +280,11 @@ class ScheduleManager {
     /// Per-block-type enforcement toggles
     private(set) var enforcementSettings: EnforcementSettings = .defaults
 
+    // MARK: - Backend Sync (Spec 2)
+
+    private weak var backend: BackendClient?
+    private var pullTimer: Timer?
+
     // MARK: - Timer
 
     private var blockCheckTimer: Timer?
@@ -367,6 +373,106 @@ class ScheduleManager {
         profile = text
         saveProfile()
         appDelegate?.postLog("📋 Profile updated (\(text.count) chars)")
+    }
+
+    // MARK: - Backend Sync (Spec 2)
+
+    /// Wire to a BackendClient and start the pull/push lifecycle.
+    /// - On init: pull immediately.
+    /// - Foreground: pull on `didBecomeActive`.
+    /// - 60s timer: periodic refresh.
+    func wire(backend: BackendClient) {
+        self.backend = backend
+        startBackendSync()
+    }
+
+    private func startBackendSync() {
+        // Initial pull
+        Task { await pullFromBackend() }
+
+        // Foreground refresh
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { await self?.pullFromBackend() }
+        }
+
+        // 60s timer
+        let t = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { [weak self] _ in
+            Task { await self?.pullFromBackend() }
+        }
+        t.tolerance = 5.0
+        RunLoop.main.add(t, forMode: .common)
+        pullTimer = t
+    }
+
+    /// Pull `/time_blocks` from backend, replace today's blocks. Network failure → no-op (retry next tick).
+    @MainActor
+    func pullFromBackend() async {
+        guard let backend = backend else { return }
+        guard let dtos = await backend.getTimeBlocks() else {
+            // Network failure — keep local state, will retry next tick
+            return
+        }
+        let blocks: [FocusBlock] = dtos.map { dto in
+            let intensity = BlockType(rawValue: dto.intensity) ?? .deepWork
+            return FocusBlock(
+                id: dto.block_id,
+                title: dto.title,
+                description: "",
+                startHour: dto.start_hour, startMinute: dto.start_minute,
+                endHour: dto.end_hour, endMinute: dto.end_minute,
+                blockType: intensity,
+                ignoreProfile: false,
+                intentionId: dto.intention_id.flatMap { UUID(uuidString: $0) },
+                intensity: intensity
+            )
+        }
+        // Replace today's block list. Recurring filter (active_days) happens in render layer / future work.
+        if todaySchedule == nil {
+            todaySchedule = DailySchedule(
+                date: Self.todayString(),
+                goals: [], dailyPlan: "",
+                blocks: blocks.sorted { $0.startMinutes < $1.startMinutes }
+            )
+        } else {
+            todaySchedule?.blocks = blocks.sorted { $0.startMinutes < $1.startMinutes }
+        }
+        recalculateState()
+        renameLegacyScheduleFile()
+        appDelegate?.postLog("📋 ScheduleManager pulled \(blocks.count) time blocks from backend")
+    }
+
+    /// Push current schedule to `/time_blocks` (atomic replace).
+    @MainActor
+    func pushToBackend() async {
+        guard let backend = backend, let schedule = todaySchedule else { return }
+        let dtos: [BackendClient.TimeBlockDTO] = schedule.blocks.map { b in
+            BackendClient.TimeBlockDTO(
+                block_id: b.id, title: b.title,
+                block_type: b.blockType.rawValue,
+                intention_id: b.intentionId?.uuidString,
+                intensity: b.intensity.rawValue,
+                start_hour: b.startHour, start_minute: b.startMinute,
+                end_hour: b.endHour, end_minute: b.endMinute,
+                active_days: [1, 2, 3, 4, 5, 6, 7],  // every-day default for now
+                enabled: true,
+                updated_at: nil
+            )
+        }
+        _ = await backend.putTimeBlocks(dtos)
+    }
+
+    /// Move legacy `daily_schedule.json` → `daily_schedule.legacy.json` after first successful pull.
+    private func renameLegacyScheduleFile() {
+        let live = scheduleFileURL
+        let legacy = live.deletingLastPathComponent().appendingPathComponent("daily_schedule.legacy.json")
+        if FileManager.default.fileExists(atPath: live.path) &&
+           !FileManager.default.fileExists(atPath: legacy.path) {
+            try? FileManager.default.moveItem(at: live, to: legacy)
+            appDelegate?.postLog("📋 Renamed daily_schedule.json → daily_schedule.legacy.json (backend is source of truth)")
+        }
     }
 
     /// Set today's plan (goals + daily plan text + time blocks)
