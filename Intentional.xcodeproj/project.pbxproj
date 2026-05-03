@@ -74,6 +74,7 @@
 		A900000100000000000001 /* FocusStartOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A900000200000000000001 /* FocusStartOverlay.swift */; };
 		AA00000100000000000001 /* FocusWebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000200000000000001 /* FocusWebSocketClient.swift */; };
 		AA00000300000000000099 /* FocusStatePoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000400000000000099 /* FocusStatePoller.swift */; };
+		AA00000500000000000099 /* PartnerSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000600000000000099 /* PartnerSyncService.swift */; };
 		AB00000100000000000001 /* ProjectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000200000000000001 /* ProjectStore.swift */; };
 		AC00000100000000000001 /* SwitchInterventionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC00000200000000000001 /* SwitchInterventionCoordinator.swift */; };
 		AC00000300000000000002 /* SwitchOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC00000400000000000002 /* SwitchOverlayController.swift */; };
@@ -195,6 +196,7 @@
 		A900000200000000000001 /* FocusStartOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusStartOverlay.swift; sourceTree = "<group>"; };
 		AA00000200000000000001 /* FocusWebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusWebSocketClient.swift; sourceTree = "<group>"; };
 		AA00000400000000000099 /* FocusStatePoller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusStatePoller.swift; sourceTree = "<group>"; };
+		AA00000600000000000099 /* PartnerSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerSyncService.swift; sourceTree = "<group>"; };
 		AB00000200000000000001 /* ProjectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectStore.swift; sourceTree = "<group>"; };
 		AB500423E96AEF2BF4B2C62D /* EnforcementReconciler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EnforcementReconciler.swift; sourceTree = "<group>"; };
 		AC00000200000000000001 /* SwitchInterventionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchInterventionCoordinator.swift; sourceTree = "<group>"; };
@@ -272,6 +274,7 @@
 				A900000200000000000001 /* FocusStartOverlay.swift */,
 				AA00000200000000000001 /* FocusWebSocketClient.swift */,
 				AA00000400000000000099 /* FocusStatePoller.swift */,
+				AA00000600000000000099 /* PartnerSyncService.swift */,
 				AC00000200000000000001 /* SwitchInterventionCoordinator.swift */,
 				AC00000400000000000002 /* SwitchOverlayController.swift */,
 				AD00000200000000000001 /* ConstraintEvaluator.swift */,
@@ -537,6 +540,7 @@
 				A900000100000000000001 /* FocusStartOverlay.swift in Sources */,
 				AA00000100000000000001 /* FocusWebSocketClient.swift in Sources */,
 				AA00000300000000000099 /* FocusStatePoller.swift in Sources */,
+				AA00000500000000000099 /* PartnerSyncService.swift in Sources */,
 				AC00000100000000000001 /* SwitchInterventionCoordinator.swift in Sources */,
 				AC00000300000000000002 /* SwitchOverlayController.swift in Sources */,
 				AD00000100000000000001 /* ConstraintEvaluator.swift in Sources */,

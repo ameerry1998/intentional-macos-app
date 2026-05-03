@@ -116,8 +116,63 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
 
+        // Observe partner cross-device sync updates so the dashboard reflects
+        // partner data set on a sibling device (e.g. iPhone) the moment
+        // PartnerSyncService finishes its periodic /partner/status pull.
+        observePartnerSyncUpdates()
+
         // Load appropriate page
         loadCurrentPage()
+    }
+
+    /// Listen for PartnerSyncService.pullAndApply() completions and forward
+    /// the partnerEmail / partnerName / partnerConsentStatus into the
+    /// dashboard via the `_partnerStatusResult` JS receiver. Also persists
+    /// the values into the dashboard settings JSON so they survive page
+    /// reloads.
+    private func observePartnerSyncUpdates() {
+        NotificationCenter.default.addObserver(
+            forName: .partnerSyncDidUpdate,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self else { return }
+            let info = note.userInfo ?? [:]
+            let email = (info["partnerEmail"] as? String) ?? ""
+            let name = (info["partnerName"] as? String) ?? ""
+            let consentStatus = (info["partnerConsentStatus"] as? String) ?? ""
+
+            // Persist to settings JSON so the values survive a dashboard
+            // reload (which re-hydrates `settings` from disk via
+            // _settingsResult).
+            self.updateSettingsFile { settings in
+                settings["partnerEmail"] = email
+                settings["partnerName"] = name
+                if !consentStatus.isEmpty {
+                    settings["consentStatus"] = consentStatus
+                }
+            }
+
+            // Push to live dashboard. Use JSONSerialization to escape
+            // partner names that contain apostrophes / quotes — building
+            // the JS literal by string interpolation breaks on those.
+            // We reuse the existing `_partnerStatusResult` receiver
+            // instead of inventing a new symbol; it already handles the
+            // same three fields and re-renders the lock-state UI.
+            var payload: [String: Any] = [
+                "success": true,
+                "partnerEmail": email,
+                "partnerName": name,
+                "message": ""
+            ]
+            if !consentStatus.isEmpty {
+                payload["consentStatus"] = consentStatus
+            }
+            if let data = try? JSONSerialization.data(withJSONObject: payload, options: []),
+               let json = String(data: data, encoding: .utf8) {
+                self.callJS("window._partnerStatusResult && window._partnerStatusResult(\(json))")
+            }
+        }
     }
 
     // MARK: - Theme Helpers

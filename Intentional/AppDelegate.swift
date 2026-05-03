@@ -63,6 +63,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// window stack.
     var bedtimeUnlockWindow: NSWindow?
 
+    // Partner cross-device sync — pulls /partner/status on launch + active +
+    // every 60s and pushes the result into the dashboard so a partner set
+    // on a sibling device (e.g. iPhone) appears here automatically.
+    var partnerSyncService: PartnerSyncService?
+
     // Blocking Profiles & Focus Sessions (Puck integration)
     var blockingProfileManager: BlockingProfileManager?
 
@@ -481,6 +486,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             await backendClient?.sendEvent(type: "app_started", details: [:])
         }
+
+        // Partner cross-device sync — fetches /partner/status on launch +
+        // didBecomeActive + every 60s. Posts .partnerSyncDidUpdate which
+        // MainWindow forwards to the dashboard via WKWebView. Closes the
+        // sibling-sync gap where a Mac that never set the partner locally
+        // didn't learn about a partner set on the user's iPhone.
+        partnerSyncService = PartnerSyncService.shared
+        partnerSyncService?.configure(appDelegate: self, backendClient: backendClient!)
+        partnerSyncService?.start()
+        postLog("👥 PartnerSyncService started")
 
         // Initialize strict mode based on user preference
         updateStrictMode()
