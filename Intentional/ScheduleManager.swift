@@ -763,6 +763,11 @@ class ScheduleManager {
 
     // MARK: - Timer
 
+    /// Spec 2 (May 2026): backend cron now fires sessions via /focus/active → FocusStatePoller
+    /// → FocusModeController.activate. This 10s tick still fires `onBlockChanged` for UI-side
+    /// updates (calendar pill highlight, currentBlock cache invalidation). FocusModeController is
+    /// idempotent so the activation half is harmless when both fire — but the canonical authority
+    /// for "is this block running?" is now the backend's focus_sessions row.
     private func startBlockCheckTimer() {
         blockCheckTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [weak self] _ in
             self?.recalculateState()
