@@ -74,6 +74,8 @@ Intentional is a macOS focus enforcement app that works with a companion Chrome 
 
 **Architecture Principle: Logic Lives Here.** All enforcement logic, overlays, timers, and behavioral features belong in this macOS app — NOT in the Chrome extension. The extension is a sensing layer for AI content scoring. The app has OS-level capabilities (AppleScript, NSWindow overlays, process monitoring) that the extension cannot replicate, and centralizing logic here avoids duplication and ensures cross-browser consistency.
 
+**Architecture Principle: Backend is Source of Truth for Cross-Device State.** Focus session state (`is the user focused right now`) lives canonically in `focus_sessions` on the backend. Each client (Mac, iPhone) treats its local representation as a cache. Mac polls `/focus/active` every 2s via `X-Device-ID` auth (no JWT TTL pain). iPhone reconciles on foreground/boot. Backend rows have `expires_at` TTL safety net so sessions where no client ever sent stop self-expire after 12h. See `docs/cross-repo-focus-sync-2026-04-28.md` for the full architecture, why it changed, and what's still follow-up.
+
 ---
 
 ## Parallel Development (Worktree Workflow)
@@ -118,28 +120,43 @@ Order matters. Components have dependencies that must be wired in sequence.
 13. ScheduleManager         → Load schedule, recalculateState
 14. RelevanceScorer         → AI model initialization
 15. FocusMonitor            → Desktop monitoring (refs: ScheduleManager, RelevanceScorer)
-15a. BlockRitualController   → Wired to FocusMonitor.ritualController
-15b. BlockEndRitualController → Wired to FocusMonitor.endRitualController
-15c. ContentSafetyMonitor     → Load enabled from settings, start if enabled
-15d. SwitchInterventionCoordinator + SwitchOverlayController → Wired to FocusMonitor (context-switching overlay v1)
-16. Wire ScheduleManager.onBlockChanged callback  ← MUST be after all managers
-17. Manual activeBlockId sync                      ← Catches app-started-during-block
+15a. FocusModeController    → Single source of truth for is-app-enforcing (3 states: off/focus/bedtime). Replaces IntentionalModeController + FocusSessionManager. Persists state to disk on every notify(); rehydrates on init so app-restart doesn't briefly show "off" while a session is active.
+15b. BlockRitualController   → Wired to FocusMonitor.ritualController
+15c. BlockEndRitualController → Wired to FocusMonitor.endRitualController
+15d. ContentSafetyMonitor     → Load enabled from settings, start if enabled
+15e. SwitchInterventionCoordinator + SwitchOverlayController → Gate now reads FocusModeController.isOn
+16. Wire ScheduleManager.onBlockChanged → FocusModeController.activate / .deactivate / .activateBedtime
+17. Manual activeBlockId sync + initial Focus Mode activation if a block is currently active
 18. NativeMessagingHost (template)
 19. SocketRelayServer       → Start accepting extension connections
 20. NativeMessagingSetup    → Auto-discover extensions, install manifests
 21. Heartbeat timer (2 min interval)
+22. FocusStatePoller       → Polls /focus/active every 2s with X-Device-ID auth. On state transition, drives FocusModeController.activate/.deactivate. Backend-as-master cross-device sync; no JWT-expiry pain.
+23. (boot reconcile)       → If FocusModeController.state == .focus from disk restore, applyDefaultBlockingProfile() + focusMonitor?.onBlockChanged() to re-engage enforcement.
 ```
 
 ### Critical Callback Wiring
 
 ```swift
-// ScheduleManager.onBlockChanged → runs when active block changes
+// ScheduleManager.onBlockChanged → triggers Focus Mode transitions
 scheduleManager.onBlockChanged = { block, state in
+    switch state {
+    case .focus:    focusModeController.activate(intention: block?.title, source: .schedule)
+    case .bedtime:  focusModeController.activateBedtime(source: .bedtimeSchedule)
+    case .off:      focusModeController.deactivate(source: .schedule)
+    }
+    // Domain logic (project sessions, celebration display) preserved separately
+}
+
+// FocusModeController.onStateChanged → fans out enforcement
+focusModeController.onStateChanged = { old, new, period in
     relevanceScorer.clearCache()
-    earnedBrowseManager.onBlockChanged(blockId:blockTitle:)  // Set activeBlockId FIRST
-    focusMonitor.onBlockChanged()                             // Then re-evaluate (may recordWorkTick)
+    earnedBrowseManager.onBlockChanged(blockId:blockTitle:)  // before focusMonitor — preserves activeBlockId-before-recordWorkTick invariant
+    focusMonitor.onBlockChanged()
     socketRelayServer.broadcastScheduleSync()
     mainWindow.pushScheduleUpdate()
+    mainWindow.pushFocusModeUpdate(state: new)
+    if new == .off { switchCoordinator.reset() }
 }
 
 // TimeTracker.onSocialMediaTimeRecorded → deduct from earned pool
@@ -180,6 +197,14 @@ timeTracker.onSessionChanged = { platform in
 9. **Whole-app UI freeze from AppleScript on main queue.** `WebsiteBlocker.appleScriptQueue` was declared as `DispatchQueue.main`, and a 0.5s timer fired `NSAppleScript.executeAndReturnError` on it for every active browser. Each call blocks on `mach_msg` waiting for the browser's Apple Event reply (200–600ms). Result: menu bar, pill, and dashboard all sluggish; dashboard `fps=14–23` with `longTasks=0` (the stall was on the native main thread, not in JS). Fixed by moving `appleScriptQueue` to a background serial queue (`DispatchQueue(label: "com.intentional.applescript", qos: .userInitiated)`). Apple Event Manager spins up its own nested `CFRunLoop` for reply delivery on whatever thread calls `AESendMessage`, so background execution is safe. **Rule: never dispatch synchronous AppleScript, Apple Events, or sync XPC to `DispatchQueue.main`. Use a background serial queue.**
 
 10. **Queued project session does not auto-activate when its block becomes current.** `handleStartProjectSession` only sets `activeProjectSession` + calls `recordSessionStart` on the immediate path (no currentBlock). When a session is queued behind an existing block, the new FocusBlock is inserted but no active session is set and no `SessionEntry` is created until that block activates. Proper fix: observe `ScheduleManager.onBlockChanged` for the queued blockId and call `setActiveProjectSession` + `recordSessionStart` on activation. See [docs/PROJECTS.md](docs/PROJECTS.md).
+
+11. **Tangled focus state (April 2026 consolidation).** Nine overlapping concepts — Focus Gate, Intentional Mode, Focus Session, Always-Active Blocking, TimeState (7 cases), etc. — caused recurring desync bugs (screen red on YouTube without a session, focus gate not engaging on cross-device signal, phantom sessions, focus session active on phone but Mac doesn't know). Consolidated into `FocusModeController` with three states (OFF/FOCUS/BEDTIME). Schedule + cross-device WS + manual toggle + puck all flow through the same controller. Enforcement components (`FocusMonitor`, `SwitchInterventionCoordinator`) read `focusModeController.isOn`. `IntentionalModeController` and `FocusSessionManager` deleted (~700 lines net). See `docs/FOCUS_CONCEPTS_SIMPLIFICATION.md` and `docs/superpowers/plans/2026-04-27-focus-mode-consolidation.md`.
+
+11b. **Bedtime config desync between Mac and iPhone (April 30, 2026).** Each device read its own local `bedtime_settings.json`; a toggle on iPhone never reached the Mac and vice versa. Backend already had `GET/PUT /bedtime/config` keyed by account_id, but the lock-loop branch was forked before the original `BedtimeConfigSync` shipped on `feat/bedtime-lockdown` — so the production PKG that included it lived elsewhere. Fix: ported `BedtimeConfigSync` (pull on launch + didBecomeActive + 60s timer; push on user edit via `MainWindow.handleSaveBedtimeSettings → BackendClient.putBedtimeConfig`). Last-write-wins via backend upsert on `account_id`. One-time migration of legacy local file → backend. See `docs/superpowers/plans/2026-04-29-partner-cross-device-sync.md` (sibling-sync architecture is identical pattern).
+
+12. **Bedtime full-screen overlay replaced by lock-loop (April 2026).** `BedtimeOverlayView` (the full-screen blanket NSWindow) was easy to dismiss / route around and didn't actually prevent the user from operating the Mac. Replaced with `BedtimeLockLoop` which fires the OS lock screen every 10s while bedtime is `.locked`. Apps + downloads + music keep running; user re-enters via password / Touch ID; 10s gives enough room for partner-code entry without locking mid-keystroke. State machine simplified to `inactive | windDown(t30/t15/t5/t1) | locked | released`. Removed `forceSleep` (pmset), `snoozeUsedTonight`, `BedtimeOverlayView`, the wind-down redShift/grayscale phases. Wind-down cascade now lives in `BedtimeWindDownController` as native macOS notifications (`.timeSensitive`, bypasses DND) at T-30 / T-15 / T-10 / T-5 / T-1. Pill gains `.bedtimeWindDown` and `.bedtimeLocked` modes; pill also snaps to top-right on every `show()` so users don't lose it off-screen. Partner unlock now duration-limited via slider (15/30/60/120 min or until wake) with once-per-night cap. See `docs/cross-repo-bedtime-lock-loop-2026-04-29.md` and `docs/superpowers/plans/2026-04-29-bedtime-lock-loop-and-duration-extensions.md`.
+
+   **Lock primitive (April 30, 2026 fix):** original implementation invoked the lock screen via AppleScript `keystroke "q" using {command down, control down}`. On machines where "Require password X after sleep" is set to a delay (5min/1hr), macOS interpreted this as Sleep Display, so wake-from-sleep didn't require a password. Subsequent ticks also no-op'd silently because System Events can't deliver keystrokes to a loginwindow-locked context. **Fix:** `dlopen` + `dlsym` on `/System/Library/PrivateFrameworks/login.framework/Versions/A/login` and call `SACLockScreenImmediate()` directly — same primitive Apple's "Lock Screen" menu item uses, always forces password regardless of the `password-after-sleep` delay. AppleScript remains as fallback if dlopen ever fails on a future macOS. Also added `RunLoop.main.add(timer, forMode: .common)` and `timer.tolerance = 0.5s` to harden the 10s cadence. **Rule: don't lock the screen via AppleScript keystroke. Use SACLockScreenImmediate via dlopen.**
 
 ---
 

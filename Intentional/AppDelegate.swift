@@ -33,13 +33,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var scheduleManager: ScheduleManager?
     var relevanceScorer: RelevanceScorer?
     var focusMonitor: FocusMonitor?
+    var focusModeController: FocusModeController?
     var nudgeController: NudgeWindowController?
 
     // Earn Your Browse budget system
     var earnedBrowseManager: EarnedBrowseManager?
-
-    // Intentional Mode — screen lock until you plan
-    var intentionalModeController: IntentionalModeController?
 
     // Content Safety — on-device screen monitoring for explicit content
     var contentSafetyMonitor: ContentSafetyMonitor?
@@ -54,6 +52,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Bedtime Enforcer — locks screen during bedtime hours
     var bedtimeEnforcer: BedtimeEnforcer?
+    /// Cross-device sync for bedtime config (start/end/enabled/active days).
+    /// Pulls from `/bedtime/config` on launch + active + every 60s and feeds
+    /// the result into BedtimeEnforcer via applyRemoteSettings. Closes the
+    /// gap where Mac and iPhone bedtime configs would diverge (each device
+    /// previously read only its local file).
+    var bedtimeConfigSync: BedtimeConfigSync?
+    /// Floating window hosting BedtimeUnlockRequestView. Singleton so
+    /// repeat taps from the pill's "Ask partner" button don't open a
+    /// window stack.
+    var bedtimeUnlockWindow: NSWindow?
 
     // Blocking Profiles & Focus Sessions (Puck integration)
     var blockingProfileManager: BlockingProfileManager?
@@ -143,8 +151,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     var activeProjectId: UUID? { activeProjectSession?.projectId }
 
-    var focusSessionManager: FocusSessionManager?
     var focusWebSocketClient: FocusWebSocketClient?
+    var focusStatePoller: FocusStatePoller?
     private var focusStartOverlayWindows: [NSWindow] = []
     private var focusStartOverlayViewModel: FocusStartOverlayViewModel?
     private var puckHotkeyMonitor: Any?
@@ -295,6 +303,56 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// One-time migration: clear local Intentional Mode state on first launch
+    /// of the new build (the focus consolidation drops the IntentionalModeController
+    /// + FocusSessionManager — these stale settings would persist otherwise).
+    /// Wiped: 4 IntentionalMode UserDefaults keys + focus_session.json on disk.
+    /// Preserved: account auth, schedule, distractions list, partner config,
+    /// strict mode, content safety, intervention preferences.
+    private func runFocusModeMigrationIfNeeded() {
+        let migrationKey = "focus_mode_v1_migration_complete"
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: migrationKey) else { return }
+
+        postLog("🔄 Running Focus Mode v1 migration — wiping local focus state")
+
+        // 1. Clear UserDefaults keys related to old controllers.
+        // Settings written by the now-deleted IntentionalModeController. The
+        // dashboard still reads/writes these keys via handleSaveIntentionalMode
+        // (Task 10 left that handler as documented dead code) — wiping them
+        // gives the user a fresh start.
+        let keysToWipe = [
+            "intentionalModeEnabled",
+            "intentionalModeSchedule",
+            "intentionalModeGracePeriod",
+            "intentionalModeCustomSchedule"
+        ]
+        for k in keysToWipe { defaults.removeObject(forKey: k) }
+
+        // 2. Clear on-disk state files that the old controllers wrote.
+        // FocusSessionManager wrote `focus_session.json`. IntentionalModeController
+        // didn't persist to disk (UserDefaults only) — the speculative
+        // `intentional_mode_state.json` is kept as a defensive guard against any
+        // future build that may have written it.
+        let fm = FileManager.default
+        if let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            let intentionalDir = appSupport.appendingPathComponent("Intentional", isDirectory: true)
+            for filename in ["focus_session.json", "intentional_mode_state.json"] {
+                let url = intentionalDir.appendingPathComponent(filename)
+                guard fm.fileExists(atPath: url.path) else { continue }
+                do {
+                    try fm.removeItem(at: url)
+                    postLog("🗑️ Focus migration: removed \(filename)")
+                } catch {
+                    postLog("⚠️ Focus migration: failed to remove \(filename): \(error.localizedDescription)")
+                }
+            }
+        }
+
+        defaults.set(true, forKey: migrationKey)
+        postLog("✅ Focus Mode v1 migration complete")
+    }
+
     /// Register/unregister the watchdog LaunchAgent (fallback when daemon is not running).
     private func updateWatchdog(enabled: Bool) {
         if #available(macOS 13.0, *) {
@@ -346,6 +404,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         "applicationDidFinishLaunching called at \(Date())\n".appendLine(to: logPath)
 
         postLog("✅ Intentional app launched")
+
+        // One-time migration: clear legacy focus state from old controllers
+        runFocusModeMigrationIfNeeded()
 
         // Safety net: restore color in case previous instance was killed with grayscale active
         GrayscaleOverlayController.forceRestoreSaturation()
@@ -512,7 +573,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let block = scheduleManager?.currentBlock,
            block.blockType == .deepWork || block.blockType == .focusHours {
             switchCoordinator.sessionStarted(at: Date())
-            switchCoordinator.setInWorkSession(true)
         }
         postLog("👁️ SwitchInterventionCoordinator + SwitchOverlayController wired to FocusMonitor")
 
@@ -524,33 +584,100 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         focusMonitor?.start()
         postLog("👁️ FocusMonitor + NudgeWindowController + FocusOverlayWindow + InterventionOverlay initialized")
 
-        // Initialize Intentional Mode (screen lock until you plan)
-        intentionalModeController = IntentionalModeController(appDelegate: self)
-        intentionalModeController?.scheduleManager = scheduleManager
-        intentionalModeController?.loadSettings()
-        intentionalModeController?.recalculateState()
-        intentionalModeController?.start()
-        postLog("🔒 IntentionalModeController initialized (enabled=\(intentionalModeController?.isEnabled ?? false))")
+        // Step 15.5: FocusModeController — single source of truth for "is the app enforcing"
+        // (replaces IntentionalModeController + FocusSessionManager — see plan
+        // docs/superpowers/plans/2026-04-27-focus-mode-consolidation.md)
+        focusModeController = FocusModeController()
+        let restoredState = focusModeController?.state ?? .off
+        postLog("✅ FocusModeController initialized (state=\(restoredState.rawValue))")
+        focusMonitor?.focusModeController = focusModeController
+        self.switchCoordinator?.focusModeController = focusModeController
+
+        focusModeController?.onStateChanged = { [weak self] old, new, period in
+            guard let self = self else { return }
+            let intentionStr = period?.intention.map { " (\"\($0)\")" } ?? ""
+            self.postLog("🎯 Focus Mode: \(old.rawValue) → \(new.rawValue)\(intentionStr)")
+            self.relevanceScorer?.clearCache()
+
+            // earnedBrowseManager.onBlockChanged MUST run before focusMonitor.onBlockChanged
+            // — recordWorkTick reads activeBlockId. (CLAUDE.md Known Bug Fixes #2.)
+            // Read currentBlock from the schedule because Period doesn't carry blockId.
+            let block = self.scheduleManager?.currentBlock
+            self.earnedBrowseManager?.onBlockChanged(blockId: block?.id, blockTitle: block?.title)
+
+            self.focusMonitor?.onBlockChanged()
+            self.socketRelayServer?.broadcastScheduleSync()
+            self.mainWindowController?.pushScheduleUpdate()
+
+            if new == .focus && old != .focus {
+                // Cross-device, schedule, and dashboard-toggle paths activate
+                // FocusModeController without going through startFocusSession's
+                // profile picker — so the blocklist is never propagated to
+                // WebsiteBlocker. Apply the user's default profile here so
+                // those paths actually block. The picker path runs AFTER this
+                // and overrides with its explicit profileIds.
+                self.applyDefaultBlockingProfile()
+            }
+            if new == .off {
+                self.switchCoordinator?.reset()
+                self.applyAlwaysActiveProfiles()
+            }
+            self.mainWindowController?.pushFocusModeUpdate(state: new)
+        }
 
         // Bedtime Enforcer
         bedtimeEnforcer = BedtimeEnforcer(appDelegate: self)
         sleepWakeMonitor?.onWake = { [weak self] in
             self?.bedtimeEnforcer?.onMacWoke()
         }
+        // Drive the pill widget from bedtime state transitions.
+        // - .windDown(phase) → bedtimeWindDown pill (allowMinimize only at T-30)
+        // - .locked          → bedtimeLocked pill with Ask Partner button
+        // - .inactive / .released → dismiss bedtime pill (other pill modes
+        //   such as deep-work timer are owned by FocusMonitor and unaffected)
+        bedtimeEnforcer?.onStateChanged = { [weak self] oldState, newState in
+            self?.handleBedtimeStateChange(from: oldState, to: newState)
+        }
         bedtimeEnforcer?.start()
+        // BedtimeLockLoop reads state from the enforcer on every tick to
+        // self-cancel when bedtime ends (R10 mitigation). Bind once here
+        // so the loop knows which enforcer to consult.
+        if let enforcer = bedtimeEnforcer {
+            DispatchQueue.main.async {
+                BedtimeLockLoop.shared.bind(to: enforcer)
+            }
+        }
         postLog("🌙 BedtimeEnforcer initialized and started")
+
+        // Cross-device bedtime config sync. Pulls /bedtime/config on launch +
+        // didBecomeActive + every 60s. Pushes user edits to backend (via
+        // MainWindow's saveSettings handler) so a change on Mac is mirrored
+        // on iPhone within ~60s, and vice versa. Migrates the legacy local
+        // bedtime_settings.json to the backend on first run.
+        if let enforcer = bedtimeEnforcer, let backend = backendClient {
+            bedtimeConfigSync = BedtimeConfigSync(
+                appDelegate: self, enforcer: enforcer, backendClient: backend
+            )
+            bedtimeConfigSync?.start()
+            postLog("🌙 BedtimeConfigSync started")
+        }
 
         // Blocking Profiles & Focus Sessions
         blockingProfileManager = BlockingProfileManager()
-        focusSessionManager = FocusSessionManager()
 
         // Apply always-active profiles on startup
         applyAlwaysActiveProfiles()
 
-        // Restore active focus session if app restarted mid-focus
-        if let session = focusSessionManager?.activeSession {
-            postLog("🎯 Restoring active focus session from disk")
-            applyFocusSession(session)
+        // If FocusModeController restored .focus from disk (Mac was killed
+        // mid-session — force quit, crash, OS restart), re-engage enforcement
+        // now that BlockingProfileManager + FocusMonitor are ready. Without
+        // this, the controller's in-memory state is correct but no blocklist
+        // is applied until the next state transition. Poller will reconcile
+        // within 2s if disk and backend disagree (backend wins).
+        if focusModeController?.state == .focus {
+            postLog("🎯 Restored .focus from disk — re-engaging enforcement")
+            applyDefaultBlockingProfile()
+            focusMonitor?.onBlockChanged()
         }
 
         // Mock Puck trigger: Cmd+Shift+P global hotkey
@@ -566,7 +693,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
             return event
         }
-        postLog("🎯 BlockingProfileManager + FocusSessionManager initialized")
+        postLog("🎯 BlockingProfileManager initialized")
 
         // WebSocket focus signal client (receives start/stop from Puck via backend)
         focusWebSocketClient = FocusWebSocketClient()
@@ -576,11 +703,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if action == "start" {
                     self.postLog("🔌 Focus signal: START (session: \(sessionId), triggeredBy: \(triggeredBy))")
                     self.focusWebSocketClient?.startHeartbeat(sessionId: sessionId)
-                    self.showFocusStartOverlay(isPuckTriggered: triggeredBy == "puck")
+                    self.dismissFocusStartOverlay()  // close any picker if open
+
+                    let intention = triggeredBy == "puck"
+                        ? "Focus session (started on phone)"
+                        : "Focus session"
+                    let source: FocusModeController.ActivationSource = triggeredBy == "puck" ? .puck : .crossDevice
+                    self.focusModeController?.activate(intention: intention, source: source)
                 } else if action == "stop" {
                     self.postLog("🔌 Focus signal: STOP (session: \(sessionId))")
                     self.focusWebSocketClient?.stopHeartbeat()
-                    self.endFocusSession()
+                    self.focusModeController?.deactivate(source: .crossDevice)
                 }
             }
         }
@@ -602,26 +735,52 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // Wire schedule block changes: when the active block changes,
-        // clear the relevance cache, reset focus monitor, and broadcast SCHEDULE_SYNC
+        // Polling fallback for cross-device focus signal. Runs in parallel with the
+        // WebSocket — whichever path detects the transition first wins. activate /
+        // deactivate on FocusModeController are idempotent. Polling is more robust
+        // against the WS reconnect-after-offline failure mode.
+        if let controller = focusModeController {
+            focusStatePoller = FocusStatePoller(
+                appDelegate: self,
+                focusModeController: controller
+            )
+            focusStatePoller?.start()
+        }
+
+        // Wire schedule block changes: the schedule is a trigger source for
+        // FocusModeController. All enforcement fanout (cache clear, focusMonitor
+        // re-eval, broadcasts, dashboard push) lives in focusModeController.onStateChanged.
+        // This closure only:
+        //   (a) routes the new TimeState into FocusModeController, and
+        //   (b) handles domain logic (project sessions, celebration) that is NOT fanout.
         scheduleManager?.onBlockChanged = { [weak self] block, state in
             guard let self = self else { return }
             self.postLog("📋 Block changed → \(state.rawValue)" + (block != nil ? " (\(block!.title))" : ""))
 
-            // Capture previous block data BEFORE resetting activeBlockId
+            // Capture previous block data BEFORE transitioning state (used for
+            // celebration and project-session bookkeeping below).
             let prevBlockId = self.earnedBrowseManager?.activeBlockId
             let prevStats = prevBlockId.flatMap { self.earnedBrowseManager?.blockFocusStats[$0] }
             let prevBlock = prevBlockId.flatMap { id in
                 self.scheduleManager?.todaySchedule?.blocks.first(where: { $0.id == id })
             }
 
-            self.relevanceScorer?.clearCache()
-            // Set activeBlockId BEFORE focusMonitor re-evaluates (which may call recordWorkTick)
-            self.earnedBrowseManager?.onBlockChanged(blockId: block?.id, blockTitle: block?.title)
-            self.focusMonitor?.onBlockChanged()
-            self.intentionalModeController?.onBlockChanged(block: block, timeState: state)
-            self.socketRelayServer?.broadcastScheduleSync()
-            self.mainWindowController?.pushScheduleUpdate()
+            // Route into FocusModeController. Fanout (clearCache, earnedBrowse, focusMonitor,
+            // broadcasts) runs via focusModeController.onStateChanged.
+            switch state {
+            case .focus:
+                self.focusModeController?.activate(intention: block?.title, source: .schedule)
+                self.postFocusToggleToBackend(action: "start")
+            case .bedtime:
+                self.focusModeController?.activateBedtime(source: .bedtimeSchedule)
+                // Bedtime is phone-and-Mac local for now — separate backend
+                // surface will be added by the bedtime cross-device feature
+                // (docs/superpowers/plans/2026-04-27-bedtime-cross-device.md).
+                // Don't reuse /focus/toggle for bedtime; semantically different.
+            case .off:
+                self.focusModeController?.deactivate(source: .schedule)
+                self.postFocusToggleToBackend(action: "stop")
+            }
 
             // Show celebration in the pill for the block that just ended
             if let prevBlock = prevBlock, let prevStats = prevStats,
@@ -672,6 +831,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // Also sync focusMonitor so the floating timer shows immediately on startup mid-block
             focusMonitor?.onBlockChanged()
             ensureProjectSessionMatchesCurrentBlock()
+        }
+
+        // Initial sync: if a block is already active when the app starts, activate
+        // Focus Mode immediately. (Catches app-started-during-block.) FocusModeController
+        // fanout will then trigger downstream re-eval.
+        if let currentBlock = scheduleManager?.currentBlock {
+            let timeState = scheduleManager?.currentTimeState ?? .off
+            switch timeState {
+            case .focus:
+                focusModeController?.activate(intention: currentBlock.title, source: .schedule)
+            case .bedtime:
+                focusModeController?.activateBedtime(source: .bedtimeSchedule)
+            case .off:
+                break  // already off
+            }
         }
 
         // Step 15b: Enforcement Reconciler — runs BEFORE ContentSafetyMonitor
@@ -835,6 +1009,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Disconnect WebSocket
         focusWebSocketClient?.disconnect()
+        focusStatePoller?.stop()
 
         // Stop content safety monitor
         contentSafetyMonitor?.stop()
@@ -1053,7 +1228,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func togglePuckFocus() {
-        if focusSessionManager?.isActive == true {
+        if focusModeController?.isOn == true {
             endFocusSession()
         } else {
             showFocusStartOverlay(isPuckTriggered: true)
@@ -1119,18 +1294,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func startFocusSession(profileIds: [UUID], intention: String?, aiEnabled: Bool, triggeredByPuck: Bool) {
-        focusSessionManager?.startSession(profileIds: profileIds, intention: intention, aiEnabled: aiEnabled, triggeredByPuck: triggeredByPuck)
-        guard let session = focusSessionManager?.activeSession else { return }
-        applyFocusSession(session)
+        let source: FocusModeController.ActivationSource = triggeredByPuck ? .puck : .manual
+        focusModeController?.activate(intention: intention, source: source)
+        applyFocusSession(profileIds: profileIds, intention: intention)
         postLog("🎯 Focus session started (profiles=\(profileIds.count), intention=\(intention ?? "none"), puck=\(triggeredByPuck))")
     }
 
-    func applyFocusSession(_ session: FocusSession) {
-        let merged = blockingProfileManager?.mergedBlockList(profileIds: session.activeProfileIds)
+    func applyFocusSession(profileIds: [UUID], intention: String?) {
+        let merged = blockingProfileManager?.mergedBlockList(profileIds: profileIds)
         let domains = merged?.domains ?? []
         let appBundleIds = merged?.appBundleIds ?? []
-        let hasProfiles = !session.activeProfileIds.isEmpty && !domains.isEmpty
-        let hasIntention = session.intention != nil && !session.intention!.isEmpty
+        let hasProfiles = !profileIds.isEmpty && !domains.isEmpty
+        let hasIntention = intention != nil && !intention!.isEmpty
 
         // Only enforce if there's something to enforce
         guard hasProfiles || hasIntention else {
@@ -1146,7 +1321,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let cal = Calendar.current
             let block = ScheduleManager.FocusBlock(
                 id: UUID().uuidString,
-                title: session.intention!,
+                title: intention!,
                 description: "",
                 startHour: cal.component(.hour, from: now),
                 startMinute: cal.component(.minute, from: now),
@@ -1160,7 +1335,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func endFocusSession() {
-        focusSessionManager?.stopSession()
+        focusModeController?.deactivate(source: .manual)
 
         // Fall back to always-active profiles (or empty if none)
         applyAlwaysActiveProfiles()
@@ -1181,9 +1356,54 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         postLog("🎯 Always-active enforcement: \(domains.count) domains, \(appBundleIds.count) apps")
     }
 
+    /// POST /focus/toggle to the backend with X-Device-ID auth. Used by:
+    /// - Mac dashboard toggle (manual)
+    /// - Mac scheduler (when a focus block starts/ends)
+    /// Local FocusModeController.activate/deactivate runs FIRST for instant
+    /// feedback; this fires async to mirror the change to backend so other
+    /// devices (iPhone, future) and the Mac's own poller see it. On failure
+    /// the next poller tick reconciles (backend wins).
+    func postFocusToggleToBackend(action: String) {
+        guard let deviceId = backendClient?.getDeviceId(),
+              let url = URL(string: "https://api.intentional.social/focus/toggle") else { return }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: ["action": action])
+        req.timeoutInterval = 5
+        URLSession.shared.dataTask(with: req) { [weak self] _, response, error in
+            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+            if let error = error {
+                self?.postLog("⚠️ /focus/toggle \(action) failed: \(error.localizedDescription)")
+            } else if status >= 400 {
+                self?.postLog("⚠️ /focus/toggle \(action) HTTP \(status)")
+            } else {
+                self?.postLog("🎯 /focus/toggle \(action) → backend OK")
+            }
+        }.resume()
+    }
+
+    /// Apply the user's default blocking profile (the one with `isDefault: true`).
+    /// Used by FocusModeController.onStateChanged when entering .focus from any path
+    /// that doesn't explicitly select profiles (cross-device puck, schedule, manual
+    /// dashboard toggle). Falls back to always-active if no default profile exists.
+    func applyDefaultBlockingProfile() {
+        guard let manager = blockingProfileManager,
+              let defaultProfile = manager.profiles.first(where: { $0.isDefault }) else {
+            postLog("🎯 No default blocking profile — falling back to always-active")
+            applyAlwaysActiveProfiles()
+            return
+        }
+        let merged = manager.mergedBlockList(profileIds: [defaultProfile.id])
+        websiteBlocker?.updateDistractingSites(merged.domains)
+        focusMonitor?.distractingAppBundleIds = Set(merged.appBundleIds)
+        postLog("🎯 Default profile '\(defaultProfile.name)' applied: \(merged.domains.count) domains, \(merged.appBundleIds.count) apps")
+    }
+
     func checkForActiveFocusSession() {
         guard let token = backendClient?.getAccessToken() else { return }
-        guard focusSessionManager?.isActive != true else { return } // Already in a session
+        guard focusModeController?.isOn != true else { return } // Already in a session
 
         #if DEBUG
         let urlString = "http://localhost:8000/focus/active"
@@ -1203,6 +1423,110 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.showFocusStartOverlay(isPuckTriggered: true)
             }
         }.resume()
+    }
+
+    // MARK: - Bedtime → Pill bridge
+
+    /// Drive the pill widget from BedtimeEnforcer state transitions.
+    /// Wired in `applicationDidFinishLaunching` after the enforcer is
+    /// created. Runs on the main queue (state transitions originate from
+    /// the recalc tickTimer, which is a main-queue Timer).
+    func handleBedtimeStateChange(from old: BedtimeState, to new: BedtimeState) {
+        guard let pill = focusMonitor?.deepWorkTimerController else { return }
+
+        switch new {
+        case .inactive, .released:
+            // Bedtime pill should go away. We only dismiss when the pill
+            // is currently in a bedtime mode — otherwise we'd kill an
+            // active deep-work / focus-hours timer that's unrelated.
+            if let mode = pill.viewModel?.mode, mode == .bedtimeWindDown || mode == .bedtimeLocked {
+                pill.dismiss()
+            }
+
+        case .windDown(let phase):
+            guard let settings = bedtimeEnforcer?.currentSettings else { return }
+            let cal = Calendar.current
+            let now = Date()
+            // Same logic as scheduleWindDownForTonight — the next bedtime
+            // boundary on the user's wall clock.
+            guard let candidate = cal.date(
+                bySettingHour: settings.bedtimeStart.hour,
+                minute: settings.bedtimeStart.minute,
+                second: 0,
+                of: now
+            ) else { return }
+            let nextBedtime = candidate > now
+                ? candidate
+                : (cal.date(byAdding: .day, value: 1, to: candidate) ?? candidate)
+            let minutesUntil = max(1, Int((nextBedtime.timeIntervalSince(now) / 60).rounded()))
+
+            // T-30 phase only allows minimize / push-10. Beyond that, the
+            // user has to wait or ask partner — no escape.
+            let allowMinimize = (phase == .t30)
+            let push10Handler: (() -> Void)? = allowMinimize ? { [weak self] in
+                self?.focusMonitor?.deepWorkTimerController?.minimize()
+            } : nil
+
+            pill.showBedtimeWindDown(
+                minutesUntilBedtime: minutesUntil,
+                bedtime: nextBedtime,
+                allowMinimize: allowMinimize,
+                onPush10: push10Handler,
+                onAskPartner: nil
+            )
+
+        case .locked:
+            guard let settings = bedtimeEnforcer?.currentSettings else { return }
+            let cal = Calendar.current
+            let now = Date()
+            // Wake time on tomorrow's clock if bedtime crosses midnight,
+            // else today.
+            guard let candidate = cal.date(
+                bySettingHour: settings.wakeTime.hour,
+                minute: settings.wakeTime.minute,
+                second: 0,
+                of: now
+            ) else { return }
+            let wakeTime = candidate > now
+                ? candidate
+                : (cal.date(byAdding: .day, value: 1, to: candidate) ?? candidate)
+
+            pill.showBedtimeLocked(wakeTime: wakeTime) { [weak self] in
+                self?.openBedtimeUnlockRequestSheet()
+            }
+        }
+    }
+
+    /// Open the bedtime unlock-request sheet in a floating window.
+    /// Hosts BedtimeUnlockRequestView in a SwiftUI NSHostingController.
+    /// The window is reused across taps so multiple openings don't pile
+    /// up (single source of truth — the underlying request flow is
+    /// already idempotent, but window proliferation is a UX papercut).
+    func openBedtimeUnlockRequestSheet() {
+        if let existing = bedtimeUnlockWindow {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        let host = NSHostingController(rootView: BedtimeUnlockRequestView())
+        let window = NSWindow(contentViewController: host)
+        window.title = "Ask Partner to Unlock"
+        window.styleMask = [.titled, .closable]
+        window.level = .floating
+        window.center()
+        window.isReleasedWhenClosed = false
+        // Track close so the next tap re-creates the window with fresh
+        // state (slider snaps back to default 30 min, etc.).
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            self?.bedtimeUnlockWindow = nil
+        }
+        bedtimeUnlockWindow = window
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     func postLog(_ message: String) {

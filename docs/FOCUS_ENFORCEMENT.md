@@ -1,5 +1,24 @@
 # Focus Enforcement (FocusMonitor)
 
+## When Does Enforcement Run?
+
+Enforcement runs IFF `FocusModeController.isOn == true`. The controller has three states (off/focus/bedtime); only `.focus` engages full enforcement. Bedtime is a separate concept (wind-down ramp, different blocklist).
+
+All enforcement entry points (`FocusMonitor.evaluateApp()`, `FocusMonitor.pollActiveTab()`, `SwitchInterventionCoordinator`) gate on `focusModeController.isOn`. The controller is the single activation path — schedule transitions, dashboard toggle, cross-device poller, and puck all call `focusModeController.activate()` / `.deactivate()` / `.activateBedtime()`. There is no separate `intentionalModeEnabled` flag or `focusSession.isActive` gate predicate.
+
+## State Sources & Persistence
+
+`FocusModeController.state` is driven by:
+
+1. **Backend (cross-device authoritative)** — `FocusStatePoller` polls `/focus/active` every 2s with `X-Device-ID` auth. On transition vs local (`lastKnownActive`), calls `activate(.puck)` / `deactivate(.crossDevice)`. Long-lived device-ID auth so JWT expiry never disrupts the polling loop. See `docs/cross-repo-focus-sync-2026-04-28.md`.
+2. **Dashboard toggle** — `MainWindow.handleFocusModeToggle` → `activate(.manual)` / `deactivate(.manual)`, plus `AppDelegate.postFocusToggleToBackend(action:)` so the change reaches backend. Without the POST, the poller would re-engage 2s later from stale backend state and the user's "off" toggle would silently fail.
+3. **Schedule** — `ScheduleManager.onBlockChanged` for `.focus` / `.off` calls `activate(.schedule)` / `deactivate(.schedule)` AND posts to backend.
+4. **WebSocket (legacy, parallel path)** — `FocusWebSocketClient.onFocusSignal` still wired but the poller carries the load. `activate` / `deactivate` are idempotent so duplicate signals are safe.
+
+State + period are persisted to `~/Library/Application Support/Intentional/focus_mode_state.json` on every `notify()`. `FocusModeController.init()` rehydrates from disk so app-restart with an active session doesn't briefly show "off." After init, `AppDelegate.applicationDidFinishLaunching` checks `focusModeController?.state == .focus` and re-engages enforcement explicitly (`applyDefaultBlockingProfile()` + `focusMonitor.onBlockChanged()`) since the in-memory restore alone doesn't trigger the existing `onStateChanged` fanout (closures aren't wired yet at controller init time).
+
+Default blocking profile is applied automatically when entering `.focus` from any path that doesn't go through the explicit profile picker (cross-device, schedule, manual toggle). The picker path's subsequent `applyFocusSession([picker profiles])` overrides if profiles are explicitly chosen.
+
 ## Block Start Ritual (BlockRitualController)
 When a block starts, a ritual card shows BEFORE the timer and enforcement activate. The user sets their intention and if-then plan, then clicks Start (or it auto-starts after 3 min for work / 30s for free time).
 
@@ -45,9 +64,9 @@ Justification: "This is relevant" accepted → 3 min suppression only (no perman
 
 | State | Condition | Card | Dismiss |
 |-------|-----------|------|---------|
-| `noPlan` | `timeState == .noPlan` | "What are you working on?" + 3 quick-block buttons (Deep Work/Focus/Free Time) + "Plan Full Day →" + snooze | No dismiss — must snooze or act |
-| `gap` | `timeState == .unplanned` AND remaining blocks exist | "UNSCHEDULED" + "Up next in Xm" + accent-bar block list + "Schedule Now" button | − button minimizes to dock (30 min snooze) |
-| `doneForDay` | `timeState == .unplanned` AND no remaining blocks AND blocks existed | Green "DAY COMPLETE" + stats + focus badge | − button minimizes; auto-dismiss 30s |
+| `noPlan` | `focusModeController.isOn == false` AND no schedule set | "What are you working on?" + 3 quick-block buttons (Deep Work/Focus/Free Time) + "Plan Full Day →" + snooze | No dismiss — must snooze or act |
+| `gap` | `focusModeController.isOn == false` AND remaining blocks exist | "UNSCHEDULED" + "Up next in Xm" + accent-bar block list + "Schedule Now" button | − button minimizes to dock (30 min snooze) |
+| `doneForDay` | `focusModeController.isOn == false` AND no remaining blocks AND blocks existed | Green "DAY COMPLETE" + stats + focus badge | − button minimizes; auto-dismiss 30s |
 
 Quick-block buttons create a block starting now with default duration (adjusted for afternoon: shorter). "Schedule Now" opens the dashboard calendar with a pre-filled 1-hour focus block at the current time via `MainWindow.openScheduleWithNewBlock()`.
 

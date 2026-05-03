@@ -11,6 +11,11 @@ import Foundation
 /// and partner extra time. Does NOT handle heartbeat dedup (TimeTracker owns that).
 class EarnedBrowseManager {
 
+    // MARK: - Feature flag (deferred — see docs/FOCUS_CONCEPTS_SIMPLIFICATION.md)
+    /// When false, the manager is inert: public methods early-return, properties
+    /// return zero/empty defaults. Code is preserved for re-enable later.
+    static let featureEnabled: Bool = false
+
     weak var appDelegate: AppDelegate?
 
     // MARK: - Earned Pool
@@ -20,9 +25,15 @@ class EarnedBrowseManager {
     /// Total minutes used today on social media
     private(set) var usedMinutes: Double = 0
     /// Minutes available for browsing
-    var availableMinutes: Double { earnedMinutes - usedMinutes }
+    var availableMinutes: Double {
+        guard EarnedBrowseManager.featureEnabled else { return 0 }
+        return earnedMinutes - usedMinutes
+    }
     /// Whether the earned pool is exhausted (no browse time left)
-    var isPoolExhausted: Bool { availableMinutes <= 0 }
+    var isPoolExhausted: Bool {
+        guard EarnedBrowseManager.featureEnabled else { return false }
+        return availableMinutes <= 0
+    }
 
     // MARK: - Earning Rates (min browsing earned per min worked)
 
@@ -124,6 +135,7 @@ class EarnedBrowseManager {
     /// Record a work tick. Called by FocusMonitor on each relevant scoring tick (~10s).
     /// Adds time × rate to earnedMinutes. Uses deepWorkRate if in deep work block or sustained deep work.
     func recordWorkTick(seconds: Double) {
+        guard EarnedBrowseManager.featureEnabled else { return }
         ensureToday()
         let blockType = appDelegate?.scheduleManager?.currentBlock?.blockType ?? .focusHours
         let rate = (blockType == .deepWork || isDeepWork) ? deepWorkRate : standardRate
@@ -150,6 +162,7 @@ class EarnedBrowseManager {
     /// Returns remaining available minutes after deduction.
     @discardableResult
     func recordSocialMediaTime(minutes: Double, blockType: ScheduleManager.BlockType, isFreeBrowse: Bool = false) -> Double {
+        guard EarnedBrowseManager.featureEnabled else { return 0 }
         ensureToday()
         let multiplier: Double
         if isFreeBrowse {
@@ -171,6 +184,7 @@ class EarnedBrowseManager {
     /// Called when the active focus block changes.
     /// Resets deep work window. Does NOT reset earned/used pool (those are daily).
     func onBlockChanged(blockId: String? = nil, blockTitle: String? = nil) {
+        guard EarnedBrowseManager.featureEnabled else { return }
         assessmentWindow.removeAll()
         isDeepWork = false
 
@@ -190,6 +204,7 @@ class EarnedBrowseManager {
     /// Returns how many AI overrides remain for the given block.
     /// If partner approval is required (and a partner is configured), returns unlimited (Int.max).
     func overridesRemaining(for blockId: String, partnerApprovalRequired: Bool) -> Int {
+        guard EarnedBrowseManager.featureEnabled else { return 0 }
         if partnerApprovalRequired { return Int.max }  // unlimited with partner
         let used = blockFocusStats[blockId]?.overridesUsed ?? 0
         return max(0, 2 - used)
@@ -197,6 +212,7 @@ class EarnedBrowseManager {
 
     /// Consume one AI override for the given block.
     func useOverride(for blockId: String) {
+        guard EarnedBrowseManager.featureEnabled else { return }
         if var stats = blockFocusStats[blockId] {
             stats.overridesUsed += 1
             blockFocusStats[blockId] = stats
@@ -209,6 +225,7 @@ class EarnedBrowseManager {
     /// Record a relevance assessment for deep work tracking.
     /// Called by FocusMonitor on each scoring tick.
     func recordAssessment(relevant: Bool) {
+        guard EarnedBrowseManager.featureEnabled else { return }
         let now = Date()
         assessmentWindow.append((timestamp: now, relevant: relevant))
 
@@ -239,6 +256,7 @@ class EarnedBrowseManager {
 
     /// Record a nudge/intervention event for the current block.
     func recordNudge() {
+        guard EarnedBrowseManager.featureEnabled else { return }
         guard let blockId = activeBlockId, var stats = blockFocusStats[blockId] else { return }
         stats.nudgeCount += 1
         blockFocusStats[blockId] = stats
@@ -247,6 +265,7 @@ class EarnedBrowseManager {
 
     /// Increment recovery count (distraction→focus transition) for the current block.
     func incrementRecoveryCount() {
+        guard EarnedBrowseManager.featureEnabled else { return }
         guard let blockId = activeBlockId, var stats = blockFocusStats[blockId] else { return }
         stats.recoveryCount += 1
         blockFocusStats[blockId] = stats
@@ -256,6 +275,7 @@ class EarnedBrowseManager {
 
     /// Ensure state is for today. Resets pool on new day with welcome credit.
     func ensureToday() {
+        guard EarnedBrowseManager.featureEnabled else { return }
         let today = todayString()
         guard currentDate != today else { return }
 
@@ -288,6 +308,7 @@ class EarnedBrowseManager {
 
     /// Grant minutes after backend code verification succeeds.
     func grantPartnerExtraTime(minutes: Double) {
+        guard EarnedBrowseManager.featureEnabled else { return }
         ensureToday()
         earnedMinutes += minutes
         save()
@@ -300,6 +321,7 @@ class EarnedBrowseManager {
     /// Only grants once per block ID per day. Requires a non-nil block ID.
     @discardableResult
     func grantIntentBonus(blockId: String?) -> Bool {
+        guard EarnedBrowseManager.featureEnabled else { return false }
         guard let blockId = blockId else { return false }
         ensureToday()
         guard !intentBonusGrantedBlockIds.contains(blockId) else { return false }
@@ -313,6 +335,7 @@ class EarnedBrowseManager {
     /// Whether the intent bonus is available for the current block.
     /// True only during Free Time blocks where the bonus hasn't been claimed yet.
     var intentBonusAvailable: Bool {
+        guard EarnedBrowseManager.featureEnabled else { return false }
         guard let blockId = appDelegate?.scheduleManager?.currentBlock?.id else { return false }
         let blockType = appDelegate?.scheduleManager?.currentBlock?.blockType ?? .freeTime
         return blockType == .freeTime && !intentBonusGrantedBlockIds.contains(blockId)
@@ -322,6 +345,7 @@ class EarnedBrowseManager {
 
     /// Update the last active non-browser app name and timestamp.
     func updateLastActiveApp(name: String, timestamp: Date) {
+        guard EarnedBrowseManager.featureEnabled else { return }
         lastActiveApp = name
         lastActiveAppTimestamp = timestamp
     }
@@ -330,6 +354,24 @@ class EarnedBrowseManager {
 
     /// Build the state dictionary matching WORK_BLOCK_STATE / EARNED_MINUTES_UPDATE message format.
     func getWorkBlockState(intention: String) -> [String: Any] {
+        guard EarnedBrowseManager.featureEnabled else {
+            return [
+                "type": "WORK_BLOCK_STATE",
+                "blockType": "focusHours",
+                "isWorkBlock": false,
+                "earnedMinutes": 0.0,
+                "usedMinutes": 0.0,
+                "availableMinutes": 0.0,
+                "effectiveBrowseTime": 0.0,
+                "costMultiplier": 0.0,
+                "poolExhausted": false,
+                "isDeepWork": false,
+                "intention": intention,
+                "lastActiveApp": "",
+                "intentBonusAvailable": false,
+                "intentBonusAmount": 0.0
+            ]
+        }
         ensureToday()
         let blockType = appDelegate?.scheduleManager?.currentBlock?.blockType ?? .freeTime
         let timeState = appDelegate?.scheduleManager?.currentTimeState
@@ -362,6 +404,7 @@ class EarnedBrowseManager {
     // MARK: - Persistence
 
     func save() {
+        guard EarnedBrowseManager.featureEnabled else { return }
         // Serialize block focus stats
         var blockStatsArray: [[String: Any]] = []
         for (_, stats) in blockFocusStats {
@@ -395,6 +438,7 @@ class EarnedBrowseManager {
     }
 
     func load() {
+        guard EarnedBrowseManager.featureEnabled else { return }
         guard FileManager.default.fileExists(atPath: stateFileURL.path) else {
             ensureToday()
             return
@@ -453,6 +497,7 @@ class EarnedBrowseManager {
 
     /// Returns today's aggregate stats across all completed blocks.
     func todaySummary() -> (blockCount: Int, focusedMinutes: Double, avgFocusScore: Int) {
+        guard EarnedBrowseManager.featureEnabled else { return (0, 0, 0) }
         let stats = Array(blockFocusStats.values)
         guard !stats.isEmpty else { return (0, 0, 0) }
         let totalMinutes = stats.reduce(0.0) { $0 + Double($1.totalTicks) * 10.0 / 60.0 }

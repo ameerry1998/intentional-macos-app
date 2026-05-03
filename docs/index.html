@@ -331,9 +331,21 @@
 <h2>🌐 Cross-repo</h2>
 <p class="section-note">This project spans 4 repos. Logs that touch more than one repo live here per the CLAUDE.md cross-repo single-source-of-truth convention.</p>
 <div class="doc-list">
+  <a class="doc" href="cross-repo-bedtime-lock-loop-2026-04-29.md">
+    <div class="title"><span class="pill md">MD</span><span class="pill dated">2026-04-29</span> Bedtime lock-loop + duration-limited extensions</div>
+    <div class="desc">Apple's lock screen every 10s replaces the full-screen blanket overlay. Wind-down notifications T-30/15/10/5/1. Partner unlock now duration-limited via slider (15/30/60/120 min or until wake). Once-per-night cap on verified extensions. Pill snaps top-right on every session.</div>
+  </a>
+  <a class="doc" href="cross-repo-focus-sync-2026-04-28.md">
+    <div class="title"><span class="pill md">MD</span><span class="pill dated">2026-04-28</span> Focus Mode sync (backend-as-master)</div>
+    <div class="desc">Cross-device focus state architecture: backend-as-master, X-Device-ID auth on /focus/*, session TTL, Mac state persistence, iOS reconcile, iOS Shield-state restore. Six-phase rollout across all three repos.</div>
+  </a>
+  <a class="doc" href="cross-repo-puck-focus-retry-2026-04-27.md">
+    <div class="title"><span class="pill md">MD</span><span class="pill dated">2026-04-27</span> Puck → Mac focus signal retry queue</div>
+    <div class="desc">iPhone fire-and-forget POST replaced with persistent UserDefaults-backed retry queue. Survives app suspension and process exit.</div>
+  </a>
   <a class="doc" href="overnight-run-2026-04-25.md">
     <div class="title"><span class="pill md">MD</span><span class="pill dated">2026-04-25</span> Overnight cross-repo run log</div>
-    <div class="desc">Latest cross-repo work — iOS layout + design system, macOS CS tamper detection, partner dashboard Phase 2.</div>
+    <div class="desc">Cross-repo work — iOS layout + design system, macOS CS tamper detection, partner dashboard Phase 2.</div>
   </a>
   <a class="doc" href="overnight-run-2026-04-24.md">
     <div class="title"><span class="pill md">MD</span><span class="pill dated">2026-04-24</span> Overnight run log (prior)</div>

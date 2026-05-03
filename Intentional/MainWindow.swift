@@ -292,6 +292,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "GET_SETTINGS":
             handleGetSettings()
 
+        case "GET_FOCUS_MODE":
+            handleGetFocusMode()
+
         case "TEST_CONTENT_SAFETY":
             appDelegate?.contentSafetyMonitor?.triggerTestDetection()
 
@@ -511,6 +514,12 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             if let body = message.body as? [String: Any] {
                 handlePromoteLearnedSite(body)
             }
+
+        case "FOCUS_MODE_TOGGLE":
+            handleFocusModeToggle(body: body)
+
+        case "INTERVENTION_TOGGLE_SET":
+            handleInterventionToggleSet(body: body)
 
         default:
             appDelegate?.postLog("⚠️ WKWebView: Unknown message type: \(type)")
@@ -974,23 +983,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         result["theme"] = (savedSettings["theme"] as? String) ?? "iridescent"
         result["strictModeEnabled"] = UserDefaults.standard.bool(forKey: "strictModeEnabled")
 
-        // Intentional Mode settings
-        let imController = appDelegate?.intentionalModeController
-        result["intentionalModeEnabled"] = imController?.isEnabled ?? false
-        result["intentionalModeSchedule"] = imController?.schedule.rawValue ?? "always"
-        result["intentionalModeGracePeriod"] = imController?.gracePeriodMinutes ?? 3
-        if let cs = imController?.customSchedule {
-            result["intentionalModeCustomSchedule"] = [
-                "weekdayStartHour": cs.weekdayStartHour,
-                "weekdayStartMinute": cs.weekdayStartMinute,
-                "weekdayEndHour": cs.weekdayEndHour,
-                "weekdayEndMinute": cs.weekdayEndMinute,
-                "weekendEnabled": cs.weekendEnabled,
-                "weekendStartHour": cs.weekendStartHour,
-                "weekendStartMinute": cs.weekendStartMinute,
-                "weekendEndHour": cs.weekendEndHour,
-                "weekendEndMinute": cs.weekendEndMinute
-            ] as [String: Any]
+        // Intentional Mode settings — read directly from UserDefaults (controller deleted in Task 9)
+        let defaults = UserDefaults.standard
+        result["intentionalModeEnabled"] = defaults.bool(forKey: "intentionalModeEnabled")
+        result["intentionalModeSchedule"] = defaults.string(forKey: "intentionalModeSchedule") ?? "always"
+        let rawGrace = defaults.integer(forKey: "intentionalModeGracePeriod")
+        result["intentionalModeGracePeriod"] = rawGrace == 0 ? 3 : rawGrace
+        if let csData = defaults.data(forKey: "intentionalModeCustomSchedule"),
+           let csJson = try? JSONSerialization.jsonObject(with: csData) as? [String: Any] {
+            result["intentionalModeCustomSchedule"] = csJson
         }
 
         result["userEmail"] = appDelegate?.backendClient?.storedEmail ?? ""
@@ -1598,32 +1599,22 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     // MARK: - Intentional Mode
 
     private func handleSaveIntentionalMode(_ body: [String: Any]) {
-        guard let controller = appDelegate?.intentionalModeController else { return }
-
+        // IntentionalModeController deleted in Task 9 — persist directly to UserDefaults
+        // so the dashboard settings round-trip continues to work.
         let enabled = body["enabled"] as? Bool ?? false
         let scheduleRaw = body["schedule"] as? String ?? "always"
         let grace = body["gracePeriodMinutes"] as? Int ?? 3
 
-        controller.isEnabled = enabled
-        controller.schedule = IntentionalModeController.Schedule(rawValue: scheduleRaw) ?? .always
-        controller.gracePeriodMinutes = grace
+        let defaults = UserDefaults.standard
+        defaults.set(enabled, forKey: "intentionalModeEnabled")
+        defaults.set(scheduleRaw, forKey: "intentionalModeSchedule")
+        defaults.set(grace, forKey: "intentionalModeGracePeriod")
 
-        if let custom = body["customSchedule"] as? [String: Any] {
-            controller.customSchedule = IntentionalModeController.CustomSchedule(
-                weekdayStartHour: custom["weekdayStartHour"] as? Int ?? 8,
-                weekdayStartMinute: custom["weekdayStartMinute"] as? Int ?? 0,
-                weekdayEndHour: custom["weekdayEndHour"] as? Int ?? 18,
-                weekdayEndMinute: custom["weekdayEndMinute"] as? Int ?? 0,
-                weekendEnabled: custom["weekendEnabled"] as? Bool ?? false,
-                weekendStartHour: custom["weekendStartHour"] as? Int ?? 9,
-                weekendStartMinute: custom["weekendStartMinute"] as? Int ?? 0,
-                weekendEndHour: custom["weekendEndHour"] as? Int ?? 17,
-                weekendEndMinute: custom["weekendEndMinute"] as? Int ?? 0
-            )
+        if let custom = body["customSchedule"] as? [String: Any],
+           let data = try? JSONSerialization.data(withJSONObject: custom) {
+            defaults.set(data, forKey: "intentionalModeCustomSchedule")
         }
 
-        controller.saveSettings()
-        controller.recalculateState()
         appDelegate?.postLog("🔒 SAVE_INTENTIONAL_MODE: enabled=\(enabled), schedule=\(scheduleRaw), grace=\(grace)min")
     }
 
@@ -2206,6 +2197,31 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         appDelegate?.bedtimeEnforcer?.saveSettings(settings)
         appDelegate?.postLog("🌙 Bedtime settings saved: \(enabled ? "ON" : "OFF") \(startHour):\(String(format: "%02d", startMin)) → \(endHour):\(String(format: "%02d", endMin))")
+
+        // Push the change to the backend so the iPhone (and any future
+        // Mac sibling) picks it up on its next poll. ISO weekdays
+        // (1=Mon..7=Sun) on the wire vs Mac internal Sunday-based.
+        if let backend = appDelegate?.backendClient {
+            let dto = BackendClient.BedtimeConfigDTO(
+                enabled: enabled,
+                bedtime_start: .init(hour: startHour, minute: startMin),
+                wake: .init(hour: endHour, minute: endMin),
+                active_days: BedtimeConfigSync.sundayBasedToISO(activeDays),
+                allowlist_bundle_ids: [],
+                partner_locked: partnerLocked,
+                updated_at: nil
+            )
+            Task {
+                let ok = await backend.putBedtimeConfig(dto)
+                await MainActor.run {
+                    if ok {
+                        appDelegate?.postLog("🌙 Bedtime config pushed to backend (cross-device)")
+                    } else {
+                        appDelegate?.postLog("⚠️ Bedtime config push to backend failed; local save still applied")
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Blocking Profile Handlers
@@ -2905,6 +2921,65 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
            let json = String(data: data, encoding: .utf8) {
             callJS("window._contentSafetyStatus && window._contentSafetyStatus(\(json))")
         }
+    }
+
+    /// Push focus mode state to the dashboard toggle (called by AppDelegate onStateChanged).
+    func pushFocusModeUpdate(state: FocusModeController.State) {
+        let js = """
+            if (typeof onFocusModeStateUpdate === 'function') {
+                onFocusModeStateUpdate('\(state.rawValue)');
+            }
+        """
+        callJS(js)
+    }
+
+    /// Handle GET_FOCUS_MODE — dashboard pulls current state on load. Pairs with
+    /// pushFocusModeUpdate (which can race the page-load JS parse and silently
+    /// drop). The pull guarantees the toggle reflects reality once JS is ready.
+    private func handleGetFocusMode() {
+        let stateRaw = appDelegate?.focusModeController?.state.rawValue ?? "off"
+        pushFocusModeUpdate(state: FocusModeController.State(rawValue: stateRaw) ?? .off)
+    }
+
+    // MARK: - Focus Mode Toggle Bridge
+
+    /// Body: { "on": Bool }
+    /// Manual dashboard toggle of Focus Mode. Local activate/deactivate fires
+    /// immediately for instant UI feedback. Same toggle is also propagated to
+    /// the backend so other devices see it (and so the poller doesn't stomp on
+    /// the local state by reconciling against a stale backend "no session").
+    /// If the backend POST fails, local stays as-is; the next poller tick will
+    /// reconcile if disk and backend disagree (backend wins on conflict).
+    private func handleFocusModeToggle(body: [String: Any]) {
+        guard let on = body["on"] as? Bool else { return }
+        if on {
+            appDelegate?.focusModeController?.activate(intention: nil, source: .manual)
+            appDelegate?.postFocusToggleToBackend(action: "start")
+        } else {
+            appDelegate?.focusModeController?.deactivate(source: .manual)
+            appDelegate?.postFocusToggleToBackend(action: "stop")
+        }
+    }
+
+    /// Body: { "key": String, "enabled": Bool }
+    /// Persists the user's preference for an individual intervention. Honoring the
+    /// preference (i.e., gating the actual intervention logic on this flag) is
+    /// follow-up work — Task 10 only persists the UI state.
+    /// key ∈ { "distractions_blocking", "switch_overlay", "ai_relevance",
+    ///         "screen_red_shift", "off_task_nudge", "block_start_ritual",
+    ///         "block_end_ritual", "pill_widget", "force_quit_apps",
+    ///         "earned_browse_mode" }
+    private func handleInterventionToggleSet(body: [String: Any]) {
+        guard let key = body["key"] as? String,
+              let enabled = body["enabled"] as? Bool else { return }
+        let defaultsKey = "intervention.\(key)"
+        UserDefaults.standard.set(enabled, forKey: defaultsKey)
+        NotificationCenter.default.post(
+            name: .interventionToggleChanged,
+            object: nil,
+            userInfo: ["key": key, "enabled": enabled]
+        )
+        appDelegate?.postLog("🔧 INTERVENTION_TOGGLE_SET: \(key)=\(enabled)")
     }
 
     // MARK: - JS Helpers

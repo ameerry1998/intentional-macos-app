@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Focus concepts — the simplification proposal</title>
+<style>
+  :root {
+    --bg: #0a0c0a;
+    --card: rgba(255,255,255,0.04);
+    --card-2: rgba(255,255,255,0.02);
+    --border: rgba(255,255,255,0.10);
+    --text: #f7f8f8;
+    --muted: rgba(255,255,255,0.62);
+    --dim: rgba(255,255,255,0.42);
+    --green: #6FB58E;
+    --red: #D45050;
+    --amber: #E5A063;
+    --coral: #E87461;
+    --gold: #F0B060;
+    --blue: #6E8FE0;
+    --violet: #B287D9;
+    --teal: #5CA39B;
+    --grad: linear-gradient(135deg, var(--coral), var(--gold));
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro", system-ui, sans-serif;
+    font-size: 17px; line-height: 1.6;
+  }
+  body {
+    background:
+      radial-gradient(ellipse at top left, rgba(232,116,97,0.06), transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(240,176,96,0.04), transparent 50%),
+      var(--bg);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 56px 28px 96px; }
+
+  header { margin-bottom: 56px; }
+  header .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--coral); margin-bottom: 12px; }
+  header h1 { font-size: 44px; line-height: 1.1; letter-spacing: -1px; font-weight: 800; margin: 0 0 20px; }
+  header h1 .accent { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  header .sub { font-size: 18px; color: var(--muted); max-width: 720px; }
+  header .meta { font-size: 12px; color: var(--dim); font-family: "SF Mono", monospace; margin-top: 14px; }
+
+  section { margin: 64px 0 0; }
+  section.first { margin-top: 0; }
+  section > .label { font-size: 11px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; display: block; }
+  section h2 { font-size: 28px; letter-spacing: -0.5px; font-weight: 700; margin: 0 0 14px; line-height: 1.2; }
+  section h2 .accent { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  section .hook { font-size: 17px; color: var(--muted); margin: 0 0 26px; max-width: 740px; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 24px 28px;
+  }
+  .stack { display: grid; gap: 14px; }
+  p { margin: 0 0 12px; }
+  p.muted { color: var(--muted); }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; }
+  li { margin-bottom: 6px; color: var(--text); }
+  li .muted { color: var(--muted); }
+  code { font-family: "SF Mono", Menlo, monospace; font-size: 13px; background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border); padding: 1px 6px; border-radius: 5px; color: var(--gold); }
+  strong { color: var(--text); font-weight: 600; }
+
+  /* Pill */
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .pill-red    { background: rgba(212,80,80,0.10);   color: var(--red);   border: 1px solid rgba(212,80,80,0.32); }
+  .pill-green  { background: rgba(111,181,142,0.10); color: var(--green); border: 1px solid rgba(111,181,142,0.32); }
+  .pill-amber  { background: rgba(229,160,99,0.10);  color: var(--amber); border: 1px solid rgba(229,160,99,0.32); }
+  .pill-violet { background: rgba(178,135,217,0.10); color: var(--violet);border: 1px solid rgba(178,135,217,0.32); }
+  .pill-coral  { background: rgba(232,116,97,0.10);  color: var(--coral); border: 1px solid rgba(232,116,97,0.32); }
+  .pill-blue   { background: rgba(110,143,224,0.10); color: var(--blue);  border: 1px solid rgba(110,143,224,0.32); }
+
+  /* Concept blob (used in messy-tower diagram) */
+  .blob-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0; }
+  .blob {
+    padding: 10px 12px; border-radius: 8px;
+    background: rgba(212,80,80,0.07); border: 1px solid rgba(212,80,80,0.20);
+    font-size: 13.5px;
+  }
+  .blob b { color: var(--text); display: block; margin-bottom: 2px; font-size: 12.5px; font-weight: 700; }
+  .blob span { color: var(--muted); font-size: 11.5px; }
+
+  /* State diagram */
+  .state-row { display: grid; grid-template-columns: 130px 1fr; gap: 18px; align-items: start;
+    padding: 18px 0; border-bottom: 1px dashed var(--border); }
+  .state-row:last-child { border-bottom: none; }
+  .state-name { font-size: 18px; font-weight: 700; }
+  .state-name.off  { color: var(--dim); }
+  .state-name.on   { color: var(--green); }
+  .state-name.bed  { color: var(--violet); }
+  .state-meaning { font-size: 14px; color: var(--muted); margin-bottom: 6px; }
+  .state-effects { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  /* Flow table (triggers → state) */
+  .flow { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 6px; }
+  .flow td { padding: 10px 12px 10px 0; vertical-align: top; border-bottom: 1px solid var(--border); }
+  .flow td:first-child { color: var(--muted); width: 50%; }
+  .flow tr:last-child td { border-bottom: none; }
+
+  /* Migration timeline */
+  .timeline { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 12px; }
+  .phase {
+    background: var(--card-2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 14px;
+    position: relative;
+  }
+  .phase .num { font-size: 11px; color: var(--gold); font-weight: 700; letter-spacing: 1px; }
+  .phase .title { font-size: 14px; font-weight: 600; margin: 4px 0 6px; }
+  .phase .desc { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+
+  /* Question card */
+  .q { display: grid; grid-template-columns: 24px 1fr; gap: 12px; padding: 12px 0;
+    border-bottom: 1px dashed var(--border); }
+  .q:last-child { border: none; }
+  .q .qnum { color: var(--coral); font-weight: 700; font-family: "SF Mono", monospace; font-size: 13px; }
+
+  /* SVG diagrams */
+  svg.diagram { width: 100%; max-width: 100%; height: auto; display: block; margin: 8px 0; }
+
+  /* Footnote */
+  .footnote { color: var(--dim); font-size: 12.5px; margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">DRAFT · 2026-04-27 · Read in the morning</div>
+  <h1>Focus concepts —<br><span class="accent">the simplification</span></h1>
+  <p class="sub">We have nine concepts doing one feature's worth of work. Every bug we hit tonight came from these concepts disagreeing with each other. Here's the proposal to collapse them.</p>
+  <div class="meta">No code changes proposed. Read first, redline, then we plan.</div>
+</header>
+
+<!-- THE PROBLEM -->
+<section class="first">
+  <span class="label">The problem</span>
+  <h2>Nine concepts doing one feature's job.</h2>
+  <p class="hook">If I asked you "is focus mode on right now?" — there's no single answer. There are nine separate pieces of state that <em>each</em> have an opinion. They drift apart. Bugs follow.</p>
+
+  <div class="card">
+    <div class="blob-grid">
+      <div class="blob"><b>Focus Gate</b><span>screen lock if no plan</span></div>
+      <div class="blob"><b>Intentional Mode</b><span>same as Focus Gate</span></div>
+      <div class="blob"><b>Focus session</b><span>"I'm working on X"</span></div>
+      <div class="blob"><b>Schedule block</b><span>Deep Work / Free Time</span></div>
+      <div class="blob"><b>Always-active profile</b><span>background blocklist</span></div>
+      <div class="blob"><b>Per-session profile</b><span>session blocklist</span></div>
+      <div class="blob"><b>iOS Focus Mode</b><span>(different thing)</span></div>
+      <div class="blob"><b>TimeState enum</b><span>6 internal states</span></div>
+      <div class="blob"><b>AI scoring + grayscale</b><span>red shift on YouTube</span></div>
+    </div>
+    <p class="muted" style="margin-top: 14px; font-size: 14px;">Each pair of these can be in disagreement. Tonight's bugs all live in those gaps.</p>
+  </div>
+</section>
+
+<!-- THE PROPOSAL -->
+<section>
+  <span class="label">The proposal</span>
+  <h2>One concept — <span class="accent">Focus Mode</span> — with three states.</h2>
+  <p class="hook">Three states is the floor. Anything fewer can't capture "I'm focusing" vs "I'm sleeping." Intention is just metadata on FOCUS — not a separate state.</p>
+
+  <div class="card">
+    <div class="state-row">
+      <div>
+        <div class="state-name off">OFF</div>
+        <span class="pill pill-amber" style="margin-top:6px;">Free time</span>
+      </div>
+      <div>
+        <div class="state-meaning">Mac is a Mac. iPhone is an iPhone. No enforcement, no overlays, no AI scoring, no red shift, no blocking. The default state when you wake up and the default state late at night.</div>
+        <div class="state-effects">
+          <span class="pill pill-amber">No blocking</span>
+          <span class="pill pill-amber">No AI scoring</span>
+          <span class="pill pill-amber">No overlays</span>
+        </div>
+      </div>
+    </div>
+    <div class="state-row">
+      <div>
+        <div class="state-name on">FOCUS</div>
+        <span class="pill pill-green" style="margin-top:6px;">"I'm focusing"</span>
+      </div>
+      <div>
+        <div class="state-meaning">The full enforcement bundle is live. Optionally has an <em>intention</em> attached ("writing email to X"); intention is metadata, not a separate state. Triggered by puck tap, Cmd+Shift+P, scheduled block start, or manual toggle.</div>
+        <div class="state-effects">
+          <span class="pill pill-green">All FOCUS features</span>
+          <span class="pill pill-green">Optional intention</span>
+        </div>
+        <div class="muted" style="font-size: 13px; margin-top: 8px;">→ See the <strong>Feature inventory</strong> below for what's in the bundle.</div>
+      </div>
+    </div>
+    <div class="state-row">
+      <div>
+        <div class="state-name bed">BEDTIME</div>
+        <span class="pill pill-violet" style="margin-top:6px;">Sleeping isn't focusing</span>
+      </div>
+      <div>
+        <div class="state-meaning">Separate from FOCUS because the goal is different — wind down, not produce. Different blocklist (social, news, stimulating). Triggered by sleep-time or manual.</div>
+        <div class="state-effects">
+          <span class="pill pill-violet">Bedtime blocklist</span>
+          <span class="pill pill-violet">Wind-down ritual</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURE INVENTORY -->
+<section>
+  <span class="label">Feature inventory</span>
+  <h2>Every feature, grouped by which state it runs in.</h2>
+  <p class="hook">Three buckets: features tied to FOCUS, features tied to BEDTIME, and the "backbone" that runs <em>regardless of state</em> (security, persistence, sync infrastructure).</p>
+
+  <div class="stack" style="grid-template-columns: 1fr; gap: 16px;">
+
+    <div class="card" style="border-color: rgba(111,181,142,0.32); background: rgba(111,181,142,0.04);">
+      <h3 style="margin: 0 0 6px; font-size: 17px; color: var(--green);">⏱ FOCUS state — the focus enforcement bundle</h3>
+      <p class="muted" style="margin-bottom: 14px; font-size: 14px;">All of these turn on together when Focus Mode flips to FOCUS. None of them run when Focus Mode is OFF.</p>
+      <ul style="columns: 2; column-gap: 28px; margin-bottom: 0;">
+        <li><strong>App blocking</strong> <span class="muted">— distracting apps shut</span></li>
+        <li><strong>Site blocking</strong> <span class="muted">— DNS + browser overlay</span></li>
+        <li><strong>Switch overlay</strong> <span class="muted">— 10s countdown on app switch</span></li>
+        <li><strong>AI relevance scoring</strong> <span class="muted">— tabs scored vs intention</span></li>
+        <li><strong>Grayscale / red shift</strong> <span class="muted">— when off-task</span></li>
+        <li><strong>Pill widget</strong> <span class="muted">— time, score, current state</span></li>
+        <li><strong>Off-task nudges</strong> <span class="muted">— levels 1 → 3 escalation</span></li>
+        <li><strong>Block start ritual</strong> <span class="muted">— at scheduled block start</span></li>
+        <li><strong>Block end ritual</strong> <span class="muted">— at scheduled block end</span></li>
+        <li><strong>Time tracking</strong> <span class="muted">— focused / off-task minutes</span></li>
+        <li><strong>Earned browse pool</strong> <span class="muted">— accrue + spend</span></li>
+        <li><strong>Cross-device mirror</strong> <span class="muted">— iPhone FamilyControls fires too</span></li>
+      </ul>
+    </div>
+
+    <div class="card" style="border-color: rgba(178,135,217,0.32); background: rgba(178,135,217,0.04);">
+      <h3 style="margin: 0 0 6px; font-size: 17px; color: var(--violet);">🌙 BEDTIME state — wind-down enforcement</h3>
+      <p class="muted" style="margin-bottom: 14px; font-size: 14px;">Different goal (sleep, not focus) → different bundle. Most FOCUS features are off here.</p>
+      <ul style="columns: 2; column-gap: 28px; margin-bottom: 0;">
+        <li><strong>Bedtime blocklist</strong> <span class="muted">— social, news, doom-scroll</span></li>
+        <li><strong>Wind-down ritual</strong> <span class="muted">— gradual UI dim</span></li>
+        <li><strong>Pill in bedtime mode</strong> <span class="muted">— different visual</span></li>
+        <li><strong>Wake alarm prep</strong> <span class="muted">— iPhone alarm primed</span></li>
+        <li><strong>Earned browse paused</strong></li>
+        <li><strong>No AI scoring</strong> <span class="muted">— you're not focusing</span></li>
+      </ul>
+    </div>
+
+    <div class="card" style="border-color: rgba(110,143,224,0.32); background: rgba(110,143,224,0.04);">
+      <h3 style="margin: 0 0 6px; font-size: 17px; color: var(--blue);">🛡️ Backbone — runs regardless of state</h3>
+      <p class="muted" style="margin-bottom: 14px; font-size: 14px;">These don't care whether Focus Mode is OFF / FOCUS / BEDTIME. They're security and infrastructure that's always on.</p>
+      <ul style="columns: 2; column-gap: 28px; margin-bottom: 0;">
+        <li><strong>Strict mode persistence</strong> <span class="muted">— app watchdog, login item</span></li>
+        <li><strong>Tamper detection</strong> <span class="muted">— CS state divergence</span></li>
+        <li><strong>Content safety</strong> <span class="muted">— NSFW screen capture</span></li>
+        <li><strong>Partner lock</strong> <span class="muted">— server-side enforced</span></li>
+        <li><strong>Always-allowed apps</strong> <span class="muted">— whitelist that never blocks</span></li>
+        <li><strong>Cross-device sync infra</strong> <span class="muted">— WebSocket, auth refresh</span></li>
+        <li><strong>Schedule storage</strong> <span class="muted">— blocks live in DB</span></li>
+        <li><strong>Auth + tokens</strong> <span class="muted">— Keychain, refresh</span></li>
+      </ul>
+    </div>
+
+    <div class="card" style="border-color: rgba(229,160,99,0.28); background: rgba(229,160,99,0.04);">
+      <h3 style="margin: 0 0 6px; font-size: 17px; color: var(--amber);">🤔 Decide where these belong</h3>
+      <p class="muted" style="margin-bottom: 14px; font-size: 14px;">Features that don't cleanly fit one bucket. We'd nail these down before implementing.</p>
+      <ul style="margin-bottom: 0;">
+        <li><strong>"Plan-your-day" lock screen</strong> (the original Focus Gate). Triggered when you're in scheduled work hours but Focus Mode is OFF. Could be: separate optional nag, OR auto-flip Focus Mode ON when wake time hits + show planning prompt. <span class="muted">Q1 in open questions.</span></li>
+        <li><strong>Distractions list editing.</strong> Shared between Focus and Bedtime, but different lists per state. UI lives in Settings; data is account-scoped.</li>
+        <li><strong>Schedule itself.</strong> Calendar UI lives outside Focus Mode; it just <em>triggers</em> state changes.</li>
+      </ul>
+    </div>
+
+  </div>
+</section>
+
+<!-- TRIGGERS -->
+<section>
+  <span class="label">How it turns on/off</span>
+  <h2>One rule: anything you tap, swipe, or schedule maps to <em>this</em>.</h2>
+  <p class="hook">No more "did the puck tap fire a session AND a focus block? does the schedule agree?" — every input is a trigger that flips Focus Mode.</p>
+
+  <div class="card">
+    <table class="flow">
+      <tr><td>Tap puck on iPhone</td><td><span class="pill pill-green">FOCUS</span> with intention from chosen mode</td></tr>
+      <tr><td>Tap puck again</td><td><span class="pill pill-amber">OFF</span></td></tr>
+      <tr><td>Cmd+Shift+P on Mac</td><td><span class="pill pill-green">FOCUS</span> with no intention</td></tr>
+      <tr><td>Schedule says "Deep Work" + auto-start</td><td><span class="pill pill-green">FOCUS</span> with intention = block title</td></tr>
+      <tr><td>Schedule says "Free Time"</td><td><span class="pill pill-amber">OFF</span></td></tr>
+      <tr><td>Sleep time reached</td><td><span class="pill pill-violet">BEDTIME</span></td></tr>
+      <tr><td>Wake time reached</td><td>(stays as set — no auto-on by default)</td></tr>
+      <tr><td>Toggle in dashboard</td><td><span class="pill pill-amber">OFF</span> ↔ <span class="pill pill-green">FOCUS</span> instantly</td></tr>
+      <tr><td>No schedule for current time</td><td><span class="pill pill-amber">OFF</span> &nbsp; <span class="muted">(was: <code>unplanned</code>, which incorrectly enforced)</span></td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- COLLAPSE TABLE -->
+<section>
+  <span class="label">What gets renamed or removed</span>
+  <h2>The mapping from old to new.</h2>
+
+  <div class="card">
+    <table class="flow">
+      <tr><td><span class="pill pill-red">Focus Gate</span></td><td>→ <strong>Focus Mode</strong> (or kept as optional "auto-lock if work hours and no plan" sub-feature)</td></tr>
+      <tr><td><span class="pill pill-red">Intentional Mode</span></td><td>→ collapsed into Focus Gate</td></tr>
+      <tr><td><span class="pill pill-red">Focus session</span></td><td>→ "Focus Mode ON with intention" (metadata, not a separate concept)</td></tr>
+      <tr><td><span class="pill pill-red">Always-active blocking</span></td><td>→ "ON (open) blocklist"</td></tr>
+      <tr><td><span class="pill pill-red">Per-session profile</span></td><td>→ "intention-specific blocklist" layered on top</td></tr>
+      <tr><td><span class="pill pill-red">TimeState enum</span> (6 values)</td><td>→ <span class="pill pill-amber">OFF</span> · <span class="pill pill-green">FOCUS</span> · <span class="pill pill-violet">BEDTIME</span></td></tr>
+      <tr><td><span class="pill pill-red">iOS "Focus mode"</span></td><td>→ "Intention" (a saved set of blocks + name; populates Focus Mode ON when activated)</td></tr>
+      <tr><td><span class="pill pill-red"><code>unplanned</code> enforcement path</span></td><td>→ <strong>deleted.</strong> Unplanned = OFF.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- WHAT SURVIVES -->
+<section>
+  <span class="label">What stays unchanged</span>
+  <h2>Genuinely separate concepts.</h2>
+  <p class="hook">Not everything collapses. These are orthogonal and stay where they are.</p>
+  <div class="card">
+    <ul style="margin-bottom:0;">
+      <li><strong>The schedule</strong> (calendar view, blocks). Becomes a <em>trigger source</em> instead of a separate enforcement engine.</li>
+      <li><strong>Bedtime mode.</strong> Sleeping isn't focusing — different feature.</li>
+      <li><strong>Always-allowed apps.</strong> Apps you can use even in Focus Mode (Slack, calendar, etc.).</li>
+      <li><strong>Partner lock.</strong> Cross-device security — orthogonal.</li>
+      <li><strong>AI relevance scoring.</strong> Runs whenever Focus Mode is ON, dormant otherwise.</li>
+      <li><strong>The pill widget.</strong> Renders the current Focus Mode state.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- MIGRATION -->
+<section>
+  <span class="label">Migration plan (sketch)</span>
+  <h2>Five phases. Not finalized.</h2>
+  <div class="timeline">
+    <div class="phase">
+      <div class="num">PHASE 1</div>
+      <div class="title">Rename + collapse</div>
+      <div class="desc">Rename <code>IntentionalModeController</code> → <code>FocusModeController</code>. Inline session state.</div>
+    </div>
+    <div class="phase">
+      <div class="num">PHASE 2</div>
+      <div class="title">Schedule = trigger</div>
+      <div class="desc"><code>onBlockChanged</code> calls <code>FocusMode.activate(intention:)</code> or <code>.deactivate()</code>.</div>
+    </div>
+    <div class="phase">
+      <div class="num">PHASE 3</div>
+      <div class="title">Delete <code>unplanned</code></div>
+      <div class="desc">Replace TimeState checks with <code>focusMode.isOn</code>. Unplanned → nothing happens.</div>
+    </div>
+    <div class="phase">
+      <div class="num">PHASE 4</div>
+      <div class="title">Rename UI</div>
+      <div class="desc">Dashboard "Focus Gate" → "Focus Mode." iOS "Focus mode" → "Intention."</div>
+    </div>
+    <div class="phase">
+      <div class="num">PHASE 5</div>
+      <div class="title">Backend simplifies</div>
+      <div class="desc"><code>focus_sessions</code> → <code>focus_periods</code>. Auto-close on missed heartbeat.</div>
+    </div>
+  </div>
+</section>
+
+<!-- OPEN QUESTIONS -->
+<section>
+  <span class="label">Open questions</span>
+  <h2>Decide together when you wake.</h2>
+  <div class="card">
+    <div class="q">
+      <div class="qnum">Q1</div>
+      <div><strong>Should "no plan during scheduled work hours" still trigger a screen lock?</strong> That's the original Focus Gate. Feels like a separate optional <em>nag</em> feature on top of Focus Mode rather than core.</div>
+    </div>
+    <div class="q">
+      <div class="qnum">Q2</div>
+      <div><strong>Auto-on at wake time?</strong> "Focus Mode is ON by default during waking hours" feels aggressive. Most people want to ease in. Default: stays OFF, you flip it on each morning.</div>
+    </div>
+    <div class="q">
+      <div class="qnum">Q3</div>
+      <div><strong>What happens on Mac when you tap puck on iPhone?</strong> Focus Mode ON. Should it default to "open" or use the iPhone Mode's name as intention? Probably the latter.</div>
+    </div>
+    <div class="q">
+      <div class="qnum">Q4</div>
+      <div><strong>iOS-only device (no Mac)</strong> — Focus Mode lives on iPhone alone. Sync to a non-existent Mac is a no-op until they install Mac app. Acceptable.</div>
+    </div>
+  </div>
+</section>
+
+<!-- WHAT THIS FIXES -->
+<section>
+  <span class="label">What this fixes</span>
+  <h2>Every bug we hit tonight, in one stroke.</h2>
+  <div class="card">
+    <ul style="margin-bottom: 0;">
+      <li><strong>Phantom session.</strong> No separate "session" object — can't drift from "is focus on."</li>
+      <li><strong>Stale active session in backend.</strong> Periods have explicit start/end; auto-close on missed heartbeat.</li>
+      <li><strong><code>unplanned</code> = enforcement.</strong> Unplanned = OFF. AI scorer never fires when no plan + no session.</li>
+      <li><strong>Confused Focus Gate toggle.</strong> Toggle directly maps to ON/OFF; visible enforcement starts immediately or doesn't.</li>
+      <li><strong>"iPhone says ended, Mac says active."</strong> Both apps subscribe to the same Focus Mode state in the backend.</li>
+      <li><strong>Screen turns red on YouTube without an active session.</strong> No Focus Mode ON → no AI scoring → no red shift.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- WHAT THIS DOESN'T FIX -->
+<section>
+  <span class="label">What this doesn't fix</span>
+  <h2>Separate work that stays orthogonal.</h2>
+  <div class="card">
+    <ul style="margin-bottom: 0;">
+      <li><strong>iPhone fire-and-forget POST.</strong> Still need persistent retry queue on iPhone.</li>
+      <li><strong>Schedule UI on iPhone.</strong> Still its own port.</li>
+      <li><strong>Distractions sync</strong> (account-scoped Mode metadata). Still its own feature.</li>
+    </ul>
+    <p class="muted" style="margin-top: 14px; font-size: 14px;">These each become smaller once Focus Mode is the only thing.</p>
+  </div>
+</section>
+
+<p class="footnote">
+  Source: <code>docs/focus-concepts-simplification.html</code> · also at <code>docs/FOCUS_CONCEPTS_SIMPLIFICATION.md</code> (markdown version)<br>
+  When you're ready: redline this, push back on what's wrong, then we plan the implementation properly with the writing-plans skill — one cohesive PR instead of another patch storm.
+</p>
+
+</div>
+</body>
+</html>

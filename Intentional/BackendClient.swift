@@ -562,6 +562,175 @@ class BackendClient {
         return nil
     }
 
+    // MARK: - Bedtime Config (cross-device sync)
+
+    struct BedtimeTimeOfDayDTO: Codable, Equatable {
+        let hour: Int
+        let minute: Int
+    }
+
+    struct BedtimeConfigDTO: Codable, Equatable {
+        let enabled: Bool
+        let bedtime_start: BedtimeTimeOfDayDTO
+        let wake: BedtimeTimeOfDayDTO
+        let active_days: [Int]   // ISO 1=Mon..7=Sun
+        let allowlist_bundle_ids: [String]
+        let partner_locked: Bool
+        let updated_at: String?
+    }
+
+    /// GET /bedtime/config — returns nil on any failure (offline, 4xx, decode error).
+    /// Caller falls back to the on-disk cache.
+    func getBedtimeConfig() async -> BedtimeConfigDTO? {
+        let endpoint = "\(baseURL)/bedtime/config"
+        guard let url = URL(string: endpoint) else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                return nil
+            }
+            return try JSONDecoder().decode(BedtimeConfigDTO.self, from: data)
+        } catch {
+            return nil
+        }
+    }
+
+    /// PUT /bedtime/config — replaces the full config on the backend so
+    /// sibling devices (iPhone) pick up the change on their next pull.
+    /// Returns true on 2xx.
+    @discardableResult
+    func putBedtimeConfig(_ config: BedtimeConfigDTO) async -> Bool {
+        let endpoint = "\(baseURL)/bedtime/config"
+        guard let url = URL(string: endpoint) else { return false }
+        var req = URLRequest(url: url)
+        req.httpMethod = "PUT"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            req.httpBody = try JSONEncoder().encode(config)
+            let (_, response) = try await URLSession.shared.data(for: req)
+            return (response as? HTTPURLResponse).map { (200..<300).contains($0.statusCode) } ?? false
+        } catch {
+            return false
+        }
+    }
+
+    // MARK: - Bedtime Unlock
+
+    /// Errors specific to the bedtime-unlock flow. Surfaced to the UI so
+    /// the user sees the right phrasing for once-per-night cap vs no
+    /// partner configured vs network failure.
+    enum BedtimeUnlockError: Error, LocalizedError {
+        /// Backend 409 with "already used your extension" — the user has a
+        /// verified row with released_until > now. New requests blocked
+        /// until wake.
+        case alreadyUsed
+        /// Backend 409 with "no partner" — onboarding incomplete.
+        case noPartner
+        case other(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .alreadyUsed:
+                return "You've already used your extension for tonight. Bedtime ends at your wake alarm."
+            case .noPartner:
+                return "Add an accountability partner to request a bedtime extension."
+            case .other(let msg):
+                return msg
+            }
+        }
+    }
+
+    struct BedtimeUnlockRequestResult {
+        let requestId: String
+        let partnerEmail: String
+        let expiresAt: String  // ISO8601
+    }
+
+    /// Send a bedtime-unlock request. The slider value (15 / 30 / 60 / 120
+    /// or -1 for "until wake") is sent as `duration_minutes`; backend
+    /// stores it on the `bedtime_unlock_requests` row and uses it at
+    /// verify time to compute released_until.
+    ///
+    /// Throws `BedtimeUnlockError.alreadyUsed` on backend 409 — the user
+    /// has already consumed tonight's extension. Once-per-night enforced
+    /// backend-side per migration 016.
+    func bedtimeUnlockRequest(
+        durationMinutes: Int,
+        reason: String?,
+        note: String?
+    ) async throws -> BedtimeUnlockRequestResult {
+        let endpoint = "\(baseURL)/bedtime/unlock-request"
+        guard let url = URL(string: endpoint) else {
+            throw BedtimeUnlockError.other("Invalid URL")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        if let token = await loadJWT() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = ["duration_minutes": durationMinutes]
+        if let reason { body["reason"] = reason }
+        if let note { body["note"] = note }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw BedtimeUnlockError.other("No response")
+            }
+            let json = parseJSON(data)
+
+            if httpResponse.statusCode == 200 {
+                guard
+                    let requestId = json?["request_id"] as? String,
+                    let partnerEmail = json?["partner_email"] as? String,
+                    let expiresAt = json?["expires_at"] as? String
+                else {
+                    throw BedtimeUnlockError.other("Malformed response")
+                }
+                return BedtimeUnlockRequestResult(
+                    requestId: requestId,
+                    partnerEmail: partnerEmail,
+                    expiresAt: expiresAt
+                )
+            }
+
+            if httpResponse.statusCode == 409 {
+                let detail = (json?["detail"] as? String)?.lowercased() ?? ""
+                if detail.contains("already") {
+                    throw BedtimeUnlockError.alreadyUsed
+                }
+                if detail.contains("partner") {
+                    throw BedtimeUnlockError.noPartner
+                }
+                throw BedtimeUnlockError.other(json?["detail"] as? String ?? "Conflict")
+            }
+
+            throw BedtimeUnlockError.other(
+                json?["detail"] as? String ?? "HTTP \(httpResponse.statusCode)"
+            )
+        } catch let err as BedtimeUnlockError {
+            throw err
+        } catch {
+            throw BedtimeUnlockError.other(error.localizedDescription)
+        }
+    }
+
+    /// Helper: load the cached Supabase JWT for Authorization header. Some
+    /// callers may not have a JWT (legacy device-only auth still works via
+    /// X-Device-ID — backend resolves account via dual-auth).
+    private func loadJWT() async -> String? {
+        return keychainGet("access_token")
+    }
+
     // MARK: - Partner Status
 
     /// Result from partner status query
@@ -909,6 +1078,14 @@ class BackendClient {
     /// Used by FocusWebSocketClient for WebSocket authentication.
     func getAccessToken() -> String? {
         return keychainGet("access_token")
+    }
+
+    /// Returns the stable 64-char hex device ID. Linked to the user's account
+    /// after `/auth/verify`. Used as `X-Device-ID` on legacy endpoints and
+    /// (via FocusStatePoller) on `/focus/active` for long-lived auth that
+    /// doesn't suffer 15-min JWT expiry.
+    func getDeviceId() -> String {
+        return deviceId
     }
 
     var storedEmail: String? {

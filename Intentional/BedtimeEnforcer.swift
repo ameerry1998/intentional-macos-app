@@ -1,6 +1,19 @@
 // Intentional/BedtimeEnforcer.swift
-// Bedtime time-checking logic as pure, testable functions.
-// No UI, no timers, no AppKit — just data types and deterministic computations.
+// Bedtime time-checking logic (pure functions) + state-machine controller.
+//
+// Apr 2026 rewrite — per
+// docs/superpowers/plans/2026-04-29-bedtime-lock-loop-and-duration-extensions.md:
+//   - Full-screen blanket overlay (BedtimeOverlayView) deleted; replaced by
+//     BedtimeLockLoop which triggers macOS's native Lock Screen every 10s.
+//   - State machine simplified: inactive / windDown / locked / released.
+//     `snoozed` and `overridden` are gone (the unlock flow is now duration-
+//     limited via partner code; release status comes from backend
+//     bedtime_unlock_requests.released_until).
+//   - `forceSleep` (pmset) removed; the OS lock screen IS the enforcement.
+//   - Wind-down notification cascade is owned by BedtimeWindDownController.
+//   - GrayscaleOverlayController references for the windDown phases are
+//     removed; that controller still ships for FocusMonitor's distraction
+//     desaturation, but bedtime no longer drives it.
 
 import Foundation
 import AppKit
@@ -24,19 +37,30 @@ struct BedtimeSettings: Codable {
     var partnerLocked: Bool
 }
 
+/// Wind-down phase relative to bedtime. The legacy redShift / grayscale
+/// phases are gone (handled — or not — by global enforcement in
+/// FocusMonitor); bedtime wind-down is now purely informational
+/// (notifications + pill mode change). Phase reflects how close we are.
 enum WindDownPhase: Equatable {
     case none
-    case notification  // T-15 to T-10
-    case redShift      // T-10 to T-5
-    case grayscale     // T-5 to T-0
+    case t30   // T-30 to T-15 — minimizable pill
+    case t15   // T-15 to T-5  — pill stays
+    case t5    // T-5 to T-1   — pill stays, no minimize
+    case t1    // T-1 to T-0   — countdown
 }
 
+/// Simplified bedtime state machine. The legacy `.snoozed` and
+/// `.overridden` cases are gone — release status now lives in backend
+/// `bedtime_unlock_requests.released_until` and is treated as `.released`
+/// while in effect.
 enum BedtimeState: Equatable {
     case inactive
     case windDown(WindDownPhase)
-    case lockedOut
-    case snoozed
-    case overridden
+    /// Active bedtime — BedtimeLockLoop drives the system lock screen.
+    case locked
+    /// Partner code verified; backend released_until covers a duration
+    /// window. While released, no lock loop, no wind-down.
+    case released
 }
 
 // MARK: - Pure Logic
@@ -88,15 +112,12 @@ enum BedtimeLogic {
         return settings.activeDays.contains(relevantDay)
     }
 
-    /// What wind-down phase for the given time? (15 minutes before bedtime)
-    ///
-    /// Phases:
-    /// - T-15 to T-10: .notification
-    /// - T-10 to T-5:  .redShift
-    /// - T-5 to T-0:   .grayscale
-    /// - Otherwise:     .none
-    ///
-    /// Returns .none if already in bedtime or if disabled.
+    /// What wind-down phase for the given time?
+    /// - T-30 to T-15: .t30
+    /// - T-15 to T-5:  .t15
+    /// - T-5 to T-1:   .t5
+    /// - T-1 to T-0:   .t1
+    /// Returns .none if outside the 30-minute wind-down window.
     static func windDownPhase(at date: Date, settings: BedtimeSettings) -> WindDownPhase {
         guard settings.enabled else { return .none }
 
@@ -113,27 +134,35 @@ enum BedtimeLogic {
             minutesUntilBedtime += 1440  // wrap around midnight
         }
 
-        // If bedtime has started (minutesUntilBedtime == 0 or we're in bedtime), no wind-down.
-        // Wind-down is only the 15 minutes BEFORE bedtime.
-        if minutesUntilBedtime == 0 || minutesUntilBedtime > 15 {
+        // No wind-down outside [1, 30] minutes before bedtime.
+        if minutesUntilBedtime <= 0 || minutesUntilBedtime > 30 {
             return .none
         }
 
-        // Also return .none if it wrapped around and we're actually far away
-        // (e.g. at 2 AM, bedtime 23:00 => minutesUntilBedtime = 1260, which is > 15)
-        // Already handled above.
-
-        // minutesUntilBedtime is in 1...15
-        if minutesUntilBedtime > 10 {
-            // 11-15 minutes before: notification
-            return .notification
+        if minutesUntilBedtime > 15 {
+            return .t30  // 16-30 min — minimizable
         } else if minutesUntilBedtime > 5 {
-            // 6-10 minutes before: redShift
-            return .redShift
+            return .t15  // 6-15 min — pill stays
+        } else if minutesUntilBedtime > 1 {
+            return .t5   // 2-5 min — pill stays, no minimize
         } else {
-            // 1-5 minutes before: grayscale
-            return .grayscale
+            return .t1   // 1 min — countdown
         }
+    }
+
+    /// Minutes until bedtime from `date`. Returns 0 if already in bedtime
+    /// or wind-down past bedtimeStart. Bounded to [0, 1440).
+    static func minutesUntilBedtime(at date: Date, settings: BedtimeSettings) -> Int {
+        let cal = Calendar.current
+        let hour = cal.component(.hour, from: date)
+        let minute = cal.component(.minute, from: date)
+        let currentMinutes = hour * 60 + minute
+        let startMinutes = settings.bedtimeStart.minutesSinceMidnight
+        var diff = startMinutes - currentMinutes
+        if diff < 0 {
+            diff += 1440
+        }
+        return diff
     }
 }
 
@@ -141,21 +170,22 @@ enum BedtimeLogic {
 
 class BedtimeEnforcer {
     weak var appDelegate: AppDelegate?
-    private var grayscaleController: GrayscaleOverlayController?
+
+    /// Notified on every state transition. AppDelegate uses this to drive
+    /// the pill widget (windDown / locked / dismiss). Old → New.
+    var onStateChanged: ((BedtimeState, BedtimeState) -> Void)?
 
     // State
     private(set) var state: BedtimeState = .inactive
     private var settings: BedtimeSettings?
-    private var snoozeUsedTonight: Bool = false
-    private var overlayWindows: [NSWindow] = []
-    private var overlayViewModel: BedtimeOverlayViewModel?
+
+    // Cached for clients (e.g. pill rendering) so they don't have to read
+    // the file from disk again.
+    var currentSettings: BedtimeSettings? { settings }
 
     // Timers
     private var tickTimer: Timer?
-    private var countdownTimer: Timer?
-    private var snoozeTimer: Timer?
     private var ntpTimer: Timer?
-    private var countdownSeconds: Int = 180
 
     // Clock
     private let trustedClock = TrustedClock()
@@ -193,6 +223,16 @@ class BedtimeEnforcer {
         recalculate()
     }
 
+    /// Apply settings pulled from the backend by `BedtimeConfigSync`. Distinct
+    /// from `saveSettings(_:)` (the legacy "user edited locally on Mac" path).
+    /// The cross-device source of truth is the backend; the on-disk cache is
+    /// overwritten with the DTO format by `BedtimeConfigSync` so we don't
+    /// rewrite it here. Just take the new values and recalculate.
+    func applyRemoteSettings(_ newSettings: BedtimeSettings) {
+        self.settings = newSettings
+        recalculate()
+    }
+
     // MARK: - Lifecycle
 
     func start() {
@@ -215,14 +255,12 @@ class BedtimeEnforcer {
     func stop() {
         tickTimer?.invalidate()
         tickTimer = nil
-        countdownTimer?.invalidate()
-        countdownTimer = nil
-        snoozeTimer?.invalidate()
-        snoozeTimer = nil
         ntpTimer?.invalidate()
         ntpTimer = nil
-        dismissOverlay()
-        grayscaleController?.restoreSaturation()
+        Task { @MainActor in
+            BedtimeLockLoop.shared.stop()
+            await BedtimeWindDownController.shared.clearPending()
+        }
         state = .inactive
     }
 
@@ -236,39 +274,63 @@ class BedtimeEnforcer {
             return
         }
 
-        // Check clock tamper
+        // Check clock tamper — defensively force locked while tampered.
         if trustedClock.isTampered() {
             appDelegate?.postLog("🚨 Clock tamper detected — enforcing bedtime")
-            if state != .lockedOut && state != .overridden {
-                transition(to: .lockedOut)
+            if state != .locked {
+                transition(to: .locked)
             }
             return
         }
 
         let now = trustedClock.now()
 
-        // Don't override partner code or snooze states
-        if state == .overridden || state == .snoozed { return }
+        // Released state is owned externally (markReleased sets it). Stay
+        // released until released_until passes — caller will transition us
+        // back to .inactive / .locked via recalculate or explicit reset.
+        if state == .released { return }
 
-        // Check if bedtime is active
+        // In bedtime → locked
         if BedtimeLogic.isInBedtime(at: now, settings: settings) {
-            if state != .lockedOut {
-                transition(to: .lockedOut)
+            if state != .locked {
+                transition(to: .locked)
             }
             return
         }
 
-        // Check wind-down
+        // Wind-down phase
         let phase = BedtimeLogic.windDownPhase(at: now, settings: settings)
         if phase != .none {
+            // Only transition when phase actually changed; otherwise the
+            // pill mode would re-render every tick.
+            if case .windDown(let current) = state, current == phase {
+                return
+            }
             transition(to: .windDown(phase))
             return
         }
 
-        // Outside bedtime — reset nightly state
+        // Outside bedtime + outside wind-down — schedule tonight's
+        // notifications (idempotent) and ensure inactive.
+        scheduleWindDownForTonight(settings: settings, now: now)
         if state != .inactive {
-            snoozeUsedTonight = false
             transition(to: .inactive)
+        }
+    }
+
+    private func scheduleWindDownForTonight(settings: BedtimeSettings, now: Date) {
+        let cal = Calendar.current
+        guard let nextBedtime = cal.date(
+            bySettingHour: settings.bedtimeStart.hour,
+            minute: settings.bedtimeStart.minute,
+            second: 0,
+            of: now
+        ) else { return }
+        let target = nextBedtime > now
+            ? nextBedtime
+            : (cal.date(byAdding: .day, value: 1, to: nextBedtime) ?? nextBedtime)
+        Task { @MainActor in
+            await BedtimeWindDownController.shared.schedule(forBedtime: target)
         }
     }
 
@@ -281,167 +343,58 @@ class BedtimeEnforcer {
 
         switch newState {
         case .inactive:
-            dismissOverlay()
-            grayscaleController?.restoreSaturation()
-            countdownTimer?.invalidate()
+            Task { @MainActor in BedtimeLockLoop.shared.stop() }
 
-        case .windDown(let phase):
-            dismissOverlay()
-            switch phase {
-            case .notification:
-                if oldState != .windDown(.notification) {
-                    sendNotification("Bedtime in 15 minutes — start wrapping up")
-                }
-                grayscaleController?.restoreSaturation()
-            case .redShift:
-                if grayscaleController == nil {
-                    grayscaleController = GrayscaleOverlayController()
-                }
-                grayscaleController?.startDesaturation()
-            case .grayscale:
-                if grayscaleController == nil {
-                    grayscaleController = GrayscaleOverlayController()
-                }
-                grayscaleController?.startDesaturation()
-            case .none:
-                break
+        case .windDown:
+            // Wind-down notifications are pre-scheduled by
+            // scheduleWindDownForTonight(); pill mode transitions are driven
+            // by onStateChanged → AppDelegate (Phase 3). Stop the lock
+            // loop just in case (defensive — should already be stopped).
+            Task { @MainActor in BedtimeLockLoop.shared.stop() }
+
+        case .locked:
+            Task { @MainActor in
+                BedtimeLockLoop.shared.start()
+                await BedtimeWindDownController.shared.clearPending()
             }
 
-        case .lockedOut:
-            grayscaleController?.restoreSaturation()
-            showLockoutOverlay(snoozeAvailable: !snoozeUsedTonight)
-            if snoozeUsedTonight {
-                startAutoSleepCountdown()
-            }
-
-        case .snoozed:
-            dismissOverlay()
-            grayscaleController?.restoreSaturation()
-            countdownTimer?.invalidate()
-            snoozeUsedTonight = true
-            snoozeTimer = Timer.scheduledTimer(withTimeInterval: 600.0, repeats: false) { [weak self] _ in
-                self?.appDelegate?.postLog("🌙 Snooze expired — returning to lockout")
-                self?.transition(to: .lockedOut)
-            }
-
-        case .overridden:
-            dismissOverlay()
-            grayscaleController?.restoreSaturation()
-            countdownTimer?.invalidate()
-            snoozeTimer?.invalidate()
+        case .released:
+            Task { @MainActor in BedtimeLockLoop.shared.stop() }
         }
+
+        // Broadcast to UI layer (pill, dashboard) — last so Lock-loop
+        // start/stop happens before the UI react.
+        onStateChanged?(oldState, newState)
+    }
+
+    /// Mark the user as released until the given timestamp (e.g. partner
+    /// code accepted; backend returned released_until). The state stays
+    /// `.released` until cleared via `clearReleased()` — typically when
+    /// the released_until clock passes (poller-driven).
+    func markReleased() {
+        if state != .released {
+            transition(to: .released)
+        }
+    }
+
+    /// Clear release state — bedtime resumes its normal recalculation.
+    /// Called when backend reports released_until is in the past.
+    func clearReleased() {
+        if state == .released {
+            transition(to: .inactive)
+        }
+        recalculate()
     }
 
     // MARK: - Wake Handler
 
     func onMacWoke() {
         guard let settings = settings, settings.enabled else { return }
-        if state == .overridden { return }
 
         let now = trustedClock.now()
         if BedtimeLogic.isInBedtime(at: now, settings: settings) {
-            appDelegate?.postLog("🌙 Mac woke during bedtime — immediate lockout")
-            snoozeUsedTonight = true // No snooze on re-wake
-            transition(to: .lockedOut)
+            appDelegate?.postLog("🌙 Mac woke during bedtime — re-locking")
+            transition(to: .locked)
         }
-    }
-
-    // MARK: - Overlay
-
-    private func showLockoutOverlay(snoozeAvailable: Bool) {
-        guard overlayWindows.isEmpty else { return }
-
-        let vm = BedtimeOverlayViewModel()
-        vm.snoozeAvailable = snoozeAvailable
-        vm.onSnooze = { [weak self] in self?.transition(to: .snoozed) }
-        vm.onSleepNow = { [weak self] in self?.forceSleep() }
-        vm.onCodeSubmit = { [weak self] code in self?.verifyCode(code) }
-        self.overlayViewModel = vm
-
-        for screen in NSScreen.screens {
-            let view = BedtimeOverlayView(viewModel: vm)
-            let hostingView = NSHostingView(rootView: view)
-            hostingView.frame = screen.frame
-
-            let window = KeyableWindow(
-                contentRect: screen.frame,
-                styleMask: [.borderless],
-                backing: .buffered,
-                defer: false
-            )
-            window.contentView = hostingView
-            window.backgroundColor = .clear
-            window.isOpaque = false
-            window.hasShadow = false
-            window.level = .screenSaver
-            window.isReleasedWhenClosed = false
-            window.ignoresMouseEvents = false
-            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            window.setFrame(screen.frame, display: true)
-            window.makeKeyAndOrderFront(nil)
-            overlayWindows.append(window)
-        }
-
-        appDelegate?.postLog("🌙 Bedtime lockout overlay shown on \(NSScreen.screens.count) screen(s)")
-    }
-
-    private func dismissOverlay() {
-        for window in overlayWindows { window.close() }
-        overlayWindows.removeAll()
-        overlayViewModel = nil
-    }
-
-    // MARK: - Auto-Sleep Countdown
-
-    private func startAutoSleepCountdown() {
-        countdownSeconds = 180
-        overlayViewModel?.countdownSeconds = 180
-        countdownTimer?.invalidate()
-        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            self.countdownSeconds -= 1
-            self.overlayViewModel?.countdownSeconds = self.countdownSeconds
-            if self.countdownSeconds <= 0 {
-                self.countdownTimer?.invalidate()
-                self.forceSleep()
-            }
-        }
-    }
-
-    // MARK: - Force Sleep
-
-    private func forceSleep() {
-        appDelegate?.postLog("🌙 Forcing Mac to sleep via pmset")
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
-        process.arguments = ["sleepnow"]
-        try? process.run()
-    }
-
-    // MARK: - Partner Code
-
-    private func verifyCode(_ code: String) {
-        appDelegate?.daemonClient.verifyUnlockCode(code) { [weak self] valid in
-            DispatchQueue.main.async {
-                if valid {
-                    self?.appDelegate?.postLog("🌙 Partner code accepted — bedtime overridden")
-                    self?.transition(to: .overridden)
-                } else {
-                    self?.overlayViewModel?.codeError = "Invalid code"
-                    self?.appDelegate?.postLog("🌙 Invalid partner code entered")
-                }
-            }
-        }
-    }
-
-    // MARK: - Notification
-
-    private func sendNotification(_ message: String) {
-        let content = UNMutableNotificationContent()
-        content.title = "Intentional"
-        content.body = message
-        content.sound = .default
-        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(request)
     }
 }

@@ -1,6 +1,15 @@
 // Intentional/TrustedClock.swift
 // Monotonic-clock-based tamper detection.
-// Uses kernel systemUptime (unfakeable) to detect when the user changes Date().
+// Uses mach_continuous_time (unfakeable AND advances during sleep) to detect
+// when the user changes Date().
+//
+// Why mach_continuous_time, not ProcessInfo.systemUptime: systemUptime stops
+// counting while the Mac is asleep. After a 3-minute sleep, wallElapsed
+// includes the sleep duration but monotonicElapsed does not — so drift
+// (= wallElapsed - monotonicElapsed) ≈ sleep duration, and any sleep over
+// 120s (the tamper threshold) gets flagged as a clock-tamper false positive.
+// mach_continuous_time DOES advance during sleep, so wall and monotonic
+// elapsed match across sleep events, no false positive.
 
 import Foundation
 import Darwin
@@ -52,12 +61,27 @@ class TrustedClock {
                 completion?(false)
                 return
             }
-            let uptime = ProcessInfo.processInfo.systemUptime
+            let uptime = TrustedClock.continuousSecondsSinceBoot()
             DispatchQueue.main.async {
                 self.updateFromNTP(ntpDate: ntpDate, uptime: uptime)
                 completion?(true)
             }
         }
+    }
+
+    // MARK: - Sleep-aware monotonic clock
+
+    /// Seconds since boot, INCLUDING time the system was asleep. Backed by
+    /// `mach_continuous_time` (the only Darwin clock that advances during
+    /// sleep — `systemUptime`, `mach_absolute_time`, and `CLOCK_MONOTONIC`
+    /// all stop). This is what "monotonic elapsed" must use so a sleep
+    /// event doesn't look like a clock tamper.
+    static func continuousSecondsSinceBoot() -> TimeInterval {
+        var info = mach_timebase_info_data_t()
+        mach_timebase_info(&info)
+        let ticks = mach_continuous_time()
+        let nanos = Double(ticks) * Double(info.numer) / Double(info.denom)
+        return nanos / 1_000_000_000.0
     }
 
     /// Minimal NTP client (RFC 4330) — returns server transmit timestamp
@@ -121,7 +145,7 @@ class TrustedClock {
             // No anchor set yet -- fall back to system date.
             return Date()
         }
-        let uptime = currentUptime ?? ProcessInfo.processInfo.systemUptime
+        let uptime = currentUptime ?? TrustedClock.continuousSecondsSinceBoot()
         let elapsed = uptime - anchorUptime
         return anchorDate.addingTimeInterval(elapsed)
     }
@@ -148,7 +172,7 @@ class TrustedClock {
         }
 
         let date = currentDate ?? Date()
-        let uptime = currentUptime ?? ProcessInfo.processInfo.systemUptime
+        let uptime = currentUptime ?? TrustedClock.continuousSecondsSinceBoot()
 
         let wallElapsed = date.timeIntervalSince(anchorDate)
         let monotonicElapsed = uptime - anchorUptime

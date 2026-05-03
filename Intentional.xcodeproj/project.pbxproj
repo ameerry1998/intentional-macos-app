@@ -16,6 +16,7 @@
 		34BADA5F2F8088BA009A82C6 /* DaemonXPCClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34BADA5E2F8088BA009A82C6 /* DaemonXPCClient.swift */; };
 		59A7F3E61DF64BED85DC59DA /* login.html in Resources */ = {isa = PBXBuildFile; fileRef = 489F60656F0CCF336D20195E /* login.html */; };
 		75AF45B090B2E42A4579F347 /* EnforcementDaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50A0BF0323F06AFE2F42E744 /* EnforcementDaemonClient.swift */; };
+		8EAFE56AB68FA6489A9C2237 /* FocusModeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7988BA29F121D4E16DFBE067 /* FocusModeController.swift */; };
 		A1000001000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000001 /* AppDelegate.swift */; };
 		A1000003000000000000001 /* SleepWakeMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000004000000000000001 /* SleepWakeMonitor.swift */; };
 		A1000005000000000000001 /* ProcessMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000006000000000000001 /* ProcessMonitor.swift */; };
@@ -61,16 +62,18 @@
 		A100F0C0000000000000001 /* focus-blocked.html in Resources */ = {isa = PBXBuildFile; fileRef = A100F0C1000000000000001 /* focus-blocked.html */; };
 		A2000001000000000000001 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = A2000003000000000000001 /* MLXLLM */; };
 		A2000002000000000000001 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = A2000004000000000000001 /* MLXLMCommon */; };
-		A200000200000000000001 /* IntentionalModeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000100000000000001 /* IntentionalModeController.swift */; };
 		A200000400000000000001 /* DaemonXPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000300000000000001 /* DaemonXPCProtocol.swift */; };
 		A300000100000000000001 /* QuitPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000200000000000001 /* QuitPolicy.swift */; };
 		A400000100000000000001 /* TrustedClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = A400000200000000000001 /* TrustedClock.swift */; };
 		A500000100000000000001 /* BedtimeEnforcer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500000200000000000001 /* BedtimeEnforcer.swift */; };
-		A600000100000000000001 /* BedtimeOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A600000200000000000001 /* BedtimeOverlayView.swift */; };
+		B500000100000000000001 /* BedtimeLockLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = B500000200000000000001 /* BedtimeLockLoop.swift */; };
+		BC00000100000000000001 /* BedtimeConfigSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC00000200000000000001 /* BedtimeConfigSync.swift */; };
+		B600000100000000000001 /* BedtimeWindDownController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B600000200000000000001 /* BedtimeWindDownController.swift */; };
+		B700000100000000000001 /* BedtimeUnlockRequestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B700000200000000000001 /* BedtimeUnlockRequestView.swift */; };
 		A700000100000000000001 /* BlockingProfileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A700000200000000000001 /* BlockingProfileManager.swift */; };
-		A800000100000000000001 /* FocusSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A800000200000000000001 /* FocusSessionManager.swift */; };
 		A900000100000000000001 /* FocusStartOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A900000200000000000001 /* FocusStartOverlay.swift */; };
 		AA00000100000000000001 /* FocusWebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000200000000000001 /* FocusWebSocketClient.swift */; };
+		AA00000300000000000099 /* FocusStatePoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000400000000000099 /* FocusStatePoller.swift */; };
 		AB00000100000000000001 /* ProjectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000200000000000001 /* ProjectStore.swift */; };
 		AC00000100000000000001 /* SwitchInterventionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC00000200000000000001 /* SwitchInterventionCoordinator.swift */; };
 		AC00000300000000000002 /* SwitchOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC00000400000000000002 /* SwitchOverlayController.swift */; };
@@ -134,6 +137,7 @@
 		34BADA5E2F8088BA009A82C6 /* DaemonXPCClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonXPCClient.swift; sourceTree = "<group>"; };
 		489F60656F0CCF336D20195E /* login.html */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.html; path = login.html; sourceTree = "<group>"; };
 		50A0BF0323F06AFE2F42E744 /* EnforcementDaemonClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EnforcementDaemonClient.swift; sourceTree = "<group>"; };
+		7988BA29F121D4E16DFBE067 /* FocusModeController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FocusModeController.swift; sourceTree = "<group>"; };
 		A1000000000000000000001 /* Intentional.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Intentional.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000002000000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A1000004000000000000001 /* SleepWakeMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepWakeMonitor.swift; sourceTree = "<group>"; };
@@ -179,16 +183,18 @@
 		A1000093000000000000039 /* ConfidenceGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfidenceGate.swift; sourceTree = "<group>"; };
 		A1000095000000000000040 /* ScoringPath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoringPath.swift; sourceTree = "<group>"; };
 		A100F0C1000000000000001 /* focus-blocked.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "focus-blocked.html"; sourceTree = "<group>"; };
-		A200000100000000000001 /* IntentionalModeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentionalModeController.swift; sourceTree = "<group>"; };
 		A200000300000000000001 /* DaemonXPCProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DaemonXPCProtocol.swift; path = Shared/DaemonXPCProtocol.swift; sourceTree = SOURCE_ROOT; };
 		A300000200000000000001 /* QuitPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuitPolicy.swift; sourceTree = "<group>"; };
 		A400000200000000000001 /* TrustedClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustedClock.swift; sourceTree = "<group>"; };
 		A500000200000000000001 /* BedtimeEnforcer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeEnforcer.swift; sourceTree = "<group>"; };
-		A600000200000000000001 /* BedtimeOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeOverlayView.swift; sourceTree = "<group>"; };
+		B500000200000000000001 /* BedtimeLockLoop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeLockLoop.swift; sourceTree = "<group>"; };
+		BC00000200000000000001 /* BedtimeConfigSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeConfigSync.swift; sourceTree = "<group>"; };
+		B600000200000000000001 /* BedtimeWindDownController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeWindDownController.swift; sourceTree = "<group>"; };
+		B700000200000000000001 /* BedtimeUnlockRequestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeUnlockRequestView.swift; sourceTree = "<group>"; };
 		A700000200000000000001 /* BlockingProfileManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockingProfileManager.swift; sourceTree = "<group>"; };
-		A800000200000000000001 /* FocusSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusSessionManager.swift; sourceTree = "<group>"; };
 		A900000200000000000001 /* FocusStartOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusStartOverlay.swift; sourceTree = "<group>"; };
 		AA00000200000000000001 /* FocusWebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusWebSocketClient.swift; sourceTree = "<group>"; };
+		AA00000400000000000099 /* FocusStatePoller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusStatePoller.swift; sourceTree = "<group>"; };
 		AB00000200000000000001 /* ProjectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectStore.swift; sourceTree = "<group>"; };
 		AB500423E96AEF2BF4B2C62D /* EnforcementReconciler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EnforcementReconciler.swift; sourceTree = "<group>"; };
 		AC00000200000000000001 /* SwitchInterventionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchInterventionCoordinator.swift; sourceTree = "<group>"; };
@@ -263,15 +269,18 @@
 				A300000200000000000001 /* QuitPolicy.swift */,
 				A700000200000000000001 /* BlockingProfileManager.swift */,
 				AB00000200000000000001 /* ProjectStore.swift */,
-				A800000200000000000001 /* FocusSessionManager.swift */,
 				A900000200000000000001 /* FocusStartOverlay.swift */,
 				AA00000200000000000001 /* FocusWebSocketClient.swift */,
+				AA00000400000000000099 /* FocusStatePoller.swift */,
 				AC00000200000000000001 /* SwitchInterventionCoordinator.swift */,
 				AC00000400000000000002 /* SwitchOverlayController.swift */,
 				AD00000200000000000001 /* ConstraintEvaluator.swift */,
 				A400000200000000000001 /* TrustedClock.swift */,
 				A500000200000000000001 /* BedtimeEnforcer.swift */,
-				A600000200000000000001 /* BedtimeOverlayView.swift */,
+				B500000200000000000001 /* BedtimeLockLoop.swift */,
+				BC00000200000000000001 /* BedtimeConfigSync.swift */,
+				B600000200000000000001 /* BedtimeWindDownController.swift */,
+				B700000200000000000001 /* BedtimeUnlockRequestView.swift */,
 				34BADA5E2F8088BA009A82C6 /* DaemonXPCClient.swift */,
 				A1000011000000000000002 /* MainWindow.swift */,
 				A1000004000000000000001 /* SleepWakeMonitor.swift */,
@@ -299,7 +308,6 @@
 				A1000067000000000000026 /* BlockEndRitualController.swift */,
 				A1000077000000000000031 /* ContentSafetyMonitor.swift */,
 				A200000300000000000001 /* DaemonXPCProtocol.swift */,
-				A200000100000000000001 /* IntentionalModeController.swift */,
 				A1000080000000000000033 /* OpenNSFW.mlmodel */,
 				A1000083000000000000034 /* NudeNetDetector.swift */,
 				A1000085000000000000035 /* NudeNetV3.mlpackage */,
@@ -325,6 +333,7 @@
 				058407AA3AB42BD7A1FF42A1 /* TamperOverlayController.swift */,
 				B1529D1ED0F3BAC8914B79B4 /* IntentionalDeviceRegistration.swift */,
 				489F60656F0CCF336D20195E /* login.html */,
+				7988BA29F121D4E16DFBE067 /* FocusModeController.swift */,
 			);
 			path = Intentional;
 			sourceTree = "<group>";
@@ -516,16 +525,18 @@
 				A1000066000000000000026 /* BlockEndRitualController.swift in Sources */,
 				A1000076000000000000031 /* ContentSafetyMonitor.swift in Sources */,
 				A200000400000000000001 /* DaemonXPCProtocol.swift in Sources */,
-				A200000200000000000001 /* IntentionalModeController.swift in Sources */,
 				A300000100000000000001 /* QuitPolicy.swift in Sources */,
 				A400000100000000000001 /* TrustedClock.swift in Sources */,
 				A500000100000000000001 /* BedtimeEnforcer.swift in Sources */,
-				A600000100000000000001 /* BedtimeOverlayView.swift in Sources */,
+				B500000100000000000001 /* BedtimeLockLoop.swift in Sources */,
+				BC00000100000000000001 /* BedtimeConfigSync.swift in Sources */,
+				B600000100000000000001 /* BedtimeWindDownController.swift in Sources */,
+				B700000100000000000001 /* BedtimeUnlockRequestView.swift in Sources */,
 				A700000100000000000001 /* BlockingProfileManager.swift in Sources */,
 				AB00000100000000000001 /* ProjectStore.swift in Sources */,
-				A800000100000000000001 /* FocusSessionManager.swift in Sources */,
 				A900000100000000000001 /* FocusStartOverlay.swift in Sources */,
 				AA00000100000000000001 /* FocusWebSocketClient.swift in Sources */,
+				AA00000300000000000099 /* FocusStatePoller.swift in Sources */,
 				AC00000100000000000001 /* SwitchInterventionCoordinator.swift in Sources */,
 				AC00000300000000000002 /* SwitchOverlayController.swift in Sources */,
 				AD00000100000000000001 /* ConstraintEvaluator.swift in Sources */,
@@ -544,6 +555,7 @@
 				0E261E45662D000102B7BDB2 /* EnforcementReconciler.swift in Sources */,
 				2E6750D26C76AADBBDFDBBB9 /* TamperOverlayController.swift in Sources */,
 				06E244AC350DE7C670CB9694 /* IntentionalDeviceRegistration.swift in Sources */,
+				8EAFE56AB68FA6489A9C2237 /* FocusModeController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -33,6 +33,11 @@ class FocusMonitor {
     weak var appDelegate: AppDelegate?
     weak var scheduleManager: ScheduleManager?
     weak var relevanceScorer: RelevanceScorer?
+
+    /// Source of truth for "should we be enforcing right now."
+    /// Replaces the old TimeState-based allowlist. Wired by AppDelegate
+    /// after init.
+    weak var focusModeController: FocusModeController?
     var nudgeController: NudgeWindowController?
     var overlayController: FocusOverlayWindowController?
     var interventionController: InterventionOverlayController?
@@ -886,9 +891,7 @@ class FocusMonitor {
         if let block = scheduleManager?.currentBlock,
            block.blockType == .deepWork || block.blockType == .focusHours {
             coord.sessionStarted(at: Date())
-            coord.setInWorkSession(true)
         } else {
-            coord.setInWorkSession(false)
             coord.sessionEnded()
         }
         if switchOverlayController?.isShowing == true {
@@ -1614,10 +1617,11 @@ class FocusMonitor {
         let state = manager.currentTimeState
         debugLog("👁️ State check: enabled=\(manager.isEnabled), state=\(state.rawValue), hasPlan=\(manager.todaySchedule != nil), blocks=\(manager.todaySchedule?.blocks.count ?? 0)")
 
-        // States where browsing is allowed freely
-        // disabled = feature off, freeTime = scheduled break, snoozed = user chose to delay
-        if state == .disabled || state == .freeTime || state == .snoozed {
-            debugLog("👁️ EXIT: state=\(state.rawValue) — browsing allowed freely")
+        // Enforcement runs IFF Focus Mode is ON. Bedtime and Off both bypass.
+        // (Replaces the TimeState allowlist — disabled, freeTime, snoozed, unplanned
+        // all now route through Focus Mode being off rather than this gate.)
+        guard focusModeController?.isOn == true else {
+            debugLog("👁️ EXIT: focus mode not on (state=\(focusModeController?.state.rawValue ?? "nil")) — browsing allowed freely")
             handleRelevantContent()
             stopBrowserPolling()
             return
@@ -1666,81 +1670,11 @@ class FocusMonitor {
             return
         }
 
-        // UNPLANNED or NO_PLAN: show floating pill card (not full-screen overlay)
-        if state == .unplanned || state == .noPlan {
-            // Check global noPlan snooze (applies to ALL apps, not per-target)
-            if let until = noPlanSnoozeUntil, Date() < until {
-                debugLog("👁️ EXIT: \(state.rawValue) — globally snoozed until \(until)")
-                reconcileGrayscale()
-                stopBrowserPolling()
-                return
-            }
-
-            let isNoPlan = state == .noPlan
-
-            // If pill is already showing noPlan, skip
-            if deepWorkTimerController?.viewModel?.mode == .noPlan {
-                debugLog("👁️ EXIT: \(state.rawValue) — noPlan pill already showing")
-                stopBrowserPolling()
-                return
-            }
-            let remaining = scheduleManager?.remainingBlocks() ?? []
-            let hasSchedule = (scheduleManager?.todayBlockCount ?? 0) > 0
-            let allBlocksDone = !isNoPlan && remaining.isEmpty && hasSchedule
-            let currentHour = Calendar.current.component(.hour, from: Date())
-
-            let cardState: NoPlanData.CardState
-            if isNoPlan { cardState = .noPlan }
-            else if allBlocksDone && currentHour >= 21 { cardState = .doneForDay }
-            else { cardState = .gap }
-
-            let isAfternoon = currentHour >= 12
-            let canSnooze30 = (scheduleManager?.snoozeCount == 0) && isNoPlan
-
-            // Countdown string for gap state
-            let nextBlock = remaining.first
-            let nextBlockCountdown: String? = nextBlock.map {
-                let nowMin = ScheduleManager.currentMinuteOfDay()
-                let diff = $0.startMinutes - nowMin
-                if diff >= 60 {
-                    let h = diff / 60, m = diff % 60
-                    return m > 0 ? "in \(h)h \(m)m" : "in \(h)h"
-                }
-                return "in \(diff) min"
-            }
-
-            // Summary stats for doneForDay
-            let summaryResult = appDelegate?.earnedBrowseManager?.todaySummary()
-            let summaryBlockCount = summaryResult?.blockCount ?? 0
-            let summaryFocusedMinutes = summaryResult?.focusedMinutes ?? 0
-            let summaryAvgFocusScore = summaryResult?.avgFocusScore ?? 0
-            let focusedTime: String = {
-                let h = Int(summaryFocusedMinutes) / 60, m = Int(summaryFocusedMinutes) % 60
-                if h > 0 && m > 0 { return "\(h)h \(m)m" }
-                return h > 0 ? "\(h)h" : "\(m)m"
-            }()
-
-            let data = NoPlanData(
-                state: cardState,
-                isAfternoon: isAfternoon,
-                canSnooze: canSnooze30,
-                remainingBlocks: Array(remaining.prefix(3)),
-                nextBlockCountdown: nextBlockCountdown,
-                completedBlockCount: summaryBlockCount,
-                totalFocusedTime: focusedTime,
-                avgFocusScore: summaryAvgFocusScore,
-                onPlanDay: { [weak self] in self?.handleNoPlanPlanDay() },
-                onQuickBlock: { [weak self] type, duration in self?.handleQuickBlockFromPill(type: type, duration: duration) },
-                onScheduleNow: { [weak self] in self?.handleScheduleNow() },
-                onDismiss: { [weak self] in self?.handleNoPlanDismiss() },
-                onSnooze: canSnooze30 ? { [weak self] in self?.handleNoPlanSnooze() } : nil
-            )
-
-            debugLog("👁️ \(state.rawValue) — showing noPlan pill card (state: \(cardState))")
-            deepWorkTimerController?.showNoPlan(data: data)
-            stopBrowserPolling()
-            return
-        }
+        // NOTE (TimeState consolidation): Previously .unplanned and .noPlan showed a
+        // floating pill card here. With TimeState collapsed to {off, focus, bedtime},
+        // both of those sub-states are now .off and return early above (browsing allowed freely).
+        // TODO (Task 5): When FocusModeController.isOn replaces TimeState gates, restore
+        // noPlan pill-card logic using scheduleManager.todaySchedule != nil as the discriminator.
 
         // WORK STATE (deep work or focus hours): score content for relevance
         guard state.isWork else {
@@ -3796,7 +3730,7 @@ class FocusMonitor {
         // Fallback: used for unplanned/noPlan states where extension overlay isn't available
         guard isCurrentlyIrrelevant,
               let manager = scheduleManager,
-              manager.currentTimeState.isWork || manager.currentTimeState == .unplanned || manager.currentTimeState == .noPlan,
+              manager.currentTimeState.isWork || manager.currentTimeState == .off,
               let bundleId = currentAppBundleId,
               Self.browserBundleIds.contains(bundleId) else { return }
 

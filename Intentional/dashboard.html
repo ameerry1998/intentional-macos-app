@@ -4403,12 +4403,12 @@ body.theme-effects-warm::after {
     </div>
     <div class="calendar-container" id="calendar-container"></div>
 
-    <!-- Focus Gate toggle (compact) -->
+    <!-- Focus Mode toggle (compact) -->
     <div class="settings-card" style="margin-top:12px; padding:0;">
       <div style="display:flex; align-items:center; padding:12px 16px; gap:12px;">
         <div style="width:28px;height:28px;border-radius:6px;background:rgba(52,211,153,0.1);color:var(--accent-primary);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">⊞</div>
-        <div style="flex:1;font-size:13px;font-weight:500;">Focus Gate</div>
-        <label class="toggle"><input type="checkbox" id="focus-gate-today-toggle" onchange="onFocusGateTodayToggle(this.checked)"><span class="toggle-track"></span></label>
+        <div style="flex:1;font-size:13px;font-weight:500;">Focus Mode</div>
+        <label class="toggle"><input type="checkbox" id="focus-mode-toggle" onchange="onFocusModeToggle(this.checked)"><span class="toggle-track"></span></label>
       </div>
     </div>
 
@@ -4637,7 +4637,7 @@ body.theme-effects-warm::after {
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('focusgate')">
           <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1);color:var(--accent-primary);">◉</div>
-          <div class="settings-menu-info"><div class="settings-menu-title">Focus Gate</div><div class="settings-menu-sub" id="settings-focusgate-sub">Hourly check-in</div></div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Focus Mode</div><div class="settings-menu-sub" id="settings-focusgate-sub">Interventions &amp; screen lock</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('browsers')">
@@ -4894,13 +4894,13 @@ body.theme-effects-warm::after {
 
     </div><!-- end detail-safety -->
 
-    <!-- Detail: Focus Gate (renamed from Intentional Mode) -->
+    <!-- Detail: Focus Mode (formerly Focus Gate / Intentional Mode) -->
     <div class="settings-detail" id="settings-detail-focusgate">
       <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
-      <div class="settings-detail-title">Focus Gate</div>
-      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">Ask what you're working on before you can use your Mac</div>
+      <div class="settings-detail-title">Focus Mode</div>
+      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">Enforcement bundle active while Focus Mode is on. Toggle individual interventions below.</div>
     <div class="settings-card">
-      <div class="settings-card-title" style="display:none;">Focus Gate</div>
+      <div class="settings-card-title" style="display:none;">Focus Mode</div>
       <div class="setting-row">
         <div>
           <div class="setting-label">Screen Lock</div>
@@ -4951,6 +4951,13 @@ body.theme-effects-warm::after {
           </select>
         </div>
       </div>
+    </div>
+
+    <!-- Interventions Section -->
+    <div class="settings-card" style="margin-top:12px;">
+      <div class="settings-card-title">Interventions</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:12px;">When Focus Mode is on, these enforce automatically. Toggle off any to soften the bundle.</div>
+      <div id="intervention-toggles"></div>
     </div>
 
     </div><!-- end detail-focusgate -->
@@ -5160,19 +5167,65 @@ setInterval(function() {
 }, 3000);
 // ===== End UI Perf Instrumentation =====
 
-// ===== Focus Gate Today Toggle =====
-function onFocusGateTodayToggle(enabled) {
-  var settingsToggle = document.getElementById('intentional-mode-enabled');
-  if (settingsToggle) settingsToggle.checked = enabled;
-  onIntentionalModeChange();
+// ===== Focus Mode Toggle =====
+function onFocusModeToggle(on) {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({
+      type: "FOCUS_MODE_TOGGLE",
+      on: on
+    });
+  }
 }
 
-// Sync Focus Gate today toggle when settings load
-function syncFocusGateTodayToggle() {
-  var settingsToggle = document.getElementById('intentional-mode-enabled');
-  var todayToggle = document.getElementById('focus-gate-today-toggle');
-  if (settingsToggle && todayToggle) {
-    todayToggle.checked = settingsToggle.checked;
+// Reflect live state from Swift; called via pushFocusModeUpdate.
+function onFocusModeStateUpdate(stateRaw) {
+  var toggle = document.getElementById("focus-mode-toggle");
+  if (toggle) {
+    toggle.checked = (stateRaw === "focus");
+  }
+}
+
+// ===== Interventions =====
+var INTERVENTIONS = [
+  { key: "distractions_blocking", label: "Distractions blocking",      desc: "Hard block apps + sites in your distractions list.", defaultOn: true },
+  { key: "switch_overlay",        label: "Context-switch overlay",     desc: "10s countdown when switching to a non-relevant app.", defaultOn: true },
+  { key: "ai_relevance",          label: "AI relevance scoring",       desc: "Browser tabs scored against your intention.",         defaultOn: true },
+  { key: "screen_red_shift",      label: "Screen red shift",           desc: "Gradual screen tint when off-task.",                  defaultOn: true },
+  { key: "off_task_nudge",        label: "Off-task nudge toast",       desc: "Small reminder before harder interventions.",         defaultOn: true },
+  { key: "block_start_ritual",    label: "Block start ritual",         desc: "Forces you to type intention before a scheduled block.", defaultOn: true },
+  { key: "block_end_ritual",      label: "Block end ritual",           desc: "3-sec stats card at end of block.",                   defaultOn: true },
+  { key: "pill_widget",           label: "Always-on pill widget",      desc: "Menu bar pill with state, intention, timer.",         defaultOn: true },
+  { key: "force_quit_apps",       label: "Distracting app force-quit", desc: "HARD MODE: distracting apps minimized/quit on activation.", defaultOn: false },
+  { key: "earned_browse_mode",    label: "Earned browse mode",         desc: "Earn distraction-time credits during focus. (Currently disabled.)", defaultOn: false }
+];
+
+function renderInterventionToggles() {
+  var container = document.getElementById("intervention-toggles");
+  if (!container) return;
+  container.innerHTML = INTERVENTIONS.map(function(it) {
+    var stored = localStorage.getItem("intervention." + it.key);
+    var isOn = stored === null ? it.defaultOn : (stored === "true");
+    return '<div class="setting-row" style="border-bottom:1px solid rgba(255,255,255,0.06);">' +
+      '<div>' +
+        '<div class="setting-label">' + it.label + '</div>' +
+        '<div class="setting-desc">' + it.desc + '</div>' +
+      '</div>' +
+      '<label class="toggle">' +
+        '<input type="checkbox" ' + (isOn ? 'checked' : '') + ' onchange="onInterventionToggle(\'' + it.key + '\', this.checked)">' +
+        '<span class="toggle-track"></span>' +
+      '</label>' +
+    '</div>';
+  }).join("");
+}
+
+function onInterventionToggle(key, enabled) {
+  localStorage.setItem("intervention." + key, enabled ? "true" : "false");
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({
+      type: "INTERVENTION_TOGGLE_SET",
+      key: key,
+      enabled: enabled
+    });
   }
 }
 
@@ -5401,6 +5454,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Initialize extra time request flow
   initExtraTimeFlow();
+
+  // Render intervention toggles in Settings → Focus Mode
+  renderInterventionToggles();
 });
 
 // ===== Blocking Profiles Management =====
@@ -7176,8 +7232,7 @@ function loadIntentionalModeSettings(s) {
   document.getElementById('intentional-mode-grace').value = String(grace);
   document.getElementById('intentional-mode-options').style.display = enabled ? '' : 'none';
   document.getElementById('intentional-mode-custom-hours').style.display = schedule === 'custom' ? '' : 'none';
-  // Sync Focus Gate toggle on Today page
-  syncFocusGateTodayToggle();
+  // Note: focus-mode-toggle on Today page is synced via pushFocusModeUpdate from Swift.
 
   var pad = function(n) { return n < 10 ? '0' + n : String(n); };
   document.getElementById('im-weekday-start').value = pad(custom.weekdayStartHour || 8) + ':' + pad(custom.weekdayStartMinute || 0);
@@ -10137,6 +10192,7 @@ function formatFocusDuration(minutes) {
 renderThemePicker('iridescent');
 sendMessage({ type: 'GET_SETTINGS' });
 sendMessage({ type: 'GET_PARTNER_STATUS' });
+sendMessage({ type: 'GET_FOCUS_MODE' });
 refresh();
 loadFocusState();
 sendMessage({ type: 'GET_RELEVANCE_LOG' });
