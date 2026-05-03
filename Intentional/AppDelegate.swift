@@ -570,6 +570,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Initialize Daily Focus Plan (V2: schedule engine + relevance scoring)
         scheduleManager = ScheduleManager(appDelegate: self)
+        if let backend = backendClient {
+            scheduleManager?.wire(backend: backend)  // Spec 2: backend pull on init + 60s + foreground
+            postLog("📅 ScheduleManager wired to backend (pull on init + 60s)")
+        }
         relevanceScorer = RelevanceScorer(appDelegate: self)
         relevanceScorer?.loadLearnedOverrides()
 
