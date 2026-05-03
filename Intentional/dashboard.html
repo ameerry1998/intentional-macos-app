@@ -9050,6 +9050,7 @@ function addFocusBlock(blockType) {
   }
 
   var defaultTitle = blockType === 'freeTime' ? 'Break' : '';
+  // Spec 2: payload includes intention_id (null until bound via picker) + intensity (mirrors blockType).
   var newBlock = {
     id: generateFocusUUID(),
     title: defaultTitle,
@@ -9058,7 +9059,9 @@ function addFocusBlock(blockType) {
     endHour: Math.floor(endMin / 60), endMinute: endMin % 60,
     blockType: blockType,
     isFree: blockType === 'freeTime',
-    ignoreProfile: false
+    ignoreProfile: false,
+    intention_id: null,                                          // Spec 2
+    intensity: blockType === 'deepWork' ? 'deepWork' : 'focusHours' // Spec 2
   };
   focusState.blocks.push(newBlock);
   if (blockType === 'freeTime') {
@@ -9087,7 +9090,9 @@ function openNewBlockDraft() {
     endHour: Math.floor(endMin / 60), endMinute: endMin % 60,
     blockType: 'focusHours',
     isFree: false,
-    ignoreProfile: false
+    ignoreProfile: false,
+    intention_id: null,        // Spec 2
+    intensity: 'focusHours'    // Spec 2
   };
 
   focusState.blocks.push(newBlock);
