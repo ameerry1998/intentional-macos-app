@@ -121,6 +121,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         // PartnerSyncService finishes its periodic /partner/status pull.
         observePartnerSyncUpdates()
 
+        // Spec 1 — re-push intentions list to dashboard whenever IntentionStore
+        // pulls fresh data (60s timer, didBecomeActive, or any push CRUD).
+        NotificationCenter.default.addObserver(
+            forName: .intentionsDidChange, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.handleGetIntentions()
+        }
+
         // Load appropriate page
         loadCurrentPage()
     }
