@@ -11,9 +11,30 @@
 
 ---
 
-## TL;DR (continuously updated; final summary at bottom)
+## TL;DR
 
-(Pending — executors not yet dispatched. Spec 1 verification gate still in progress.)
+**ALL 3 SPEC 2 PHASES COMPLETE.** Code-level GREEN. Deployment-level pending user action in the morning.
+
+| Repo | Branch | Tasks | Build | Tests | Commit |
+|---|---|---|---|---|---|
+| Backend | `feat/time-blocks-spec2` | 11/11 | n/a | 130/132 (2 pre-existing) | `eeed555` |
+| Mac | `feat/time-blocks-spec2` | 10/10 | SUCCESS | n/a (no test target) | `38b9403` |
+| iOS | `feat/time-blocks-spec2` | 11/11 | SUCCESS | bootstrap blocked on Config.plist | `d4c81c0` |
+
+All 3 branches pushed to `origin`. The Mac and iOS Spec 2 branches each include Spec 1 (`feat/intentions-spec1`) merged internally as Task 0.1, so they can be merged independently of Spec 1's merge state.
+
+**Order of operations for the morning** (also documented in `docs/overnight-run-2026-05-03.md`):
+1. Apply migration 018 in Supabase, then 019.
+2. Backend: merge `feat/intentions-spec1` → main, rebase + merge `feat/time-blocks-spec2` → main. Railway auto-deploys.
+3. Mac/iOS: merge Spec 1 then Spec 2 branches.
+4. Cross-device smoke test (the actual product promise).
+
+**The acceptance test** (per spec brief):
+- Create a Time Block at "now+2min" via either device's calendar UI.
+- Wait two minutes — both devices auto-fire the Session simultaneously.
+- Wait until block end — both devices stop simultaneously.
+- Switching from one back-to-back block to the next is seamless.
+- Generic blocks (no Intention) work using the seeded "Focus" Intention as fallback.
 
 ---
 
