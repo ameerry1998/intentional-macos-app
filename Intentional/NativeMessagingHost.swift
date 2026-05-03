@@ -800,7 +800,7 @@ class NativeMessagingHost {
                 intention: block.title,
                 intentionDescription: block.description,
                 profile: block.ignoreProfile ? "" : manager.profile,
-                dailyPlan: manager.todaySchedule?.dailyPlan ?? "",
+                dailyPlan: manager.todaySchedule?.dayNotes ?? "",
                 url: url,
                 pageDescription: pageDescription,
                 bundleIdentifier: browserBundleId

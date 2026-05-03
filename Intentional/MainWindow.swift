@@ -2231,8 +2231,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             let result: [String: Any] = [
                 "date": schedule.date,
                 "blocks": blocks,
-                "goals": schedule.goals,
-                "dailyPlan": schedule.dailyPlan
+                // Wire format keeps legacy keys for dashboard.html compat (Spec 2 internal rename only).
+                "goals": schedule.dayItems,
+                "dailyPlan": schedule.dayNotes
             ]
             if let data = try? JSONSerialization.data(withJSONObject: result),
                let json = String(data: data, encoding: .utf8) {

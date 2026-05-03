@@ -112,9 +112,51 @@ class ScheduleManager {
 
     struct DailySchedule: Codable {
         var date: String  // "yyyy-MM-dd"
-        var goals: [String]
-        var dailyPlan: String
+        var dayItems: [String]   // RENAMED from goals (frees "Goal" for Spec 3 layer)
+        var dayNotes: String     // RENAMED from dailyPlan (frees "Plan" for Spec 3 layer)
         var blocks: [FocusBlock]
+
+        init(date: String, dayItems: [String] = [], dayNotes: String = "", blocks: [FocusBlock] = []) {
+            self.date = date
+            self.dayItems = dayItems
+            self.dayNotes = dayNotes
+            self.blocks = blocks
+        }
+
+        // Backwards-compat decoding: try new names first, fall back to legacy goals/dailyPlan.
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            self.date = try c.decode(String.self, forKey: .date)
+            self.blocks = try c.decode([FocusBlock].self, forKey: .blocks)
+            if let items = try? c.decode([String].self, forKey: .dayItems) {
+                self.dayItems = items
+            } else if let goals = try? c.decode([String].self, forKey: .goals) {
+                self.dayItems = goals
+            } else {
+                self.dayItems = []
+            }
+            if let notes = try? c.decode(String.self, forKey: .dayNotes) {
+                self.dayNotes = notes
+            } else if let plan = try? c.decode(String.self, forKey: .dailyPlan) {
+                self.dayNotes = plan
+            } else {
+                self.dayNotes = ""
+            }
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(date, forKey: .date)
+            try c.encode(dayItems, forKey: .dayItems)
+            try c.encode(dayNotes, forKey: .dayNotes)
+            try c.encode(blocks, forKey: .blocks)
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case date, blocks, dayItems, dayNotes
+            case goals       // legacy
+            case dailyPlan   // legacy
+        }
     }
 
     // MARK: - Enforcement Settings
@@ -433,7 +475,7 @@ class ScheduleManager {
         if todaySchedule == nil {
             todaySchedule = DailySchedule(
                 date: Self.todayString(),
-                goals: [], dailyPlan: "",
+                dayItems: [], dayNotes: "",
                 blocks: blocks.sorted { $0.startMinutes < $1.startMinutes }
             )
         } else {
@@ -475,13 +517,15 @@ class ScheduleManager {
         }
     }
 
-    /// Set today's plan (goals + daily plan text + time blocks)
+    /// Set today's plan (dayItems + dayNotes text + time blocks).
+    /// Public API parameter names retain `goals` / `dailyPlan` for backwards compat with callers
+    /// (MainWindow bridge handlers, NativeMessagingHost). Internally they map to dayItems / dayNotes.
     func setTodaySchedule(goals: [String], dailyPlan: String, blocks: [FocusBlock]) {
         let today = Self.todayString()
         todaySchedule = DailySchedule(
             date: today,
-            goals: goals,
-            dailyPlan: dailyPlan,
+            dayItems: goals,
+            dayNotes: dailyPlan,
             blocks: blocks.sorted { $0.startMinutes < $1.startMinutes }
         )
         snoozeUntil = nil
@@ -497,8 +541,8 @@ class ScheduleManager {
         if todaySchedule == nil {
             todaySchedule = DailySchedule(
                 date: Self.todayString(),
-                goals: [],
-                dailyPlan: "",
+                dayItems: [],
+                dayNotes: "",
                 blocks: []
             )
         }
@@ -593,8 +637,10 @@ class ScheduleManager {
         result["profile"] = profile
 
         if let schedule = todaySchedule {
-            result["goals"] = schedule.goals
-            result["dailyPlan"] = schedule.dailyPlan
+            // Wire format keeps "goals"/"dailyPlan" keys for dashboard.html compat;
+            // internally these map to dayItems/dayNotes (Spec 2 vocab).
+            result["goals"] = schedule.dayItems
+            result["dailyPlan"] = schedule.dayNotes
             result["blockCount"] = schedule.blocks.count
         }
 
