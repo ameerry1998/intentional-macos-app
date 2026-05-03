@@ -1865,7 +1865,7 @@ class FocusMonitor {
                 intention: block.title,
                 intentionDescription: block.description,
                 profile: block.ignoreProfile ? "" : manager.profile,
-                dailyPlan: manager.todaySchedule?.dailyPlan ?? "",
+                dailyPlan: manager.todaySchedule?.dayNotes ?? "",
                 contentType: .application,
                 bundleIdentifier: bid
             )
@@ -2175,7 +2175,7 @@ class FocusMonitor {
                 intention: block.title,
                 intentionDescription: block.description,
                 profile: block.ignoreProfile ? "" : manager.profile,
-                dailyPlan: manager.todaySchedule?.dailyPlan ?? "",
+                dailyPlan: manager.todaySchedule?.dayNotes ?? "",
                 url: info.url,
                 bundleIdentifier: bundleId
             )
@@ -3273,7 +3273,7 @@ class FocusMonitor {
                 intention: block.title,
                 intentionDescription: enrichedDescription,
                 profile: block.ignoreProfile ? "" : manager.profile,
-                dailyPlan: manager.todaySchedule?.dailyPlan ?? ""
+                dailyPlan: manager.todaySchedule?.dayNotes ?? ""
             )
 
             await MainActor.run {
