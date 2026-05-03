@@ -89,14 +89,16 @@ final class FocusStatePoller {
             let active = json["active"] as? Bool ?? false
             let sessionId = json["session_id"] as? String
             let triggeredBy = (json["triggered_by"] as? String) ?? "puck"
+            let intentionIdStr = json["intention_id"] as? String
+            let intentionId = intentionIdStr.flatMap { UUID(uuidString: $0) }
 
             let shouldLog = (n <= 5) || (status >= 400) || (n % 30 == 0)
             if shouldLog {
-                appDelegate.postLog("🔄 FocusStatePoller poll #\(n): HTTP \(status) active=\(active) session=\(sessionId ?? "-") triggeredBy=\(triggeredBy)")
+                appDelegate.postLog("🔄 FocusStatePoller poll #\(n): HTTP \(status) active=\(active) session=\(sessionId ?? "-") triggeredBy=\(triggeredBy) intentionId=\(intentionIdStr ?? "-")")
             }
 
             await MainActor.run {
-                self.applyTransition(active: active, sessionId: sessionId, triggeredBy: triggeredBy)
+                self.applyTransition(active: active, sessionId: sessionId, triggeredBy: triggeredBy, intentionId: intentionId)
             }
         } catch {
             if n <= 3 || n % 30 == 0 {
@@ -105,8 +107,8 @@ final class FocusStatePoller {
         }
     }
 
-    private func applyTransition(active: Bool, sessionId: String?, triggeredBy: String) {
-        guard let controller = focusModeController else { return }
+    private func applyTransition(active: Bool, sessionId: String?, triggeredBy: String, intentionId: UUID?) {
+        guard focusModeController != nil else { return }
         let prevActive = lastKnownActive
         let prevSessionId = lastKnownSessionId
 
@@ -114,23 +116,49 @@ final class FocusStatePoller {
         lastKnownSessionId = sessionId
 
         if active && !prevActive {
-            appDelegate?.postLog("🔄 FocusStatePoller: detected START (session: \(sessionId ?? "-"), triggeredBy: \(triggeredBy))")
-            engage(triggeredBy: triggeredBy)
+            appDelegate?.postLog("🔄 FocusStatePoller: detected START (session: \(sessionId ?? "-"), triggeredBy: \(triggeredBy), intentionId: \(intentionId?.uuidString ?? "-"))")
+            engage(triggeredBy: triggeredBy, intentionId: intentionId, sessionId: sessionId)
         } else if !active && prevActive {
             appDelegate?.postLog("🔄 FocusStatePoller: detected STOP (was session: \(prevSessionId ?? "-"))")
             disengageIfRemoteOriginated()
         } else if active && prevActive && sessionId != prevSessionId {
             appDelegate?.postLog("🔄 FocusStatePoller: session changed \(prevSessionId ?? "-") → \(sessionId ?? "-")")
-            engage(triggeredBy: triggeredBy)
+            engage(triggeredBy: triggeredBy, intentionId: intentionId, sessionId: sessionId)
         }
     }
 
-    private func engage(triggeredBy: String) {
-        let intention = triggeredBy == "puck"
-            ? "Focus session (started on phone)"
-            : "Focus session"
-        let source: FocusModeController.ActivationSource = triggeredBy == "puck" ? .puck : .crossDevice
-        focusModeController?.activate(intention: intention, source: source)
+    /// Engage local enforcement. Spec 1: looks up the Intention name from
+    /// IntentionStore using the intention_id stamped on the backend session.
+    /// Cache miss falls through with a generic name and triggers an out-of-band
+    /// pull so the next session lookup hits.
+    /// Also mirrors the resolved intention into AppDelegate.activeProjectSession,
+    /// so the in-RAM cache stays canonically driven by the backend.
+    private func engage(triggeredBy: String, intentionId: UUID?, sessionId: String?) {
+        Task { @MainActor in
+            let intentionName: String?
+            if let id = intentionId {
+                if let cached = await IntentionStore.shared.intention(id: id) {
+                    intentionName = cached.name
+                } else {
+                    intentionName = "Focus session"
+                    Task { await IntentionStore.shared.pull() }
+                }
+                if let sessionId = sessionId {
+                    self.appDelegate?.setActiveProjectSession(projectId: id, blockId: sessionId)
+                }
+            } else {
+                intentionName = triggeredBy == "puck"
+                    ? "Focus session (started on phone)"
+                    : "Focus session"
+            }
+            let source: FocusModeController.ActivationSource =
+                triggeredBy == "puck" ? .puck : .crossDevice
+            self.focusModeController?.activate(
+                intention: intentionName,
+                intentionId: intentionId,
+                source: source
+            )
+        }
     }
 
     private func disengageIfRemoteOriginated() {
