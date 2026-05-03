@@ -73,6 +73,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     var projectStore: ProjectStore?
 
+    // Spec 1: cross-device account-scoped focus presets (replaces local-only Project)
+    var intentionStore: IntentionStore?
+
     // Transient: which project's session is currently active (replaces
     // FocusBlock.projectId; cleared on block end in onBlockChanged).
     private(set) var activeProjectSession: (projectId: UUID, blockId: String)?
@@ -528,6 +531,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Initialize Projects store
         projectStore = ProjectStore()
         postLog("📁 ProjectStore initialized")
+
+        // Spec 1: IntentionStore (cross-device focus presets via backend)
+        intentionStore = IntentionStore.shared
+        Task {
+            await intentionStore?.wire(backend: backendClient!, appDelegate: self)
+            await intentionStore?.pull()
+        }
+        intentionStore?.startSyncTimer()
+        postLog("🎯 IntentionStore wired and pulling")
 
         // Wire TimeTracker callback: deduct social media time from earned pool
         timeTracker?.onSocialMediaTimeRecorded = { [weak self] platform, minutes, isFreeBrowse in
