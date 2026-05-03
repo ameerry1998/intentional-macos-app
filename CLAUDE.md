@@ -110,6 +110,24 @@ Intentional is a macOS focus enforcement app that works with a companion Chrome 
 
 ---
 
+## Intentions (Spec 1, May 2026) — ACTIVE
+
+The Mac no longer treats Projects as a local-only concept. They are now backend-resident, account-scoped, cross-device-synced **Intentions** (`intentions` table in `intentional-backend`, see migration 018). Each Intention owns its own `mac_websites` + `mac_bundle_ids` lists directly.
+
+- **`IntentionStore`** is the actor + cache. Pull on launch / app foreground / 60s timer. Local cache at `~/Library/Application Support/Intentional/intentions.json`.
+- **`BlockingProfileManager` is NOT removed in Spec 1.** The named-profiles UI in the dashboard still uses it. Project blocklists migrated by *resolving* profile references into the new Intention's own lists. Profiles UI to be removed in a future cleanup PR.
+- **`AppDelegate.activeProjectSession` retained** as in-RAM cache, now driven by both manual-start (optimistic) and `FocusStatePoller` (canonical). The known "lost on restart" bug fixes itself: after restart, the first 2s poll re-populates from `/focus/active.intention_id`.
+- **Manual session start** now POSTs `/focus/toggle` with `intention_id`. Backend pushes silent APNs to peer iOS devices for ≤5s cross-device propagation.
+- **Migration runner**: one-time at `IntentionMigration.swift`. Idempotent via receipt at `migration_intentions_v1.json`. Resumable on partial failure.
+- **Day-1 default**: server seeds a "Focus" intention with curated default Mac blocklist for fresh accounts (no setup gate).
+- **Bridge messages**: dashboard ↔ Mac uses `GET_INTENTIONS`, `GET_INTENTION`, `CREATE_INTENTION`, `UPDATE_INTENTION`, `DELETE_INTENTION`, `START_INTENTION_SESSION`. Legacy `*_PROJECT_*` handlers retained as deprecated aliases for one release cycle.
+
+Spec: `docs/superpowers/specs/2026-05-03-intentions-spec1-design.md`
+Plan: `docs/superpowers/plans/2026-05-03-intentions-spec1-plan-b-mac.md`
+Cross-repo log: `docs/overnight-run-2026-05-03.md`
+
+---
+
 ## Parallel Development (Worktree Workflow)
 
 This repo uses git worktrees for parallel feature development. Multiple Claude Code agents may be working on different features simultaneously in separate worktrees.
