@@ -11379,5 +11379,89 @@ const ProjectsController = (() => {
   </div>
 </div>
 
+<!-- Spec 3 (May 2026): inline + Create new Intention mini-editor -->
+<div id="intention-mini-editor" style="display:none;position:fixed;top:0;right:0;bottom:0;width:380px;background:#1a1a1a;border-left:1px solid rgba(255,255,255,0.08);box-shadow:-8px 0 24px rgba(0,0,0,0.4);z-index:9999;padding:24px;transform:translateX(100%);transition:transform 0.25s ease;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <div style="font-size:16px;font-weight:600;color:#fff;">New Intention</div>
+    <button class="btn-small" onclick="closeIntentionMiniEditor(null)">×</button>
+  </div>
+  <div class="block-editor-row">
+    <label>Name</label>
+    <input class="block-editor-input" id="mini-intention-name" placeholder="e.g. Coding, Email, Writing">
+  </div>
+  <div class="block-editor-row">
+    <label>Description (optional)</label>
+    <textarea class="block-editor-input" id="mini-intention-desc" rows="2" placeholder="Specifics the AI uses to score relevance"></textarea>
+  </div>
+  <div class="block-editor-actions" style="margin-top:16px;">
+    <button class="btn-small" onclick="submitIntentionMiniEditor()">Create</button>
+    <button class="btn-small" onclick="closeIntentionMiniEditor(null)">Cancel</button>
+  </div>
+  <div id="mini-intention-error" style="color:#e55;font-size:12px;margin-top:8px;"></div>
+</div>
+
+<script>
+// Spec 3 (May 2026): inline + Create new Intention slide-in mini-editor
+var _miniEditorCallback = null;
+
+function openIntentionMiniEditor(cb) {
+  _miniEditorCallback = cb;
+  var sheet = document.getElementById('intention-mini-editor');
+  if (!sheet) return;
+  var nameEl = document.getElementById('mini-intention-name');
+  var descEl = document.getElementById('mini-intention-desc');
+  var errEl = document.getElementById('mini-intention-error');
+  if (nameEl) nameEl.value = '';
+  if (descEl) descEl.value = '';
+  if (errEl) errEl.textContent = '';
+  sheet.style.display = 'block';
+  requestAnimationFrame(function() { sheet.style.transform = 'translateX(0)'; });
+  if (nameEl) nameEl.focus();
+}
+
+function closeIntentionMiniEditor(newIdOrNull) {
+  var sheet = document.getElementById('intention-mini-editor');
+  if (sheet) {
+    sheet.style.transform = 'translateX(100%)';
+    setTimeout(function() { sheet.style.display = 'none'; }, 250);
+  }
+  if (_miniEditorCallback) {
+    _miniEditorCallback(newIdOrNull);
+    _miniEditorCallback = null;
+  }
+}
+
+function submitIntentionMiniEditor() {
+  var name = (document.getElementById('mini-intention-name').value || '').trim();
+  var desc = (document.getElementById('mini-intention-desc').value || '').trim();
+  if (!name) {
+    document.getElementById('mini-intention-error').textContent = 'Name is required';
+    return;
+  }
+  // Listen ONCE for the next mutation result with status === 'created'
+  var origCb = window._intentionMutationResult;
+  window._intentionMutationResult = function(res) {
+    window._intentionMutationResult = origCb;
+    if (origCb) { try { origCb(res); } catch (e) {} }
+    if (res && res.status === 'created') {
+      sendMessage({ type: 'GET_INTENTIONS' });
+      closeIntentionMiniEditor(res.id);
+    } else {
+      document.getElementById('mini-intention-error').textContent =
+        (res && res.error) || 'Create failed';
+    }
+  };
+  sendMessage({
+    type: 'CREATE_INTENTION',
+    name: name,
+    description: desc,
+    color_hex: null,
+    icon: null,
+    mac_websites: [],
+    mac_bundle_ids: []
+  });
+}
+</script>
+
 </body>
 </html>
