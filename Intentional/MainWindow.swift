@@ -611,6 +611,38 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 handleStartIntentionSession(body)
             }
 
+        // Spec 3 (May 2026) — Strictness presets + deep-link
+        case "UPDATE_INTENTION_STRICTNESS":
+            if let body = message.body as? [String: Any] {
+                handleUpdateIntentionStrictness(body)
+            }
+
+        case "CANCEL_PENDING_STRICTNESS_CHANGE":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String,
+               let id = UUID(uuidString: idStr) {
+                handleCancelPendingStrictnessChange(id: id)
+            }
+
+        case "OPEN_INTENTION_STRICTNESS_UNLOCK_SHEET":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String, let id = UUID(uuidString: idStr),
+               let toStr = body["to_preset"] as? String,
+               let to = StrictnessPreset(rawValue: toStr),
+               let name = body["intention_name"] as? String {
+                appDelegate?.openIntentionStrictnessUnlockSheet(
+                    intentionId: id, toPreset: to, intentionName: name
+                )
+            }
+
+        case "OPEN_INTENTION_EDITOR":
+            // Deep-link from the block editor's "Coding · Standard" caption tap →
+            // navigate the dashboard to the Intentions tab and open this intention.
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String {
+                callJS("window._navigateToIntentionEditor && window._navigateToIntentionEditor('\(idStr)')")
+            }
+
         case "FOCUS_MODE_TOGGLE":
             handleFocusModeToggle(body: body)
 
@@ -3135,18 +3167,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         Task {
             let intentions = await IntentionStore.shared.active()
             let items = intentions.map { i -> [String: Any] in
-                return [
-                    "id": i.id.uuidString,
-                    "name": i.name,
-                    "description": i.description ?? "",
-                    "color_hex": i.colorHex ?? "",
-                    "icon": i.icon ?? "",
-                    "mac_websites": i.macWebsites,
-                    "mac_bundle_ids": i.macBundleIds,
-                    "version": i.version,
-                    "created_at": ISO8601DateFormatter().string(from: i.createdAt),
-                    "updated_at": ISO8601DateFormatter().string(from: i.updatedAt),
-                ]
+                return Self.intentionToDict(i)
             }
             await MainActor.run {
                 self.emitIntentionsList(items)
@@ -3159,22 +3180,40 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             let intention = await IntentionStore.shared.intention(id: id)
             await MainActor.run {
                 if let i = intention {
-                    let dict: [String: Any] = [
-                        "id": i.id.uuidString,
-                        "name": i.name,
-                        "description": i.description ?? "",
-                        "color_hex": i.colorHex ?? "",
-                        "icon": i.icon ?? "",
-                        "mac_websites": i.macWebsites,
-                        "mac_bundle_ids": i.macBundleIds,
-                        "version": i.version,
-                    ]
-                    self.emitIntentionDetail(dict)
+                    self.emitIntentionDetail(Self.intentionToDict(i))
                 } else {
                     self.emitIntentionDetail(["error": "Intention not found"])
                 }
             }
         }
+    }
+
+    /// Spec 3 (May 2026): single source of truth for shaping an Intention into the
+    /// dashboard-facing dict. Includes strictness + pending change + budget-prep.
+    static func intentionToDict(_ i: Intention) -> [String: Any] {
+        var dict: [String: Any] = [
+            "id": i.id.uuidString,
+            "name": i.name,
+            "description": i.description ?? "",
+            "color_hex": i.colorHex ?? "",
+            "icon": i.icon ?? "",
+            "mac_websites": i.macWebsites,
+            "mac_bundle_ids": i.macBundleIds,
+            "version": i.version,
+            "created_at": ISO8601DateFormatter().string(from: i.createdAt),
+            "updated_at": ISO8601DateFormatter().string(from: i.updatedAt),
+            // Spec 3:
+            "strictness_preset": i.strictnessPreset.rawValue,
+            "weekly_budget_hours": i.weeklyBudgetHours as Any? ?? NSNull(),
+            "budget_enforcement": i.budgetEnforcement as Any? ?? NSNull(),
+        ]
+        if let pc = i.pendingStrictnessChange {
+            dict["pending_strictness_change"] = [
+                "to_preset": pc.toPreset.rawValue,
+                "takes_effect_at": ISO8601DateFormatter().string(from: pc.takesEffectAt)
+            ] as [String: Any]
+        }
+        return dict
     }
 
     private func handleCreateIntention(_ body: [String: Any]) {
@@ -3314,6 +3353,85 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 self.emitSessionResult([
                     "status": "started", "intentionId": id.uuidString,
                     "sessionId": result?.sessionId ?? ""
+                ])
+            }
+        }
+    }
+
+    // MARK: - Intentions (Spec 3 — strictness control)
+
+    private func handleUpdateIntentionStrictness(_ body: [String: Any]) {
+        guard let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) else {
+            emitIntentionMutationResult(["status": "error", "error": "Missing id"])
+            return
+        }
+        guard let toStr = body["to_preset"] as? String,
+              let to = StrictnessPreset(rawValue: toStr) else {
+            emitIntentionMutationResult(["status": "error", "error": "Missing to_preset"])
+            return
+        }
+        let partnerCode = body["partner_unlock_code"] as? String
+        Task {
+            do {
+                let updated = try await IntentionStore.shared.updateStrictness(
+                    id: id, toPreset: to, partnerUnlockCode: partnerCode
+                )
+                await MainActor.run {
+                    var payload: [String: Any] = [
+                        "status": "updated",
+                        "id": updated.id.uuidString,
+                        "strictness_preset": updated.strictnessPreset.rawValue,
+                    ]
+                    if let pc = updated.pendingStrictnessChange {
+                        payload["pending"] = [
+                            "to_preset": pc.toPreset.rawValue,
+                            "takes_effect_at": ISO8601DateFormatter().string(from: pc.takesEffectAt)
+                        ] as [String: Any]
+                    } else {
+                        payload["pending"] = NSNull()
+                    }
+                    self.emitIntentionMutationResult(payload)
+                }
+            } catch BackendClient.StrictnessUpdateError.requiresPartnerUnlock {
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "requires_partner_unlock",
+                        "id": id.uuidString,
+                        "to_preset": to.rawValue
+                    ])
+                }
+            } catch BackendClient.StrictnessUpdateError.sessionInProgress {
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "session_in_progress",
+                        "id": id.uuidString
+                    ])
+                }
+            } catch BackendClient.StrictnessUpdateError.requires24hCooldown {
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "queued_24h",
+                        "id": id.uuidString,
+                        "to_preset": to.rawValue
+                    ])
+                }
+            } catch {
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "error", "error": error.localizedDescription
+                    ])
+                }
+            }
+        }
+    }
+
+    private func handleCancelPendingStrictnessChange(id: UUID) {
+        Task {
+            let ok = await IntentionStore.shared.cancelPendingStrictnessChange(id: id)
+            await MainActor.run {
+                self.emitIntentionMutationResult([
+                    "status": ok ? "pending_cancelled" : "error",
+                    "id": id.uuidString
                 ])
             }
         }
