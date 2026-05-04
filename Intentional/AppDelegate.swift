@@ -880,6 +880,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             ensureProjectSessionMatchesCurrentBlock()
         }
 
+        // Spec 3 (May 2026): rebind any block.profileIds → block.intentionId.
+        // Idempotent + resumable; receipt at migration_profiles_to_intentions_v1.json.
+        // Runs after scheduleManager + intentionStore + blockingProfileManager + backendClient
+        // are all wired. Fire-and-forget on a Task so app launch isn't blocked.
+        Task { [weak self] in
+            guard let self = self,
+                  let scheduleManager = self.scheduleManager,
+                  let bpm = self.blockingProfileManager,
+                  let store = self.intentionStore,
+                  let backend = self.backendClient else { return }
+            let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            let dir = support.appendingPathComponent("Intentional", isDirectory: true)
+            let mig = await BlockingProfilesToIntentionsMigration(
+                scheduleManager: scheduleManager,
+                blockingProfileManager: bpm,
+                intentionStore: store,
+                backend: backend,
+                settingsDir: dir
+            )
+            await mig.run(log: { msg in
+                Task { @MainActor in self.postLog(msg) }
+            })
+        }
+
         // Initial sync: if a block is already active when the app starts, activate
         // Focus Mode immediately. (Catches app-started-during-block.) FocusModeController
         // fanout will then trigger downstream re-eval.

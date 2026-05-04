@@ -580,6 +580,19 @@ class ScheduleManager {
         Task { await pushToBackend() }  // Spec 2
     }
 
+    /// Spec 3 (May 2026): set the bound Intention for a block by id. No-op if block
+    /// not found. Persists locally and pushes to backend. Used by the migration
+    /// runner and any future "rebind" UI in the dashboard.
+    @MainActor
+    func setBlockIntention(blockId: String, intentionId: UUID?) async {
+        guard var schedule = todaySchedule,
+              let idx = schedule.blocks.firstIndex(where: { $0.id == blockId }) else { return }
+        schedule.blocks[idx].intentionId = intentionId
+        todaySchedule = schedule
+        saveSchedule()
+        await pushToBackend()
+    }
+
     /// Push a block's start time forward by N minutes.
     /// Used by the block start ritual's "+15 min" button.
     func pushBlockBack(id: String, minutes: Int = 15) {
