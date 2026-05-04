@@ -4330,6 +4330,47 @@ body.theme-effects-warm::after {
       z-index: 999;
     }
 
+/* Spec 3 (May 2026): block editor — active-days pills + Intention picker */
+.day-pill { transition: all 0.15s ease; }
+.day-pill:hover { border-color: rgba(255,255,255,0.25); }
+.day-pill.selected { color: var(--accent-primary); }
+.active-days-row button { font-family: inherit; }
+
+/* Spec 3: Bedtime + Wake bands on the calendar — solid colors, no gradients (D11) */
+.calendar-bedtime-band,
+.calendar-wake-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  color: rgba(255,255,255,0.85);
+}
+.calendar-bedtime-band { background: #3B2459; }
+.calendar-wake-band { background: #F38B5C; }
+.calendar-bedtime-band .band-icon,
+.calendar-wake-band .band-icon { margin-right: 6px; opacity: 0.9; }
+
+/* Spec 3: strictness badge on Intentions list cards */
+.strictness-badge {
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 4px;
+  padding: 2px 6px;
+  display: inline-block;
+  margin-top: 4px;
+  color: rgba(255,255,255,0.55);
+}
+.strictness-badge.preset-strict { background: rgba(239,68,68,0.12); color: #f99; }
+.strictness-badge.preset-soft { background: rgba(74,222,128,0.10); color: #9eddc0; }
+
 </style>
 </head>
 <body>
@@ -7873,6 +7914,89 @@ var focusState = {
   editingBlockId: null
 };
 
+// Spec 3 (May 2026): Intention picker cache + receiver. The Mac side pushes
+// the intentions list with strictness + pending change + budget fields.
+var intentionsCache = [];
+
+window._intentionsList = function(items) {
+  intentionsCache = Array.isArray(items) ? items : [];
+  // If the block editor is open, refresh its dropdown
+  if (focusState.editingBlockId) {
+    var sel = document.getElementById('editor-intention-picker');
+    if (sel) populateIntentionPicker(sel, getEditingBlock());
+  }
+  // If Intentions page is open, re-render
+  if (typeof ProjectsController !== 'undefined' && ProjectsController.refresh) {
+    try { ProjectsController.refresh(); } catch (e) {}
+  }
+};
+
+function getEditingBlock() {
+  return focusState.blocks.find(function(b) { return b.id === focusState.editingBlockId; });
+}
+
+function populateIntentionPicker(sel, block) {
+  if (!sel) return;
+  sel.innerHTML = '';
+  var opt0 = document.createElement('option');
+  opt0.value = '';
+  opt0.textContent = '(none)';
+  sel.appendChild(opt0);
+  intentionsCache.forEach(function(i) {
+    var opt = document.createElement('option');
+    opt.value = i.id;
+    opt.textContent = i.name;
+    sel.appendChild(opt);
+  });
+  var optNew = document.createElement('option');
+  optNew.value = '__create_new__';
+  optNew.textContent = '+ Create new Intention…';
+  sel.appendChild(optNew);
+  sel.value = (block && block.intentionId) || '';
+  renderEditorStrictnessCaption(block && block.intentionId);
+}
+
+function onEditorIntentionChange(sel) {
+  var block = getEditingBlock();
+  if (!block) return;
+  if (sel.value === '__create_new__') {
+    sel.value = block.intentionId || '';
+    if (typeof openIntentionMiniEditor === 'function') {
+      openIntentionMiniEditor(function(newId) {
+        if (newId) {
+          block.intentionId = newId;
+          // wait for next _intentionsList push, then re-select
+          setTimeout(function() {
+            var s = document.getElementById('editor-intention-picker');
+            if (s) {
+              populateIntentionPicker(s, block);
+              s.value = newId;
+            }
+            renderEditorStrictnessCaption(newId);
+          }, 200);
+          markFocusDirty();
+        }
+      });
+    }
+    return;
+  }
+  block.intentionId = sel.value || null;
+  renderEditorStrictnessCaption(block.intentionId);
+  markFocusDirty();
+}
+
+function renderEditorStrictnessCaption(intentionId) {
+  var el = document.getElementById('editor-intention-strictness-caption');
+  if (!el) return;
+  if (!intentionId) { el.textContent = ''; return; }
+  var i = intentionsCache.find(function(x) { return x.id === intentionId; });
+  if (!i) { el.textContent = ''; return; }
+  var preset = (i.strictness_preset || 'standard');
+  el.innerHTML = escapeHtml(i.name) + ' · <span style="text-decoration:underline;cursor:pointer;color:var(--accent-primary);" ' +
+    "onclick=\"sendMessage({type:'OPEN_INTENTION_EDITOR',id:'" + i.id + "'})\">" +
+    preset.charAt(0).toUpperCase() + preset.slice(1) + '</span>';
+}
+
 var blockFocusData = {};  // { blockId: { focusScore, earnedMinutes, ... } }
 var CALENDAR_START_HOUR = 0;
 var CALENDAR_END_HOUR = 24;
@@ -10249,6 +10373,19 @@ renderThemePicker('iridescent');
 sendMessage({ type: 'GET_SETTINGS' });
 sendMessage({ type: 'GET_PARTNER_STATUS' });
 sendMessage({ type: 'GET_FOCUS_MODE' });
+sendMessage({ type: 'GET_INTENTIONS' });  // Spec 3 — populate intentionsCache for picker
+
+// Spec 3 (May 2026): default the Sensitive Content card to live in
+// page-sensitive on first load (it'll relocate back if user navigates to
+// settings then sensitive, but never appears in settings now).
+(function() {
+  var senseHostInit = document.getElementById('sensitive-content-host');
+  var csCardInit = document.getElementById('content-safety-card');
+  if (senseHostInit && csCardInit && !senseHostInit.contains(csCardInit)) {
+    senseHostInit.appendChild(csCardInit);
+  }
+})();
+
 refresh();
 loadFocusState();
 sendMessage({ type: 'GET_RELEVANCE_LOG' });
