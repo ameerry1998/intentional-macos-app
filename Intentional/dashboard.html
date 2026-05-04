@@ -10479,6 +10479,10 @@ const ProjectsController = (() => {
   function onEnter() {
     // Fetch on first entry, refresh on every entry (cheap).
     sendMessage({ type: 'GET_PROJECTS' });
+    // Phase 1 of FocusMode/Intent unification: refresh backend intents
+    // every time the Intents page opens so the index renders the latest
+    // server state (covers cross-device adds from iPhone since last open).
+    sendMessage({ type: 'GET_INTENTIONS' });
     if (!state.loadedOnce) {
       sendMessage({ type: 'GET_BLOCKING_PROFILES' });
       // Prefetch so allowed-list can render app names/icons without waiting
@@ -10561,6 +10565,51 @@ const ProjectsController = (() => {
     showView('dashboard');
   }
 
+  /// Phase 1 of FocusMode/Intent unification — dispatch click on an Index
+  /// card to the right view based on whether a local Project row exists.
+  /// - Match in state.projects → openDashboard (legacy: rich detail view
+  ///   with sessions + sparkline + resume hero).
+  /// - No match (backend-only Intent) → openIntentSetup (seeds state.selected
+  ///   from intentionsCache and opens Setup form). Save goes through legacy
+  ///   UPDATE_PROJECT bridge which Swift aliases to UPDATE_INTENTION.
+  function openByIdAuto(id) {
+    var hasLocal = state.projects.some(function(p){ return p.id === id; });
+    if (hasLocal) {
+      openDashboard(id);
+    } else {
+      openIntentSetup(id);
+    }
+  }
+
+  /// Open the Setup form pre-seeded from a backend Intent (no local
+  /// Project row). Used for intents created on iPhone that haven't been
+  /// fetched into local projects.json yet. Maps Intent → Project shape
+  /// so renderSetup can reuse the existing form. Save uses the legacy
+  /// UPDATE_PROJECT bridge → backend UPDATE_INTENTION.
+  function openIntentSetup(id) {
+    if (typeof intentionsCache === 'undefined') return;
+    var intent = intentionsCache.find(function(x){ return x.id === id; });
+    if (!intent) return;
+    state.isNew = false;
+    state.selected = {
+      id: intent.id,
+      name: intent.name || '',
+      intention: intent.description || '',
+      accent: intent.color_hex || 'var(--accent-primary)',
+      blocklistId: 'bl1',
+      allowed: [],
+      // Best-effort fill for fields the Setup form expects but Intent
+      // doesn't carry. Keeps renderSetup from crashing on undefined.
+      sessions: 0,
+      hours: 0,
+      lastUsed: 'new',
+      learnedSites: [],
+      history: [],
+      weekly: new Array(14).fill(0),
+    };
+    showView('setup');
+  }
+
   function openNew() {
     state.isNew = true;
     state.selected = null;
@@ -10579,6 +10628,13 @@ const ProjectsController = (() => {
   }
 
   // ----- Rendering: Index -----
+  // Phase 1 of FocusMode/Intent unification: render from `intentionsCache`
+  // (backend, cross-device synced) when populated. Falls back to local
+  // `state.projects` only when the cache is empty (first launch before
+  // `_intentionsList` push). Click on a backend-only intent (no local
+  // Project row matching its id) routes to OPEN_INTENTION_EDITOR so we
+  // don't drop into the legacy renderDashboard which assumes the rich
+  // Project shape (sessions, learnedSites, weekMinutes).
   function renderIndex() {
     const root = document.getElementById('projects-view-index');
     const header = `
@@ -10588,9 +10644,36 @@ const ProjectsController = (() => {
           <div class="page-subtitle">Your work, organized by intent</div>
         </div>
       </div>`;
-    const cards = state.projects.map(renderCard).join('');
+    const useIntents = (typeof intentionsCache !== 'undefined' && intentionsCache.length > 0);
+    const localById = {};
+    state.projects.forEach(function(p) { localById[p.id] = p; });
+    const items = useIntents
+      ? intentionsCache.map(function(i) { return adaptIntentToCard(i, localById[i.id]); })
+      : state.projects;
+    const cards = items.map(useIntents ? renderCard : renderCard).join('');
     const newTile = renderNewTile();
     root.innerHTML = header + `<div class="projects-index-grid">${cards}${newTile}</div>`;
+  }
+
+  /// Adapt a backend Intent payload (intentionsCache shape) into the card
+  /// shape renderCard expects. Pulls best-effort enrichment from the local
+  /// Project row when one exists with the matching id (sessions, sparkline,
+  /// last-used) — falls back to backend-only fields otherwise.
+  function adaptIntentToCard(intent, localMatch) {
+    return {
+      id: intent.id,
+      name: intent.name,
+      intention: intent.description || '',
+      accent: intent.color_hex || (localMatch && localMatch.accent) || 'var(--accent-primary)',
+      // Backend Intent doesn't carry session history / sparkline; fall back
+      // to local project enrichment when available.
+      weekMinutes: (localMatch && localMatch.weekMinutes) || [],
+      humanLastUsed: (localMatch && localMatch.humanLastUsed) || '',
+      allowedCount: (intent.mac_websites || []).length + (intent.mac_bundle_ids || []).length,
+      blocklistCount: (localMatch && localMatch.blocklistCount) || 0,
+      strictness_preset: intent.strictness_preset,
+      _backendOnly: !localMatch,  // true when this id has no legacy Project row
+    };
   }
 
   function renderCard(p) {
@@ -10599,17 +10682,28 @@ const ProjectsController = (() => {
     const name = escapeHTML(p.name || 'Untitled');
     const meta = [
       p.humanLastUsed || 'new',
-      p.allowedCount ? (p.allowedCount + ' allowed') : null,
+      p.allowedCount ? (p.allowedCount + ' configured') : null,
       p.blocklistCount ? (p.blocklistCount + ' blocklist' + (p.blocklistCount === 1 ? '' : 's')) : null,
     ].filter(Boolean).join(' · ');
-    // Spec 3 (May 2026): pull strictness from live intentionsCache (real Intention rows)
-    var live = (typeof intentionsCache !== 'undefined' && intentionsCache.find(function(x){return x.id===p.id;})) || {};
-    var preset = (live.strictness_preset || '').toUpperCase();
+    // Strictness badge — for backend-adapted cards p.strictness_preset is set;
+    // for legacy state.projects cards, fall back to the intentionsCache lookup
+    // by id (kept for existing migrated rows).
+    var preset = (p.strictness_preset || '').toUpperCase();
+    if (!preset && typeof intentionsCache !== 'undefined') {
+      var live = intentionsCache.find(function(x){ return x.id === p.id; }) || {};
+      preset = (live.strictness_preset || '').toUpperCase();
+      if (preset) p.strictness_preset = live.strictness_preset;
+    }
     var badge = preset
-      ? `<div class="strictness-badge preset-${(live.strictness_preset || '').toLowerCase()}">${preset}</div>`
+      ? `<div class="strictness-badge preset-${(p.strictness_preset || '').toLowerCase()}">${preset}</div>`
       : '';
+    // openByIdAuto dispatches: legacy Project dashboard if a local Project
+    // row exists for this id, otherwise the Setup form pre-seeded from
+    // intentionsCache. Avoids the broken legacy renderDashboard path for
+    // backend-only intents (no session history / sparkline data).
+    const onClick = `ProjectsController.openByIdAuto('${p.id}')`;
     return `
-      <div class="projects-card" style="--accent: ${p.accent || 'var(--accent-primary)'}" onclick="ProjectsController.openDashboard('${p.id}')">
+      <div class="projects-card" style="--accent: ${p.accent || 'var(--accent-primary)'}" onclick="${onClick}">
         <div class="projects-card-title">${name}</div>
         ${intention ? `<div class="projects-card-intention">${intention}</div>` : ''}
         ${badge}
@@ -10621,7 +10715,7 @@ const ProjectsController = (() => {
   function renderNewTile() {
     return `
       <div class="projects-card projects-card--new" onclick="ProjectsController.openNew()">
-        <div class="projects-card-title" style="opacity: 0.6;">+ New Project</div>
+        <div class="projects-card-title" style="opacity: 0.6;">+ New Intent</div>
         <div class="projects-card-intention" style="opacity: 0.5;">Define an intent, pick a blocklist, get to work.</div>
       </div>`;
   }
@@ -11432,6 +11526,8 @@ const ProjectsController = (() => {
   return {
     onEnter, onMessage, onBlocklists,
     openDashboard, openNew, openEdit, goBack,
+    // Phase 1 of FocusMode/Intent unification:
+    openByIdAuto, openIntentSetup,
     // Setup form internals (exposed so inline onclick/oninput handlers work).
     _onNameInput, _onIntentionInput,
     _onAllowedDraftInput, _onBlockedDraftInput,
@@ -11539,7 +11635,16 @@ function cancelPendingStrictness(intentionId) {
 window._navigateToIntentionEditor = function(intentionId) {
   navigateTo('intentions');
   setTimeout(function() {
-    if (typeof ProjectsController !== 'undefined' && ProjectsController.openDashboard) {
+    if (typeof ProjectsController === 'undefined') return;
+    // Phase 1 of FocusMode/Intent unification: ProjectsController
+    // dispatches internally — legacy Project dashboard for ids that
+    // have a local Project row, Setup form pre-seeded from
+    // intentionsCache for backend-only ids. Save flow goes through
+    // CREATE/UPDATE_PROJECT which Swift aliases to CREATE/UPDATE
+    // _INTENTION for one release cycle.
+    if (ProjectsController.openByIdAuto) {
+      ProjectsController.openByIdAuto(intentionId);
+    } else if (ProjectsController.openDashboard) {
       ProjectsController.openDashboard(intentionId);
     }
   }, 50);
