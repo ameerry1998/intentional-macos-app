@@ -192,6 +192,43 @@ actor IntentionStore {
         }
         return ok
     }
+
+    // MARK: - Strictness (Spec 3 — May 2026)
+
+    /// Update strictness preset. The server applies tightening instantly and queues
+    /// softening (with a 24h cool-down or partner unlock). Returns the updated
+    /// Intention reflecting either the new preset or the queued pending change.
+    @discardableResult
+    func updateStrictness(
+        id: UUID,
+        toPreset: StrictnessPreset,
+        partnerUnlockCode: String? = nil
+    ) async throws -> Intention {
+        guard let backend else { throw BackendClient.IntentionError.network("No backend") }
+        let updated = try await backend.updateIntentionStrictness(
+            id: id, toPreset: toPreset, partnerUnlockCode: partnerUnlockCode
+        )
+        byId[id] = updated
+        persistToDisk()
+        await notifyChanged()
+        return updated
+    }
+
+    /// Cancel a queued softening (e.g. user changed their mind during the 24h window).
+    @discardableResult
+    func cancelPendingStrictnessChange(id: UUID) async -> Bool {
+        guard let backend else { return false }
+        let ok = await backend.cancelPendingStrictnessChange(id: id)
+        if ok {
+            // Mirror server: refetch and clear the local pending field
+            if let fresh = await backend.getIntention(id: id) {
+                byId[id] = fresh
+                persistToDisk()
+                await notifyChanged()
+            }
+        }
+        return ok
+    }
 }
 
 extension Notification.Name {
