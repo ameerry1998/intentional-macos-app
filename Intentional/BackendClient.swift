@@ -1603,6 +1603,141 @@ class BackendClient {
         }
     }
 
+    // MARK: - Intention Strictness (Spec 3 — May 2026)
+
+    enum StrictnessUpdateError: Error, LocalizedError {
+        case requiresPartnerUnlock           // 423 from server
+        case requires24hCooldown             // 425 from server
+        case sessionInProgress               // 409 from server (D6)
+        case network(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .requiresPartnerUnlock: return "Stepping down from Strict requires partner unlock"
+            case .requires24hCooldown:   return "Softening Standard→Soft is queued for 24h"
+            case .sessionInProgress:     return "Cannot change strictness while a session of this Intention is running"
+            case .network(let s):        return s
+            }
+        }
+    }
+
+    /// PUT /intentions/{id}/strictness
+    /// - 200 (instant tightening or queued softening — server returns updated Intention with optional pending_strictness_change)
+    /// - 409 if a session is in progress (D6)
+    /// - 423 if going from Strict requires partner unlock (caller must use partner flow)
+    /// - 425 if Standard→Soft and the 24h cool-down was implicitly accepted (we still surface to UI as info)
+    func updateIntentionStrictness(
+        id: UUID,
+        toPreset: StrictnessPreset,
+        partnerUnlockCode: String? = nil
+    ) async throws -> Intention {
+        guard let url = URL(string: "\(baseURL)/intentions/\(id.uuidString)/strictness") else {
+            throw StrictnessUpdateError.network("Bad URL")
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "PUT"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        var body: [String: Any] = ["to_preset": toPreset.rawValue]
+        if let code = partnerUnlockCode { body["partner_unlock_code"] = code }
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+        switch code {
+        case 200: return try intentionsJSONDecoder().decode(Intention.self, from: data)
+        case 409: throw StrictnessUpdateError.sessionInProgress
+        case 423: throw StrictnessUpdateError.requiresPartnerUnlock
+        case 425: throw StrictnessUpdateError.requires24hCooldown
+        default:  throw StrictnessUpdateError.network("HTTP \(code)")
+        }
+    }
+
+    /// GET /intentions/{id}/pending_strictness_change → returns nil if none pending.
+    func getPendingStrictnessChange(id: UUID) async -> PendingStrictnessChange? {
+        guard let url = URL(string: "\(baseURL)/intentions/\(id.uuidString)/pending_strictness_change") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            return try intentionsJSONDecoder().decode(PendingStrictnessChange.self, from: data)
+        } catch {
+            return nil
+        }
+    }
+
+    /// DELETE /intentions/{id}/pending_strictness_change — cancel a queued softening.
+    @discardableResult
+    func cancelPendingStrictnessChange(id: UUID) async -> Bool {
+        guard let url = URL(string: "\(baseURL)/intentions/\(id.uuidString)/pending_strictness_change") else { return false }
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (_, response) = try await URLSession.shared.data(for: req)
+            return ((response as? HTTPURLResponse)?.statusCode ?? -1) == 204
+        } catch { return false }
+    }
+
+    // MARK: - Intention Strictness Partner Unlock (mirrors bedtime_unlock)
+
+    struct IntentionStrictnessUnlockRequestResult {
+        let requestId: String
+        let sentTo: String
+    }
+
+    func requestIntentionStrictnessUnlock(
+        intentionId: UUID,
+        toPreset: StrictnessPreset,
+        reason: String,
+        note: String?
+    ) async throws -> IntentionStrictnessUnlockRequestResult {
+        guard let url = URL(string: "\(baseURL)/intention_strictness_unlock_requests") else {
+            throw StrictnessUpdateError.network("Bad URL")
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        var body: [String: Any] = [
+            "intention_id": intentionId.uuidString,
+            "to_preset": toPreset.rawValue,
+            "reason": reason,
+        ]
+        if let note { body["note"] = note }
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+        guard code == 200 else { throw StrictnessUpdateError.network("HTTP \(code)") }
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let rid = json["request_id"] as? String,
+              let to = json["sent_to"] as? String else {
+            throw StrictnessUpdateError.network("Malformed response")
+        }
+        return IntentionStrictnessUnlockRequestResult(requestId: rid, sentTo: to)
+    }
+
+    /// Verify the 6-digit code the partner emailed; on success the server flips strictness AND
+    /// returns the updated Intention.
+    func verifyIntentionStrictnessUnlock(
+        requestId: String,
+        code: String
+    ) async throws -> Intention {
+        guard let url = URL(string: "\(baseURL)/intention_strictness_unlock_requests/\(requestId)/verify") else {
+            throw StrictnessUpdateError.network("Bad URL")
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["code": code])
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let httpCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+        guard httpCode == 200 else { throw StrictnessUpdateError.network("HTTP \(httpCode)") }
+        return try intentionsJSONDecoder().decode(Intention.self, from: data)
+    }
+
     // MARK: - Time Blocks (Spec 2)
 
     struct TimeBlockDTO: Codable, Equatable {
