@@ -39,6 +39,38 @@ Keep updates minimal and precise — just add/modify the relevant sections. Do n
 
 ---
 
+## Plain-English TL;DR at end of every response (MANDATORY)
+
+The user is non-technical-leaning and skims. Long technical responses lose them. **At the end of EVERY response — no matter how short or long — append a TL;DR section in plain English.**
+
+**Format:**
+
+```
+---
+
+**TL;DR:** [1–3 plain sentences. No file paths, no commit hashes, no jargon.
+            Cover whichever apply: what I just did, and what I need from you.]
+```
+
+**Examples:**
+
+- *After making changes:* `**TL;DR:** Fixed the calendar tap bug. Install the new PKG to test it. Nothing else needed from you right now.`
+- *After asking a question:* `**TL;DR:** Want strictness to live on the Intention only, or also as a per-block override?`
+- *After giving info / a recommendation:* `**TL;DR:** Three reasonable options; I'd pick A. Tell me which and I'll move.`
+- *After research / explanation:* `**TL;DR:** Perplexity's main idea is "make bypassing slow + visible + social." We can add three of their specific suggestions later if you want.`
+
+**Rules:**
+
+- Always at the END, after the full technical answer. Never replace the technical content — append.
+- Maximum 3 sentences. If it doesn't fit in 3, the answer is too complex; restructure.
+- No code, no file paths, no commit hashes, no jargon the user wouldn't say themselves.
+- If the response is purely a one-liner answer, the TL;DR can be skipped (the answer IS the TL;DR).
+- "What I want from you" should be explicit when it applies — *"Tell me X / approve Y / wait for Z."*
+
+**Why:** the user has gotten lost in 2-page responses repeatedly. The TL;DR is the failsafe. They can ignore the body if the TL;DR tells them what they need.
+
+---
+
 ## Documentation Patterns: Markdown vs HTML (MANDATORY)
 
 This project uses a **two-layer documentation system**. Use the right format for the job.
