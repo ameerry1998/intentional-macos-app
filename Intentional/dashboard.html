@@ -4342,11 +4342,20 @@ body.theme-effects-warm::after {
   <div class="sidebar-item active" data-page="today" onclick="navigateTo('today')">
     <span class="sidebar-item-icon">◉</span> Today
   </div>
-  <div class="sidebar-item" data-page="projects" onclick="navigateTo('projects')">
-    <span class="sidebar-item-icon">◎</span> Projects
+  <div class="sidebar-item" data-page="intentions" onclick="navigateTo('intentions')">
+    <span class="sidebar-item-icon">◎</span> Intentions
+  </div>
+  <div class="sidebar-item" data-page="schedule" onclick="navigateTo('schedule')">
+    <span class="sidebar-item-icon">▤</span> Schedule
   </div>
   <div class="sidebar-item" data-page="distractions" onclick="navigateTo('distractions')">
     <span class="sidebar-item-icon">⊘</span> Distractions
+  </div>
+  <div class="sidebar-item" data-page="sensitive" onclick="navigateTo('sensitive')">
+    <span class="sidebar-item-icon">◔</span> Sensitive Content
+  </div>
+  <div class="sidebar-item" data-page="weekly" onclick="navigateTo('weekly')">
+    <span class="sidebar-item-icon">◐</span> Weekly Planning
   </div>
   <div class="sidebar-item" data-page="lock" onclick="navigateTo('lock')">
     <span class="sidebar-item-icon">◫</span> Accountability
@@ -4549,7 +4558,7 @@ body.theme-effects-warm::after {
   </div>
 
   <!-- Page: Projects -->
-  <div class="page" id="page-projects">
+  <div class="page" id="page-intentions">
     <div class="projects-page" id="projects-view-index"></div>
     <div class="projects-dashboard-page" id="projects-view-dashboard" style="display:none"></div>
     <div class="projects-setup-page" id="projects-view-setup" style="display:none"></div>
@@ -5302,8 +5311,34 @@ function navigateTo(pageId) {
     }
   }
 
-  if (pageId === 'projects') {
+  if (pageId === 'projects' || pageId === 'intentions') {
     ProjectsController.onEnter();
+  }
+
+  // Spec 3 (May 2026): Schedule sidebar page hosts the calendar
+  if (pageId === 'schedule') {
+    var scheduleHost = document.getElementById('schedule-day-host');
+    var calMove = document.getElementById('calendar-container');
+    if (scheduleHost && calMove && !scheduleHost.contains(calMove)) {
+      scheduleHost.appendChild(calMove);
+    }
+    if (typeof renderCalendar === 'function') renderCalendar();
+    sendMessage({ type: 'GET_SCHEDULE_STATE' });
+  }
+  if (pageId === 'today') {
+    var todayHost = document.getElementById('today-calendar-host');
+    var calT = document.getElementById('calendar-container');
+    if (todayHost && calT && !todayHost.contains(calT)) {
+      todayHost.appendChild(calT);
+    }
+  }
+  // Spec 3: Sensitive Content promoted from Settings to its own page
+  if (pageId === 'sensitive') {
+    var senseHostNav = document.getElementById('sensitive-content-host');
+    var csCardNav = document.getElementById('content-safety-card');
+    if (senseHostNav && csCardNav && !senseHostNav.contains(csCardNav)) {
+      senseHostNav.appendChild(csCardNav);
+    }
   }
 
   // Load all data when viewing Today page
@@ -10329,7 +10364,7 @@ const ProjectsController = (() => {
     const header = `
       <div class="page-header">
         <div>
-          <div class="page-title">Projects</div>
+          <div class="page-title">Intentions</div>
           <div class="page-subtitle">Your work, organized by intention</div>
         </div>
       </div>`;
