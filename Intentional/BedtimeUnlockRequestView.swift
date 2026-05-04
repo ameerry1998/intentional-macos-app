@@ -12,8 +12,37 @@
 
 import SwiftUI
 
+/// Spec 3 (May 2026): kind discriminator so the same view handles both the
+/// existing bedtime-unlock flow and the new Strict-step-down strictness flow.
+enum UnlockRequestKind: Equatable {
+    case bedtime
+    case intentionStrictness(intentionId: UUID, toPreset: StrictnessPreset, intentionName: String)
+
+    var titleText: String {
+        switch self {
+        case .bedtime: return "Ask your partner to unlock early"
+        case .intentionStrictness(_, let to, let name):
+            return "Ask your partner to soften \(name) → \(to.rawValue.capitalized)"
+        }
+    }
+
+    var captionText: String {
+        switch self {
+        case .bedtime: return "They'll get an email with a 6-digit code."
+        case .intentionStrictness:
+            return "They'll get an email with a 6-digit code. Once entered, the change applies immediately."
+        }
+    }
+}
+
 struct BedtimeUnlockRequestView: View {
     @Environment(\.dismiss) private var dismiss
+
+    let kind: UnlockRequestKind
+
+    init(kind: UnlockRequestKind = .bedtime) {
+        self.kind = kind
+    }
 
     @State private var durationIndex: Int = 1  // default 30 min
     @State private var reason: String = "Other"
@@ -32,14 +61,16 @@ struct BedtimeUnlockRequestView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Ask your partner to unlock early")
+                Text(kind.titleText)
                     .font(.title3.weight(.semibold))
-                Text("They'll get an email with a 6-digit code.")
+                Text(kind.captionText)
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
 
-            durationSelector
+            if case .bedtime = kind {
+                durationSelector
+            }
             reasonPicker
             noteField
 
@@ -162,6 +193,15 @@ struct BedtimeUnlockRequestView: View {
     private func send() {
         sending = true
         errorText = nil
+        switch kind {
+        case .bedtime:
+            sendBedtime()
+        case .intentionStrictness(let intentionId, let toPreset, _):
+            sendIntentionStrictness(intentionId: intentionId, toPreset: toPreset)
+        }
+    }
+
+    private func sendBedtime() {
         let backend = (NSApp.delegate as? AppDelegate)?.backendClient
         guard let backend else {
             errorText = "Backend client not available."
@@ -180,6 +220,39 @@ struct BedtimeUnlockRequestView: View {
                     sending = false
                 }
             } catch let err as BackendClient.BedtimeUnlockError {
+                await MainActor.run {
+                    errorText = err.errorDescription ?? "Unknown error"
+                    sending = false
+                }
+            } catch {
+                await MainActor.run {
+                    errorText = error.localizedDescription
+                    sending = false
+                }
+            }
+        }
+    }
+
+    private func sendIntentionStrictness(intentionId: UUID, toPreset: StrictnessPreset) {
+        let backend = (NSApp.delegate as? AppDelegate)?.backendClient
+        guard let backend else {
+            errorText = "Backend client not available."
+            sending = false
+            return
+        }
+        Task {
+            do {
+                let result = try await backend.requestIntentionStrictnessUnlock(
+                    intentionId: intentionId,
+                    toPreset: toPreset,
+                    reason: reason,
+                    note: note.isEmpty ? nil : note
+                )
+                await MainActor.run {
+                    sentToPartner = result.sentTo
+                    sending = false
+                }
+            } catch let err as BackendClient.StrictnessUpdateError {
                 await MainActor.run {
                     errorText = err.errorDescription ?? "Unknown error"
                     sending = false
