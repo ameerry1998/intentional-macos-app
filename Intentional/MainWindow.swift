@@ -2218,6 +2218,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 blockType = .focusHours
             }
             let ignoreProfile = dict["ignoreProfile"] as? Bool ?? false
+            // Spec 3 (May 2026): tolerate intentionId from the picker
+            let intentionId: UUID? = (dict["intentionId"] as? String).flatMap { UUID(uuidString: $0) }
             return ScheduleManager.FocusBlock(
                 id: dict["id"] as? String ?? UUID().uuidString,
                 title: title,
@@ -2227,7 +2229,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 endHour: endHour,
                 endMinute: endMinute,
                 blockType: blockType,
-                ignoreProfile: ignoreProfile
+                ignoreProfile: ignoreProfile,
+                intentionId: intentionId
             )
         }
 
