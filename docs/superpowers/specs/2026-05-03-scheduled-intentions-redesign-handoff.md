@@ -18,11 +18,11 @@ Three things, all in service of the original product vision: *"different project
 
 ## Out of scope (deferred to other specs)
 
-- **Anti-tamper hardening.** The product is currently bypassable in moments of weakness — that's an existential problem but it's a separate strategic design (Perplexity research + its own spec).
-- **Budgeted Intentions** (e.g. "7h gym/week", "10h study/week"). Real product question, deserves its own design.
+- **Anti-tamper hardening.** The product is currently bypassable in moments of weakness — that's an existential problem but it's a separate strategic design (Perplexity research + its own spec at `docs/superpowers/specs/2026-05-03-anti-tamper-strategy-handoff.md`).
+- **Budgeted Intentions** (e.g. "7h gym/week", "10h study/week"). Real product question, full design captured at `docs/superpowers/specs/2026-05-03-weekly-budgets-future-spec.md`. **This spec does the SCHEMA + UI prep work** (D9 + D8) so budgets can ship cleanly later, but does NOT implement budget logic, the Sunday ritual, auto-scheduling, or partner-notification-on-behind-budget.
 - **Goals layer** (the third spec in the original Intention/Time Block/Session/Goal vocabulary).
 
-If you find yourself designing for those, stop and ask the user.
+If you find yourself designing budget *behavior* (auto-fill, ritual flow, behind-budget enforcement), stop and ask the user. Designing the *placeholder* (sidebar slot, "+ Add weekly target" CTA in Intention editor, empty space in Schedule header) is in scope per D8 + D9.
 
 ---
 
@@ -37,6 +37,10 @@ If you find yourself designing for those, stop and ask the user.
 | **D5** | **Strictness preset is direction-locked**. Going harder (Soft → Standard → Strict) is instant. Going softer requires friction: **24h cool-down for Standard → Soft**; **partner-unlock-code for stepping down from Strict** to anything. | Closes the "switch to soft Intention to bypass" escape route. Mirrors the partner-unlock pattern that already works for bedtime. |
 | **D6** | The strictness preset **cannot be changed at all while a Session of that Intention is currently running**. | Otherwise the user bypasses mid-session by toggling. Load-bearing. |
 | **D7** | Mac and iPhone calendars must support the same set of editable block fields, including **active-days (Mon-Sun mask)**. Mac currently doesn't expose this — it's the worst current asymmetry. | Without active-days editable on both, the recurring-weekly model degrades to "everywhere or nowhere." |
+| **D8** | **Sidebar restructure on Mac.** Promote `Sensitive Content` out of Settings into a sidebar item. Add a `Weekly Planning` sidebar item as a placeholder for the deferred budgets feature. Both visible from day one (faded when inactive, full-color when active). | Settings is where features go to die. Both are recurring-engagement features that need findability. Carving the slots NOW is much cheaper than restructuring nav later. |
+| **D9** | **Schema prep for budgets.** Even though budgets are deferred to a separate spec, this spec adds a nullable `weekly_budget_hours` column on `intentions` and a nullable `derived_from_budget` boolean on `time_blocks`. Both default NULL/false; no enforcement code yet. Reserves visual space in the Intention edit screen and Schedule header for budget UI to land later. | Forward-compat schema is a one-line migration today; retrofitting it after blocks already exist is migrations + data backfills. Cheap insurance. |
+| **D10** | **Strictness is per-Intention ONLY. Drop block-level strictness override entirely.** Block editor (Mac popover + iPhone sheet) does NOT show a strictness control. Editing strictness happens exclusively in the Intentions tab on the Intention itself. | Cleaner mental model: "this Intention is Strict" is one concept; "this Intention is Standard but THIS specific block is Strict" is two concepts. ADHD users don't need another lever per block. If you want a one-off stricter block, create a stricter Intention and bind to it. |
+| **D11** | **Bedtime renders as a solid-color band anchored at the BOTTOM of the day calendar; Wake-up as a solid-color band anchored at the TOP.** No gradients, no inset margins. Solid distinct colors (e.g. deep navy for bedtime, warm coral for wake). Visual anchors that don't compete with the rest of the schedule. | The earlier gradient direction was too "decorative" — solid color + spatial anchoring (bottom = night, top = morning) reads instantly without a legend. Mechanically still a separate subsystem; visual unification only. |
 
 ---
 
@@ -63,8 +67,7 @@ iOS has limited gradient room because Apple's shielding is binary. The preset st
 - Default selection on a new block: the seeded "Focus" Intention if no other Intention is contextually appropriate.
 - A "+ Create new Intention" option at the bottom of the dropdown opens a slide-in mini-editor without leaving the block editor.
 - Add an **"Active days"** row: 7 toggle pills (M/T/W/T/F/S/S). Default on a new block: `[1,2,3,4,5]` (weekdays only).
-- Add a **"Strictness"** row: 3-segment control (Strict / Standard / Soft). Default: inherit from the bound Intention's preset.
-- Block-level strictness can ONLY be HARDER than the bound Intention's preset (e.g. Intention is Standard → block can be Standard or Strict, not Soft). UI greys out the disallowed cells.
+- **No Strictness row in the block editor (per D10).** Strictness lives on the Intention itself, edited in the Intentions tab. The block editor shows the bound Intention's current preset as a small read-only caption next to the Intention name (e.g. *"Coding · Standard"*). Tapping the caption deep-links to the Intention's edit screen.
 - Remove the existing "Block Type" segmented control (Focus / Free Time) — Free Time is now represented by the absence of a block, not a block type. (This was already done in Spec 2 backend; Mac UI cleanup is overdue.)
 
 ### Calendar gestures
@@ -105,7 +108,7 @@ These are the gaps vs iPhone. All must use 15-min snap on release.
 The sheet exists from Spec 2. Additions:
 - **Intention picker** at the top — already in the Spec 2 sheet, verify it's working with the new strictness lock rules (D6).
 - **"+ Create Intention" inline option** — same as Mac.
-- **Strictness selector per block** — same direction-asymmetric rules as Mac.
+- **No strictness selector in the block sheet (per D10).** Show the bound Intention's preset as a small read-only caption (*"Coding · Standard"*). Tap the caption to deep-link to the Intention's edit screen.
 - **Active-days toggles** — already in the Spec 2 sheet. Verify default is `[1-5]` for new blocks.
 
 ### DayCalendarView — gesture polish
@@ -128,6 +131,87 @@ The view exists from Spec 2 (ported from addy-ai-ios). Polish:
 
 ---
 
+## Sidebar restructure (D8)
+
+The Mac dashboard's left sidebar today:
+
+```
+Today
+Projects     ← rename to "Intentions" (per Spec 1)
+Distractions
+Accountability
+Settings
+```
+
+Becomes:
+
+```
+Today
+Intentions             ← renamed from Projects
+Schedule               ← new — surfaces the calendar at top level
+Distractions
+Sensitive Content      ← promoted from Settings (D8)
+Weekly Planning        ← new placeholder (D8) — opens to a "coming soon" view
+Accountability
+Settings
+```
+
+8 items total. Both new items render in the sidebar from day one. Sensitive Content uses the existing Settings page logic (just relocated). Weekly Planning is a placeholder page that says something like *"Plan your week — coming soon. Set weekly targets on each Intention to enable."* — with an active link back to Intentions.
+
+When budgets ship in the future spec, the Weekly Planning page is filled in without nav changes.
+
+iPhone tab bar stays as: `Home / Plan / Partner / Settings`. The sidebar restructure is Mac-specific because Mac has more nav real estate.
+
+---
+
+## Budget prep work (D9)
+
+These changes ship in THIS spec, but no budget *behavior* runs yet. They're seeds.
+
+### Backend migration 020 (extended)
+
+Add to the migration already planned for D5/D6 (strictness preset + override + cool-down table):
+
+```sql
+-- D9: nullable fields for future budgets work. No backfill, no enforcement.
+ALTER TABLE intentions
+  ADD COLUMN weekly_budget_hours NUMERIC(4,2);  -- e.g. 7.0 for "7h/week"
+
+ALTER TABLE intentions
+  ADD COLUMN budget_enforcement TEXT
+  CHECK (budget_enforcement IS NULL OR budget_enforcement IN ('track', 'nudge', 'auto_schedule', 'strict'));
+
+ALTER TABLE time_blocks
+  ADD COLUMN derived_from_budget BOOLEAN NOT NULL DEFAULT FALSE;
+```
+
+`weekly_budget_hours` NULL = "no budget set on this intention." `budget_enforcement` NULL = same. `derived_from_budget` defaults FALSE for all today's blocks; future budget logic flips it TRUE on auto-scheduled blocks.
+
+### Mac UI prep
+
+- **Intention edit screen:** at the bottom of the screen, add a section header "Weekly target" with a single row: *"+ Add weekly target (coming soon)"* — disabled, greyed, has a tooltip "Weekly budgets coming in a future update." Reserves visual space.
+- **Schedule header:** above the Day/Week toggle, reserve a horizontal row that's empty today. Future budget pills will render here. Empty row collapses to 0 height when no budgets exist (which is always, today).
+- **Weekly Planning sidebar page:** a placeholder view per the sidebar restructure section above.
+
+### iPhone UI prep
+
+- **Intention edit screen:** same "+ Add weekly target (coming soon)" disabled section at bottom.
+- **Schedule header:** same reserved horizontal row, empty today.
+
+### What is NOT included in this spec
+
+- The Sunday-night ritual notification scheduling
+- Auto-scheduling algorithm
+- Behind-budget partner notification
+- Budget enforcement modes (track / nudge / auto-schedule / strict)
+- The weekly recap view, sparklines, history
+- Day/time configurability of the ritual
+- Any onboarding step related to budgets
+
+All of those live in `docs/superpowers/specs/2026-05-03-weekly-budgets-future-spec.md`. This spec just makes sure that when they ship, the schema and visual containers already exist — no painful retrofit.
+
+---
+
 ## Migration
 
 ### Mac one-shot: BlockingProfile → Intention
@@ -146,9 +230,9 @@ ALTER TABLE intentions
   ADD COLUMN strictness_preset TEXT NOT NULL DEFAULT 'standard'
   CHECK (strictness_preset IN ('strict', 'standard', 'soft'));
 
-ALTER TABLE time_blocks
-  ADD COLUMN strictness_override TEXT
-  CHECK (strictness_override IS NULL OR strictness_override IN ('strict', 'standard', 'soft'));
+-- D10: per-block strictness override REMOVED from spec. Strictness lives only
+-- on the Intention. If users want a one-off stricter block, they create a
+-- separate Intention with the desired preset and bind to it.
 
 CREATE TABLE intention_strictness_changes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -179,8 +263,7 @@ These are real decisions where I'd want the designer to come back with options b
 2. **What does the "+ Create new Intention" inline flow look like?** Modal sheet on top of the block editor? Or full-screen replace?
 3. **What does the Mac strictness lock UI look like in the dropdown vs the dialog?** Does the user even see "this change requires partner unlock" before they tap?
 4. **What's the empty-state for the Intentions list on iPhone before the user has run onboarding?** Show the seeded "Focus" with the banner, or hide everything until onboarding completes?
-5. **Strictness mismatch between Intention preset and block override:** if Intention is "Standard" and a block overrides to "Strict," and the user later tries to soften the Intention to Soft, what happens to the block's override? Stays Strict? Falls back? Should there even BE block-level override? (Current spec says yes; designer should validate.)
-6. **Recurring vs one-off blocks.** Spec 2 only supports weekly recurring. Several real use cases want one-off ("block social tomorrow 9-11am for the launch"). Should this spec add a `effective_date` column / one-off support? Or defer?
+5. **Recurring vs one-off blocks.** Spec 2 only supports weekly recurring. Several real use cases want one-off ("block social tomorrow 9-11am for the launch"). Should this spec add a `effective_date` column / one-off support? Or defer?
 
 ---
 
@@ -211,5 +294,8 @@ A user can:
 8. Drag-to-create on Mac calendar — works with 15-min snap.
 9. Edit a block's active-days on Mac — toggle Mon/Wed/Fri only — see those days lit up; backend `time_blocks.active_days` updated.
 10. The deprecated "Blocking Profiles" tab is gone after migration.
+11. Mac sidebar shows the new structure — `Sensitive Content` is reachable from sidebar (not buried in Settings); `Weekly Planning` exists as a placeholder page that gracefully says "coming soon."
+12. Backend migration 020 has applied successfully — `intentions.weekly_budget_hours`, `intentions.budget_enforcement`, and `time_blocks.derived_from_budget` columns exist and are NULL/false for all existing rows. No behavior change visible to users yet.
+13. Both clients show "+ Add weekly target (coming soon)" greyed out at the bottom of the Intention edit screen — reserving the visual slot.
 
-If those 10 are true, ship it.
+If those 13 are true, ship it. The two extra items (#11–13) are explicit budget-prep — they don't add user-facing budget features but they let the future budget spec ship without nav restructures or schema migrations.
