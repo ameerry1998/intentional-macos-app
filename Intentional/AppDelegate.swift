@@ -1576,6 +1576,42 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    /// Spec 3 (May 2026): Hosts BedtimeUnlockRequestView in `.intentionStrictness`
+    /// mode. Singleton window so the user can't open multiple. Closes when the
+    /// request is verified or cancelled.
+    var intentionStrictnessUnlockWindow: NSWindow?
+
+    func openIntentionStrictnessUnlockSheet(
+        intentionId: UUID,
+        toPreset: StrictnessPreset,
+        intentionName: String
+    ) {
+        if let existing = intentionStrictnessUnlockWindow {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        let kind: UnlockRequestKind = .intentionStrictness(
+            intentionId: intentionId, toPreset: toPreset, intentionName: intentionName
+        )
+        let host = NSHostingController(rootView: BedtimeUnlockRequestView(kind: kind))
+        let win = NSWindow(contentViewController: host)
+        win.title = "Soften \(intentionName)"
+        win.styleMask = [.titled, .closable]
+        win.level = .floating
+        win.setContentSize(NSSize(width: 460, height: 520))
+        win.center()
+        win.isReleasedWhenClosed = false
+        win.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        intentionStrictnessUnlockWindow = win
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification, object: win, queue: .main
+        ) { [weak self] _ in
+            self?.intentionStrictnessUnlockWindow = nil
+        }
+    }
+
     func postLog(_ message: String) {
         print(message)
 
