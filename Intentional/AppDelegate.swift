@@ -644,6 +644,40 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self = self else { return }
             let intentionStr = period?.intention.map { " (\"\($0)\")" } ?? ""
             self.postLog("🎯 Focus Mode: \(old.rawValue) → \(new.rawValue)\(intentionStr)")
+
+            // Backend sync — single source of truth. Previously the post was
+            // wired only in handleFocusModeToggle + scheduleManager.onBlockChanged,
+            // so other activation paths (startFocusSession via Cmd+Shift+P, the
+            // focus picker overlay, endFocusSession) updated local state without
+            // posting. The next FocusStatePoller tick (2s) would then see no
+            // active session on backend and force-deactivate locally — the
+            // "focus mode turns off on its own" symptom. Centralizing here
+            // covers every activation path.
+            //
+            // Filter by originator: only post when this Mac IS the originator
+            // (.manual, .schedule). Cross-device receivers (.puck, .crossDevice)
+            // mean the originating device already posted; re-posting is wasted
+            // network traffic. Backend stop is idempotent so .off fall-through
+            // is safe even when source isn't carried (period nil on deactivate).
+            if old != new {
+                let isLocallyOriginated: Bool = {
+                    if let src = period?.source {
+                        switch src {
+                        case .manual, .schedule: return true
+                        case .puck, .crossDevice, .bedtimeSchedule: return false
+                        }
+                    }
+                    return true  // .off transition (period nil) — idempotent backend
+                }()
+                if isLocallyOriginated {
+                    if new == .focus {
+                        self.postFocusToggleToBackend(action: "start")
+                    } else if new == .off && old == .focus {
+                        self.postFocusToggleToBackend(action: "stop")
+                    }
+                }
+            }
+
             self.relevanceScorer?.clearCache()
 
             // earnedBrowseManager.onBlockChanged MUST run before focusMonitor.onBlockChanged
@@ -845,7 +879,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             switch state {
             case .focus:
                 self.focusModeController?.activate(intention: block?.title, source: .schedule)
-                self.postFocusToggleToBackend(action: "start")
             case .bedtime:
                 self.focusModeController?.activateBedtime(source: .bedtimeSchedule)
                 // Bedtime is phone-and-Mac local for now — separate backend
@@ -854,8 +887,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 // Don't reuse /focus/toggle for bedtime; semantically different.
             case .off:
                 self.focusModeController?.deactivate(source: .schedule)
-                self.postFocusToggleToBackend(action: "stop")
             }
+            // Backend post happens inside focusModeController.onStateChanged
+            // — keyed off the period's source so .schedule transitions sync
+            // and .crossDevice receivers don't echo-post.
 
             // Show celebration in the pill for the block that just ended
             if let prevBlock = prevBlock, let prevStats = prevStats,

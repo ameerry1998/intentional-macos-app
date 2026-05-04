@@ -3094,12 +3094,13 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     /// reconcile if disk and backend disagree (backend wins on conflict).
     private func handleFocusModeToggle(body: [String: Any]) {
         guard let on = body["on"] as? Bool else { return }
+        // Backend post is centralized in AppDelegate.focusModeController.onStateChanged
+        // — calling it here too would double-post. Idempotent backend handles
+        // dups but the duplicate is wasted network traffic.
         if on {
             appDelegate?.focusModeController?.activate(intention: nil, source: .manual)
-            appDelegate?.postFocusToggleToBackend(action: "start")
         } else {
             appDelegate?.focusModeController?.deactivate(source: .manual)
-            appDelegate?.postFocusToggleToBackend(action: "stop")
         }
     }
 
