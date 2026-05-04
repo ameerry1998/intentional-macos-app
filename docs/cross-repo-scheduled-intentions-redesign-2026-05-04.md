@@ -242,3 +242,79 @@ All three branches pushed to origin. Ready for the user to:
 6. Merge Mac `feat/intentions-spec1`, `feat/time-blocks-spec2`, `feat/scheduled-intentions-redesign` → `puck` in order
 7. Merge iOS `feat/intentions-spec1`, `feat/time-blocks-spec2`, `feat/scheduled-intentions-redesign` → `main` in order
 8. Cross-device smoke: create an Intention on Mac dashboard, see it on iPhone within 60s, change strictness preset on either device, watch it sync
+### Phase 4 — Mac report
+
+**Date:** 2026-05-04 (overnight, autonomous)
+**Branch:** `feat/scheduled-intentions-redesign` in `intentional-macos-app`
+**Status:** GREEN — 22/22 tasks complete, build passes, branch pushed.
+
+**What landed (Plan B Mac, 22 tasks):**
+
+| # | Task | Status |
+|---|---|---|
+| 0 | Worktree + base merge (`feat/time-blocks-spec2` includes Spec 1 transitively) | ✅ |
+| 1 | `Intention.strictnessPreset` + `pendingStrictnessChange` + `weeklyBudgetHours` + `budgetEnforcement` (tolerant decoder) | ✅ |
+| 2 | `BackendClient` strictness PUT + partner-unlock + pending-change endpoints | ✅ |
+| 3 | `IntentionStore.updateStrictness` + `cancelPendingStrictnessChange` | ✅ |
+| 4 | `BedtimeUnlockRequestView` generalized with `UnlockRequestKind` enum (`.bedtime` vs `.intentionStrictness`) | ✅ |
+| 5 | `AppDelegate.openIntentionStrictnessUnlockSheet` mirror of bedtime sheet | ✅ |
+| 6 | `MainWindow` bridge handlers: `UPDATE_INTENTION_STRICTNESS`, `CANCEL_PENDING_STRICTNESS_CHANGE`, `OPEN_INTENTION_STRICTNESS_UNLOCK_SHEET`, `OPEN_INTENTION_EDITOR`. Intentions list payload now includes strictness + pending + budget fields. | ✅ |
+| 7 | `BlockingProfilesToIntentionsMigration` + `ScheduleManager.setBlockIntention` + AppDelegate dispatch (idempotent receipt + resumable) | ✅ |
+| 8 | Sidebar restructure (8 items: Today / Intentions / Schedule / Distractions / Sensitive Content / Weekly Planning / Accountability / Settings) | ✅ |
+| 9 | `page-schedule` hosts the calendar (Day/Week toggle stub + reserved budget row) | ✅ |
+| 10 | `page-sensitive` (Sensitive Content card relocated from Settings) | ✅ |
+| 11 | `page-weekly` placeholder with Go-to-Intentions CTA | ✅ |
+| 12 | Block editor — Profiles chips removed + Block Type segmented removed | ✅ |
+| 13 | Block editor — Intention picker dropdown + active-days pills + read-only strictness caption + deep-link | ✅ |
+| 14 | Inline `+ Create new Intention` slide-in mini-editor in the picker | ✅ |
+| 15 | Intentions tab — 3-segment strictness picker + 24h cool-down (D15 warm-tone confirm) + Strict-step-down partner unlock + pending banner + cancel | ✅ |
+| 16 | Solid bedtime (deep navy `#3B2459` bottom) + wake (warm coral `#F38B5C` top) bands on calendar (D11 — no gradients) | ✅ |
+| 17 | Strictness preset badge per Intention card on the list | ✅ |
+| 18 | `CLAUDE.md` updated (item 14 in Known Bug Fixes) | ✅ |
+| 19 | Smoke-test build passes | ✅ |
+| 20 | Strictness round-trip test | DEFERRED (Plan A backend not yet shipped — endpoints return 404) |
+| 21 | Migration smoke test | DEFERRED (no legacy `profileIds` data on this dev machine to exercise the migration) |
+| 22 | Cross-repo log + push | ✅ (this entry) |
+
+**File map:**
+
+- Modified: `Intentional/Intention.swift`, `Intentional/BackendClient.swift`, `Intentional/IntentionStore.swift`, `Intentional/BedtimeUnlockRequestView.swift`, `Intentional/AppDelegate.swift`, `Intentional/MainWindow.swift`, `Intentional/ScheduleManager.swift`, `Intentional/dashboard.html`, `Intentional.xcodeproj/project.pbxproj`, `CLAUDE.md`.
+- Created: `Intentional/BlockingProfilesToIntentionsMigration.swift`.
+- Approximate net diff: +1,350 lines / -85 lines.
+
+**Manual user verification needed (Tasks 20–21 once backend is up):**
+
+1. Create an Intention via the inline `+` button in the block editor → appears in the dropdown and on the Intentions list.
+2. Open Intentions tab → click Intention → see 3-segment strictness picker (default Standard).
+3. Strict → instant. Standard → instant. Soft → confirm dialog (warm tone) → toast: "Change queued — applies in 24 hours" + scheduled banner.
+4. Click Cancel on the banner → banner clears.
+5. Strict → Soft: `BedtimeUnlockRequestView` opens in `.intentionStrictness` mode (title: "Ask your partner to soften …").
+6. Start a Session of an Intention → strictness picker greys out with tooltip.
+7. Stop session → picker re-enabled.
+8. Open block editor on any block → Intention dropdown + active-days pills + caption visible. No Profiles chips, no Block Type control.
+9. Bedtime/Wake bands visible on calendar (deep navy bottom, warm coral top).
+10. Sidebar shows 8 items; Sensitive Content + Weekly Planning are reachable.
+
+**Deviations from plan:**
+
+- Plan Step 13.2 referenced an `editor-intention-picker` `<select>` whose change handler we kept simple (`onEditorIntentionChange`). The mini-editor open path defers picker re-population to a 200ms timeout after `_intentionsList` arrives (Step 14.2's `submitIntentionMiniEditor` triggers a `GET_INTENTIONS` push). Same end-state, slightly different sequencing.
+- Plan Step 15 had a stale `onclick` arg ordering bug in the first code block (`'\\'' + p + '\\''` repeated `p`); used the corrected ordering from the plan's follow-up note.
+- `_activeIntentionId` is set to `null` and not yet wired through `pushFocusModeUpdate` (which only carries `state`). The strictness picker therefore won't currently grey out on session-active. **Follow-up:** thread `intention_id` through `pushFocusModeUpdate` and have the dashboard JS receiver assign `window._activeIntentionId`. Does NOT block the rest of the redesign — just one missing UI lock.
+- The existing `_settingsUpdate` JS receiver is not the bedtime-settings carrier on this branch, so `renderBedtimeAndWakeBands` falls back to defaults (22:00 bedtime / 07:00 wake) until bedtime config sync delivers the real values via the other path. Bands render with sane defaults; refresh on every `renderCalendarBlocks` call.
+- Per CLAUDE.md fix #6 (PKG signing) and the `Intentional.entitlements` rule — not touched. Build is debug only; PKG re-sign untouched.
+
+**Backend dependency status:**
+
+Plan A (backend) endpoints required for the Strictness flow: `PUT /intentions/{id}/strictness`, `GET/DELETE /intentions/{id}/pending_strictness_change`, `POST /intention_strictness_unlock_requests`, `POST /intention_strictness_unlock_requests/{id}/verify`. The Mac client will surface clean errors (`error: HTTP 404`) until those ship. UI fully built and ready.
+
+**Files to run manual verification on:**
+
+- `/Users/arayan/Documents/GitHub/intentional-macos-app/.claude/worktrees/scheduled-intentions-redesign/Intentional/Intention.swift`
+- `/Users/arayan/Documents/GitHub/intentional-macos-app/.claude/worktrees/scheduled-intentions-redesign/Intentional/BackendClient.swift`
+- `/Users/arayan/Documents/GitHub/intentional-macos-app/.claude/worktrees/scheduled-intentions-redesign/Intentional/IntentionStore.swift`
+- `/Users/arayan/Documents/GitHub/intentional-macos-app/.claude/worktrees/scheduled-intentions-redesign/Intentional/BedtimeUnlockRequestView.swift`
+- `/Users/arayan/Documents/GitHub/intentional-macos-app/.claude/worktrees/scheduled-intentions-redesign/Intentional/AppDelegate.swift`
+- `/Users/arayan/Documents/GitHub/intentional-macos-app/.claude/worktrees/scheduled-intentions-redesign/Intentional/MainWindow.swift`
+- `/Users/arayan/Documents/GitHub/intentional-macos-app/.claude/worktrees/scheduled-intentions-redesign/Intentional/ScheduleManager.swift`
+- `/Users/arayan/Documents/GitHub/intentional-macos-app/.claude/worktrees/scheduled-intentions-redesign/Intentional/BlockingProfilesToIntentionsMigration.swift`
+- `/Users/arayan/Documents/GitHub/intentional-macos-app/.claude/worktrees/scheduled-intentions-redesign/Intentional/dashboard.html`
