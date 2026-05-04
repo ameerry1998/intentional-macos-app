@@ -4384,7 +4384,7 @@ body.theme-effects-warm::after {
     <span class="sidebar-item-icon">◉</span> Today
   </div>
   <div class="sidebar-item" data-page="intentions" onclick="navigateTo('intentions')">
-    <span class="sidebar-item-icon">◎</span> Intents
+    <span class="sidebar-item-icon">◎</span> Focus Modes
   </div>
   <!-- Schedule item removed: redundant with Today view which already surfaces the calendar.
        page-schedule div retained below as orphan in case a deep link still routes there. -->
@@ -4647,7 +4647,7 @@ body.theme-effects-warm::after {
       <div style="color:rgba(255,255,255,0.5);font-size:14px;line-height:1.5;max-width:420px;margin:0 auto 24px;">
         Coming soon. Set weekly targets on individual Intentions to enable. We'll auto-schedule them around your existing blocks.
       </div>
-      <button class="btn-small" onclick="navigateTo('intentions')">Go to Intents →</button>
+      <button class="btn-small" onclick="navigateTo('intentions')">Go to Focus Modes →</button>
     </div>
   </div>
 
@@ -4996,7 +4996,7 @@ body.theme-effects-warm::after {
       <div class="setting-row">
         <div>
           <div class="setting-label">Screen Lock</div>
-          <div class="setting-desc">Block your screen until you set an intent for your time</div>
+          <div class="setting-desc">Block your screen until you set a focus mode for your time</div>
         </div>
         <label class="toggle">
           <input type="checkbox" id="intentional-mode-enabled" onchange="onIntentionalModeChange()">
@@ -9405,7 +9405,7 @@ function openBlockEditor(blockId, event) {
     '<input type="time" class="block-editor-input block-editor-time-input" id="editor-end" value="' + padFocusTime(block.endHour, block.endMinute) + '">' +
     '</div></div>' +
     '<div class="block-editor-row">' +
-    '<label>Intent</label>' +
+    '<label>Focus Mode</label>' +
     '<select id="editor-intention-picker" class="block-editor-input" onchange="onEditorIntentionChange(this)"></select>' +
     '<div id="editor-intention-strictness-caption" style="margin-top:4px;font-size:11px;color:rgba(255,255,255,0.5);"></div>' +
     '</div>' +
@@ -10640,8 +10640,8 @@ const ProjectsController = (() => {
     const header = `
       <div class="page-header">
         <div>
-          <div class="page-title">Intents</div>
-          <div class="page-subtitle">Your work, organized by intent</div>
+          <div class="page-title">Focus Modes</div>
+          <div class="page-subtitle">Your work, organized by focus mode</div>
         </div>
       </div>`;
     const useIntents = (typeof intentionsCache !== 'undefined' && intentionsCache.length > 0);
@@ -10715,8 +10715,8 @@ const ProjectsController = (() => {
   function renderNewTile() {
     return `
       <div class="projects-card projects-card--new" onclick="ProjectsController.openNew()">
-        <div class="projects-card-title" style="opacity: 0.6;">+ New Intent</div>
-        <div class="projects-card-intention" style="opacity: 0.5;">Define an intent, pick a blocklist, get to work.</div>
+        <div class="projects-card-title" style="opacity: 0.6;">+ New Focus Mode</div>
+        <div class="projects-card-intention" style="opacity: 0.5;">Define a focus mode, pick a blocklist, get to work.</div>
       </div>`;
   }
 
@@ -11137,7 +11137,7 @@ const ProjectsController = (() => {
 
       <div class="projects-setup-field">
         <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;">
-          <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);">Intent</div>
+          <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);">Focus Mode</div>
           <div id="project-setup-intention-count" class="char-count" style="font-size:11px;color:${intentionColor};font-variant-numeric:tabular-nums;">${intentionLen} / 140</div>
         </div>
         <textarea id="project-setup-intention" rows="3" placeholder="What are you trying to accomplish?"
@@ -11695,7 +11695,7 @@ window._navigateToIntentionEditor = function(intentionId) {
 <!-- Spec 3 (May 2026): inline + Create new Intention mini-editor -->
 <div id="intention-mini-editor" style="display:none;position:fixed;top:0;right:0;bottom:0;width:380px;background:#1a1a1a;border-left:1px solid rgba(255,255,255,0.08);box-shadow:-8px 0 24px rgba(0,0,0,0.4);z-index:9999;padding:24px;transform:translateX(100%);transition:transform 0.25s ease;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-    <div style="font-size:16px;font-weight:600;color:#fff;">New Intent</div>
+    <div style="font-size:16px;font-weight:600;color:#fff;">New Focus Mode</div>
     <button class="btn-small" onclick="closeIntentionMiniEditor(null)">×</button>
   </div>
   <div class="block-editor-row">

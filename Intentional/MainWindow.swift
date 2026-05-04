@@ -3190,7 +3190,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 if let i = intention {
                     self.emitIntentionDetail(Self.intentionToDict(i))
                 } else {
-                    self.emitIntentionDetail(["error": "Intent not found"])
+                    self.emitIntentionDetail(["error": "Focus mode not found"])
                 }
             }
         }
@@ -3264,7 +3264,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             guard let existing = await IntentionStore.shared.intention(id: id) else {
                 await MainActor.run {
                     self.emitIntentionMutationResult([
-                        "status": "error", "error": "Intent not found"
+                        "status": "error", "error": "Focus mode not found"
                     ])
                 }
                 return
@@ -3327,7 +3327,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             guard let intention = await IntentionStore.shared.intention(id: id),
                   intention.deletedAt == nil else {
                 await MainActor.run {
-                    self.emitSessionResult(["status": "refused", "reason": "Intent not found"])
+                    self.emitSessionResult(["status": "refused", "reason": "Focus mode not found"])
                 }
                 return
             }
