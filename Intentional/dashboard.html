@@ -8607,6 +8607,52 @@ function renderCalendarBlocks() {
   });
   updateBlockRings();
   renderEmptyState();
+  renderBedtimeAndWakeBands();  // Spec 3 — D11
+}
+
+// Spec 3 (May 2026): solid bedtime + wake bands on the calendar.
+// D11: solid colors, no gradients. Bedtime anchored to bottom, wake to top.
+function renderBedtimeAndWakeBands() {
+  var grid = document.getElementById('calendar-grid');
+  if (!grid) return;
+  // Remove old bands
+  grid.querySelectorAll('.calendar-bedtime-band, .calendar-wake-band').forEach(function(el) { el.remove(); });
+
+  var bs = (typeof settings !== 'undefined' && settings.bedtime_settings) || {};
+  var bedHour  = (typeof bs.bedtime_hour  === 'number') ? bs.bedtime_hour  : 22;
+  var bedMin   = (typeof bs.bedtime_minute === 'number') ? bs.bedtime_minute : 0;
+  var wakeHour = (typeof bs.wake_hour     === 'number') ? bs.wake_hour     : 7;
+  var wakeMin  = (typeof bs.wake_minute   === 'number') ? bs.wake_minute   : 0;
+
+  var calStart = CALENDAR_START_HOUR;
+  var calEnd = CALENDAR_END_HOUR;
+  var bedMinOfDay = bedHour * 60 + bedMin;
+  var calStartMin = calStart * 60;
+  var calEndMin = calEnd * 60;
+
+  // Bedtime band: from bed time → end of calendar (anchored to bottom)
+  if (bedMinOfDay >= calStartMin && bedMinOfDay < calEndMin) {
+    var topPx = ((bedMinOfDay - calStartMin) / 60) * CALENDAR_HOUR_HEIGHT;
+    var heightPx = ((calEndMin - bedMinOfDay) / 60) * CALENDAR_HOUR_HEIGHT;
+    var band = document.createElement('div');
+    band.className = 'calendar-bedtime-band';
+    band.style.top = topPx + 'px';
+    band.style.height = heightPx + 'px';
+    band.innerHTML = '<span class="band-icon">☾</span> Bedtime · ' + padFocusTime(bedHour, bedMin) + ' → ' + padFocusTime(wakeHour, wakeMin);
+    grid.appendChild(band);
+  }
+
+  // Wake band: from calStart → wake time (anchored to top)
+  var wakeMinOfDay = wakeHour * 60 + wakeMin;
+  if (wakeMinOfDay > calStartMin && wakeMinOfDay <= calEndMin) {
+    var heightW = ((wakeMinOfDay - calStartMin) / 60) * CALENDAR_HOUR_HEIGHT;
+    var bandW = document.createElement('div');
+    bandW.className = 'calendar-wake-band';
+    bandW.style.top = '0';
+    bandW.style.height = heightW + 'px';
+    bandW.innerHTML = '<span class="band-icon">☀</span> Wake · ' + padFocusTime(wakeHour, wakeMin);
+    grid.appendChild(bandW);
+  }
 }
 
 function updateBlockRings() {
