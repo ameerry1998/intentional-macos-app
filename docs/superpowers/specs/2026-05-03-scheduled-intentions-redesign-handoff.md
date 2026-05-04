@@ -40,7 +40,10 @@ If you find yourself designing budget *behavior* (auto-fill, ritual flow, behind
 | **D8** | **Sidebar restructure on Mac.** Promote `Sensitive Content` out of Settings into a sidebar item. Add a `Weekly Planning` sidebar item as a placeholder for the deferred budgets feature. Both visible from day one (faded when inactive, full-color when active). | Settings is where features go to die. Both are recurring-engagement features that need findability. Carving the slots NOW is much cheaper than restructuring nav later. |
 | **D9** | **Schema prep for budgets.** Even though budgets are deferred to a separate spec, this spec adds a nullable `weekly_budget_hours` column on `intentions` and a nullable `derived_from_budget` boolean on `time_blocks`. Both default NULL/false; no enforcement code yet. Reserves visual space in the Intention edit screen and Schedule header for budget UI to land later. | Forward-compat schema is a one-line migration today; retrofitting it after blocks already exist is migrations + data backfills. Cheap insurance. |
 | **D10** | **Strictness is per-Intention ONLY. Drop block-level strictness override entirely.** Block editor (Mac popover + iPhone sheet) does NOT show a strictness control. Editing strictness happens exclusively in the Intentions tab on the Intention itself. | Cleaner mental model: "this Intention is Strict" is one concept; "this Intention is Standard but THIS specific block is Strict" is two concepts. ADHD users don't need another lever per block. If you want a one-off stricter block, create a stricter Intention and bind to it. |
-| **D11** | **Bedtime renders as a solid-color band anchored at the BOTTOM of the day calendar; Wake-up as a solid-color band anchored at the TOP.** No gradients, no inset margins. Solid distinct colors (e.g. deep navy for bedtime, warm coral for wake). Visual anchors that don't compete with the rest of the schedule. | The earlier gradient direction was too "decorative" — solid color + spatial anchoring (bottom = night, top = morning) reads instantly without a legend. Mechanically still a separate subsystem; visual unification only. |
+| **D11** | **Bedtime renders as a solid-color band anchored at the BOTTOM of the day calendar; Wake-up as a solid-color band anchored at the TOP.** No gradients on EITHER platform — Mac AND iOS use solid colors. No inset margins. Deep navy for bedtime, warm coral for wake. Visual anchors that don't compete with the rest of the schedule. | The gradient experiment was attempted in Claude Design and reverted; final answer is solid-only across both platforms for consistency. |
+| **D12** | **The Intention picker on iPhone replaces "+ Create new Intention" with "+ One-off block."** The one-off path is dramatically simpler: just a single text field ("What is this block for?"). No color, no emoji, no strictness picker, no "what counts as on-task" essay. Inherits Soft strictness by default, neutral grey calendar color. Caption: *"Want to set this up properly? Create an Intention in the Intentions tab."* with link. Full reusable Intention creation lives ONLY in the Intentions tab — never inline in the picker. | A user trying to schedule a doctor's appointment shouldn't have to invent a permanent Intention, pick its color and emoji, and write its on-task description. The picker should help them schedule the moment without taking a detour. |
+| **D13** | **Mac calendar gestures (drag-to-create, edge-resize, block-move) are EXPLICITLY DEFERRED to v1.5.** The Mac calendar in this redesign keeps the existing click-to-create-30-min behavior. Gestures get their own follow-up spec after redesign stabilizes. | The redesign is already large; gesture work is a meaningful chunk that doesn't share much code with the rest. Cleaner as its own thing. |
+| **D14** | **The deprecated Profiles UI tab on Mac (CRUD for named blocking profiles) is NOT removed in this redesign — only the chips inside the block editor are replaced (per D1).** A follow-up cleanup spec will remove the Profiles tab + dashboard handlers + `BlockingProfileManager` entirely after the redesign is stable for ≥2 weeks. **This cleanup MUST be a section in the next spec written after this one.** | Removing the Profiles UI now risks deleting data while the migration is mid-flight. Keep the data layer for one release; remove the UI entry point but leave the file-based store intact until cleanup. |
 
 ---
 
@@ -70,14 +73,9 @@ iOS has limited gradient room because Apple's shielding is binary. The preset st
 - **No Strictness row in the block editor (per D10).** Strictness lives on the Intention itself, edited in the Intentions tab. The block editor shows the bound Intention's current preset as a small read-only caption next to the Intention name (e.g. *"Coding · Standard"*). Tapping the caption deep-links to the Intention's edit screen.
 - Remove the existing "Block Type" segmented control (Focus / Free Time) — Free Time is now represented by the absence of a block, not a block type. (This was already done in Spec 2 backend; Mac UI cleanup is overdue.)
 
-### Calendar gestures
+### Calendar gestures — **DEFERRED to v1.5 per D13**
 
-These are the gaps vs iPhone. All must use 15-min snap on release.
-
-- **Drag-to-create:** mousedown on empty calendar = start point; drag = preview block extending downward; mouseup = creates draft block + opens editor (current `onCalendarHourClick` becomes `onCalendarMouseDown` + handlers).
-- **Edge-resize:** existing `.calendar-block-resize.top` / `.bottom` handles (lines ~8382-8385) need verification — make sure they snap to 15 min and respect overlap rules.
-- **Block move:** long-press 0.5s on a block = enter move mode; drag relocates with snap; mouseup commits.
-- **Visual feedback** during drag: faded preview block at projected position, end-time label updates live.
+Drag-to-create, edge-resize, and block-move are NOT in scope for this redesign. The Mac calendar keeps the existing click-to-create-30-min behavior (the `onCalendarHourClick` flow that already uses the draft pattern fix from `8bcf18b`). Gestures get their own follow-up spec after this redesign stabilizes.
 
 ### Optional but recommended
 
@@ -291,7 +289,7 @@ A user can:
 5. Try to change preset during an active Session — the control is greyed out with the lock reason.
 6. Open the iPhone first time — see a FamilyActivityPicker step in onboarding. Pick apps. They populate the seeded Focus Intention.
 7. Create a new Intention on iPhone without picking apps — see a yellow "0 apps blocked" banner on it in the list.
-8. Drag-to-create on Mac calendar — works with 15-min snap.
+8. ~~Drag-to-create on Mac calendar — works with 15-min snap.~~ **DEFERRED to v1.5 per D13.** Mac calendar keeps existing click-to-create-30-min behavior.
 9. Edit a block's active-days on Mac — toggle Mon/Wed/Fri only — see those days lit up; backend `time_blocks.active_days` updated.
 10. The deprecated "Blocking Profiles" tab is gone after migration.
 11. Mac sidebar shows the new structure — `Sensitive Content` is reachable from sidebar (not buried in Settings); `Weekly Planning` exists as a placeholder page that gracefully says "coming soon."
