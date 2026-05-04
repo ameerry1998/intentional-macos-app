@@ -1479,7 +1479,7 @@ class BackendClient {
             case .versionConflict(let v):
                 return "Server has a newer version (\(v.map(String.init) ?? "?")). Refetch and retry."
             case .notFound:
-                return "Intention not found on server"
+                return "Intent not found on server"
             case .network(let s):
                 return s
             }
@@ -1656,7 +1656,7 @@ class BackendClient {
             switch self {
             case .requiresPartnerUnlock: return "Stepping down from Strict requires partner unlock"
             case .requires24hCooldown:   return "Softening Standard→Soft is queued for 24h"
-            case .sessionInProgress:     return "Cannot change strictness while a session of this Intention is running"
+            case .sessionInProgress:     return "Cannot change strictness while a session of this Intent is running"
             case .network(let s):        return s
             }
         }
