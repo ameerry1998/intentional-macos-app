@@ -116,8 +116,71 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
 
+        // Observe partner cross-device sync updates so the dashboard reflects
+        // partner data set on a sibling device (e.g. iPhone) the moment
+        // PartnerSyncService finishes its periodic /partner/status pull.
+        observePartnerSyncUpdates()
+
+        // Spec 1 — re-push intentions list to dashboard whenever IntentionStore
+        // pulls fresh data (60s timer, didBecomeActive, or any push CRUD).
+        NotificationCenter.default.addObserver(
+            forName: .intentionsDidChange, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.handleGetIntentions()
+        }
+
         // Load appropriate page
         loadCurrentPage()
+    }
+
+    /// Listen for PartnerSyncService.pullAndApply() completions and forward
+    /// the partnerEmail / partnerName / partnerConsentStatus into the
+    /// dashboard via the `_partnerStatusResult` JS receiver. Also persists
+    /// the values into the dashboard settings JSON so they survive page
+    /// reloads.
+    private func observePartnerSyncUpdates() {
+        NotificationCenter.default.addObserver(
+            forName: .partnerSyncDidUpdate,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self else { return }
+            let info = note.userInfo ?? [:]
+            let email = (info["partnerEmail"] as? String) ?? ""
+            let name = (info["partnerName"] as? String) ?? ""
+            let consentStatus = (info["partnerConsentStatus"] as? String) ?? ""
+
+            // Persist to settings JSON so the values survive a dashboard
+            // reload (which re-hydrates `settings` from disk via
+            // _settingsResult).
+            self.updateSettingsFile { settings in
+                settings["partnerEmail"] = email
+                settings["partnerName"] = name
+                if !consentStatus.isEmpty {
+                    settings["consentStatus"] = consentStatus
+                }
+            }
+
+            // Push to live dashboard. Use JSONSerialization to escape
+            // partner names that contain apostrophes / quotes — building
+            // the JS literal by string interpolation breaks on those.
+            // We reuse the existing `_partnerStatusResult` receiver
+            // instead of inventing a new symbol; it already handles the
+            // same three fields and re-renders the lock-state UI.
+            var payload: [String: Any] = [
+                "success": true,
+                "partnerEmail": email,
+                "partnerName": name,
+                "message": ""
+            ]
+            if !consentStatus.isEmpty {
+                payload["consentStatus"] = consentStatus
+            }
+            if let data = try? JSONSerialization.data(withJSONObject: payload, options: []),
+               let json = String(data: data, encoding: .utf8) {
+                self.callJS("window._partnerStatusResult && window._partnerStatusResult(\(json))")
+            }
+        }
     }
 
     // MARK: - Theme Helpers
@@ -291,6 +354,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         case "GET_SETTINGS":
             handleGetSettings()
+
+        case "GET_FOCUS_MODE":
+            handleGetFocusMode()
 
         case "TEST_CONTENT_SAFETY":
             appDelegate?.contentSafetyMonitor?.triggerTestDetection()
@@ -516,6 +582,77 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             if let body = message.body as? [String: Any] {
                 handlePromoteLearnedSite(body)
             }
+
+        // Spec 1 — Intentions (new handlers; project handlers above kept as deprecated aliases)
+        case "GET_INTENTIONS":
+            handleGetIntentions()
+
+        case "GET_INTENTION":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String,
+               let id = UUID(uuidString: idStr) {
+                handleGetIntention(id: id)
+            }
+
+        case "CREATE_INTENTION":
+            if let body = message.body as? [String: Any] {
+                handleCreateIntention(body)
+            }
+
+        case "UPDATE_INTENTION":
+            if let body = message.body as? [String: Any] {
+                handleUpdateIntention(body)
+            }
+
+        case "DELETE_INTENTION":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String,
+               let id = UUID(uuidString: idStr) {
+                handleDeleteIntention(id: id)
+            }
+
+        case "START_INTENTION_SESSION":
+            if let body = message.body as? [String: Any] {
+                handleStartIntentionSession(body)
+            }
+
+        // Spec 3 (May 2026) — Strictness presets + deep-link
+        case "UPDATE_INTENTION_STRICTNESS":
+            if let body = message.body as? [String: Any] {
+                handleUpdateIntentionStrictness(body)
+            }
+
+        case "CANCEL_PENDING_STRICTNESS_CHANGE":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String,
+               let id = UUID(uuidString: idStr) {
+                handleCancelPendingStrictnessChange(id: id)
+            }
+
+        case "OPEN_INTENTION_STRICTNESS_UNLOCK_SHEET":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String, let id = UUID(uuidString: idStr),
+               let toStr = body["to_preset"] as? String,
+               let to = StrictnessPreset(rawValue: toStr),
+               let name = body["intention_name"] as? String {
+                appDelegate?.openIntentionStrictnessUnlockSheet(
+                    intentionId: id, toPreset: to, intentionName: name
+                )
+            }
+
+        case "OPEN_INTENTION_EDITOR":
+            // Deep-link from the block editor's "Coding · Standard" caption tap →
+            // navigate the dashboard to the Intentions tab and open this intention.
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String {
+                callJS("window._navigateToIntentionEditor && window._navigateToIntentionEditor('\(idStr)')")
+            }
+
+        case "FOCUS_MODE_TOGGLE":
+            handleFocusModeToggle(body: body)
+
+        case "INTERVENTION_TOGGLE_SET":
+            handleInterventionToggleSet(body: body)
 
         default:
             appDelegate?.postLog("⚠️ WKWebView: Unknown message type: \(type)")
@@ -979,23 +1116,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         result["theme"] = (savedSettings["theme"] as? String) ?? "iridescent"
         result["strictModeEnabled"] = UserDefaults.standard.bool(forKey: "strictModeEnabled")
 
-        // Intentional Mode settings
-        let imController = appDelegate?.intentionalModeController
-        result["intentionalModeEnabled"] = imController?.isEnabled ?? false
-        result["intentionalModeSchedule"] = imController?.schedule.rawValue ?? "always"
-        result["intentionalModeGracePeriod"] = imController?.gracePeriodMinutes ?? 3
-        if let cs = imController?.customSchedule {
-            result["intentionalModeCustomSchedule"] = [
-                "weekdayStartHour": cs.weekdayStartHour,
-                "weekdayStartMinute": cs.weekdayStartMinute,
-                "weekdayEndHour": cs.weekdayEndHour,
-                "weekdayEndMinute": cs.weekdayEndMinute,
-                "weekendEnabled": cs.weekendEnabled,
-                "weekendStartHour": cs.weekendStartHour,
-                "weekendStartMinute": cs.weekendStartMinute,
-                "weekendEndHour": cs.weekendEndHour,
-                "weekendEndMinute": cs.weekendEndMinute
-            ] as [String: Any]
+        // Intentional Mode settings — read directly from UserDefaults (controller deleted in Task 9)
+        let defaults = UserDefaults.standard
+        result["intentionalModeEnabled"] = defaults.bool(forKey: "intentionalModeEnabled")
+        result["intentionalModeSchedule"] = defaults.string(forKey: "intentionalModeSchedule") ?? "always"
+        let rawGrace = defaults.integer(forKey: "intentionalModeGracePeriod")
+        result["intentionalModeGracePeriod"] = rawGrace == 0 ? 3 : rawGrace
+        if let csData = defaults.data(forKey: "intentionalModeCustomSchedule"),
+           let csJson = try? JSONSerialization.jsonObject(with: csData) as? [String: Any] {
+            result["intentionalModeCustomSchedule"] = csJson
         }
 
         result["userEmail"] = appDelegate?.backendClient?.storedEmail ?? ""
@@ -1603,32 +1732,22 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     // MARK: - Intentional Mode
 
     private func handleSaveIntentionalMode(_ body: [String: Any]) {
-        guard let controller = appDelegate?.intentionalModeController else { return }
-
+        // IntentionalModeController deleted in Task 9 — persist directly to UserDefaults
+        // so the dashboard settings round-trip continues to work.
         let enabled = body["enabled"] as? Bool ?? false
         let scheduleRaw = body["schedule"] as? String ?? "always"
         let grace = body["gracePeriodMinutes"] as? Int ?? 3
 
-        controller.isEnabled = enabled
-        controller.schedule = IntentionalModeController.Schedule(rawValue: scheduleRaw) ?? .always
-        controller.gracePeriodMinutes = grace
+        let defaults = UserDefaults.standard
+        defaults.set(enabled, forKey: "intentionalModeEnabled")
+        defaults.set(scheduleRaw, forKey: "intentionalModeSchedule")
+        defaults.set(grace, forKey: "intentionalModeGracePeriod")
 
-        if let custom = body["customSchedule"] as? [String: Any] {
-            controller.customSchedule = IntentionalModeController.CustomSchedule(
-                weekdayStartHour: custom["weekdayStartHour"] as? Int ?? 8,
-                weekdayStartMinute: custom["weekdayStartMinute"] as? Int ?? 0,
-                weekdayEndHour: custom["weekdayEndHour"] as? Int ?? 18,
-                weekdayEndMinute: custom["weekdayEndMinute"] as? Int ?? 0,
-                weekendEnabled: custom["weekendEnabled"] as? Bool ?? false,
-                weekendStartHour: custom["weekendStartHour"] as? Int ?? 9,
-                weekendStartMinute: custom["weekendStartMinute"] as? Int ?? 0,
-                weekendEndHour: custom["weekendEndHour"] as? Int ?? 17,
-                weekendEndMinute: custom["weekendEndMinute"] as? Int ?? 0
-            )
+        if let custom = body["customSchedule"] as? [String: Any],
+           let data = try? JSONSerialization.data(withJSONObject: custom) {
+            defaults.set(data, forKey: "intentionalModeCustomSchedule")
         }
 
-        controller.saveSettings()
-        controller.recalculateState()
         appDelegate?.postLog("🔒 SAVE_INTENTIONAL_MODE: enabled=\(enabled), schedule=\(scheduleRaw), grace=\(grace)min")
     }
 
@@ -2099,12 +2218,13 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             let blockType: ScheduleManager.BlockType
             if let bt = dict["blockType"] as? String, let parsed = ScheduleManager.BlockType(rawValue: bt) {
                 blockType = parsed
-            } else if dict["isFree"] as? Bool == true {
-                blockType = .freeTime
             } else {
+                // Spec 2: legacy isFree=true → focusHours (free time = absence of block).
                 blockType = .focusHours
             }
             let ignoreProfile = dict["ignoreProfile"] as? Bool ?? false
+            // Spec 3 (May 2026): tolerate intentionId from the picker
+            let intentionId: UUID? = (dict["intentionId"] as? String).flatMap { UUID(uuidString: $0) }
             return ScheduleManager.FocusBlock(
                 id: dict["id"] as? String ?? UUID().uuidString,
                 title: title,
@@ -2114,7 +2234,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 endHour: endHour,
                 endMinute: endMinute,
                 blockType: blockType,
-                ignoreProfile: ignoreProfile
+                ignoreProfile: ignoreProfile,
+                intentionId: intentionId
             )
         }
 
@@ -2149,8 +2270,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             let result: [String: Any] = [
                 "date": schedule.date,
                 "blocks": blocks,
-                "goals": schedule.goals,
-                "dailyPlan": schedule.dailyPlan
+                // Wire format keeps legacy keys for dashboard.html compat (Spec 2 internal rename only).
+                "goals": schedule.dayItems,
+                "dailyPlan": schedule.dayNotes
             ]
             if let data = try? JSONSerialization.data(withJSONObject: result),
                let json = String(data: data, encoding: .utf8) {
@@ -2211,6 +2333,31 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         appDelegate?.bedtimeEnforcer?.saveSettings(settings)
         appDelegate?.postLog("🌙 Bedtime settings saved: \(enabled ? "ON" : "OFF") \(startHour):\(String(format: "%02d", startMin)) → \(endHour):\(String(format: "%02d", endMin))")
+
+        // Push the change to the backend so the iPhone (and any future
+        // Mac sibling) picks it up on its next poll. ISO weekdays
+        // (1=Mon..7=Sun) on the wire vs Mac internal Sunday-based.
+        if let backend = appDelegate?.backendClient {
+            let dto = BackendClient.BedtimeConfigDTO(
+                enabled: enabled,
+                bedtime_start: .init(hour: startHour, minute: startMin),
+                wake: .init(hour: endHour, minute: endMin),
+                active_days: BedtimeConfigSync.sundayBasedToISO(activeDays),
+                allowlist_bundle_ids: [],
+                partner_locked: partnerLocked,
+                updated_at: nil
+            )
+            Task {
+                let ok = await backend.putBedtimeConfig(dto)
+                await MainActor.run {
+                    if ok {
+                        appDelegate?.postLog("🌙 Bedtime config pushed to backend (cross-device)")
+                    } else {
+                        appDelegate?.postLog("⚠️ Bedtime config push to backend failed; local save still applied")
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Blocking Profile Handlers
@@ -2772,12 +2919,18 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
     private func handleGetEarnedStatus() {
         guard let mgr = appDelegate?.earnedBrowseManager else { return }
-        let blockType = appDelegate?.scheduleManager?.currentBlock?.blockType ?? .freeTime
+        // Spec 2: absence of block = free time.
+        let blockTypeOpt = appDelegate?.scheduleManager?.currentBlock?.blockType
+        let blockType: ScheduleManager.BlockType = blockTypeOpt ?? .focusHours
+        let isFreeTime = (blockTypeOpt == nil)
         let costMultiplier: Double
-        switch blockType {
-        case .deepWork: costMultiplier = mgr.deepWorkCost
-        case .focusHours: costMultiplier = mgr.focusHoursCost
-        case .freeTime: costMultiplier = mgr.freeTimeCost
+        if isFreeTime {
+            costMultiplier = mgr.freeTimeCost
+        } else {
+            switch blockType {
+            case .deepWork: costMultiplier = mgr.deepWorkCost
+            case .focusHours: costMultiplier = mgr.focusHoursCost
+            }
         }
         let effectiveBrowseTime = costMultiplier > 0 ? mgr.availableMinutes / costMultiplier : mgr.availableMinutes
 
@@ -2811,11 +2964,11 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             "usedMinutes": mgr.usedMinutes,
             "availableMinutes": mgr.availableMinutes,
             "effectiveBrowseTime": effectiveBrowseTime,
-            "blockType": blockType.rawValue,
-            "isWorkBlock": blockType != .freeTime,
+            "blockType": isFreeTime ? "freeTime" : blockType.rawValue,
+            "isWorkBlock": !isFreeTime,
             "costMultiplier": costMultiplier,
             "poolExhausted": mgr.isPoolExhausted,
-            "isDeepWork": blockType == .deepWork || mgr.isDeepWork,
+            "isDeepWork": !isFreeTime && (blockType == .deepWork || mgr.isDeepWork),
             "blockFocusStats": blockStats,
             "hasPartner": hasPartner,
             "partnerName": partnerName.isEmpty ? "your partner" : partnerName
@@ -2912,6 +3065,65 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         }
     }
 
+    /// Push focus mode state to the dashboard toggle (called by AppDelegate onStateChanged).
+    func pushFocusModeUpdate(state: FocusModeController.State) {
+        let js = """
+            if (typeof onFocusModeStateUpdate === 'function') {
+                onFocusModeStateUpdate('\(state.rawValue)');
+            }
+        """
+        callJS(js)
+    }
+
+    /// Handle GET_FOCUS_MODE — dashboard pulls current state on load. Pairs with
+    /// pushFocusModeUpdate (which can race the page-load JS parse and silently
+    /// drop). The pull guarantees the toggle reflects reality once JS is ready.
+    private func handleGetFocusMode() {
+        let stateRaw = appDelegate?.focusModeController?.state.rawValue ?? "off"
+        pushFocusModeUpdate(state: FocusModeController.State(rawValue: stateRaw) ?? .off)
+    }
+
+    // MARK: - Focus Mode Toggle Bridge
+
+    /// Body: { "on": Bool }
+    /// Manual dashboard toggle of Focus Mode. Local activate/deactivate fires
+    /// immediately for instant UI feedback. Same toggle is also propagated to
+    /// the backend so other devices see it (and so the poller doesn't stomp on
+    /// the local state by reconciling against a stale backend "no session").
+    /// If the backend POST fails, local stays as-is; the next poller tick will
+    /// reconcile if disk and backend disagree (backend wins on conflict).
+    private func handleFocusModeToggle(body: [String: Any]) {
+        guard let on = body["on"] as? Bool else { return }
+        if on {
+            appDelegate?.focusModeController?.activate(intention: nil, source: .manual)
+            appDelegate?.postFocusToggleToBackend(action: "start")
+        } else {
+            appDelegate?.focusModeController?.deactivate(source: .manual)
+            appDelegate?.postFocusToggleToBackend(action: "stop")
+        }
+    }
+
+    /// Body: { "key": String, "enabled": Bool }
+    /// Persists the user's preference for an individual intervention. Honoring the
+    /// preference (i.e., gating the actual intervention logic on this flag) is
+    /// follow-up work — Task 10 only persists the UI state.
+    /// key ∈ { "distractions_blocking", "switch_overlay", "ai_relevance",
+    ///         "screen_red_shift", "off_task_nudge", "block_start_ritual",
+    ///         "block_end_ritual", "pill_widget", "force_quit_apps",
+    ///         "earned_browse_mode" }
+    private func handleInterventionToggleSet(body: [String: Any]) {
+        guard let key = body["key"] as? String,
+              let enabled = body["enabled"] as? Bool else { return }
+        let defaultsKey = "intervention.\(key)"
+        UserDefaults.standard.set(enabled, forKey: defaultsKey)
+        NotificationCenter.default.post(
+            name: .interventionToggleChanged,
+            object: nil,
+            userInfo: ["key": key, "enabled": enabled]
+        )
+        appDelegate?.postLog("🔧 INTERVENTION_TOGGLE_SET: \(key)=\(enabled)")
+    }
+
     // MARK: - JS Helpers
 
     func callJS(_ script: String) {
@@ -2955,6 +3167,302 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             return
         }
         callJS("window.\(callbackName) && window.\(callbackName)(\(jsonStr))")
+    }
+
+    // MARK: - Intentions (Spec 1)
+
+    private func handleGetIntentions() {
+        Task {
+            let intentions = await IntentionStore.shared.active()
+            let items = intentions.map { i -> [String: Any] in
+                return Self.intentionToDict(i)
+            }
+            await MainActor.run {
+                self.emitIntentionsList(items)
+            }
+        }
+    }
+
+    private func handleGetIntention(id: UUID) {
+        Task {
+            let intention = await IntentionStore.shared.intention(id: id)
+            await MainActor.run {
+                if let i = intention {
+                    self.emitIntentionDetail(Self.intentionToDict(i))
+                } else {
+                    self.emitIntentionDetail(["error": "Intention not found"])
+                }
+            }
+        }
+    }
+
+    /// Spec 3 (May 2026): single source of truth for shaping an Intention into the
+    /// dashboard-facing dict. Includes strictness + pending change + budget-prep.
+    static func intentionToDict(_ i: Intention) -> [String: Any] {
+        var dict: [String: Any] = [
+            "id": i.id.uuidString,
+            "name": i.name,
+            "description": i.description ?? "",
+            "color_hex": i.colorHex ?? "",
+            "icon": i.icon ?? "",
+            "mac_websites": i.macWebsites,
+            "mac_bundle_ids": i.macBundleIds,
+            "version": i.version,
+            "created_at": ISO8601DateFormatter().string(from: i.createdAt),
+            "updated_at": ISO8601DateFormatter().string(from: i.updatedAt),
+            // Spec 3:
+            "strictness_preset": i.strictnessPreset.rawValue,
+            "weekly_budget_hours": i.weeklyBudgetHours as Any? ?? NSNull(),
+            "budget_enforcement": i.budgetEnforcement as Any? ?? NSNull(),
+        ]
+        if let pc = i.pendingStrictnessChange {
+            dict["pending_strictness_change"] = [
+                "to_preset": pc.toPreset.rawValue,
+                "takes_effect_at": ISO8601DateFormatter().string(from: pc.takesEffectAt)
+            ] as [String: Any]
+        }
+        return dict
+    }
+
+    private func handleCreateIntention(_ body: [String: Any]) {
+        Task {
+            let payload = IntentionCreatePayload(
+                name: body["name"] as? String ?? "Untitled",
+                description: body["description"] as? String,
+                colorHex: body["color_hex"] as? String,
+                icon: body["icon"] as? String,
+                macWebsites: body["mac_websites"] as? [String] ?? [],
+                macBundleIds: body["mac_bundle_ids"] as? [String] ?? [],
+                iosAppTokensB64: nil,
+                iosCategoryTokensB64: nil
+            )
+            do {
+                let created = try await IntentionStore.shared.create(payload)
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "created", "id": created.id.uuidString
+                    ])
+                }
+            } catch {
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "error", "error": error.localizedDescription
+                    ])
+                }
+            }
+        }
+    }
+
+    private func handleUpdateIntention(_ body: [String: Any]) {
+        guard let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) else { return }
+        guard let version = body["version"] as? Int else {
+            emitIntentionMutationResult(["status": "error", "error": "Missing version"])
+            return
+        }
+        Task {
+            // Fetch existing for fallthrough fields not in the patch.
+            guard let existing = await IntentionStore.shared.intention(id: id) else {
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "error", "error": "Intention not found"
+                    ])
+                }
+                return
+            }
+            let payload = IntentionUpdatePayload(
+                name: body["name"] as? String ?? existing.name,
+                description: body["description"] as? String ?? existing.description,
+                colorHex: body["color_hex"] as? String ?? existing.colorHex,
+                icon: body["icon"] as? String ?? existing.icon,
+                macWebsites: body["mac_websites"] as? [String] ?? existing.macWebsites,
+                macBundleIds: body["mac_bundle_ids"] as? [String] ?? existing.macBundleIds,
+                iosAppTokensB64: existing.iosAppTokensB64,
+                iosCategoryTokensB64: existing.iosCategoryTokensB64,
+                version: version
+            )
+            do {
+                let updated = try await IntentionStore.shared.update(id: id, payload: payload)
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "updated", "id": updated.id.uuidString,
+                        "version": updated.version
+                    ])
+                }
+            } catch BackendClient.IntentionError.versionConflict(let serverV) {
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "version_conflict",
+                        "server_version": serverV ?? -1
+                    ])
+                }
+            } catch {
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "error", "error": error.localizedDescription
+                    ])
+                }
+            }
+        }
+    }
+
+    private func handleDeleteIntention(id: UUID) {
+        Task {
+            let ok = await IntentionStore.shared.delete(id: id)
+            await MainActor.run {
+                self.emitIntentionMutationResult([
+                    "status": ok ? "deleted" : "error",
+                    "id": id.uuidString
+                ])
+            }
+        }
+    }
+
+    private func handleStartIntentionSession(_ body: [String: Any]) {
+        guard let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) else {
+            emitSessionResult(["status": "refused", "reason": "Missing intention id"])
+            return
+        }
+        Task {
+            // Look up intention name for local enforcement
+            guard let intention = await IntentionStore.shared.intention(id: id),
+                  intention.deletedAt == nil else {
+                await MainActor.run {
+                    self.emitSessionResult(["status": "refused", "reason": "Intention not found"])
+                }
+                return
+            }
+            // Optimistic local activation
+            await MainActor.run {
+                self.appDelegate?.focusModeController?.activate(
+                    intention: intention.name,
+                    intentionId: id,
+                    source: .manual
+                )
+                self.appDelegate?.setActiveProjectSession(
+                    projectId: id, blockId: "manual-\(UUID().uuidString)"
+                )
+            }
+            // Backend POST (fire-and-forget; rollback on failure)
+            let result = await self.appDelegate?.backendClient?.postFocusToggle(
+                action: .start, intentionId: id, triggeredBy: "mac_manual"
+            )
+            if result == nil {
+                // Roll back local activation on backend failure
+                await MainActor.run {
+                    self.appDelegate?.focusModeController?.deactivate(source: .manual)
+                    self.emitSessionResult([
+                        "status": "error",
+                        "reason": "Backend unreachable — local enforcement reverted"
+                    ])
+                }
+                return
+            }
+            await MainActor.run {
+                self.emitSessionResult([
+                    "status": "started", "intentionId": id.uuidString,
+                    "sessionId": result?.sessionId ?? ""
+                ])
+            }
+        }
+    }
+
+    // MARK: - Intentions (Spec 3 — strictness control)
+
+    private func handleUpdateIntentionStrictness(_ body: [String: Any]) {
+        guard let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) else {
+            emitIntentionMutationResult(["status": "error", "error": "Missing id"])
+            return
+        }
+        guard let toStr = body["to_preset"] as? String,
+              let to = StrictnessPreset(rawValue: toStr) else {
+            emitIntentionMutationResult(["status": "error", "error": "Missing to_preset"])
+            return
+        }
+        let partnerCode = body["partner_unlock_code"] as? String
+        Task {
+            do {
+                let updated = try await IntentionStore.shared.updateStrictness(
+                    id: id, toPreset: to, partnerUnlockCode: partnerCode
+                )
+                await MainActor.run {
+                    var payload: [String: Any] = [
+                        "status": "updated",
+                        "id": updated.id.uuidString,
+                        "strictness_preset": updated.strictnessPreset.rawValue,
+                    ]
+                    if let pc = updated.pendingStrictnessChange {
+                        payload["pending"] = [
+                            "to_preset": pc.toPreset.rawValue,
+                            "takes_effect_at": ISO8601DateFormatter().string(from: pc.takesEffectAt)
+                        ] as [String: Any]
+                    } else {
+                        payload["pending"] = NSNull()
+                    }
+                    self.emitIntentionMutationResult(payload)
+                }
+            } catch BackendClient.StrictnessUpdateError.requiresPartnerUnlock {
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "requires_partner_unlock",
+                        "id": id.uuidString,
+                        "to_preset": to.rawValue
+                    ])
+                }
+            } catch BackendClient.StrictnessUpdateError.sessionInProgress {
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "session_in_progress",
+                        "id": id.uuidString
+                    ])
+                }
+            } catch BackendClient.StrictnessUpdateError.requires24hCooldown {
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "queued_24h",
+                        "id": id.uuidString,
+                        "to_preset": to.rawValue
+                    ])
+                }
+            } catch {
+                await MainActor.run {
+                    self.emitIntentionMutationResult([
+                        "status": "error", "error": error.localizedDescription
+                    ])
+                }
+            }
+        }
+    }
+
+    private func handleCancelPendingStrictnessChange(id: UUID) {
+        Task {
+            let ok = await IntentionStore.shared.cancelPendingStrictnessChange(id: id)
+            await MainActor.run {
+                self.emitIntentionMutationResult([
+                    "status": ok ? "pending_cancelled" : "error",
+                    "id": id.uuidString
+                ])
+            }
+        }
+    }
+
+    // MARK: - Intention emit helpers
+
+    private func emitIntentionsList(_ items: [[String: Any]]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: items),
+              let json = String(data: data, encoding: .utf8) else { return }
+        callJS("window._intentionsList && window._intentionsList(\(json))")
+    }
+
+    private func emitIntentionDetail(_ dict: [String: Any]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: dict),
+              let json = String(data: data, encoding: .utf8) else { return }
+        callJS("window._intentionDetail && window._intentionDetail(\(json))")
+    }
+
+    private func emitIntentionMutationResult(_ dict: [String: Any]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: dict),
+              let json = String(data: data, encoding: .utf8) else { return }
+        callJS("window._intentionMutationResult && window._intentionMutationResult(\(json))")
     }
 
 }

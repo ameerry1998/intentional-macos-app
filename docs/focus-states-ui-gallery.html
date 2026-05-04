@@ -1,0 +1,1306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Focus Mode states — UI gallery</title>
+<style>
+  :root {
+    --bg: #0a0c0a;
+    --surface: #060806;
+    --card: rgba(255,255,255,0.04);
+    --card-2: rgba(255,255,255,0.06);
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.14);
+    --text: #f7f8f8;
+    --muted: rgba(255,255,255,0.62);
+    --dim: rgba(255,255,255,0.42);
+    --green: #6FB58E;
+    --green-glow: rgba(111,181,142,0.20);
+    --red: #D45050;
+    --amber: #E5A063;
+    --amber-glow: rgba(229,160,99,0.18);
+    --coral: #E87461;
+    --gold: #F0B060;
+    --violet: #B287D9;
+    --violet-glow: rgba(178,135,217,0.22);
+    --blue: #6E8FE0;
+    --teal: #5CA39B;
+    --grad-warm: linear-gradient(135deg, var(--coral), var(--gold));
+    --grad-focus: linear-gradient(135deg, var(--green), var(--teal));
+    --grad-bedtime: linear-gradient(135deg, var(--violet), var(--blue));
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro", "SF Pro Text", system-ui, sans-serif;
+    --mono: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg); color: var(--text); font-family: var(--font);
+    font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background:
+      radial-gradient(ellipse at top left, rgba(232,116,97,0.05), transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(240,176,96,0.04), transparent 50%),
+      var(--bg);
+    background-attachment: fixed; min-height: 100vh; padding: 0; margin: 0;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 56px 28px 120px; }
+
+  /* Page header */
+  header.page { margin-bottom: 64px; }
+  .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 1.6px;
+    text-transform: uppercase; color: var(--coral); margin-bottom: 12px; }
+  header.page h1 { font-size: 48px; line-height: 1.05; letter-spacing: -1.2px;
+    font-weight: 800; margin: 0 0 20px; }
+  header.page h1 .accent { background: var(--grad-warm);
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  header.page .sub { font-size: 18px; color: var(--muted); max-width: 760px; margin: 0; }
+  header.page .meta { font-size: 12px; color: var(--dim); font-family: var(--mono); margin-top: 14px; }
+
+  /* Section header */
+  section.state { margin: 64px 0; padding-top: 32px;
+    border-top: 1px solid var(--border); }
+  section.state:first-of-type { border-top: none; padding-top: 0; }
+  section.state .label { font-size: 12px; font-weight: 700; letter-spacing: 1.6px;
+    text-transform: uppercase; margin-bottom: 8px; }
+  section.state.off .label    { color: var(--amber); }
+  section.state.focus .label  { color: var(--green); }
+  section.state.bed .label    { color: var(--violet); }
+  section.state h2 { font-size: 32px; letter-spacing: -0.6px; font-weight: 700;
+    margin: 0 0 12px; line-height: 1.15; }
+  section.state h2 .name { padding: 4px 14px; border-radius: 8px;
+    font-size: 22px; font-weight: 800; letter-spacing: 0.5px; vertical-align: middle; }
+  section.state.off h2 .name    { color: var(--amber);  background: var(--amber-glow);  border: 1px solid rgba(229,160,99,0.32); }
+  section.state.focus h2 .name  { color: var(--green);  background: var(--green-glow);  border: 1px solid rgba(111,181,142,0.32); }
+  section.state.bed h2 .name    { color: var(--violet); background: var(--violet-glow); border: 1px solid rgba(178,135,217,0.32); }
+  section.state .hook { font-size: 17px; color: var(--muted); max-width: 800px; margin: 0 0 32px; }
+
+  /* Mockup grid: Mac on the left, iPhone on the right, captions below each */
+  .gallery-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: 28px;
+    margin-bottom: 28px;
+  }
+  .gallery-row.full { grid-template-columns: 1fr; }
+  .gallery-cell { display: flex; flex-direction: column; }
+  .caption { font-size: 13px; color: var(--muted); margin-top: 12px; line-height: 1.5; }
+  .caption b { color: var(--text); font-weight: 600; }
+
+  /* MAC WINDOW */
+  .mac {
+    border-radius: 14px; overflow: hidden;
+    box-shadow: 0 0 0 0.5px rgba(255,255,255,0.06), 0 30px 80px rgba(0,0,0,0.55), 0 8px 24px rgba(0,0,0,0.32);
+    background: var(--surface);
+  }
+  .mac-titlebar {
+    height: 28px; background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 12px; gap: 6px;
+  }
+  .mac-tl-btn { width: 12px; height: 12px; border-radius: 50%; }
+  .mac-tl-btn.c { background: #ff5f57; }
+  .mac-tl-btn.m { background: #febc2e; }
+  .mac-tl-btn.x { background: #28c840; }
+  .mac-tl-title { margin-left: 14px; font-size: 12px; color: var(--muted); }
+
+  /* DASHBOARD: 2-column layout */
+  .dash { display: grid; grid-template-columns: 180px 1fr; min-height: 460px; }
+  .dash-side {
+    background: rgba(255,255,255,0.02); border-right: 1px solid var(--border);
+    padding: 20px 14px; display: flex; flex-direction: column; gap: 4px;
+  }
+  .dash-side .brand { font-size: 18px; font-weight: 800;
+    background: var(--grad-warm); -webkit-background-clip: text; background-clip: text; color: transparent;
+    margin-bottom: 16px; padding: 0 6px; }
+  .dash-side .nav { display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 8px; font-size: 13px; color: var(--muted); cursor: default; }
+  .dash-side .nav.active { background: rgba(232,116,97,0.10); color: var(--coral); }
+  .dash-side .nav .ico { width: 14px; height: 14px; border-radius: 50%; border: 1.4px solid currentColor; }
+  .dash-side .nav.active .ico { background: var(--coral); border-color: var(--coral); }
+
+  .dash-main { padding: 22px 24px; overflow: hidden; }
+  .dash-pageheader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .dash-pageheader h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; }
+
+  /* HERO CARD on dashboard */
+  .hero {
+    border-radius: 14px; padding: 22px 24px;
+    background: var(--card); border: 1px solid var(--border);
+    margin-bottom: 18px;
+  }
+  .hero .eyebrow-row { font-size: 10.5px; font-weight: 700; letter-spacing: 1.4px;
+    text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+  .hero .title { font-size: 26px; font-weight: 800; letter-spacing: -0.6px; margin: 0 0 4px; }
+  .hero .sub { font-size: 13px; color: var(--muted); }
+  .hero.off    { background: rgba(229,160,99,0.06);  border-color: rgba(229,160,99,0.22); }
+  .hero.focus  { background: rgba(111,181,142,0.07); border-color: rgba(111,181,142,0.28); }
+  .hero.bed    { background: rgba(178,135,217,0.07); border-color: rgba(178,135,217,0.28); }
+  .hero.off .title    { color: var(--amber); }
+  .hero.focus .title  { color: var(--green); }
+  .hero.bed .title    { color: var(--violet); }
+
+  .hero-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .hero-timer { font-size: 38px; font-weight: 200; font-family: var(--mono); letter-spacing: 0.5px; line-height: 1; }
+  .hero-action {
+    background: var(--grad-warm); color: #1a0f0a; font-weight: 600;
+    padding: 9px 18px; border-radius: 999px; font-size: 13px; letter-spacing: 0.2px;
+  }
+  .hero-action.off  { background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--border-strong); }
+  .hero-action.bed  { background: var(--grad-bedtime); color: #150b1a; }
+
+  /* Schedule strip */
+  .schedule {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; display: grid; grid-template-columns: 60px 1fr; gap: 14px; min-height: 100px;
+  }
+  .schedule-hours { display: flex; flex-direction: column; justify-content: space-between;
+    font-size: 10px; color: var(--dim); font-family: var(--mono); }
+  .schedule-blocks { position: relative; height: 100px;
+    background: rgba(255,255,255,0.02); border-radius: 8px; overflow: hidden; }
+  .schedule-block { position: absolute; left: 4px; right: 4px; border-radius: 4px;
+    padding: 4px 8px; font-size: 11px; font-weight: 600; }
+  .schedule-block.deep   { top: 8%;  height: 24%; background: rgba(111,181,142,0.20); border: 1px solid rgba(111,181,142,0.40); color: #b8e0c5; }
+  .schedule-block.free   { top: 36%; height: 14%; background: rgba(229,160,99,0.10); border: 1px solid rgba(229,160,99,0.25); color: #e9c79b; }
+  .schedule-block.focus2 { top: 54%; height: 20%; background: rgba(110,143,224,0.18); border: 1px solid rgba(110,143,224,0.36); color: #c0d0f0; }
+  .schedule-block.bed    { top: 80%; height: 16%; background: rgba(178,135,217,0.20); border: 1px solid rgba(178,135,217,0.40); color: #d8c4eb; }
+  .schedule-now { position: absolute; height: 1px; background: var(--coral); left: 0; right: 0; top: 38%; }
+  .schedule-now::before { content: ""; position: absolute; left: 0; top: -3px; width: 7px; height: 7px;
+    border-radius: 50%; background: var(--coral); box-shadow: 0 0 8px rgba(232,116,97,0.7); }
+
+  /* Intention input (FOCUS) */
+  .intention-line { display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    background: rgba(111,181,142,0.04); border: 1px solid rgba(111,181,142,0.18);
+    border-radius: 10px; margin-top: 14px; }
+  .intention-line .lbl { font-size: 10.5px; color: var(--dim); letter-spacing: 1.2px; text-transform: uppercase; font-weight: 700; }
+  .intention-line .val { font-size: 14px; color: var(--text); font-weight: 500; }
+
+  /* Stats row */
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+  .stat {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .stat-label { font-size: 10px; color: var(--dim); letter-spacing: 1px; text-transform: uppercase; font-weight: 700; }
+  .stat-value { font-size: 18px; font-weight: 700; margin-top: 2px; }
+
+  /* MENU BAR PILL */
+  .menubar {
+    background: rgba(20,20,20,0.95); border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 12px; padding: 10px 14px; display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35); width: fit-content; margin: 0 auto;
+  }
+  .menubar .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .menubar.off    .dot { background: var(--dim); }
+  .menubar.focus  .dot { background: var(--green); box-shadow: 0 0 10px rgba(111,181,142,0.7); }
+  .menubar.bed    .dot { background: var(--violet); box-shadow: 0 0 10px rgba(178,135,217,0.7); }
+  .menubar .label { font-size: 12.5px; color: var(--text); }
+  .menubar .label .muted { color: var(--muted); }
+  .menubar .timer { font-size: 12.5px; font-family: var(--mono); color: var(--text); margin-left: 6px; }
+
+  /* IPHONE FRAME */
+  .iphone {
+    width: 320px; height: 660px; background: #000; border-radius: 48px;
+    padding: 12px; position: relative; margin: 0 auto;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 30px 80px rgba(0,0,0,0.55);
+  }
+  .iphone-screen {
+    width: 100%; height: 100%; border-radius: 38px; background: var(--surface);
+    overflow: hidden; position: relative; color: var(--text);
+  }
+  .iphone-notch { position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
+    width: 100px; height: 28px; background: #000; border-radius: 22px; z-index: 50; }
+  .iphone-stat { position: absolute; top: 24px; left: 0; right: 0;
+    display: flex; justify-content: space-between; padding: 0 28px; z-index: 45;
+    font-size: 13px; font-weight: 600; }
+  .iphone-content {
+    position: absolute; top: 60px; left: 0; right: 0; bottom: 80px;
+    padding: 18px 22px; overflow: hidden;
+  }
+  .iphone-title { font-size: 26px; font-weight: 700; letter-spacing: -0.4px; margin: 14px 0 14px; }
+  .iphone-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px 16px;
+  }
+  .iphone-card.off    { background: rgba(229,160,99,0.06);  border-color: rgba(229,160,99,0.22); }
+  .iphone-card.focus  { background: rgba(111,181,142,0.07); border-color: rgba(111,181,142,0.28); }
+  .iphone-card.bed    { background: rgba(178,135,217,0.10); border-color: rgba(178,135,217,0.28); }
+  .iphone-status-eyebrow { font-size: 9.5px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--dim); margin-bottom: 4px; }
+  .iphone-card .iphone-card-title { font-size: 17px; font-weight: 700; }
+  .iphone-card.off    .iphone-card-title { color: var(--amber); }
+  .iphone-card.focus  .iphone-card-title { color: var(--green); }
+  .iphone-card.bed    .iphone-card-title { color: var(--violet); }
+  .iphone-card .iphone-card-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .iphone-card .iphone-card-timer { font-size: 32px; font-weight: 200; font-family: var(--mono); margin-top: 6px; letter-spacing: 0.5px; }
+
+  .iphone-mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+  .iphone-mode-tile {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px; aspect-ratio: 1.2;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .iphone-mode-tile .mode-ico { width: 30px; height: 30px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .iphone-mode-tile .mode-ico.deep    { background: rgba(111,181,142,0.16); color: var(--green); }
+  .iphone-mode-tile .mode-ico.read    { background: rgba(92,163,155,0.16);  color: var(--teal); }
+  .iphone-mode-tile .mode-ico.work    { background: rgba(110,143,224,0.16); color: var(--blue); }
+  .iphone-mode-tile .mode-ico.fam     { background: rgba(229,160,99,0.16);  color: var(--amber); }
+  .iphone-mode-tile .mode-name { font-size: 13px; font-weight: 600; margin-top: 8px; }
+  .iphone-mode-tile .mode-meta { font-size: 10.5px; color: var(--dim); margin-top: 1px; }
+
+  .iphone-tab-bar {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 80px;
+    border-top: 1px solid var(--border); background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(12px); display: flex; justify-content: space-around;
+    padding: 8px 0 22px;
+  }
+  .iphone-tab { display: flex; flex-direction: column; align-items: center; gap: 2px;
+    color: var(--dim); font-size: 9.5px; font-weight: 500; }
+  .iphone-tab .tab-ico { width: 18px; height: 18px; border-radius: 4px;
+    border: 1.5px solid currentColor; }
+  .iphone-tab.active { color: var(--coral); }
+
+  /* Section: enforcement events */
+  .events { margin-top: 56px; padding-top: 40px; border-top: 1px solid var(--border); }
+  .events h2 { font-size: 32px; letter-spacing: -0.6px; font-weight: 700; margin: 0 0 12px; }
+  .events .hook { font-size: 17px; color: var(--muted); max-width: 780px; margin: 0 0 32px; }
+  .event-card {
+    margin-bottom: 24px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 22px 24px;
+  }
+  .event-title { font-size: 17px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 10px; }
+  .event-title .num { font-size: 11px; font-weight: 700; letter-spacing: 1.4px; color: var(--coral);
+    background: rgba(232,116,97,0.10); border: 1px solid rgba(232,116,97,0.32);
+    padding: 2px 8px; border-radius: 999px; }
+  .event-desc { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+
+  /* Switch overlay (full-screen takeover) */
+  .switch-overlay {
+    background: linear-gradient(180deg, rgba(212,80,80,0.04), rgba(0,0,0,0.95));
+    border-radius: 14px; padding: 60px 40px; min-height: 320px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border: 1px solid rgba(212,80,80,0.30); position: relative; overflow: hidden;
+  }
+  .switch-overlay::before { content: ""; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(212,80,80,0.12), transparent 60%); }
+  .switch-overlay > * { position: relative; }
+  .switch-target {
+    width: 60px; height: 60px; border-radius: 14px; background: rgba(212,80,80,0.20);
+    display: flex; align-items: center; justify-content: center; margin-bottom: 16px;
+    color: var(--red); font-size: 28px; font-weight: 800;
+  }
+  .switch-msg { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .switch-sub { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+  .switch-countdown {
+    font-size: 56px; font-weight: 200; font-family: var(--mono); color: var(--red);
+    line-height: 1; margin-bottom: 16px;
+  }
+  .switch-actions { display: flex; gap: 10px; }
+  .switch-btn {
+    padding: 8px 18px; border-radius: 999px; font-size: 13px; font-weight: 600;
+    border: 1px solid var(--border-strong); cursor: default;
+  }
+  .switch-btn.go-back { background: rgba(111,181,142,0.10); color: var(--green); border-color: rgba(111,181,142,0.32); }
+
+  /* Block / blocked website page */
+  .block-page {
+    background: linear-gradient(180deg, rgba(212,80,80,0.04), var(--surface));
+    border-radius: 14px; padding: 60px 40px; min-height: 320px;
+    border: 1px solid rgba(212,80,80,0.20); text-align: center;
+  }
+  .block-icon { width: 64px; height: 64px; border-radius: 16px;
+    background: rgba(212,80,80,0.16); color: var(--red);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 30px; font-weight: 800; margin-bottom: 18px; }
+  .block-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .block-sub { font-size: 14px; color: var(--muted); max-width: 420px; margin: 0 auto 22px; }
+  .block-mini { display: flex; justify-content: center; gap: 8px; }
+  .block-mini-btn {
+    padding: 7px 14px; border-radius: 999px; font-size: 12.5px; color: var(--muted);
+    border: 1px solid var(--border-strong);
+  }
+
+  /* Planning ritual overlay */
+  .ritual {
+    background: linear-gradient(135deg, rgba(232,116,97,0.06), var(--surface));
+    border: 1px solid rgba(232,116,97,0.22);
+    border-radius: 14px; padding: 50px 36px; min-height: 320px;
+    display: flex; flex-direction: column; gap: 14px; align-items: center;
+  }
+  .ritual h3 { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; margin: 0; }
+  .ritual .sub { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .ritual-input {
+    width: 100%; max-width: 420px; padding: 14px 18px; border-radius: 12px;
+    background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.10);
+    color: var(--text); font-size: 16px; font-family: var(--font);
+  }
+  .ritual-input:focus { outline: none; }
+  .ritual-input::placeholder { color: var(--dim); }
+  .ritual-go {
+    padding: 12px 32px; border-radius: 999px; font-size: 14px; font-weight: 700;
+    background: var(--grad-warm); color: #1a0f0a;
+  }
+
+  /* Off-task nudge toast */
+  .toast {
+    background: rgba(212,80,80,0.10); border: 1px solid rgba(212,80,80,0.32);
+    border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; gap: 14px;
+    backdrop-filter: blur(12px); width: fit-content; margin: 0 auto;
+  }
+  .toast-icon { width: 32px; height: 32px; border-radius: 8px;
+    background: rgba(212,80,80,0.20); color: var(--red);
+    display: flex; align-items: center; justify-content: center; font-weight: 800; flex: 0 0 32px; }
+  .toast-msg { font-size: 13.5px; }
+  .toast-msg .strong { color: var(--text); font-weight: 600; }
+  .toast-msg .muted { color: var(--muted); }
+  .toast-actions { display: flex; gap: 6px; margin-left: 10px; }
+  .toast-btn { padding: 5px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 600;
+    border: 1px solid var(--border-strong); }
+  .toast-btn.primary { background: rgba(232,116,97,0.16); color: var(--coral); border-color: rgba(232,116,97,0.40); }
+
+  /* Bedtime overlay (gentle full-screen) */
+  .bedtime-overlay {
+    background: linear-gradient(180deg, rgba(178,135,217,0.10), rgba(20,15,30,0.95));
+    border-radius: 14px; padding: 60px 40px; min-height: 320px; text-align: center;
+    border: 1px solid rgba(178,135,217,0.30); position: relative; overflow: hidden;
+  }
+  .bedtime-icon { width: 56px; height: 56px; border-radius: 50%;
+    background: rgba(178,135,217,0.18); color: var(--violet);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 28px; margin-bottom: 18px; }
+  .bedtime-msg { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+  .bedtime-sub { font-size: 14px; color: var(--muted); }
+
+  /* Alarms tab */
+  .iphone-section-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 1.4px;
+    text-transform: uppercase; color: var(--dim); margin: 18px 0 8px; }
+  .alarm-row {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px 16px; display: flex; align-items: flex-start; gap: 12px;
+  }
+  .alarm-icon { width: 36px; height: 36px; border-radius: 10px; flex: 0 0 36px;
+    display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .alarm-icon.wake  { background: rgba(240,176,96,0.14);  color: var(--gold); }
+  .alarm-icon.sleep { background: rgba(178,135,217,0.18); color: var(--violet); }
+  .alarm-body { flex: 1; min-width: 0; }
+  .alarm-time { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.1; font-family: var(--mono); }
+  .alarm-meta { font-size: 11.5px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+  .alarm-toggle {
+    width: 38px; height: 22px; border-radius: 999px;
+    background: rgba(111,181,142,0.30); border: 1px solid rgba(111,181,142,0.50);
+    position: relative; flex: 0 0 38px;
+  }
+  .alarm-toggle::after { content: ""; position: absolute; top: 2px; right: 2px;
+    width: 16px; height: 16px; border-radius: 50%; background: var(--green);
+    box-shadow: 0 0 8px rgba(111,181,142,0.7); }
+  .alarm-toggle.off { background: rgba(255,255,255,0.06); border: 1px solid var(--border); }
+  .alarm-toggle.off::after { right: auto; left: 2px; background: var(--dim); box-shadow: none; }
+  .alarm-applies {
+    margin-top: 10px; font-size: 10.5px; color: var(--muted);
+    display: flex; gap: 6px; align-items: center;
+  }
+  .alarm-applies .pill-mini {
+    padding: 2px 7px; border-radius: 999px; font-size: 9.5px; font-weight: 700;
+    letter-spacing: 0.6px; text-transform: uppercase;
+    background: rgba(110,143,224,0.10); color: var(--blue); border: 1px solid rgba(110,143,224,0.32);
+  }
+
+  .applies-callout {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 22px 24px;
+  }
+  .applies-callout h4 { font-size: 14px; font-weight: 700; margin: 0 0 6px; color: var(--gold); letter-spacing: 0.3px; }
+  .applies-callout p { font-size: 13.5px; color: var(--muted); margin: 0 0 14px; line-height: 1.55; }
+  .applies-callout ul { font-size: 13.5px; color: var(--text); margin: 0; padding-left: 18px; }
+  .applies-callout li { margin-bottom: 8px; line-height: 1.5; }
+  .applies-callout li b { color: var(--text); }
+  .applies-callout li .muted { color: var(--muted); }
+  .applies-callout li .pill-mini {
+    display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 9.5px; font-weight: 700;
+    letter-spacing: 0.5px; text-transform: uppercase; vertical-align: 2px; margin: 0 4px;
+  }
+  .applies-callout li .pill-mini.violet { background: rgba(178,135,217,0.14); color: var(--violet); border: 1px solid rgba(178,135,217,0.32); }
+  .applies-callout li .pill-mini.amber  { background: rgba(229,160,99,0.10); color: var(--amber); border: 1px solid rgba(229,160,99,0.32); }
+  .applies-callout li .pill-mini.green  { background: rgba(111,181,142,0.10); color: var(--green); border: 1px solid rgba(111,181,142,0.32); }
+
+  /* Footnote */
+  .footnote { color: var(--dim); font-size: 12.5px; margin-top: 64px;
+    padding-top: 24px; border-top: 1px solid var(--border); line-height: 1.6; }
+  .footnote code { font-family: var(--mono); background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border); padding: 1px 6px; border-radius: 5px; color: var(--gold); font-size: 11.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="page">
+  <div class="eyebrow">Visual reference · Focus Mode · 2026-04-27</div>
+  <h1>Focus Mode states —<br><span class="accent">UI gallery</span></h1>
+  <p class="sub">What each state looks like, on every surface the user actually sees. Mac dashboard. iPhone home. Menu bar. Plus the overlays and rituals that fire during state transitions and enforcement events.</p>
+  <div class="meta">Companion to <code>focus-concepts-simplification.html</code>. CSS-rendered mockups — no real UI, but pixel-close.</div>
+</header>
+
+<!-- ================== STATE 1: OFF ================== -->
+<section class="state off">
+  <div class="label">State 1 of 3 · default state</div>
+  <h2><span class="name">OFF</span>&nbsp;&nbsp;Free time. Mac is a Mac.</h2>
+  <p class="hook">No enforcement. No overlays. No AI scoring. The user is browsing freely. This is what the apps look like most of the time — early morning, late evening, weekends, whenever you're not working.</p>
+
+  <div class="gallery-row">
+    <!-- Mac dashboard: OFF -->
+    <div class="gallery-cell">
+      <div class="mac">
+        <div class="mac-titlebar">
+          <span class="mac-tl-btn c"></span><span class="mac-tl-btn m"></span><span class="mac-tl-btn x"></span>
+          <span class="mac-tl-title">Intentional</span>
+        </div>
+        <div class="dash">
+          <div class="dash-side">
+            <div class="brand">intentional</div>
+            <div class="nav active"><span class="ico"></span> Today</div>
+            <div class="nav"><span class="ico"></span> Projects</div>
+            <div class="nav"><span class="ico"></span> Distractions</div>
+            <div class="nav"><span class="ico"></span> Accountability</div>
+            <div class="nav"><span class="ico"></span> Settings</div>
+          </div>
+          <div class="dash-main">
+            <div class="dash-pageheader">
+              <h1>Today</h1>
+              <div style="font-size:11px;color:var(--dim);font-family:var(--mono);">Sunday · Apr 27</div>
+            </div>
+            <div class="hero off">
+              <div class="eyebrow-row">Focus mode</div>
+              <div class="hero-row">
+                <div>
+                  <div class="title">Off</div>
+                  <div class="sub">Free time — Mac is unrestricted. Tap to start focus.</div>
+                </div>
+                <div class="hero-action">Start focus →</div>
+              </div>
+            </div>
+            <div class="schedule">
+              <div class="schedule-hours"><span>9 AM</span><span>1 PM</span><span>5 PM</span><span>9 PM</span></div>
+              <div class="schedule-blocks">
+                <div class="schedule-block deep">Deep Work · Email</div>
+                <div class="schedule-block free">Free</div>
+                <div class="schedule-block focus2">Focus · Code</div>
+                <div class="schedule-block bed">Bedtime</div>
+                <div class="schedule-now"></div>
+              </div>
+            </div>
+            <div class="stats-row">
+              <div class="stat"><div class="stat-label">Focused today</div><div class="stat-value">0m</div></div>
+              <div class="stat"><div class="stat-label">Sessions</div><div class="stat-value">0</div></div>
+              <div class="stat"><div class="stat-label">Streak</div><div class="stat-value">3 days</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="caption"><b>Mac dashboard, OFF state.</b> The "Start focus" CTA is the only call to action. Schedule is shown but as preview, not enforcement. Stats show today's totals — nothing accumulating right now.</p>
+    </div>
+
+    <!-- iPhone: OFF -->
+    <div class="gallery-cell">
+      <div class="iphone">
+        <div class="iphone-screen">
+          <div class="iphone-notch"></div>
+          <div class="iphone-stat"><span>9:41</span><span>● ●●●</span></div>
+          <div class="iphone-content">
+            <div class="iphone-title">Home</div>
+            <div class="iphone-card off">
+              <div class="iphone-status-eyebrow">Focus mode</div>
+              <div class="iphone-card-title">Off</div>
+              <div class="iphone-card-sub">Tap a mode below or your puck to start.</div>
+            </div>
+            <div class="iphone-mode-grid">
+              <div class="iphone-mode-tile">
+                <div class="mode-ico deep">DW</div>
+                <div><div class="mode-name">Deep Work</div><div class="mode-meta">12 apps · 1h</div></div>
+              </div>
+              <div class="iphone-mode-tile">
+                <div class="mode-ico read">📖</div>
+                <div><div class="mode-name">Reading</div><div class="mode-meta">8 apps · 30m</div></div>
+              </div>
+              <div class="iphone-mode-tile">
+                <div class="mode-ico work">💼</div>
+                <div><div class="mode-name">Work</div><div class="mode-meta">15 apps · 2h</div></div>
+              </div>
+              <div class="iphone-mode-tile">
+                <div class="mode-ico fam">👨‍👩‍👧</div>
+                <div><div class="mode-name">Family</div><div class="mode-meta">10 apps · 4h</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="iphone-tab-bar">
+            <div class="iphone-tab active"><div class="tab-ico"></div>Home</div>
+            <div class="iphone-tab"><div class="tab-ico"></div>Schedule</div>
+            <div class="iphone-tab"><div class="tab-ico"></div>Alarms</div>
+            <div class="iphone-tab"><div class="tab-ico"></div>Partner</div>
+            <div class="iphone-tab"><div class="tab-ico"></div>Settings</div>
+          </div>
+        </div>
+      </div>
+      <p class="caption"><b>iPhone home, OFF state.</b> Status card is amber. Mode tiles are inviting. Tap any tile or the puck to flip to FOCUS.</p>
+    </div>
+  </div>
+
+  <div class="gallery-row full">
+    <div class="gallery-cell" style="display:flex; align-items:center; flex-direction:column; padding: 28px 0;">
+      <div class="menubar off">
+        <span class="dot"></span>
+        <span class="label"><span class="muted">Free time</span></span>
+      </div>
+      <p class="caption" style="text-align:center;"><b>Mac menu bar pill, OFF state.</b> Subdued. Just a label. Nothing pulsing.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================== STATE 2: FOCUS ================== -->
+<section class="state focus">
+  <div class="label">State 2 of 3 · "I'm focusing"</div>
+  <h2><span class="name">FOCUS</span>&nbsp;&nbsp;Working. Distractions blocked.</h2>
+  <p class="hook">Triggered by tapping puck, Cmd+Shift+P, a scheduled block start, or the dashboard toggle. Optional intention attached as metadata. Twelve features all turn on together — see the inventory in the simplification doc.</p>
+
+  <div class="gallery-row">
+    <!-- Mac dashboard: FOCUS -->
+    <div class="gallery-cell">
+      <div class="mac">
+        <div class="mac-titlebar">
+          <span class="mac-tl-btn c"></span><span class="mac-tl-btn m"></span><span class="mac-tl-btn x"></span>
+          <span class="mac-tl-title">Intentional · Focus active</span>
+        </div>
+        <div class="dash">
+          <div class="dash-side">
+            <div class="brand">intentional</div>
+            <div class="nav active"><span class="ico"></span> Today</div>
+            <div class="nav"><span class="ico"></span> Projects</div>
+            <div class="nav"><span class="ico"></span> Distractions</div>
+            <div class="nav"><span class="ico"></span> Accountability</div>
+            <div class="nav"><span class="ico"></span> Settings</div>
+          </div>
+          <div class="dash-main">
+            <div class="dash-pageheader">
+              <h1>Today</h1>
+              <div style="font-size:11px;color:var(--dim);font-family:var(--mono);">Sunday · Apr 27</div>
+            </div>
+            <div class="hero focus">
+              <div class="eyebrow-row">Focus mode</div>
+              <div class="hero-row">
+                <div>
+                  <div class="title">Focusing</div>
+                  <div class="sub">"Writing email to Sarah" · started 7m ago</div>
+                </div>
+                <div class="hero-timer">23:14</div>
+              </div>
+              <div class="intention-line">
+                <span class="lbl">Intent</span>
+                <span class="val">Writing email to Sarah</span>
+                <div style="margin-left:auto; padding: 5px 12px; border-radius:999px; background: rgba(212,80,80,0.10); color: var(--red); border: 1px solid rgba(212,80,80,0.32); font-size:11px; font-weight:600;">End session</div>
+              </div>
+            </div>
+            <div class="schedule">
+              <div class="schedule-hours"><span>9 AM</span><span>1 PM</span><span>5 PM</span><span>9 PM</span></div>
+              <div class="schedule-blocks">
+                <div class="schedule-block deep">Deep Work · Email · ACTIVE</div>
+                <div class="schedule-block free">Free</div>
+                <div class="schedule-block focus2">Focus · Code</div>
+                <div class="schedule-block bed">Bedtime</div>
+                <div class="schedule-now"></div>
+              </div>
+            </div>
+            <div class="stats-row">
+              <div class="stat"><div class="stat-label">Focused today</div><div class="stat-value" style="color:var(--green);">47m</div></div>
+              <div class="stat"><div class="stat-label">Sessions</div><div class="stat-value">2</div></div>
+              <div class="stat"><div class="stat-label">Off-task</div><div class="stat-value" style="color:var(--amber);">3m</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="caption"><b>Mac dashboard, FOCUS state.</b> Hero turns green. Timer counts up (or down if a duration was chosen). Intention is visible. End-session is a clear off-ramp.</p>
+    </div>
+
+    <!-- iPhone: FOCUS -->
+    <div class="gallery-cell">
+      <div class="iphone">
+        <div class="iphone-screen">
+          <div class="iphone-notch"></div>
+          <div class="iphone-stat"><span>9:48</span><span>● ●●●</span></div>
+          <div class="iphone-content">
+            <div class="iphone-title">Home</div>
+            <div class="iphone-card focus">
+              <div class="iphone-status-eyebrow">Focus mode</div>
+              <div class="iphone-card-title">Focusing</div>
+              <div class="iphone-card-sub">Writing email to Sarah</div>
+              <div class="iphone-card-timer" style="color:var(--green);">23:14</div>
+              <div style="margin-top:10px; display:flex; gap:6px;">
+                <div style="padding:5px 11px; border-radius:999px; background: rgba(212,80,80,0.10); color: var(--red); border: 1px solid rgba(212,80,80,0.32); font-size:11px; font-weight:600;">End</div>
+                <div style="padding:5px 11px; border-radius:999px; background: rgba(255,255,255,0.05); color: var(--muted); border: 1px solid var(--border); font-size:11px; font-weight:600;">+15 min</div>
+              </div>
+            </div>
+            <div style="margin-top:12px; padding: 12px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 12px;">
+              <div style="font-size:10px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--dim);">Blocked while focused</div>
+              <div style="display:flex; gap:8px; margin-top:8px;">
+                <div style="font-size:11px; color:var(--muted);"><b style="color:var(--text)">12</b> apps</div>
+                <div style="font-size:11px; color:var(--muted);"><b style="color:var(--text)">8</b> sites</div>
+              </div>
+            </div>
+          </div>
+          <div class="iphone-tab-bar">
+            <div class="iphone-tab active"><div class="tab-ico"></div>Home</div>
+            <div class="iphone-tab"><div class="tab-ico"></div>Schedule</div>
+            <div class="iphone-tab"><div class="tab-ico"></div>Alarms</div>
+            <div class="iphone-tab"><div class="tab-ico"></div>Partner</div>
+            <div class="iphone-tab"><div class="tab-ico"></div>Settings</div>
+          </div>
+        </div>
+      </div>
+      <p class="caption"><b>iPhone home, FOCUS state.</b> Status card flips green with active intention. Timer is large. End / extend buttons. "Blocked while focused" card surfaces what's enforced.</p>
+    </div>
+  </div>
+
+  <div class="gallery-row full">
+    <div class="gallery-cell" style="display:flex; align-items:center; flex-direction:column; padding: 28px 0;">
+      <div class="menubar focus">
+        <span class="dot"></span>
+        <span class="label">Writing email to Sarah</span>
+        <span class="timer">23:14</span>
+      </div>
+      <p class="caption" style="text-align:center;"><b>Mac menu bar pill, FOCUS state.</b> Green dot pulses. Intention visible. Timer ticking. Always present in the menu bar.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================== STATE 3: BEDTIME ================== -->
+<section class="state bed">
+  <div class="label">State 3 of 3 · winding down</div>
+  <h2><span class="name">BEDTIME</span>&nbsp;&nbsp;Sleeping isn't focusing.</h2>
+  <p class="hook">Different goal: wind down, not produce. Different blocklist: social, news, doom-scroll. Different visuals: violet, calm. Auto-triggered by sleep time, manual override always available.</p>
+
+  <div class="gallery-row">
+    <!-- Mac dashboard: BEDTIME -->
+    <div class="gallery-cell">
+      <div class="mac">
+        <div class="mac-titlebar">
+          <span class="mac-tl-btn c"></span><span class="mac-tl-btn m"></span><span class="mac-tl-btn x"></span>
+          <span class="mac-tl-title">Intentional · Bedtime</span>
+        </div>
+        <div class="dash">
+          <div class="dash-side">
+            <div class="brand">intentional</div>
+            <div class="nav active"><span class="ico"></span> Today</div>
+            <div class="nav"><span class="ico"></span> Projects</div>
+            <div class="nav"><span class="ico"></span> Distractions</div>
+            <div class="nav"><span class="ico"></span> Accountability</div>
+            <div class="nav"><span class="ico"></span> Settings</div>
+          </div>
+          <div class="dash-main">
+            <div class="dash-pageheader">
+              <h1>Today</h1>
+              <div style="font-size:11px;color:var(--dim);font-family:var(--mono);">Sunday · Apr 27</div>
+            </div>
+            <div class="hero bed">
+              <div class="eyebrow-row">Focus mode</div>
+              <div class="hero-row">
+                <div>
+                  <div class="title">Bedtime</div>
+                  <div class="sub">Wind-down active · 7h 23m to wake (6:30 AM)</div>
+                </div>
+                <div class="hero-action bed">Sweet dreams</div>
+              </div>
+            </div>
+            <div class="schedule">
+              <div class="schedule-hours"><span>9 AM</span><span>1 PM</span><span>5 PM</span><span>9 PM</span></div>
+              <div class="schedule-blocks">
+                <div class="schedule-block deep">Deep Work · Email</div>
+                <div class="schedule-block free">Free</div>
+                <div class="schedule-block focus2">Focus · Code</div>
+                <div class="schedule-block bed">Bedtime · ACTIVE</div>
+                <div class="schedule-now" style="top:88%; background: var(--violet);"></div>
+              </div>
+            </div>
+            <div class="stats-row">
+              <div class="stat"><div class="stat-label">Focused today</div><div class="stat-value" style="color:var(--green);">3h 47m</div></div>
+              <div class="stat"><div class="stat-label">Wake</div><div class="stat-value" style="color:var(--violet);">6:30 AM</div></div>
+              <div class="stat"><div class="stat-label">Until wake</div><div class="stat-value" style="color:var(--violet);">7h 23m</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="caption"><b>Mac dashboard, BEDTIME state.</b> Hero turns violet. No timer counting up — instead, a countdown to wake. The stats shift to wake-related, not focus-related.</p>
+    </div>
+
+    <!-- iPhone: BEDTIME -->
+    <div class="gallery-cell">
+      <div class="iphone">
+        <div class="iphone-screen" style="background: linear-gradient(180deg, #1a1224 0%, #0a0c0a 100%);">
+          <div class="iphone-notch"></div>
+          <div class="iphone-stat"><span>11:08</span><span>● ●●●</span></div>
+          <div class="iphone-content">
+            <div class="iphone-title">Home</div>
+            <div class="iphone-card bed">
+              <div class="iphone-status-eyebrow" style="color:rgba(178,135,217,0.6);">Focus mode</div>
+              <div class="iphone-card-title">Bedtime</div>
+              <div class="iphone-card-sub">Wind-down · 7h to alarm</div>
+              <div class="iphone-card-timer" style="color:var(--violet); font-size:24px;">6:30 AM</div>
+              <div style="font-size: 11px; color: var(--muted); margin-top: 6px;">Wake alarm primed</div>
+            </div>
+            <div style="margin-top:14px; text-align:center; padding: 22px 0;">
+              <div style="font-size: 36px; line-height:1;">🌙</div>
+              <div style="font-size:14px; color:var(--muted); margin-top:14px;">Sweet dreams.</div>
+            </div>
+          </div>
+          <div class="iphone-tab-bar">
+            <div class="iphone-tab active"><div class="tab-ico"></div>Home</div>
+            <div class="iphone-tab"><div class="tab-ico"></div>Schedule</div>
+            <div class="iphone-tab"><div class="tab-ico"></div>Alarms</div>
+            <div class="iphone-tab"><div class="tab-ico"></div>Partner</div>
+            <div class="iphone-tab"><div class="tab-ico"></div>Settings</div>
+          </div>
+        </div>
+      </div>
+      <p class="caption"><b>iPhone home, BEDTIME state.</b> Background dims to a violet tone. Wake time prominent. Mode tiles hidden. A literal "sweet dreams" copy resets the relationship — you're not productive right now, you're going to sleep.</p>
+    </div>
+  </div>
+
+  <div class="gallery-row full">
+    <div class="gallery-cell" style="display:flex; align-items:center; flex-direction:column; padding: 28px 0;">
+      <div class="menubar bed">
+        <span class="dot"></span>
+        <span class="label">Bedtime <span class="muted">· wake 6:30</span></span>
+      </div>
+      <p class="caption" style="text-align:center;"><b>Mac menu bar pill, BEDTIME state.</b> Violet dot. Wake time inline. The pill doesn't show a timer — bedtime is open-ended, ends when you wake.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================== ALARMS & SCHEDULE (drives BEDTIME / wake) ================== -->
+<section class="state" style="border-top: 1px solid var(--border);">
+  <div class="label" style="color: var(--gold);">Alarms tab · iPhone</div>
+  <h2>Wake &amp; sleep times — <span style="background: var(--grad-bedtime); -webkit-background-clip: text; background-clip: text; color: transparent;">set once, applies everywhere.</span></h2>
+  <p class="hook">In the iPhone <strong>Alarms</strong> tab you set two anchors: when you wake up and when you go to sleep. The wake time fires a real alarm. The sleep time blocks pretty much everything across both devices until your wake time. Configure once on iPhone — it syncs to Mac automatically.</p>
+
+  <div class="gallery-row">
+    <!-- iPhone Alarms tab UI -->
+    <div class="gallery-cell">
+      <div class="iphone">
+        <div class="iphone-screen">
+          <div class="iphone-notch"></div>
+          <div class="iphone-stat"><span>9:41</span><span>● ●●●</span></div>
+          <div class="iphone-content">
+            <div class="iphone-title">Alarms</div>
+
+            <div class="iphone-section-eyebrow" style="color: var(--gold);">☀️ Wake</div>
+            <div class="alarm-row">
+              <div class="alarm-icon wake">☀</div>
+              <div class="alarm-body">
+                <div class="alarm-time">6:30 AM</div>
+                <div class="alarm-meta">Mon – Fri · "Sunrise" sound · gentle ramp 5 min</div>
+                <div class="alarm-applies">
+                  Tap your puck to dismiss
+                </div>
+              </div>
+              <div class="alarm-toggle"></div>
+            </div>
+
+            <div class="iphone-section-eyebrow" style="color: var(--violet);">🌙 Sleep</div>
+            <div class="alarm-row">
+              <div class="alarm-icon sleep">🌙</div>
+              <div class="alarm-body">
+                <div class="alarm-time">11:00 PM</div>
+                <div class="alarm-meta">Every day · wind-down starts 30 min before</div>
+                <div class="alarm-applies">
+                  <span class="pill-mini">📱 iPhone</span>
+                  <span class="pill-mini">💻 Mac</span>
+                </div>
+              </div>
+              <div class="alarm-toggle"></div>
+            </div>
+
+            <div class="iphone-section-eyebrow">Add another</div>
+            <div style="font-size: 13px; color: var(--muted); padding: 10px 4px;">
+              Most people only need one wake + one sleep. You can add extra alarms (e.g., a noon reminder) but they don't drive Focus Mode — only the primary wake / sleep anchors do.
+            </div>
+
+          </div>
+          <div class="iphone-tab-bar">
+            <div class="iphone-tab"><div class="tab-ico"></div>Home</div>
+            <div class="iphone-tab"><div class="tab-ico"></div>Schedule</div>
+            <div class="iphone-tab active"><div class="tab-ico"></div>Alarms</div>
+            <div class="iphone-tab"><div class="tab-ico"></div>Partner</div>
+            <div class="iphone-tab"><div class="tab-ico"></div>Settings</div>
+          </div>
+        </div>
+      </div>
+      <p class="caption"><b>iPhone Alarms tab.</b> Two anchors. Each is a card with time, days, sub-info, and an enable toggle. The <strong>Sleep</strong> card explicitly tags <span class="pill-mini" style="display:inline-block; padding: 1px 7px; border-radius: 999px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; background: rgba(110,143,224,0.10); color: var(--blue); border: 1px solid rgba(110,143,224,0.32);">📱 iPhone</span> and <span class="pill-mini" style="display:inline-block; padding: 1px 7px; border-radius: 999px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; background: rgba(110,143,224,0.10); color: var(--blue); border: 1px solid rgba(110,143,224,0.32);">💻 Mac</span> so the user knows it's not just a local thing.</p>
+    </div>
+
+    <!-- What this does (callout panel) -->
+    <div class="gallery-cell" style="display: flex; flex-direction: column; gap: 14px;">
+      <div class="applies-callout">
+        <h4>What the wake time does</h4>
+        <ul>
+          <li><b>Plays an alarm</b> on iPhone <span class="muted">— gentle 5-min ramp by default. Tap your puck to dismiss.</span></li>
+          <li><b>Ends BEDTIME</b> on both devices at the alarm time. <span class="pill-mini violet">BEDTIME</span> → <span class="pill-mini amber">OFF</span></li>
+          <li><span class="muted">Does NOT auto-start FOCUS</span> — you ease in. Q2 in the open questions.</li>
+        </ul>
+      </div>
+
+      <div class="applies-callout">
+        <h4>What the sleep time does</h4>
+        <ul>
+          <li><b>Triggers BEDTIME</b> on both devices. <span class="pill-mini green">FOCUS</span> or <span class="pill-mini amber">OFF</span> → <span class="pill-mini violet">BEDTIME</span></li>
+          <li><b>Blocks pretty much everything</b> on iPhone and Mac — bedtime blocklist (social, news, doom-scroll). Stricter than the focus blocklist on purpose.</li>
+          <li><b>30-min wind-down ramp</b> before the actual sleep time — gradual screen dim, soft notification "going to sleep in 28 min".</li>
+          <li><b>Mac shows wake time</b> in its dashboard hero card and menu bar pill.</li>
+          <li><b>Auto-ends</b> at your wake time the next morning. No manual untoggle required.</li>
+        </ul>
+      </div>
+
+      <div class="applies-callout">
+        <h4>How sync works</h4>
+        <p>Wake and sleep times are <b>account-scoped</b> — stored on the backend, not per-device. Edit on iPhone, Mac picks up within seconds. Same shape as the partner / focus session sync. If you sign in on a new Mac, it inherits your existing wake / sleep automatically.</p>
+      </div>
+
+      <div class="applies-callout">
+        <h4>Edge cases</h4>
+        <ul>
+          <li><b>iPhone offline at sleep time</b> — Mac still flips to BEDTIME via its own clock + the synced sleep time. No dependency on iPhone being awake.</li>
+          <li><b>You stay up past sleep time</b> — Mac &amp; iPhone go to BEDTIME anyway. To override, tap the puck or hit "Stay up 30 min" on either device.</li>
+          <li><b>You wake up before the alarm</b> — tap puck on iPhone, both devices flip to OFF, alarm cancelled.</li>
+          <li><b>Different sleep on weekends</b> — set the days per alarm. Default sleep is "every day", but you can split weekday / weekend.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mac dashboard: alarm sync visible on Mac -->
+  <div class="event-card" style="margin-top: 24px;">
+    <div class="event-title"><span class="num">🔄</span>Auto-syncs to Mac</div>
+    <div class="event-desc">Set wake / sleep on iPhone once — Mac picks it up automatically. The wake / sleep markers show in Mac's schedule view, and they're editable from Mac's Settings → Alarms (the same record). Changing it on either device updates the other within seconds.</div>
+    <div class="mac" style="margin-top: 10px;">
+      <div class="mac-titlebar">
+        <span class="mac-tl-btn c"></span><span class="mac-tl-btn m"></span><span class="mac-tl-btn x"></span>
+        <span class="mac-tl-title">Intentional · Schedule</span>
+      </div>
+      <div class="dash" style="min-height: 360px;">
+        <div class="dash-side">
+          <div class="brand">intentional</div>
+          <div class="nav active"><span class="ico"></span> Today</div>
+          <div class="nav"><span class="ico"></span> Projects</div>
+          <div class="nav"><span class="ico"></span> Distractions</div>
+          <div class="nav"><span class="ico"></span> Accountability</div>
+          <div class="nav"><span class="ico"></span> Settings</div>
+        </div>
+        <div class="dash-main">
+          <div class="dash-pageheader">
+            <h1>Today</h1>
+            <div style="font-size:11px;color:var(--dim);font-family:var(--mono);">Sunday · Apr 27 · synced 4s ago from iPhone</div>
+          </div>
+          <div class="schedule" style="min-height: 200px;">
+            <div class="schedule-hours"><span>6 AM</span><span>11 AM</span><span>4 PM</span><span>9 PM</span><span>2 AM</span></div>
+            <div class="schedule-blocks" style="height: 200px;">
+              <!-- Wake marker -->
+              <div class="schedule-block" style="top: 0; height: 5%; background: rgba(240,176,96,0.22); border: 1px solid rgba(240,176,96,0.45); color: #f0d29a; display: flex; align-items: center;">
+                <span style="margin-right:6px;">☀️</span><b>Wake 6:30 AM</b><span class="muted" style="margin-left:auto; color: rgba(240,176,96,0.6); font-weight:400;">from iPhone</span>
+              </div>
+              <div class="schedule-block deep" style="top: 7%; height: 18%;">Deep Work · "Email Sarah" · 9 – 11</div>
+              <div class="schedule-block free" style="top: 26%; height: 8%;">Free · 11 – noon</div>
+              <div class="schedule-block focus2" style="top: 35%; height: 18%;">Focus · "Code review" · 1 – 4</div>
+              <div class="schedule-block free" style="top: 54%; height: 24%;">Free · evening</div>
+              <!-- Sleep marker -->
+              <div class="schedule-block" style="top: 79%; height: 5%; background: rgba(178,135,217,0.22); border: 1px solid rgba(178,135,217,0.45); color: #d8c4eb; display: flex; align-items: center;">
+                <span style="margin-right:6px;">🌙</span><b>Sleep 11:00 PM</b><span class="muted" style="margin-left:auto; color: rgba(178,135,217,0.6); font-weight:400;">from iPhone</span>
+              </div>
+              <div class="schedule-block bed" style="top: 85%; height: 15%; opacity: 0.6;">Bedtime window — wakes 6:30</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="caption"><b>Mac Today schedule, alarms visible.</b> Wake at top (gold), sleep at bottom (violet). Both labeled "from iPhone" so the user knows the source. Tapping either opens Mac's Settings → Alarms which edits the same backend record. No "where did this setting come from?" confusion.</p>
+  </div>
+
+  <!-- Schedule strip showing where wake / sleep sit in a day -->
+  <div class="event-card" style="margin-top: 24px;">
+    <div class="event-title"><span class="num">🕐</span>The day in shape</div>
+    <div class="event-desc">Wake &amp; sleep are anchors. Everything else fits between them. The schedule view on iPhone &amp; Mac shows the same picture — just with one source of truth on the backend.</div>
+    <div class="schedule" style="margin-top: 10px;">
+      <div class="schedule-hours"><span>6 AM</span><span>11 AM</span><span>4 PM</span><span>9 PM</span><span>2 AM</span></div>
+      <div class="schedule-blocks" style="height: 110px;">
+        <div class="schedule-block" style="top: 0; height: 6%; background: rgba(240,176,96,0.20); border: 1px solid rgba(240,176,96,0.42); color: #f0d29a;">☀️ Wake 6:30</div>
+        <div class="schedule-block deep" style="top: 8%; height: 22%;">Deep Work · 9 - 11</div>
+        <div class="schedule-block free" style="top: 31%; height: 10%;">Free</div>
+        <div class="schedule-block focus2" style="top: 42%; height: 22%;">Focus · 1 - 4</div>
+        <div class="schedule-block free" style="top: 65%; height: 25%;">Free / dinner</div>
+        <div class="schedule-block bed" style="top: 91%; height: 9%;">🌙 Sleep 11 PM</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================== INTERVENTIONS LIST ================== -->
+<section class="state" style="border-top: 1px solid var(--border);">
+  <div class="label" style="color: var(--green);">Focus interventions</div>
+  <h2>When <span style="color: var(--green);">FOCUS</span> is on, these turn on too.</h2>
+  <p class="hook">Each one is opt-out. By default Focus Mode bundles all of them — that's the canonical "deep work" experience. Settings → Interventions lets users toggle individual pieces off if they want a softer / harder shape. The bundle is the default; the toggles are escape hatches.</p>
+
+  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+
+    <div class="event-card" style="margin: 0; border-color: rgba(212,80,80,0.32); background: rgba(212,80,80,0.04);">
+      <div class="event-title">
+        <span class="num" style="background: rgba(212,80,80,0.10); color: var(--red); border-color: rgba(212,80,80,0.32);">1</span>
+        Distractions blocking
+        <span style="margin-left:auto; padding: 4px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; background: rgba(111,181,142,0.16); color: var(--green); border: 1px solid rgba(111,181,142,0.40);">DEFAULT ON</span>
+      </div>
+      <div class="event-desc">Hard block of every app + site in your distractions list. Twitter / Instagram / news / TikTok / etc. shut at the OS level. Override is possible from earned-browse pool, otherwise locked.</div>
+      <div style="font-size: 12px; color: var(--muted);"><b>Setting:</b> on/off · <b>Customize:</b> Distractions list (apps + URLs)</div>
+    </div>
+
+    <div class="event-card" style="margin: 0; border-color: rgba(232,116,97,0.32); background: rgba(232,116,97,0.04);">
+      <div class="event-title">
+        <span class="num">2</span>
+        Context-switch overlay
+        <span style="margin-left:auto; padding: 4px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; background: rgba(111,181,142,0.16); color: var(--green); border: 1px solid rgba(111,181,142,0.40);">DEFAULT ON</span>
+      </div>
+      <div class="event-desc">10-second full-screen countdown when you Cmd-Tab to a non-relevant app during focus. You can wait it out or click "Go back."</div>
+      <div style="font-size: 12px; color: var(--muted);"><b>Setting:</b> on/off · <b>Customize:</b> countdown duration (5s / 10s / 20s)</div>
+    </div>
+
+    <div class="event-card" style="margin: 0; border-color: rgba(110,143,224,0.32); background: rgba(110,143,224,0.04);">
+      <div class="event-title">
+        <span class="num" style="background: rgba(110,143,224,0.10); color: var(--blue); border-color: rgba(110,143,224,0.32);">3</span>
+        AI relevance scoring
+        <span style="margin-left:auto; padding: 4px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; background: rgba(111,181,142,0.16); color: var(--green); border: 1px solid rgba(111,181,142,0.40);">DEFAULT ON</span>
+      </div>
+      <div class="event-desc">Browser tabs scored against your intention. Off-topic content (even on allowed sites) flagged. Drives the off-task nudges and the screen tint.</div>
+      <div style="font-size: 12px; color: var(--muted);"><b>Setting:</b> on/off · <b>Customize:</b> strictness (loose / balanced / strict)</div>
+    </div>
+
+    <div class="event-card" style="margin: 0; border-color: rgba(229,160,99,0.32); background: rgba(229,160,99,0.04);">
+      <div class="event-title">
+        <span class="num" style="background: rgba(229,160,99,0.10); color: var(--amber); border-color: rgba(229,160,99,0.32);">4</span>
+        Screen red shift
+        <span style="margin-left:auto; padding: 4px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; background: rgba(111,181,142,0.16); color: var(--green); border: 1px solid rgba(111,181,142,0.40);">DEFAULT ON</span>
+      </div>
+      <div class="event-desc">When AI marks the current content as off-task, the screen gradually shifts red over ~30s. Aversive but not punishing — clears immediately when you return to focus.</div>
+      <div style="font-size: 12px; color: var(--muted);"><b>Setting:</b> on/off · <b>Customize:</b> intensity (subtle / strong)</div>
+    </div>
+
+    <div class="event-card" style="margin: 0; border-color: rgba(229,160,99,0.32); background: rgba(229,160,99,0.04);">
+      <div class="event-title">
+        <span class="num" style="background: rgba(229,160,99,0.10); color: var(--amber); border-color: rgba(229,160,99,0.32);">5</span>
+        Off-task nudge toast
+        <span style="margin-left:auto; padding: 4px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; background: rgba(111,181,142,0.16); color: var(--green); border: 1px solid rgba(111,181,142,0.40);">DEFAULT ON</span>
+      </div>
+      <div class="event-desc">Small toast in corner: "Drifted to YouTube — back to your work?" Two buttons: stay 30s, or go back. First-tier intervention before red shift escalates.</div>
+      <div style="font-size: 12px; color: var(--muted);"><b>Setting:</b> on/off · <b>Customize:</b> tone (gentle / direct / sharp)</div>
+    </div>
+
+    <div class="event-card" style="margin: 0; border-color: rgba(232,116,97,0.32); background: rgba(232,116,97,0.04);">
+      <div class="event-title">
+        <span class="num">6</span>
+        Block start ritual
+        <span style="margin-left:auto; padding: 4px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; background: rgba(111,181,142,0.16); color: var(--green); border: 1px solid rgba(111,181,142,0.40);">DEFAULT ON</span>
+      </div>
+      <div class="event-desc">Modal overlay at the start of a scheduled block forces you to type a one-line intention before enforcement engages. The "make me plan" feature.</div>
+      <div style="font-size: 12px; color: var(--muted);"><b>Setting:</b> on/off · <b>Customize:</b> auto-fill intention from block title (yes / no)</div>
+    </div>
+
+    <div class="event-card" style="margin: 0; border-color: rgba(232,116,97,0.32); background: rgba(232,116,97,0.04);">
+      <div class="event-title">
+        <span class="num">7</span>
+        Block end ritual
+        <span style="margin-left:auto; padding: 4px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; background: rgba(229,160,99,0.16); color: var(--amber); border: 1px solid rgba(229,160,99,0.40);">DEFAULT ON · brief</span>
+      </div>
+      <div class="event-desc">3-second card at the end of a block: focus score, total minutes, app breakdown. Auto-dismisses; no input required. Builds the "I just did something" loop.</div>
+      <div style="font-size: 12px; color: var(--muted);"><b>Setting:</b> on/off · <b>Customize:</b> celebrate &gt;80% with confetti (yes / no)</div>
+    </div>
+
+    <div class="event-card" style="margin: 0; border-color: rgba(178,135,217,0.32); background: rgba(178,135,217,0.04);">
+      <div class="event-title">
+        <span class="num" style="background: rgba(178,135,217,0.10); color: var(--violet); border-color: rgba(178,135,217,0.32);">8</span>
+        Earned browse mode
+        <span style="margin-left:auto; padding: 4px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; background: rgba(229,160,99,0.16); color: var(--amber); border: 1px solid rgba(229,160,99,0.40);">DEFAULT OFF · opt-in</span>
+      </div>
+      <div class="event-desc">Earn distraction-time credits while focused. Spend them on otherwise-blocked sites later. Gamifies discipline. Off by default because some users find it gameable.</div>
+      <div style="font-size: 12px; color: var(--muted);"><b>Setting:</b> on/off · <b>Customize:</b> earn rate (1 min focused → N seconds browse)</div>
+    </div>
+
+    <div class="event-card" style="margin: 0; border-color: rgba(110,143,224,0.32); background: rgba(110,143,224,0.04);">
+      <div class="event-title">
+        <span class="num" style="background: rgba(110,143,224,0.10); color: var(--blue); border-color: rgba(110,143,224,0.32);">9</span>
+        Always-on pill widget
+        <span style="margin-left:auto; padding: 4px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; background: rgba(111,181,142,0.16); color: var(--green); border: 1px solid rgba(111,181,142,0.40);">DEFAULT ON</span>
+      </div>
+      <div class="event-desc">Menu bar pill shows current state, intention, timer, focus score. Always visible during focus so you remember what you're doing.</div>
+      <div style="font-size: 12px; color: var(--muted);"><b>Setting:</b> on/off · <b>Customize:</b> show focus score (yes / no), pill position</div>
+    </div>
+
+    <div class="event-card" style="margin: 0; border-color: rgba(212,80,80,0.32); background: rgba(212,80,80,0.04);">
+      <div class="event-title">
+        <span class="num" style="background: rgba(212,80,80,0.10); color: var(--red); border-color: rgba(212,80,80,0.32);">10</span>
+        Distracting app force-quit
+        <span style="margin-left:auto; padding: 4px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; background: rgba(229,160,99,0.16); color: var(--amber); border: 1px solid rgba(229,160,99,0.40);">DEFAULT OFF · opt-in</span>
+      </div>
+      <div class="event-desc">Hard mode: when you switch to a distracting app, it gets minimized or quit immediately. No countdown, no overlay — just gone. For users who want firmer guardrails.</div>
+      <div style="font-size: 12px; color: var(--muted);"><b>Setting:</b> on/off · <b>Customize:</b> minimize vs quit</div>
+    </div>
+
+  </div>
+
+  <!-- Visual: Settings page mockup -->
+  <div class="event-card" style="margin-top: 28px;">
+    <div class="event-title"><span class="num">⚙️</span>Settings → Interventions</div>
+    <div class="event-desc">Where the user controls each toggle. Available on both iPhone and Mac (account-scoped — change either, both apply).</div>
+    <div class="mac" style="margin-top: 10px;">
+      <div class="mac-titlebar">
+        <span class="mac-tl-btn c"></span><span class="mac-tl-btn m"></span><span class="mac-tl-btn x"></span>
+        <span class="mac-tl-title">Intentional · Settings · Interventions</span>
+      </div>
+      <div class="dash" style="min-height: 380px;">
+        <div class="dash-side">
+          <div class="brand">intentional</div>
+          <div class="nav"><span class="ico"></span> Today</div>
+          <div class="nav"><span class="ico"></span> Projects</div>
+          <div class="nav"><span class="ico"></span> Distractions</div>
+          <div class="nav"><span class="ico"></span> Accountability</div>
+          <div class="nav active"><span class="ico"></span> Settings</div>
+        </div>
+        <div class="dash-main">
+          <div class="dash-pageheader">
+            <h1>Interventions</h1>
+            <div style="font-size:11px;color:var(--dim);font-family:var(--mono);">Settings · 10 toggles · synced</div>
+          </div>
+          <p style="color: var(--muted); font-size: 13px; margin-bottom: 18px;">When <span style="color: var(--green); font-weight: 700;">FOCUS</span> is on, these enforce automatically. Turn any off if you want a softer shape — your call.</p>
+
+          <!-- Settings rows -->
+          <div style="display: flex; flex-direction: column; gap: 0;">
+            <div style="display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border);">
+              <div style="flex: 1;">
+                <div style="font-size: 14px; font-weight: 600;">Distractions blocking</div>
+                <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Apps and sites in your distractions list are blocked.</div>
+              </div>
+              <div class="alarm-toggle" style="margin: 0;"></div>
+            </div>
+            <div style="display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border);">
+              <div style="flex: 1;">
+                <div style="font-size: 14px; font-weight: 600;">Context-switch overlay</div>
+                <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">10-second countdown when switching to a non-relevant app.</div>
+              </div>
+              <div class="alarm-toggle" style="margin: 0;"></div>
+            </div>
+            <div style="display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border);">
+              <div style="flex: 1;">
+                <div style="font-size: 14px; font-weight: 600;">AI relevance scoring</div>
+                <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Browser tabs scored against your intention.</div>
+              </div>
+              <div class="alarm-toggle" style="margin: 0;"></div>
+            </div>
+            <div style="display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border);">
+              <div style="flex: 1;">
+                <div style="font-size: 14px; font-weight: 600;">Screen red shift</div>
+                <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Gradual screen tint when off-task. Subtle by default.</div>
+              </div>
+              <div class="alarm-toggle" style="margin: 0;"></div>
+            </div>
+            <div style="display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border);">
+              <div style="flex: 1;">
+                <div style="font-size: 14px; font-weight: 600;">Off-task nudge toast</div>
+                <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Small "back to your work?" reminder before harder interventions.</div>
+              </div>
+              <div class="alarm-toggle" style="margin: 0;"></div>
+            </div>
+            <div style="display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border);">
+              <div style="flex: 1;">
+                <div style="font-size: 14px; font-weight: 600;">Block start ritual</div>
+                <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Forces you to type your intention before a scheduled block.</div>
+              </div>
+              <div class="alarm-toggle" style="margin: 0;"></div>
+            </div>
+            <div style="display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border);">
+              <div style="flex: 1;">
+                <div style="font-size: 14px; font-weight: 600;">Block end ritual</div>
+                <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">3-sec stats card at end of block. Auto-dismisses.</div>
+              </div>
+              <div class="alarm-toggle" style="margin: 0;"></div>
+            </div>
+            <div style="display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border);">
+              <div style="flex: 1;">
+                <div style="font-size: 14px; font-weight: 600;">Earned browse mode</div>
+                <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Earn distraction-time credits during focus. Spend later. <span style="color: var(--amber);">Opt-in.</span></div>
+              </div>
+              <div class="alarm-toggle off" style="margin: 0;"></div>
+            </div>
+            <div style="display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border);">
+              <div style="flex: 1;">
+                <div style="font-size: 14px; font-weight: 600;">Always-on pill widget</div>
+                <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Menu bar pill with state, intention, timer.</div>
+              </div>
+              <div class="alarm-toggle" style="margin: 0;"></div>
+            </div>
+            <div style="display: flex; align-items: center; padding: 12px 0;">
+              <div style="flex: 1;">
+                <div style="font-size: 14px; font-weight: 600;">Distracting app force-quit <span style="font-size: 10px; color: var(--red); margin-left: 6px; font-weight: 700; letter-spacing: 0.5px;">HARD MODE</span></div>
+                <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Distracting apps minimized / quit on activation. <span style="color: var(--amber);">Opt-in.</span></div>
+              </div>
+              <div class="alarm-toggle off" style="margin: 0;"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+    <p class="caption" style="margin-top: 14px;"><b>Mac Settings → Interventions.</b> Each row = one intervention, one toggle. The "opt-in" ones are off by default and tagged. Account-scoped — change here, your iPhone reflects it within seconds.</p>
+  </div>
+
+</section>
+
+<!-- ================== ENFORCEMENT EVENTS (FOCUS only) ================== -->
+<section class="events">
+  <h2>Enforcement events <span style="color: var(--green); font-size: 16px; font-weight: 700; vertical-align: 6px;">(FOCUS only)</span></h2>
+  <p class="hook">When the user tries to do something off-task during FOCUS, these are the moments they see. None of these fire in OFF or BEDTIME.</p>
+
+  <!-- Event 1: Switch to a blocked app -->
+  <div class="event-card">
+    <div class="event-title"><span class="num">1</span>Context-switch overlay</div>
+    <div class="event-desc">User Cmd-Tabs to a non-relevant app (Twitter / Slack while in Deep Work). 10-second countdown overlay takes over the screen. They can wait it out, click "Cancel", or click "Go back".</div>
+    <div class="switch-overlay">
+      <div class="switch-target">𝕏</div>
+      <div class="switch-msg">You're switching to Twitter</div>
+      <div class="switch-sub">Not part of "Writing email to Sarah". Returning in:</div>
+      <div class="switch-countdown">07</div>
+      <div class="switch-actions">
+        <span class="switch-btn">Continue anyway</span>
+        <span class="switch-btn go-back">Go back to email</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Event 2: Visit a blocked website -->
+  <div class="event-card">
+    <div class="event-title"><span class="num">2</span>Blocked website page</div>
+    <div class="event-desc">User navigates to a domain in their distraction list (twitter.com, instagram.com, news sites). Browser tab is intercepted with a block page. Override option available, but it costs from the earned-browse pool.</div>
+    <div class="block-page">
+      <div class="block-icon">×</div>
+      <div class="block-title">twitter.com is blocked</div>
+      <div class="block-sub">During focus, this site is in your distractions list. Override is available, but uses 5 minutes from your earned browse pool (you have 12m).</div>
+      <div class="block-mini">
+        <span class="block-mini-btn">Use 5m override</span>
+        <span class="block-mini-btn" style="border-color: rgba(111,181,142,0.40); color: var(--green);">Back to your work</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Event 3: Off-task nudge -->
+  <div class="event-card">
+    <div class="event-title"><span class="num">3</span>Off-task nudge (toast)</div>
+    <div class="event-desc">AI scoring has decided the current tab/app isn't relevant to the intention. First-tier nudge: a small toast slides in. If user ignores it, escalates to grayscale, then to switch overlay.</div>
+    <div style="padding: 24px 0; display:flex; justify-content:center;">
+      <div class="toast">
+        <div class="toast-icon">!</div>
+        <div class="toast-msg">
+          <div class="strong">Drifted to YouTube</div>
+          <div class="muted">Not related to "Writing email to Sarah"</div>
+        </div>
+        <div class="toast-actions">
+          <span class="toast-btn">Stay 30s</span>
+          <span class="toast-btn primary">Back to email</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Event 4: Block start ritual (planning) -->
+  <div class="event-card">
+    <div class="event-title"><span class="num">4</span>Block start ritual</div>
+    <div class="event-desc">A scheduled block (Deep Work) becomes active. Modal overlay forces the user to type a one-line intention before the block begins enforcing. This is the heart of "make me plan."</div>
+    <div class="ritual">
+      <div style="font-size: 11px; font-weight:700; color: var(--coral); letter-spacing: 1.4px; text-transform: uppercase;">Deep Work · 9:00 AM – 10:30 AM</div>
+      <h3>What are you working on?</h3>
+      <div class="sub">One sentence. Specific is better.</div>
+      <div class="ritual-input">Writing email to Sarah re. Q3 plan</div>
+      <div class="ritual-go">Start focus →</div>
+    </div>
+  </div>
+
+  <!-- Event 5: Bedtime gentle overlay -->
+  <div class="event-card">
+    <div class="event-title"><span class="num">5</span>Bedtime gentle overlay</div>
+    <div class="event-desc">When BEDTIME starts, the screen tints violet, an overlay appears briefly with a wind-down message. Less aggressive than focus enforcement — bedtime is meant to be inviting, not adversarial.</div>
+    <div class="bedtime-overlay">
+      <div class="bedtime-icon">🌙</div>
+      <div class="bedtime-msg">Wind-down time</div>
+      <div class="bedtime-sub">Social and news are paused until 6:30 AM.<br>Phone alarm is set. Sleep well.</div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ================== TRANSITIONS ================== -->
+<section class="events">
+  <h2>State transitions</h2>
+  <p class="hook">What the user sees in the moment a state changes. These are visual confirmations: "we heard you, the system flipped."</p>
+
+  <div class="event-card">
+    <div class="event-title"><span class="num">A</span>OFF → FOCUS · Tap puck</div>
+    <div class="event-desc">User taps puck on iPhone. iPhone shows a brief "Starting focus..." flash, mode tile pulses, status card flips green within 200ms. Mac receives the WS broadcast within ~1s and flips its own state — pill turns green, hero card on dashboard re-renders.</div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 10px;">
+      <div class="hero off" style="margin: 0;">
+        <div class="eyebrow-row">Before · OFF</div>
+        <div class="title">Off</div>
+        <div class="sub">Free time</div>
+      </div>
+      <div class="hero focus" style="margin: 0;">
+        <div class="eyebrow-row">After · FOCUS</div>
+        <div class="title">Focusing</div>
+        <div class="sub">Deep Work · 0:08</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="event-card">
+    <div class="event-title"><span class="num">B</span>FOCUS → OFF · Tap puck again (or End session)</div>
+    <div class="event-desc">User taps puck (or clicks End in dashboard / iPhone). Both devices end-of-block ritual fires (brief): "session complete · 47m focused · focus score 91%". Then state returns to OFF.</div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 10px;">
+      <div class="hero focus" style="margin: 0;">
+        <div class="eyebrow-row">Before · FOCUS</div>
+        <div class="title">Focusing</div>
+        <div class="sub">Writing email · 47m</div>
+      </div>
+      <div class="hero off" style="margin: 0;">
+        <div class="eyebrow-row">After · OFF</div>
+        <div class="title">Off</div>
+        <div class="sub">Last session · 47m focused · 91% on-task</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="event-card">
+    <div class="event-title"><span class="num">C</span>FOCUS → BEDTIME · Sleep time auto-trigger</div>
+    <div class="event-desc">11 PM hits. Even if user is in FOCUS, gradual transition to BEDTIME. Wind-down ritual: "saving your work session... going to sleep." Distractions list swaps from focus list to bedtime list. Wake alarm primes on iPhone.</div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 10px;">
+      <div class="hero focus" style="margin: 0;">
+        <div class="eyebrow-row">Before · FOCUS</div>
+        <div class="title">Focusing</div>
+        <div class="sub">2h 14m</div>
+      </div>
+      <div class="hero bed" style="margin: 0;">
+        <div class="eyebrow-row">After · BEDTIME</div>
+        <div class="title">Bedtime</div>
+        <div class="sub">7h 30m to 6:30 AM wake</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<p class="footnote">
+  Source: <code>docs/focus-states-ui-gallery.html</code> · Companion to <code>docs/focus-concepts-simplification.html</code> (the conceptual model) and <code>docs/CROSS_DEVICE_FOCUS_DEBUGGING.md</code> (the runbook).<br>
+  These are CSS-rendered mockups — visually close to the real apps' design system (coral / gold / green / violet, dark surface, Field of Light type).<br>
+  Treat as a reference: when we plan implementation, every state transition + every enforcement event should map to something in this gallery.
+</p>
+
+</div>
+</body>
+</html>

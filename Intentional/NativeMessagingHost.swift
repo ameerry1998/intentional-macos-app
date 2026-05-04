@@ -370,12 +370,14 @@ class NativeMessagingHost {
                 self.appDelegate?.postLog("🔒 \(platform) session already active, sending correction to \(browser)")
                 self.sendSessionSync()
             } else {
-                // Grant intent bonus during Free Time if user set an intent (not free browse)
+                // Spec 2: free time = absence of a block. Grant intent bonus if no current block.
                 if !freeBrowse,
                    let mgr = self.earnedBrowseManager,
-                   let currentBlock = self.scheduleManager?.currentBlock,
-                   currentBlock.blockType == .freeTime {
-                    let granted = mgr.grantIntentBonus(blockId: currentBlock.id)
+                   self.scheduleManager?.currentBlock == nil {
+                    let formatter = DateFormatter()
+                    formatter.dateFormat = "yyyy-MM-dd"
+                    let sentinelId = "no_block_\(formatter.string(from: Date()))"
+                    let granted = mgr.grantIntentBonus(blockId: sentinelId)
                     if granted {
                         self.appDelegate?.socketRelayServer?.broadcastEarnedMinutesUpdate(mgr)
                         self.appDelegate?.mainWindowController?.pushEarnedUpdate()
@@ -683,20 +685,26 @@ class NativeMessagingHost {
         var earnedBrowse: [String: Any] = [:]
         if let mgr = earnedBrowseManager {
             mgr.ensureToday()
-            let blockType = appDelegate?.scheduleManager?.currentBlock?.blockType ?? ScheduleManager.BlockType.freeTime
+            // Spec 2: absence of block = free time.
+            let blockTypeOpt = appDelegate?.scheduleManager?.currentBlock?.blockType
+            let blockType: ScheduleManager.BlockType = blockTypeOpt ?? .focusHours
+            let isFreeTime = (blockTypeOpt == nil)
             let costMultiplier: Double
-            switch blockType {
-            case .deepWork: costMultiplier = mgr.deepWorkCost
-            case .focusHours: costMultiplier = mgr.focusHoursCost
-            case .freeTime: costMultiplier = mgr.freeTimeCost
+            if isFreeTime {
+                costMultiplier = mgr.freeTimeCost
+            } else {
+                switch blockType {
+                case .deepWork: costMultiplier = mgr.deepWorkCost
+                case .focusHours: costMultiplier = mgr.focusHoursCost
+                }
             }
             let effectiveBrowseTime = costMultiplier > 0 ? mgr.availableMinutes / costMultiplier : mgr.availableMinutes
             earnedBrowse = [
                 "earnedMinutes": mgr.earnedMinutes,
                 "usedMinutes": mgr.usedMinutes,
                 "availableMinutes": mgr.availableMinutes,
-                "blockType": blockType.rawValue,
-                "isWorkBlock": blockType != .freeTime,
+                "blockType": isFreeTime ? "freeTime" : blockType.rawValue,
+                "isWorkBlock": !isFreeTime,
                 "costMultiplier": costMultiplier,
                 "effectiveBrowseTime": effectiveBrowseTime,
                 "poolExhausted": mgr.isPoolExhausted,
@@ -800,7 +808,7 @@ class NativeMessagingHost {
                 intention: block.title,
                 intentionDescription: block.description,
                 profile: block.ignoreProfile ? "" : manager.profile,
-                dailyPlan: manager.todaySchedule?.dailyPlan ?? "",
+                dailyPlan: manager.todaySchedule?.dayNotes ?? "",
                 url: url,
                 pageDescription: pageDescription,
                 bundleIdentifier: browserBundleId
@@ -849,9 +857,9 @@ class NativeMessagingHost {
             let blockType: ScheduleManager.BlockType
             if let bt = dict["blockType"] as? String, let parsed = ScheduleManager.BlockType(rawValue: bt) {
                 blockType = parsed
-            } else if dict["isFree"] as? Bool == true {
-                blockType = .freeTime
             } else {
+                // Spec 2: legacy isFree=true → focusHours (free time = absence of block now,
+                // so any explicit block defaults to focus_hours).
                 blockType = .focusHours
             }
             let ignoreProfile = dict["ignoreProfile"] as? Bool ?? false
@@ -886,9 +894,8 @@ class NativeMessagingHost {
         let blockType: ScheduleManager.BlockType
         if let bt = message["blockType"] as? String, let parsed = ScheduleManager.BlockType(rawValue: bt) {
             blockType = parsed
-        } else if message["isFree"] as? Bool == true {
-            blockType = .freeTime
         } else {
+            // Spec 2: free time = absence of block; any explicit block defaults to focusHours.
             blockType = .focusHours
         }
         let ignoreProfile = message["ignoreProfile"] as? Bool ?? false

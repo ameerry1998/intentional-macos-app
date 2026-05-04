@@ -4330,6 +4330,47 @@ body.theme-effects-warm::after {
       z-index: 999;
     }
 
+/* Spec 3 (May 2026): block editor — active-days pills + Intention picker */
+.day-pill { transition: all 0.15s ease; }
+.day-pill:hover { border-color: rgba(255,255,255,0.25); }
+.day-pill.selected { color: var(--accent-primary); }
+.active-days-row button { font-family: inherit; }
+
+/* Spec 3: Bedtime + Wake bands on the calendar — solid colors, no gradients (D11) */
+.calendar-bedtime-band,
+.calendar-wake-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  color: rgba(255,255,255,0.85);
+}
+.calendar-bedtime-band { background: #3B2459; }
+.calendar-wake-band { background: #F38B5C; }
+.calendar-bedtime-band .band-icon,
+.calendar-wake-band .band-icon { margin-right: 6px; opacity: 0.9; }
+
+/* Spec 3: strictness badge on Intentions list cards */
+.strictness-badge {
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 4px;
+  padding: 2px 6px;
+  display: inline-block;
+  margin-top: 4px;
+  color: rgba(255,255,255,0.55);
+}
+.strictness-badge.preset-strict { background: rgba(239,68,68,0.12); color: #f99; }
+.strictness-badge.preset-soft { background: rgba(74,222,128,0.10); color: #9eddc0; }
+
 </style>
 </head>
 <body>
@@ -4342,11 +4383,19 @@ body.theme-effects-warm::after {
   <div class="sidebar-item active" data-page="today" onclick="navigateTo('today')">
     <span class="sidebar-item-icon">◉</span> Today
   </div>
-  <div class="sidebar-item" data-page="projects" onclick="navigateTo('projects')">
-    <span class="sidebar-item-icon">◎</span> Projects
+  <div class="sidebar-item" data-page="intentions" onclick="navigateTo('intentions')">
+    <span class="sidebar-item-icon">◎</span> Intentions
   </div>
+  <!-- Schedule item removed: redundant with Today view which already surfaces the calendar.
+       page-schedule div retained below as orphan in case a deep link still routes there. -->
   <div class="sidebar-item" data-page="distractions" onclick="navigateTo('distractions')">
     <span class="sidebar-item-icon">⊘</span> Distractions
+  </div>
+  <div class="sidebar-item" data-page="sensitive" onclick="navigateTo('sensitive')">
+    <span class="sidebar-item-icon">◔</span> Sensitive Content
+  </div>
+  <div class="sidebar-item" data-page="weekly" onclick="navigateTo('weekly')">
+    <span class="sidebar-item-icon">◐</span> Weekly Planning
   </div>
   <div class="sidebar-item" data-page="lock" onclick="navigateTo('lock')">
     <span class="sidebar-item-icon">◫</span> Accountability
@@ -4401,14 +4450,16 @@ body.theme-effects-warm::after {
         <button onclick="navigateToScheduleSettings()" title="Schedule settings" style="background:none;border:none;color:rgba(255,255,255,0.4);font-size:16px;cursor:pointer;padding:2px 6px;margin-left:2px;">&#x2026;</button>
       </div>
     </div>
-    <div class="calendar-container" id="calendar-container"></div>
+    <div id="today-calendar-host">
+      <div class="calendar-container" id="calendar-container"></div>
+    </div>
 
-    <!-- Focus Gate toggle (compact) -->
+    <!-- Focus Mode toggle (compact) -->
     <div class="settings-card" style="margin-top:12px; padding:0;">
       <div style="display:flex; align-items:center; padding:12px 16px; gap:12px;">
         <div style="width:28px;height:28px;border-radius:6px;background:rgba(52,211,153,0.1);color:var(--accent-primary);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">⊞</div>
-        <div style="flex:1;font-size:13px;font-weight:500;">Focus Gate</div>
-        <label class="toggle"><input type="checkbox" id="focus-gate-today-toggle" onchange="onFocusGateTodayToggle(this.checked)"><span class="toggle-track"></span></label>
+        <div style="flex:1;font-size:13px;font-weight:500;">Focus Mode</div>
+        <label class="toggle"><input type="checkbox" id="focus-mode-toggle" onchange="onFocusModeToggle(this.checked)"><span class="toggle-track"></span></label>
       </div>
     </div>
 
@@ -4548,11 +4599,56 @@ body.theme-effects-warm::after {
 
   </div>
 
-  <!-- Page: Projects -->
-  <div class="page" id="page-projects">
+  <!-- Page: Intentions (Spec 3 — renamed from Projects) -->
+  <div class="page" id="page-intentions">
     <div class="projects-page" id="projects-view-index"></div>
     <div class="projects-dashboard-page" id="projects-view-dashboard" style="display:none"></div>
     <div class="projects-setup-page" id="projects-view-setup" style="display:none"></div>
+  </div>
+
+  <!-- Page: Schedule (D8) — full calendar lives here now -->
+  <div class="page" id="page-schedule">
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;padding:20px 28px 12px;">
+      <div class="page-title">Schedule</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <!-- Reserved horizontal row above Day/Week toggle (D9 prep — collapses to 0 when no budgets) -->
+        <div id="schedule-budget-row" style="height:0;overflow:hidden;display:flex;gap:8px;align-items:center;"></div>
+        <div class="segmented" id="schedule-view-toggle">
+          <button class="segmented-btn selected" data-view="day" onclick="setScheduleView('day')">Day</button>
+          <button class="segmented-btn" data-view="week" onclick="setScheduleView('week')">Week</button>
+        </div>
+      </div>
+    </div>
+    <div id="schedule-day-host" style="padding:0 28px 32px;"></div>
+    <div id="schedule-week-host" style="display:none;padding:0 28px 32px;color:rgba(255,255,255,0.4);font-size:13px;">
+      Week view — coming soon. Day view shows today's blocks.
+    </div>
+  </div>
+
+  <!-- Page: Sensitive Content (D8 — promoted from Settings) -->
+  <div class="page" id="page-sensitive">
+    <div class="page-header" style="padding:20px 28px 12px;">
+      <div class="page-title">Sensitive Content</div>
+      <div style="color:rgba(255,255,255,0.5);font-size:13px;margin-top:6px;">
+        On-device NSFW detection. When enabled, an overlay covers the screen and your accountability partner is notified.
+      </div>
+    </div>
+    <div style="padding:0 28px 32px;" id="sensitive-content-host"></div>
+  </div>
+
+  <!-- Page: Weekly Planning (D8 — placeholder for D9 budgets) -->
+  <div class="page" id="page-weekly">
+    <div class="page-header" style="padding:20px 28px 12px;">
+      <div class="page-title">Weekly Planning</div>
+    </div>
+    <div style="padding:0 28px 64px;text-align:center;">
+      <div style="margin:48px auto 24px;width:88px;height:88px;border-radius:50%;background:rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;font-size:32px;color:rgba(255,255,255,0.3);">◐</div>
+      <div style="color:rgba(255,255,255,0.85);font-size:18px;margin-bottom:8px;">Plan your week</div>
+      <div style="color:rgba(255,255,255,0.5);font-size:14px;line-height:1.5;max-width:420px;margin:0 auto 24px;">
+        Coming soon. Set weekly targets on individual Intentions to enable. We'll auto-schedule them around your existing blocks.
+      </div>
+      <button class="btn-small" onclick="navigateTo('intentions')">Go to Intentions →</button>
+    </div>
   </div>
 
   <!-- Page: Distractions -->
@@ -4582,16 +4678,12 @@ body.theme-effects-warm::after {
     </div>
   </div>
 
-  <!-- Page: Accountability / Lock -->
+  <!-- Page: Accountability / Partner — three states: paired / pending / empty -->
+  <!-- See docs/design_handoff_partner. The full identity card (avatar + name + -->
+  <!-- email + status pill) is rendered by renderLockState() inside #lock-content. -->
   <div class="page" id="page-lock">
-    <div class="section-title">Accountability</div>
-
-    <!-- Partner avatar card (shown when partner exists, updated by JS) -->
-    <div id="partner-avatar-card" class="settings-card" style="display:none;text-align:center;padding:24px;">
-      <div id="partner-avatar" style="width:48px;height:48px;border-radius:50%;background:var(--accent-gradient);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#0a0a0b;margin:0 auto 12px;"></div>
-      <div id="partner-display-name" style="font-size:15px;font-weight:600;"></div>
-      <div id="partner-display-email" style="font-size:12px;color:var(--text-tertiary);margin-top:2px;"></div>
-    </div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:6px;">Accountability</div>
+    <div class="section-title" style="margin-bottom:18px;">Partner</div>
 
     <div class="lock-container" id="lock-content">
       <div class="lock-title" style="color:rgba(255,255,255,0.5); text-align:center; padding:20px 0;">Loading...</div>
@@ -4637,7 +4729,7 @@ body.theme-effects-warm::after {
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('focusgate')">
           <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1);color:var(--accent-primary);">◉</div>
-          <div class="settings-menu-info"><div class="settings-menu-title">Focus Gate</div><div class="settings-menu-sub" id="settings-focusgate-sub">Hourly check-in</div></div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Focus Mode</div><div class="settings-menu-sub" id="settings-focusgate-sub">Interventions &amp; screen lock</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('browsers')">
@@ -4894,13 +4986,13 @@ body.theme-effects-warm::after {
 
     </div><!-- end detail-safety -->
 
-    <!-- Detail: Focus Gate (renamed from Intentional Mode) -->
+    <!-- Detail: Focus Mode (formerly Focus Gate / Intentional Mode) -->
     <div class="settings-detail" id="settings-detail-focusgate">
       <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
-      <div class="settings-detail-title">Focus Gate</div>
-      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">Ask what you're working on before you can use your Mac</div>
+      <div class="settings-detail-title">Focus Mode</div>
+      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">Enforcement bundle active while Focus Mode is on. Toggle individual interventions below.</div>
     <div class="settings-card">
-      <div class="settings-card-title" style="display:none;">Focus Gate</div>
+      <div class="settings-card-title" style="display:none;">Focus Mode</div>
       <div class="setting-row">
         <div>
           <div class="setting-label">Screen Lock</div>
@@ -4951,6 +5043,13 @@ body.theme-effects-warm::after {
           </select>
         </div>
       </div>
+    </div>
+
+    <!-- Interventions Section -->
+    <div class="settings-card" style="margin-top:12px;">
+      <div class="settings-card-title">Interventions</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:12px;">When Focus Mode is on, these enforce automatically. Toggle off any to soften the bundle.</div>
+      <div id="intervention-toggles"></div>
     </div>
 
     </div><!-- end detail-focusgate -->
@@ -5160,19 +5259,65 @@ setInterval(function() {
 }, 3000);
 // ===== End UI Perf Instrumentation =====
 
-// ===== Focus Gate Today Toggle =====
-function onFocusGateTodayToggle(enabled) {
-  var settingsToggle = document.getElementById('intentional-mode-enabled');
-  if (settingsToggle) settingsToggle.checked = enabled;
-  onIntentionalModeChange();
+// ===== Focus Mode Toggle =====
+function onFocusModeToggle(on) {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({
+      type: "FOCUS_MODE_TOGGLE",
+      on: on
+    });
+  }
 }
 
-// Sync Focus Gate today toggle when settings load
-function syncFocusGateTodayToggle() {
-  var settingsToggle = document.getElementById('intentional-mode-enabled');
-  var todayToggle = document.getElementById('focus-gate-today-toggle');
-  if (settingsToggle && todayToggle) {
-    todayToggle.checked = settingsToggle.checked;
+// Reflect live state from Swift; called via pushFocusModeUpdate.
+function onFocusModeStateUpdate(stateRaw) {
+  var toggle = document.getElementById("focus-mode-toggle");
+  if (toggle) {
+    toggle.checked = (stateRaw === "focus");
+  }
+}
+
+// ===== Interventions =====
+var INTERVENTIONS = [
+  { key: "distractions_blocking", label: "Distractions blocking",      desc: "Hard block apps + sites in your distractions list.", defaultOn: true },
+  { key: "switch_overlay",        label: "Context-switch overlay",     desc: "10s countdown when switching to a non-relevant app.", defaultOn: true },
+  { key: "ai_relevance",          label: "AI relevance scoring",       desc: "Browser tabs scored against your intention.",         defaultOn: true },
+  { key: "screen_red_shift",      label: "Screen red shift",           desc: "Gradual screen tint when off-task.",                  defaultOn: true },
+  { key: "off_task_nudge",        label: "Off-task nudge toast",       desc: "Small reminder before harder interventions.",         defaultOn: true },
+  { key: "block_start_ritual",    label: "Block start ritual",         desc: "Forces you to type intention before a scheduled block.", defaultOn: true },
+  { key: "block_end_ritual",      label: "Block end ritual",           desc: "3-sec stats card at end of block.",                   defaultOn: true },
+  { key: "pill_widget",           label: "Always-on pill widget",      desc: "Menu bar pill with state, intention, timer.",         defaultOn: true },
+  { key: "force_quit_apps",       label: "Distracting app force-quit", desc: "HARD MODE: distracting apps minimized/quit on activation.", defaultOn: false },
+  { key: "earned_browse_mode",    label: "Earned browse mode",         desc: "Earn distraction-time credits during focus. (Currently disabled.)", defaultOn: false }
+];
+
+function renderInterventionToggles() {
+  var container = document.getElementById("intervention-toggles");
+  if (!container) return;
+  container.innerHTML = INTERVENTIONS.map(function(it) {
+    var stored = localStorage.getItem("intervention." + it.key);
+    var isOn = stored === null ? it.defaultOn : (stored === "true");
+    return '<div class="setting-row" style="border-bottom:1px solid rgba(255,255,255,0.06);">' +
+      '<div>' +
+        '<div class="setting-label">' + it.label + '</div>' +
+        '<div class="setting-desc">' + it.desc + '</div>' +
+      '</div>' +
+      '<label class="toggle">' +
+        '<input type="checkbox" ' + (isOn ? 'checked' : '') + ' onchange="onInterventionToggle(\'' + it.key + '\', this.checked)">' +
+        '<span class="toggle-track"></span>' +
+      '</label>' +
+    '</div>';
+  }).join("");
+}
+
+function onInterventionToggle(key, enabled) {
+  localStorage.setItem("intervention." + key, enabled ? "true" : "false");
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({
+      type: "INTERVENTION_TOGGLE_SET",
+      key: key,
+      enabled: enabled
+    });
   }
 }
 
@@ -5253,8 +5398,34 @@ function navigateTo(pageId) {
     }
   }
 
-  if (pageId === 'projects') {
+  if (pageId === 'projects' || pageId === 'intentions') {
     ProjectsController.onEnter();
+  }
+
+  // Spec 3 (May 2026): Schedule sidebar page hosts the calendar
+  if (pageId === 'schedule') {
+    var scheduleHost = document.getElementById('schedule-day-host');
+    var calMove = document.getElementById('calendar-container');
+    if (scheduleHost && calMove && !scheduleHost.contains(calMove)) {
+      scheduleHost.appendChild(calMove);
+    }
+    if (typeof renderCalendar === 'function') renderCalendar();
+    sendMessage({ type: 'GET_SCHEDULE_STATE' });
+  }
+  if (pageId === 'today') {
+    var todayHost = document.getElementById('today-calendar-host');
+    var calT = document.getElementById('calendar-container');
+    if (todayHost && calT && !todayHost.contains(calT)) {
+      todayHost.appendChild(calT);
+    }
+  }
+  // Spec 3: Sensitive Content promoted from Settings to its own page
+  if (pageId === 'sensitive') {
+    var senseHostNav = document.getElementById('sensitive-content-host');
+    var csCardNav = document.getElementById('content-safety-card');
+    if (senseHostNav && csCardNav && !senseHostNav.contains(csCardNav)) {
+      senseHostNav.appendChild(csCardNav);
+    }
   }
 
   // Load all data when viewing Today page
@@ -5401,6 +5572,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Initialize extra time request flow
   initExtraTimeFlow();
+
+  // Render intervention toggles in Settings → Focus Mode
+  renderInterventionToggles();
 });
 
 // ===== Blocking Profiles Management =====
@@ -6475,19 +6649,8 @@ function renderLockState() {
   var state = getLockState();
   var email = escapeHtml(settings.partnerEmail || '');
   var name = escapeHtml(settings.partnerName || '');
-  var partnerDisplay = name ? name + ' (' + email + ')' : email;
-
-  // Update partner avatar card
-  var avatarCard = document.getElementById('partner-avatar-card');
-  if (avatarCard && email) {
-    avatarCard.style.display = '';
-    var initial = (name || email).charAt(0).toUpperCase();
-    document.getElementById('partner-avatar').textContent = initial;
-    document.getElementById('partner-display-name').textContent = name || '';
-    document.getElementById('partner-display-email').textContent = email;
-  } else if (avatarCard) {
-    avatarCard.style.display = 'none';
-  }
+  var firstName = (name.split(' ')[0]) || (email.split('@')[0] || 'your partner');
+  var initial = ((name || email).charAt(0) || '?').toUpperCase();
 
   // Clear any running countdown
   if (countdownInterval) {
@@ -6495,70 +6658,94 @@ function renderLockState() {
     countdownInterval = null;
   }
 
+  // Build the unified identity card used by paired + pending. Avatar style
+  // (filled gradient vs dashed border) and pill (active/green vs invite/amber)
+  // differ per state.
+  function buildIdentityCard(opts) {
+    // opts: { avatarStyle: 'filled'|'dashed', pillText, pillTint }
+    var avatarStyle = opts.avatarStyle === 'dashed'
+      ? 'background:rgba(255,122,46,0.10);color:var(--accent-primary);border:1.5px dashed rgba(255,122,46,0.45);'
+      : 'background:var(--accent-gradient);color:#1a0f0a;';
+    return '<div class="settings-card" style="display:flex;align-items:center;gap:18px;padding:20px 22px;margin-bottom:14px;">' +
+      '<div style="width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;flex-shrink:0;' + avatarStyle + '">' + initial + '</div>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:15px;font-weight:700;letter-spacing:-0.1px;">' + (name || email) + '</div>' +
+        (name ? '<div style="font-size:12px;color:var(--text-tertiary);margin-top:2px;">' + email + '</div>' : '') +
+      '</div>' +
+      '<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:' + opts.pillTint + ';color:' + opts.pillColor + ';font-size:11.5px;font-weight:600;flex-shrink:0;">' +
+        '<span style="width:6px;height:6px;border-radius:50%;background:' + opts.pillColor + ';"></span>' +
+        opts.pillText +
+      '</div>' +
+    '</div>';
+  }
+
   switch (state) {
     case 'pending':
       el.innerHTML =
-        '<div class="settings-card">' +
-          '<div class="setting-row">' +
-            '<div class="setting-label">Status</div>' +
-            '<span class="status-badge pending">Pending</span>' +
-          '</div>' +
-          '<div class="setting-row">' +
-            '<div class="setting-label">Sent to</div>' +
-            '<span class="setting-value">' + partnerDisplay + '</span>' +
-          '</div>' +
+        buildIdentityCard({
+          avatarStyle: 'dashed',
+          pillText: 'Invite sent',
+          pillTint: 'rgba(229,160,99,0.12)',
+          pillColor: '#E5A063'
+        }) +
+        '<div class="lock-btn-row" style="margin-bottom:18px;">' +
+          '<button class="btn-secondary" id="resend-invite-btn" onclick="resendInvite()" style="flex:1;">Resend invite</button>' +
+          '<button class="btn-danger" onclick="removePartner()" style="flex:1;">Cancel invite</button>' +
         '</div>' +
-        '<div class="lock-helper-text">Partner needs to confirm via email before lock mode can activate.</div>' +
-        '<div class="lock-btn-row">' +
-          '<button class="btn-primary" id="resend-invite-btn" onclick="resendInvite()">Resend</button>' +
-          '<button class="btn-secondary" onclick="changePartner()">Change Partner</button>' +
+        '<div style="font-size:12px;color:var(--text-tertiary);text-align:center;line-height:1.5;">' +
+          'We\'ll email you when ' + firstName + ' accepts. You can pick a different person anytime.' +
         '</div>';
       startConsentPolling();
       break;
 
     case 'confirmed':
+      // Paired but lock mode not yet engaged. Same identity card as locked,
+      // but the primary CTA enables the partner lock instead of requesting
+      // an unlock code.
       el.innerHTML =
-        '<div class="settings-card">' +
-          '<div class="setting-row">' +
-            '<div class="setting-label">Status</div>' +
-            '<span class="status-badge confirmed">Confirmed</span>' +
+        buildIdentityCard({
+          avatarStyle: 'filled',
+          pillText: 'Active · ready to lock',
+          pillTint: 'rgba(111,181,142,0.12)',
+          pillColor: '#6FB58E'
+        }) +
+        '<button class="btn-primary" id="enable-partner-btn" onclick="enableLockMode(\'partner\')" style="width:100%;margin-bottom:14px;">Enable Partner Lock</button>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:var(--card-bg, rgba(255,255,255,0.04));border:1px solid var(--border-subtle, rgba(255,255,255,0.08));border-radius:10px;">' +
+          '<div>' +
+            '<div style="font-size:13.5px;font-weight:600;">Remove partner</div>' +
+            '<div style="font-size:11.5px;color:var(--text-tertiary);margin-top:2px;">You\'ll keep your own access. ' + firstName + ' is notified.</div>' +
           '</div>' +
-          '<div class="setting-row">' +
-            '<div class="setting-label">Partner</div>' +
-            '<span class="setting-value">' + partnerDisplay + '</span>' +
-          '</div>' +
+          '<button class="btn-danger" onclick="removePartner()" style="padding:8px 14px;">Remove</button>' +
         '</div>' +
-        '<div class="lock-helper-text">Partner is ready. Choose how to lock your settings:</div>' +
-        '<div class="lock-btn-row">' +
-          '<button class="btn-primary" id="enable-partner-btn" onclick="enableLockMode(\'partner\')">Partner Lock</button>' +
-        '</div>' +
-        '<div class="lock-btn-row" style="margin-top:4px;">' +
-          '<button class="btn-secondary" onclick="changePartner()">Change</button>' +
-          '<button class="btn-danger" id="remove-partner-btn" onclick="removePartner()">Remove</button>' +
+        '<div style="font-size:11px;color:var(--text-tertiary);text-align:center;margin-top:18px;line-height:1.5;">' +
+          firstName + ' can revoke their role anytime from their device.' +
         '</div>';
       stopConsentPolling();
       break;
 
     case 'locked':
-      var modeLabel = 'Partner Lock';
       el.innerHTML =
-        '<div class="settings-card">' +
-          '<div class="setting-row">' +
-            '<div class="setting-label">Status</div>' +
-            '<span class="status-badge locked">Locked</span>' +
-          '</div>' +
-          '<div class="setting-row">' +
-            '<div class="setting-label">Mode</div>' +
-            '<span class="setting-value">' + modeLabel + '</span>' +
-          '</div>' +
-          (partnerDisplay ?
-          '<div class="setting-row">' +
-            '<div class="setting-label">Partner</div>' +
-            '<span class="setting-value">' + partnerDisplay + '</span>' +
-          '</div>' : '') +
+        buildIdentityCard({
+          avatarStyle: 'filled',
+          pillText: 'Active · locked',
+          pillTint: 'rgba(111,181,142,0.12)',
+          pillColor: '#6FB58E'
+        }) +
+        '<button class="btn-primary" id="request-unlock-btn" onclick="requestUnlock()" style="width:100%;margin-bottom:14px;">Request unlock code</button>' +
+        '<div style="display:flex;gap:10px;margin-bottom:22px;">' +
+          '<button class="btn-secondary" onclick="messagePartner()" style="flex:1;">Message ' + firstName + '</button>' +
+          '<button class="btn-secondary" onclick="showWhatsShared()" style="flex:1;">What\'s shared</button>' +
         '</div>' +
-        '<div class="lock-helper-text" style="color:rgba(255,255,255,0.3);">Platform toggles, thresholds, content blocking, budgets, and app persistence are protected.</div>' +
-        '<button class="btn-primary" id="request-unlock-btn" onclick="requestUnlock()" style="width:100%;">Request Unlock Code</button>';
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:var(--card-bg, rgba(255,255,255,0.04));border:1px solid var(--border-subtle, rgba(255,255,255,0.08));border-radius:10px;">' +
+          '<div>' +
+            '<div style="font-size:13.5px;font-weight:600;">Remove partner</div>' +
+            '<div style="font-size:11.5px;color:var(--text-tertiary);margin-top:2px;">You\'ll keep your own access. ' + firstName + ' is notified.</div>' +
+          '</div>' +
+          '<button class="btn-danger" onclick="removePartner()" style="padding:8px 14px;">Remove</button>' +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--text-tertiary);text-align:center;margin-top:18px;line-height:1.5;">' +
+          firstName + ' can revoke their role anytime from their device.' +
+        '</div>';
       stopConsentPolling();
       break;
 
@@ -6670,28 +6857,17 @@ function renderLockState() {
       stopConsentPolling();
       break;
 
-    default: // 'setup'
-      var noneSelected = selectedLockMode === 'none' || !selectedLockMode ? ' selected' : '';
-      var partnerSelected = selectedLockMode === 'partner' ? ' selected' : '';
-      var showPartner = (selectedLockMode && selectedLockMode !== 'none') ? '' : ' style="display:none"';
+    default: // 'setup' — no partner yet. Empty state per design.
       el.innerHTML =
-        '<div class="settings-card">' +
-          '<div class="lock-mode-option' + noneSelected + '" data-mode="none" onclick="selectLockMode(\'none\')">' +
-            '<div class="lock-mode-radio"></div>' +
-            '<div>' +
-              '<div class="setting-label">Unlocked</div>' +
-              '<div class="setting-desc">Anyone can change settings</div>' +
-            '</div>' +
-          '</div>' +
-          '<div class="lock-mode-option' + partnerSelected + '" data-mode="partner" onclick="selectLockMode(\'partner\')">' +
-            '<div class="lock-mode-radio"></div>' +
-            '<div>' +
-              '<div class="setting-label">Partner Lock</div>' +
-              '<div class="setting-desc">Partner receives unlock codes via email</div>' +
-            '</div>' +
+        '<div class="settings-card" style="padding:28px 26px;margin-bottom:16px;text-align:center;">' +
+          '<div style="width:56px;height:56px;margin:0 auto 14px;border-radius:14px;background:rgba(232,116,97,0.10);color:var(--accent-primary);display:flex;align-items:center;justify-content:center;font-size:26px;">👥</div>' +
+          '<div style="font-size:17px;font-weight:700;letter-spacing:-0.2px;margin-bottom:6px;">Bring someone along</div>' +
+          '<div style="font-size:13px;color:var(--text-secondary);line-height:1.55;max-width:380px;margin:0 auto;">' +
+            'They\'ll be quietly looped in if you revoke Screen Time access or burn an emergency unlock.' +
           '</div>' +
         '</div>' +
-        '<div class="settings-card" id="partner-fields-card"' + showPartner + '>' +
+        '<div style="font-size:10.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:8px;">Invite</div>' +
+        '<div class="settings-card" style="padding:14px 16px;margin-bottom:14px;">' +
           '<div class="setting-row">' +
             '<div class="setting-label" style="min-width:40px;">Name</div>' +
             '<input class="setting-input" id="lock-partner-name" placeholder="Optional" value="' + name + '">' +
@@ -6701,98 +6877,68 @@ function renderLockState() {
             '<input class="setting-input" id="lock-partner-email" placeholder="partner@email.com" type="email" value="' + email + '">' +
           '</div>' +
         '</div>' +
-        '<button class="btn-primary" id="save-lock-btn" onclick="saveLockSettings()" style="width:100%;">Save</button>';
+        '<button class="btn-primary" id="save-lock-btn" onclick="savePartnerInviteOnly()" style="width:100%;margin-bottom:22px;">Send invite</button>' +
+        '<div style="font-size:10.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:8px;">How it works</div>' +
+        '<div class="settings-card" style="padding:0;">' +
+          buildHowRow('1', 'Send the invite', 'They get an email with a link to confirm.', false) +
+          buildHowRow('2', 'Choose what\'s shared', 'Revocations, emergency unlocks, weekly summary.', false) +
+          buildHowRow('3', 'Stay accountable', 'They see what you commit to — and what slips.', true) +
+        '</div>';
       stopConsentPolling();
   }
 
-  // Append AI Override toggle
-  var overridePartnerRequired = settings.overridePartnerRequired || false;
-  el.innerHTML +=
-    '<div class="settings-card" style="margin-top:10px;">' +
-      '<div class="setting-row">' +
-        '<div>' +
-          '<div class="setting-label">Require partner for AI overrides</div>' +
-          '<div class="setting-desc">During work blocks, overriding AI requires your partner\'s approval code</div>' +
-        '</div>' +
-        '<label class="toggle">' +
-          '<input type="checkbox" id="override-partner-required" ' + (overridePartnerRequired ? 'checked' : '') + ' onchange="onSettingChange()">' +
-          '<span class="toggle-track"></span>' +
-        '</label>' +
-      '</div>' +
-    '</div>';
-
-  // Append strict mode (app persistence) card
-  var strictEnabled = settings.strictModeEnabled || false;
-  var hasPartner = settings.consentStatus === 'confirmed';
-
-  if (strictDisableState === 'code_entry') {
-    el.innerHTML +=
-      '<div class="settings-card" style="margin-top:10px;" id="strict-mode-card">' +
-        '<div class="setting-row">' +
-          '<div>' +
-            '<div class="setting-label">App Persistence</div>' +
-            '<div class="setting-desc">Enter the code sent to your partner</div>' +
-          '</div>' +
-        '</div>' +
-        '<div style="padding:0 14px 10px;text-align:center;">' +
-          '<input type="text" class="unlock-code-input" id="strict-disable-code" maxlength="6" placeholder="000000" oninput="onStrictCodeInput(this)">' +
-        '</div>' +
-        '<div class="lock-btn-row">' +
-          '<button class="btn-primary" id="strict-verify-btn" onclick="verifyStrictDisable()" disabled>Verify</button>' +
-          '<button class="btn-secondary" onclick="cancelStrictDisable()">Cancel</button>' +
-        '</div>' +
-      '</div>';
-    setTimeout(function() {
-      var inp = document.getElementById('strict-disable-code');
-      if (inp) inp.focus();
-    }, 100);
-  } else if (!hasPartner) {
-    el.innerHTML +=
-      '<div class="settings-card" style="margin-top:10px;opacity:0.5;" id="strict-mode-card">' +
-        '<div class="setting-row">' +
-          '<div>' +
-            '<div class="setting-label">App Persistence</div>' +
-            '<div class="setting-desc">Prevents quitting and auto-restarts if force-quit. Requires an accountability partner.</div>' +
-          '</div>' +
-          '<label class="toggle">' +
-            '<input type="checkbox" disabled>' +
-            '<span class="toggle-track"></span>' +
-          '</label>' +
-        '</div>' +
-      '</div>';
-  } else if (!strictEnabled) {
-    el.innerHTML +=
-      '<div class="settings-card" style="margin-top:10px;" id="strict-mode-card">' +
-        '<div class="setting-row">' +
-          '<div>' +
-            '<div class="setting-label">App Persistence</div>' +
-            '<div class="setting-desc">Prevents quitting and auto-restarts if force-quit</div>' +
-          '</div>' +
-          '<label class="toggle">' +
-            '<input type="checkbox" id="strict-mode-toggle" onchange="toggleStrictMode(this.checked)">' +
-            '<span class="toggle-track"></span>' +
-          '</label>' +
-        '</div>' +
-      '</div>';
-  } else {
-    el.innerHTML +=
-      '<div class="settings-card" style="margin-top:10px;" id="strict-mode-card">' +
-        '<div class="setting-row">' +
-          '<div>' +
-            '<div class="setting-label">App Persistence</div>' +
-            '<div class="setting-desc">Active · requires partner code to disable</div>' +
-          '</div>' +
-          '<label class="toggle">' +
-            '<input type="checkbox" checked disabled>' +
-            '<span class="toggle-track"></span>' +
-          '</label>' +
-        '</div>' +
-        '<button class="btn-secondary" id="strict-disable-btn" onclick="requestStrictDisable()" style="width:100%;margin-top:4px;">Request Code to Disable</button>' +
-      '</div>';
-  }
+  // Per design_handoff_partner: AI overrides toggle + App Persistence
+  // toggle removed from this page. They live elsewhere (Settings) if needed.
 
   // Enforce lock on platform settings pages
   enforceLockMode();
+}
+
+// Numbered row used by the empty-state "How it works" list. Mirrors the
+// HowRowMac component in the design handoff.
+function buildHowRow(n, title, sub, last) {
+  return '<div style="display:flex;align-items:flex-start;gap:14px;padding:14px 18px;' +
+    (last ? '' : 'border-bottom:1px solid var(--border-subtle, rgba(255,255,255,0.08));') + '">' +
+    '<div style="width:24px;height:24px;border-radius:50%;background:rgba(232,116,97,0.12);color:var(--accent-primary);font-size:11.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">' + n + '</div>' +
+    '<div style="flex:1;">' +
+      '<div style="font-size:13.5px;font-weight:600;">' + title + '</div>' +
+      '<div style="font-size:11.5px;color:var(--text-tertiary);margin-top:2px;line-height:1.45;">' + sub + '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+// Empty-state CTA: send the partner invite without forcing the user to
+// also pick a lock mode. The legacy `saveLockSettings` flow expected the
+// user to pre-select a lock mode in the same form; the new design defers
+// that until after the partner confirms (handled in the `confirmed` branch).
+function savePartnerInviteOnly() {
+  var emailInput = document.getElementById('lock-partner-email');
+  var nameInput = document.getElementById('lock-partner-name');
+  if (!emailInput) return;
+  var partnerEmail = (emailInput.value || '').trim();
+  var partnerName = (nameInput && nameInput.value || '').trim();
+  if (!partnerEmail) {
+    showToast('Enter your partner\'s email');
+    return;
+  }
+  // Pre-select partner lock so the existing save flow (which writes
+  // settings.lockMode + settings.partnerEmail and triggers the consent
+  // email) does the right thing.
+  selectedLockMode = 'partner';
+  saveLockSettings();
+}
+
+// Quick-action stubs for the paired state. Kept tiny on purpose — full
+// detail pages are a follow-up.
+function messagePartner() {
+  var email = (settings.partnerEmail || '').trim();
+  if (!email) return;
+  // Open default mail composer pre-addressed to the partner.
+  window.location.href = 'mailto:' + email;
+}
+
+function showWhatsShared() {
+  showToast('"What\'s shared" detail coming soon');
 }
 
 // ===== Strict Mode (App Persistence) =====
@@ -7176,8 +7322,7 @@ function loadIntentionalModeSettings(s) {
   document.getElementById('intentional-mode-grace').value = String(grace);
   document.getElementById('intentional-mode-options').style.display = enabled ? '' : 'none';
   document.getElementById('intentional-mode-custom-hours').style.display = schedule === 'custom' ? '' : 'none';
-  // Sync Focus Gate toggle on Today page
-  syncFocusGateTodayToggle();
+  // Note: focus-mode-toggle on Today page is synced via pushFocusModeUpdate from Swift.
 
   var pad = function(n) { return n < 10 ? '0' + n : String(n); };
   document.getElementById('im-weekday-start').value = pad(custom.weekdayStartHour || 8) + ':' + pad(custom.weekdayStartMinute || 0);
@@ -7768,6 +7913,89 @@ var focusState = {
   editingBlockId: null
 };
 
+// Spec 3 (May 2026): Intention picker cache + receiver. The Mac side pushes
+// the intentions list with strictness + pending change + budget fields.
+var intentionsCache = [];
+
+window._intentionsList = function(items) {
+  intentionsCache = Array.isArray(items) ? items : [];
+  // If the block editor is open, refresh its dropdown
+  if (focusState.editingBlockId) {
+    var sel = document.getElementById('editor-intention-picker');
+    if (sel) populateIntentionPicker(sel, getEditingBlock());
+  }
+  // If Intentions page is open, re-render
+  if (typeof ProjectsController !== 'undefined' && ProjectsController.refresh) {
+    try { ProjectsController.refresh(); } catch (e) {}
+  }
+};
+
+function getEditingBlock() {
+  return focusState.blocks.find(function(b) { return b.id === focusState.editingBlockId; });
+}
+
+function populateIntentionPicker(sel, block) {
+  if (!sel) return;
+  sel.innerHTML = '';
+  var opt0 = document.createElement('option');
+  opt0.value = '';
+  opt0.textContent = '(none)';
+  sel.appendChild(opt0);
+  intentionsCache.forEach(function(i) {
+    var opt = document.createElement('option');
+    opt.value = i.id;
+    opt.textContent = i.name;
+    sel.appendChild(opt);
+  });
+  var optNew = document.createElement('option');
+  optNew.value = '__create_new__';
+  optNew.textContent = '+ Create new Intention…';
+  sel.appendChild(optNew);
+  sel.value = (block && block.intentionId) || '';
+  renderEditorStrictnessCaption(block && block.intentionId);
+}
+
+function onEditorIntentionChange(sel) {
+  var block = getEditingBlock();
+  if (!block) return;
+  if (sel.value === '__create_new__') {
+    sel.value = block.intentionId || '';
+    if (typeof openIntentionMiniEditor === 'function') {
+      openIntentionMiniEditor(function(newId) {
+        if (newId) {
+          block.intentionId = newId;
+          // wait for next _intentionsList push, then re-select
+          setTimeout(function() {
+            var s = document.getElementById('editor-intention-picker');
+            if (s) {
+              populateIntentionPicker(s, block);
+              s.value = newId;
+            }
+            renderEditorStrictnessCaption(newId);
+          }, 200);
+          markFocusDirty();
+        }
+      });
+    }
+    return;
+  }
+  block.intentionId = sel.value || null;
+  renderEditorStrictnessCaption(block.intentionId);
+  markFocusDirty();
+}
+
+function renderEditorStrictnessCaption(intentionId) {
+  var el = document.getElementById('editor-intention-strictness-caption');
+  if (!el) return;
+  if (!intentionId) { el.textContent = ''; return; }
+  var i = intentionsCache.find(function(x) { return x.id === intentionId; });
+  if (!i) { el.textContent = ''; return; }
+  var preset = (i.strictness_preset || 'standard');
+  el.innerHTML = escapeHtml(i.name) + ' · <span style="text-decoration:underline;cursor:pointer;color:var(--accent-primary);" ' +
+    "onclick=\"sendMessage({type:'OPEN_INTENTION_EDITOR',id:'" + i.id + "'})\">" +
+    preset.charAt(0).toUpperCase() + preset.slice(1) + '</span>';
+}
+
 var blockFocusData = {};  // { blockId: { focusScore, earnedMinutes, ... } }
 var CALENDAR_START_HOUR = 0;
 var CALENDAR_END_HOUR = 24;
@@ -7910,6 +8138,17 @@ function navigateToScheduleSettings() {
     var card = document.getElementById('focus-plan-card');
     if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, 150);
+}
+
+// Spec 3 (May 2026): Day/Week toggle stub on Schedule sidebar page. Week view
+// is "coming soon" per the spec.
+function setScheduleView(view) {
+  var btns = document.querySelectorAll('#schedule-view-toggle .segmented-btn');
+  btns.forEach(function(b) { b.classList.toggle('selected', b.dataset.view === view); });
+  var dayHost = document.getElementById('schedule-day-host');
+  var weekHost = document.getElementById('schedule-week-host');
+  if (dayHost) dayHost.style.display = view === 'day' ? '' : 'none';
+  if (weekHost) weekHost.style.display = view === 'week' ? '' : 'none';
 }
 
 window._profileResult = function(data) {
@@ -8367,6 +8606,52 @@ function renderCalendarBlocks() {
   });
   updateBlockRings();
   renderEmptyState();
+  renderBedtimeAndWakeBands();  // Spec 3 — D11
+}
+
+// Spec 3 (May 2026): solid bedtime + wake bands on the calendar.
+// D11: solid colors, no gradients. Bedtime anchored to bottom, wake to top.
+function renderBedtimeAndWakeBands() {
+  var grid = document.getElementById('calendar-grid');
+  if (!grid) return;
+  // Remove old bands
+  grid.querySelectorAll('.calendar-bedtime-band, .calendar-wake-band').forEach(function(el) { el.remove(); });
+
+  var bs = (typeof settings !== 'undefined' && settings.bedtime_settings) || {};
+  var bedHour  = (typeof bs.bedtime_hour  === 'number') ? bs.bedtime_hour  : 22;
+  var bedMin   = (typeof bs.bedtime_minute === 'number') ? bs.bedtime_minute : 0;
+  var wakeHour = (typeof bs.wake_hour     === 'number') ? bs.wake_hour     : 7;
+  var wakeMin  = (typeof bs.wake_minute   === 'number') ? bs.wake_minute   : 0;
+
+  var calStart = CALENDAR_START_HOUR;
+  var calEnd = CALENDAR_END_HOUR;
+  var bedMinOfDay = bedHour * 60 + bedMin;
+  var calStartMin = calStart * 60;
+  var calEndMin = calEnd * 60;
+
+  // Bedtime band: from bed time → end of calendar (anchored to bottom)
+  if (bedMinOfDay >= calStartMin && bedMinOfDay < calEndMin) {
+    var topPx = ((bedMinOfDay - calStartMin) / 60) * CALENDAR_HOUR_HEIGHT;
+    var heightPx = ((calEndMin - bedMinOfDay) / 60) * CALENDAR_HOUR_HEIGHT;
+    var band = document.createElement('div');
+    band.className = 'calendar-bedtime-band';
+    band.style.top = topPx + 'px';
+    band.style.height = heightPx + 'px';
+    band.innerHTML = '<span class="band-icon">☾</span> Bedtime · ' + padFocusTime(bedHour, bedMin) + ' → ' + padFocusTime(wakeHour, wakeMin);
+    grid.appendChild(band);
+  }
+
+  // Wake band: from calStart → wake time (anchored to top)
+  var wakeMinOfDay = wakeHour * 60 + wakeMin;
+  if (wakeMinOfDay > calStartMin && wakeMinOfDay <= calEndMin) {
+    var heightW = ((wakeMinOfDay - calStartMin) / 60) * CALENDAR_HOUR_HEIGHT;
+    var bandW = document.createElement('div');
+    bandW.className = 'calendar-wake-band';
+    bandW.style.top = '0';
+    bandW.style.height = heightW + 'px';
+    bandW.innerHTML = '<span class="band-icon">☀</span> Wake · ' + padFocusTime(wakeHour, wakeMin);
+    grid.appendChild(bandW);
+  }
 }
 
 function updateBlockRings() {
@@ -8974,16 +9259,26 @@ function onCalendarHourClick(event, hour) {
   if (hasBlockOverlap(startMin, endMin, null)) return;
 
   var newBlock = {
-    id: generateFocusUUID(), title: '',
+    id: generateFocusUUID(),
+    title: '',
+    description: '',
     startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
     endHour: Math.floor(endMin / 60), endMinute: endMin % 60,
     blockType: 'focusHours',
-    ignoreProfile: false
+    isFree: false,
+    ignoreProfile: false,
+    intention_id: null,        // Spec 2: bind via picker later
+    intensity: 'focusHours'    // Spec 2: mirrors blockType
   };
   focusState.blocks.push(newBlock);
-  markFocusDirty();
+  // Draft pattern: do NOT call markFocusDirty() here. The block is a draft
+  // until the user fills in a title and clicks Done in the editor. On
+  // dismissal without Done, closeBlockEditor() removes the draft from
+  // focusState.blocks so nothing ever gets saved. Mirrors addFocusBlock
+  // (work-block branch) and openNewBlockDraft.
   renderCalendarBlocks();
   openBlockEditor(newBlock.id, event);
+  focusState.draftBlockId = newBlock.id;
 }
 
 function hasBlockOverlap(startMin, endMin, excludeId) {
@@ -9027,6 +9322,7 @@ function addFocusBlock(blockType) {
   }
 
   var defaultTitle = blockType === 'freeTime' ? 'Break' : '';
+  // Spec 2: payload includes intention_id (null until bound via picker) + intensity (mirrors blockType).
   var newBlock = {
     id: generateFocusUUID(),
     title: defaultTitle,
@@ -9035,7 +9331,9 @@ function addFocusBlock(blockType) {
     endHour: Math.floor(endMin / 60), endMinute: endMin % 60,
     blockType: blockType,
     isFree: blockType === 'freeTime',
-    ignoreProfile: false
+    ignoreProfile: false,
+    intention_id: null,                                          // Spec 2
+    intensity: blockType === 'deepWork' ? 'deepWork' : 'focusHours' // Spec 2
   };
   focusState.blocks.push(newBlock);
   if (blockType === 'freeTime') {
@@ -9064,7 +9362,9 @@ function openNewBlockDraft() {
     endHour: Math.floor(endMin / 60), endMinute: endMin % 60,
     blockType: 'focusHours',
     isFree: false,
-    ignoreProfile: false
+    ignoreProfile: false,
+    intention_id: null,        // Spec 2
+    intensity: 'focusHours'    // Spec 2
   };
 
   focusState.blocks.push(newBlock);
@@ -9105,15 +9405,13 @@ function openBlockEditor(blockId, event) {
     '<input type="time" class="block-editor-input block-editor-time-input" id="editor-end" value="' + padFocusTime(block.endHour, block.endMinute) + '">' +
     '</div></div>' +
     '<div class="block-editor-row">' +
-    '<label style="color:rgba(255,255,255,0.5);font-size:12px;margin-bottom:4px;">Block Type</label>' +
-    '<div class="block-type-selector" id="editor-block-type">' +
-    '<button class="block-type-btn' + (editorBlockType !== 'freeTime' ? ' selected' : '') + '" data-type="focusHours" onclick="selectBlockType(this)" style="background:rgba(var(--accent-primary-rgb),0.1);color:var(--accent-primary);border-color:rgba(var(--accent-primary-rgb),0.3);">Focus</button>' +
-    '<button class="block-type-btn' + (editorBlockType === 'freeTime' ? ' selected type-free' : '') + '" data-type="freeTime" onclick="selectBlockType(this)">Free Time</button>' +
+    '<label>Intention</label>' +
+    '<select id="editor-intention-picker" class="block-editor-input" onchange="onEditorIntentionChange(this)"></select>' +
+    '<div id="editor-intention-strictness-caption" style="margin-top:4px;font-size:11px;color:rgba(255,255,255,0.5);"></div>' +
     '</div>' +
-    '</div>' +
-    '<div class="block-editor-row" id="editor-profiles-row" style="' + (editorBlockType === 'freeTime' ? 'display:none;' : '') + '">' +
-    '<label style="color:rgba(255,255,255,0.5);font-size:12px;margin-bottom:4px;">Blocking Profiles</label>' +
-    '<div id="editor-profile-chips" class="chip-list" style="gap:6px;"></div>' +
+    '<div class="block-editor-row">' +
+    '<label>Active days</label>' +
+    '<div id="editor-active-days" class="active-days-row" style="display:flex;gap:6px;"></div>' +
     '</div>' +
     '<div class="block-editor-row" id="editor-coach-row" style="display:none;">' +
     '<input type="checkbox" id="editor-ignore-profile"' + (block.ignoreProfile ? ' checked' : '') + '>' +
@@ -9125,20 +9423,47 @@ function openBlockEditor(blockId, event) {
 
   document.body.appendChild(editor);
 
-  // Populate profile chips in block editor
-  var chipContainer = document.getElementById('editor-profile-chips');
-  if (chipContainer && blockingProfiles.length > 0) {
-    // Track selected profiles for this block
-    if (!window._editorSelectedProfiles) window._editorSelectedProfiles = new Set();
-    window._editorSelectedProfiles.clear();
-    // Restore saved profileIds if block has them, otherwise default profile
-    if (block.profileIds && block.profileIds.length > 0) {
-      block.profileIds.forEach(function(pid) { window._editorSelectedProfiles.add(pid); });
-    } else if (editorBlockType !== 'freeTime') {
-      var defProfile = blockingProfiles.find(function(p) { return p.isDefault; });
-      if (defProfile) window._editorSelectedProfiles.add(defProfile.id);
-    }
-    renderEditorProfileChips();
+  // Spec 3 (May 2026): populate Intention picker
+  var intentionSel = document.getElementById('editor-intention-picker');
+  if (intentionSel) populateIntentionPicker(intentionSel, block);
+
+  // Spec 3 (May 2026): populate active-days pills (default [1..5] for new blocks)
+  var daysContainer = document.getElementById('editor-active-days');
+  if (daysContainer) {
+    var current = block.activeDays || [1, 2, 3, 4, 5];
+    block.activeDays = current.slice();
+    var labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    daysContainer.innerHTML = '';
+    labels.forEach(function(lbl, i) {
+      var iso = i + 1;
+      var pill = document.createElement('button');
+      pill.className = 'day-pill' + (block.activeDays.indexOf(iso) >= 0 ? ' selected' : '');
+      pill.textContent = lbl;
+      pill.style.cssText = 'flex:1;padding:6px 0;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:rgba(255,255,255,0.6);cursor:pointer;font-size:12px;';
+      if (block.activeDays.indexOf(iso) >= 0) {
+        pill.style.background = 'rgba(var(--accent-primary-rgb),0.15)';
+        pill.style.borderColor = 'rgba(var(--accent-primary-rgb),0.4)';
+        pill.style.color = 'var(--accent-primary)';
+      }
+      pill.addEventListener('click', function() {
+        var idx = block.activeDays.indexOf(iso);
+        if (idx >= 0) block.activeDays.splice(idx, 1);
+        else { block.activeDays.push(iso); block.activeDays.sort(function(a,b){return a-b;}); }
+        var on = block.activeDays.indexOf(iso) >= 0;
+        pill.classList.toggle('selected', on);
+        if (on) {
+          pill.style.background = 'rgba(var(--accent-primary-rgb),0.15)';
+          pill.style.borderColor = 'rgba(var(--accent-primary-rgb),0.4)';
+          pill.style.color = 'var(--accent-primary)';
+        } else {
+          pill.style.background = 'transparent';
+          pill.style.borderColor = 'rgba(255,255,255,0.1)';
+          pill.style.color = 'rgba(255,255,255,0.6)';
+        }
+        markFocusDirty();
+      });
+      daysContainer.appendChild(pill);
+    });
   }
 
   // Disable inputs for past/active blocks
@@ -9147,11 +9472,9 @@ function openBlockEditor(blockId, event) {
   if (past) {
     document.getElementById('editor-start').disabled = true;
     document.getElementById('editor-end').disabled = true;
-    document.querySelectorAll('#editor-block-type .block-type-btn').forEach(function(b) { b.disabled = true; b.style.pointerEvents = 'none'; });
     // Delete still allowed for past blocks (helps with testing)
   } else if (active) {
     document.getElementById('editor-start').disabled = true;
-    document.querySelectorAll('#editor-block-type .block-type-btn').forEach(function(b) { b.disabled = true; b.style.pointerEvents = 'none'; });
     var delBtn = editor.querySelector('.block-editor-delete');
     if (delBtn) delBtn.style.display = 'none';
   }
@@ -9305,17 +9628,10 @@ function saveBlockEdit() {
     block.endMinute = newEndMinute;
   }
 
-  // Read block type from segmented control
-  var selectedBtn = document.querySelector('#editor-block-type .block-type-btn.selected');
-  if (selectedBtn && !selectedBtn.disabled) {
-    block.blockType = selectedBtn.dataset.type;
-    block.isFree = block.blockType === 'freeTime';
-  }
-
-  // Save selected blocking profile IDs
-  if (window._editorSelectedProfiles) {
-    block.profileIds = Array.from(window._editorSelectedProfiles);
-  }
+  // Spec 3 (May 2026): block.intentionId + block.activeDays are already
+  // mutated by onEditorIntentionChange / day-pill click handlers. Default
+  // blockType for any code that still reads it.
+  if (!block.blockType) block.blockType = 'focusHours';
 
   // Save ignoreProfile flag (per-block AI prompt override)
   var ignoreEl = document.getElementById('editor-ignore-profile');
@@ -9326,44 +9642,8 @@ function saveBlockEdit() {
   renderCalendarBlocks();
 }
 
-function selectBlockType(btn) {
-  var container = btn.closest('.block-type-selector');
-  container.querySelectorAll('.block-type-btn').forEach(function(b) {
-    b.classList.remove('selected', 'type-free', 'type-deep');
-  });
-  btn.classList.add('selected');
-  if (btn.dataset.type === 'freeTime') btn.classList.add('type-free');
-  // Show/hide profile chips based on block type
-  var profilesRow = document.getElementById('editor-profiles-row');
-  if (profilesRow) {
-    profilesRow.style.display = btn.dataset.type === 'freeTime' ? 'none' : '';
-  }
-  // Coach preview row is permanently hidden (UI removed) — checkbox stays in DOM for
-  // ignoreProfile persistence only.
-}
-
-function renderEditorProfileChips() {
-  var container = document.getElementById('editor-profile-chips');
-  if (!container) return;
-  container.innerHTML = '';
-  blockingProfiles.forEach(function(profile) {
-    var isSelected = window._editorSelectedProfiles && window._editorSelectedProfiles.has(profile.id);
-    var chip = document.createElement('span');
-    chip.className = 'dist-chip' + (isSelected ? '' : '');
-    chip.style.cssText = 'cursor:pointer;padding:6px 12px;font-size:12px;' +
-      (isSelected ? 'background:rgba(var(--accent-primary-rgb),0.12);border-color:rgba(var(--accent-primary-rgb),0.3);color:var(--accent-primary);' : '');
-    chip.innerHTML = (isSelected ? '<span style="margin-right:4px;">✓</span>' : '') + escapeHtml(profile.name);
-    chip.addEventListener('click', function() {
-      if (window._editorSelectedProfiles.has(profile.id)) {
-        window._editorSelectedProfiles.delete(profile.id);
-      } else {
-        window._editorSelectedProfiles.add(profile.id);
-      }
-      renderEditorProfileChips();
-    });
-    container.appendChild(chip);
-  });
-}
+// Spec 3 (May 2026): selectBlockType + renderEditorProfileChips removed —
+// block type segmented control + profile chips replaced by Intention picker.
 
 function deleteFocusBlock(blockId) {
   var block = focusState.blocks.find(function(b) { return b.id === blockId; });
@@ -10137,6 +10417,20 @@ function formatFocusDuration(minutes) {
 renderThemePicker('iridescent');
 sendMessage({ type: 'GET_SETTINGS' });
 sendMessage({ type: 'GET_PARTNER_STATUS' });
+sendMessage({ type: 'GET_FOCUS_MODE' });
+sendMessage({ type: 'GET_INTENTIONS' });  // Spec 3 — populate intentionsCache for picker
+
+// Spec 3 (May 2026): default the Sensitive Content card to live in
+// page-sensitive on first load (it'll relocate back if user navigates to
+// settings then sensitive, but never appears in settings now).
+(function() {
+  var senseHostInit = document.getElementById('sensitive-content-host');
+  var csCardInit = document.getElementById('content-safety-card');
+  if (senseHostInit && csCardInit && !senseHostInit.contains(csCardInit)) {
+    senseHostInit.appendChild(csCardInit);
+  }
+})();
+
 refresh();
 loadFocusState();
 sendMessage({ type: 'GET_RELEVANCE_LOG' });
@@ -10290,7 +10584,7 @@ const ProjectsController = (() => {
     const header = `
       <div class="page-header">
         <div>
-          <div class="page-title">Projects</div>
+          <div class="page-title">Intentions</div>
           <div class="page-subtitle">Your work, organized by intention</div>
         </div>
       </div>`;
@@ -10308,10 +10602,17 @@ const ProjectsController = (() => {
       p.allowedCount ? (p.allowedCount + ' allowed') : null,
       p.blocklistCount ? (p.blocklistCount + ' blocklist' + (p.blocklistCount === 1 ? '' : 's')) : null,
     ].filter(Boolean).join(' · ');
+    // Spec 3 (May 2026): pull strictness from live intentionsCache (real Intention rows)
+    var live = (typeof intentionsCache !== 'undefined' && intentionsCache.find(function(x){return x.id===p.id;})) || {};
+    var preset = (live.strictness_preset || '').toUpperCase();
+    var badge = preset
+      ? `<div class="strictness-badge preset-${(live.strictness_preset || '').toLowerCase()}">${preset}</div>`
+      : '';
     return `
       <div class="projects-card" style="--accent: ${p.accent || 'var(--accent-primary)'}" onclick="ProjectsController.openDashboard('${p.id}')">
         <div class="projects-card-title">${name}</div>
         ${intention ? `<div class="projects-card-intention">${intention}</div>` : ''}
+        ${badge}
         <div class="projects-sparkline">${sparkline}</div>
         <div class="projects-card-meta">${meta}</div>
       </div>`;
@@ -10400,11 +10701,68 @@ const ProjectsController = (() => {
         <div id="projects-learned-body" style="${state.learnedCollapsed ? 'display:none;' : ''}">${learnedHTML}</div>
       </div>
 
+      ${renderStrictnessSection(p)}
+      ${renderWeeklyTargetSection(p)}
+
       <div style="display:flex; justify-content: flex-end; gap: 10px; margin-top: 32px;">
         <button type="button" class="btn btn-ghost btn-secondary" onclick="ProjectsController.openEdit()">Edit settings</button>
         <button type="button" class="btn btn-danger" onclick="ProjectsController._handleDelete()">Delete project</button>
       </div>
     `;
+  }
+
+  // Spec 3 (May 2026): per-Intention strictness section + 24h cool-down + Strict-step-down partner unlock
+  function renderStrictnessSection(p) {
+    // Pull strictness state from the live intentionsCache (which has real
+    // Intention rows). Falls back gracefully if cache hasn't arrived yet.
+    var live = (typeof intentionsCache !== 'undefined' && intentionsCache.find(function(x){return x.id===p.id;})) || {};
+    var current = live.strictness_preset || 'standard';
+    var pending = live.pending_strictness_change;
+    var sessionActive = appIsRunningSessionFor(p.id);
+
+    var pendingBanner = '';
+    if (pending) {
+      var when = new Date(pending.takes_effect_at);
+      pendingBanner =
+        '<div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:6px;padding:10px;margin-top:10px;font-size:12px;color:rgba(255,255,255,0.85);">' +
+        'Scheduled to soften to <b>' + escapeHTML(pending.to_preset) + '</b> at ' + when.toLocaleString() +
+        ' <a href="#" onclick="cancelPendingStrictness(\'' + p.id + '\'); return false;" style="margin-left:8px;color:var(--accent-primary);text-decoration:underline;">Cancel</a>' +
+        '</div>';
+    }
+
+    var disabledAttr = sessionActive ? 'disabled' : '';
+    var lockedStyle = sessionActive ? 'opacity:0.45;pointer-events:none;' : '';
+    var tooltipAttr = sessionActive ? 'title="Cannot change while session is running"' : '';
+
+    var presets = ['strict', 'standard', 'soft'];
+    var safeName = escapeHTML(p.name || '').replace(/'/g, "\\'");
+    var btns = presets.map(function(preset) {
+      return '<button class="segmented-btn ' + (preset === current ? 'selected' : '') + '" data-preset="' + preset + '" ' + disabledAttr +
+        ' onclick="onChangeStrictness(\'' + p.id + '\', \'' + preset + '\', \'' + safeName + '\', \'' + current + '\')">' +
+        preset.charAt(0).toUpperCase() + preset.slice(1) + '</button>';
+    }).join('');
+
+    return '<div class="settings-card" style="margin-top:16px;">' +
+      '<div class="settings-card-title" style="padding:14px 14px 8px;">Strictness</div>' +
+      '<div style="padding:0 14px 14px;">' +
+      '<div class="segmented strictness-seg" ' + tooltipAttr + ' style="' + lockedStyle + '">' +
+      btns +
+      '</div>' +
+      pendingBanner +
+      '<div style="margin-top:8px;font-size:11px;color:rgba(255,255,255,0.4);line-height:1.5;">' +
+      'Strict: overlay + AI scoring + intervention exercise. Standard: nudge banners. Soft: nudges only, no blocking.' +
+      '</div>' +
+      '</div>' +
+      '</div>';
+  }
+
+  function renderWeeklyTargetSection(p) {
+    return '<div class="settings-card" style="margin-top:16px;opacity:0.55;">' +
+      '<div class="settings-card-title" style="padding:14px 14px 8px;">Weekly target</div>' +
+      '<div style="padding:0 14px 14px;font-size:13px;color:rgba(255,255,255,0.4);" title="Weekly budgets coming in a future update.">' +
+      '+ Add weekly target (coming soon)' +
+      '</div>' +
+      '</div>';
   }
 
   function renderResumeHero(p) {
@@ -11085,8 +11443,107 @@ const ProjectsController = (() => {
     // Dashboard internals (Task #14).
     _pickDuration, _pickCustomDuration, _onCustomDurationInput,
     _startSession, _promote, _toggleLearnedCollapsed,
+    // Spec 3 (May 2026): re-render the current view when intentionsCache updates
+    // so the strictness picker reflects fresh server state.
+    refresh: function() {
+      if (state.view === 'index') renderIndex();
+      else if (state.view === 'dashboard') renderDashboard();
+    },
   };
 })();
+
+// ===== Spec 3 (May 2026): Strictness picker handlers (top-level so onclick refs work) =====
+
+// Tracks the currently active intention session so the strictness picker can grey out (D6).
+window._activeIntentionId = null;
+
+function appIsRunningSessionFor(intentionId) {
+  return window._activeIntentionId === intentionId;
+}
+
+function onChangeStrictness(intentionId, toPreset, intentionName, currentPreset) {
+  var order = { strict: 3, standard: 2, soft: 1 };
+  var fromRank = order[currentPreset] || 2;
+  var toRank = order[toPreset] || 2;
+
+  if (toRank > fromRank) {
+    // Tightening — instant
+    sendStrictnessUpdate(intentionId, toPreset);
+    return;
+  }
+  if (toRank === fromRank) return;
+  // Softening
+  if (currentPreset === 'strict') {
+    // Strict → anything: partner unlock required.
+    sendMessage({
+      type: 'OPEN_INTENTION_STRICTNESS_UNLOCK_SHEET',
+      id: intentionId,
+      to_preset: toPreset,
+      intention_name: intentionName
+    });
+    return;
+  }
+  if (currentPreset === 'standard' && toPreset === 'soft') {
+    // 24h cool-down: D15 warm-tone confirm dialog.
+    if (confirm("Tomorrow you, not right-now you, gets the change.\n\nYou picked Standard because it's where the work happens. The cool-down is the part that protects that decision.\n\nThis change takes effect in 24 hours. You can cancel any time before then.")) {
+      sendStrictnessUpdate(intentionId, toPreset);
+    }
+    return;
+  }
+}
+
+function sendStrictnessUpdate(intentionId, toPreset, partnerCode) {
+  var origCb = window._intentionMutationResult;
+  window._intentionMutationResult = function(res) {
+    window._intentionMutationResult = origCb;
+    if (origCb) { try { origCb(res); } catch (e) {} }
+    if (!res) return;
+    if (res.status === 'updated') {
+      showToast('Strictness updated', 'success');
+      sendMessage({ type: 'GET_INTENTIONS' });
+    } else if (res.status === 'queued_24h') {
+      showToast('Change queued — applies in 24 hours', 'info');
+      sendMessage({ type: 'GET_INTENTIONS' });
+    } else if (res.status === 'requires_partner_unlock') {
+      sendMessage({
+        type: 'OPEN_INTENTION_STRICTNESS_UNLOCK_SHEET',
+        id: intentionId, to_preset: toPreset, intention_name: ''
+      });
+    } else if (res.status === 'session_in_progress') {
+      showToast('Cannot change strictness during an active session', 'error');
+    } else {
+      showToast(res.error || 'Update failed', 'error');
+    }
+  };
+  var msg = { type: 'UPDATE_INTENTION_STRICTNESS', id: intentionId, to_preset: toPreset };
+  if (partnerCode) msg.partner_unlock_code = partnerCode;
+  sendMessage(msg);
+}
+
+function cancelPendingStrictness(intentionId) {
+  if (!confirm("Cancel the queued strictness change?")) return;
+  var origCb = window._intentionMutationResult;
+  window._intentionMutationResult = function(res) {
+    window._intentionMutationResult = origCb;
+    if (origCb) { try { origCb(res); } catch (e) {} }
+    if (res && res.status === 'pending_cancelled') {
+      showToast('Pending change cancelled', 'success');
+      sendMessage({ type: 'GET_INTENTIONS' });
+    } else {
+      showToast('Cancel failed', 'error');
+    }
+  };
+  sendMessage({ type: 'CANCEL_PENDING_STRICTNESS_CHANGE', id: intentionId });
+}
+
+window._navigateToIntentionEditor = function(intentionId) {
+  navigateTo('intentions');
+  setTimeout(function() {
+    if (typeof ProjectsController !== 'undefined' && ProjectsController.openDashboard) {
+      ProjectsController.openDashboard(intentionId);
+    }
+  }, 50);
+};
 </script>
 
 <!-- App Picker Modal (reused by Distractions + Projects) — top-level so it
@@ -11129,6 +11586,90 @@ const ProjectsController = (() => {
     </div>
   </div>
 </div>
+
+<!-- Spec 3 (May 2026): inline + Create new Intention mini-editor -->
+<div id="intention-mini-editor" style="display:none;position:fixed;top:0;right:0;bottom:0;width:380px;background:#1a1a1a;border-left:1px solid rgba(255,255,255,0.08);box-shadow:-8px 0 24px rgba(0,0,0,0.4);z-index:9999;padding:24px;transform:translateX(100%);transition:transform 0.25s ease;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <div style="font-size:16px;font-weight:600;color:#fff;">New Intention</div>
+    <button class="btn-small" onclick="closeIntentionMiniEditor(null)">×</button>
+  </div>
+  <div class="block-editor-row">
+    <label>Name</label>
+    <input class="block-editor-input" id="mini-intention-name" placeholder="e.g. Coding, Email, Writing">
+  </div>
+  <div class="block-editor-row">
+    <label>Description (optional)</label>
+    <textarea class="block-editor-input" id="mini-intention-desc" rows="2" placeholder="Specifics the AI uses to score relevance"></textarea>
+  </div>
+  <div class="block-editor-actions" style="margin-top:16px;">
+    <button class="btn-small" onclick="submitIntentionMiniEditor()">Create</button>
+    <button class="btn-small" onclick="closeIntentionMiniEditor(null)">Cancel</button>
+  </div>
+  <div id="mini-intention-error" style="color:#e55;font-size:12px;margin-top:8px;"></div>
+</div>
+
+<script>
+// Spec 3 (May 2026): inline + Create new Intention slide-in mini-editor
+var _miniEditorCallback = null;
+
+function openIntentionMiniEditor(cb) {
+  _miniEditorCallback = cb;
+  var sheet = document.getElementById('intention-mini-editor');
+  if (!sheet) return;
+  var nameEl = document.getElementById('mini-intention-name');
+  var descEl = document.getElementById('mini-intention-desc');
+  var errEl = document.getElementById('mini-intention-error');
+  if (nameEl) nameEl.value = '';
+  if (descEl) descEl.value = '';
+  if (errEl) errEl.textContent = '';
+  sheet.style.display = 'block';
+  requestAnimationFrame(function() { sheet.style.transform = 'translateX(0)'; });
+  if (nameEl) nameEl.focus();
+}
+
+function closeIntentionMiniEditor(newIdOrNull) {
+  var sheet = document.getElementById('intention-mini-editor');
+  if (sheet) {
+    sheet.style.transform = 'translateX(100%)';
+    setTimeout(function() { sheet.style.display = 'none'; }, 250);
+  }
+  if (_miniEditorCallback) {
+    _miniEditorCallback(newIdOrNull);
+    _miniEditorCallback = null;
+  }
+}
+
+function submitIntentionMiniEditor() {
+  var name = (document.getElementById('mini-intention-name').value || '').trim();
+  var desc = (document.getElementById('mini-intention-desc').value || '').trim();
+  if (!name) {
+    document.getElementById('mini-intention-error').textContent = 'Name is required';
+    return;
+  }
+  // Listen ONCE for the next mutation result with status === 'created'
+  var origCb = window._intentionMutationResult;
+  window._intentionMutationResult = function(res) {
+    window._intentionMutationResult = origCb;
+    if (origCb) { try { origCb(res); } catch (e) {} }
+    if (res && res.status === 'created') {
+      sendMessage({ type: 'GET_INTENTIONS' });
+      closeIntentionMiniEditor(res.id);
+    } else {
+      document.getElementById('mini-intention-error').textContent =
+        (res && res.error) || 'Create failed';
+    }
+  };
+  sendMessage({
+    type: 'CREATE_INTENTION',
+    name: name,
+    description: desc,
+    color_hex: null,
+    icon: null,
+    mac_websites: [],
+    mac_bundle_ids: []
+  });
+}
+</script>
 
 </body>
 </html>

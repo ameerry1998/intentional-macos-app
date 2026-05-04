@@ -25,7 +25,7 @@ class FocusStartOverlayViewModel: ObservableObject {
 struct FocusStartOverlayView: View {
     @ObservedObject var viewModel: FocusStartOverlayViewModel
 
-    // Dark palette — consistent with BedtimeOverlayView
+    // Dark palette — matches the rest of the bedtime / focus surfaces
     private let bgTop = Color(white: 0.06)
     private let bgBottom = Color(white: 0.03)
     private let headingColor = Color(white: 0.75)

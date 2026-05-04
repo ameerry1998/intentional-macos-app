@@ -27,15 +27,18 @@ struct SwitchInterventionCoordinatorTests {
 
         func makeCoordinator() -> SwitchInterventionCoordinator {
             let c = SwitchInterventionCoordinator(exemptBundleIds: ["com.ameer.Intentional"])
+            let fmc = FocusModeController()
+            fmc.activate(intention: nil, source: .manual)
+            c.focusModeController = fmc
             c.sessionStarted(at: anchor)
-            c.setInWorkSession(true)
             return c
         }
 
         test("suppresses when not in work session") {
             let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            let fmc = FocusModeController()  // state = .off
+            c.focusModeController = fmc
             c.sessionStarted(at: anchor)
-            c.setInWorkSession(false)
             let decision = c.onSwitch(to: .app(bundleId: "com.apple.Safari"),
                                       at: anchor.addingTimeInterval(120))
             assertEqual(decision, .suppress(reason: .notInWorkSession))
@@ -59,8 +62,10 @@ struct SwitchInterventionCoordinatorTests {
         test("suppresses during first 60s of session (grace period)") {
             let start = Date(timeIntervalSince1970: 1_000_000)
             let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            let fmc = FocusModeController()
+            fmc.activate(intention: nil, source: .manual)
+            c.focusModeController = fmc
             c.sessionStarted(at: start)
-            c.setInWorkSession(true)
             let decision = c.onSwitch(
                 to: .app(bundleId: "com.apple.Safari"),
                 at: start.addingTimeInterval(30)
@@ -71,8 +76,10 @@ struct SwitchInterventionCoordinatorTests {
         test("fires overlay after 60s grace elapses") {
             let start = Date(timeIntervalSince1970: 1_000_000)
             let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            let fmc = FocusModeController()
+            fmc.activate(intention: nil, source: .manual)
+            c.focusModeController = fmc
             c.sessionStarted(at: start)
-            c.setInWorkSession(true)
             let decision = c.onSwitch(
                 to: .app(bundleId: "com.apple.Safari"),
                 at: start.addingTimeInterval(61)
@@ -83,8 +90,10 @@ struct SwitchInterventionCoordinatorTests {
         test("suppresses second switch to same target") {
             let start = Date(timeIntervalSince1970: 1_000_000)
             let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            let fmc = FocusModeController()
+            fmc.activate(intention: nil, source: .manual)
+            c.focusModeController = fmc
             c.sessionStarted(at: start)
-            c.setInWorkSession(true)
             // First switch after grace — overlay
             _ = c.onSwitch(to: .app(bundleId: "com.apple.Safari"), at: start.addingTimeInterval(61))
             c.resolve(outcome: .continued,
@@ -100,8 +109,10 @@ struct SwitchInterventionCoordinatorTests {
         test("grace period resumes for 60s after a break ends") {
             let start = Date(timeIntervalSince1970: 1_000_000)
             let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            let fmc = FocusModeController()
+            fmc.activate(intention: nil, source: .manual)
+            c.focusModeController = fmc
             c.sessionStarted(at: start)
-            c.setInWorkSession(true)
             c.breakStarted(at: start.addingTimeInterval(120))
             c.breakEnded(at: start.addingTimeInterval(420))  // 5-min break
             let duringGrace = c.onSwitch(
@@ -114,8 +125,10 @@ struct SwitchInterventionCoordinatorTests {
         test("tier escalates: 1-3 at 10s, 4-6 at 15s, 7+ capped at 20s") {
             let start = Date(timeIntervalSince1970: 1_000_000)
             let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            let fmc = FocusModeController()
+            fmc.activate(intention: nil, source: .manual)
+            c.focusModeController = fmc
             c.sessionStarted(at: start)
-            c.setInWorkSession(true)
             var t = start.addingTimeInterval(61)
 
             // Switches 1, 2, 3 — countdown 10s each.
@@ -164,8 +177,10 @@ struct SwitchInterventionCoordinatorTests {
         test("back to work does not increment the counter") {
             let start = Date(timeIntervalSince1970: 1_000_000)
             let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            let fmc = FocusModeController()
+            fmc.activate(intention: nil, source: .manual)
+            c.focusModeController = fmc
             c.sessionStarted(at: start)
-            c.setInWorkSession(true)
             let t = start.addingTimeInterval(61)
 
             // Switches 1, 2, 3 — all resolved via Back to work.
@@ -185,8 +200,10 @@ struct SwitchInterventionCoordinatorTests {
         test("return to known target (>=60s dwell) skips the overlay") {
             let start = Date(timeIntervalSince1970: 1_000_000)
             let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            let fmc = FocusModeController()
+            fmc.activate(intention: nil, source: .manual)
+            c.focusModeController = fmc
             c.sessionStarted(at: start)
-            c.setInWorkSession(true)
 
             // Land on Xcode post-grace, dwell 90s (>= 60s threshold).
             _ = c.onSwitch(to: .app(bundleId: "com.apple.dt.Xcode"),
@@ -213,8 +230,10 @@ struct SwitchInterventionCoordinatorTests {
         test("tier decays to 1 after 15 min continuous on-task in a known target") {
             let start = Date(timeIntervalSince1970: 1_000_000)
             let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            let fmc = FocusModeController()
+            fmc.activate(intention: nil, source: .manual)
+            c.focusModeController = fmc
             c.sessionStarted(at: start)
-            c.setInWorkSession(true)
             // Land on Xcode, dwell 90s to become known (>= 60s threshold).
             _ = c.onSwitch(to: .app(bundleId: "com.apple.dt.Xcode"),
                            at: start.addingTimeInterval(61))
@@ -245,8 +264,10 @@ struct SwitchInterventionCoordinatorTests {
         test("preferredReturnTarget picks the known target with longest dwell") {
             let start = Date(timeIntervalSince1970: 1_000_000)
             let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            let fmc = FocusModeController()
+            fmc.activate(intention: nil, source: .manual)
+            c.focusModeController = fmc
             c.sessionStarted(at: start)
-            c.setInWorkSession(true)
 
             // Xcode: dwell 120s → becomes known, but Terminal will dwell longer.
             _ = c.onSwitch(to: .app(bundleId: "com.apple.dt.Xcode"),
@@ -275,8 +296,10 @@ struct SwitchInterventionCoordinatorTests {
         test("preferredReturnTarget falls back to most recent when no target is known") {
             let start = Date(timeIntervalSince1970: 1_000_000)
             let c = SwitchInterventionCoordinator(exemptBundleIds: [])
+            let fmc = FocusModeController()
+            fmc.activate(intention: nil, source: .manual)
+            c.focusModeController = fmc
             c.sessionStarted(at: start)
-            c.setInWorkSession(true)
 
             // Short dwells — neither reaches 60s.
             _ = c.onSwitch(to: .app(bundleId: "a"), at: start.addingTimeInterval(61))

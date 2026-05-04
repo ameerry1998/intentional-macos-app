@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 /// Manages the daily focus schedule — time blocks, goals, plan text.
 /// Determines the current time state (work block, free block, unplanned, no plan).
@@ -12,7 +13,9 @@ class ScheduleManager {
     enum BlockType: String, Codable {
         case deepWork = "deepWork"
         case focusHours = "focusHours"
-        case freeTime = "freeTime"
+        // Spec 2: .freeTime removed — represented by absence of a block.
+        // Decoding of legacy "freeTime" rows is handled in FocusBlock.init(from:) by
+        // mapping it to .focusHours (which then displays/enforces accordingly).
     }
 
     struct FocusBlock: Codable, Equatable {
@@ -25,17 +28,24 @@ class ScheduleManager {
         var endMinute: Int   // 0-59
         var blockType: BlockType
         var ignoreProfile: Bool  // When true, the AI scorer omits the user's profile for this block.
+        // Spec 2: optional binding to an Intention (drives blocklist + AI context)
+        var intentionId: UUID?
+        // Spec 2: intensity mirrors blockType today; preserved as separate field so the
+        // semantic axis (deep_work vs focus_hours) is decoupled from legacy block_type.
+        var intensity: BlockType
 
-        /// Backwards compat
-        var isFree: Bool { blockType == .freeTime }
+        /// Backwards compat (Spec 2: .freeTime removed; always false for new blocks).
+        /// Old extension code paths that branch on isFree no longer trigger.
+        var isFree: Bool { false }
 
         // Custom coding to migrate legacy `isFree` → `blockType`
         enum CodingKeys: String, CodingKey {
-            case id, title, description, startHour, startMinute, endHour, endMinute, blockType, isFree, ignoreProfile
+            case id, title, description, startHour, startMinute, endHour, endMinute, blockType, isFree, ignoreProfile, intentionId, intensity
         }
 
         init(id: String, title: String, description: String, startHour: Int, startMinute: Int,
-             endHour: Int, endMinute: Int, blockType: BlockType, ignoreProfile: Bool = false) {
+             endHour: Int, endMinute: Int, blockType: BlockType, ignoreProfile: Bool = false,
+             intentionId: UUID? = nil, intensity: BlockType? = nil) {
             self.id = id
             self.title = title
             self.description = description
@@ -45,6 +55,8 @@ class ScheduleManager {
             self.endMinute = endMinute
             self.blockType = blockType
             self.ignoreProfile = ignoreProfile
+            self.intentionId = intentionId
+            self.intensity = intensity ?? blockType
         }
 
         init(from decoder: Decoder) throws {
@@ -56,16 +68,26 @@ class ScheduleManager {
             startMinute = try container.decode(Int.self, forKey: .startMinute)
             endHour = try container.decode(Int.self, forKey: .endHour)
             endMinute = try container.decode(Int.self, forKey: .endMinute)
-            // Migration: try blockType first, fall back to isFree
-            if let bt = try? container.decode(BlockType.self, forKey: .blockType) {
+            // Migration: try blockType first, fall back to isFree.
+            // Spec 2: .freeTime is removed — old "freeTime" rows decode as .focusHours.
+            if let raw = try? container.decode(String.self, forKey: .blockType) {
+                if raw == "freeTime" {
+                    blockType = .focusHours  // legacy mapping
+                } else {
+                    blockType = BlockType(rawValue: raw) ?? .focusHours
+                }
+            } else if let bt = try? container.decode(BlockType.self, forKey: .blockType) {
                 blockType = bt
             } else if let free = try? container.decode(Bool.self, forKey: .isFree) {
-                blockType = free ? .freeTime : .focusHours
+                blockType = free ? .focusHours : .focusHours  // legacy: free → focusHours
             } else {
                 blockType = .focusHours
             }
             // Migration: ignoreProfile added later; default false when absent.
             ignoreProfile = (try? container.decode(Bool.self, forKey: .ignoreProfile)) ?? false
+            // Spec 2: tolerate missing keys for forward-compat with old JSON
+            intentionId = try? container.decodeIfPresent(UUID.self, forKey: .intentionId)
+            intensity = (try? container.decodeIfPresent(BlockType.self, forKey: .intensity)) ?? blockType
         }
 
         func encode(to encoder: Encoder) throws {
@@ -79,6 +101,8 @@ class ScheduleManager {
             try container.encode(endMinute, forKey: .endMinute)
             try container.encode(blockType, forKey: .blockType)
             try container.encode(ignoreProfile, forKey: .ignoreProfile)
+            try container.encodeIfPresent(intentionId, forKey: .intentionId)
+            try container.encode(intensity, forKey: .intensity)
         }
 
         /// Start time as minutes from midnight
@@ -98,9 +122,51 @@ class ScheduleManager {
 
     struct DailySchedule: Codable {
         var date: String  // "yyyy-MM-dd"
-        var goals: [String]
-        var dailyPlan: String
+        var dayItems: [String]   // RENAMED from goals (frees "Goal" for Spec 3 layer)
+        var dayNotes: String     // RENAMED from dailyPlan (frees "Plan" for Spec 3 layer)
         var blocks: [FocusBlock]
+
+        init(date: String, dayItems: [String] = [], dayNotes: String = "", blocks: [FocusBlock] = []) {
+            self.date = date
+            self.dayItems = dayItems
+            self.dayNotes = dayNotes
+            self.blocks = blocks
+        }
+
+        // Backwards-compat decoding: try new names first, fall back to legacy goals/dailyPlan.
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            self.date = try c.decode(String.self, forKey: .date)
+            self.blocks = try c.decode([FocusBlock].self, forKey: .blocks)
+            if let items = try? c.decode([String].self, forKey: .dayItems) {
+                self.dayItems = items
+            } else if let goals = try? c.decode([String].self, forKey: .goals) {
+                self.dayItems = goals
+            } else {
+                self.dayItems = []
+            }
+            if let notes = try? c.decode(String.self, forKey: .dayNotes) {
+                self.dayNotes = notes
+            } else if let plan = try? c.decode(String.self, forKey: .dailyPlan) {
+                self.dayNotes = plan
+            } else {
+                self.dayNotes = ""
+            }
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(date, forKey: .date)
+            try c.encode(dayItems, forKey: .dayItems)
+            try c.encode(dayNotes, forKey: .dayNotes)
+            try c.encode(blocks, forKey: .blocks)
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case date, blocks, dayItems, dayNotes
+            case goals       // legacy
+            case dailyPlan   // legacy
+        }
     }
 
     // MARK: - Enforcement Settings
@@ -159,10 +225,6 @@ class ScheduleManager {
             switch blockType {
             case .deepWork: return deepWork
             case .focusHours: return focusHours
-            case .freeTime: return BlockEnforcementSettings(
-                nudgeNotifications: false, screenRedShift: false, autoRedirect: false,
-                blockingOverlay: false, interventionExercises: false, backgroundAudioDetection: false,
-                contextSwitchOverlay: false)
             }
         }
 
@@ -194,21 +256,19 @@ class ScheduleManager {
     }
 
     enum TimeState: String {
-        case deepWork = "deep_work"
-        case focusHours = "focus_hours"
-        case freeTime = "free"
-        case unplanned = "unplanned"
-        case snoozed = "snoozed"
-        case noPlan = "no_plan"
-        case disabled = "disabled"
+        case off
+        case focus
+        case bedtime
 
-        /// Whether this is a monitored work state (deep work or focus hours)
-        var isWork: Bool { self == .deepWork || self == .focusHours }
+        /// Compatibility shim: same semantics as before — true when the schedule
+        /// expects work to happen.
+        var isWork: Bool { self == .focus }
     }
 
     // MARK: - Focus Session Injection
 
-    /// When set, this block overrides the schedule (used by FocusSessionManager).
+    /// When set, this block overrides the schedule (used by manual / cross-device
+    /// focus session injection from AppDelegate.startFocusSession).
     private(set) var injectedFocusBlock: FocusBlock?
 
     func injectFocusSessionBlock(_ block: FocusBlock) {
@@ -236,7 +296,7 @@ class ScheduleManager {
     private(set) var currentBlock: FocusBlock?
 
     /// Current time state
-    private(set) var currentTimeState: TimeState = .disabled
+    private(set) var currentTimeState: TimeState = .off
 
     /// Enforcement mode: "nudge" (notify only) or "block" (nudge + redirect tab)
     private(set) var focusEnforcement: String = "block"
@@ -267,6 +327,11 @@ class ScheduleManager {
 
     /// Per-block-type enforcement toggles
     private(set) var enforcementSettings: EnforcementSettings = .defaults
+
+    // MARK: - Backend Sync (Spec 2)
+
+    private weak var backend: BackendClient?
+    private var pullTimer: Timer?
 
     // MARK: - Timer
 
@@ -358,13 +423,115 @@ class ScheduleManager {
         appDelegate?.postLog("📋 Profile updated (\(text.count) chars)")
     }
 
-    /// Set today's plan (goals + daily plan text + time blocks)
+    // MARK: - Backend Sync (Spec 2)
+
+    /// Wire to a BackendClient and start the pull/push lifecycle.
+    /// - On init: pull immediately.
+    /// - Foreground: pull on `didBecomeActive`.
+    /// - 60s timer: periodic refresh.
+    func wire(backend: BackendClient) {
+        self.backend = backend
+        startBackendSync()
+    }
+
+    private func startBackendSync() {
+        // Initial pull
+        Task { await pullFromBackend() }
+
+        // Foreground refresh
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { await self?.pullFromBackend() }
+        }
+
+        // 60s timer
+        let t = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { [weak self] _ in
+            Task { await self?.pullFromBackend() }
+        }
+        t.tolerance = 5.0
+        RunLoop.main.add(t, forMode: .common)
+        pullTimer = t
+    }
+
+    /// Pull `/time_blocks` from backend, replace today's blocks. Network failure → no-op (retry next tick).
+    @MainActor
+    func pullFromBackend() async {
+        guard let backend = backend else { return }
+        guard let dtos = await backend.getTimeBlocks() else {
+            // Network failure — keep local state, will retry next tick
+            return
+        }
+        let blocks: [FocusBlock] = dtos.map { dto in
+            let intensity = BlockType(rawValue: dto.intensity) ?? .deepWork
+            return FocusBlock(
+                id: dto.block_id,
+                title: dto.title,
+                description: "",
+                startHour: dto.start_hour, startMinute: dto.start_minute,
+                endHour: dto.end_hour, endMinute: dto.end_minute,
+                blockType: intensity,
+                ignoreProfile: false,
+                intentionId: dto.intention_id.flatMap { UUID(uuidString: $0) },
+                intensity: intensity
+            )
+        }
+        // Replace today's block list. Recurring filter (active_days) happens in render layer / future work.
+        if todaySchedule == nil {
+            todaySchedule = DailySchedule(
+                date: Self.todayString(),
+                dayItems: [], dayNotes: "",
+                blocks: blocks.sorted { $0.startMinutes < $1.startMinutes }
+            )
+        } else {
+            todaySchedule?.blocks = blocks.sorted { $0.startMinutes < $1.startMinutes }
+        }
+        recalculateState()
+        renameLegacyScheduleFile()
+        appDelegate?.postLog("📋 ScheduleManager pulled \(blocks.count) time blocks from backend")
+    }
+
+    /// Push current schedule to `/time_blocks` (atomic replace).
+    @MainActor
+    func pushToBackend() async {
+        guard let backend = backend, let schedule = todaySchedule else { return }
+        let dtos: [BackendClient.TimeBlockDTO] = schedule.blocks.map { b in
+            BackendClient.TimeBlockDTO(
+                block_id: b.id, title: b.title,
+                block_type: b.blockType.rawValue,
+                intention_id: b.intentionId?.uuidString,
+                intensity: b.intensity.rawValue,
+                start_hour: b.startHour, start_minute: b.startMinute,
+                end_hour: b.endHour, end_minute: b.endMinute,
+                active_days: [1, 2, 3, 4, 5, 6, 7],  // every-day default for now
+                enabled: true,
+                updated_at: nil
+            )
+        }
+        _ = await backend.putTimeBlocks(dtos)
+    }
+
+    /// Move legacy `daily_schedule.json` → `daily_schedule.legacy.json` after first successful pull.
+    private func renameLegacyScheduleFile() {
+        let live = scheduleFileURL
+        let legacy = live.deletingLastPathComponent().appendingPathComponent("daily_schedule.legacy.json")
+        if FileManager.default.fileExists(atPath: live.path) &&
+           !FileManager.default.fileExists(atPath: legacy.path) {
+            try? FileManager.default.moveItem(at: live, to: legacy)
+            appDelegate?.postLog("📋 Renamed daily_schedule.json → daily_schedule.legacy.json (backend is source of truth)")
+        }
+    }
+
+    /// Set today's plan (dayItems + dayNotes text + time blocks).
+    /// Public API parameter names retain `goals` / `dailyPlan` for backwards compat with callers
+    /// (MainWindow bridge handlers, NativeMessagingHost). Internally they map to dayItems / dayNotes.
     func setTodaySchedule(goals: [String], dailyPlan: String, blocks: [FocusBlock]) {
         let today = Self.todayString()
         todaySchedule = DailySchedule(
             date: today,
-            goals: goals,
-            dailyPlan: dailyPlan,
+            dayItems: goals,
+            dayNotes: dailyPlan,
             blocks: blocks.sorted { $0.startMinutes < $1.startMinutes }
         )
         snoozeUntil = nil
@@ -372,6 +539,7 @@ class ScheduleManager {
         saveSchedule()
         recalculateState(forceCallback: true)
         appDelegate?.postLog("📋 Schedule set: \(blocks.count) blocks, \(goals.count) goals")
+        Task { await pushToBackend() }  // Spec 2
     }
 
     /// Add a single block to today's schedule (e.g., "Quick: free block" from extension)
@@ -379,8 +547,8 @@ class ScheduleManager {
         if todaySchedule == nil {
             todaySchedule = DailySchedule(
                 date: Self.todayString(),
-                goals: [],
-                dailyPlan: "",
+                dayItems: [],
+                dayNotes: "",
                 blocks: []
             )
         }
@@ -389,6 +557,7 @@ class ScheduleManager {
         saveSchedule()
         recalculateState(forceCallback: true)
         appDelegate?.postLog("📋 Block added: \"\(block.title)\" \(block.startHour):\(String(format: "%02d", block.startMinute))–\(block.endHour):\(String(format: "%02d", block.endMinute))")
+        Task { await pushToBackend() }  // Spec 2
     }
 
     /// Update an existing block
@@ -400,6 +569,7 @@ class ScheduleManager {
         todaySchedule = schedule
         saveSchedule()
         recalculateState(forceCallback: true)
+        Task { await pushToBackend() }  // Spec 2
     }
 
     /// Remove a block
@@ -407,6 +577,20 @@ class ScheduleManager {
         todaySchedule?.blocks.removeAll { $0.id == id }
         saveSchedule()
         recalculateState(forceCallback: true)
+        Task { await pushToBackend() }  // Spec 2
+    }
+
+    /// Spec 3 (May 2026): set the bound Intention for a block by id. No-op if block
+    /// not found. Persists locally and pushes to backend. Used by the migration
+    /// runner and any future "rebind" UI in the dashboard.
+    @MainActor
+    func setBlockIntention(blockId: String, intentionId: UUID?) async {
+        guard var schedule = todaySchedule,
+              let idx = schedule.blocks.firstIndex(where: { $0.id == blockId }) else { return }
+        schedule.blocks[idx].intentionId = intentionId
+        todaySchedule = schedule
+        saveSchedule()
+        await pushToBackend()
     }
 
     /// Push a block's start time forward by N minutes.
@@ -435,6 +619,7 @@ class ScheduleManager {
         saveSchedule()
         recalculateState(forceCallback: true)
         appDelegate?.postLog("📋 Block \"\(block.title)\" pushed back \(minutes) min → \(block.startHour):\(String(format: "%02d", block.startMinute))")
+        Task { await pushToBackend() }  // Spec 2
     }
 
     /// Snooze the morning planning prompt (30 min, up to 3 times)
@@ -471,8 +656,10 @@ class ScheduleManager {
         result["profile"] = profile
 
         if let schedule = todaySchedule {
-            result["goals"] = schedule.goals
-            result["dailyPlan"] = schedule.dailyPlan
+            // Wire format keeps "goals"/"dailyPlan" keys for dashboard.html compat;
+            // internally these map to dayItems/dayNotes (Spec 2 vocab).
+            result["goals"] = schedule.dayItems
+            result["dailyPlan"] = schedule.dayNotes
             result["blockCount"] = schedule.blocks.count
         }
 
@@ -516,10 +703,10 @@ class ScheduleManager {
         let previousBlockId = currentBlock?.id
 
         guard isEnabled else {
-            currentTimeState = .disabled
+            currentTimeState = .off
             currentBlock = nil
-            if forceCallback || previousState != .disabled {
-                onBlockChanged?(nil, .disabled)
+            if forceCallback || previousState != .off {
+                onBlockChanged?(nil, .off)
             }
             return
         }
@@ -528,9 +715,7 @@ class ScheduleManager {
         if let injected = injectedFocusBlock {
             currentBlock = injected
             switch injected.blockType {
-            case .deepWork: currentTimeState = .deepWork
-            case .focusHours: currentTimeState = .focusHours
-            case .freeTime: currentTimeState = .freeTime
+            case .deepWork, .focusHours: currentTimeState = .focus
             }
             if forceCallback || currentTimeState != previousState || currentBlock?.id != previousBlockId {
                 appDelegate?.postLog("📋 State: \(previousState.rawValue) → \(currentTimeState.rawValue) (injected focus session)")
@@ -551,12 +736,12 @@ class ScheduleManager {
         }
 
         guard let schedule = todaySchedule, schedule.date == Self.todayString() else {
-            // No plan — check snooze
+            // No plan — check snooze. Both snoozed and no-plan collapse to .off.
             if let snooze = snoozeUntil, Date() < snooze {
-                currentTimeState = .snoozed
+                currentTimeState = .off
                 currentBlock = nil
             } else {
-                currentTimeState = .noPlan
+                currentTimeState = .off
                 currentBlock = nil
                 // Reset snooze if expired
                 if snoozeUntil != nil && Date() >= snoozeUntil! {
@@ -575,13 +760,11 @@ class ScheduleManager {
         if let block = schedule.blocks.first(where: { $0.contains(minuteOfDay: minuteOfDay) }) {
             currentBlock = block
             switch block.blockType {
-            case .deepWork: currentTimeState = .deepWork
-            case .focusHours: currentTimeState = .focusHours
-            case .freeTime: currentTimeState = .freeTime
+            case .deepWork, .focusHours: currentTimeState = .focus
             }
         } else {
             currentBlock = nil
-            currentTimeState = .unplanned
+            currentTimeState = .off  // unplanned gap collapses to .off
         }
 
         if forceCallback || currentTimeState != previousState || currentBlock?.id != previousBlockId {
@@ -593,6 +776,11 @@ class ScheduleManager {
 
     // MARK: - Timer
 
+    /// Spec 2 (May 2026): backend cron now fires sessions via /focus/active → FocusStatePoller
+    /// → FocusModeController.activate. This 10s tick still fires `onBlockChanged` for UI-side
+    /// updates (calendar pill highlight, currentBlock cache invalidation). FocusModeController is
+    /// idempotent so the activation half is harmless when both fire — but the canonical authority
+    /// for "is this block running?" is now the backend's focus_sessions row.
     private func startBlockCheckTimer() {
         blockCheckTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [weak self] _ in
             self?.recalculateState()

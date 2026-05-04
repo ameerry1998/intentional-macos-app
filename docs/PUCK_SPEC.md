@@ -49,7 +49,7 @@ Setting an intention is optional but upgrades blocking from dumb to smart.
 ## New Systems (April 2026)
 
 - **BlockingProfileManager** — Reusable named profiles of blocked domains + app bundle IDs. One default preset ships out of the box. Stored in `blocking_profiles.json`.
-- **FocusSessionManager** — On-demand focus sessions with disk persistence. Survives app restart. Tracks `triggeredByPuck` flag. Stored in `focus_session.json`.
+- **FocusModeController** — Single source of truth for is-app-enforcing (3 states: off/focus/bedtime). Replaces the deleted FocusSessionManager + IntentionalModeController. On-demand focus (Puck tap) calls `focusModeController.activate(source: .puck)`. Survives block changes; state fans out to FocusMonitor, SwitchInterventionCoordinator, SocketRelayServer.
 - **FocusStartOverlay** — Full-screen SwiftUI overlay shown on focus trigger. Profile picker + AI intention field. Puck mode skips straight to "Just Block Distractions."
 - **BedtimeEnforcer** — Fixed nightly bedtime with 15-min wind-down, one snooze, 3-min auto-sleep countdown. Independent of schedule system.
 - **TrustedClock** — Monotonic drift detection + NTP re-anchoring to prevent clock-change bypass.

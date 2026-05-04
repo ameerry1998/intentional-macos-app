@@ -52,6 +52,8 @@ enum PillMode {
     case startRitual        // "Up next" with Start button (460×160)
     case startRitualEdit    // Inline edit (title, description, type) (460×~340)
     case noPlan             // "No plan set" floating card (460×~260)
+    case bedtimeWindDown    // "Bedtime in N min" (300×70, moon glyph)
+    case bedtimeLocked      // "Bedtime active — locked until 6:30 AM" (300×70, lock)
 }
 
 struct CelebrationData {
@@ -157,24 +159,23 @@ class DeepWorkTimerController {
         moveObserver = nil
     }
 
-    /// Position a window using the saved top-right corner, or fall back to screen top-right.
+    /// Snap the pill window to the top-right of the active display.
+    ///
+    /// Per the user's spec (April 2026): every new session resets the pill
+    /// to top-right; users have lost the pill off-screen too many times.
+    /// Drag-during-session is still honored (the user can move the pill
+    /// after this snap), but the next `show()` snaps it back. Saved
+    /// positions in UserDefaults are intentionally ignored — the legacy
+    /// pillWindowTopRight key is no longer read.
     private func positionWindow(_ window: NSWindow, width: CGFloat, height: CGFloat) {
-        if let saved = UserDefaults.standard.string(forKey: Self.positionKey) {
-            let topRight = NSPointFromString(saved)
-            if topRight.x > 0 && topRight.y > 0 {
-                let origin = NSPoint(x: topRight.x - width, y: topRight.y - height)
-                window.setFrameOrigin(origin)
-                return
-            }
-        }
-        // Fallback: top-right corner with 20px padding
-        if let screenFrame = NSScreen.main?.visibleFrame {
-            let origin = NSPoint(
-                x: screenFrame.maxX - width - 20,
-                y: screenFrame.maxY - height - 20
-            )
-            window.setFrameOrigin(origin)
-        }
+        guard let screenFrame = NSScreen.main?.visibleFrame else { return }
+        // 16pt below menu bar / 16pt from right edge per spec; screenFrame
+        // is already in visibleFrame coordinates so menu bar is excluded.
+        let origin = NSPoint(
+            x: screenFrame.maxX - width - 16,
+            y: screenFrame.maxY - height - 16
+        )
+        window.setFrameOrigin(origin)
     }
 
     // MARK: - Public API
@@ -493,6 +494,94 @@ class DeepWorkTimerController {
         }
     }
 
+    // MARK: - Bedtime Modes
+
+    /// Show / update the pill in bedtime wind-down mode.
+    /// - Parameters:
+    ///   - minutesUntilBedtime: Minutes until lock. Drives the title text.
+    ///   - bedtime: When the lock will engage. Drives the "locks at h:mm" line.
+    ///   - allowMinimize: True at T-30, false after T-15. Hides the Push-10 button.
+    ///   - onPush10: Optional handler for the Push-10 button. Pass nil to hide it.
+    ///   - onAskPartner: Optional handler — usually nil during wind-down (user
+    ///     can wait); becomes the "Ask partner" handler after lock.
+    func showBedtimeWindDown(
+        minutesUntilBedtime: Int,
+        bedtime: Date,
+        allowMinimize: Bool,
+        onPush10: (() -> Void)? = nil,
+        onAskPartner: (() -> Void)? = nil
+    ) {
+        if viewModel == nil || timerWindow == nil {
+            // Cold-start: build the pill window with bedtime mode pre-set.
+            buildBedtimeWindow(mode: .bedtimeWindDown)
+        }
+        guard let vm = viewModel else { return }
+        vm.mode = .bedtimeWindDown
+        vm.bedtimeMinutesUntil = minutesUntilBedtime
+        vm.bedtimeWakeTime = bedtime
+        vm.bedtimeAllowMinimize = allowMinimize
+        vm.onBedtimePush10 = onPush10
+        vm.onBedtimeAskPartner = onAskPartner
+    }
+
+    /// Show / update the pill in bedtime locked mode.
+    /// - Parameters:
+    ///   - wakeTime: When bedtime ends. Drives the "until h:mm" line.
+    ///   - onAskPartner: Tapped when the user wants the unlock-request sheet.
+    func showBedtimeLocked(wakeTime: Date, onAskPartner: (() -> Void)?) {
+        if viewModel == nil || timerWindow == nil {
+            buildBedtimeWindow(mode: .bedtimeLocked)
+        }
+        guard let vm = viewModel else { return }
+        vm.mode = .bedtimeLocked
+        vm.bedtimeWakeTime = wakeTime
+        vm.bedtimeAllowMinimize = false
+        vm.onBedtimePush10 = nil
+        vm.onBedtimeAskPartner = onAskPartner
+    }
+
+    /// Internal helper — builds the floating pill window for bedtime modes
+    /// without going through `show(intention:endsAt:)` which assumes a
+    /// timer countdown. Mirrors the show() setup but skips the timer.
+    private func buildBedtimeWindow(mode: PillMode) {
+        dismiss()
+
+        let vm = DeepWorkTimerViewModel(intention: "", endsAt: Date())
+        vm.mode = mode
+        self.viewModel = vm
+
+        let view = DeepWorkTimerView(viewModel: vm)
+        let hostingView = TransparentHostingView(rootView: view)
+        hostingView.autoresizingMask = [.width, .height]
+        hostingView.wantsLayer = true
+        hostingView.layer?.backgroundColor = .clear
+
+        let windowWidth: CGFloat = 300
+        let windowHeight: CGFloat = 70
+        hostingView.frame = NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight)
+
+        let window = KeyablePanel(
+            contentRect: NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.hasShadow = true
+        window.level = .floating
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        window.isReleasedWhenClosed = false
+        window.isMovableByWindowBackground = true
+        window.animationBehavior = .utilityWindow
+
+        positionWindow(window, width: windowWidth, height: windowHeight)
+        window.orderFrontRegardless()
+        timerWindow = window
+        startTrackingPosition()
+    }
+
     /// Minimize the pill to the dock without destroying state.
     func minimize() {
         guard let window = timerWindow else { return }
@@ -602,6 +691,19 @@ class DeepWorkTimerViewModel: ObservableObject {
     @Published var editBlockDescription: String = ""
     @Published var editBlockType: ScheduleManager.BlockType = .focusHours
     private var autoStartTimer: Timer?
+
+    // Bedtime modes (Apr 2026)
+    @Published var bedtimeMinutesUntil: Int = 30        // for .bedtimeWindDown
+    @Published var bedtimeWakeTime: Date = Date()       // for .bedtimeLocked
+    /// True when wind-down phase is T-30 (16-30 min). Pill can still be
+    /// dismissed/minimized; Push-10 button shows. Beyond T-15, the button
+    /// hides per the user's "no minimize after T-15" spec.
+    @Published var bedtimeAllowMinimize: Bool = true
+
+    /// Action handlers for bedtime pill buttons (set by AppDelegate at
+    /// transition time so we don't couple the controller to bedtime APIs).
+    var onBedtimePush10: (() -> Void)?
+    var onBedtimeAskPartner: (() -> Void)?
 
     var onStartFromUpNext: (() -> Void)?
 
@@ -824,6 +926,10 @@ struct DeepWorkTimerView: View {
                 startRitualEditBody
             case .noPlan:
                 noPlanBody
+            case .bedtimeWindDown:
+                bedtimeWindDownBody
+            case .bedtimeLocked:
+                bedtimeLockedBody
             }
         }
         .onHover { viewModel.isHovered = $0 }
@@ -1447,7 +1553,8 @@ struct DeepWorkTimerView: View {
 
         let nextTypeColor = blockTypeColor(next.blockType)
         let nextTypeLabel = blockTypeLabel(next.blockType)
-        let nextIsFreeTime = next.blockType == .freeTime
+        // Spec 2: .freeTime removed from BlockType.
+        let nextIsFreeTime = false
         let nextDuration: Int = (next.endHour * 60 + next.endMinute) - (next.startHour * 60 + next.startMinute)
         let durationStr: String = {
             let h = nextDuration / 60, m = nextDuration % 60
@@ -1927,12 +2034,7 @@ struct DeepWorkTimerView: View {
                             color: focusHoursColor,
                             action: { data.onQuickBlock?(.focusHours, 30) }
                         )
-                        quickBlockButton(
-                            label: "Free Time",
-                            duration: "30 min",
-                            color: freeTimeColor,
-                            action: { data.onQuickBlock?(.freeTime, 30) }
-                        )
+                        // Spec 2: Free Time quick block removed — free time = absence of block.
                     }
                     .padding(.horizontal, 12)
                     .padding(.bottom, 10)
@@ -2093,7 +2195,6 @@ struct DeepWorkTimerView: View {
             switch block.blockType {
             case .deepWork: return "Deep Focus"
             case .focusHours: return "Focus"
-            case .freeTime: return "Free Time"
             }
         }()
         let duration = block.endMinutes - block.startMinutes
@@ -2180,6 +2281,93 @@ struct DeepWorkTimerView: View {
                 .cornerRadius(10)
                 .padding(.bottom, 10)
         }
+    }
+
+    // MARK: - Bedtime Modes (Apr 2026)
+
+    // Lavender accent that matches the rest of the bedtime surfaces
+    // (BedtimeCard on iPhone, partner email).
+    private let bedtimeAccent = Color(red: 0.70, green: 0.53, blue: 0.85)
+
+    private var bedtimeFormattedWake: String {
+        let f = DateFormatter()
+        f.dateFormat = "h:mm a"
+        return f.string(from: viewModel.bedtimeWakeTime)
+    }
+
+    /// "Bedtime in N min" pill body. At T-30 the user can push by 10
+    /// minutes (button shown). After T-15, button hides — the spec is
+    /// firm that there's no escape past T-15 except via partner code.
+    private var bedtimeWindDownBody: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "moon.fill")
+                .foregroundStyle(bedtimeAccent)
+                .font(.system(size: 16))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(viewModel.bedtimeMinutesUntil == 1
+                    ? "Bedtime in 1 min"
+                    : "Bedtime in \(viewModel.bedtimeMinutesUntil) min")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(textPrimary)
+                Text("Laptop locks at \(bedtimeFormattedWake)")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(textSecondary)
+            }
+            Spacer(minLength: 0)
+            if viewModel.bedtimeAllowMinimize, viewModel.onBedtimePush10 != nil {
+                Button("Push 10") { viewModel.onBedtimePush10?() }
+                    .font(.system(size: 11, weight: .medium))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(bedtimeAccent)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(width: 300, height: 70)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(bgColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(bedtimeAccent.opacity(0.35), lineWidth: 1)
+                )
+        )
+    }
+
+    /// "Bedtime active — locked until 6:30 AM" pill body with an "Ask
+    /// partner" link that triggers the unlock-request sheet.
+    private var bedtimeLockedBody: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "lock.fill")
+                .foregroundStyle(bedtimeAccent)
+                .font(.system(size: 15))
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Bedtime active")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(textPrimary)
+                Text("Locked until \(bedtimeFormattedWake)")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(bedtimeAccent.opacity(0.85))
+            }
+            Spacer(minLength: 0)
+            if viewModel.onBedtimeAskPartner != nil {
+                Button("Ask partner") { viewModel.onBedtimeAskPartner?() }
+                    .font(.system(size: 11, weight: .medium))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(bedtimeAccent)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(width: 300, height: 70)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(bgColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(bedtimeAccent.opacity(0.45), lineWidth: 1)
+                )
+        )
     }
 
     // MARK: - Start Ritual Edit Mode
@@ -2352,7 +2540,6 @@ struct DeepWorkTimerView: View {
             switch next.blockType {
             case .deepWork: return "Deep Focus"
             case .focusHours: return "Focus"
-            case .freeTime: return "Free Time"
             }
         }()
 
@@ -2388,7 +2575,6 @@ struct DeepWorkTimerView: View {
         switch type {
         case .deepWork: return deepWorkColor
         case .focusHours: return focusHoursColor
-        case .freeTime: return freeTimeColor
         }
     }
 
@@ -2396,7 +2582,6 @@ struct DeepWorkTimerView: View {
         switch type {
         case .deepWork: return "DEEP FOCUS"
         case .focusHours: return "FOCUS"
-        case .freeTime: return "FREE TIME"
         }
     }
 
