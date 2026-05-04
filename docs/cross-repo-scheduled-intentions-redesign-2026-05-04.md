@@ -177,3 +177,68 @@ Reference for executors. Don't relitigate.
 - Manual end-to-end smoke against backend after migration 020 applied to staging.
 
 **Final commit:** see HEAD of branch.
+
+---
+
+### Phase 6 — Cross-cutting verification + bug-fix sweep (post-executor)
+
+**Status:** GREEN — all 3 branches build clean independently. One real coordination bug found + fixed.
+
+**Verification done by main session after all 3 executors reported:**
+
+1. **Backend independent re-run:** `pytest tests/` → 153 passed / 2 pre-existing failures (`test_focus_active_no_session`, `test_partner_status_no_account_returns_none` — same baseline failures inherited from Spec 1+2). Confirmed clean.
+2. **Backend additional integration tests added by main session:**
+   - `test_active_session_blocks_TIGHTENING_too_per_D6` — verifies executor honored D6's strict reading (block all changes during active session, not just softening). PASSED.
+   - `test_put_strictness_to_deleted_intention_returns_410` — verifies 410 on deleted intention. PASSED.
+   - `test_end_to_end_lifecycle_softening_pending_then_scheduler_applies` — full lifecycle: PUT softening → fast-forward expiry → scheduler tick → intention.strictness_preset actually updated. PASSED.
+   - Committed as `c280ce5` on `intentional-backend:feat/scheduled-intentions-redesign`.
+3. **Mac independent build verification:** `xcodebuild -scheme Intentional -destination 'platform=macOS' build` → BUILD SUCCEEDED.
+4. **iOS independent build verification:** `xcodebuild -project Puck.xcodeproj -scheme Puck -destination 'platform=iOS Simulator,name=iPhone 17' build` → BUILD SUCCEEDED.
+
+**Coordination bug found + fixed:**
+
+The Mac executor invented URL paths for the strictness endpoints that did NOT match what the backend executor implemented. This would have caused all Mac strictness GET-pending and cancel calls to 404 in production. The iOS executor got the URLs correct.
+
+| Endpoint | Backend deployed | Mac (before fix) | Mac (after fix) | iOS |
+|---|---|---|---|---|
+| Update preset | `PUT /intentions/{id}/strictness` | ✅ matches | ✅ matches | ✅ matches |
+| Get pending | `GET /intentions/{id}/strictness/pending` | ❌ wrong path | ✅ FIXED | ✅ matches |
+| Cancel pending | `POST /intentions/{id}/strictness/cancel` | ❌ wrong method+path | ✅ FIXED | ✅ matches |
+| Partner unlock request | NOT IMPLEMENTED | called `/intention_strictness_unlock_requests` | calls but documented as deferred | calls but documented as deferred |
+| Partner unlock verify | NOT IMPLEMENTED | called `/intention_strictness_unlock_requests/{id}/verify` | calls but documented as deferred | calls but documented as deferred |
+| Active-session check | NOT IMPLEMENTED on backend | not called | not called | called `/intentions/{id}/active-session` (fails open — no greyout but no crash) |
+
+Mac fix committed as `1b85fbf` on `feat/scheduled-intentions-redesign`. CLAUDE.md updated to document deployed-vs-deferred endpoints.
+
+**Known runtime limitations (deferred backend work):**
+
+- **Strict-step-down softening is BROKEN end-to-end** on both Mac and iOS until backend ships partner-unlock endpoints. Both UIs will surface "Couldn't reach partner — try again." Standard→Soft cool-down + all tightening directions work fine.
+- **Active-session-aware UI greyout is best-effort.** Backend doesn't expose a dedicated `/intentions/{id}/active-session` endpoint. Mac doesn't check at all (control is enabled even if session is running; backend will reject with HTTP 200 + status:rejected reason:session_active). iOS calls a non-existent endpoint and fails open. Either way, the rejection still happens server-side — UI grey-out is purely UX courtesy.
+
+**To unblock Strict-step-down (next sprint):**
+
+Add to backend (mirror existing bedtime_unlock infrastructure):
+- Table: `intention_strictness_unlock_requests` (id, account_id, intention_id, code_hash, expires_at, status, attempts, used_at + the standard partner email/code lifecycle)
+- `POST /intention_strictness_unlock_requests` — generate code, email partner, return request_id
+- `POST /intention_strictness_unlock_requests/{id}/verify` — verify code, stamp `partner_unlocked_at` on the matching `intention_strictness_changes` row, scheduler applies on next tick
+- Scheduler: optional immediate-apply on verify rather than waiting for next tick (UX nicety)
+
+Both client BackendClient methods are already wired and will work the moment those endpoints exist.
+
+**Final state of all 3 branches:**
+
+| Repo | Branch | Head | Build | Tests |
+|---|---|---|---|---|
+| `intentional-backend` | `feat/scheduled-intentions-redesign` | `c280ce5` | n/a | 156/158 (2 pre-existing fails) |
+| `intentional-macos-app` | `feat/scheduled-intentions-redesign` | `1b85fbf` | SUCCESS | n/a (no test target wired) |
+| `puck-ios` | `feat/scheduled-intentions-redesign` | `931b870` | SUCCESS | 22 new + 36 regression all pass |
+
+All three branches pushed to origin. Ready for the user to:
+1. Merge backend `feat/intentions-spec1` → `main`
+2. Merge backend `feat/time-blocks-spec2` → `main` (rebase first)
+3. Merge backend `feat/scheduled-intentions-redesign` → `main` (rebase first)
+4. Railway auto-deploys
+5. Smoke `curl -H "X-Device-ID: <id>" https://<railway-url>/intentions` — should return at least the seeded "Focus" intention with `strictness_preset: "standard"`
+6. Merge Mac `feat/intentions-spec1`, `feat/time-blocks-spec2`, `feat/scheduled-intentions-redesign` → `puck` in order
+7. Merge iOS `feat/intentions-spec1`, `feat/time-blocks-spec2`, `feat/scheduled-intentions-redesign` → `main` in order
+8. Cross-device smoke: create an Intention on Mac dashboard, see it on iPhone within 60s, change strictness preset on either device, watch it sync
