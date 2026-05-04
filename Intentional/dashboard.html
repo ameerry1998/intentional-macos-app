@@ -10603,10 +10603,17 @@ const ProjectsController = (() => {
       p.allowedCount ? (p.allowedCount + ' allowed') : null,
       p.blocklistCount ? (p.blocklistCount + ' blocklist' + (p.blocklistCount === 1 ? '' : 's')) : null,
     ].filter(Boolean).join(' · ');
+    // Spec 3 (May 2026): pull strictness from live intentionsCache (real Intention rows)
+    var live = (typeof intentionsCache !== 'undefined' && intentionsCache.find(function(x){return x.id===p.id;})) || {};
+    var preset = (live.strictness_preset || '').toUpperCase();
+    var badge = preset
+      ? `<div class="strictness-badge preset-${(live.strictness_preset || '').toLowerCase()}">${preset}</div>`
+      : '';
     return `
       <div class="projects-card" style="--accent: ${p.accent || 'var(--accent-primary)'}" onclick="ProjectsController.openDashboard('${p.id}')">
         <div class="projects-card-title">${name}</div>
         ${intention ? `<div class="projects-card-intention">${intention}</div>` : ''}
+        ${badge}
         <div class="projects-sparkline">${sparkline}</div>
         <div class="projects-card-meta">${meta}</div>
       </div>`;
