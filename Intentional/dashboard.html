@@ -4410,7 +4410,9 @@ body.theme-effects-warm::after {
         <button onclick="navigateToScheduleSettings()" title="Schedule settings" style="background:none;border:none;color:rgba(255,255,255,0.4);font-size:16px;cursor:pointer;padding:2px 6px;margin-left:2px;">&#x2026;</button>
       </div>
     </div>
-    <div class="calendar-container" id="calendar-container"></div>
+    <div id="today-calendar-host">
+      <div class="calendar-container" id="calendar-container"></div>
+    </div>
 
     <!-- Focus Mode toggle (compact) -->
     <div class="settings-card" style="margin-top:12px; padding:0;">
@@ -4557,11 +4559,56 @@ body.theme-effects-warm::after {
 
   </div>
 
-  <!-- Page: Projects -->
+  <!-- Page: Intentions (Spec 3 — renamed from Projects) -->
   <div class="page" id="page-intentions">
     <div class="projects-page" id="projects-view-index"></div>
     <div class="projects-dashboard-page" id="projects-view-dashboard" style="display:none"></div>
     <div class="projects-setup-page" id="projects-view-setup" style="display:none"></div>
+  </div>
+
+  <!-- Page: Schedule (D8) — full calendar lives here now -->
+  <div class="page" id="page-schedule">
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;padding:20px 28px 12px;">
+      <div class="page-title">Schedule</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <!-- Reserved horizontal row above Day/Week toggle (D9 prep — collapses to 0 when no budgets) -->
+        <div id="schedule-budget-row" style="height:0;overflow:hidden;display:flex;gap:8px;align-items:center;"></div>
+        <div class="segmented" id="schedule-view-toggle">
+          <button class="segmented-btn selected" data-view="day" onclick="setScheduleView('day')">Day</button>
+          <button class="segmented-btn" data-view="week" onclick="setScheduleView('week')">Week</button>
+        </div>
+      </div>
+    </div>
+    <div id="schedule-day-host" style="padding:0 28px 32px;"></div>
+    <div id="schedule-week-host" style="display:none;padding:0 28px 32px;color:rgba(255,255,255,0.4);font-size:13px;">
+      Week view — coming soon. Day view shows today's blocks.
+    </div>
+  </div>
+
+  <!-- Page: Sensitive Content (D8 — promoted from Settings) -->
+  <div class="page" id="page-sensitive">
+    <div class="page-header" style="padding:20px 28px 12px;">
+      <div class="page-title">Sensitive Content</div>
+      <div style="color:rgba(255,255,255,0.5);font-size:13px;margin-top:6px;">
+        On-device NSFW detection. When enabled, an overlay covers the screen and your accountability partner is notified.
+      </div>
+    </div>
+    <div style="padding:0 28px 32px;" id="sensitive-content-host"></div>
+  </div>
+
+  <!-- Page: Weekly Planning (D8 — placeholder for D9 budgets) -->
+  <div class="page" id="page-weekly">
+    <div class="page-header" style="padding:20px 28px 12px;">
+      <div class="page-title">Weekly Planning</div>
+    </div>
+    <div style="padding:0 28px 64px;text-align:center;">
+      <div style="margin:48px auto 24px;width:88px;height:88px;border-radius:50%;background:rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;font-size:32px;color:rgba(255,255,255,0.3);">◐</div>
+      <div style="color:rgba(255,255,255,0.85);font-size:18px;margin-bottom:8px;">Plan your week</div>
+      <div style="color:rgba(255,255,255,0.5);font-size:14px;line-height:1.5;max-width:420px;margin:0 auto 24px;">
+        Coming soon. Set weekly targets on individual Intentions to enable. We'll auto-schedule them around your existing blocks.
+      </div>
+      <button class="btn-small" onclick="navigateTo('intentions')">Go to Intentions →</button>
+    </div>
   </div>
 
   <!-- Page: Distractions -->
@@ -7968,6 +8015,17 @@ function navigateToScheduleSettings() {
     var card = document.getElementById('focus-plan-card');
     if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, 150);
+}
+
+// Spec 3 (May 2026): Day/Week toggle stub on Schedule sidebar page. Week view
+// is "coming soon" per the spec.
+function setScheduleView(view) {
+  var btns = document.querySelectorAll('#schedule-view-toggle .segmented-btn');
+  btns.forEach(function(b) { b.classList.toggle('selected', b.dataset.view === view); });
+  var dayHost = document.getElementById('schedule-day-host');
+  var weekHost = document.getElementById('schedule-week-host');
+  if (dayHost) dayHost.style.display = view === 'day' ? '' : 'none';
+  if (weekHost) weekHost.style.display = view === 'week' ? '' : 'none';
 }
 
 window._profileResult = function(data) {
