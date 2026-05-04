@@ -10649,11 +10649,68 @@ const ProjectsController = (() => {
         <div id="projects-learned-body" style="${state.learnedCollapsed ? 'display:none;' : ''}">${learnedHTML}</div>
       </div>
 
+      ${renderStrictnessSection(p)}
+      ${renderWeeklyTargetSection(p)}
+
       <div style="display:flex; justify-content: flex-end; gap: 10px; margin-top: 32px;">
         <button type="button" class="btn btn-ghost btn-secondary" onclick="ProjectsController.openEdit()">Edit settings</button>
         <button type="button" class="btn btn-danger" onclick="ProjectsController._handleDelete()">Delete project</button>
       </div>
     `;
+  }
+
+  // Spec 3 (May 2026): per-Intention strictness section + 24h cool-down + Strict-step-down partner unlock
+  function renderStrictnessSection(p) {
+    // Pull strictness state from the live intentionsCache (which has real
+    // Intention rows). Falls back gracefully if cache hasn't arrived yet.
+    var live = (typeof intentionsCache !== 'undefined' && intentionsCache.find(function(x){return x.id===p.id;})) || {};
+    var current = live.strictness_preset || 'standard';
+    var pending = live.pending_strictness_change;
+    var sessionActive = appIsRunningSessionFor(p.id);
+
+    var pendingBanner = '';
+    if (pending) {
+      var when = new Date(pending.takes_effect_at);
+      pendingBanner =
+        '<div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:6px;padding:10px;margin-top:10px;font-size:12px;color:rgba(255,255,255,0.85);">' +
+        'Scheduled to soften to <b>' + escapeHTML(pending.to_preset) + '</b> at ' + when.toLocaleString() +
+        ' <a href="#" onclick="cancelPendingStrictness(\'' + p.id + '\'); return false;" style="margin-left:8px;color:var(--accent-primary);text-decoration:underline;">Cancel</a>' +
+        '</div>';
+    }
+
+    var disabledAttr = sessionActive ? 'disabled' : '';
+    var lockedStyle = sessionActive ? 'opacity:0.45;pointer-events:none;' : '';
+    var tooltipAttr = sessionActive ? 'title="Cannot change while session is running"' : '';
+
+    var presets = ['strict', 'standard', 'soft'];
+    var safeName = escapeHTML(p.name || '').replace(/'/g, "\\'");
+    var btns = presets.map(function(preset) {
+      return '<button class="segmented-btn ' + (preset === current ? 'selected' : '') + '" data-preset="' + preset + '" ' + disabledAttr +
+        ' onclick="onChangeStrictness(\'' + p.id + '\', \'' + preset + '\', \'' + safeName + '\', \'' + current + '\')">' +
+        preset.charAt(0).toUpperCase() + preset.slice(1) + '</button>';
+    }).join('');
+
+    return '<div class="settings-card" style="margin-top:16px;">' +
+      '<div class="settings-card-title" style="padding:14px 14px 8px;">Strictness</div>' +
+      '<div style="padding:0 14px 14px;">' +
+      '<div class="segmented strictness-seg" ' + tooltipAttr + ' style="' + lockedStyle + '">' +
+      btns +
+      '</div>' +
+      pendingBanner +
+      '<div style="margin-top:8px;font-size:11px;color:rgba(255,255,255,0.4);line-height:1.5;">' +
+      'Strict: overlay + AI scoring + intervention exercise. Standard: nudge banners. Soft: nudges only, no blocking.' +
+      '</div>' +
+      '</div>' +
+      '</div>';
+  }
+
+  function renderWeeklyTargetSection(p) {
+    return '<div class="settings-card" style="margin-top:16px;opacity:0.55;">' +
+      '<div class="settings-card-title" style="padding:14px 14px 8px;">Weekly target</div>' +
+      '<div style="padding:0 14px 14px;font-size:13px;color:rgba(255,255,255,0.4);" title="Weekly budgets coming in a future update.">' +
+      '+ Add weekly target (coming soon)' +
+      '</div>' +
+      '</div>';
   }
 
   function renderResumeHero(p) {
@@ -11334,8 +11391,107 @@ const ProjectsController = (() => {
     // Dashboard internals (Task #14).
     _pickDuration, _pickCustomDuration, _onCustomDurationInput,
     _startSession, _promote, _toggleLearnedCollapsed,
+    // Spec 3 (May 2026): re-render the current view when intentionsCache updates
+    // so the strictness picker reflects fresh server state.
+    refresh: function() {
+      if (state.view === 'index') renderIndex();
+      else if (state.view === 'dashboard') renderDashboard();
+    },
   };
 })();
+
+// ===== Spec 3 (May 2026): Strictness picker handlers (top-level so onclick refs work) =====
+
+// Tracks the currently active intention session so the strictness picker can grey out (D6).
+window._activeIntentionId = null;
+
+function appIsRunningSessionFor(intentionId) {
+  return window._activeIntentionId === intentionId;
+}
+
+function onChangeStrictness(intentionId, toPreset, intentionName, currentPreset) {
+  var order = { strict: 3, standard: 2, soft: 1 };
+  var fromRank = order[currentPreset] || 2;
+  var toRank = order[toPreset] || 2;
+
+  if (toRank > fromRank) {
+    // Tightening — instant
+    sendStrictnessUpdate(intentionId, toPreset);
+    return;
+  }
+  if (toRank === fromRank) return;
+  // Softening
+  if (currentPreset === 'strict') {
+    // Strict → anything: partner unlock required.
+    sendMessage({
+      type: 'OPEN_INTENTION_STRICTNESS_UNLOCK_SHEET',
+      id: intentionId,
+      to_preset: toPreset,
+      intention_name: intentionName
+    });
+    return;
+  }
+  if (currentPreset === 'standard' && toPreset === 'soft') {
+    // 24h cool-down: D15 warm-tone confirm dialog.
+    if (confirm("Tomorrow you, not right-now you, gets the change.\n\nYou picked Standard because it's where the work happens. The cool-down is the part that protects that decision.\n\nThis change takes effect in 24 hours. You can cancel any time before then.")) {
+      sendStrictnessUpdate(intentionId, toPreset);
+    }
+    return;
+  }
+}
+
+function sendStrictnessUpdate(intentionId, toPreset, partnerCode) {
+  var origCb = window._intentionMutationResult;
+  window._intentionMutationResult = function(res) {
+    window._intentionMutationResult = origCb;
+    if (origCb) { try { origCb(res); } catch (e) {} }
+    if (!res) return;
+    if (res.status === 'updated') {
+      showToast('Strictness updated', 'success');
+      sendMessage({ type: 'GET_INTENTIONS' });
+    } else if (res.status === 'queued_24h') {
+      showToast('Change queued — applies in 24 hours', 'info');
+      sendMessage({ type: 'GET_INTENTIONS' });
+    } else if (res.status === 'requires_partner_unlock') {
+      sendMessage({
+        type: 'OPEN_INTENTION_STRICTNESS_UNLOCK_SHEET',
+        id: intentionId, to_preset: toPreset, intention_name: ''
+      });
+    } else if (res.status === 'session_in_progress') {
+      showToast('Cannot change strictness during an active session', 'error');
+    } else {
+      showToast(res.error || 'Update failed', 'error');
+    }
+  };
+  var msg = { type: 'UPDATE_INTENTION_STRICTNESS', id: intentionId, to_preset: toPreset };
+  if (partnerCode) msg.partner_unlock_code = partnerCode;
+  sendMessage(msg);
+}
+
+function cancelPendingStrictness(intentionId) {
+  if (!confirm("Cancel the queued strictness change?")) return;
+  var origCb = window._intentionMutationResult;
+  window._intentionMutationResult = function(res) {
+    window._intentionMutationResult = origCb;
+    if (origCb) { try { origCb(res); } catch (e) {} }
+    if (res && res.status === 'pending_cancelled') {
+      showToast('Pending change cancelled', 'success');
+      sendMessage({ type: 'GET_INTENTIONS' });
+    } else {
+      showToast('Cancel failed', 'error');
+    }
+  };
+  sendMessage({ type: 'CANCEL_PENDING_STRICTNESS_CHANGE', id: intentionId });
+}
+
+window._navigateToIntentionEditor = function(intentionId) {
+  navigateTo('intentions');
+  setTimeout(function() {
+    if (typeof ProjectsController !== 'undefined' && ProjectsController.openDashboard) {
+      ProjectsController.openDashboard(intentionId);
+    }
+  }, 50);
+};
 </script>
 
 <!-- App Picker Modal (reused by Distractions + Projects) — top-level so it
