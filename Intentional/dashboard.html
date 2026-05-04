@@ -9236,15 +9236,13 @@ function openBlockEditor(blockId, event) {
     '<input type="time" class="block-editor-input block-editor-time-input" id="editor-end" value="' + padFocusTime(block.endHour, block.endMinute) + '">' +
     '</div></div>' +
     '<div class="block-editor-row">' +
-    '<label style="color:rgba(255,255,255,0.5);font-size:12px;margin-bottom:4px;">Block Type</label>' +
-    '<div class="block-type-selector" id="editor-block-type">' +
-    '<button class="block-type-btn' + (editorBlockType !== 'freeTime' ? ' selected' : '') + '" data-type="focusHours" onclick="selectBlockType(this)" style="background:rgba(var(--accent-primary-rgb),0.1);color:var(--accent-primary);border-color:rgba(var(--accent-primary-rgb),0.3);">Focus</button>' +
-    '<button class="block-type-btn' + (editorBlockType === 'freeTime' ? ' selected type-free' : '') + '" data-type="freeTime" onclick="selectBlockType(this)">Free Time</button>' +
+    '<label>Intention</label>' +
+    '<select id="editor-intention-picker" class="block-editor-input" onchange="onEditorIntentionChange(this)"></select>' +
+    '<div id="editor-intention-strictness-caption" style="margin-top:4px;font-size:11px;color:rgba(255,255,255,0.5);"></div>' +
     '</div>' +
-    '</div>' +
-    '<div class="block-editor-row" id="editor-profiles-row" style="' + (editorBlockType === 'freeTime' ? 'display:none;' : '') + '">' +
-    '<label style="color:rgba(255,255,255,0.5);font-size:12px;margin-bottom:4px;">Blocking Profiles</label>' +
-    '<div id="editor-profile-chips" class="chip-list" style="gap:6px;"></div>' +
+    '<div class="block-editor-row">' +
+    '<label>Active days</label>' +
+    '<div id="editor-active-days" class="active-days-row" style="display:flex;gap:6px;"></div>' +
     '</div>' +
     '<div class="block-editor-row" id="editor-coach-row" style="display:none;">' +
     '<input type="checkbox" id="editor-ignore-profile"' + (block.ignoreProfile ? ' checked' : '') + '>' +
@@ -9256,20 +9254,47 @@ function openBlockEditor(blockId, event) {
 
   document.body.appendChild(editor);
 
-  // Populate profile chips in block editor
-  var chipContainer = document.getElementById('editor-profile-chips');
-  if (chipContainer && blockingProfiles.length > 0) {
-    // Track selected profiles for this block
-    if (!window._editorSelectedProfiles) window._editorSelectedProfiles = new Set();
-    window._editorSelectedProfiles.clear();
-    // Restore saved profileIds if block has them, otherwise default profile
-    if (block.profileIds && block.profileIds.length > 0) {
-      block.profileIds.forEach(function(pid) { window._editorSelectedProfiles.add(pid); });
-    } else if (editorBlockType !== 'freeTime') {
-      var defProfile = blockingProfiles.find(function(p) { return p.isDefault; });
-      if (defProfile) window._editorSelectedProfiles.add(defProfile.id);
-    }
-    renderEditorProfileChips();
+  // Spec 3 (May 2026): populate Intention picker
+  var intentionSel = document.getElementById('editor-intention-picker');
+  if (intentionSel) populateIntentionPicker(intentionSel, block);
+
+  // Spec 3 (May 2026): populate active-days pills (default [1..5] for new blocks)
+  var daysContainer = document.getElementById('editor-active-days');
+  if (daysContainer) {
+    var current = block.activeDays || [1, 2, 3, 4, 5];
+    block.activeDays = current.slice();
+    var labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    daysContainer.innerHTML = '';
+    labels.forEach(function(lbl, i) {
+      var iso = i + 1;
+      var pill = document.createElement('button');
+      pill.className = 'day-pill' + (block.activeDays.indexOf(iso) >= 0 ? ' selected' : '');
+      pill.textContent = lbl;
+      pill.style.cssText = 'flex:1;padding:6px 0;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:rgba(255,255,255,0.6);cursor:pointer;font-size:12px;';
+      if (block.activeDays.indexOf(iso) >= 0) {
+        pill.style.background = 'rgba(var(--accent-primary-rgb),0.15)';
+        pill.style.borderColor = 'rgba(var(--accent-primary-rgb),0.4)';
+        pill.style.color = 'var(--accent-primary)';
+      }
+      pill.addEventListener('click', function() {
+        var idx = block.activeDays.indexOf(iso);
+        if (idx >= 0) block.activeDays.splice(idx, 1);
+        else { block.activeDays.push(iso); block.activeDays.sort(function(a,b){return a-b;}); }
+        var on = block.activeDays.indexOf(iso) >= 0;
+        pill.classList.toggle('selected', on);
+        if (on) {
+          pill.style.background = 'rgba(var(--accent-primary-rgb),0.15)';
+          pill.style.borderColor = 'rgba(var(--accent-primary-rgb),0.4)';
+          pill.style.color = 'var(--accent-primary)';
+        } else {
+          pill.style.background = 'transparent';
+          pill.style.borderColor = 'rgba(255,255,255,0.1)';
+          pill.style.color = 'rgba(255,255,255,0.6)';
+        }
+        markFocusDirty();
+      });
+      daysContainer.appendChild(pill);
+    });
   }
 
   // Disable inputs for past/active blocks
@@ -9278,11 +9303,9 @@ function openBlockEditor(blockId, event) {
   if (past) {
     document.getElementById('editor-start').disabled = true;
     document.getElementById('editor-end').disabled = true;
-    document.querySelectorAll('#editor-block-type .block-type-btn').forEach(function(b) { b.disabled = true; b.style.pointerEvents = 'none'; });
     // Delete still allowed for past blocks (helps with testing)
   } else if (active) {
     document.getElementById('editor-start').disabled = true;
-    document.querySelectorAll('#editor-block-type .block-type-btn').forEach(function(b) { b.disabled = true; b.style.pointerEvents = 'none'; });
     var delBtn = editor.querySelector('.block-editor-delete');
     if (delBtn) delBtn.style.display = 'none';
   }
@@ -9436,17 +9459,10 @@ function saveBlockEdit() {
     block.endMinute = newEndMinute;
   }
 
-  // Read block type from segmented control
-  var selectedBtn = document.querySelector('#editor-block-type .block-type-btn.selected');
-  if (selectedBtn && !selectedBtn.disabled) {
-    block.blockType = selectedBtn.dataset.type;
-    block.isFree = block.blockType === 'freeTime';
-  }
-
-  // Save selected blocking profile IDs
-  if (window._editorSelectedProfiles) {
-    block.profileIds = Array.from(window._editorSelectedProfiles);
-  }
+  // Spec 3 (May 2026): block.intentionId + block.activeDays are already
+  // mutated by onEditorIntentionChange / day-pill click handlers. Default
+  // blockType for any code that still reads it.
+  if (!block.blockType) block.blockType = 'focusHours';
 
   // Save ignoreProfile flag (per-block AI prompt override)
   var ignoreEl = document.getElementById('editor-ignore-profile');
@@ -9457,44 +9473,8 @@ function saveBlockEdit() {
   renderCalendarBlocks();
 }
 
-function selectBlockType(btn) {
-  var container = btn.closest('.block-type-selector');
-  container.querySelectorAll('.block-type-btn').forEach(function(b) {
-    b.classList.remove('selected', 'type-free', 'type-deep');
-  });
-  btn.classList.add('selected');
-  if (btn.dataset.type === 'freeTime') btn.classList.add('type-free');
-  // Show/hide profile chips based on block type
-  var profilesRow = document.getElementById('editor-profiles-row');
-  if (profilesRow) {
-    profilesRow.style.display = btn.dataset.type === 'freeTime' ? 'none' : '';
-  }
-  // Coach preview row is permanently hidden (UI removed) — checkbox stays in DOM for
-  // ignoreProfile persistence only.
-}
-
-function renderEditorProfileChips() {
-  var container = document.getElementById('editor-profile-chips');
-  if (!container) return;
-  container.innerHTML = '';
-  blockingProfiles.forEach(function(profile) {
-    var isSelected = window._editorSelectedProfiles && window._editorSelectedProfiles.has(profile.id);
-    var chip = document.createElement('span');
-    chip.className = 'dist-chip' + (isSelected ? '' : '');
-    chip.style.cssText = 'cursor:pointer;padding:6px 12px;font-size:12px;' +
-      (isSelected ? 'background:rgba(var(--accent-primary-rgb),0.12);border-color:rgba(var(--accent-primary-rgb),0.3);color:var(--accent-primary);' : '');
-    chip.innerHTML = (isSelected ? '<span style="margin-right:4px;">✓</span>' : '') + escapeHtml(profile.name);
-    chip.addEventListener('click', function() {
-      if (window._editorSelectedProfiles.has(profile.id)) {
-        window._editorSelectedProfiles.delete(profile.id);
-      } else {
-        window._editorSelectedProfiles.add(profile.id);
-      }
-      renderEditorProfileChips();
-    });
-    container.appendChild(chip);
-  });
-}
+// Spec 3 (May 2026): selectBlockType + renderEditorProfileChips removed —
+// block type segmented control + profile chips replaced by Intention picker.
 
 function deleteFocusBlock(blockId) {
   var block = focusState.blocks.find(function(b) { return b.id === blockId; });
