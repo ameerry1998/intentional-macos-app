@@ -1652,9 +1652,10 @@ class BackendClient {
         }
     }
 
-    /// GET /intentions/{id}/pending_strictness_change → returns nil if none pending.
+    /// GET /intentions/{id}/strictness/pending → returns nil if none pending.
+    /// Backend route confirmed in main.py (Plan A backend executor).
     func getPendingStrictnessChange(id: UUID) async -> PendingStrictnessChange? {
-        guard let url = URL(string: "\(baseURL)/intentions/\(id.uuidString)/pending_strictness_change") else { return nil }
+        guard let url = URL(string: "\(baseURL)/intentions/\(id.uuidString)/strictness/pending") else { return nil }
         var req = URLRequest(url: url)
         req.httpMethod = "GET"
         req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
@@ -1667,12 +1668,13 @@ class BackendClient {
         }
     }
 
-    /// DELETE /intentions/{id}/pending_strictness_change — cancel a queued softening.
+    /// POST /intentions/{id}/strictness/cancel — cancel a queued softening.
+    /// Backend route confirmed in main.py (Plan A backend executor). 204 on success, idempotent.
     @discardableResult
     func cancelPendingStrictnessChange(id: UUID) async -> Bool {
-        guard let url = URL(string: "\(baseURL)/intentions/\(id.uuidString)/pending_strictness_change") else { return false }
+        guard let url = URL(string: "\(baseURL)/intentions/\(id.uuidString)/strictness/cancel") else { return false }
         var req = URLRequest(url: url)
-        req.httpMethod = "DELETE"
+        req.httpMethod = "POST"
         req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
         do {
             let (_, response) = try await URLSession.shared.data(for: req)
@@ -1680,7 +1682,21 @@ class BackendClient {
         } catch { return false }
     }
 
-    // MARK: - Intention Strictness Partner Unlock (mirrors bedtime_unlock)
+    // MARK: - Intention Strictness Partner Unlock (NOT YET IMPLEMENTED ON BACKEND)
+    //
+    // KNOWN LIMITATION (overnight 2026-05-04): These endpoints are CALLED by the
+    // Mac UI flow for Strict-step-down softening, but the backend (Plan A) explicitly
+    // deferred the partner-unlock endpoints to a follow-up sprint. Until added:
+    //   • requestIntentionStrictnessUnlock will throw (HTTP 404)
+    //   • The Mac dialog will show an error toast
+    //   • Strict-step-down is BLOCKED end-to-end (which is actually safer than
+    //     auto-softening; users can use "Cancel" and stay Strict)
+    //
+    // To unblock: backend needs (see overnight log + plan A "What this plan does NOT do"):
+    //   • Table: intention_strictness_unlock_requests (mirrors bedtime_unlock_requests)
+    //   • POST /intention_strictness_unlock_requests — create + email partner code
+    //   • POST /intention_strictness_unlock_requests/{id}/verify — verify code,
+    //     stamp partner_unlocked_at on the matching pending row, scheduler then applies
 
     struct IntentionStrictnessUnlockRequestResult {
         let requestId: String
@@ -1709,7 +1725,7 @@ class BackendClient {
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (data, response) = try await URLSession.shared.data(for: req)
         let code = (response as? HTTPURLResponse)?.statusCode ?? -1
-        guard code == 200 else { throw StrictnessUpdateError.network("HTTP \(code)") }
+        guard code == 200 else { throw StrictnessUpdateError.network("HTTP \(code) — partner-unlock endpoint not deployed yet") }
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let rid = json["request_id"] as? String,
               let to = json["sent_to"] as? String else {
@@ -1720,6 +1736,7 @@ class BackendClient {
 
     /// Verify the 6-digit code the partner emailed; on success the server flips strictness AND
     /// returns the updated Intention.
+    /// NOT YET IMPLEMENTED ON BACKEND — see comment above.
     func verifyIntentionStrictnessUnlock(
         requestId: String,
         code: String
@@ -1734,7 +1751,7 @@ class BackendClient {
         req.httpBody = try JSONSerialization.data(withJSONObject: ["code": code])
         let (data, response) = try await URLSession.shared.data(for: req)
         let httpCode = (response as? HTTPURLResponse)?.statusCode ?? -1
-        guard httpCode == 200 else { throw StrictnessUpdateError.network("HTTP \(httpCode)") }
+        guard httpCode == 200 else { throw StrictnessUpdateError.network("HTTP \(httpCode) — partner-unlock endpoint not deployed yet") }
         return try intentionsJSONDecoder().decode(Intention.self, from: data)
     }
 
