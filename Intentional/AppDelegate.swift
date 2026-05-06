@@ -82,6 +82,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // feature locks). Backend is canonical; local cache is best-effort.
     private(set) var entitlementClient: EntitlementClient!
 
+    // Bridges entitlement state changes to the dashboard's lapsed-subscriber
+    // banner via window._entitlementState. Wired after mainWindowController exists.
+    private var lapsedBanner: LapsedSubscriberBanner?
+
     // Transient: which project's session is currently active (replaces
     // FocusBlock.projectId; cleared on block end in onBlockChanged).
     private(set) var activeProjectSession: (projectId: UUID, blockId: String)?
@@ -452,6 +456,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Create main window (WKWebView-based: shows onboarding or dashboard)
         mainWindowController = MainWindow(appDelegate: self)
         postLog("🪟 Main window created")
+
+        // Wire entitlement state to dashboard banner (T12).
+        // Must be after mainWindowController exists so the bridge has somewhere
+        // to send JS calls.
+        if let mw = mainWindowController {
+            lapsedBanner = LapsedSubscriberBanner(mainWindow: mw, entitlementClient: entitlementClient)
+            postLog("✅ LapsedSubscriberBanner wired")
+        }
 
         // Bring window to front
         postLog("🚨 ACTIVATE: AppDelegate.applicationDidFinishLaunching — initial launch")
