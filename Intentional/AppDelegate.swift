@@ -76,6 +76,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Spec 1: cross-device account-scoped focus presets (replaces local-only Project)
     var intentionStore: IntentionStore?
 
+    // Slice 1 (Subscription Entitlements): polls /me/entitlements on launch +
+    // foreground + every 60s. Caches to entitlement_cache.json for offline
+    // resilience. Drives subscription gating across the app (lapsed banner,
+    // feature locks). Backend is canonical; local cache is best-effort.
+    private(set) var entitlementClient: EntitlementClient!
+
     // Transient: which project's session is currently active (replaces
     // FocusBlock.projectId; cleared on block end in onBlockChanged).
     private(set) var activeProjectSession: (projectId: UUID, blockId: String)?
@@ -435,6 +441,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Initialize backend client
         backendClient = BackendClient(baseURL: "https://api.intentional.social")
         postLog("🔗 Backend URL: https://api.intentional.social")
+
+        // Init step 1.5: EntitlementClient (drives subscription gating across the app).
+        // Polls /me/entitlements on launch + foreground + every 60s. Cache survives
+        // offline / launch-before-network-ready.
+        entitlementClient = EntitlementClient(backendClient: backendClient!)
+        entitlementClient.start()
+        postLog("✅ EntitlementClient started")
 
         // Create main window (WKWebView-based: shows onboarding or dashboard)
         mainWindowController = MainWindow(appDelegate: self)
