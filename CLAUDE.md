@@ -39,6 +39,27 @@ Keep updates minimal and precise — just add/modify the relevant sections. Do n
 
 ---
 
+## Don't stop. Keep going. (MANDATORY)
+
+When the user is in execution mode (asked you to ship N slices, or "keep going," or any equivalent), **do not stop to check in.** Per `superpowers:subagent-driven-development`: "Continuous execution: Do not pause to check in with your human partner between tasks. Execute all tasks from the plan without stopping."
+
+Specifically:
+- Do NOT say "should I continue?" or "want me to keep going?" between slices
+- Do NOT ship a "status update" and then wait for permission
+- Do NOT recommend stopping just because the work is hard or the context is large
+- Do NOT estimate work in "days" or "weeks" if the user has explicitly said "today" — push as far as actually-possible-today and only stop when genuinely blocked
+- Do NOT claim a task will produce "mediocre quality" as a reason to stop — ship it, the user will tell you if quality is bad
+
+The ONLY valid reasons to stop:
+1. BLOCKED — you literally cannot proceed without info from the user
+2. Ambiguity in the spec that genuinely prevents progress on the current task
+3. All tasks in the explicit plan are complete
+4. The user explicitly said stop in the most recent message
+
+Status updates are FINE if they're terse. Asking permission is NOT FINE. The user trusts you to ship. Ship.
+
+---
+
 ## Plain-English TL;DR at end of every response (MANDATORY)
 
 The user is non-technical-leaning and skims. Long technical responses lose them. **At the end of EVERY response — no matter how short or long — append a TL;DR section in plain English.**
