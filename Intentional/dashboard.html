@@ -4386,25 +4386,20 @@ body.theme-effects-warm::after {
   <div class="sidebar-header">
     <span class="sidebar-title" style="background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Intentional</span>
   </div>
+  <!-- Slice 10 of 2026-05-05 redesign: collapsed 8 sidebar items to 4.
+       Folded into Settings: distractions, sensitive content, accountability.
+       Folded into Week: weekly planning.
+       Old pages (page-distractions, page-sensitive, page-weekly, page-lock)
+       remain in DOM, accessible only via direct URL. Slice 13 cleanup will
+       remove them once the new Settings sub-sections are wired. -->
   <div class="sidebar-item active" data-page="today" onclick="navigateTo('today')">
     <span class="sidebar-item-icon">◉</span> Today
   </div>
+  <div class="sidebar-item" data-page="weekly" onclick="navigateTo('weekly')">
+    <span class="sidebar-item-icon">◐</span> Week
+  </div>
   <div class="sidebar-item" data-page="intentions" onclick="navigateTo('intentions')">
     <span class="sidebar-item-icon">◎</span> Focus Modes
-  </div>
-  <!-- Schedule item removed: redundant with Today view which already surfaces the calendar.
-       page-schedule div retained below as orphan in case a deep link still routes there. -->
-  <div class="sidebar-item" data-page="distractions" onclick="navigateTo('distractions')">
-    <span class="sidebar-item-icon">⊘</span> Distractions
-  </div>
-  <div class="sidebar-item" data-page="sensitive" onclick="navigateTo('sensitive')">
-    <span class="sidebar-item-icon">◔</span> Sensitive Content
-  </div>
-  <div class="sidebar-item" data-page="weekly" onclick="navigateTo('weekly')">
-    <span class="sidebar-item-icon">◐</span> Weekly Planning
-  </div>
-  <div class="sidebar-item" data-page="lock" onclick="navigateTo('lock')">
-    <span class="sidebar-item-icon">◫</span> Accountability
   </div>
   <div class="sidebar-item" data-page="settings" onclick="navigateTo('settings')">
     <span class="sidebar-item-icon">⚙</span> Settings
