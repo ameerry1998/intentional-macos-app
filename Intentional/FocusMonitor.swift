@@ -1229,7 +1229,7 @@ class FocusMonitor {
         let semaphore = DispatchSemaphore(value: 0)
         Task {
             if let intention = await IntentionStore.shared.intention(id: uuid) {
-                preset = intention.strictnessPreset
+                preset = intention.strictnessPreset.rawValue
             }
             semaphore.signal()
         }
