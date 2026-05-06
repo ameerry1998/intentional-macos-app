@@ -185,3 +185,12 @@ struct IntentionUpdatePayload: Codable, Equatable {
 struct IntentionListResponse: Codable {
     let intentions: [Intention]
 }
+
+// MARK: - Focus Mode aliases (Slice 2 of 2026-05-05 redesign)
+// User-facing concept renamed Intention → Focus Mode. Internal Swift names
+// retain Intention for now to minimize churn; aliases let new code use
+// FocusMode terminology. Slice 13 will rename throughout and remove aliases.
+typealias FocusMode = Intention
+typealias FocusModeCreatePayload = IntentionCreatePayload
+typealias FocusModeUpdatePayload = IntentionUpdatePayload
+typealias FocusModeListResponse = IntentionListResponse
