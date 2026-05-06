@@ -1186,13 +1186,25 @@ class FocusMonitor {
     }
 
     /// Handle End Block button tapped on the floating pill.
+    /// Slice 9 of 2026-05-05 redesign: gate by Focus Mode strictness preset.
+    /// - Strict: refuse to end early (log + ignore)
+    /// - Standard: present 10s confirmation (TODO — for now: allow with log warning)
+    /// - Soft: allow immediately
     @objc private func handlePillEndBlock() {
+        // Look up active Focus Mode strictness, if any
+        let strictness = currentBlockStrictness()
+        if strictness == "strict" {
+            appDelegate?.postLog("🚫 End Block ignored — Focus Mode is Strict")
+            return
+        }
+        if strictness == "standard" {
+            // TODO(slice 9 followup): show 10s confirmation dialog before proceeding.
+            appDelegate?.postLog("⚠️ End Block on Standard mode — friction confirmation TBD; allowing for now")
+        }
         appDelegate?.postLog("👁️ End Block tapped on pill — triggering early block end")
-        // Move pill to blockComplete mode so onBlockChanged sees it
         if let vm = deepWorkTimerController?.viewModel, vm.mode == .timer {
             vm.mode = .blockComplete
         }
-        // End the current block early by advancing its end time to now
         if let block = scheduleManager?.currentBlock {
             let now = Date()
             let cal = Calendar.current
@@ -1201,6 +1213,28 @@ class FocusMonitor {
             updated.endMinute = cal.component(.minute, from: now)
             scheduleManager?.updateBlock(updated)
         }
+    }
+
+    /// Returns the strictness preset string ("strict" | "standard" | "soft")
+    /// of the active Focus Mode, or "standard" as fallback when none is set.
+    private func currentBlockStrictness() -> String {
+        // Spec 1 + slice 2: each block has an intention (Focus Mode) id.
+        // Look it up via IntentionStore (renamed-via-alias FocusModeStore in slice 2).
+        guard let uuid = scheduleManager?.currentBlock?.intentionId else {
+            return "standard"
+        }
+        // IntentionStore is an actor; we sync-fetch here via a quick blocking call.
+        // For now use a best-effort cached lookup pattern that's already common in the codebase.
+        var preset = "standard"
+        let semaphore = DispatchSemaphore(value: 0)
+        Task {
+            if let intention = await IntentionStore.shared.intention(id: uuid) {
+                preset = intention.strictnessPreset
+            }
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 0.05)  // 50ms cap; default to standard if slow
+        return preset
     }
 
     @objc private func handlePillMinimize() {
