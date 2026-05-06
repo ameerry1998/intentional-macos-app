@@ -1859,6 +1859,61 @@ class BackendClient {
             return nil
         }
     }
+
+    // MARK: - Entitlements (Slice 1)
+
+    /// Wire-format entitlement (no cachedAt; we stamp client-side after decode).
+    private struct BackendEntitlement: Codable {
+        let tier: Entitlement.Tier
+        let plan: Entitlement.Plan?
+        let trialEndsAt: Date?
+        let currentPeriodEndsAt: Date?
+        let shipPuck: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case tier
+            case plan
+            case trialEndsAt = "trial_ends_at"
+            case currentPeriodEndsAt = "current_period_ends_at"
+            case shipPuck = "ship_puck"
+        }
+    }
+
+    /// Fetches the current user's subscription entitlement state.
+    ///
+    /// Auth: prefers X-Device-ID (matches /focus/active polling pattern).
+    /// Falls back to Bearer JWT if a token is cached.
+    ///
+    /// - Returns: Entitlement on success; nil on network failure / 401 / parse error.
+    func getEntitlements() async -> Entitlement? {
+        guard let url = URL(string: "\(baseURL)/me/entitlements") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        if let token = await loadJWT() {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                return nil
+            }
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let wire = try decoder.decode(BackendEntitlement.self, from: data)
+            return Entitlement(
+                tier: wire.tier,
+                plan: wire.plan,
+                trialEndsAt: wire.trialEndsAt,
+                currentPeriodEndsAt: wire.currentPeriodEndsAt,
+                shipPuck: wire.shipPuck,
+                cachedAt: Date()
+            )
+        } catch {
+            print("getEntitlements error: \(error)")
+            return nil
+        }
+    }
 }
 
 // MARK: - TLS Certificate Pinning
