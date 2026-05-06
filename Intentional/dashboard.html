@@ -4375,6 +4375,12 @@ body.theme-effects-warm::after {
 </head>
 <body>
 
+<!-- Lapsed subscription banner — toggled by window._entitlementState (Swift bridge) -->
+<div id="lapsed-banner" style="display:none;position:relative;background:#dc2626;color:white;padding:12px 16px;text-align:center;font-weight:500;font-size:14px;z-index:100;">
+  Your subscription has lapsed.
+  <a href="https://intentional.social/account" target="_blank" style="color:white;text-decoration:underline;margin-left:8px;">Renew now →</a>
+</div>
+
 <!-- Sidebar -->
 <div class="sidebar">
   <div class="sidebar-header">
@@ -7502,6 +7508,17 @@ window._lockSettingsResult = function(data) {
     showToast('Partner invitation sent! Waiting for acceptance.', 'warning');
   } else {
     showToast(data.message || 'Failed to set lock mode', 'error');
+  }
+};
+
+// Entitlement state (from Swift LapsedSubscriberBanner bridge)
+window._entitlementState = function(state) {
+  const banner = document.getElementById('lapsed-banner');
+  if (!banner) return;
+  if (state && state.is_hard_lapsed) {
+    banner.style.display = 'block';
+  } else {
+    banner.style.display = 'none';
   }
 };
 
