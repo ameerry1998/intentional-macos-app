@@ -1914,6 +1914,102 @@ class BackendClient {
             return nil
         }
     }
+
+    // MARK: - Distraction Budget (Slice 3 of 2026-05-05 redesign)
+
+    struct DistractionBudgetState: Codable, Equatable {
+        let day: String
+        let baselineMinutes: Int
+        let earnedMinutes: Double
+        let consumedMinutes: Double
+        let availableMinutes: Double
+        let isLocked: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case day
+            case baselineMinutes = "baseline_minutes"
+            case earnedMinutes = "earned_minutes"
+            case consumedMinutes = "consumed_minutes"
+            case availableMinutes = "available_minutes"
+            case isLocked = "is_locked"
+        }
+
+        var isEmpty: Bool { availableMinutes <= 0 }
+    }
+
+    func getBudgetState() async -> BackendClient.DistractionBudgetState? {
+        guard let url = URL(string: "\(baseURL)/budget_state") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        if let token = await loadJWT() {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            return try JSONDecoder().decode(BackendClient.DistractionBudgetState.self, from: data)
+        } catch {
+            print("getBudgetState error: \(error)")
+            return nil
+        }
+    }
+
+    func postBudgetConsume(minutes: Double) async -> BackendClient.DistractionBudgetState? {
+        return await postBudgetMutation(path: "/budget_state/consume", minutes: minutes)
+    }
+
+    func postBudgetEarn(minutes: Double) async -> BackendClient.DistractionBudgetState? {
+        return await postBudgetMutation(path: "/budget_state/earn", minutes: minutes)
+    }
+
+    private func postBudgetMutation(path: String, minutes: Double) async -> BackendClient.DistractionBudgetState? {
+        guard let url = URL(string: "\(baseURL)\(path)") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        if let token = await loadJWT() {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        let body: [String: Any] = ["minutes": minutes]
+        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            return try JSONDecoder().decode(BackendClient.DistractionBudgetState.self, from: data)
+        } catch {
+            print("postBudget\(path) error: \(error)")
+            return nil
+        }
+    }
+
+    func putBudgetConfig(baselineMinutes: Int, isLocked: Bool, partnerCode: String? = nil) async -> Bool {
+        guard let url = URL(string: "\(baseURL)/budget_config") else { return false }
+        var req = URLRequest(url: url)
+        req.httpMethod = "PUT"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        if let token = await loadJWT() {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        var body: [String: Any] = [
+            "baseline_minutes": baselineMinutes,
+            "is_locked": isLocked,
+        ]
+        if let code = partnerCode {
+            body["partner_code"] = code
+        }
+        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        do {
+            let (_, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse else { return false }
+            return http.statusCode == 200
+        } catch {
+            print("putBudgetConfig error: \(error)")
+            return false
+        }
+    }
 }
 
 // MARK: - TLS Certificate Pinning
