@@ -11188,7 +11188,7 @@ const ProjectsController = (() => {
       syncFormStateFromDOM(root);
     }
 
-    const title = state.isNew ? 'New project' : 'Edit project';
+    const title = state.isNew ? 'New Focus Mode' : 'Edit Focus Mode';
     const backLabel = state.isNew ? 'Cancel' : 'Back';
 
     const intentionLen = (formState.intention || '').length;
@@ -11207,8 +11207,35 @@ const ProjectsController = (() => {
     const searchEnginesToggleHTML = renderSearchEnginesToggle();
 
     const deleteButton = (!state.isNew && state.selected && state.selected.id)
-      ? `<button type="button" class="btn btn-danger" onclick="ProjectsController._handleDelete()" style="margin-left:auto;">Delete project</button>`
+      ? `<button type="button" class="btn btn-danger" onclick="ProjectsController._handleDelete()" style="margin-left:auto;">Delete Focus Mode</button>`
       : '';
+
+    // Slice 9 followup of 2026-05-05 redesign: Strictness preset dropdown.
+    const currentStrictness = formState.strictness_preset || 'standard';
+    const strictnessHTML = `
+      <div class="projects-setup-field">
+        <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);margin-bottom:8px;">Strictness</div>
+        <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px;">Strict = no override allowed. Standard = override with friction. Soft = override instantly.</div>
+        <select id="project-setup-strictness" onchange="ProjectsController._onStrictnessInput(this.value)" style="width:100%;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border-default);border-radius:8px;color:var(--text-primary);font-size:14px;font-family:inherit;box-sizing:border-box;">
+          <option value="strict"${currentStrictness === 'strict' ? ' selected' : ''}>Strict — no overrides during the block</option>
+          <option value="standard"${currentStrictness === 'standard' ? ' selected' : ''}>Standard — override with confirmation</option>
+          <option value="soft"${currentStrictness === 'soft' ? ' selected' : ''}>Soft — override anytime</option>
+        </select>
+      </div>
+    `;
+
+    // Slice 6 followup: Weekly target hours field.
+    const currentWeekly = (formState.weekly_budget_hours != null) ? formState.weekly_budget_hours : '';
+    const weeklyHTML = `
+      <div class="projects-setup-field">
+        <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);margin-bottom:8px;">Weekly target (hours)</div>
+        <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px;">How many hours per week you want to spend in this Focus Mode. Used by Focus Lock auto-fill.</div>
+        <input id="project-setup-weekly" type="number" min="0" max="168" step="0.5" placeholder="e.g. 20"
+          value="${currentWeekly}"
+          style="width:160px;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border-default);border-radius:8px;color:var(--text-primary);font-size:14px;font-family:inherit;box-sizing:border-box;"
+          oninput="ProjectsController._onWeeklyInput(this.value)" />
+      </div>
+    `;
 
     root.innerHTML = `
       <div class="projects-back-link" onclick="ProjectsController.goBack()">← ${backLabel}</div>
@@ -11233,9 +11260,17 @@ const ProjectsController = (() => {
         <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);margin-top:6px;">Shown to the AI when scoring relevance.</div>
       </div>
 
+      ${strictnessHTML}
+      ${weeklyHTML}
+
+      <!-- Slice 2/13 cleanup: BlockingProfile concept deprecated. The pulldown
+           below is legacy from BlockingProfileManager; will be removed once
+           the global Distractions list editor (slice 5 followup) ships in
+           Settings. Per-Focus-Mode block/allow rules already live in the
+           Blocked Hosts / Allowed Hosts sections below. -->
       <div class="projects-setup-field">
-        <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);margin-bottom:8px;">Blocklists</div>
-        <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px;">Which blocking profiles apply during this project's sessions. Tap to toggle.</div>
+        <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);margin-bottom:8px;">Blocklists <span style="color:var(--text-tertiary);font-weight:400;text-transform:none;letter-spacing:0;">(legacy — use Blocked / Allowed Hosts below)</span></div>
+        <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px;">Will be replaced by global Distractions list. For now, leave default.</div>
         ${blocklistChipsHTML}
       </div>
 
@@ -11290,9 +11325,23 @@ const ProjectsController = (() => {
       blocked: seedList(src && src.blocked),
       blocklistIds: (src && Array.isArray(src.blocklistIds)) ? src.blocklistIds.slice() : [],
       allowSearchEngines: src ? !!src.allowSearchEngines : true,
+      // Slice 9 + 6 follow-ups: strictness preset + weekly target hours.
+      strictness_preset: src ? (src.strictness_preset || 'standard') : 'standard',
+      weekly_budget_hours: src ? (src.weekly_budget_hours != null ? src.weekly_budget_hours : null) : null,
       allowedDraft: '',
       blockedDraft: '',
     };
+  }
+
+  function _onStrictnessInput(value) {
+    if (!formState) return;
+    formState.strictness_preset = value;
+  }
+
+  function _onWeeklyInput(value) {
+    if (!formState) return;
+    var n = parseFloat(value);
+    formState.weekly_budget_hours = isNaN(n) ? null : n;
   }
 
   function nextLocalKey() {
@@ -11576,6 +11625,10 @@ const ProjectsController = (() => {
         blocked: blocked,
         blocklistIds: (formState.blocklistIds || []).slice(),
         allowSearchEngines: !!formState.allowSearchEngines,
+        // Slice 9 + 6 follow-ups: pass new fields. Mac side may ignore them
+        // until the bridge handler is updated; safe to send.
+        strictness_preset: formState.strictness_preset || 'standard',
+        weekly_budget_hours: formState.weekly_budget_hours,
       });
     } else if (state.selected && state.selected.id) {
       savePending = 'update';
@@ -11589,6 +11642,8 @@ const ProjectsController = (() => {
           blocked: blocked,
           blocklistIds: (formState.blocklistIds || []).slice(),
           allowSearchEngines: !!formState.allowSearchEngines,
+          strictness_preset: formState.strictness_preset || 'standard',
+          weekly_budget_hours: formState.weekly_budget_hours,
         }
       });
     }
@@ -11618,6 +11673,7 @@ const ProjectsController = (() => {
     // Setup form internals (exposed so inline onclick/oninput handlers work).
     _onNameInput, _onIntentionInput,
     _onAllowedDraftInput, _onBlockedDraftInput,
+    _onStrictnessInput, _onWeeklyInput,
     _toggleBlocklist, _toggleSearchEngines,
     _commitAllowed, _removeAllowed, _addAllowedApp,
     _commitBlocked, _removeBlocked, _addBlockedApp,
