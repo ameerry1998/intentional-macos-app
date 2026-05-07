@@ -11832,6 +11832,11 @@ const ProjectsController = (() => {
   function _onStrictnessInput(value) {
     if (!formState) return;
     formState.strictness_preset = value;
+    // Slice 10 followup of 2026-05-05 redesign: re-render the segmented
+    // control so the visual selection follows the click. Without this the
+    // user clicks "Strict" but the highlight stays on "Standard".
+    syncFormStateFromDOM(document.getElementById('projects-view-setup'));
+    renderSetup();
   }
 
   function _onWeeklyInput(value) {
