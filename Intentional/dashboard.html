@@ -7997,7 +7997,9 @@ function onEditorIntentionChange(sel) {
             }
             renderEditorStrictnessCaption(newId);
           }, 200);
-          markFocusDirty();
+          // Slice 10 followup: don't fire markFocusDirty for draft blocks
+          // (user hasn't clicked Done). Saved when they confirm via Done.
+          if (!focusState.draftBlockId) markFocusDirty();
         }
       });
     }
@@ -8005,7 +8007,12 @@ function onEditorIntentionChange(sel) {
   }
   block.intentionId = sel.value || null;
   renderEditorStrictnessCaption(block.intentionId);
-  markFocusDirty();
+  // Slice 10 followup of 2026-05-05 redesign: do NOT autosave when the block
+  // is still a draft (user hasn't clicked Done yet). Otherwise picking a Focus
+  // Mode from the dropdown fires SET_SCHEDULE → ScheduleManager activates the
+  // block → enforcement engages BEFORE the user has confirmed the block.
+  // saveBlockEdit() will markFocusDirty when the user clicks Done.
+  if (!focusState.draftBlockId) markFocusDirty();
 }
 
 function renderEditorStrictnessCaption(intentionId) {
@@ -9537,7 +9544,10 @@ function openBlockEditor(blockId, event) {
           pill.style.borderColor = 'rgba(255,255,255,0.1)';
           pill.style.color = 'rgba(255,255,255,0.6)';
         }
-        markFocusDirty();
+        // Slice 10 followup: same draft-leak fix — day-pill clicks during a
+        // draft block are captured in block.activeDays but NOT autosaved
+        // until user clicks Done.
+        if (!focusState.draftBlockId) markFocusDirty();
       });
       daysContainer.appendChild(pill);
     });
