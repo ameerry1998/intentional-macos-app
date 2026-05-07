@@ -8186,7 +8186,24 @@ function setTodayScheduleView(view) {
 
 // Spec 3 (May 2026): Day/Week toggle stub on Schedule sidebar page. Week view
 // is "coming soon" per the spec.
+//
+// Slice 10 follow-up of 2026-05-05 redesign: clicking "Day" on the schedule
+// page now navigates back to page-today (Schedule sidebar item was removed;
+// the Today page hosts the day calendar inline).
 function setScheduleView(view) {
+  if (view === 'day') {
+    // Pop back to the Today page; sync the Today/Week toggle to "Today".
+    navigateTo('today');
+    var todayBtns = document.querySelectorAll('#page-today .segmented-btn');
+    todayBtns.forEach(function(b) {
+      var sel = b.dataset.view === 'day';
+      b.classList.toggle('selected', sel);
+      b.style.background = sel ? 'rgba(255,255,255,0.08)' : 'transparent';
+      b.style.color = sel ? 'var(--text-primary)' : 'var(--text-secondary)';
+    });
+    return;
+  }
+  // 'week' view: stay on page-schedule, toggle internal hosts.
   var btns = document.querySelectorAll('#schedule-view-toggle .segmented-btn');
   btns.forEach(function(b) { b.classList.toggle('selected', b.dataset.view === view); });
   var dayHost = document.getElementById('schedule-day-host');
@@ -8662,19 +8679,35 @@ function renderBedtimeAndWakeBands() {
   grid.querySelectorAll('.calendar-bedtime-band, .calendar-wake-band').forEach(function(el) { el.remove(); });
 
   var bs = (typeof settings !== 'undefined' && settings.bedtime_settings) || {};
-  var bedHour  = (typeof bs.bedtime_hour  === 'number') ? bs.bedtime_hour  : 22;
-  var bedMin   = (typeof bs.bedtime_minute === 'number') ? bs.bedtime_minute : 0;
-  var wakeHour = (typeof bs.wake_hour     === 'number') ? bs.wake_hour     : 7;
-  var wakeMin  = (typeof bs.wake_minute   === 'number') ? bs.wake_minute   : 0;
+  // Slice 10 followup of 2026-05-05 redesign: only render bedtime/wake bands
+  // if the user has actually configured bedtime + wake. Previously defaulted
+  // to 22:00 / 07:00 even when nothing was set on the backend, which made
+  // the calendar look like there was a fake schedule.
+  var bedtimeConfigured =
+        typeof bs.bedtime_hour === 'number' &&
+        typeof bs.bedtime_minute === 'number' &&
+        bs.bedtime_enabled !== false;
+  var wakeConfigured =
+        typeof bs.wake_hour === 'number' &&
+        typeof bs.wake_minute === 'number' &&
+        bs.bedtime_enabled !== false;
+  if (!bedtimeConfigured && !wakeConfigured) {
+    return;  // nothing configured → don't draw bands
+  }
+
+  var bedHour  = bs.bedtime_hour;
+  var bedMin   = bs.bedtime_minute;
+  var wakeHour = bs.wake_hour;
+  var wakeMin  = bs.wake_minute;
 
   var calStart = CALENDAR_START_HOUR;
   var calEnd = CALENDAR_END_HOUR;
-  var bedMinOfDay = bedHour * 60 + bedMin;
+  var bedMinOfDay = (bedHour || 0) * 60 + (bedMin || 0);
   var calStartMin = calStart * 60;
   var calEndMin = calEnd * 60;
 
   // Bedtime band: from bed time → end of calendar (anchored to bottom)
-  if (bedMinOfDay >= calStartMin && bedMinOfDay < calEndMin) {
+  if (bedtimeConfigured && bedMinOfDay >= calStartMin && bedMinOfDay < calEndMin) {
     var topPx = ((bedMinOfDay - calStartMin) / 60) * CALENDAR_HOUR_HEIGHT;
     var heightPx = ((calEndMin - bedMinOfDay) / 60) * CALENDAR_HOUR_HEIGHT;
     var band = document.createElement('div');
@@ -8686,8 +8719,8 @@ function renderBedtimeAndWakeBands() {
   }
 
   // Wake band: from calStart → wake time (anchored to top)
-  var wakeMinOfDay = wakeHour * 60 + wakeMin;
-  if (wakeMinOfDay > calStartMin && wakeMinOfDay <= calEndMin) {
+  var wakeMinOfDay = (wakeHour || 0) * 60 + (wakeMin || 0);
+  if (wakeConfigured && wakeMinOfDay > calStartMin && wakeMinOfDay <= calEndMin) {
     var heightW = ((wakeMinOfDay - calStartMin) / 60) * CALENDAR_HOUR_HEIGHT;
     var bandW = document.createElement('div');
     bandW.className = 'calendar-wake-band';
