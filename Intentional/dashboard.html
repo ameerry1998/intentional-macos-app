@@ -12147,6 +12147,22 @@ const ProjectsController = (() => {
           weekly_budget_hours: formState.weekly_budget_hours,
         }
       });
+
+      // Slice 9 followup of 2026-05-05 redesign: strictness goes through a
+      // dedicated backend endpoint (PUT /intentions/{id}/strictness). The
+      // legacy UPDATE_PROJECT path doesn't persist strictness. Send a
+      // separate UPDATE_INTENTION_STRICTNESS message so the dedicated
+      // endpoint actually fires + syncs to backend (so iPhone sees it).
+      // Only fire if it actually changed vs. the loaded value.
+      var loadedStrictness = (state.selected && state.selected.strictness_preset) || 'standard';
+      var newStrictness = formState.strictness_preset || 'standard';
+      if (newStrictness !== loadedStrictness) {
+        sendMessage({
+          type: 'UPDATE_INTENTION_STRICTNESS',
+          id: state.selected.id,
+          to_preset: newStrictness,
+        });
+      }
     }
   }
 

@@ -3386,7 +3386,27 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 version: version
             )
             do {
-                let updated = try await IntentionStore.shared.update(id: id, payload: payload)
+                var updated = try await IntentionStore.shared.update(id: id, payload: payload)
+
+                // Slice 9 followup of 2026-05-05 redesign: strictness goes through
+                // a dedicated endpoint (PUT /intentions/{id}/strictness). Detect a
+                // change from the patch and call the dedicated endpoint after the
+                // base update lands. Tightening applies instantly; softening queues
+                // a pending change with 24h cool-down or partner unlock.
+                if let newStrictnessRaw = body["strictness_preset"] as? String,
+                   let newPreset = StrictnessPreset(rawValue: newStrictnessRaw),
+                   newPreset != existing.strictnessPreset {
+                    do {
+                        updated = try await IntentionStore.shared.updateStrictness(
+                            id: id, toPreset: newPreset
+                        )
+                    } catch {
+                        // Don't fail the whole save if strictness change errors —
+                        // user already saw "Saved". Log and surface a soft warning.
+                        print("strictness update failed: \(error)")
+                    }
+                }
+
                 await MainActor.run {
                     self.emitIntentionMutationResult([
                         "status": "updated", "id": updated.id.uuidString,
