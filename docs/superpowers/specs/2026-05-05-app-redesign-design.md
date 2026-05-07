@@ -264,14 +264,19 @@ Already redesigned (`docs/pricing-strategy-2026-05-05.md`). Subscription model, 
 
 Modes (post-redesign): timer (in-block), startRitual (60s grace pre-block), celebration (block-end card), noPlan (Focus Lock OFF + no scheduled block + Free Time gap).
 
-### 8.2 Sidebar (4 tabs, down from 8)
+### 8.2 Sidebar (5 tabs, down from 8)
 
-1. **Today** — current Focus Mode + countdown, distraction budget meter, today's blocks (timeline), Focus Lock toggle.
-2. **Week** — calendar view + per-Focus-Mode weekly hour bars showing target progress.
-3. **Focus Modes** — list of Focus Modes with their rules. Add/edit/delete here.
-4. **Settings** — account, partner pairing, distractions list, always-blocked list, content safety, strict mode, bedtime config, accessibility/permissions.
+> **Updated 2026-05-06 during slice 10 implementation:** earlier draft folded Sensitive Content + Accountability into Settings. User feedback: those are *features* not configuration; burying them makes them hard to find. Restored as top-level items. Today/Week became a view-toggle on the Today page rather than two sidebar items.
 
-**Removed sidebar items**: Intentions, Profiles, Distractions (now sub-section of Settings), Sensitive Content (now sub-section of Settings), Weekly Planning (now part of Week), Accountability (now sub-section of Settings).
+1. **Today** — current Focus Mode + countdown, distraction budget meter, today's blocks (timeline), Focus Lock toggle. Top-of-page **Today / Week** toggle switches the visible content (Today = current state; Week = calendar + weekly Focus Mode hour bars).
+2. **Focus Modes** — list of Focus Modes with their rules. Add/edit/delete here.
+3. **Sensitive Content** — NSFW monitor: real-time activity, history of detections, partner-notification state. Top-level because it's an active feature, not a setting.
+4. **Accountability** — partner pairing, breach log, unlock requests, override history. Top-level for the same reason.
+5. **Settings** — account, distractions list management, always-blocked list management, strict mode, bedtime config, accessibility/permissions, app preferences.
+
+**Removed sidebar items**: Intentions / Profiles (folded into Focus Modes). Distractions list-management folded into Settings (the budget meter for active distraction state lives on Today). Weekly Planning killed (placeholder, no real UI; future budgets work folds into Today's Week toggle when it ships).
+
+**Distinction:** "Settings" is configuration only. Anything the user actively *uses* during the day (modes, sensitive content monitor, partner system) is a top-level sidebar item.
 
 ### 8.3 Overlays (kept, unchanged structure)
 
