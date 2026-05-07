@@ -75,6 +75,14 @@ Strict Mode is the "harden everything in one switch" toggle. Reuses the existing
 
 ## 4. App-level taxonomy (not the same as Focus-Mode-level)
 
+> **Updated 2026-05-07 during slice 10 testing:** the user pushed back on the editor showing "Blocklists" (legacy BlockingProfile pulldown) alongside the per-Focus-Mode block/allow rules — felt like duplicate functionality. The conceptual distinction is now clarified in the UI:
+>
+> - **Distraction Budget = the daily tax (lateral, always running).** One global Distractions list, one budget number. Drains as you use Distractions list apps. At zero → all Distractions blocked rest of day. Lockable behind partner.
+> - **Focus Mode rules = per-block overrides (narrow, only during a block of that mode).** Strictness preset + "Block during this Focus Mode" (extra restrictions) + "Allow during this Focus Mode" (whitelist that overrides Distractions for the duration).
+>
+> They layer: Always-Blocked > Focus Mode allow > Focus Mode extra-block > Distraction Budget > Allowed (default). Editor copy now states this explicitly so users understand the model. The legacy Blocklists pulldown is removed from the editor (kept on disk in `BlockingProfileManager` until slice 13 deletes the underlying class).
+
+
 Every app/website on the user's devices is in **one of three states** (user-configured in Settings):
 
 1. **Allowed** — no restriction. Default state for most apps.
