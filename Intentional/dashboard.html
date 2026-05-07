@@ -4371,6 +4371,251 @@ body.theme-effects-warm::after {
 .strictness-badge.preset-strict { background: rgba(239,68,68,0.12); color: #f99; }
 .strictness-badge.preset-soft { background: rgba(74,222,128,0.10); color: #9eddc0; }
 
+/* ─── Focus Mode editor v3 (Slice 10 followup of 2026-05-05 redesign) ─── */
+.fm-v3 {
+  --fm-accent: #FF7A2E;
+  --fm-accent-soft: rgba(255,122,46,0.12);
+  --fm-accent-line: rgba(255,122,46,0.32);
+  --fm-sunset: linear-gradient(135deg,#FF9A2E 0%,#FF6B3D 60%,#E04E6A 100%);
+  --fm-line: rgba(255,255,255,0.06);
+  --fm-line-2: rgba(255,255,255,0.10);
+  --fm-line-3: rgba(255,255,255,0.16);
+  --fm-text-1: #f4f5f6;
+  --fm-text-2: rgba(255,255,255,0.62);
+  --fm-text-3: rgba(255,255,255,0.40);
+  --fm-text-4: rgba(255,255,255,0.24);
+  --fm-surface: #14161a;
+  --fm-surface-2: #1a1d22;
+  --fm-allow: #6FB58E;
+  --fm-allow-soft: rgba(111,181,142,0.10);
+  --fm-allow-line: rgba(111,181,142,0.28);
+  --fm-block: #E05D6A;
+  --fm-block-soft: rgba(224,93,106,0.10);
+  --fm-block-line: rgba(224,93,106,0.28);
+
+  max-width: 760px; margin: 0 auto; padding: 22px 28px 24px;
+  display: flex; flex-direction: column;
+}
+.fm-v3 .crumb { color: var(--fm-text-3); font-size: 12px; margin-bottom: 8px;
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  background: transparent; border: 0; padding: 0; text-align: left; }
+.fm-v3 .crumb:hover { color: var(--fm-text-2); }
+.fm-v3 .crumb svg { width: 12px; height: 12px; }
+.fm-v3 .title-edit {
+  background: transparent; border: 0; color: var(--fm-text-1);
+  font: 600 26px/1.15 inherit; letter-spacing: -0.015em;
+  padding: 4px 8px; margin: 0 0 4px -8px;
+  border-radius: 6px; width: 100%; max-width: 520px;
+  transition: background 120ms ease, box-shadow 120ms ease;
+}
+.fm-v3 .title-edit:hover { background: rgba(255,255,255,0.025); box-shadow: inset 0 0 0 1px var(--fm-line-2); }
+.fm-v3 .title-edit:focus { outline: none; background: var(--fm-surface); box-shadow: inset 0 0 0 1px var(--fm-accent-line), 0 0 0 3px var(--fm-accent-soft); }
+.fm-v3 .title-hint { color: var(--fm-text-3); font-size: 11.5px; margin: 0 0 22px; display: inline-flex; align-items: center; gap: 6px; }
+.fm-v3 .title-hint svg { width: 11px; height: 11px; opacity: 0.7; }
+
+.fm-v3 .info {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 999px;
+  border: 1px solid var(--fm-text-4); color: var(--fm-text-3);
+  font: 600 9px ui-monospace, "SF Mono", Menlo, monospace;
+  margin-left: 6px; cursor: help; user-select: none; position: relative;
+}
+.fm-v3 .info:hover { color: var(--fm-accent); border-color: var(--fm-accent-line); }
+.fm-v3 .info::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  background: #1f2227; color: var(--fm-text-1);
+  border: 1px solid var(--fm-line-3); border-radius: 8px;
+  padding: 8px 10px; font: 500 11.5px/1.45 -apple-system, system-ui, sans-serif;
+  width: max-content; max-width: 240px; text-align: left;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  opacity: 0; pointer-events: none; transition: opacity 120ms ease;
+  z-index: 50;
+}
+.fm-v3 .info:hover::after { opacity: 1; }
+
+.fm-v3 .hero {
+  position: relative;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(255,122,46,0.10), transparent 55%),
+    radial-gradient(80% 100% at 100% 100%, rgba(224,78,106,0.06), transparent 60%),
+    linear-gradient(180deg, #16181c 0%, #131518 100%);
+  border: 1px solid var(--fm-line-2); border-radius: 14px;
+  padding: 22px 24px 18px;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 32px rgba(0,0,0,0.25);
+}
+.fm-v3 .hero::before {
+  content: ""; position: absolute; left: 0; top: 22px; bottom: 22px; width: 3px;
+  border-radius: 0 3px 3px 0; background: var(--fm-sunset); opacity: 0.85;
+}
+.fm-v3 .hero h2 {
+  font-size: 18px; font-weight: 600; margin: 0 0 12px; color: var(--fm-text-1);
+  letter-spacing: -0.005em; display: inline-flex; align-items: center;
+}
+.fm-v3 .hero textarea {
+  display: block; width: 100%; min-height: 132px;
+  background: rgba(0,0,0,0.28); border: 1px solid var(--fm-line-2); border-radius: 10px;
+  color: var(--fm-text-1); font: 15px/1.55 inherit; padding: 14px 16px; resize: vertical;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.fm-v3 .hero textarea:focus { outline: none; border-color: var(--fm-accent-line); box-shadow: 0 0 0 3px var(--fm-accent-soft); }
+.fm-v3 .hero textarea::placeholder { color: var(--fm-text-3); }
+.fm-v3 .hero-foot {
+  margin-top: 10px; display: flex; justify-content: flex-end;
+  color: var(--fm-text-3); font-size: 12px; font-variant-numeric: tabular-nums;
+}
+.fm-v3 .hero-foot b { color: var(--fm-text-2); font-weight: 500; }
+
+.fm-v3 .rules-row {
+  margin-top: 18px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--fm-surface); border: 1px solid var(--fm-line);
+  border-radius: 10px; padding: 14px 16px; cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+  color: inherit; font: inherit; width: 100%; text-align: left;
+}
+.fm-v3 .rules-row:hover { border-color: var(--fm-accent-line); background: var(--fm-surface-2); }
+.fm-v3 .rules-row:hover .chev { transform: translateX(3px); color: var(--fm-accent); }
+.fm-v3 .rules-row .lhs { display: flex; align-items: center; gap: 10px; }
+.fm-v3 .rules-row .icon {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: var(--fm-accent-soft); color: var(--fm-accent);
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--fm-accent-line);
+}
+.fm-v3 .rules-row .ttl { font-size: 14px; font-weight: 600; color: var(--fm-text-1); }
+.fm-v3 .rules-row .summary {
+  color: var(--fm-text-2); font-size: 12px; margin-right: 10px;
+  display: inline-flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums;
+}
+.fm-v3 .rules-row .summary .dot { width: 6px; height: 6px; border-radius: 999px; }
+.fm-v3 .rules-row .summary .b { background: var(--fm-block); }
+.fm-v3 .rules-row .summary .a { background: var(--fm-allow); }
+.fm-v3 .rules-row .chev { color: var(--fm-text-3); transition: transform 200ms ease, color 200ms ease; }
+
+.fm-v3 .advanced { margin-top: 36px; padding-top: 22px; border-top: 1px solid var(--fm-line); }
+.fm-v3 .adv-head .label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--fm-text-3); padding-bottom: 14px; display: block;
+}
+.fm-v3 .adv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 32px; align-items: center; }
+.fm-v3 .adv-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.fm-v3 .adv-item .nm { font-size: 13.5px; font-weight: 500; color: var(--fm-text-1); display: inline-flex; align-items: center; }
+.fm-v3 .seg {
+  display: inline-flex; background: var(--fm-surface); border: 1px solid var(--fm-line-2);
+  border-radius: 999px; padding: 2px;
+}
+.fm-v3 .seg button {
+  background: transparent; border: 0; color: var(--fm-text-2);
+  padding: 5px 14px; font: 500 12px inherit; border-radius: 999px; cursor: pointer;
+}
+.fm-v3 .seg button.on { background: var(--fm-accent-soft); color: var(--fm-accent); box-shadow: inset 0 0 0 1px var(--fm-accent-line); }
+.fm-v3 .seg button:hover:not(.on) { color: var(--fm-text-1); }
+.fm-v3 .num-input {
+  background: var(--fm-surface); border: 1px solid var(--fm-line-2);
+  color: var(--fm-text-1); font: 500 13px inherit;
+  padding: 6px 10px; border-radius: 6px; width: 76px; text-align: right;
+}
+.fm-v3 .num-input:focus { outline: none; border-color: var(--fm-accent-line); box-shadow: 0 0 0 3px var(--fm-accent-soft); }
+.fm-v3 .unit { color: var(--fm-text-3); font-size: 12px; margin-left: 8px; }
+
+.fm-v3 .footer-spacer { flex: 1; min-height: 24px; }
+.fm-v3 .save-bar {
+  margin: 24px -28px -24px;
+  padding: 14px 28px;
+  background: linear-gradient(180deg, rgba(10,12,10,0) 0%, rgba(10,12,10,0.96) 100%);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  border-top: 1px solid var(--fm-line);
+}
+.fm-v3 .save-bar .delete-link {
+  background: transparent; border: 0; color: var(--fm-text-3);
+  font: 500 12px inherit; padding: 4px 0; cursor: pointer;
+  text-decoration: underline; text-decoration-color: var(--fm-text-4); text-underline-offset: 3px;
+}
+.fm-v3 .save-bar .delete-link:hover { color: rgba(224,93,106,0.9); }
+.fm-v3 .save-bar .right { display: flex; align-items: center; gap: 8px; }
+.fm-v3 .save-bar .hint { color: var(--fm-text-3); font-size: 12px; }
+.fm-v3 .btn-ghost {
+  background: transparent; border: 1px solid var(--fm-line-3); color: var(--fm-text-1);
+  padding: 8px 14px; border-radius: 6px; font: 500 13px inherit; cursor: pointer;
+}
+.fm-v3 .btn-ghost:hover { background: var(--fm-surface); }
+.fm-v3 .btn-primary {
+  background: var(--fm-sunset); border: 0; color: #2a1208;
+  font: 600 13px inherit; padding: 9px 20px; border-radius: 6px; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(255,122,46,0.30);
+}
+.fm-v3 .btn-primary:hover { filter: brightness(1.06); }
+.fm-v3 .btn-primary[disabled] { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+
+/* Sub-page (custom rules) */
+.fm-v3 .sub-context { color: var(--fm-text-3); font-size: 12.5px; margin-bottom: 14px; }
+.fm-v3 .sub-context b { color: var(--fm-text-2); font-weight: 600; }
+.fm-v3 .empty-hint {
+  background: linear-gradient(180deg, rgba(255,122,46,0.05), rgba(255,122,46,0.02)), var(--fm-surface);
+  border: 1px solid var(--fm-line-2); border-radius: 10px; padding: 14px 16px;
+  color: var(--fm-text-2); font-size: 12.5px; line-height: 1.6; margin-bottom: 22px;
+}
+.fm-v3 .empty-hint b { color: var(--fm-text-1); font-weight: 600; }
+.fm-v3 .list-section { margin-bottom: 22px; }
+.fm-v3 .list-section .lh { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.fm-v3 .list-section .ttl {
+  font-size: 11px; font-weight: 600; color: var(--fm-text-2);
+  display: inline-flex; align-items: center; gap: 8px;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.fm-v3 .list-section .ttl .dot { width: 8px; height: 8px; border-radius: 999px; }
+.fm-v3 .list-section.block .ttl { color: var(--fm-block); }
+.fm-v3 .list-section.block .dot { background: var(--fm-block); box-shadow: 0 0 8px rgba(224,93,106,0.5); }
+.fm-v3 .list-section.allow .ttl { color: var(--fm-allow); }
+.fm-v3 .list-section.allow .dot { background: var(--fm-allow); box-shadow: 0 0 8px rgba(111,181,142,0.5); }
+.fm-v3 .list-section .count { color: var(--fm-text-3); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.fm-v3 .input-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.fm-v3 .input-row input {
+  flex: 1; background: var(--fm-surface); border: 1px solid var(--fm-line-2);
+  color: var(--fm-text-1); font: 500 13px inherit;
+  padding: 9px 12px; border-radius: 10px;
+}
+.fm-v3 .list-section.block .input-row input:focus { outline: none; border-color: var(--fm-block-line); box-shadow: 0 0 0 3px var(--fm-block-soft); }
+.fm-v3 .list-section.allow .input-row input:focus { outline: none; border-color: var(--fm-allow-line); box-shadow: 0 0 0 3px var(--fm-allow-soft); }
+.fm-v3 .input-row input::placeholder { color: var(--fm-text-3); }
+.fm-v3 .add-pick {
+  display: inline-flex; gap: 4px; background: var(--fm-surface);
+  border: 1px solid var(--fm-line-2); border-radius: 10px; padding: 2px;
+}
+.fm-v3 .add-pick button {
+  background: transparent; border: 0; color: var(--fm-text-2);
+  padding: 7px 12px; font: 500 12.5px inherit; border-radius: 8px; cursor: pointer;
+}
+.fm-v3 .add-pick button:hover { color: var(--fm-text-1); background: rgba(255,255,255,0.04); }
+.fm-v3 .chips-list { display: flex; flex-direction: column; gap: 4px; }
+.fm-v3 .chip-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 12px; background: var(--fm-surface); border: 1px solid var(--fm-line);
+  border-radius: 10px; gap: 12px;
+}
+.fm-v3 .list-section.block .chip-row { border-left: 2px solid var(--fm-block-line); }
+.fm-v3 .list-section.allow .chip-row { border-left: 2px solid var(--fm-allow-line); }
+.fm-v3 .chip-row:hover { background: var(--fm-surface-2); }
+.fm-v3 .chip-row .lhs { display: flex; align-items: center; gap: 10px; }
+.fm-v3 .chip-row .nm { font-size: 13px; color: var(--fm-text-1); font-weight: 500; }
+.fm-v3 .chip-row .kind {
+  color: var(--fm-text-3); font-size: 11px; padding: 1px 6px; border-radius: 4px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--fm-line-2);
+}
+.fm-v3 .chip-row .x {
+  background: transparent; border: 0; color: var(--fm-text-3); cursor: pointer;
+  padding: 4px 6px; border-radius: 4px;
+}
+.fm-v3 .chip-row .x:hover { color: var(--fm-block); background: var(--fm-block-soft); }
+.fm-v3 .empty-list {
+  color: var(--fm-text-2); font-size: 12.5px;
+  padding: 14px 16px; text-align: center;
+  border: 1px dashed var(--fm-line-2); border-radius: 10px;
+  background: rgba(255,255,255,0.015); line-height: 1.55;
+}
+.fm-v3 .empty-list .em { color: var(--fm-text-3); }
+
 </style>
 </head>
 <body>
@@ -11355,121 +11600,207 @@ const ProjectsController = (() => {
       syncFormStateFromDOM(root);
     }
 
-    const title = state.isNew ? 'New Focus Mode' : 'Edit Focus Mode';
-    const backLabel = state.isNew ? 'Cancel' : 'Back';
-
     const intentionLen = (formState.intention || '').length;
-    const intentionOver = intentionLen > 140;
-    const intentionNear = intentionLen > 110 && intentionLen <= 140;
-    const intentionColor = intentionOver
-      ? 'var(--color-error)'
-      : (intentionNear ? 'var(--color-warning, #e0a458)' : 'var(--text-tertiary)');
+    const nameTrim = (formState.name || '').trim();
+    const nameEmpty = !nameTrim;
+    const saveDisabled = nameEmpty;
+    const isNew = state.isNew;
 
-    const nameEmpty = !(formState.name || '').trim();
-    const saveDisabled = nameEmpty || intentionOver;
+    // v3: Custom rules sub-view toggle
+    if (state.customRulesView) {
+      renderCustomRulesSubView(root);
+      return;
+    }
 
-    const blocklistChipsHTML = renderBlocklistChips();
-    const allowedListHTML = renderHostList('allowed');
-    const blockedListHTML = renderHostList('blocked');
-    const searchEnginesToggleHTML = renderSearchEnginesToggle();
-
-    const deleteButton = (!state.isNew && state.selected && state.selected.id)
-      ? `<button type="button" class="btn btn-danger" onclick="ProjectsController._handleDelete()" style="margin-left:auto;">Delete Focus Mode</button>`
-      : '';
-
-    // Slice 9 followup of 2026-05-05 redesign: Strictness preset dropdown.
+    const blockedCount = (formState.blocked || []).length;
+    const allowedCount = (formState.allowed || []).length;
+    const summaryText = `${blockedCount} blocked · ${allowedCount} allowed`;
     const currentStrictness = formState.strictness_preset || 'standard';
-    const strictnessHTML = `
-      <div class="projects-setup-field">
-        <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);margin-bottom:8px;">Strictness</div>
-        <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px;">Strict = no override allowed. Standard = override with friction. Soft = override instantly.</div>
-        <select id="project-setup-strictness" onchange="ProjectsController._onStrictnessInput(this.value)" style="width:100%;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border-default);border-radius:8px;color:var(--text-primary);font-size:14px;font-family:inherit;box-sizing:border-box;">
-          <option value="strict"${currentStrictness === 'strict' ? ' selected' : ''}>Strict — no overrides during the block</option>
-          <option value="standard"${currentStrictness === 'standard' ? ' selected' : ''}>Standard — override with confirmation</option>
-          <option value="soft"${currentStrictness === 'soft' ? ' selected' : ''}>Soft — override anytime</option>
-        </select>
-      </div>
-    `;
-
-    // Slice 6 followup: Weekly target hours field.
+    const isStrict = currentStrictness === 'strict';
+    const isStandard = !isStrict;
     const currentWeekly = (formState.weekly_budget_hours != null) ? formState.weekly_budget_hours : '';
-    const weeklyHTML = `
-      <div class="projects-setup-field">
-        <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);margin-bottom:8px;">Weekly target (hours)</div>
-        <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px;">How many hours per week you want to spend in this Focus Mode. Used by Focus Lock auto-fill.</div>
-        <input id="project-setup-weekly" type="number" min="0" max="168" step="0.5" placeholder="e.g. 20"
-          value="${currentWeekly}"
-          style="width:160px;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border-default);border-radius:8px;color:var(--text-primary);font-size:14px;font-family:inherit;box-sizing:border-box;"
-          oninput="ProjectsController._onWeeklyInput(this.value)" />
-      </div>
-    `;
+    const titleValue = isNew ? '' : (formState.name || '');
+    const namePlaceholder = isNew ? 'Untitled focus mode' : 'Coding';
 
     root.innerHTML = `
-      <div class="projects-back-link" onclick="ProjectsController.goBack()">← ${backLabel}</div>
-      <div class="projects-section-header">${title}</div>
-
-      <div class="projects-setup-field">
-        <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);margin-bottom:8px;">Name</div>
-        <input id="project-setup-name" type="text" placeholder="Project name"
-          value="${escapeHTML(formState.name || '')}"
-          style="width:100%;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border-default);border-radius:8px;color:var(--text-primary);font-size:14px;font-family:inherit;box-sizing:border-box;"
-          oninput="ProjectsController._onNameInput(this.value)" />
-      </div>
-
-      <div class="projects-setup-field">
-        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;">
-          <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);">Focus Mode</div>
-          <div id="project-setup-intention-count" class="char-count" style="font-size:11px;color:${intentionColor};font-variant-numeric:tabular-nums;">${intentionLen} / 140</div>
+      <div class="fm-v3">
+        <button class="crumb" onclick="ProjectsController.goBack()">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 12 L6 8 L10 4"/></svg>
+          All Focus Modes
+        </button>
+        <input class="title-edit" id="project-setup-name" placeholder="${namePlaceholder}"
+               value="${escapeHTML(titleValue)}" aria-label="Focus mode name"
+               oninput="ProjectsController._onNameInput(this.value)" />
+        <div class="title-hint">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13 l3 -1 L13 5 L11 3 L4 10 z"/></svg>
+          Click to rename
         </div>
-        <textarea id="project-setup-intention" rows="3" placeholder="What are you trying to accomplish?"
-          style="width:100%;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border-default);border-radius:8px;color:var(--text-primary);font-size:14px;font-family:inherit;resize:vertical;box-sizing:border-box;"
-          oninput="ProjectsController._onIntentionInput(this.value)">${escapeHTML(formState.intention || '')}</textarea>
-        <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);margin-top:6px;">Shown to the AI when scoring relevance.</div>
-      </div>
 
-      ${strictnessHTML}
-      ${weeklyHTML}
-
-      <!-- Per-Focus-Mode override rules. Layer ON TOP of the global Distraction
-           Budget (which runs always). These rules only apply during a block of
-           this Focus Mode. -->
-      <div class="projects-setup-field" style="margin-top:8px;padding:12px;background:rgba(var(--accent-primary-rgb),0.04);border:1px solid rgba(var(--accent-primary-rgb),0.15);border-radius:8px;">
-        <div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">
-          <strong style="color:var(--text-primary);">How rules layer:</strong> the global Distraction Budget runs always (manage in Settings → Distractions). The two lists below apply <em>only during a block of this Focus Mode</em> and override the budget for those specific apps/sites.
-        </div>
-      </div>
-
-      <div class="projects-setup-field">
-        <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);margin-bottom:8px;">Block during this Focus Mode</div>
-        <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px;">Extra apps/sites blocked while a block of this Focus Mode is active — e.g., add Slack to Coding, or add LinkedIn to Reading.</div>
-        ${blockedListHTML}
-      </div>
-
-      <div class="projects-setup-field">
-        <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);margin-bottom:8px;">Allow during this Focus Mode</div>
-        <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px;">Apps/sites that don't drain the Distraction Budget while this Focus Mode is active — e.g., GitHub during Coding, Apple Books during Reading.</div>
-        ${allowedListHTML}
-      </div>
-
-      <div class="projects-setup-field">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-          <div>
-            <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);margin-bottom:4px;">Allow search engines</div>
-            <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);">Google, DuckDuckGo, etc. are allowed without scoring.</div>
+        <section class="hero">
+          <h2>What are you working on?
+            <span class="info" data-tip="We watch your screen against this description while the mode is on, and re-check every 30 seconds. Be specific — what tabs would you expect to be open?">i</span>
+          </h2>
+          <textarea id="project-setup-intention" placeholder="e.g. Building the Stripe webhook integration. IDE, GitHub PRs, Linear tickets, and Stripe docs are expected. Slack and email aren't part of this work."
+                    oninput="ProjectsController._onIntentionInput(this.value)">${escapeHTML(formState.intention || '')}</textarea>
+          <div class="hero-foot">
+            <span class="count" id="project-setup-intention-count"><b>${intentionLen}</b> / 140</span>
           </div>
-          ${searchEnginesToggleHTML}
-        </div>
-      </div>
+        </section>
 
-      <div style="display:flex;align-items:center;gap:10px;margin-top:18px;">
-        <button type="button" class="btn btn-primary" id="project-setup-save"
-          ${saveDisabled ? 'disabled' : ''}
-          onclick="ProjectsController._handleSave()">Save</button>
-        <button type="button" class="btn btn-ghost btn-secondary"
-          onclick="ProjectsController.goBack()">Cancel</button>
-        ${deleteButton}
+        <button class="rules-row" onclick="ProjectsController._openCustomRules()">
+          <span class="lhs">
+            <span class="icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M2 8 h12"/></svg></span>
+            <span class="ttl">Custom rules</span>
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:8px;">
+            <span class="summary">
+              <span class="dot b"></span> ${blockedCount} blocked
+              <span style="color:var(--fm-text-4)">·</span>
+              <span class="dot a"></span> ${allowedCount} allowed
+            </span>
+            <svg class="chev" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4 L10 8 L6 12"/></svg>
+          </span>
+        </button>
+
+        <section class="advanced">
+          <div class="adv-head"><span class="label">Advanced</span></div>
+          <div class="adv-grid">
+            <div class="adv-item">
+              <span class="nm">Strictness
+                <span class="info" data-tip="Strict locks you out of blocks completely. Standard requires a confirmation before you can override.">i</span>
+              </span>
+              <span class="seg" role="radiogroup">
+                <button class="${isStandard ? 'on' : ''}" onclick="ProjectsController._onStrictnessInput('standard')">Standard</button>
+                <button class="${isStrict ? 'on' : ''}" onclick="ProjectsController._onStrictnessInput('strict')">Strict</button>
+              </span>
+            </div>
+            <div class="adv-item">
+              <span class="nm">Weekly target
+                <span class="info" data-tip="How many hours per week you want to spend in this mode. Used by Focus Lock to auto-fill your schedule.">i</span>
+              </span>
+              <span>
+                <input class="num-input" type="number" min="0" max="168" step="0.5" value="${currentWeekly}"
+                       oninput="ProjectsController._onWeeklyInput(this.value)" />
+                <span class="unit">hrs / week</span>
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <div class="footer-spacer"></div>
+
+        <div class="save-bar">
+          ${(!isNew && state.selected && state.selected.id)
+            ? `<button class="delete-link" onclick="ProjectsController._handleDelete()">Delete this Focus Mode</button>`
+            : `<span></span>`}
+          <div class="right">
+            <button class="btn-ghost" onclick="ProjectsController.goBack()">Cancel</button>
+            <button class="btn-primary" ${saveDisabled ? 'disabled' : ''} onclick="ProjectsController._handleSave()">Done</button>
+          </div>
+        </div>
       </div>
     `;
+  }
+
+  function renderCustomRulesSubView(root) {
+    const blocked = formState.blocked || [];
+    const allowed = formState.allowed || [];
+    const modeName = (formState.name || '').trim() || 'this mode';
+
+    const renderChips = (list, kind) => {
+      if (!list.length) {
+        const blockEmpty = `Nothing extra to block — <span class="em">the AI is doing the work.</span>`;
+        const allowEmpty = `Nothing exempted — <span class="em">the AI will judge each tab on its merits.</span>`;
+        return `<div class="empty-list">${kind === 'block' ? blockEmpty : allowEmpty}</div>`;
+      }
+      return '<div class="chips-list">' + list.map((entry) => {
+        const isApp = entry.kind === 'appBundleId';
+        const label = entry.value || '';
+        const remover = kind === 'block'
+          ? `ProjectsController._removeBlocked('${escapeHTML(entry._lk)}')`
+          : `ProjectsController._removeAllowed('${escapeHTML(entry._lk)}')`;
+        return `
+          <div class="chip-row">
+            <span class="lhs">
+              <span class="nm">${escapeHTML(label)}</span>
+              <span class="kind">${isApp ? 'App' : 'Site'}</span>
+            </span>
+            <button class="x" onclick="${remover}" aria-label="Remove">✕</button>
+          </div>`;
+      }).join('') + '</div>';
+    };
+
+    root.innerHTML = `
+      <div class="fm-v3">
+        <button class="crumb" onclick="ProjectsController._closeCustomRules()">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 12 L6 8 L10 4"/></svg>
+          ${escapeHTML(modeName)}
+        </button>
+        <div class="title-edit" style="cursor:default; pointer-events:none;">Custom rules</div>
+        <div class="sub-context">During <b>${escapeHTML(modeName)}</b> blocks only.</div>
+
+        <div class="empty-hint">
+          <b>Most modes don't need custom rules</b> — the AI handles the rest. Add tweaks here only if you want to.
+        </div>
+
+        <section class="list-section block">
+          <div class="lh">
+            <span class="ttl"><span class="dot"></span> Block
+              <span class="info" data-tip="Always blocked while this mode is on, even if the AI thinks it looks work-relevant.">i</span>
+            </span>
+            <span class="count">${blocked.length} ${blocked.length === 1 ? 'entry' : 'entries'}</span>
+          </div>
+          <div class="input-row">
+            <input id="project-setup-blocked-draft" placeholder="e.g. slack.com"
+                   value="${escapeHTML(formState.blockedDraft || '')}"
+                   oninput="ProjectsController._onBlockedDraftInput(this.value)" />
+            <span class="add-pick">
+              <button onclick="ProjectsController._commitBlocked('domain')">＋ Site</button>
+              <button onclick="ProjectsController._addBlockedApp()">＋ App</button>
+            </span>
+          </div>
+          ${renderChips(blocked, 'block')}
+        </section>
+
+        <section class="list-section allow">
+          <div class="lh">
+            <span class="ttl"><span class="dot"></span> Allow
+              <span class="info" data-tip="Always allowed while this mode is on. Skips AI scoring — useful for sites the AI might mistakenly flag.">i</span>
+            </span>
+            <span class="count">${allowed.length} ${allowed.length === 1 ? 'entry' : 'entries'}</span>
+          </div>
+          <div class="input-row">
+            <input id="project-setup-allowed-draft" placeholder="e.g. github.com"
+                   value="${escapeHTML(formState.allowedDraft || '')}"
+                   oninput="ProjectsController._onAllowedDraftInput(this.value)" />
+            <span class="add-pick">
+              <button onclick="ProjectsController._commitAllowed('domain')">＋ Site</button>
+              <button onclick="ProjectsController._addAllowedApp()">＋ App</button>
+            </span>
+          </div>
+          ${renderChips(allowed, 'allow')}
+        </section>
+
+        <div class="footer-spacer"></div>
+
+        <div class="save-bar">
+          <span></span>
+          <div class="right">
+            <button class="btn-ghost" onclick="ProjectsController._closeCustomRules()">← Back to ${escapeHTML(modeName)}</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function _openCustomRules() {
+    state.customRulesView = true;
+    syncFormStateFromDOM(document.getElementById('projects-view-setup'));
+    renderSetup();
+  }
+  function _closeCustomRules() {
+    state.customRulesView = false;
+    renderSetup();
   }
 
   // Build the initial transient form state. Editing pulls from state.selected;
@@ -11839,6 +12170,7 @@ const ProjectsController = (() => {
     _onNameInput, _onIntentionInput,
     _onAllowedDraftInput, _onBlockedDraftInput,
     _onStrictnessInput, _onWeeklyInput,
+    _openCustomRules, _closeCustomRules,
     _toggleBlocklist, _toggleSearchEngines,
     _commitAllowed, _removeAllowed, _addAllowedApp,
     _commitBlocked, _removeBlocked, _addBlockedApp,
