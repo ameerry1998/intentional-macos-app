@@ -27,7 +27,7 @@ Each Focus Mode has:
 - **Apps additionally blocked when active** (e.g., Coding additionally blocks Slack even though Slack is "Allowed" globally)
 - **Apps explicitly allowed when active** (e.g., Coding allows YouTube even though YouTube is on the global Distractions list — for tutorial videos)
 - **Weekly hour target** (e.g., "20h coding/week")
-- **Strictness preset**: Strict / Standard / Soft. Affects override behavior (see §6.4).
+- **Strictness preset**: Strict / Standard. Affects override behavior (see §6.4). _(Updated 2026-05-07: Soft option dropped during slice 10 testing — three-way decision was creating fatigue, and Standard is permissive enough as the casual setting.)_
 - **Default duration** when started ad-hoc (e.g., 60 min)
 
 Free Time is just a Focus Mode with no blocking rules and no AI scoring. Distractions are usable during Free Time, drawing from the budget normally.
