@@ -11263,26 +11263,24 @@ const ProjectsController = (() => {
       ${strictnessHTML}
       ${weeklyHTML}
 
-      <!-- Slice 2/13 cleanup: BlockingProfile concept deprecated. The pulldown
-           below is legacy from BlockingProfileManager; will be removed once
-           the global Distractions list editor (slice 5 followup) ships in
-           Settings. Per-Focus-Mode block/allow rules already live in the
-           Blocked Hosts / Allowed Hosts sections below. -->
-      <div class="projects-setup-field">
-        <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);margin-bottom:8px;">Blocklists <span style="color:var(--text-tertiary);font-weight:400;text-transform:none;letter-spacing:0;">(legacy — use Blocked / Allowed Hosts below)</span></div>
-        <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px;">Will be replaced by global Distractions list. For now, leave default.</div>
-        ${blocklistChipsHTML}
+      <!-- Per-Focus-Mode override rules. Layer ON TOP of the global Distraction
+           Budget (which runs always). These rules only apply during a block of
+           this Focus Mode. -->
+      <div class="projects-setup-field" style="margin-top:8px;padding:12px;background:rgba(var(--accent-primary-rgb),0.04);border:1px solid rgba(var(--accent-primary-rgb),0.15);border-radius:8px;">
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">
+          <strong style="color:var(--text-primary);">How rules layer:</strong> the global Distraction Budget runs always (manage in Settings → Distractions). The two lists below apply <em>only during a block of this Focus Mode</em> and override the budget for those specific apps/sites.
+        </div>
       </div>
 
       <div class="projects-setup-field">
-        <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);margin-bottom:8px;">Blocked hosts</div>
-        <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px;">Domains and apps blocked specifically during this project's sessions, on top of any selected blocklists.</div>
+        <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);margin-bottom:8px;">Block during this Focus Mode</div>
+        <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px;">Extra apps/sites blocked while a block of this Focus Mode is active — e.g., add Slack to Coding, or add LinkedIn to Reading.</div>
         ${blockedListHTML}
       </div>
 
       <div class="projects-setup-field">
-        <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);margin-bottom:8px;">Allowed hosts</div>
-        <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px;">Domains and app bundle IDs that are always allowed, even when blocklists match.</div>
+        <div class="field-label" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-tertiary);margin-bottom:8px;">Allow during this Focus Mode</div>
+        <div class="field-helper" style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px;">Apps/sites that don't drain the Distraction Budget while this Focus Mode is active — e.g., GitHub during Coding, Apple Books during Reading.</div>
         ${allowedListHTML}
       </div>
 
