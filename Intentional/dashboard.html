@@ -4449,6 +4449,13 @@ body.theme-effects-warm::after {
           <span class="calendar-date-label" id="calendar-date-label">Today</span>
           <button id="calendar-nav-next" onclick="navigateScheduleDate(1)" style="visibility:hidden;">&rarr;</button>
         </div>
+        <!-- Slice 10 follow-up: Today/Week segmented toggle. Today shows the
+             day calendar inline; Week jumps to the full schedule page in
+             week view. -->
+        <div class="segmented-control" style="margin-left:12px;display:inline-flex;background:rgba(255,255,255,0.04);border-radius:6px;padding:2px;">
+          <button class="segmented-btn selected" data-view="day" onclick="setTodayScheduleView('day')" style="border-radius:4px;padding:4px 10px;font-size:12px;background:rgba(255,255,255,0.08);color:var(--text-primary);border:none;cursor:pointer;">Today</button>
+          <button class="segmented-btn" data-view="week" onclick="setTodayScheduleView('week')" style="border-radius:4px;padding:4px 10px;font-size:12px;background:transparent;color:var(--text-secondary);border:none;cursor:pointer;">Week</button>
+        </div>
       </div>
       <div class="focus-calendar-header-right" id="calendar-add-buttons">
         <button class="btn-small" onclick="addFocusBlock('focusHours')" style="background:rgba(var(--accent-primary-rgb),0.1);color:var(--accent-primary);">+ Focus</button>
@@ -8155,6 +8162,26 @@ function navigateToScheduleSettings() {
     var card = document.getElementById('focus-plan-card');
     if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, 150);
+}
+
+// Slice 10 follow-up of 2026-05-05 redesign: Today/Week segmented control
+// at top of page-today. "Today" stays inline; "Week" jumps to the dedicated
+// schedule page (page-schedule still in DOM, no longer in sidebar) and
+// flips its day/week sub-toggle to week.
+function setTodayScheduleView(view) {
+  // Update visual state of buttons on the Today page
+  var todayBtns = document.querySelectorAll('#page-today .segmented-btn');
+  todayBtns.forEach(function(b) {
+    var selected = b.dataset.view === view;
+    b.classList.toggle('selected', selected);
+    b.style.background = selected ? 'rgba(255,255,255,0.08)' : 'transparent';
+    b.style.color = selected ? 'var(--text-primary)' : 'var(--text-secondary)';
+  });
+  if (view === 'week') {
+    navigateTo('schedule');
+    setTimeout(function() { setScheduleView('week'); }, 50);
+  }
+  // 'day' view is already what page-today renders — no-op.
 }
 
 // Spec 3 (May 2026): Day/Week toggle stub on Schedule sidebar page. Week view
