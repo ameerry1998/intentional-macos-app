@@ -2010,6 +2010,98 @@ class BackendClient {
             return false
         }
     }
+
+    // MARK: - App Taxonomy (Slice 5 of 2026-05-05 redesign)
+    // Distractions list + Always-Blocked list + per-Focus-Mode rules.
+    // See migration 024_app_taxonomy.sql.
+
+    /// Returns list of app identifiers user has marked as Distractions.
+    func getDistractions() async -> [String] {
+        return await getAppList(path: "/distractions")
+    }
+
+    /// Returns list of app identifiers user has marked as Always-Blocked.
+    func getAlwaysBlocked() async -> [String] {
+        return await getAppList(path: "/always_blocked")
+    }
+
+    private func getAppList(path: String) async -> [String] {
+        guard let url = URL(string: "\(baseURL)\(path)") else { return [] }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        if let token = await loadJWT() {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return [] }
+            struct Response: Codable { let apps: [Entry]
+                struct Entry: Codable { let app_identifier: String }
+            }
+            let decoded = try JSONDecoder().decode(Response.self, from: data)
+            return decoded.apps.map { $0.app_identifier }
+        } catch {
+            print("getAppList \(path) error: \(error)")
+            return []
+        }
+    }
+
+    @discardableResult func addDistraction(appIdentifier: String) async -> Bool {
+        return await addToAppList(path: "/distractions", appIdentifier: appIdentifier)
+    }
+
+    @discardableResult func addAlwaysBlocked(appIdentifier: String) async -> Bool {
+        return await addToAppList(path: "/always_blocked", appIdentifier: appIdentifier)
+    }
+
+    @discardableResult func removeDistraction(appIdentifier: String) async -> Bool {
+        return await removeFromAppList(path: "/distractions", appIdentifier: appIdentifier)
+    }
+
+    @discardableResult func removeAlwaysBlocked(appIdentifier: String) async -> Bool {
+        return await removeFromAppList(path: "/always_blocked", appIdentifier: appIdentifier)
+    }
+
+    private func addToAppList(path: String, appIdentifier: String) async -> Bool {
+        guard let url = URL(string: "\(baseURL)\(path)") else { return false }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        if let token = await loadJWT() {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        let body: [String: Any] = ["app_identifier": appIdentifier]
+        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        do {
+            let (_, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse else { return false }
+            return http.statusCode == 200
+        } catch {
+            print("addToAppList \(path) error: \(error)")
+            return false
+        }
+    }
+
+    private func removeFromAppList(path: String, appIdentifier: String) async -> Bool {
+        let encoded = appIdentifier.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? appIdentifier
+        guard let url = URL(string: "\(baseURL)\(path)/\(encoded)") else { return false }
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        if let token = await loadJWT() {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        do {
+            let (_, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse else { return false }
+            return http.statusCode == 204
+        } catch {
+            print("removeFromAppList \(path) error: \(error)")
+            return false
+        }
+    }
 }
 
 // MARK: - TLS Certificate Pinning

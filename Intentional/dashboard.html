@@ -4735,6 +4735,21 @@ body.theme-effects-warm::after {
           <div class="settings-menu-info"><div class="settings-menu-title">Content Safety</div><div class="settings-menu-sub" id="settings-safety-sub">Screen monitoring</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
+        <div class="settings-menu-row" onclick="showSettingsDetail('distractions')">
+          <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1);color:var(--accent-primary);">⊘</div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Distractions</div><div class="settings-menu-sub" id="settings-distractions-sub">Apps that drain your daily budget</div></div>
+          <span class="settings-menu-chevron">›</span>
+        </div>
+        <div class="settings-menu-row" onclick="showSettingsDetail('budget')">
+          <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1);color:var(--accent-primary);">⏱</div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Distraction Budget</div><div class="settings-menu-sub" id="settings-budget-sub">Daily allowance + lock</div></div>
+          <span class="settings-menu-chevron">›</span>
+        </div>
+        <div class="settings-menu-row" onclick="showSettingsDetail('always-blocked')">
+          <div class="settings-menu-icon" style="background:rgba(212,80,80,0.1);color:#d45050;">⊠</div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Always Blocked</div><div class="settings-menu-sub" id="settings-always-blocked-sub">Apps that are never usable</div></div>
+          <span class="settings-menu-chevron">›</span>
+        </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('bedtime')">
           <div class="settings-menu-icon" style="background:rgba(168,152,200,0.1);color:#a898c8;">☾</div>
           <div class="settings-menu-info"><div class="settings-menu-title">Bedtime</div><div class="settings-menu-sub" id="settings-bedtime-sub">Configure</div></div>
@@ -5067,6 +5082,72 @@ body.theme-effects-warm::after {
 
     </div><!-- end detail-focusgate -->
 
+    <!-- Detail: Distractions list (Slice 5 of 2026-05-05 redesign) -->
+    <div class="settings-detail" id="settings-detail-distractions">
+      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
+      <div class="settings-detail-title">Distractions</div>
+      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">Apps and sites that drain your daily Distraction Budget when used. At zero budget remaining, all of these are locked for the rest of the day.</div>
+      <div class="settings-card" style="padding:16px;">
+        <div style="display:flex;gap:8px;margin-bottom:14px;">
+          <input id="distractions-add-input" type="text" placeholder="e.g. youtube.com or com.tiktok.app"
+                 style="flex:1;padding:8px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--border-default);border-radius:6px;color:var(--text-primary);font-size:13px;">
+          <button class="btn-small" onclick="addDistractionEntry()">+ Add</button>
+        </div>
+        <div id="distractions-list" style="display:flex;flex-direction:column;gap:6px;">
+          <div style="color:rgba(255,255,255,0.4);font-size:12px;">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail: Distraction Budget config (Slice 3/6 of 2026-05-05 redesign) -->
+    <div class="settings-detail" id="settings-detail-budget">
+      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
+      <div class="settings-detail-title">Distraction Budget</div>
+      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">Your daily floor for distraction time. Earned focus minutes are added on top. Lock it to require a partner code to change.</div>
+      <div class="settings-card" style="padding:16px;">
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Daily baseline (minutes)</div>
+            <div class="setting-desc">How many minutes per day, regardless of focus earned. Default 60.</div>
+          </div>
+          <input id="budget-baseline-input" type="number" min="0" max="1440" step="5"
+                 style="width:90px;padding:8px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--border-default);border-radius:6px;color:var(--text-primary);font-size:13px;text-align:right;"
+                 oninput="markBudgetDirty()">
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Lock behind partner</div>
+            <div class="setting-desc">Once locked, raising the baseline requires a partner-issued code.</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="budget-lock-toggle" onchange="markBudgetDirty()">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div id="budget-state-readout" style="margin-top:14px;padding:10px;background:rgba(255,255,255,0.02);border-radius:6px;font-size:12px;color:rgba(255,255,255,0.5);">Loading current state…</div>
+        <div style="margin-top:14px;display:flex;gap:8px;">
+          <button class="btn-small" onclick="saveBudgetConfig()" id="budget-save-btn" disabled>Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail: Always-Blocked list (Slice 5 of 2026-05-05 redesign) -->
+    <div class="settings-detail" id="settings-detail-always-blocked">
+      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
+      <div class="settings-detail-title">Always Blocked</div>
+      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">Apps and sites that are never usable, regardless of budget. Hard block. Use for things you've decided you don't want at all.</div>
+      <div class="settings-card" style="padding:16px;">
+        <div style="display:flex;gap:8px;margin-bottom:14px;">
+          <input id="always-blocked-add-input" type="text" placeholder="e.g. pornhub.com"
+                 style="flex:1;padding:8px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--border-default);border-radius:6px;color:var(--text-primary);font-size:13px;">
+          <button class="btn-small" onclick="addAlwaysBlockedEntry()">+ Add</button>
+        </div>
+        <div id="always-blocked-list" style="display:flex;flex-direction:column;gap:6px;">
+          <div style="color:rgba(255,255,255,0.4);font-size:12px;">Loading…</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Detail: Bedtime -->
     <div class="settings-detail" id="settings-detail-bedtime">
       <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
@@ -5340,6 +5421,92 @@ function showSettingsDetail(id) {
   document.querySelectorAll('.settings-detail').forEach(function(d) { d.classList.remove('active'); });
   var el = document.getElementById('settings-detail-' + id);
   if (el) el.classList.add('active');
+  // Slice 5/6 followup: pull list contents on detail open
+  if (id === 'distractions') {
+    sendMessage({ type: 'GET_DISTRACTIONS' });
+  } else if (id === 'always-blocked') {
+    sendMessage({ type: 'GET_ALWAYS_BLOCKED' });
+  } else if (id === 'budget') {
+    sendMessage({ type: 'GET_BUDGET_STATE' });
+  }
+}
+
+// ===== App Taxonomy (Slice 5 of 2026-05-05 redesign) =====
+
+window._appListResult = function(payload) {
+  var kind = payload && payload.kind;
+  var apps = (payload && payload.apps) || [];
+  var listEl = document.getElementById(kind === 'distractions' ? 'distractions-list' : 'always-blocked-list');
+  if (!listEl) return;
+  if (apps.length === 0) {
+    listEl.innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:12px;padding:8px;">Empty. Add an app or domain above.</div>';
+    return;
+  }
+  var msgType = kind === 'distractions' ? 'REMOVE_DISTRACTION' : 'REMOVE_ALWAYS_BLOCKED';
+  listEl.innerHTML = apps.map(function(id) {
+    var safe = id.replace(/'/g, "\\'");
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid var(--border-default);border-radius:6px;font-size:13px;">' +
+      '<span>' + escapeHtml(id) + '</span>' +
+      '<button class="btn-small" onclick="sendMessage({type:\'' + msgType + '\',app_identifier:\'' + safe + '\'})" style="background:transparent;color:rgba(255,255,255,0.4);border:none;cursor:pointer;font-size:14px;padding:2px 8px;">×</button>' +
+    '</div>';
+  }).join('');
+};
+
+function addDistractionEntry() {
+  var inputEl = document.getElementById('distractions-add-input');
+  var v = (inputEl && inputEl.value || '').trim();
+  if (!v) return;
+  sendMessage({ type: 'ADD_DISTRACTION', app_identifier: v });
+  inputEl.value = '';
+}
+
+function addAlwaysBlockedEntry() {
+  var inputEl = document.getElementById('always-blocked-add-input');
+  var v = (inputEl && inputEl.value || '').trim();
+  if (!v) return;
+  sendMessage({ type: 'ADD_ALWAYS_BLOCKED', app_identifier: v });
+  inputEl.value = '';
+}
+
+// ===== Distraction Budget config (Slice 3/6 of 2026-05-05 redesign) =====
+
+var _budgetDirty = false;
+
+window._budgetState = function(state) {
+  if (!state) return;
+  var baselineEl = document.getElementById('budget-baseline-input');
+  var lockEl = document.getElementById('budget-lock-toggle');
+  var readoutEl = document.getElementById('budget-state-readout');
+  if (baselineEl && !_budgetDirty) baselineEl.value = state.baseline_minutes;
+  if (lockEl && !_budgetDirty) lockEl.checked = !!state.is_locked;
+  if (readoutEl) {
+    var earned = Math.round(state.earned_minutes || 0);
+    var consumed = Math.round(state.consumed_minutes || 0);
+    var available = Math.round(state.available_minutes || 0);
+    readoutEl.innerHTML =
+      '<div><strong>' + available + ' min</strong> available today</div>' +
+      '<div style="margin-top:4px;">Baseline: ' + state.baseline_minutes + ' · Earned: ' + earned + ' · Used: ' + consumed + '</div>';
+  }
+  var saveBtn = document.getElementById('budget-save-btn');
+  if (saveBtn) saveBtn.disabled = !_budgetDirty;
+};
+
+function markBudgetDirty() {
+  _budgetDirty = true;
+  var saveBtn = document.getElementById('budget-save-btn');
+  if (saveBtn) saveBtn.disabled = false;
+}
+
+function saveBudgetConfig() {
+  var baselineEl = document.getElementById('budget-baseline-input');
+  var lockEl = document.getElementById('budget-lock-toggle');
+  var baseline = parseInt(baselineEl && baselineEl.value, 10);
+  if (isNaN(baseline) || baseline < 0) baseline = 60;
+  var locked = !!(lockEl && lockEl.checked);
+  sendMessage({ type: 'SET_BUDGET_CONFIG', baseline_minutes: baseline, is_locked: locked });
+  _budgetDirty = false;
+  var saveBtn = document.getElementById('budget-save-btn');
+  if (saveBtn) saveBtn.disabled = true;
 }
 function hideSettingsDetail() {
   document.getElementById('settings-menu').style.display = '';

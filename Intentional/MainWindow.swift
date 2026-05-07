@@ -583,6 +583,34 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 handlePromoteLearnedSite(body)
             }
 
+        // Slice 5 of 2026-05-05 redesign — App taxonomy (Distractions + Always-Blocked)
+        case "GET_DISTRACTIONS":
+            handleGetAppList(kind: "distractions")
+        case "ADD_DISTRACTION":
+            if let body = message.body as? [String: Any], let id = body["app_identifier"] as? String {
+                handleAddAppList(kind: "distractions", appIdentifier: id)
+            }
+        case "REMOVE_DISTRACTION":
+            if let body = message.body as? [String: Any], let id = body["app_identifier"] as? String {
+                handleRemoveAppList(kind: "distractions", appIdentifier: id)
+            }
+        case "GET_ALWAYS_BLOCKED":
+            handleGetAppList(kind: "always_blocked")
+        case "ADD_ALWAYS_BLOCKED":
+            if let body = message.body as? [String: Any], let id = body["app_identifier"] as? String {
+                handleAddAppList(kind: "always_blocked", appIdentifier: id)
+            }
+        case "REMOVE_ALWAYS_BLOCKED":
+            if let body = message.body as? [String: Any], let id = body["app_identifier"] as? String {
+                handleRemoveAppList(kind: "always_blocked", appIdentifier: id)
+            }
+        case "GET_BUDGET_STATE":
+            handleGetBudgetState()
+        case "SET_BUDGET_CONFIG":
+            if let body = message.body as? [String: Any] {
+                handleSetBudgetConfig(body)
+            }
+
         // Spec 1 — Intentions (new handlers; project handlers above kept as deprecated aliases)
         case "GET_INTENTIONS":
             handleGetIntentions()
@@ -3168,6 +3196,82 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             return
         }
         callJS("window.\(callbackName) && window.\(callbackName)(\(jsonStr))")
+    }
+
+    // MARK: - App Taxonomy (Slice 5 of 2026-05-05 redesign)
+
+    private func handleGetAppList(kind: String) {
+        guard let backend = appDelegate?.backendClient else { return }
+        Task {
+            let apps = (kind == "distractions")
+                ? await backend.getDistractions()
+                : await backend.getAlwaysBlocked()
+            await MainActor.run {
+                let payload: [String: Any] = ["kind": kind, "apps": apps]
+                if let data = try? JSONSerialization.data(withJSONObject: payload),
+                   let json = String(data: data, encoding: .utf8) {
+                    self.callJS("window._appListResult && window._appListResult(\(json))")
+                }
+            }
+        }
+    }
+
+    private func handleAddAppList(kind: String, appIdentifier: String) {
+        guard let backend = appDelegate?.backendClient else { return }
+        Task {
+            let ok = (kind == "distractions")
+                ? await backend.addDistraction(appIdentifier: appIdentifier)
+                : await backend.addAlwaysBlocked(appIdentifier: appIdentifier)
+            if ok {
+                self.handleGetAppList(kind: kind)
+            }
+        }
+    }
+
+    private func handleRemoveAppList(kind: String, appIdentifier: String) {
+        guard let backend = appDelegate?.backendClient else { return }
+        Task {
+            let ok = (kind == "distractions")
+                ? await backend.removeDistraction(appIdentifier: appIdentifier)
+                : await backend.removeAlwaysBlocked(appIdentifier: appIdentifier)
+            if ok {
+                self.handleGetAppList(kind: kind)
+            }
+        }
+    }
+
+    private func handleGetBudgetState() {
+        guard let backend = appDelegate?.backendClient else { return }
+        Task {
+            let state = await backend.getBudgetState()
+            await MainActor.run {
+                if let s = state {
+                    let payload: [String: Any] = [
+                        "day": s.day,
+                        "baseline_minutes": s.baselineMinutes,
+                        "earned_minutes": s.earnedMinutes,
+                        "consumed_minutes": s.consumedMinutes,
+                        "available_minutes": s.availableMinutes,
+                        "is_locked": s.isLocked,
+                    ]
+                    if let data = try? JSONSerialization.data(withJSONObject: payload),
+                       let json = String(data: data, encoding: .utf8) {
+                        self.callJS("window._budgetState && window._budgetState(\(json))")
+                    }
+                }
+            }
+        }
+    }
+
+    private func handleSetBudgetConfig(_ body: [String: Any]) {
+        guard let backend = appDelegate?.backendClient else { return }
+        let baseline = body["baseline_minutes"] as? Int ?? 60
+        let isLocked = body["is_locked"] as? Bool ?? false
+        let partnerCode = body["partner_code"] as? String
+        Task {
+            _ = await backend.putBudgetConfig(baselineMinutes: baseline, isLocked: isLocked, partnerCode: partnerCode)
+            self.handleGetBudgetState()
+        }
     }
 
     // MARK: - Intentions (Spec 1)
