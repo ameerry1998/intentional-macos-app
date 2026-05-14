@@ -1499,10 +1499,18 @@ class BackendClient {
 
     /// GET /intentions — returns nil on network failure, [] when truly empty.
     /// `includeDeleted` true returns tombstones (used for session-history rendering).
-    func getIntentions(includeDeleted: Bool = false) async -> [Intention]? {
+    /// `week` filter (ISO Monday date `YYYY-MM-DD`) scopes results to weekly-goal context.
+    func getIntentions(includeDeleted: Bool = false, week: String? = nil) async -> [Intention]? {
         var components = URLComponents(string: "\(baseURL)/intentions")
+        var items: [URLQueryItem] = []
         if includeDeleted {
-            components?.queryItems = [URLQueryItem(name: "include_deleted", value: "true")]
+            items.append(URLQueryItem(name: "include_deleted", value: "true"))
+        }
+        if let week {
+            items.append(URLQueryItem(name: "week", value: week))
+        }
+        if !items.isEmpty {
+            components?.queryItems = items
         }
         guard let url = components?.url else { return nil }
         var req = URLRequest(url: url)
@@ -1585,6 +1593,98 @@ class BackendClient {
     @discardableResult
     func deleteIntention(id: UUID) async -> Bool {
         guard let url = URL(string: "\(baseURL)/intentions/\(id.uuidString)") else { return false }
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (_, response) = try await URLSession.shared.data(for: req)
+            return ((response as? HTTPURLResponse)?.statusCode ?? -1) == 204
+        } catch {
+            return false
+        }
+    }
+
+    // MARK: - Monthly Goals (May 2026)
+
+    /// GET /monthly_goals — returns nil on network failure, [] when empty.
+    func getMonthlyGoals(month: String? = nil, includeDeleted: Bool = false) async -> [MonthlyGoal]? {
+        var components = URLComponents(string: "\(baseURL)/monthly_goals")
+        var items: [URLQueryItem] = []
+        if let m = month { items.append(URLQueryItem(name: "month", value: m)) }
+        if includeDeleted { items.append(URLQueryItem(name: "include_deleted", value: "true")) }
+        if !items.isEmpty { components?.queryItems = items }
+        guard let url = components?.url else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            let resp = try intentionsJSONDecoder().decode(MonthlyGoalListResponse.self, from: data)
+            return resp.monthlyGoals
+        } catch {
+            return nil
+        }
+    }
+
+    /// GET /monthly_goals/{id}.
+    func getMonthlyGoal(id: UUID) async -> MonthlyGoal? {
+        guard let url = URL(string: "\(baseURL)/monthly_goals/\(id.uuidString)") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            return try intentionsJSONDecoder().decode(MonthlyGoal.self, from: data)
+        } catch {
+            return nil
+        }
+    }
+
+    /// POST /monthly_goals.
+    func createMonthlyGoal(_ payload: MonthlyGoalCreatePayload) async throws -> MonthlyGoal {
+        guard let url = URL(string: "\(baseURL)/monthly_goals") else {
+            throw IntentionError.network("Bad URL")
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        req.httpBody = try intentionsJSONEncoder().encode(payload)
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+        guard code == 200 else { throw IntentionError.network("HTTP \(code)") }
+        return try intentionsJSONDecoder().decode(MonthlyGoal.self, from: data)
+    }
+
+    /// PUT /monthly_goals/{id}. Throws .versionConflict on 409.
+    func updateMonthlyGoal(id: UUID, payload: MonthlyGoalUpdatePayload) async throws -> MonthlyGoal {
+        guard let url = URL(string: "\(baseURL)/monthly_goals/\(id.uuidString)") else {
+            throw IntentionError.network("Bad URL")
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "PUT"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        req.httpBody = try intentionsJSONEncoder().encode(payload)
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+        if code == 409 {
+            let current = await getMonthlyGoal(id: id)
+            throw IntentionError.versionConflict(currentServerVersion: current?.version)
+        }
+        if code == 404 || code == 410 {
+            throw IntentionError.notFound
+        }
+        guard code == 200 else { throw IntentionError.network("HTTP \(code)") }
+        return try intentionsJSONDecoder().decode(MonthlyGoal.self, from: data)
+    }
+
+    /// DELETE /monthly_goals/{id} — soft delete. Returns true on 204.
+    @discardableResult
+    func deleteMonthlyGoal(id: UUID) async -> Bool {
+        guard let url = URL(string: "\(baseURL)/monthly_goals/\(id.uuidString)") else { return false }
         var req = URLRequest(url: url)
         req.httpMethod = "DELETE"
         req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
