@@ -4797,6 +4797,8 @@ body.theme-effects-warm::after {
 .cd-plan .btn-link:hover { color: var(--text-1); }
 .cd-plan .eyebrow { font: 500 11px var(--font); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-3); margin-bottom: 12px; }
 .cd-plan .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.cd-plan .plan-empty-cta { display: flex; align-items: center; justify-content: center; padding: 32px 16px; border: 1px dashed var(--line-2, rgba(255,255,255,0.12)); border-radius: var(--r-lg); color: var(--text-3); font: 500 13px var(--font); cursor: pointer; transition: border-color 120ms ease, color 120ms ease, background 120ms ease; }
+.cd-plan .plan-empty-cta:hover { border-color: var(--accent-primary, #F38B5C); color: var(--text-1); background: rgba(255,255,255,0.02); }
 .cd-plan .mcard { background: var(--m-bg, var(--surface)); border: 0.5px solid var(--m-line, var(--line)); border-radius: var(--r-lg); padding: 14px 16px; min-height: 92px; cursor: pointer; transition: filter 120ms ease, border-color 120ms ease, opacity 120ms ease; display: flex; flex-direction: column; gap: 6px; }
 .cd-plan .mcard:hover { filter: brightness(1.04); }
 .cd-plan .mcard.sel { box-shadow: 0 0 0 1.5px var(--hue, transparent) inset; }
@@ -13449,34 +13451,8 @@ function mapWeeklyFromCache() {
 const _LIVE_MONTHLY = mapMonthlyFromCache();
 const _LIVE_WEEKLY = mapWeeklyFromCache();
 
-const MONTHLY = _LIVE_MONTHLY || [
-  { id:'m1', title:'Ship Puck to 25 founding members', outcome:'25 paid orders by May 31', hue: HUE.coral },
-  { id:'m2', title:'4hr deep work daily',              outcome:'20 weekdays averaged',     hue: HUE.green },
-  { id:'m3', title:'Hit 10k followers on Puck IG',     outcome:'From 0 to 10k by May 31',  hue: HUE.pink  },
-];
-
-const WEEKLY = _LIVE_WEEKLY || {
-  may11: [
-    { id:'wg1', title:'Record 3 demo videos', outcome:'Posted to IG by Sun', linksTo:'m1', status:'in-progress' },
-    { id:'wg2', title:'Block phone 9-5 daily', outcome:'Zero IG scrolls 9-5', linksTo:'m2', status:'planned' },
-    { id:'wg3', title:'Pitch 3 podcasts', outcome:'1 booked recording', linksTo:null, status:'planned' },
-  ],
-  may4: [
-    { id:'pa1', title:'Set up WeWork desk', outcome:'Laptop stays at desk M-F', linksTo:'m2', status:'done' },
-    { id:'pa2', title:'Block IG on phone after 9am', outcome:'Zero scrolls 9-5', linksTo:'m2', status:'slipped' },
-    { id:'pa3', title:'DM 10 founders', outcome:'10 sent', linksTo:'m1', status:'done' },
-  ],
-  apr27: [
-    { id:'pb1', title:'Ship v0.2 beta', outcome:'5 users on it', linksTo:'m1', status:'done' },
-    { id:'pb2', title:'Write launch post', outcome:'Posted IG + Twitter', linksTo:'m3', status:'slipped' },
-    { id:'pb3', title:'Reading hour daily', outcome:'5 sessions', linksTo:'m2', status:'done' },
-  ],
-  apr20: [
-    { id:'pc1', title:'Customer interviews', outcome:'5 calls', linksTo:'m1', status:'done' },
-    { id:'pc2', title:'Set up alarm system', outcome:'Works on first try', linksTo:'m2', status:'done' },
-    { id:'pc3', title:'IG demo clip #1', outcome:'Posted Sunday', linksTo:'m3', status:'done' },
-  ],
-};
+const MONTHLY = _LIVE_MONTHLY || [];
+const WEEKLY = _LIVE_WEEKLY || {};
 
 const WEEKS = [
   { id:'apr20', label:'Apr 20' },
@@ -13826,27 +13802,41 @@ function PlanApp() {
 
       <div>
         <div className="eyebrow">May</div>
-        <div className="row3">
-          {MONTHLY.map(g => (
-            <MonthlyCard key={g.id} g={g}
-              sel={selectedMonthly === g.id}
-              dim={selectedMonthly && selectedMonthly !== g.id}
-              onClick={() => setSelectedMonthly(selectedMonthly === g.id ? null : g.id)} />
-          ))}
-        </div>
+        {MONTHLY.length === 0 ? (
+          <div className="plan-empty-cta"
+            onClick={() => window.openMonthlyGoalCreate && window.openMonthlyGoalCreate()}>
+            + Add your first monthly goal
+          </div>
+        ) : (
+          <div className="row3">
+            {MONTHLY.map(g => (
+              <MonthlyCard key={g.id} g={g}
+                sel={selectedMonthly === g.id}
+                dim={selectedMonthly && selectedMonthly !== g.id}
+                onClick={() => setSelectedMonthly(selectedMonthly === g.id ? null : g.id)} />
+            ))}
+          </div>
+        )}
       </div>
 
       <div>
         <div className="eyebrow">This week</div>
-        <div className="row3">
-          {w.map(g => (
-            <WeeklyCard key={g.id} g={g} monthly={MONTHLY}
-              dim={selectedMonthly && g.linksTo !== selectedMonthly}
-              onDragStart={handleCardDragStart}
-              onDragEnd={handleCardDragEnd}
-              dragging={dragSource?.goalId === g.id} />
-          ))}
-        </div>
+        {w.length === 0 ? (
+          <div className="plan-empty-cta"
+            onClick={() => window.openWeeklyGoalCreate && window.openWeeklyGoalCreate()}>
+            + Add this week's first weekly goal
+          </div>
+        ) : (
+          <div className="row3">
+            {w.map(g => (
+              <WeeklyCard key={g.id} g={g} monthly={MONTHLY}
+                dim={selectedMonthly && g.linksTo !== selectedMonthly}
+                onDragStart={handleCardDragStart}
+                onDragEnd={handleCardDragEnd}
+                dragging={dragSource?.goalId === g.id} />
+            ))}
+          </div>
+        )}
       </div>
 
       {isCurrent && (
