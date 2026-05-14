@@ -9705,12 +9705,47 @@ function saveNewWeeklyGoal() {
 }
 window.saveNewWeeklyGoal = saveNewWeeklyGoal;
 
+// WKWebView blocks window.prompt() unless the host implements a text-input panel.
+// We use an inline HTML modal instead so this works inside the Mac app.
 function openMonthlyGoalCreate() {
-  var title = prompt('Monthly goal title:');
-  if (!title) return;
-  var outcome = prompt('Outcome / "done looks like":') || '';
+  var existing = document.getElementById('mg-create-overlay');
+  if (existing) existing.parentNode.removeChild(existing);
+  var html =
+    '<div id="mg-create-overlay" class="ns-modal-overlay">' +
+      '<div class="ns-modal-card">' +
+        '<div class="ns-modal-title">New monthly goal</div>' +
+        '<div class="ns-modal-field"><label>Title</label>' +
+          '<input type="text" class="ns-modal-input" id="mg-create-title" placeholder="e.g. Ship Puck to 25 founders" autofocus></div>' +
+        '<div class="ns-modal-field"><label>Outcome</label>' +
+          '<textarea class="ns-modal-input textarea" id="mg-create-outcome" placeholder="What does done look like?"></textarea></div>' +
+        '<div class="ns-modal-footer">' +
+          '<button class="btn-quiet" onclick="closeMonthlyGoalCreate()">Cancel</button>' +
+          '<button class="ge-done-btn" onclick="saveMonthlyGoalCreate()">Create</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+  setTimeout(function() {
+    var input = document.getElementById('mg-create-title');
+    if (input) input.focus();
+  }, 50);
+}
+window.openMonthlyGoalCreate = openMonthlyGoalCreate;
+
+function closeMonthlyGoalCreate() {
+  var overlay = document.getElementById('mg-create-overlay');
+  if (overlay) overlay.parentNode.removeChild(overlay);
+}
+window.closeMonthlyGoalCreate = closeMonthlyGoalCreate;
+
+function saveMonthlyGoalCreate() {
+  var titleEl = document.getElementById('mg-create-title');
+  var outcomeEl = document.getElementById('mg-create-outcome');
+  var title = titleEl ? (titleEl.value || '').trim() : '';
+  if (!title) { if (titleEl) titleEl.focus(); return; }
+  var outcome = outcomeEl ? outcomeEl.value : '';
   var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional;
-  if (!bridge) return;
+  if (!bridge) { closeMonthlyGoalCreate(); return; }
 
   // Wait for the create response, then refresh — same pattern as saveNewWeeklyGoal.
   var origCb = window._monthlyGoalCreated;
@@ -9720,8 +9755,8 @@ function openMonthlyGoalCreate() {
     if (res && !res.error) {
       bridge.postMessage({ type: 'GET_MONTHLY_GOALS' });
       if (typeof showToast === 'function') showToast('Saved');
-    } else {
-      alert((res && res.error) || 'Could not save monthly goal');
+    } else if (typeof showToast === 'function') {
+      showToast((res && res.error) || 'Could not save monthly goal');
     }
   };
 
@@ -9733,13 +9768,14 @@ function openMonthlyGoalCreate() {
     month_of: new Date().toISOString().slice(0, 7) + '-01',
     status: 'planned',
   });
+  closeMonthlyGoalCreate();
 
   // Belt-and-braces fallback if the callback never fires.
   setTimeout(function() {
     if (bridge) bridge.postMessage({ type: 'GET_MONTHLY_GOALS' });
   }, 2500);
 }
-window.openMonthlyGoalCreate = openMonthlyGoalCreate;
+window.saveMonthlyGoalCreate = saveMonthlyGoalCreate;
 
 function deleteWeeklyGoal(id) {
   if (!confirm('Delete this weekly goal? Past sessions stay; future sessions become unlinked.')) return;
