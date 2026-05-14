@@ -5818,6 +5818,20 @@ body.theme-effects-warm::after {
 <div class="toast" id="toast"></div>
 
 <script>
+// ===== Test mode for Playwright =====
+// When window.__INTENTIONAL_TEST_MODE is set true BEFORE any bridge calls
+// (via addInitScript), captures each message into
+// window.__capturedBridgeMessages and prevents missing-bridge errors when
+// running over file://.
+if (window.__INTENTIONAL_TEST_MODE) {
+  window.__capturedBridgeMessages = [];
+  window.webkit = window.webkit || {};
+  window.webkit.messageHandlers = window.webkit.messageHandlers || {};
+  window.webkit.messageHandlers.intentional = {
+    postMessage(msg) { window.__capturedBridgeMessages.push(msg); }
+  };
+}
+
 // ===== Theme Colors =====
 var THEME = {
   accent: 'var(--accent-primary)',
