@@ -5986,12 +5986,12 @@ function onFocusModeStateUpdate(stateRaw) {
 var INTERVENTIONS = [
   { key: "distractions_blocking", label: "Distractions blocking",      desc: "Hard block apps + sites in your distractions list.", defaultOn: true },
   { key: "switch_overlay",        label: "Context-switch overlay",     desc: "10s countdown when switching to a non-relevant app.", defaultOn: true },
-  { key: "ai_relevance",          label: "AI relevance scoring",       desc: "Browser tabs scored against your intention.",         defaultOn: true },
+  { key: "ai_relevance",          label: "AI relevance scoring",       desc: "Browser tabs scored against your weekly goal.",       defaultOn: true },
   { key: "screen_red_shift",      label: "Screen red shift",           desc: "Gradual screen tint when off-task.",                  defaultOn: true },
   { key: "off_task_nudge",        label: "Off-task nudge toast",       desc: "Small reminder before harder interventions.",         defaultOn: true },
-  { key: "block_start_ritual",    label: "Block start ritual",         desc: "Forces you to type intention before a scheduled block.", defaultOn: true },
+  { key: "block_start_ritual",    label: "Block start ritual",         desc: "Forces you to type your weekly goal before a scheduled block.", defaultOn: true },
   { key: "block_end_ritual",      label: "Block end ritual",           desc: "3-sec stats card at end of block.",                   defaultOn: true },
-  { key: "pill_widget",           label: "Always-on pill widget",      desc: "Menu bar pill with state, intention, timer.",         defaultOn: true },
+  { key: "pill_widget",           label: "Always-on pill widget",      desc: "Menu bar pill with state, weekly goal, timer.",       defaultOn: true },
   { key: "force_quit_apps",       label: "Distracting app force-quit", desc: "HARD MODE: distracting apps minimized/quit on activation.", defaultOn: false },
   { key: "earned_browse_mode",    label: "Earned browse mode",         desc: "Earn distraction-time credits during focus. (Currently disabled.)", defaultOn: false }
 ];
@@ -9316,7 +9316,7 @@ function populateIntentionPicker(sel, block) {
   });
   var optNew = document.createElement('option');
   optNew.value = '__create_new__';
-  optNew.textContent = '+ Create new Intention…';
+  optNew.textContent = '+ Create new weekly goal…';
   sel.appendChild(optNew);
   sel.value = (block && block.intentionId) || '';
   renderEditorStrictnessCaption(block && block.intentionId);

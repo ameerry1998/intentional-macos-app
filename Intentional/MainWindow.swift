@@ -3529,7 +3529,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
     private func handleStartIntentionSession(_ body: [String: Any]) {
         guard let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) else {
-            emitSessionResult(["status": "refused", "reason": "Missing intention id"])
+            emitSessionResult(["status": "refused", "reason": "Missing weekly goal id"])
             return
         }
         Task {
