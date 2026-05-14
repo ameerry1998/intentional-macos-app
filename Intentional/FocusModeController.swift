@@ -60,6 +60,13 @@ final class FocusModeController {
     /// dashboard push, menu bar pill.
     var onStateChanged: ((_ old: State, _ new: State, _ period: Period?) -> Void)?
 
+    /// Returns true when the backend says a focus session is currently active
+    /// (`/focus/active.active == true`). Wired from AppDelegate to read
+    /// `FocusStatePoller.lastKnownActive`. Used to refuse `.schedule`-sourced
+    /// deactivations because Spec-1 sessions live in /focus/active but not
+    /// /time_blocks — a 0-blocks schedule pull is NOT proof the session ended.
+    var isBackendSessionActive: (() -> Bool)?
+
     // MARK: Lifecycle
 
     init() {
@@ -214,6 +221,18 @@ final class FocusModeController {
     func deactivate(source: ActivationSource) {
         let old = state
         if state == .off { return }
+
+        // Spec 1 / sessions-vs-schedule guard: a `.schedule` deactivation fires
+        // every 60s when ScheduleManager pulls /time_blocks and finds 0 blocks.
+        // For Spec 1 manual sessions the session is canonical in /focus/active
+        // — not in /time_blocks — so 0 blocks is expected and does not mean the
+        // session ended. Refuse the deactivation; the poller / WS will issue a
+        // .crossDevice/.puck deactivation when the session actually stops.
+        if source == .schedule, isBackendSessionActive?() == true {
+            print("⚠️ FocusModeController: refusing .schedule deactivation — backend session still active")
+            return
+        }
+
         state = .off
         currentPeriod = nil
         notify(old: old, new: state, period: nil)

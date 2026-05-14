@@ -323,6 +323,10 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             return
         }
 
+        if type.contains("INTENTION") || type.contains("PROJECT") || type == "UPDATE_INTENTION_STRICTNESS" {
+            appDelegate?.postLog("📥 BRIDGE rx: \(type)")
+        }
+
         #if DEBUG
         if type != "DIAGNOSTIC_LOG" {
             uiPerfRxCounts[type, default: 0] += 1
@@ -2499,6 +2503,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     }
 
     private func handleUpdateProject(_ body: [String: Any]) {
+        appDelegate?.postLog("🎯 UPDATE_PROJECT handler fired: id=\(body["id"] ?? "nil") patch_keys=\(((body["patch"] as? [String: Any]) ?? [:]).keys)")
         guard let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) else { return }
         let patchDict = body["patch"] as? [String: Any] ?? [:]
 
@@ -3157,8 +3162,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
     func callJS(_ script: String) {
         #if DEBUG
-        uiPerfCallJSCount += 1
-        uiPerfCallJSBytes += script.count
         let scriptSize = script.count
         let fnName: String = {
             if let r = script.range(of: #"window\.(_[A-Za-z0-9]+)"#, options: .regularExpression) {
@@ -3167,10 +3170,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             let head = script.prefix(40)
             return String(head).components(separatedBy: "(").first ?? String(head)
         }()
-        uiPerfMaybeFlush()
         #endif
         DispatchQueue.main.async {
             #if DEBUG
+            // Counter mutations must run on main — uiPerfRxCounts / uiPerfCallJSCount
+            // are also touched by didReceive (main thread). Background callers racing
+            // on the dictionary corrupted heap and crashed in removeAll(keepingCapacity:).
+            self.uiPerfCallJSCount += 1
+            self.uiPerfCallJSBytes += scriptSize
+            self.uiPerfMaybeFlush()
             let t0 = CFAbsoluteTimeGetCurrent()
             #endif
             self.webView.evaluateJavaScript(script) { _, error in
@@ -3494,7 +3502,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     // MARK: - Intentions (Spec 3 — strictness control)
 
     private func handleUpdateIntentionStrictness(_ body: [String: Any]) {
+        appDelegate?.postLog("🎯 STRICTNESS handler: body=\(body)")
         guard let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) else {
+            appDelegate?.postLog("🎯 STRICTNESS handler: missing/invalid id, bailing")
             emitIntentionMutationResult(["status": "error", "error": "Missing id"])
             return
         }
@@ -3509,6 +3519,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 let updated = try await IntentionStore.shared.updateStrictness(
                     id: id, toPreset: to, partnerUnlockCode: partnerCode
                 )
+                appDelegate?.postLog("🎯 STRICTNESS backend OK: id=\(updated.id) preset=\(updated.strictnessPreset.rawValue) pending=\(updated.pendingStrictnessChange?.toPreset.rawValue ?? "nil")")
                 await MainActor.run {
                     var payload: [String: Any] = [
                         "status": "updated",

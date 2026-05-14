@@ -879,6 +879,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 focusModeController: controller
             )
             focusStatePoller?.start()
+
+            // Wire poller's known-active state into the controller's deactivation
+            // gate. ScheduleManager.onBlockChanged fires .schedule-sourced
+            // deactivations on every 60s pull, but Spec 1 sessions don't live
+            // in /time_blocks — only in /focus/active. So a 0-blocks pull
+            // shouldn't kill an active session. The closure stays loosely
+            // coupled (no direct ref) so either side can be replaced.
+            controller.isBackendSessionActive = { [weak self] in
+                self?.focusStatePoller?.lastKnownActive ?? false
+            }
         }
 
         // Wire schedule block changes: the schedule is a trigger source for

@@ -80,23 +80,27 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
 
         // Webkit-based
         "com.kagi.kagimacOS": ("Orion", "Orion"),
+        "com.kagi.kagimacOS.RC": ("Orion RC", "Orion RC"),
 
-        // Productivity browsers
-        "com.nickvision.sigmaos": ("SigmaOS", "SigmaOS"),
-        "com.nickvision.nickvision.sidekick": ("Sidekick", "Sidekick"),
-        "io.nickvision.nickvision.nickvision.desktop": ("Wavebox", "Wavebox"),
+        // Productivity browsers (real bundle IDs verified — earlier
+        // `nickvision.*` placeholders were removed because they never matched
+        // real installs; unknown browsers auto-register from the app filename
+        // via the Launch Services fallback in discoverInstalledBrowsers).
+        "com.sigmaos.sigmaos.macos.SigmaOS": ("SigmaOS", "SigmaOS"),
+        "app.wavebox": ("Wavebox", "Wavebox"),
+        "com.pushplaylabs.sidekick": ("Sidekick", "Sidekick"),
 
-        // Developer browsers
-        "nickvision.nickvision": ("Polypane", "Polypane"),
-        "nickvision.nickvision.nickvision": ("Responsively", "Responsively App"),
-        "nickvision.nickvision.nickvision.nickvision": ("Blisk", "Blisk"),
+        // The Browser Company family
+        "company.thebrowser.dia": ("Dia", "Dia"),
 
-        // Minimal browsers
-        "nickvision.nickvision.minbrowser": ("Min", "Min"),
-
-        // Firefox forks
-        "one.nickvision.floorp": ("Floorp", "Floorp"),
-        "nickvision.nickvision.nickvision.zen-browser": ("Zen Browser", "Zen Browser"),
+        // AI-powered Chromium browsers — full browsers despite the "AI assistant"
+        // marketing. They render arbitrary websites (incl. YouTube/Instagram) and
+        // expose Chrome's AppleScript API for `URL of active tab of front window`.
+        // If we don't register them here they get excluded → no tab inspection →
+        // YouTube loads freely during a Focus session.
+        "ai.perplexity.comet": ("Comet", "Comet"),
+        "com.openai.atlas": ("ChatGPT Atlas", "ChatGPT Atlas"),
+        "com.openai.atlas.web": ("ChatGPT Atlas Web", "ChatGPT Atlas Web"),
     ]
 
     // Apps that handle URLs but are NOT browsers
@@ -142,10 +146,9 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
         "com.bitwarden.desktop",
         "com.lastpass.lastpass",
 
-        // AI assistants / non-browser apps
-        "ai.perplexity.comet",           // Perplexity Comet
-        "com.openai.atlas",              // ChatGPT Atlas
-        "com.openai.atlas.web",          // ChatGPT Atlas Web
+        // (Comet / ChatGPT Atlas removed from excluded list — they are full
+        // Chromium-based browsers and need tab-level enforcement. Registered in
+        // `knownBrowserInfo` above.)
 
         // Terminal apps
         "com.googlecode.iterm2",         // iTerm2

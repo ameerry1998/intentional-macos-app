@@ -161,6 +161,11 @@ class FocusMonitor {
         "org.mozilla.firefox",
         "com.operasoftware.Opera",
         "com.vivaldi.Vivaldi",
+        // AI-powered Chromium browsers — full browsers, support Chrome's
+        // AppleScript dialect, must be inspected per-tab during focus sessions.
+        "ai.perplexity.comet",
+        "com.openai.atlas",
+        "com.openai.atlas.web",
     ]
 
     /// Maps bundle ID → AppleScript application name for tab access.
@@ -174,6 +179,9 @@ class FocusMonitor {
         "org.mozilla.firefox": "Firefox",
         "com.operasoftware.Opera": "Opera",
         "com.vivaldi.Vivaldi": "Vivaldi",
+        "ai.perplexity.comet": "Comet",
+        "com.openai.atlas": "ChatGPT Atlas",
+        "com.openai.atlas.web": "ChatGPT Atlas Web",
     ]
 
     // MARK: - Always-Allowed Apps
@@ -1671,12 +1679,14 @@ class FocusMonitor {
         // TODO (Task 5): When FocusModeController.isOn replaces TimeState gates, restore
         // noPlan pill-card logic using scheduleManager.todaySchedule != nil as the discriminator.
 
-        // WORK STATE (deep work or focus hours): score content for relevance
-        guard state.isWork else {
-            handleRelevantContent()
-            stopBrowserPolling()
-            return
-        }
+        // Was: `guard state.isWork else { handleRelevantContent(); return }`.
+        // Removed because manual Focus Mode sessions (started via Start on a
+        // Focus Mode card, or via cross-device push) don't have a corresponding
+        // ScheduleManager block — they live only in /focus/active. So
+        // `state.isWork` is false for them, and the guard skipped AI scoring +
+        // work-tick recording entirely (focus score stuck at 0%). The earlier
+        // `focusModeController.isOn == true` guard (line ~1618) is the correct
+        // gate: if Focus Mode is on, we score. Schedule state is irrelevant.
 
         // Per-project overlay: allow/block decisions win over global defaults when a
         // project session is active. Allowed apps skip AI scoring; blocked apps enforce

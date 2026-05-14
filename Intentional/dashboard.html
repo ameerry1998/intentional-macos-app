@@ -5681,6 +5681,16 @@ function showSettingsDetail(id) {
 window._appListResult = function(payload) {
   var kind = payload && payload.kind;
   var apps = (payload && payload.apps) || [];
+  // Cache the global distractions count so Focus Mode cards can show how many
+  // global rules apply during ANY session (the user's confusion: "youtube isn't
+  // in this Focus Mode's list, why is it blocked?" — answer: it's a global
+  // distraction, blocked during any work session).
+  if (kind === 'distractions') {
+    distractionsCache = apps.slice();
+    if (typeof ProjectsController !== 'undefined' && ProjectsController.refresh) {
+      try { ProjectsController.refresh(); } catch (e) {}
+    }
+  }
   var listEl = document.getElementById(kind === 'distractions' ? 'distractions-list' : 'always-blocked-list');
   if (!listEl) return;
   if (apps.length === 0) {
@@ -8353,6 +8363,11 @@ var focusState = {
 // the intentions list with strictness + pending change + budget fields.
 var intentionsCache = [];
 
+// Slice 5 follow-up: cache the global distractions list count so Focus Mode
+// cards can show "N distractions + M mode-specific". Populated from
+// `_appListResult` (kind === 'distractions') and refreshed on demand.
+var distractionsCache = [];
+
 window._intentionsList = function(items) {
   intentionsCache = Array.isArray(items) ? items : [];
   // If the block editor is open, refresh its dropdown
@@ -10039,7 +10054,19 @@ function closeBlockEditorOutside(e) {
   var editor = document.getElementById('block-editor');
   if (editor && !editor.contains(e.target) && !e.target.closest('.calendar-block')) {
     if (focusState.draftBlockId) {
-      closeBlockEditor();
+      // Draft block: discard ONLY when the user hasn't committed anything yet.
+      // If the title was filled in, the user clearly intended to create the
+      // block — treat click-away as Done so their work isn't silently dropped.
+      // Empty title = probably an accidental `+ Focus` tap → discard silently.
+      // saveBlockEdit() does its own validation (time conflicts etc.) and
+      // leaves the editor open with a toast if validation fails.
+      var titleEl = document.getElementById('editor-title');
+      var hasTitle = titleEl && titleEl.value.trim().length > 0;
+      if (hasTitle) {
+        saveBlockEdit();
+      } else {
+        closeBlockEditor();
+      }
     } else {
       saveBlockEdit();
     }
@@ -10918,6 +10945,7 @@ sendMessage({ type: 'GET_SETTINGS' });
 sendMessage({ type: 'GET_PARTNER_STATUS' });
 sendMessage({ type: 'GET_FOCUS_MODE' });
 sendMessage({ type: 'GET_INTENTIONS' });  // Spec 3 — populate intentionsCache for picker
+sendMessage({ type: 'GET_DISTRACTIONS' });  // Slice 5 follow-up — populate distractionsCache for Focus Mode card hint
 
 // Spec 3 (May 2026): default the Sensitive Content card to live in
 // page-sensitive on first load (it'll relocate back if user navigates to
@@ -11096,7 +11124,18 @@ const ProjectsController = (() => {
       intention: intent.description || '',
       accent: intent.color_hex || 'var(--accent-primary)',
       blocklistId: 'bl1',
-      allowed: [],
+      // Map backend Intent allow/block lists into the Setup form shape.
+      // mac_websites → domain entries, mac_bundle_ids → appBundleId entries.
+      allowed: []
+        .concat((intent.mac_websites || []).map(function(d){
+          return { id: null, kind: 'domain', value: d, note: '' };
+        }))
+        .concat((intent.mac_bundle_ids || []).map(function(b){
+          return { id: null, kind: 'appBundleId', value: b, note: '' };
+        })),
+      blocked: [],
+      strictness_preset: intent.strictness_preset || 'standard',
+      weekly_budget_hours: (intent.weekly_budget_hours != null) ? intent.weekly_budget_hours : null,
       // Best-effort fill for fields the Setup form expects but Intent
       // doesn't carry. Keeps renderSetup from crashing on undefined.
       sessions: 0,
@@ -11179,9 +11218,18 @@ const ProjectsController = (() => {
     const sparkline = renderSparkline(p.weekMinutes || [], p.accent || 'var(--accent-primary)');
     const intention = escapeHTML(p.intention || '');
     const name = escapeHTML(p.name || 'Untitled');
+    // Slice 5 follow-up: surface the global distractions count alongside the
+    // mode-specific overrides so the user understands "youtube isn't in THIS
+    // mode's list, but it's a global distraction so it gets blocked during
+    // every Focus session." Reads from `distractionsCache` populated by the
+    // GET_DISTRACTIONS push.
+    var globalCount = (typeof distractionsCache !== 'undefined') ? distractionsCache.length : 0;
+    var modeCount = p.allowedCount || 0;
+    var blockedLine = globalCount + ' distraction' + (globalCount === 1 ? '' : 's')
+      + (modeCount > 0 ? ' + ' + modeCount + ' mode-specific' : '');
     const meta = [
       p.humanLastUsed || 'new',
-      p.allowedCount ? (p.allowedCount + ' configured') : null,
+      blockedLine,
       p.blocklistCount ? (p.blocklistCount + ' blocklist' + (p.blocklistCount === 1 ? '' : 's')) : null,
     ].filter(Boolean).join(' · ');
     // Strictness badge — for backend-adapted cards p.strictness_preset is set;
@@ -12099,12 +12147,13 @@ const ProjectsController = (() => {
   }
 
   function _handleSave() {
-    if (!formState) return;
+    console.log('[FM-EDITOR] _handleSave fired. formState.strictness_preset=', formState && formState.strictness_preset, ' state.selected.strictness_preset=', state.selected && state.selected.strictness_preset);
+    if (!formState) { console.log('[FM-EDITOR] no formState, bailing'); return; }
     syncFormStateFromDOM(document.getElementById('projects-view-setup'));
     const name = (formState.name || '').trim();
     const intention = formState.intention || '';
-    if (!name) return;
-    if (intention.length > 140) return;
+    if (!name) { console.log('[FM-EDITOR] empty name, bailing'); return; }
+    if (intention.length > 140) { console.log('[FM-EDITOR] intention too long, bailing'); return; }
 
     // Strip local-only _lk keys before sending.
     const stripLocal = (list) => (list || []).map(a => {
@@ -12156,12 +12205,14 @@ const ProjectsController = (() => {
       // Only fire if it actually changed vs. the loaded value.
       var loadedStrictness = (state.selected && state.selected.strictness_preset) || 'standard';
       var newStrictness = formState.strictness_preset || 'standard';
+      console.log('[FM-EDITOR] strictness check: loaded=', loadedStrictness, ' new=', newStrictness, ' will-fire=', newStrictness !== loadedStrictness);
       if (newStrictness !== loadedStrictness) {
         sendMessage({
           type: 'UPDATE_INTENTION_STRICTNESS',
           id: state.selected.id,
           to_preset: newStrictness,
         });
+        console.log('[FM-EDITOR] UPDATE_INTENTION_STRICTNESS sent for id=', state.selected.id, ' to=', newStrictness);
       }
     }
   }
