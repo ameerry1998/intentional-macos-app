@@ -344,6 +344,26 @@ body.theme-effects-warm::after {
 }
 .sidebar-item.active .sidebar-item-icon { opacity: 1; }
 
+/* May 2026 prototype port — sidebar blocking pill */
+.sb-blocking {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+  transition: background 120ms ease;
+}
+.sb-blocking:hover { background: rgba(255,255,255,0.07); }
+.sb-blocking .shield { font-size: 13px; }
+.sb-blocking .arrow { margin-left: auto; color: var(--text-tertiary); }
+.sb-blocking.empty { opacity: 0.55; }
+
 /* ===== Main Content ===== */
 .main {
   flex: 1;
@@ -4642,9 +4662,10 @@ body.theme-effects-warm::after {
   <div class="sidebar-item active" data-page="today" onclick="navigateTo('today')">
     <span class="sidebar-item-icon">◉</span> Today
   </div>
-  <div class="sidebar-item" data-page="intentions" onclick="navigateTo('intentions')">
-    <span class="sidebar-item-icon">◎</span> Focus Modes
+  <div class="sidebar-item" data-page="plan" onclick="navigateTo('plan')">
+    <span class="sidebar-item-icon">📓</span> Plan
   </div>
+  <!-- Focus Modes tab removed 2026-05-14 — replaced by full-page Weekly Goal editor reachable from Today/Plan cards -->
   <div class="sidebar-item" data-page="sensitive" onclick="navigateTo('sensitive')">
     <span class="sidebar-item-icon">◔</span> Sensitive Content
   </div>
@@ -4655,6 +4676,12 @@ body.theme-effects-warm::after {
     <span class="sidebar-item-icon">⚙</span> Settings
   </div>
   <div style="flex:1;"></div>
+  <!-- Bottom-left blocking pill (May 2026 prototype port) -->
+  <div class="sb-blocking empty" id="sb-blocking" onclick="navigateTo('today');setTodayMode && setTodayMode('blocks');">
+    <span class="shield">🛡</span>
+    <span id="sb-blocking-label">Nothing blocking</span>
+    <span class="arrow">›</span>
+  </div>
   <div class="sidebar-label">Session</div>
   <div style="padding:4px 20px 8px;">
     <div id="sidebar-session-status" style="font-size:11px;color:var(--text-tertiary);">Free Time</div>
@@ -4855,6 +4882,15 @@ body.theme-effects-warm::after {
       </div>
     </div>
 
+  </div>
+
+  <!-- Page: Plan (May 2026 prototype port — Cloud Design React app embedded in C3) -->
+  <div class="page" id="page-plan">
+    <div class="cd-plan" data-theme="dark">
+      <div id="plan-react-root">
+        <div style="padding:32px;color:var(--text-tertiary);text-align:center;">Loading planning view…</div>
+      </div>
+    </div>
   </div>
 
   <!-- Page: Intentions (Spec 3 — renamed from Projects) -->
@@ -8380,6 +8416,35 @@ window._intentionsList = function(items) {
     try { ProjectsController.refresh(); } catch (e) {}
   }
 };
+
+// May 2026 prototype port — sidebar blocking pill: count of currently-active blocks.
+// Pragmatic stub — counts intentions whose status is `in_progress`. A future slice
+// can wire this to a proper schedule-sync receiver when one lands.
+window._activeBlockCount = window._activeBlockCount || 0;
+function refreshSidebarBlockingPill() {
+  var count = (typeof window._activeBlockCount === 'number') ? window._activeBlockCount : 0;
+  var el = document.getElementById('sb-blocking');
+  var lbl = document.getElementById('sb-blocking-label');
+  if (!el || !lbl) return;
+  if (count === 0) {
+    el.classList.add('empty');
+    lbl.textContent = 'Nothing blocking';
+  } else {
+    el.classList.remove('empty');
+    lbl.textContent = count + ' blocking';
+  }
+}
+(function() {
+  var orig = window._intentionsList;
+  window._intentionsList = function(items) {
+    if (Array.isArray(items)) {
+      window._activeBlockCount = items.filter(function(i) { return i && i.status === 'in_progress'; }).length;
+      refreshSidebarBlockingPill();
+    }
+    if (typeof orig === 'function') orig(items);
+  };
+})();
+refreshSidebarBlockingPill();
 
 function getEditingBlock() {
   return focusState.blocks.find(function(b) { return b.id === focusState.editingBlockId; });
