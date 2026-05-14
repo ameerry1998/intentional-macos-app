@@ -78,6 +78,41 @@ Verification gate per slice (per `superpowers:verification-before-completion`):
 
 ### 2026-05-14 — Phase 2B (Mac) start
 - Setting up Mac worktree at `intentional-macos-app/.claude/worktrees/prototype-to-production` on branch `feat/prototype-to-production`.
+- Worktree cut from `slice-13-cleanup` (not `main`) because slice-13-cleanup contains the unified-design prototype + planning docs that the implementation depends on.
+- Build verification confirmed: `xcodebuild build CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO` → BUILD SUCCEEDED. The signed-build path fails on provisioning profiles (Apple Developer agreement renewal pending — separate blocker called out in goal command). All Mac slices use this no-signing build flag for verification.
+- Two large mp4 resources (`zen-nature.mp4`, `13136082_3840_2160_60fps.mp4`, ~270 MB total) live outside git (gitignored); symlinked from parent checkout into worktree so xcodebuild finds them.
+
+### 2026-05-14 — Phase 2B (Mac Swift) DONE
+- **B1-B2:** `Intention.swift` extended with 9 new fields + tolerant decoder + `GoalStatus` enum. New `MonthlyGoal.swift` model + payloads.
+- **B3-B4:** 5 new `BackendClient` methods + `?week=` filter on `getIntentions`. New `MonthlyGoalStore.swift` actor (disk cache + 60s sync + 409 handling).
+- **B5:** `AppDelegate.swift` wires `MonthlyGoalStore`. New `IntentTextMigration.swift` (one-shot, idempotent via receipt).
+- **B6:** `MainWindow.swift` — 7 new bridge cases + 6 handlers + `monthlyGoalToDict` + extended `intentionToDict` with 9 fields. Observer for `.monthlyGoalsDidChange`.
+- **B7:** `CLAUDE.md` updated with new architecture section.
+- 9 commits on `feat/prototype-to-production` for Plan B.
+
+### 2026-05-14 — Phase 2C (Dashboard) DONE
+- **C1:** Sidebar restructure (5 items, Focus Modes nav removed). Bottom-left blocking pill. `#page-plan` stub container. **Theme toggle SKIPPED** per goal command + §17b.12.
+- **C2:** Today header weekly-goal cards strip (`#now-card-mount`) + drag-to-schedule wiring. Cards click → editor; grip drag → `START_GOAL_SESSION`.
+- **C3:** Plan tab — Cloud Design React app embedded verbatim (React 18 + Babel CDN). Lazy-mount on `navigateTo('plan')`. Bridge-fed MONTHLY + WEEKLY state with hardcoded fallback.
+- **C4:** Full-page Weekly Goal editor (`#page-goal-edit`) + Custom Rules sub-page (`.cr-page`). Wired to `UPDATE_INTENTION`, `DELETE_INTENTION`, `LINK_WEEKLY_TO_MONTHLY`, `CREATE_MONTHLY_GOAL`, `UPDATE_INTENTION_STRICTNESS` bridge messages.
+- **Playwright tests for dashboard.html SKIPPED** (per user direction mid-run): file:// runs in Chromium, not WKWebView, so it's a smoke check at best — not a real verification. Memory saved: `feedback_meaningful_tests.md`. The existing `weekly-goal-click.mjs` already exercises the prototype's Today + Plan + editor flows and remains the canonical Playwright reference. Real verification of `dashboard.html` is launching the Mac app — deferred to after Apple Dev agreement renewal.
+- 6 commits on `feat/prototype-to-production` for Plan C (4 production + 2 leftover bridge-test-mode commits that survived from an earlier dispatch — harmless).
+
+### 2026-05-14 — Phase 3 (PRs) DONE
+- **Backend PR #5:** https://github.com/ameerry1998/intentional-backend/pull/5 (base: `main`, 12 commits). Migration 026 + MonthlyGoal CRUD + extended intentions endpoints.
+- **Mac PR #3:** https://github.com/ameerry1998/intentional-macos-app/pull/3 (base: `slice-13-cleanup`, 15 commits). Plan B Swift + Plan C dashboard.
+- Both PRs reference the brief + requirements + plan files in their descriptions.
+- **Neither merged** per goal command — leave for human review.
+
+### External blockers (carried forward — not fixed by this run)
+- `api.intentional.social` Cloudflare DNS still points at stale Railway edge `m5n78aku`; needs updating to `b7qg65hf.up.railway.app` (grey-cloud off). Until then, iOS login + Mac live-backend smoke fail with TLS -9802. Backend deploy of migration 026 can still happen via Railway dashboard / direct Supabase SQL editor — doesn't require DNS.
+- Apple Developer agreement renewal pending — signed/notarized PKG build doesn't run locally. All Mac verification was done with `CODE_SIGNING_ALLOWED=NO` flag. Once renewed: `./scripts/build-pkg.sh` should produce a working notarizable PKG, then manual smoke per the Mac PR test plan.
+
+### Action required from human (in priority order)
+1. **Deploy backend first:** merge PR #5 → Railway auto-deploys → run `migrations/026_weekly_monthly_goals.sql` against production Supabase (via Railway dashboard or `psql`). Migration is additive — safe during business hours.
+2. **Fix Cloudflare DNS:** update `api` CNAME to `b7qg65hf.up.railway.app`, grey-cloud (proxy off). Once propagated, iOS unblocks.
+3. **Renew Apple Dev agreement,** then build + install the Mac PKG to verify the dashboard flow end-to-end.
+4. **Manual smoke pass:** launch app → click Plan → click weekly card → edit → Done → confirm `UPDATE_INTENTION` round-trips. If green, merge PR #3.
 - Backend inspection: migration 018 created `intentions` table; 020 added `strictness_preset`, `weekly_budget_hours`, `budget_enforcement` columns + `intention_strictness_changes` tracking table; 022 renamed `intentions` → `focus_modes` and created `intentions` SQL view alias. Endpoints `/intentions` + `/focus_modes` both live. Pydantic models: `Intention`, `IntentionCreate`, `IntentionUpdate`, `IntentionListResponse` in `models.py:623+`.
 - Prototype inspection: sidebar at app.html:659-673 (5 items + bottom blocking pill + theme toggle). view-plan mounts React app via `<div id="plan-react-root"></div>` inside `<div class="cd-plan" data-theme="dark">`. PlanApp React component embedded inline at app.html:2295-2724 (~430 lines). Weekly Goal editor at app.html:895-924 (view) + 1172-1290 (`openWeeklyGoalEdit` JS). Custom Rules sub-page at 1293-1340.
 - Backend ENDPOINT TLS issue (the user's iPhone-login blocker) **separate workstream**: I deleted+recreated the Railway custom domain (old ID `23b4cc0d-...` → new `66bdab15-...` on edge `b7qg65hf`). User needs to update Cloudflare CNAME `api` to `b7qg65hf.up.railway.app` (currently still `m5n78aku`) with grey-cloud proxy off. Once DNS updates, I'll verify cert. **This is independent of the prototype-port work and does not block Phase 1.**
