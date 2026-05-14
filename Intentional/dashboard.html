@@ -401,6 +401,12 @@ body.theme-effects-warm::after {
 .block-card-remaining { font-size: 11px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
 .block-card-snooze { background: rgba(243, 139, 92, 0.14); color: #f38b5c; border: none; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s; }
 .block-card-snooze:hover { background: rgba(243, 139, 92, 0.22); }
+.br-cat-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.br-cat-chip { background: rgba(255,255,255,0.04); border: 0.5px solid rgba(255,255,255,0.12); color: var(--text-secondary); padding: 5px 11px; border-radius: 14px; font-size: 11.5px; cursor: pointer; transition: background 0.12s; }
+.br-cat-chip:hover { background: rgba(255,255,255,0.10); color: var(--text-primary); }
+.bn-duration-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.bn-dur-chip { background: rgba(255,255,255,0.06); border: 0.5px solid rgba(255,255,255,0.14); color: var(--text-primary); padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.12s; flex: 1 1 30%; min-width: 90px; }
+.bn-dur-chip:hover { background: var(--accent-primary); border-color: var(--accent-primary); color: #fff; }
 .block-toggle { width: 32px; height: 18px; background: rgba(255,255,255,0.10); border-radius: 9px; position: relative; cursor: pointer; transition: background 0.15s; flex-shrink: 0; }
 .block-toggle::after { content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #fff; top: 2px; left: 2px; transition: left 0.15s; }
 .block-toggle.on { background: var(--accent-primary); }
@@ -9261,6 +9267,16 @@ function _showBlockRuleModal(titleText) {
           '<button class="br-add-app-btn" onclick="_openBlockRuleAppPicker()">+ Add app</button>' +
         '</div>' +
 
+        '<div class="ns-modal-field"><label>Quick add by category</label>' +
+          '<div class="br-cat-row">' +
+            '<button type="button" class="br-cat-chip" onclick="_addBlockCategory(\'social\')">Social</button>' +
+            '<button type="button" class="br-cat-chip" onclick="_addBlockCategory(\'games\')">Games</button>' +
+            '<button type="button" class="br-cat-chip" onclick="_addBlockCategory(\'news\')">News</button>' +
+            '<button type="button" class="br-cat-chip" onclick="_addBlockCategory(\'streaming\')">Streaming</button>' +
+            '<button type="button" class="br-cat-chip" onclick="_addBlockCategory(\'shopping\')">Shopping</button>' +
+          '</div>' +
+        '</div>' +
+
         '<div class="ns-modal-field"><label>Schedule</label>' +
           '<label class="ns-modal-toggle-row">' +
             '<input type="checkbox" id="br-always" ' + (d.alwaysActive ? 'checked' : '') + ' onchange="_toggleBlockRuleAlwaysActive(this.checked)"> ' +
@@ -9417,18 +9433,100 @@ function _deleteBlockRuleFromModal() {
 }
 window._deleteBlockRuleFromModal = _deleteBlockRuleFromModal;
 
-function openBlockNowModal() {
-  // Trigger immediate focus session via existing Focus Mode toggle.
-  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
-    window.webkit.messageHandlers.intentional.postMessage({ type: 'TOGGLE_FOCUS_MODE' });
+// ===== Category presets (Phase 4 — Opal-parity quick-add) =====
+window._blockCategoryPresets = {
+  social: ['instagram.com','twitter.com','x.com','facebook.com','tiktok.com','reddit.com','snapchat.com','linkedin.com','threads.net'],
+  games: ['twitch.tv','steamcommunity.com','steampowered.com','epicgames.com','roblox.com','fortnite.com','chess.com','lichess.org'],
+  news: ['cnn.com','foxnews.com','nytimes.com','bbc.com','bbc.co.uk','reuters.com','washingtonpost.com','huffpost.com','wsj.com','news.ycombinator.com'],
+  streaming: ['youtube.com','netflix.com','hulu.com','primevideo.com','disneyplus.com','hbomax.com','max.com','spotify.com','soundcloud.com'],
+  shopping: ['amazon.com','ebay.com','etsy.com','walmart.com','target.com','bestbuy.com','aliexpress.com','wayfair.com']
+};
+
+function _addBlockCategory(cat) {
+  if (!_blockRuleDraft) return;
+  var preset = window._blockCategoryPresets[cat] || [];
+  if (!preset.length) return;
+  var existing = (_blockRuleDraft.websites || []).slice();
+  var existingLC = existing.map(function(s){ return s.toLowerCase(); });
+  preset.forEach(function(d) {
+    if (existingLC.indexOf(d.toLowerCase()) === -1) {
+      existing.push(d);
+      existingLC.push(d.toLowerCase());
+    }
+  });
+  _blockRuleDraft.websites = existing;
+  var sitesEl = document.getElementById('br-sites');
+  if (sitesEl) sitesEl.value = existing.join('\n');
+  // Auto-fill a sensible name if name is still blank
+  var nameEl = document.getElementById('br-name');
+  if (nameEl && !nameEl.value.trim()) {
+    var labels = { social: 'Block social media', games: 'Block games', news: 'Block news', streaming: 'Block streaming', shopping: 'Block shopping' };
+    nameEl.value = labels[cat] || ('Block ' + cat);
   }
-  if (typeof showToast === 'function') showToast('Focus session toggled');
+  if (typeof showToast === 'function') showToast('Added ' + preset.length + ' sites from ' + cat);
+}
+window._addBlockCategory = _addBlockCategory;
+
+// ===== Block Now modal — pick duration, then start an immediate focus session =====
+function openBlockNowModal() {
+  var existing = document.getElementById('bn-modal-overlay');
+  if (existing) existing.parentNode.removeChild(existing);
+  var html =
+    '<div id="bn-modal-overlay" class="ns-modal-overlay">' +
+      '<div class="ns-modal-card" style="min-width:380px; max-width:440px;">' +
+        '<div class="ns-modal-title">Block Now</div>' +
+        '<div class="ns-modal-field" style="color:var(--text-tertiary); font-size:12.5px;">' +
+          'Starts a focus session immediately. Your active blocking rules + the session\'s blocklist will both apply.' +
+        '</div>' +
+        '<div class="ns-modal-field"><label>Duration</label>' +
+          '<div class="bn-duration-row">' +
+            '<button type="button" class="bn-dur-chip" onclick="_startBlockNow(15)">15 min</button>' +
+            '<button type="button" class="bn-dur-chip" onclick="_startBlockNow(30)">30 min</button>' +
+            '<button type="button" class="bn-dur-chip" onclick="_startBlockNow(60)">1 hour</button>' +
+            '<button type="button" class="bn-dur-chip" onclick="_startBlockNow(90)">90 min</button>' +
+            '<button type="button" class="bn-dur-chip" onclick="_startBlockNow(0)">Until I stop</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="ns-modal-footer">' +
+          '<button class="btn-quiet" onclick="_closeBlockNowModal()">Cancel</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
 }
 window.openBlockNowModal = openBlockNowModal;
 
+function _closeBlockNowModal() {
+  var overlay = document.getElementById('bn-modal-overlay');
+  if (overlay) overlay.parentNode.removeChild(overlay);
+}
+window._closeBlockNowModal = _closeBlockNowModal;
+
+function _startBlockNow(minutes) {
+  _closeBlockNowModal();
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({ type: 'TOGGLE_FOCUS_MODE', on: true });
+  }
+  if (minutes > 0) {
+    // Schedule auto-stop. Persisted in window so a re-render preserves it; if the page
+    // reloads the timer dies but the user can still manually stop, and Focus Mode auto-
+    // expires server-side after 12h regardless.
+    if (window._blockNowAutoStopTimer) clearTimeout(window._blockNowAutoStopTimer);
+    window._blockNowAutoStopTimer = setTimeout(function() {
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+        window.webkit.messageHandlers.intentional.postMessage({ type: 'TOGGLE_FOCUS_MODE', on: false });
+      }
+      if (typeof showToast === 'function') showToast('Block session complete');
+    }, minutes * 60 * 1000);
+    if (typeof showToast === 'function') showToast('Blocking for ' + minutes + ' min');
+  } else {
+    if (typeof showToast === 'function') showToast('Block session started — toggle Focus Mode to stop');
+  }
+}
+window._startBlockNow = _startBlockNow;
+
 function startPomodoro() {
-  // No native Pomodoro path yet — surface the gap to the user so the button isn't dead.
-  if (typeof showToast === 'function') showToast('Pomodoro 25 coming soon — use Focus Mode for now');
+  _startBlockNow(25);
 }
 window.startPomodoro = startPomodoro;
 
