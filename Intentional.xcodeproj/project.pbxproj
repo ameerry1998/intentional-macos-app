@@ -70,6 +70,7 @@
 		BC00000100000000000001 /* BedtimeConfigSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC00000200000000000001 /* BedtimeConfigSync.swift */; };
 		BD00000100000000000001 /* Intention.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000200000000000001 /* Intention.swift */; };
 		BD0000F100000000000001 /* MonthlyGoal.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0000F200000000000001 /* MonthlyGoal.swift */; };
+		BD0000F300000000000001 /* MonthlyGoalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0000F400000000000001 /* MonthlyGoalStore.swift */; };
 		BD00000300000000000001 /* IntentionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000400000000000001 /* IntentionStore.swift */; };
 		BD00000500000000000001 /* IntentionMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000600000000000001 /* IntentionMigration.swift */; };
 		BD00000700000000000001 /* BlockingProfilesToIntentionsMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000800000000000001 /* BlockingProfilesToIntentionsMigration.swift */; };
@@ -200,6 +201,7 @@
 		BC00000200000000000001 /* BedtimeConfigSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeConfigSync.swift; sourceTree = "<group>"; };
 		BD00000200000000000001 /* Intention.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Intention.swift; sourceTree = "<group>"; };
 		BD0000F200000000000001 /* MonthlyGoal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthlyGoal.swift; sourceTree = "<group>"; };
+		BD0000F400000000000001 /* MonthlyGoalStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthlyGoalStore.swift; sourceTree = "<group>"; };
 		BD00000400000000000001 /* IntentionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentionStore.swift; sourceTree = "<group>"; };
 		BD00000600000000000001 /* IntentionMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentionMigration.swift; sourceTree = "<group>"; };
 		BD00000800000000000001 /* BlockingProfilesToIntentionsMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockingProfilesToIntentionsMigration.swift; sourceTree = "<group>"; };
@@ -300,6 +302,7 @@
 				BC00000200000000000001 /* BedtimeConfigSync.swift */,
 				BD00000200000000000001 /* Intention.swift */,
 				BD0000F200000000000001 /* MonthlyGoal.swift */,
+				BD0000F400000000000001 /* MonthlyGoalStore.swift */,
 				BD00000400000000000001 /* IntentionStore.swift */,
 				BD00000600000000000001 /* IntentionMigration.swift */,
 				BD00000800000000000001 /* BlockingProfilesToIntentionsMigration.swift */,
@@ -559,6 +562,7 @@
 				BC00000100000000000001 /* BedtimeConfigSync.swift in Sources */,
 				BD00000100000000000001 /* Intention.swift in Sources */,
 				BD0000F100000000000001 /* MonthlyGoal.swift in Sources */,
+				BD0000F300000000000001 /* MonthlyGoalStore.swift in Sources */,
 				BD00000300000000000001 /* IntentionStore.swift in Sources */,
 				BD00000500000000000001 /* IntentionMigration.swift in Sources */,
 				BD00000700000000000001 /* BlockingProfilesToIntentionsMigration.swift in Sources */,
