@@ -333,7 +333,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         if type.contains("INTENTION") || type.contains("PROJECT") ||
            type.contains("MONTHLY_GOAL") || type == "UPDATE_INTENTION_STRICTNESS" ||
-           type == "LINK_WEEKLY_TO_MONTHLY" || type == "START_GOAL_SESSION" {
+           type == "LINK_WEEKLY_TO_MONTHLY" || type == "START_GOAL_SESSION" ||
+           type == "CREATE_SCHEDULED_SESSION" {
             appDelegate?.postLog("📥 BRIDGE rx: \(type)")
         }
 
@@ -722,9 +723,17 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             }
 
         case "START_GOAL_SESSION":
-            // Alias for START_INTENTION_SESSION; monthly_goal_id ignored for now (analytics only).
+            // Legacy alias for START_INTENTION_SESSION; monthly_goal_id ignored for now (analytics only).
+            // New drag-to-schedule flow uses CREATE_SCHEDULED_SESSION instead.
             if let body = message.body as? [String: Any] {
                 handleStartIntentionSession(body)
+            }
+
+        case "CREATE_SCHEDULED_SESSION":
+            // FIX-2: Drag a weekly-goal card onto the calendar — creates a real
+            // local FocusBlock so the session shows up on Today + pushes to backend.
+            if let body = message.body as? [String: Any] {
+                handleCreateScheduledSession(body)
             }
 
         case "FOCUS_MODE_TOGGLE":
@@ -3572,6 +3581,99 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                     "status": "started", "intentionId": id.uuidString,
                     "sessionId": result?.sessionId ?? ""
                 ])
+            }
+        }
+    }
+
+    // FIX-2 (May 2026): Drag-to-schedule creates a real calendar block.
+    // The dashboard fires this when the user drags a weekly-goal card onto an hour
+    // in the Today / Plan timeline. We build a single-day FocusBlock bound to the
+    // goal (Intention) and add it via ScheduleManager.addBlock — which handles
+    // local persistence, backend push, and recalculateState in one call.
+    private func handleCreateScheduledSession(_ body: [String: Any]) {
+        guard let intentionIdStr = body["intention_id"] as? String,
+              let intentionId = UUID(uuidString: intentionIdStr) else {
+            callJS("window._scheduledSessionCreated && window._scheduledSessionCreated({status:'error', reason:'Missing weekly goal id'})")
+            return
+        }
+        let startHour = body["start_hour"] as? Int ?? 9
+        let startMinute = body["start_minute"] as? Int ?? 0
+        var endHour = body["end_hour"] as? Int ?? (startHour + 1)
+        var endMinute = body["end_minute"] as? Int ?? startMinute
+        // Guard: end must be after start. If caller didn't pass an end (or passed
+        // a degenerate range), default to a 1-hour duration anchored at start.
+        if (endHour * 60 + endMinute) <= (startHour * 60 + startMinute) {
+            endHour = min(23, startHour + 1)
+            endMinute = startMinute
+        }
+        // Clamp end-of-day so we don't spill past 23:59.
+        if endHour > 23 { endHour = 23; endMinute = 59 }
+
+        let isoDF = DateFormatter()
+        isoDF.dateFormat = "yyyy-MM-dd"
+        isoDF.timeZone = TimeZone.current
+        let todayStr = isoDF.string(from: Date())
+        let startDateStr = (body["start_date"] as? String) ?? todayStr
+
+        Task { [weak self] in
+            guard let self = self else { return }
+            guard let intention = await IntentionStore.shared.intention(id: intentionId),
+                  intention.deletedAt == nil else {
+                await MainActor.run {
+                    self.callJS("window._scheduledSessionCreated && window._scheduledSessionCreated({status:'error', reason:'Weekly goal not found'})")
+                }
+                return
+            }
+
+            // Compute ISO weekday (Mon=1..Sun=7) of start_date for activeDays.
+            // ScheduleManager.FocusBlock doesn't model activeDays today — recurring
+            // is encoded as "lives in todaySchedule.blocks". This is a single-day
+            // session by construction, so we just insert it into today's schedule.
+            // (start_date is consumed as a no-op if it isn't today; ScheduleManager's
+            // todaySchedule is keyed on "today" so future-day blocks would require a
+            // bigger refactor — out of scope for FIX-2.)
+
+            // Map intention strictness → block intensity.
+            // Strict goal → deep_work (hard block). Standard/Soft → focus_hours.
+            let blockType: ScheduleManager.BlockType =
+                intention.strictnessPreset == .strict ? .deepWork : .focusHours
+
+            await MainActor.run {
+                guard let sm = self.appDelegate?.scheduleManager else {
+                    self.callJS("window._scheduledSessionCreated && window._scheduledSessionCreated({status:'error', reason:'Schedule manager unavailable'})")
+                    return
+                }
+                let newId = UUID().uuidString
+                let newBlock = ScheduleManager.FocusBlock(
+                    id: newId,
+                    title: intention.name,
+                    description: intention.description ?? "",
+                    startHour: startHour,
+                    startMinute: startMinute,
+                    endHour: endHour,
+                    endMinute: endMinute,
+                    blockType: blockType,
+                    ignoreProfile: false,
+                    intentionId: intentionId,
+                    intensity: blockType
+                )
+                // addBlock: appends, sorts, saves to disk, recalcs state, pushes to backend.
+                sm.addBlock(newBlock)
+                // Push refreshed schedule to the dashboard immediately (don't wait
+                // for the schedule change to fan out via onBlockChanged — that only
+                // fires when state actually changes).
+                self.pushScheduleUpdate()
+                self.appDelegate?.postLog("📋 CREATE_SCHEDULED_SESSION: \(intention.name) \(startHour):\(String(format: "%02d", startMinute))–\(endHour):\(String(format: "%02d", endMinute)) date=\(startDateStr)")
+                // JSON-safe emit
+                let payload: [String: Any] = [
+                    "status": "ok",
+                    "block_id": newId,
+                    "intention_id": intentionId.uuidString
+                ]
+                if let data = try? JSONSerialization.data(withJSONObject: payload),
+                   let json = String(data: data, encoding: .utf8) {
+                    self.callJS("window._scheduledSessionCreated && window._scheduledSessionCreated(\(json))")
+                }
             }
         }
     }

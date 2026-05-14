@@ -6486,6 +6486,29 @@ window.onProjectSessionResult = function(result) {
   }
 };
 
+// FIX-2: Mac → JS callback when drag-to-schedule creates a real FocusBlock.
+// On success, the Mac also pushes a fresh schedule via _scheduleStateResult,
+// which is what actually re-renders Today's calendar — so this handler just
+// surfaces a toast + ensures Today re-renders if we're already on it.
+window._scheduledSessionCreated = function(result) {
+  if (!result) return;
+  if (result.status === 'ok') {
+    if (typeof showToast === 'function') showToast('Session scheduled', 'success');
+    // Defensive: if the schedule push raced ahead, this is a no-op; if it didn't,
+    // request a fresh state pull so the new block paints.
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+      try {
+        window.webkit.messageHandlers.intentional.postMessage({ type: 'GET_SCHEDULE_STATE' });
+      } catch (e) { /* best-effort */ }
+    }
+    if (typeof renderCalendar === 'function') {
+      try { renderCalendar(); } catch (e) { /* re-render is best-effort */ }
+    }
+  } else {
+    if (typeof showToast === 'function') showToast((result && result.reason) || 'Could not schedule session', 'error');
+  }
+};
+
 window.onBlockingProfileDeleteRefused = function(info) {
   // info: { id: string, referencedBy: string[] }
   var names = (info && info.referencedBy) ? info.referencedBy.join(', ') : '';
@@ -8923,8 +8946,11 @@ function _wireGoalDropTargets() {
       track.classList.remove('drop-hover');
       var hour = parseInt(track.getAttribute('data-hour') || '9', 10);
       if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+        // FIX-2: CREATE_SCHEDULED_SESSION creates a real calendar block (Today)
+        // rather than starting an immediate focus session. start_minute / end_*
+        // omitted → Mac defaults to a 1-hour block anchored at start_hour.
         window.webkit.messageHandlers.intentional.postMessage({
-          type: 'START_GOAL_SESSION',
+          type: 'CREATE_SCHEDULED_SESSION',
           intention_id: _dragGoalId,
           start_hour: hour,
           start_date: new Date().toISOString().slice(0, 10)
@@ -13906,9 +13932,11 @@ function PlanApp() {
       start, end,
     }]);
     // Persist to backend so the session shows up on Today + on iOS.
+    // FIX-2: CREATE_SCHEDULED_SESSION builds a real FocusBlock; the receiver
+    // refreshes Today's calendar via window._scheduleStateResult.
     if (window.webkit?.messageHandlers?.intentional) {
       window.webkit.messageHandlers.intentional.postMessage({
-        type: 'START_GOAL_SESSION',
+        type: 'CREATE_SCHEDULED_SESSION',
         intention_id: dragSource.goalId,
         start_hour: Math.floor(start),
         start_minute: Math.round((start % 1) * 60),
