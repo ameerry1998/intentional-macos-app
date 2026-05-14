@@ -104,7 +104,31 @@ Verification gate per slice (per `superpowers:verification-before-completion`):
 - Both PRs reference the brief + requirements + plan files in their descriptions.
 - **Neither merged** per goal command — leave for human review.
 
-### External blockers (carried forward — not fixed by this run)
+### 2026-05-14 — Fix wave (17 issues from post-install audit) DONE
+After installing the first PKG and clicking through, the user surfaced gaps the original plans didn't cover. Audited against `docs/requirements-2026-05-14.md` and shipped 17 fixes across 5 subagent waves:
+
+- **Wave 1 (6 small fixes):** FIX-3 (+ New weekly/monthly goal flow), FIX-4 (intention→weekly-goal copy sweep), FIX-5 (empty-state replaces hardcoded fallback), FIX-8 (originating sidebar tab stays highlighted), FIX-14 (strict week_of filter on Today), FIX-16 (calendar drop-target narrowed to .calendar-hour-track[data-hour]).
+- **Wave 2 (drag wire):** FIX-2 (drag-to-schedule creates real TimeBlock via new CREATE_SCHEDULED_SESSION bridge → ScheduleManager.addBlock → backend pushToBackend; legacy START_GOAL_SESSION kept as alias).
+- **Wave 3 (Opal Blocks + dependent fixes):** FIX-1 (Today→Schedule/Blocks toggle + block list + create/edit + BlockingProfile model extended with schedule fields), FIX-6 (sidebar pill wired to real active-rule count), FIX-9 (block-conflict warning when adding to goal's Allow list).
+- **Wave 4 (data-flow):** FIX-7 (Plan history derived from live cache + GET_INTENTIONS_FOR_WEEK on-demand fetch), FIX-10 (strictness pills greyed during active session — pushScheduleUpdate now stamps active_intention_id), FIX-11 (RelevanceScorer respects per-goal aiScoringEnabled + intentText — 4 callers updated in FocusMonitor + NativeMessagingHost).
+- **Wave 5 (UI surfaces):** FIX-12 (Settings 11-subpage drilldown with aliases for spec-compliant IDs), FIX-13 (new session overlay on empty calendar hour click), FIX-15 (status footer wired — partner/content-safety/puck pulls on launch).
+- **FIX-17:** Backend POST /time_blocks — verified `PUT /time_blocks` exists (atomic replace, accepts intention_id). Mac uses ScheduleManager.pushToBackend which already calls it. No backend changes needed.
+
+All 17 fixes are committed to `feat/prototype-to-production`. Build verified clean with `CODE_SIGNING_ALLOWED=NO` after each wave. Total: 20+ commits added on top of the original prototype port work.
+
+### FOLLOW-UP CALLED OUT: FIX-18 — Block rule enforcement (Opal-parity gap)
+After Wave 3 the user inspected the new Blocks page and surfaced a fundamental gap: **the schedule fields on a BlockingProfile are stored but not enforced.** The Mac has `WebsiteBlocker`, `FocusMonitor`, `FocusModeController`, etc. but those only engage during an active focus *session* (via FocusModeController.activate). Standalone time-windowed block rules are inert — a rule set to "Weekdays 9–5" doesn't trigger anything at 9am.
+
+To get Opal-parity for actual blocking, the gap is:
+- New `RuleEnforcer` that ticks every 30–60s, checks each BlockingProfile.isCurrentlyActive, applies the union of blocklists via WebsiteBlocker + app process monitor
+- Replace the JS prompt()-based block create/edit modal with a proper native-style modal
+- Add countdown timer + progress bar on the active block card
+- Add app categories (Social/Games/News/etc) so user doesn't type each site
+- Cancel button on active block card
+- Difficulty / bypass-mode per block (separate from per-goal strictness)
+- "Set Time Limit" + "Set Open Limit" quick actions (currently stubs)
+
+This is net-new scope beyond the original 17 — call it FIX-18, est. ~3–4 hours. Not included in this PR.
 - `api.intentional.social` Cloudflare DNS still points at stale Railway edge `m5n78aku`; needs updating to `b7qg65hf.up.railway.app` (grey-cloud off). Until then, iOS login + Mac live-backend smoke fail with TLS -9802. Backend deploy of migration 026 can still happen via Railway dashboard / direct Supabase SQL editor — doesn't require DNS.
 - Apple Developer agreement renewal pending — signed/notarized PKG build doesn't run locally. All Mac verification was done with `CODE_SIGNING_ALLOWED=NO` flag. Once renewed: `./scripts/build-pkg.sh` should produce a working notarizable PKG, then manual smoke per the Mac PR test plan.
 
