@@ -5532,6 +5532,22 @@ body.theme-effects-warm::after {
       </div>
     </div>
 
+    <!-- About me — feeds the AI relevance scorer with background context -->
+    <div class="settings-card" style="margin-top: 12px;">
+      <div class="settings-card-title">About me</div>
+      <div class="setting-desc" style="padding: 2px 20px 8px;">
+        Helps the AI judge which tabs and apps are relevant to your work.
+      </div>
+      <div style="padding: 4px 20px 16px;">
+        <textarea id="account-about-me-input" class="focus-textarea" rows="3"
+          placeholder="e.g. I'm a software engineer building a React app. Most of my day is coding, reviewing PRs, and reading docs..."
+          oninput="window._aboutMeDirty = true"></textarea>
+        <div style="display:flex; justify-content:flex-end; margin-top:10px;">
+          <button class="btn-small" onclick="saveAccountAboutMe()">Save</button>
+        </div>
+      </div>
+    </div>
+
     </div><!-- end detail-account -->
 
     <!-- Detail: Theme -->
@@ -8885,7 +8901,24 @@ window._journalResult = function(data) {
 function loadAccountPage() {
   showAccountState('loading');
   sendMessage({ type: 'GET_AUTH_STATE' });
+  // Populate "About me" from current focusState.profile (loaded by loadFocusState).
+  var aboutEl = document.getElementById('account-about-me-input');
+  if (aboutEl) {
+    aboutEl.value = (focusState && focusState.profile) || '';
+    window._aboutMeDirty = false;
+  }
 }
+
+function saveAccountAboutMe() {
+  var el = document.getElementById('account-about-me-input');
+  if (!el) return;
+  var profileText = (el.value || '').trim();
+  focusState.profile = profileText;
+  sendMessage({ type: 'SET_PROFILE', profile: profileText });
+  window._aboutMeDirty = false;
+  if (typeof showToast === 'function') showToast('Saved');
+}
+window.saveAccountAboutMe = saveAccountAboutMe;
 
 window._authStateResult = function(data) {
   if (data.loggedIn) {
