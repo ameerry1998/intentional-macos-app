@@ -442,9 +442,12 @@ body.theme-effects-warm::after {
 }
 .wg-card .wg-grip:hover { opacity: 1; background: rgba(255,255,255,0.06); color: var(--accent-primary, #D85A30); }
 .wg-card .wg-grip:active { cursor: grabbing; }
-.calendar-hour-row.drop-hover, .calendar-row.drop-hover {
+/* FIX-16: drop-target is the per-hour track (it owns data-hour), not the row.
+   Old selectors (.calendar-hour-row, .calendar-row) were over-broad / non-existent. */
+.calendar-hour-track.drop-hover {
   background: rgba(216, 90, 48, 0.15);
-  border: 1px dashed var(--accent-primary, #D85A30);
+  outline: 1px dashed var(--accent-primary, #D85A30);
+  outline-offset: -2px;
 }
 
 /* ===== Main Content ===== */
@@ -8896,32 +8899,29 @@ function weeklyGoalDragStart(e, id) {
 function weeklyGoalDragEnd(e) {
   _dragGoalId = null;
   e.target.classList.remove('dragging');
-  document.querySelectorAll('.calendar-hour-row.drop-hover, .calendar-row.drop-hover').forEach(function(r) { r.classList.remove('drop-hover'); });
+  document.querySelectorAll('.calendar-hour-track.drop-hover').forEach(function(r) { r.classList.remove('drop-hover'); });
 }
 
 function _wireGoalDropTargets() {
-  var rows = document.querySelectorAll('.calendar-hour-row, .calendar-row');
-  rows.forEach(function(row) {
-    if (row.__wgDropWired) return;
-    row.__wgDropWired = true;
-    row.addEventListener('dragover', function(e) {
+  // FIX-16: Narrow selector to .calendar-hour-track — the element that actually owns
+  // the data-hour attribute. The old .calendar-hour-row / .calendar-row pair was
+  // over-broad and .calendar-row never existed in this dashboard's markup.
+  var tracks = document.querySelectorAll('.calendar-hour-track[data-hour]');
+  tracks.forEach(function(track) {
+    if (track.__wgDropWired) return;
+    track.__wgDropWired = true;
+    track.addEventListener('dragover', function(e) {
       if (!_dragGoalId) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'copy';
-      row.classList.add('drop-hover');
+      track.classList.add('drop-hover');
     });
-    row.addEventListener('dragleave', function() { row.classList.remove('drop-hover'); });
-    row.addEventListener('drop', function(e) {
+    track.addEventListener('dragleave', function() { track.classList.remove('drop-hover'); });
+    track.addEventListener('drop', function(e) {
       if (!_dragGoalId) return;
       e.preventDefault();
-      row.classList.remove('drop-hover');
-      // Row holds .calendar-hour-track child with the data-hour; fall back to row's own attr if present.
-      var hourAttr = row.getAttribute('data-hour');
-      if (!hourAttr) {
-        var track = row.querySelector('[data-hour]');
-        if (track) hourAttr = track.getAttribute('data-hour');
-      }
-      var hour = parseInt(hourAttr || '9', 10);
+      track.classList.remove('drop-hover');
+      var hour = parseInt(track.getAttribute('data-hour') || '9', 10);
       if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
         window.webkit.messageHandlers.intentional.postMessage({
           type: 'START_GOAL_SESSION',
