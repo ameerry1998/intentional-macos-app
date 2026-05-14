@@ -21,6 +21,15 @@ enum StrictnessPreset: String, Codable, Equatable {
     case soft
 }
 
+/// Lifecycle status of a weekly goal. Single enum reused for monthly goals.
+enum GoalStatus: String, Codable, Equatable {
+    case planned
+    case inProgress = "in_progress"
+    case done
+    case slipped
+    case dropped
+}
+
 /// Spec 3 (May 2026): a queued softening change. The server cron applies it when
 /// `takesEffectAt` passes; until then the Mac shows a "scheduled" banner.
 struct PendingStrictnessChange: Codable, Equatable {
@@ -63,6 +72,26 @@ struct Intention: Codable, Equatable, Identifiable {
     var weeklyBudgetHours: Double?
     var budgetEnforcement: String?
 
+    // May 2026 prototype → production (weekly-goal vocab):
+    /// "Done looks like" — free text.
+    var outcome: String?
+    /// Lifecycle status. `planned | in_progress | done | slipped | dropped`.
+    var status: GoalStatus
+    /// Weekly hour target.
+    var weeklyTargetHours: Double?
+    /// Per-goal AI-scoring text (≤140 chars).
+    var intentText: String?
+    /// Per-goal AI-scoring toggle.
+    var aiScoringEnabled: Bool
+    /// Per-goal Allow list (sites).
+    var allowWebsites: [String]
+    /// Per-goal Allow list (app bundle ids).
+    var allowBundleIds: [String]
+    /// Optional FK → MonthlyGoal. Nullable for "unlinked" weekly goals.
+    var monthlyGoalId: UUID?
+    /// ISO date string (Monday) the goal belongs to. Nullable = unscheduled.
+    var weekOf: String?
+
     private enum CodingKeys: String, CodingKey {
         case id
         case name
@@ -82,6 +111,16 @@ struct Intention: Codable, Equatable, Identifiable {
         case pendingStrictnessChange = "pending_strictness_change"
         case weeklyBudgetHours = "weekly_budget_hours"
         case budgetEnforcement = "budget_enforcement"
+        // May 2026 prototype → production (weekly-goal vocab):
+        case outcome
+        case status
+        case weeklyTargetHours = "weekly_target_hours"
+        case intentText = "intent_text"
+        case aiScoringEnabled = "ai_scoring_enabled"
+        case allowWebsites = "allow_websites"
+        case allowBundleIds = "allow_bundle_ids"
+        case monthlyGoalId = "monthly_goal_id"
+        case weekOf = "week_of"
     }
 
     init(id: UUID, name: String, description: String? = nil,
@@ -93,7 +132,16 @@ struct Intention: Codable, Equatable, Identifiable {
          strictnessPreset: StrictnessPreset = .standard,
          pendingStrictnessChange: PendingStrictnessChange? = nil,
          weeklyBudgetHours: Double? = nil,
-         budgetEnforcement: String? = nil) {
+         budgetEnforcement: String? = nil,
+         outcome: String? = nil,
+         status: GoalStatus = .planned,
+         weeklyTargetHours: Double? = nil,
+         intentText: String? = nil,
+         aiScoringEnabled: Bool = true,
+         allowWebsites: [String] = [],
+         allowBundleIds: [String] = [],
+         monthlyGoalId: UUID? = nil,
+         weekOf: String? = nil) {
         self.id = id
         self.name = name
         self.description = description
@@ -111,6 +159,15 @@ struct Intention: Codable, Equatable, Identifiable {
         self.pendingStrictnessChange = pendingStrictnessChange
         self.weeklyBudgetHours = weeklyBudgetHours
         self.budgetEnforcement = budgetEnforcement
+        self.outcome = outcome
+        self.status = status
+        self.weeklyTargetHours = weeklyTargetHours
+        self.intentText = intentText
+        self.aiScoringEnabled = aiScoringEnabled
+        self.allowWebsites = allowWebsites
+        self.allowBundleIds = allowBundleIds
+        self.monthlyGoalId = monthlyGoalId
+        self.weekOf = weekOf
     }
 
     /// Custom decoder so Spec 3 fields are tolerant of older payloads (no
@@ -135,6 +192,20 @@ struct Intention: Codable, Equatable, Identifiable {
         self.pendingStrictnessChange = try c.decodeIfPresent(PendingStrictnessChange.self, forKey: .pendingStrictnessChange)
         self.weeklyBudgetHours = try c.decodeIfPresent(Double.self, forKey: .weeklyBudgetHours)
         self.budgetEnforcement = try c.decodeIfPresent(String.self, forKey: .budgetEnforcement)
+        // May 2026 prototype → production (weekly-goal vocab)
+        self.outcome = try c.decodeIfPresent(String.self, forKey: .outcome)
+        self.status = try c.decodeIfPresent(GoalStatus.self, forKey: .status) ?? .planned
+        self.weeklyTargetHours = try c.decodeIfPresent(Double.self, forKey: .weeklyTargetHours)
+        self.intentText = try c.decodeIfPresent(String.self, forKey: .intentText)
+        self.aiScoringEnabled = try c.decodeIfPresent(Bool.self, forKey: .aiScoringEnabled) ?? true
+        self.allowWebsites = try c.decodeIfPresent([String].self, forKey: .allowWebsites) ?? []
+        self.allowBundleIds = try c.decodeIfPresent([String].self, forKey: .allowBundleIds) ?? []
+        if let s = try c.decodeIfPresent(String.self, forKey: .monthlyGoalId), let u = UUID(uuidString: s) {
+            self.monthlyGoalId = u
+        } else {
+            self.monthlyGoalId = nil
+        }
+        self.weekOf = try c.decodeIfPresent(String.self, forKey: .weekOf)
     }
 }
 
@@ -148,14 +219,31 @@ struct IntentionCreatePayload: Codable, Equatable {
     var macBundleIds: [String]
     var iosAppTokensB64: String?
     var iosCategoryTokensB64: String?
+    // May 2026 prototype → production (weekly-goal vocab)
+    var outcome: String?
+    var status: GoalStatus = .planned
+    var weeklyTargetHours: Double?
+    var intentText: String?
+    var aiScoringEnabled: Bool = true
+    var allowWebsites: [String] = []
+    var allowBundleIds: [String] = []
+    var monthlyGoalId: UUID?
+    var weekOf: String?
 
     private enum CodingKeys: String, CodingKey {
-        case name, description, icon
+        case name, description, icon, outcome, status
         case colorHex = "color_hex"
         case macWebsites = "mac_websites"
         case macBundleIds = "mac_bundle_ids"
         case iosAppTokensB64 = "ios_app_tokens_b64"
         case iosCategoryTokensB64 = "ios_category_tokens_b64"
+        case weeklyTargetHours = "weekly_target_hours"
+        case intentText = "intent_text"
+        case aiScoringEnabled = "ai_scoring_enabled"
+        case allowWebsites = "allow_websites"
+        case allowBundleIds = "allow_bundle_ids"
+        case monthlyGoalId = "monthly_goal_id"
+        case weekOf = "week_of"
     }
 }
 
@@ -170,14 +258,31 @@ struct IntentionUpdatePayload: Codable, Equatable {
     var iosAppTokensB64: String?
     var iosCategoryTokensB64: String?
     var version: Int
+    // May 2026 prototype → production (weekly-goal vocab)
+    var outcome: String?
+    var status: GoalStatus = .planned
+    var weeklyTargetHours: Double?
+    var intentText: String?
+    var aiScoringEnabled: Bool = true
+    var allowWebsites: [String] = []
+    var allowBundleIds: [String] = []
+    var monthlyGoalId: UUID?
+    var weekOf: String?
 
     private enum CodingKeys: String, CodingKey {
-        case name, description, icon, version
+        case name, description, icon, version, outcome, status
         case colorHex = "color_hex"
         case macWebsites = "mac_websites"
         case macBundleIds = "mac_bundle_ids"
         case iosAppTokensB64 = "ios_app_tokens_b64"
         case iosCategoryTokensB64 = "ios_category_tokens_b64"
+        case weeklyTargetHours = "weekly_target_hours"
+        case intentText = "intent_text"
+        case aiScoringEnabled = "ai_scoring_enabled"
+        case allowWebsites = "allow_websites"
+        case allowBundleIds = "allow_bundle_ids"
+        case monthlyGoalId = "monthly_goal_id"
+        case weekOf = "week_of"
     }
 }
 

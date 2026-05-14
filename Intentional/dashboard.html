@@ -344,6 +344,149 @@ body.theme-effects-warm::after {
 }
 .sidebar-item.active .sidebar-item-icon { opacity: 1; }
 
+/* May 2026 prototype port — sidebar blocking pill */
+.sb-blocking {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+  transition: background 120ms ease;
+}
+.sb-blocking:hover { background: rgba(255,255,255,0.07); }
+.sb-blocking .shield { font-size: 13px; }
+.sb-blocking .arrow { margin-left: auto; color: var(--text-tertiary); }
+.sb-blocking.empty { opacity: 0.55; }
+
+/* FIX-15: status footer at the bottom of the sidebar — partner / content / puck */
+.status-footer { display: flex; flex-direction: column; gap: 6px; padding: 10px 16px 14px; margin-top: 4px; border-top: 0.5px solid rgba(255,255,255,0.06); font-size: 11px; color: var(--text-tertiary); }
+.status-footer .item { display: flex; align-items: center; gap: 6px; cursor: default; }
+.status-footer .item .sf-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; flex-shrink: 0; }
+.status-footer .item.off .sf-dot { background: rgba(255,255,255,0.18); }
+.status-footer .item.off { opacity: 0.65; }
+
+/* FIX-1: Today → Schedule/Blocks segmented control + Blocks view styles */
+.today-mode-bar { display: flex; align-items: center; justify-content: flex-end; padding: 14px 28px 0; }
+.today-mode-toggle { display: inline-flex; align-items: center; gap: 0; border: 1px solid rgba(255,255,255,0.10); border-radius: 8px; padding: 2px; background: rgba(255,255,255,0.03); }
+.today-mode-toggle .opt { padding: 5px 13px; font-size: 12px; cursor: pointer; border-radius: 6px; color: var(--text-tertiary); transition: all 0.15s; user-select: none; }
+.today-mode-toggle .opt.active { background: var(--accent-primary); color: #fff; }
+.blk-section-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-tertiary); margin: 14px 28px 8px; display: flex; align-items: center; justify-content: space-between; }
+.blk-section-h .blk-count { font-weight: 500; }
+.blk-ideas-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 28px 14px; }
+.blk-idea-btn { background: rgba(255,255,255,0.04); border: 0.5px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; cursor: pointer; transition: background 0.12s; }
+.blk-idea-btn:hover { background: rgba(255,255,255,0.07); }
+.blk-idea-btn.primary { background: var(--accent-primary); color: #fff; }
+.blk-idea-btn .blk-idea-icon { font-size: 18px; }
+.blk-idea-btn .blk-idea-label { font-size: 12.5px; font-weight: 500; }
+.block-card { background: rgba(255,255,255,0.03); border: 0.5px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px 14px; margin: 6px 28px; cursor: pointer; transition: background 0.12s; }
+.block-card:hover { background: rgba(255,255,255,0.06); }
+.block-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.block-card-title { font-size: 13px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.block-card-sched { font-size: 11.5px; color: var(--text-tertiary); margin-top: 4px; }
+.block-card-list { font-size: 11.5px; color: var(--text-tertiary); margin-top: 3px; }
+.block-pill { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+.block-pill.active { background: rgba(74, 222, 128, 0.18); color: #4ade80; }
+.block-pill.upcoming { background: rgba(255, 255, 255, 0.08); color: var(--text-tertiary); }
+.block-pill.off { background: rgba(255, 90, 90, 0.18); color: #fa6464; }
+.block-toggle { width: 32px; height: 18px; background: rgba(255,255,255,0.10); border-radius: 9px; position: relative; cursor: pointer; transition: background 0.15s; flex-shrink: 0; }
+.block-toggle::after { content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #fff; top: 2px; left: 2px; transition: left 0.15s; }
+.block-toggle.on { background: var(--accent-primary); }
+.block-toggle.on::after { left: 16px; }
+.blocks-empty-card { padding: 18px; border: 1px dashed rgba(255,255,255,0.12); border-radius: 10px; font-size: 13px; color: var(--text-tertiary); text-align: center; margin: 12px 28px; }
+.blocks-empty-card .link { color: var(--accent-primary); cursor: pointer; }
+
+/* May 2026 prototype port — Today weekly-goal cards strip */
+.wg-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 28px 8px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.wg-section-header .wg-lbl strong { color: var(--text-primary); font-weight: 700; }
+.wg-section-header .wg-hint { font-size: 11px; }
+.wg-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  padding: 0 28px 16px;
+}
+.wg-card {
+  position: relative;
+  background: rgba(255,255,255,0.04);
+  border: 0.5px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 14px 16px 14px 18px;
+  min-height: 92px;
+  overflow: hidden;
+  transition: border-color 120ms ease, transform 120ms ease, opacity 120ms ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+.wg-card:hover { border-color: rgba(255,255,255,0.16); transform: translateY(-1px); }
+.wg-card.unlinked { border-style: dashed; }
+.wg-card .wg-edge {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--wg-hue, transparent);
+}
+.wg-card .wg-ttl {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+.wg-card .wg-out {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+}
+.wg-card .wg-foot {
+  margin-top: auto;
+  padding-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+.wg-card .wg-status { font-weight: 500; }
+.wg-card .wg-status.in-progress { color: var(--accent-primary, #D85A30); font-weight: 600; }
+.wg-card .wg-status.planned { color: var(--text-tertiary); }
+.wg-card .wg-status.done { color: #4EBE92; }
+.wg-card .wg-grip {
+  margin-left: auto;
+  font-size: 13px;
+  opacity: 0.4;
+  cursor: grab;
+  padding: 3px 6px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: all 0.1s;
+}
+.wg-card .wg-grip:hover { opacity: 1; background: rgba(255,255,255,0.06); color: var(--accent-primary, #D85A30); }
+.wg-card .wg-grip:active { cursor: grabbing; }
+/* FIX-16: drop-target is the per-hour track (it owns data-hour), not the row.
+   Old selectors (.calendar-hour-row, .calendar-row) were over-broad / non-existent. */
+.calendar-hour-track.drop-hover {
+  background: rgba(216, 90, 48, 0.15);
+  outline: 1px dashed var(--accent-primary, #D85A30);
+  outline-offset: -2px;
+}
+
 /* ===== Main Content ===== */
 .main {
   flex: 1;
@@ -1580,6 +1723,21 @@ body.theme-effects-warm::after {
 .toast.visible {
   transform: translateX(-50%) translateY(0);
 }
+
+/* FIX-13: New session overlay */
+.ns-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1100; display: flex; align-items: center; justify-content: center; }
+.ns-modal-overlay[hidden] { display: none; }
+.ns-modal-card { background: #1d1d20; border-radius: 14px; padding: 24px 28px; min-width: 440px; max-width: 520px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); box-sizing: border-box; }
+.ns-modal-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: var(--text-primary); }
+.ns-modal-field { margin-bottom: 12px; }
+.ns-modal-field label { font-size: 11.5px; font-weight: 600; color: var(--text-tertiary); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+.ns-modal-input { width: 100%; background: rgba(255,255,255,0.04); border: 0.5px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 12px; color: var(--text-primary); font-size: 13.5px; box-sizing: border-box; font-family: inherit; }
+.ns-modal-input.textarea { min-height: 64px; resize: vertical; }
+.ns-modal-section { margin-bottom: 8px; border: 0.5px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px 12px; }
+.ns-modal-section summary { font-size: 12.5px; cursor: pointer; color: var(--text-secondary); font-weight: 500; }
+.ns-modal-section[open] summary { color: var(--text-primary); margin-bottom: 8px; }
+.ns-modal-toggle-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 4px 0; cursor: pointer; color: var(--text-primary); }
+.ns-modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 
 .toast.error {
   background: var(--color-error);
@@ -4616,7 +4774,234 @@ body.theme-effects-warm::after {
 }
 .fm-v3 .empty-list .em { color: var(--fm-text-3); }
 
+/* ===== Cloud Design Plan view CSS — copied verbatim from docs/unified-design-2026-05-13/app.html (May 2026 prototype port). All selectors scoped under .cd-plan. ===== */
+.cd-plan {
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+  --r-sm: 6px; --r-md: 10px; --r-lg: 14px;
+  --hue-1: #D85A30;
+  --hue-2: #1D9E75;
+  --hue-3: #A855C7;
+
+  background: var(--bg);
+  color: var(--text-1);
+  font: 13px/1.5 var(--font);
+  display: block;
+  -webkit-font-smoothing: antialiased;
+}
+.cd-plan[data-theme="light"] {
+  --bg:        #E2DCC8;
+  --bg-app:    #F7F3EA;
+  --bg-side:   #EDE5D2;
+  --surface:   #FFFFFF;
+  --surface-2: #F4EEDE;
+  --line:      rgba(26,20,16,0.09);
+  --line-2:    rgba(26,20,16,0.18);
+  --line-3:    rgba(26,20,16,0.28);
+  --text-1:    #1A1410;
+  --text-2:    rgba(26,20,16,0.62);
+  --text-3:    rgba(26,20,16,0.42);
+  --text-4:    rgba(26,20,16,0.22);
+  --primary-bg: #1A1410;
+  --primary-fg: #F7F3EA;
+  --primary-bg-h: #2c241d;
+  --status-success: #1D9E75;
+  --status-warning: #B97316;
+  --status-error:   #B8323C;
+  --status-info:    #355AB4;
+}
+.cd-plan[data-theme="dark"] {
+  --bg:        #0A0B0D;
+  --bg-app:    #14161A;
+  --bg-side:   #14161A;
+  --surface:   #1A1D22;
+  --surface-2: #22262C;
+  --line:      rgba(255,255,255,0.08);
+  --line-2:    rgba(255,255,255,0.16);
+  --line-3:    rgba(255,255,255,0.26);
+  --text-1:    #F4F5F6;
+  --text-2:    rgba(255,255,255,0.62);
+  --text-3:    rgba(255,255,255,0.42);
+  --text-4:    rgba(255,255,255,0.22);
+  --primary-bg: #F2EFE5;
+  --primary-fg: #1A1410;
+  --primary-bg-h: #FFFCF2;
+  --status-success: #4EBE92;
+  --status-warning: #D9A04A;
+  --status-error:   #E26676;
+  --status-info:    #9CB7EE;
+}
+.cd-plan .stage { padding: 0; min-height: auto; display: block; }
+.cd-plan .win { width: 100%; border-radius: 0; background: transparent; border: 0; box-shadow: none; }
+.cd-plan .titlebar { display: none; }
+.cd-plan .traffic { display: none; }
+.cd-plan .win-body { display: block; min-height: auto; grid-template-columns: 1fr; }
+.cd-plan .sidebar { display: none; }
+.cd-plan .brand { display: none; }
+.cd-plan .nav-list { display: none; }
+.cd-plan .page { padding: 0; display: flex; flex-direction: column; gap: 22px; }
+.cd-plan .pg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.cd-plan .pg-head .eyebrow-row { font: 500 11px var(--font); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-3); margin-bottom: 4px; }
+.cd-plan .pg-head h1 { font: 600 22px/1.15 var(--font); letter-spacing: -0.01em; margin: 0; color: var(--text-1); }
+.cd-plan .head-actions { display: flex; gap: 6px; align-items: center; }
+.cd-plan .btn-ghost { background: transparent; border: 0.5px solid var(--line-2); color: var(--text-1); padding: 6px 11px; border-radius: var(--r-sm); font: 500 12.5px var(--font); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: border-color 120ms ease; }
+.cd-plan .btn-ghost:hover { border-color: var(--line-3); }
+.cd-plan .btn-ghost svg { width: 12px; height: 12px; opacity: 0.7; }
+.cd-plan .btn-primary { background: var(--primary-bg); color: var(--primary-fg); border: 0.5px solid var(--primary-bg); padding: 7px 13px; border-radius: var(--r-sm); font: 600 12.5px var(--font); cursor: pointer; }
+.cd-plan .btn-primary:hover { background: var(--primary-bg-h); border-color: var(--primary-bg-h); }
+.cd-plan .btn-link { background: transparent; border: 0; color: var(--text-2); padding: 4px 6px; font: 500 12.5px var(--font); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.cd-plan .btn-link:hover { color: var(--text-1); }
+.cd-plan .eyebrow { font: 500 11px var(--font); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-3); margin-bottom: 12px; }
+.cd-plan .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.cd-plan .plan-empty-cta { display: flex; align-items: center; justify-content: center; padding: 32px 16px; border: 1px dashed var(--line-2, rgba(255,255,255,0.12)); border-radius: var(--r-lg); color: var(--text-3); font: 500 13px var(--font); cursor: pointer; transition: border-color 120ms ease, color 120ms ease, background 120ms ease; }
+.cd-plan .plan-empty-cta:hover { border-color: var(--accent-primary, #F38B5C); color: var(--text-1); background: rgba(255,255,255,0.02); }
+.cd-plan .mcard { background: var(--m-bg, var(--surface)); border: 0.5px solid var(--m-line, var(--line)); border-radius: var(--r-lg); padding: 14px 16px; min-height: 92px; cursor: pointer; transition: filter 120ms ease, border-color 120ms ease, opacity 120ms ease; display: flex; flex-direction: column; gap: 6px; }
+.cd-plan .mcard:hover { filter: brightness(1.04); }
+.cd-plan .mcard.sel { box-shadow: 0 0 0 1.5px var(--hue, transparent) inset; }
+.cd-plan .mcard.dim { opacity: 0.35; filter: none; }
+.cd-plan .mcard .ttl { font: 600 14px/1.3 var(--font); color: var(--text-1); }
+.cd-plan .mcard .out { font: 12px/1.4 var(--font); color: var(--m-out, var(--text-3)); }
+.cd-plan .wcard { position: relative; background: var(--surface); border: 0.5px solid var(--line); border-radius: var(--r-lg); padding: 14px 16px 14px 18px; min-height: 92px; overflow: hidden; transition: border-color 120ms ease, opacity 120ms ease, transform 120ms ease; display: flex; flex-direction: column; gap: 4px; cursor: pointer; user-select: none; }
+.cd-plan .wcard:hover { border-color: var(--line-2); transform: translateY(-1px); }
+.cd-plan .wcard-grip { margin-left: auto; font-size: 13px; opacity: 0.4; cursor: grab; padding: 3px 6px; border-radius: 4px; line-height: 1; transition: all 0.1s; }
+.cd-plan .wcard-grip:hover { opacity: 1; background: rgba(255,255,255,0.06); color: var(--accent, #D85A30); }
+.cd-plan .wcard-grip:active { cursor: grabbing; }
+.cd-plan .wcard.dragging { opacity: 0.4; }
+.cd-plan .wcard.dim { opacity: 0.35; }
+.cd-plan .wcard.unlinked { border-style: dashed; cursor: pointer; }
+.cd-plan .wcard .edge { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--hue, transparent); }
+.cd-plan .wcard .ttl { font: 600 14px/1.3 var(--font); color: var(--text-1); }
+.cd-plan .wcard .out { font: 12px/1.4 var(--font); color: var(--text-3); }
+.cd-plan .wcard .foot { margin-top: auto; padding-top: 4px; font: 500 11.5px var(--font); color: var(--text-3); display: flex; align-items: center; gap: 6px; }
+.cd-plan .status { font-weight: 500; }
+.cd-plan .status.in-progress { color: var(--status-info); font-weight: 600; }
+.cd-plan .status.planned    { color: var(--text-3); }
+.cd-plan .status.done       { color: var(--status-success); }
+.cd-plan .status.slipped    { color: var(--status-error); }
+.cd-plan .status.dropped    { color: var(--text-4); text-decoration: line-through; }
+.cd-plan .status.unlinked   { color: var(--text-4); }
+.cd-plan .tstrip { background: var(--surface); border: 0.5px solid var(--line); border-radius: var(--r-lg); overflow: hidden; transition: border-color 120ms ease, box-shadow 120ms ease; }
+.cd-plan .tstrip.drop-target { border-color: var(--line-3); }
+.cd-plan .tstrip-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; cursor: pointer; transition: background 120ms ease; }
+.cd-plan .tstrip-head:hover { background: var(--surface-2); }
+.cd-plan .tstrip-head .summary { display: flex; align-items: center; gap: 10px; color: var(--text-1); font: 500 13px var(--font); min-width: 0; }
+.cd-plan .tstrip-head .summary.empty { color: var(--text-3); }
+.cd-plan .tstrip-head .summary svg { width: 13px; height: 13px; color: var(--text-3); flex-shrink: 0; }
+.cd-plan .tstrip-head .right { display: flex; align-items: center; gap: 14px; }
+.cd-plan .tstrip-head .right .open-link { font: 500 12.5px var(--font); color: var(--status-info); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.cd-plan .tstrip-head .right .open-link:hover { text-decoration: underline; }
+.cd-plan .tstrip-head .chev { width: 12px; height: 12px; color: var(--text-3); transition: transform 180ms ease; }
+.cd-plan .tstrip.collapsed .chev { transform: rotate(180deg); }
+.cd-plan .tstrip-body { padding: 26px 18px 18px; border-top: 0.5px solid var(--line); }
+.cd-plan .tstrip.collapsed .tstrip-body { display: none; }
+.cd-plan .tline { position: relative; height: 80px; user-select: none; }
+.cd-plan .tline .hour { position: absolute; top: 0; bottom: 0; border-left: 0.5px solid var(--line); }
+.cd-plan .tline .hour-lbl { position: absolute; top: -18px; font: 500 10px var(--font); color: var(--text-3); transform: translateX(-50%); }
+.cd-plan .tline .nowline { position: absolute; top: -8px; bottom: -8px; width: 1.5px; background: var(--status-warning); z-index: 4; pointer-events: none; }
+.cd-plan .tline .nowline::before { content: 'NOW'; position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font: 600 9px var(--font); color: var(--status-warning); letter-spacing: 0.06em; white-space: nowrap; }
+.cd-plan .tline .block { position: absolute; top: 6px; bottom: 6px; border-radius: var(--r-md); padding: 6px 9px; background: var(--blk-bg); border-left: 2px solid var(--blk-fg); color: var(--blk-fg); cursor: grab; overflow: hidden; display: flex; flex-direction: column; justify-content: center; transition: box-shadow 80ms ease; }
+.cd-plan .tline .block:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.10); z-index: 3; }
+.cd-plan .tline .block.dragging { cursor: grabbing; box-shadow: 0 6px 18px rgba(0,0,0,0.18); z-index: 5; }
+.cd-plan .tline .block .ttl { font: 600 11px/1.2 var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cd-plan .tline .block .tm  { font: 500 10px var(--font); opacity: 0.85; margin-top: 1px; font-variant-numeric: tabular-nums; }
+.cd-plan .tline .block .resize { position: absolute; top: 0; bottom: 0; width: 6px; cursor: ew-resize; }
+.cd-plan .tline .block .resize.l { left: 0; }
+.cd-plan .tline .block .resize.r { right: 0; }
+.cd-plan .tline.drop-active { background: var(--surface-2); border-radius: var(--r-md); }
+.cd-plan .past-summary { background: var(--surface); border: 0.5px solid var(--line); border-radius: var(--r-md); padding: 14px 18px; display: flex; align-items: center; gap: 28px; }
+.cd-plan .past-summary .stat { font: 500 12px var(--font); color: var(--text-3); display: flex; align-items: baseline; gap: 6px; }
+.cd-plan .past-summary .stat b { font: 600 18px var(--font); font-variant-numeric: tabular-nums; color: var(--text-1); }
+.cd-plan .past-summary .stat.success b { color: var(--status-success); }
+.cd-plan .past-summary .stat.error b { color: var(--status-error); }
+.cd-plan .readonly { color: var(--text-3); font: 500 12px var(--font); background: var(--surface-2); border: 0.5px solid var(--line); border-radius: var(--r-md); padding: 6px 12px; width: fit-content; }
+.cd-plan .readonly b { color: var(--text-2); font-weight: 600; }
+.cd-plan .history-wrap { position: relative; }
+.cd-plan .history-pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 40; background: var(--surface); border: 0.5px solid var(--line-2); border-radius: var(--r-md); padding: 6px; min-width: 220px; box-shadow: 0 14px 40px rgba(0,0,0,0.10); display: flex; flex-direction: column; gap: 1px; }
+.cd-plan[data-theme="dark"] .history-pop { box-shadow: 0 14px 40px rgba(0,0,0,0.5); }
+.cd-plan .history-pop .hphd { font: 500 11px var(--font); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-3); padding: 8px 10px 4px; }
+.cd-plan .history-pop button { background: transparent; border: 0; color: var(--text-1); padding: 8px 10px; border-radius: 6px; font: 500 12.5px var(--font); cursor: pointer; text-align: left; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cd-plan .history-pop button:hover { background: var(--surface-2); }
+.cd-plan .history-pop button.on { background: var(--surface-2); color: var(--text-1); font-weight: 600; }
+.cd-plan .history-pop button .hpmeta { font: 500 11.5px var(--font); color: var(--text-3); }
+.cd-plan { background: var(--bg-app); padding: 20px; border-radius: 10px; }
+
+/* ===== Weekly Goal full-page editor + Custom Rules sub-page (May 2026 prototype port) ===== */
+/* Adapted from docs/unified-design-2026-05-13/app.html — CSS var names translated to the dashboard palette. */
+.ge-page { max-width: 760px; margin: 0 auto; padding: 8px 0 80px; }
+.ge-page .ge-back { color: var(--accent-primary); font-size: 13px; cursor: pointer; margin-bottom: 14px; display: inline-flex; align-items: center; gap: 4px; }
+.ge-page .ge-back:hover { filter: brightness(1.2); }
+.ge-page .ge-title-row { margin-bottom: 22px; }
+.ge-page .ge-title-input { font-size: 28px; font-weight: 700; letter-spacing: -0.3px; background: transparent; border: 0; outline: 0; color: var(--text-primary); padding: 0; width: 100%; font-family: inherit; }
+.ge-page .ge-title-input:focus { background: var(--bg-elevated); padding: 4px 8px; margin: -4px -8px; border-radius: 6px; }
+.ge-page .ge-rename-hint { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+.ge-page .ge-main-card { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-left: 4px solid var(--ge-hue, var(--accent-primary)); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }
+.ge-page .ge-main-card .gm-header { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
+.ge-page .ge-main-card .gm-header h3 { font-size: 16px; font-weight: 700; margin: 0; letter-spacing: -0.1px; color: var(--text-primary); }
+.ge-page .ge-main-card .gm-info { color: var(--text-tertiary); font-size: 12px; cursor: help; }
+.ge-page .ge-main-card .gm-textarea { width: 100%; background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px 14px; font-size: 13px; color: var(--text-primary); resize: vertical; min-height: 100px; font-family: inherit; line-height: 1.5; }
+.ge-page .ge-main-card .gm-counter { text-align: right; font-size: 11px; color: var(--text-tertiary); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.ge-page .ge-row { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: background 0.1s; margin-bottom: 14px; }
+.ge-page .ge-row:hover { background: var(--bg-card-hover); }
+.ge-page .ge-row .gm-color-square { width: 24px; height: 24px; border-radius: 5px; background: var(--ge-hue, var(--accent-primary)); flex-shrink: 0; opacity: 0.5; }
+.ge-page .ge-row .gm-row-title { flex: 1; font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.ge-page .ge-row .gm-row-counts { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 12px; }
+.ge-page .ge-row .gm-count { display: inline-flex; align-items: center; gap: 5px; }
+.ge-page .ge-row .gm-count .dot { width: 6px; height: 6px; border-radius: 50%; }
+.ge-page .ge-row .gm-count .dot.block { background: var(--color-error); }
+.ge-page .ge-row .gm-count .dot.allow { background: var(--color-success); }
+.ge-page .ge-row .gm-row-chev { color: var(--text-tertiary); font-size: 14px; }
+.ge-page .modal-field { margin-bottom: 14px; display: flex; flex-direction: column; gap: 6px; }
+.ge-page .modal-field label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-tertiary); font-weight: 700; }
+.ge-page .modal-input { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 12px; color: var(--text-primary); font-size: 13px; font-family: inherit; }
+.ge-page .modal-input.textarea { min-height: 70px; resize: vertical; }
+.ge-page .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.ge-page .ge-divider { border-top: 1px solid var(--border-subtle); margin: 22px 0 16px; }
+.ge-page .ge-advanced-label { font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 1.4px; font-weight: 700; margin-bottom: 14px; }
+.ge-page .ge-adv-row { display: flex; align-items: center; gap: 18px; margin-bottom: 14px; flex-wrap: wrap; }
+.ge-page .ge-adv-row .gm-adv-label { font-size: 13px; font-weight: 600; color: var(--text-primary); min-width: 100px; }
+.ge-page .ge-num-input { width: 72px; padding: 7px 10px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 7px; font-size: 13px; color: var(--text-primary); text-align: center; font-family: monospace; }
+.ge-page .ge-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--border-subtle); }
+.ge-page .ge-delete-link { background: transparent; border: 0; color: var(--accent-primary); font-size: 13px; cursor: pointer; padding: 6px 0; }
+.ge-page .ge-delete-link:hover { text-decoration: underline; }
+.ge-page .ge-done-btn { background: var(--accent-gradient); color: #1a0f0a; border: 0; padding: 9px 22px; border-radius: 7px; font-weight: 700; font-size: 13px; cursor: pointer; }
+.ge-page .btn-quiet { background: transparent; border: 1px solid var(--border-subtle); color: var(--text-secondary); padding: 8px 14px; border-radius: 7px; font-size: 13px; cursor: pointer; }
+.ge-page .btn-quiet:hover { color: var(--text-primary); border-color: var(--border-hover); }
+.ge-page .strict-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.ge-page .strict-pill { padding: 7px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border-subtle); background: rgba(255,255,255,0.04); color: var(--text-secondary); cursor: pointer; }
+.ge-page .strict-pill.active { background: rgba(232,116,97,0.18); color: var(--accent-primary); border-color: var(--accent-primary); }
+.ge-page .toggle-switch { width: 38px; height: 22px; border-radius: 999px; background: rgba(255,255,255,0.10); position: relative; flex-shrink: 0; cursor: pointer; transition: background 0.15s; }
+.ge-page .toggle-switch.on { background: var(--accent-primary); }
+.ge-page .toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: white; transition: left 0.15s; }
+.ge-page .toggle-switch.on::after { left: 18px; }
+
+/* Custom Rules sub-page (extends .ge-page) */
+.cr-page .cr-info-card { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 12px 14px; margin-bottom: 22px; font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+.cr-page .cr-info-card strong { color: var(--text-primary); }
+.cr-page .cr-section { margin-bottom: 24px; }
+.cr-page .cr-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.cr-page .cr-section-header .left { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+.cr-page .cr-section-header .left .dot { width: 8px; height: 8px; border-radius: 50%; }
+.cr-page .cr-section-header .left .dot.block { background: var(--color-error); }
+.cr-page .cr-section-header .left .dot.allow { background: var(--color-success); }
+.cr-page .cr-section-header .left.block { color: var(--color-error); }
+.cr-page .cr-section-header .left.allow { color: var(--color-success); }
+.cr-page .cr-section-header .right { font-size: 12px; color: var(--text-tertiary); }
+.cr-page .cr-input-row { display: flex; gap: 6px; margin-bottom: 10px; }
+.cr-page .cr-input-row input { flex: 1; padding: 10px 12px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 7px; font-size: 13px; color: var(--text-primary); font-family: inherit; }
+.cr-page .cr-add-btn { padding: 10px 14px; background: var(--bg-elevated); border: 1px solid var(--border-hover); border-radius: 7px; font-size: 12.5px; font-weight: 600; color: var(--text-primary); cursor: pointer; }
+.cr-page .cr-add-btn:hover { background: var(--bg-card-hover); }
+.cr-page .cr-empty { padding: 14px; border: 1px dashed var(--border-hover); border-radius: 8px; text-align: center; color: var(--text-secondary); font-size: 12.5px; }
+.cr-page .cr-entry-list { display: flex; flex-direction: column; gap: 4px; }
+.cr-page .cr-entry { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; font-size: 13px; color: var(--text-primary); }
+.cr-page .cr-entry .name { flex: 1; }
+.cr-page .cr-entry .type-pill { padding: 1px 7px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 10px; color: var(--text-secondary); text-transform: capitalize; }
+.cr-page .cr-entry .remove { color: var(--text-tertiary); cursor: pointer; font-size: 14px; padding: 2px 6px; }
+.cr-page .cr-entry .remove:hover { color: var(--color-error); }
+
 </style>
+<!-- React + Babel CDN for the Plan tab (May 2026 prototype port — Cloud Design verbatim). -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body>
 
@@ -4642,9 +5027,10 @@ body.theme-effects-warm::after {
   <div class="sidebar-item active" data-page="today" onclick="navigateTo('today')">
     <span class="sidebar-item-icon">◉</span> Today
   </div>
-  <div class="sidebar-item" data-page="intentions" onclick="navigateTo('intentions')">
-    <span class="sidebar-item-icon">◎</span> Focus Modes
+  <div class="sidebar-item" data-page="plan" onclick="navigateTo('plan')">
+    <span class="sidebar-item-icon">📓</span> Plan
   </div>
+  <!-- Focus Modes tab removed 2026-05-14 — replaced by full-page Weekly Goal editor reachable from Today/Plan cards -->
   <div class="sidebar-item" data-page="sensitive" onclick="navigateTo('sensitive')">
     <span class="sidebar-item-icon">◔</span> Sensitive Content
   </div>
@@ -4655,10 +5041,31 @@ body.theme-effects-warm::after {
     <span class="sidebar-item-icon">⚙</span> Settings
   </div>
   <div style="flex:1;"></div>
+  <!-- Bottom-left blocking pill (May 2026 prototype port) -->
+  <div class="sb-blocking empty" id="sb-blocking" onclick="navigateTo('today');setTodayMode && setTodayMode('blocks');">
+    <span class="shield">🛡</span>
+    <span id="sb-blocking-label">Nothing blocking</span>
+    <span class="arrow">›</span>
+  </div>
   <div class="sidebar-label">Session</div>
   <div style="padding:4px 20px 8px;">
     <div id="sidebar-session-status" style="font-size:11px;color:var(--text-tertiary);">Free Time</div>
     <div id="sidebar-session-detail" style="font-size:10px;color:var(--text-tertiary);margin-top:2px;">No active session</div>
+  </div>
+  <!-- FIX-15: Status footer wired to real partner / content / puck state. -->
+  <div class="status-footer" id="status-footer">
+    <span class="item off" id="status-partner" title="Accountability partner status">
+      <span class="sf-dot"></span>
+      <span id="status-partner-label">Partner — checking…</span>
+    </span>
+    <span class="item off" id="status-content" title="Content protection status">
+      <span class="sf-dot"></span>
+      <span id="status-content-label">Content — checking…</span>
+    </span>
+    <span class="item off" id="status-puck" title="Puck pairing status">
+      <span class="sf-dot"></span>
+      <span id="status-puck-label">Puck — checking…</span>
+    </span>
   </div>
 </div>
 
@@ -4677,6 +5084,32 @@ body.theme-effects-warm::after {
 
   <!-- Page: Usage -->
   <div class="page active" id="page-today">
+
+    <!-- FIX-1: Today → Schedule / Blocks segmented mode toggle.
+         Schedule view = everything below this bar (calendar + AI assessments etc).
+         Blocks view = #view-blocks-inner; toggle via setTodayMode() in JS. -->
+    <div class="today-mode-bar" data-today-mode-keep="1">
+      <div class="today-mode-toggle" id="today-mode-toggle">
+        <span class="opt active" data-mode="schedule" onclick="setTodayMode('schedule')">Schedule</span>
+        <span class="opt" data-mode="blocks" onclick="setTodayMode('blocks')">Blocks</span>
+      </div>
+    </div>
+
+    <!-- FIX-1: Blocks inner view (Opal-style). Hidden until mode switches. -->
+    <div id="view-blocks-inner" data-today-mode-keep="1" hidden>
+      <div class="blk-section-h">Quick actions</div>
+      <div class="blk-ideas-row">
+        <div class="blk-idea-btn primary" onclick="openBlockNowModal()"><div class="blk-idea-icon">▶</div><div class="blk-idea-label">Block Now</div></div>
+        <div class="blk-idea-btn" onclick="navigateTo('plan')"><div class="blk-idea-icon">📓</div><div class="blk-idea-label">Plan Day</div></div>
+        <div class="blk-idea-btn" onclick="startPomodoro()"><div class="blk-idea-icon">🍅</div><div class="blk-idea-label">Pomodoro 25</div></div>
+        <div class="blk-idea-btn" onclick="openBlockRuleCreate()"><div class="blk-idea-icon">⏱</div><div class="blk-idea-label">Set Limits</div></div>
+      </div>
+      <div class="blk-section-h"><span>Your blocks</span><span class="blk-count" id="blocks-count"></span></div>
+      <div id="blocks-list-mount"></div>
+    </div>
+
+    <!-- May 2026 prototype port — weekly-goal cards strip -->
+    <div id="now-card-mount"></div>
 
     <!-- Coach context: persistent profile + daily plan above calendar -->
     <div id="coach-context-card" class="coach-context-card" style="display:none;">
@@ -4855,6 +5288,20 @@ body.theme-effects-warm::after {
       </div>
     </div>
 
+  </div>
+
+  <!-- Page: Plan (May 2026 prototype port — Cloud Design React app embedded in C3) -->
+  <div class="page" id="page-plan">
+    <div class="cd-plan" data-theme="dark">
+      <div id="plan-react-root">
+        <div style="padding:32px;color:var(--text-tertiary);text-align:center;">Loading planning view…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page: Weekly Goal full-page editor (May 2026 prototype port) -->
+  <div class="page" id="page-goal-edit">
+    <div id="goal-edit-mount"></div>
   </div>
 
   <!-- Page: Intentions (Spec 3 — renamed from Projects) -->
@@ -5465,7 +5912,62 @@ body.theme-effects-warm::after {
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- FIX-13: New session overlay (opens when user clicks empty hour on calendar) -->
+<div class="ns-modal-overlay" id="new-session-overlay" hidden onclick="if(event.target===this)closeNewSessionModal()">
+  <div class="ns-modal-card">
+    <div class="ns-modal-title">New session</div>
+    <div class="ns-modal-field">
+      <label>Title <span style="color: var(--color-error);">*</span></label>
+      <input type="text" class="ns-modal-input" id="ns-title" placeholder="What are you working on?">
+    </div>
+
+    <details class="ns-modal-section">
+      <summary>Done looks like</summary>
+      <textarea class="ns-modal-input textarea" id="ns-outcome" placeholder="What does done look like?"></textarea>
+    </details>
+
+    <details class="ns-modal-section">
+      <summary>Weekly goal link</summary>
+      <select class="ns-modal-input" id="ns-goal-link">
+        <option value="">No goal — standalone session</option>
+      </select>
+    </details>
+
+    <details class="ns-modal-section">
+      <summary>Auto-activate blocks</summary>
+      <div id="ns-block-checkboxes"><div style="color:rgba(255,255,255,0.4);font-size:12px;">No blocks configured yet.</div></div>
+    </details>
+
+    <details class="ns-modal-section">
+      <summary>AI scoring</summary>
+      <label class="ns-modal-toggle-row">
+        <input type="checkbox" id="ns-ai-scoring" checked>
+        AI relevance scoring for this session
+      </label>
+    </details>
+
+    <div class="ns-modal-footer">
+      <button class="btn-secondary" onclick="closeNewSessionModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveNewSession()">Create session</button>
+    </div>
+  </div>
+</div>
+
 <script>
+// ===== Test mode for Playwright =====
+// When window.__INTENTIONAL_TEST_MODE is set true BEFORE any bridge calls
+// (via addInitScript), captures each message into
+// window.__capturedBridgeMessages and prevents missing-bridge errors when
+// running over file://.
+if (window.__INTENTIONAL_TEST_MODE) {
+  window.__capturedBridgeMessages = [];
+  window.webkit = window.webkit || {};
+  window.webkit.messageHandlers = window.webkit.messageHandlers || {};
+  window.webkit.messageHandlers.intentional = {
+    postMessage(msg) { window.__capturedBridgeMessages.push(msg); }
+  };
+}
+
 // ===== Theme Colors =====
 var THEME = {
   accent: 'var(--accent-primary)',
@@ -5620,12 +6122,12 @@ function onFocusModeStateUpdate(stateRaw) {
 var INTERVENTIONS = [
   { key: "distractions_blocking", label: "Distractions blocking",      desc: "Hard block apps + sites in your distractions list.", defaultOn: true },
   { key: "switch_overlay",        label: "Context-switch overlay",     desc: "10s countdown when switching to a non-relevant app.", defaultOn: true },
-  { key: "ai_relevance",          label: "AI relevance scoring",       desc: "Browser tabs scored against your intention.",         defaultOn: true },
+  { key: "ai_relevance",          label: "AI relevance scoring",       desc: "Browser tabs scored against your weekly goal.",       defaultOn: true },
   { key: "screen_red_shift",      label: "Screen red shift",           desc: "Gradual screen tint when off-task.",                  defaultOn: true },
   { key: "off_task_nudge",        label: "Off-task nudge toast",       desc: "Small reminder before harder interventions.",         defaultOn: true },
-  { key: "block_start_ritual",    label: "Block start ritual",         desc: "Forces you to type intention before a scheduled block.", defaultOn: true },
+  { key: "block_start_ritual",    label: "Block start ritual",         desc: "Forces you to type your weekly goal before a scheduled block.", defaultOn: true },
   { key: "block_end_ritual",      label: "Block end ritual",           desc: "3-sec stats card at end of block.",                   defaultOn: true },
-  { key: "pill_widget",           label: "Always-on pill widget",      desc: "Menu bar pill with state, intention, timer.",         defaultOn: true },
+  { key: "pill_widget",           label: "Always-on pill widget",      desc: "Menu bar pill with state, weekly goal, timer.",       defaultOn: true },
   { key: "force_quit_apps",       label: "Distracting app force-quit", desc: "HARD MODE: distracting apps minimized/quit on activation.", defaultOn: false },
   { key: "earned_browse_mode",    label: "Earned browse mode",         desc: "Earn distraction-time credits during focus. (Currently disabled.)", defaultOn: false }
 ];
@@ -5661,11 +6163,22 @@ function onInterventionToggle(key, enabled) {
 }
 
 // ===== Settings Drill-Down Navigation =====
+// FIX-12: alias map so external callers can use the requirements-doc IDs
+// ("focus-mode", "content-safety") in addition to the internal IDs that
+// have always been used here ("focusgate", "safety"). Both work.
+var _SETTINGS_SUB_ALIASES = {
+  'focus-mode': 'focusgate',
+  'content-safety': 'safety'
+};
+
 function showSettingsDetail(id) {
+  // FIX-12: resolve external/aliased IDs
+  if (_SETTINGS_SUB_ALIASES[id]) id = _SETTINGS_SUB_ALIASES[id];
   document.getElementById('settings-menu').style.display = 'none';
   document.querySelectorAll('.settings-detail').forEach(function(d) { d.classList.remove('active'); });
   var el = document.getElementById('settings-detail-' + id);
   if (el) el.classList.add('active');
+  window._currentSettingsSub = id;
   // Slice 5/6 followup: pull list contents on detail open
   if (id === 'distractions') {
     sendMessage({ type: 'GET_DISTRACTIONS' });
@@ -5675,6 +6188,13 @@ function showSettingsDetail(id) {
     sendMessage({ type: 'GET_BUDGET_STATE' });
   }
 }
+// FIX-12: spec-compliant aliases for the prototype-to-production handoff
+window.openSettingsSub = showSettingsDetail;
+window.closeSettingsSub = function() {
+  document.getElementById('settings-menu').style.display = '';
+  document.querySelectorAll('.settings-detail').forEach(function(d) { d.classList.remove('active'); });
+  window._currentSettingsSub = null;
+};
 
 // ===== App Taxonomy (Slice 5 of 2026-05-05 redesign) =====
 
@@ -5766,7 +6286,9 @@ function saveBudgetConfig() {
 function hideSettingsDetail() {
   document.getElementById('settings-menu').style.display = '';
   document.querySelectorAll('.settings-detail').forEach(function(d) { d.classList.remove('active'); });
+  window._currentSettingsSub = null;
 }
+window.hideSettingsDetail = hideSettingsDetail;
 
 // ===== Settings State =====
 var settings = {
@@ -5804,8 +6326,17 @@ function navigateTo(pageId) {
   document.querySelectorAll('.sidebar-item').forEach(function(s) { s.classList.remove('active'); });
   var page = document.getElementById('page-' + pageId);
   if (page) page.classList.add('active');
-  var nav = document.querySelector('[data-page="' + pageId + '"]');
-  if (nav) nav.classList.add('active');
+  // FIX-8: When opening the goal editor (a sub-page with no sidebar item of its own),
+  // keep the originating tab's highlight so the user knows where they came from.
+  if (pageId === 'goal-edit' || pageId === 'goal-custom-rules') {
+    var originating = window._goalEditReturnTo || 'today';
+    var originatingItem = document.querySelector('[data-page="' + originating + '"]');
+    if (originatingItem) originatingItem.classList.add('active');
+  } else {
+    var nav = document.querySelector('[data-page="' + pageId + '"]');
+    if (nav) nav.classList.add('active');
+  }
+  window.currentPage = pageId;
 
   // Poll consent status when viewing accountability page with pending consent
   if (pageId === 'lock' && settings.consentStatus === 'pending') {
@@ -6103,6 +6634,29 @@ window.onProjectSessionResult = function(result) {
     showToast('Queued to start at ' + startH + ':' + pad(startM), 'success');
   } else if (result.status === 'refused') {
     showToast(result.reason || 'Session refused', 'error');
+  }
+};
+
+// FIX-2: Mac → JS callback when drag-to-schedule creates a real FocusBlock.
+// On success, the Mac also pushes a fresh schedule via _scheduleStateResult,
+// which is what actually re-renders Today's calendar — so this handler just
+// surfaces a toast + ensures Today re-renders if we're already on it.
+window._scheduledSessionCreated = function(result) {
+  if (!result) return;
+  if (result.status === 'ok') {
+    if (typeof showToast === 'function') showToast('Session scheduled', 'success');
+    // Defensive: if the schedule push raced ahead, this is a no-op; if it didn't,
+    // request a fresh state pull so the new block paints.
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+      try {
+        window.webkit.messageHandlers.intentional.postMessage({ type: 'GET_SCHEDULE_STATE' });
+      } catch (e) { /* best-effort */ }
+    }
+    if (typeof renderCalendar === 'function') {
+      try { renderCalendar(); } catch (e) { /* re-render is best-effort */ }
+    }
+  } else {
+    if (typeof showToast === 'function') showToast((result && result.reason) || 'Could not schedule session', 'error');
   }
 };
 
@@ -8381,6 +8935,967 @@ window._intentionsList = function(items) {
   }
 };
 
+// FIX-1 + FIX-6: Block rules (renamed from Blocking Profiles in UI) drive both
+// the Today→Blocks list and the sidebar "N blocking" pill. Cache populated by
+// the new `_blockingProfilesList` receiver below.
+window._blockRulesCache = window._blockRulesCache || [];
+window._activeBlockCount = window._activeBlockCount || 0;
+
+function isRuleCurrentlyActive(r) {
+  if (!r || r.enabled === false) return false;
+  // Backend already computes this; trust it when present.
+  if (typeof r.is_currently_active === 'boolean') return r.is_currently_active;
+  // No schedule = always-active rule.
+  if (r.start_hour == null || r.end_hour == null) return true;
+  var now = new Date();
+  var day = (now.getDay() || 7);  // JS Sun=0..Sat=6 -> ISO 1..7 (Mon=1..Sun=7)
+  if (day === 0) day = 7;
+  var activeDays = r.active_days || [1,2,3,4,5,6,7];
+  if (activeDays.indexOf(day) === -1) return false;
+  var nowMin = now.getHours() * 60 + now.getMinutes();
+  var startMin = (r.start_hour || 0) * 60 + (r.start_minute || 0);
+  var endMin = (r.end_hour || 0) * 60 + (r.end_minute || 0);
+  return nowMin >= startMin && nowMin < endMin;
+}
+window.isRuleCurrentlyActive = isRuleCurrentlyActive;
+
+function formatRuleSchedule(r) {
+  if (!r || r.start_hour == null || r.end_hour == null) return 'Always active';
+  var dayLbls = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var days = (r.active_days || [1,2,3,4,5,6,7]);
+  var allWeekdays = days.length === 5 && days.every(function(d){ return d >= 1 && d <= 5; });
+  var dayStr = days.length === 7 ? 'Daily' : (allWeekdays ? 'Weekdays' : days.map(function(d){ return dayLbls[d-1]; }).join('/'));
+  function fmt(h, m) {
+    var period = h >= 12 ? 'p' : 'a';
+    var dh = ((h + 11) % 12) + 1;
+    return dh + (m ? ':' + String(m).padStart(2,'0') : '') + period;
+  }
+  return dayStr + ' · ' + fmt(r.start_hour, r.start_minute) + '–' + fmt(r.end_hour, r.end_minute);
+}
+window.formatRuleSchedule = formatRuleSchedule;
+
+function refreshSidebarBlockingPill() {
+  var rules = window._blockRulesCache || [];
+  var activeCount = rules.filter(function(r){ return isRuleCurrentlyActive(r); }).length;
+  window._activeBlockCount = activeCount;
+  var el = document.getElementById('sb-blocking');
+  var lbl = document.getElementById('sb-blocking-label');
+  if (!el || !lbl) return;
+  if (activeCount === 0) {
+    el.classList.add('empty');
+    lbl.textContent = 'Nothing blocking';
+  } else {
+    el.classList.remove('empty');
+    lbl.textContent = activeCount + ' blocking';
+  }
+}
+window.refreshSidebarBlockingPill = refreshSidebarBlockingPill;
+
+// FIX-1: Receiver wired to MainWindow.handleGetBlockingProfiles' new
+// snake_case emit. Keeps the legacy `onBlockingProfiles` receiver alive too
+// (separate JSON shipment from the Swift side).
+window._blockingProfilesList = function(items) {
+  window._blockRulesCache = Array.isArray(items) ? items : [];
+  renderBlocksList();
+  refreshSidebarBlockingPill();
+};
+
+function renderBlocksList() {
+  var mount = document.getElementById('blocks-list-mount');
+  if (!mount) return;
+  var rules = window._blockRulesCache || [];
+  var active = rules.filter(function(r){ return r.enabled !== false && isRuleCurrentlyActive(r); }).length;
+  var countEl = document.getElementById('blocks-count');
+  if (countEl) countEl.textContent = '· ' + active + ' active · ' + rules.length + ' total';
+  if (rules.length === 0) {
+    mount.innerHTML = '<div class="blocks-empty-card">No blocks yet. <span class="link" onclick="openBlockRuleCreate()">+ Create your first block</span></div>';
+    return;
+  }
+  mount.innerHTML = rules.map(function(r) {
+    var sites = (r.websites || []).slice(0,4).join(', ');
+    var appsCount = (r.bundle_ids || []).length;
+    var scheduleStr = formatRuleSchedule(r);
+    var activeNow = isRuleCurrentlyActive(r);
+    var pill = activeNow
+      ? '<span class="block-pill active">ACTIVE</span>'
+      : (r.enabled === false
+          ? '<span class="block-pill off">OFF</span>'
+          : '<span class="block-pill upcoming">UPCOMING</span>');
+    var toggleClass = r.enabled !== false ? 'on' : '';
+    var nextEnabled = r.enabled === false ? 'true' : 'false';
+    var listLine = '';
+    if (sites || appsCount > 0) {
+      listLine = '<div class="block-card-list">Blocking: ' + _escapeHTML(sites) + (appsCount > 0 ? (sites ? ' · ' : '') + appsCount + ' apps' : '') + '</div>';
+    }
+    return '<div class="block-card" onclick="openBlockRuleEdit(\'' + r.id + '\')">'
+      + '<div class="block-card-head">'
+      +   '<div class="block-card-title">' + _escapeHTML(r.name) + ' ' + pill + '</div>'
+      +   '<div class="block-toggle ' + toggleClass + '"'
+      +     ' onclick="event.stopPropagation(); toggleBlockRule(\'' + r.id + '\', ' + nextEnabled + ')"></div>'
+      + '</div>'
+      + '<div class="block-card-sched">' + _escapeHTML(scheduleStr) + '</div>'
+      + listLine
+      + '</div>';
+  }).join('');
+}
+window.renderBlocksList = renderBlocksList;
+
+function toggleBlockRule(id, enabled) {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({ type: 'TOGGLE_BLOCK_RULE', id: id, enabled: !!enabled });
+  }
+  // Optimistic update — Swift will re-broadcast and reconcile.
+  var r = (window._blockRulesCache || []).find(function(x){ return x.id === id; });
+  if (r) r.enabled = !!enabled;
+  renderBlocksList();
+  refreshSidebarBlockingPill();
+}
+window.toggleBlockRule = toggleBlockRule;
+
+function _refreshBlockRules() {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({ type: 'GET_BLOCKING_PROFILES' });
+  }
+}
+
+function openBlockRuleCreate() {
+  var name = prompt('Block name (e.g. "Block social media"):');
+  if (!name || !name.trim()) return;
+  var sitesStr = prompt('Sites to block (comma separated, e.g. instagram.com, tiktok.com):') || '';
+  var sites = sitesStr.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+  var startStr = prompt('Start hour (0-23, blank for always-active):');
+  var endStr = prompt('End hour (0-23):');
+  var startHour = (startStr && startStr.trim()) ? parseInt(startStr, 10) : null;
+  var endHour = (endStr && endStr.trim()) ? parseInt(endStr, 10) : null;
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({
+      type: 'CREATE_BLOCK_RULE',
+      name: name.trim(),
+      websites: sites,
+      bundle_ids: [],
+      enabled: true,
+      start_hour: (isNaN(startHour) ? null : startHour),
+      start_minute: 0,
+      end_hour: (isNaN(endHour) ? null : endHour),
+      end_minute: 0,
+      active_days: [1,2,3,4,5,6,7]
+    });
+  }
+  // Swift re-emits after create, but in case of slow path, force refresh.
+  setTimeout(_refreshBlockRules, 400);
+}
+window.openBlockRuleCreate = openBlockRuleCreate;
+
+function openBlockRuleEdit(id) {
+  var r = (window._blockRulesCache || []).find(function(x){ return x.id === id; });
+  if (!r) return;
+  var name = prompt('Block name:', r.name);
+  if (name == null) return;
+  var sitesStr = prompt('Sites (comma separated):', (r.websites || []).join(', '));
+  if (sitesStr == null) return;
+  var startStr = prompt('Start hour (0-23, blank for always-active):', r.start_hour == null ? '' : String(r.start_hour));
+  if (startStr == null) return;
+  var endStr = prompt('End hour (0-23, blank for always-active):', r.end_hour == null ? '' : String(r.end_hour));
+  if (endStr == null) return;
+  var startHour = (startStr && startStr.trim()) ? parseInt(startStr, 10) : null;
+  var endHour = (endStr && endStr.trim()) ? parseInt(endStr, 10) : null;
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({
+      type: 'UPDATE_BLOCK_RULE',
+      id: id,
+      name: (name || '').trim() || r.name,
+      websites: sitesStr.split(',').map(function(s){ return s.trim(); }).filter(Boolean),
+      bundle_ids: r.bundle_ids || [],
+      enabled: r.enabled !== false,
+      start_hour: (isNaN(startHour) ? null : startHour),
+      start_minute: r.start_minute || 0,
+      end_hour: (isNaN(endHour) ? null : endHour),
+      end_minute: r.end_minute || 0,
+      active_days: r.active_days || [1,2,3,4,5,6,7]
+    });
+  }
+  setTimeout(_refreshBlockRules, 400);
+}
+window.openBlockRuleEdit = openBlockRuleEdit;
+
+function openBlockNowModal() {
+  // Trigger immediate focus session via existing Focus Mode toggle.
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({ type: 'TOGGLE_FOCUS_MODE' });
+  }
+  if (typeof showToast === 'function') showToast('Focus session toggled');
+}
+window.openBlockNowModal = openBlockNowModal;
+
+function startPomodoro() {
+  // No native Pomodoro path yet — surface the gap to the user so the button isn't dead.
+  if (typeof showToast === 'function') showToast('Pomodoro 25 coming soon — use Focus Mode for now');
+}
+window.startPomodoro = startPomodoro;
+
+// FIX-1: Today mode toggle — swap Schedule view (default children of #page-today)
+// with the dedicated Blocks view. We mark the keep-visible siblings (mode bar + blocks view)
+// with `data-today-mode-keep` so the swap only hides the schedule content.
+function setTodayMode(mode) {
+  window._todayMode = mode;
+  var toggle = document.getElementById('today-mode-toggle');
+  if (toggle) {
+    toggle.querySelectorAll('.opt').forEach(function(o){
+      o.classList.toggle('active', o.dataset.mode === mode);
+    });
+  }
+  var page = document.getElementById('page-today');
+  if (!page) return;
+  var blocksView = document.getElementById('view-blocks-inner');
+  if (blocksView) blocksView.hidden = (mode !== 'blocks');
+  // Hide every direct child of page-today except the toggle bar + blocks view.
+  Array.prototype.forEach.call(page.children, function(child){
+    if (child.dataset && child.dataset.todayModeKeep === '1') return;
+    if (mode === 'blocks') {
+      if (child.dataset) child.dataset.todayHiddenByBlocks = '1';
+      child.style.display = 'none';
+    } else if (child.dataset && child.dataset.todayHiddenByBlocks === '1') {
+      delete child.dataset.todayHiddenByBlocks;
+      child.style.display = '';
+    }
+  });
+  if (mode === 'blocks') {
+    _refreshBlockRules();
+  }
+}
+window.setTodayMode = setTodayMode;
+
+// Pull block rules on load so the sidebar pill is accurate immediately.
+_refreshBlockRules();
+refreshSidebarBlockingPill();
+
+// May 2026 prototype port — Today weekly-goal cards strip.
+window._intentionsCache = window._intentionsCache || [];
+window._monthlyGoalsCache = window._monthlyGoalsCache || [];
+
+(function () {
+  var orig = window._intentionsList;
+  window._intentionsList = function (items) {
+    window._intentionsCache = Array.isArray(items) ? items : [];
+    renderNowCard();
+    // FIX-7: nudge the Plan React app so it re-derives WEEKS / WEEKLY off the cache.
+    if (typeof window._planAppRefresh === 'function') window._planAppRefresh();
+    if (typeof orig === 'function') orig(items);
+  };
+})();
+
+// FIX-7: Merge past-week goals returned by GET_INTENTIONS_FOR_WEEK into the cache.
+// Plan history dropdown calls this; the receiver bumps the Plan app via _planAppRefresh.
+window._intentionsForWeek = function (items) {
+  if (!Array.isArray(items)) return;
+  var cache = window._intentionsCache || [];
+  var byId = {};
+  cache.forEach(function (i) { if (i && i.id) byId[i.id] = i; });
+  items.forEach(function (i) { if (i && i.id) byId[i.id] = i; });
+  window._intentionsCache = Object.keys(byId).map(function (k) { return byId[k]; });
+  if (typeof renderNowCard === 'function') renderNowCard();
+  if (typeof window._planAppRefresh === 'function') window._planAppRefresh();
+};
+
+window._monthlyGoalsList = function (items) {
+  window._monthlyGoalsCache = Array.isArray(items) ? items : [];
+  renderNowCard();
+};
+window._monthlyGoalCreated = window._monthlyGoalCreated || function () {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional)
+    window.webkit.messageHandlers.intentional.postMessage({type:'GET_MONTHLY_GOALS'});
+};
+window._monthlyGoalUpdated = window._monthlyGoalUpdated || function () {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional)
+    window.webkit.messageHandlers.intentional.postMessage({type:'GET_MONTHLY_GOALS'});
+};
+window._monthlyGoalDeleted = window._monthlyGoalDeleted || function () {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional)
+    window.webkit.messageHandlers.intentional.postMessage({type:'GET_MONTHLY_GOALS'});
+};
+
+function _currentWeekISO() {
+  var d = new Date();
+  var day = d.getDay() || 7;
+  d.setDate(d.getDate() - (day - 1));
+  return d.toISOString().slice(0, 10);
+}
+
+function _escapeHTML(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+  });
+}
+
+function renderNowCard() {
+  var mount = document.getElementById('now-card-mount');
+  if (!mount) return;
+  var week = _currentWeekISO();
+  // FIX-14: STRICT filter — only goals tagged for this week.
+  // Previously fell back to top-3 unscheduled goals when no week match; this hid the
+  // week-boundary freeze from the user (goals from last week still showed).
+  var goals = (window._intentionsCache || []).filter(function(g) { return g && g.week_of === week; }).slice(0, 3);
+  if (goals.length === 0) {
+    mount.innerHTML = '<div class="wg-section-header">'
+      + '<span class="wg-lbl"><strong>This week’s goals</strong></span>'
+      + '<span style="display:flex;gap:12px;align-items:center;">'
+      + '<span style="cursor:pointer;color:var(--accent-primary);" onclick="openWeeklyGoalCreate()">+ New</span>'
+      + '<span class="wg-hint" onclick="navigateTo(\'plan\')" style="cursor:pointer;color:var(--accent-primary);">Open Plan →</span>'
+      + '</span>'
+      + '</div>'
+      + '<div style="margin:0 28px 18px;padding:18px;border:1px dashed rgba(255,255,255,0.12);border-radius:10px;font-size:13px;color:var(--text-tertiary);text-align:center;">'
+      + 'No goals for this week yet. <span style="color:var(--accent-primary);cursor:pointer;" onclick="openWeeklyGoalCreate()">+ Create one</span>'
+      + '</div>';
+    return;
+  }
+  var cards = goals.map(function(g) {
+    var monthly = (window._monthlyGoalsCache || []).find(function(m) { return m.id === g.monthly_goal_id; });
+    var hue = (monthly && monthly.color_hex) ? monthly.color_hex : null;
+    var edge = hue ? '<span class="wg-edge" style="--wg-hue: ' + hue + ';"></span>' : '';
+    var statusRaw = g.status || 'planned';
+    var statusLabel = statusRaw === 'in_progress' ? 'in progress' : statusRaw;
+    var statusClass = monthly ? statusRaw.replace('_', '-') : 'unlinked';
+    var hoursLine = (g.hours_done > 0) ? ' · ' + g.hours_done + 'h done' : '';
+    var title = _escapeHTML(g.name);
+    var outcome = _escapeHTML(g.outcome || '');
+    return '<div class="wg-card' + (monthly ? '' : ' unlinked') + '"'
+      + ' data-goal-id="' + _escapeHTML(g.id) + '"'
+      + ' onclick="openWeeklyGoalEdit(\'' + _escapeHTML(g.id) + '\')">'
+      + edge
+      + '<div class="wg-ttl">' + title + '</div>'
+      + '<div class="wg-out">' + outcome + '</div>'
+      + '<div class="wg-foot">'
+      + '<span class="wg-status ' + statusClass + '">' + statusLabel + hoursLine + '</span>'
+      + '<span class="wg-grip" draggable="true"'
+      + ' ondragstart="event.stopPropagation(); weeklyGoalDragStart(event, \'' + _escapeHTML(g.id) + '\')"'
+      + ' ondragend="weeklyGoalDragEnd(event)"'
+      + ' onclick="event.stopPropagation()"'
+      + ' title="Drag to schedule">⋮⋮</span>'
+      + '</div></div>';
+  }).join('');
+  mount.innerHTML = '<div class="wg-section-header">'
+    + '<span class="wg-lbl"><strong>This week’s goals</strong> · drag onto schedule to create a session</span>'
+    + '<span style="display:flex;gap:12px;align-items:center;">'
+    + '<span style="cursor:pointer;color:var(--accent-primary);" onclick="openWeeklyGoalCreate()">+ New</span>'
+    + '<span class="wg-hint" onclick="navigateTo(\'plan\')" style="cursor:pointer;color:var(--accent-primary);">Open Plan →</span>'
+    + '</span>'
+    + '</div>'
+    + '<div class="wg-row">' + cards + '</div>';
+}
+
+var _dragGoalId = null;
+function weeklyGoalDragStart(e, id) {
+  _dragGoalId = id;
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'copy';
+  e.dataTransfer.setData('text/plain', id);
+}
+function weeklyGoalDragEnd(e) {
+  _dragGoalId = null;
+  e.target.classList.remove('dragging');
+  document.querySelectorAll('.calendar-hour-track.drop-hover').forEach(function(r) { r.classList.remove('drop-hover'); });
+}
+
+function _wireGoalDropTargets() {
+  // FIX-16: Narrow selector to .calendar-hour-track — the element that actually owns
+  // the data-hour attribute. The old .calendar-hour-row / .calendar-row pair was
+  // over-broad and .calendar-row never existed in this dashboard's markup.
+  var tracks = document.querySelectorAll('.calendar-hour-track[data-hour]');
+  tracks.forEach(function(track) {
+    if (track.__wgDropWired) return;
+    track.__wgDropWired = true;
+    track.addEventListener('dragover', function(e) {
+      if (!_dragGoalId) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      track.classList.add('drop-hover');
+    });
+    track.addEventListener('dragleave', function() { track.classList.remove('drop-hover'); });
+    track.addEventListener('drop', function(e) {
+      if (!_dragGoalId) return;
+      e.preventDefault();
+      track.classList.remove('drop-hover');
+      var hour = parseInt(track.getAttribute('data-hour') || '9', 10);
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+        // FIX-2: CREATE_SCHEDULED_SESSION creates a real calendar block (Today)
+        // rather than starting an immediate focus session. start_minute / end_*
+        // omitted → Mac defaults to a 1-hour block anchored at start_hour.
+        window.webkit.messageHandlers.intentional.postMessage({
+          type: 'CREATE_SCHEDULED_SESSION',
+          intention_id: _dragGoalId,
+          start_hour: hour,
+          start_date: new Date().toISOString().slice(0, 10)
+        });
+      }
+      _dragGoalId = null;
+    });
+  });
+}
+
+// Hook renderCalendar so newly-created rows get drop handlers attached.
+// (renderCalendar is defined later as a bare function; window.renderCalendar
+// still resolves to it in browser global scope. The hook may run before the
+// fn exists, so we also fall back to a delayed wire + a navigateTo hook below.)
+var _origRenderCalendar = window.renderCalendar;
+if (typeof _origRenderCalendar === 'function') {
+  window.renderCalendar = function () {
+    _origRenderCalendar.apply(this, arguments);
+    _wireGoalDropTargets();
+  };
+} else {
+  // Fallback — rewire after dashboard finishes booting.
+  setTimeout(_wireGoalDropTargets, 1000);
+  // Hook navigateTo so we re-wire when the user lands on a page with the calendar.
+  if (typeof window.navigateTo === 'function') {
+    var _origNavigateTo = window.navigateTo;
+    window.navigateTo = function(pageId) {
+      var r = _origNavigateTo.apply(this, arguments);
+      if (pageId === 'today' || pageId === 'schedule') {
+        setTimeout(_wireGoalDropTargets, 50);
+      }
+      return r;
+    };
+  }
+}
+
+// Pull data on dashboard ready.
+window.addEventListener('DOMContentLoaded', function() {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({type: 'GET_INTENTIONS'});
+    window.webkit.messageHandlers.intentional.postMessage({type: 'GET_MONTHLY_GOALS'});
+  }
+});
+
+// ===== May 2026 prototype port — Weekly Goal full-page editor + Custom Rules =====
+
+let _goalEditReturnTo = 'today';
+
+function openWeeklyGoalEdit(id) {
+  _goalEditReturnTo = (window.currentPage === 'plan' || window.currentPage === 'today')
+    ? window.currentPage : 'today';
+  navigateTo('goal-edit');
+  renderGoalEdit(id);
+}
+window.openWeeklyGoalEdit = openWeeklyGoalEdit;
+
+function closeGoalEdit() {
+  window._editingGoalId = null; // FIX-10: clear so schedule pushes don't try to re-render a stale editor.
+  navigateTo(_goalEditReturnTo || 'today');
+}
+window.closeGoalEdit = closeGoalEdit;
+
+function renderGoalEdit(id) {
+  window._editingGoalId = id; // FIX-10: track which goal is being edited so schedule pushes can re-render.
+  var g = (window._intentionsCache || []).find(function(x){ return x.id === id; });
+  if (!g) {
+    document.getElementById('goal-edit-mount').innerHTML =
+      '<div style="padding:24px;color:var(--text-tertiary);">Goal not found.</div>';
+    return;
+  }
+  var monthly = (window._monthlyGoalsCache || []).find(function(m){ return m.id === g.monthly_goal_id; });
+  var hue = (monthly && monthly.color_hex) ? monthly.color_hex : 'var(--accent-primary)';
+  var intentLen = (g.intent_text || '').length;
+  var blockCount = ((g.mac_websites || []).length) + ((g.mac_bundle_ids || []).length);
+  var allowCount = ((g.allow_websites || []).length) + ((g.allow_bundle_ids || []).length);
+  var monthlyLabel = monthly ? monthly.title : 'No link · standalone';
+  var aiOn = g.ai_scoring_enabled !== false;
+  var status = g.status || 'planned';
+  var strict = g.strictness_preset || 'standard';
+  // FIX-10: When a session of THIS goal is currently active, strictness changes
+  // are disallowed to prevent gaming the enforcement mid-session.
+  var isActiveNow = window._activeSessionIntentionId && window._activeSessionIntentionId === id;
+  var strictDisabledAttr = isActiveNow
+    ? ' style="opacity:0.5; pointer-events:none;" title="Can\'t change strictness during an active session of this goal"'
+    : '';
+
+  document.getElementById('goal-edit-mount').innerHTML = `
+    <div class="ge-page">
+      <div class="ge-back" onclick="closeGoalEdit()">‹ All Weekly Goals</div>
+
+      <div class="ge-title-row">
+        <input type="text" class="ge-title-input" value="${_escapeHTML(g.name)}" id="ge-title-input">
+        <div class="ge-rename-hint">Click to rename</div>
+      </div>
+
+      <div class="ge-main-card" style="--ge-hue: ${hue};">
+        <div class="gm-header" style="justify-content: space-between;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <h3>What are you working on?</h3>
+            <span class="gm-info" title="Drives local AI relevance scoring for this goal.">ⓘ</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-tertiary); font-weight:700;">AI scoring</span>
+            <div class="toggle-switch ${aiOn ? 'on' : ''}" id="ge-ai-toggle" onclick="this.classList.toggle('on')"></div>
+          </div>
+        </div>
+        <textarea class="gm-textarea" id="ge-intent-text" maxlength="140"
+          placeholder="Describe what you'll be doing — apps, sites, what success looks like."
+          oninput="document.getElementById('ge-intent-counter').textContent = this.value.length + ' / 140'"
+          >${_escapeHTML(g.intent_text || '')}</textarea>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-top:6px;">
+          <div style="font-size:11px; color:var(--text-tertiary);">Only used if AI scoring is on.</div>
+          <div class="gm-counter" id="ge-intent-counter">${intentLen} / 140</div>
+        </div>
+      </div>
+
+      <div class="ge-row" onclick="openGoalCustomRules('${g.id}')" style="--ge-hue: ${hue};">
+        <div class="gm-color-square"></div>
+        <div class="gm-row-title">Custom rules</div>
+        <div class="gm-row-counts">
+          <span class="gm-count"><span class="dot block"></span>${blockCount} blocked</span>
+          <span class="gm-count"><span class="dot allow"></span>${allowCount} allowed</span>
+        </div>
+        <span class="gm-row-chev">›</span>
+      </div>
+
+      <div class="modal-field"><label>Outcome (done looks like)</label>
+        <textarea class="modal-input textarea" id="ge-outcome">${_escapeHTML(g.outcome || '')}</textarea>
+      </div>
+
+      <div class="modal-row">
+        <div class="modal-field"><label>Status</label>
+          <div class="strict-pills" id="ge-status-pills">
+            <span class="strict-pill ${status==='in_progress'?'active':''}" data-value="in_progress">In progress</span>
+            <span class="strict-pill ${status==='planned'?'active':''}" data-value="planned">Planned</span>
+            <span class="strict-pill ${status==='done'?'active':''}" data-value="done">Done</span>
+          </div>
+        </div>
+        <div class="modal-field"><label>For monthly goal</label>
+          <div class="modal-input" id="ge-monthly-picker" style="cursor:pointer;" onclick="openMonthlyGoalPicker('${g.id}')">${_escapeHTML(monthlyLabel)}</div>
+        </div>
+      </div>
+
+      <div class="ge-divider"></div>
+      <div class="ge-advanced-label">Advanced</div>
+
+      <div class="ge-adv-row">
+        <span class="gm-adv-label">Strictness</span>
+        <div class="strict-pills" id="ge-strict-pills"${strictDisabledAttr}>
+          <span class="strict-pill ${strict==='standard'?'active':''}" data-value="standard">Standard</span>
+          <span class="strict-pill ${strict==='strict'?'active':''}" data-value="strict">Strict</span>
+        </div>
+        <span class="gm-adv-label" style="margin-left:30px;">Weekly target</span>
+        <input type="number" class="ge-num-input" id="ge-weekly-target" value="${g.weekly_target_hours || ''}" placeholder="—">
+        <span style="font-size:12px; color:var(--text-tertiary);">hrs / week</span>
+      </div>
+      ${isActiveNow ? '<div style="font-size:11px; color:var(--text-tertiary); margin-top:4px;">Strictness locked — an active session of this goal is running.</div>' : ''}
+
+      <div class="ge-foot">
+        <button class="ge-delete-link" onclick="deleteWeeklyGoal('${g.id}')">Delete this Weekly Goal</button>
+        <div class="right" style="display:flex; gap:8px;">
+          <button class="btn-quiet" onclick="closeGoalEdit()">Cancel</button>
+          <button class="ge-done-btn" onclick="saveWeeklyGoal('${g.id}')">Done</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.querySelectorAll('#ge-status-pills .strict-pill').forEach(function(p){
+    p.onclick = function() {
+      document.querySelectorAll('#ge-status-pills .strict-pill').forEach(function(x){ x.classList.remove('active'); });
+      p.classList.add('active');
+    };
+  });
+  document.querySelectorAll('#ge-strict-pills .strict-pill').forEach(function(p){
+    p.onclick = function() {
+      document.querySelectorAll('#ge-strict-pills .strict-pill').forEach(function(x){ x.classList.remove('active'); });
+      p.classList.add('active');
+    };
+  });
+}
+window.renderGoalEdit = renderGoalEdit;
+
+function saveWeeklyGoal(id) {
+  var g = (window._intentionsCache || []).find(function(x){ return x.id === id; });
+  if (!g) return;
+  var name = (document.getElementById('ge-title-input').value || '').trim() || g.name;
+  var intentText = document.getElementById('ge-intent-text').value;
+  var outcome = document.getElementById('ge-outcome').value;
+  var statusEl = document.querySelector('#ge-status-pills .strict-pill.active');
+  var status = statusEl ? statusEl.dataset.value : 'planned';
+  var strictEl = document.querySelector('#ge-strict-pills .strict-pill.active');
+  var strictness = strictEl ? strictEl.dataset.value : 'standard';
+  var weeklyTarget = parseFloat(document.getElementById('ge-weekly-target').value);
+  if (isNaN(weeklyTarget)) weeklyTarget = null;
+  var aiOn = document.getElementById('ge-ai-toggle').classList.contains('on');
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({
+      type: 'UPDATE_INTENTION',
+      id: id, version: g.version,
+      name: name,
+      description: g.description || '',
+      color_hex: g.color_hex || null,
+      icon: g.icon || null,
+      mac_websites: g.mac_websites || [],
+      mac_bundle_ids: g.mac_bundle_ids || [],
+      allow_websites: g.allow_websites || [],
+      allow_bundle_ids: g.allow_bundle_ids || [],
+      monthly_goal_id: g.monthly_goal_id || null,
+      week_of: g.week_of || _currentWeekISO(),
+      intent_text: intentText,
+      ai_scoring_enabled: aiOn,
+      outcome: outcome,
+      status: status,
+      weekly_target_hours: weeklyTarget,
+      strictness_preset: strictness,
+    });
+    if (g.strictness_preset && g.strictness_preset !== strictness) {
+      window.webkit.messageHandlers.intentional.postMessage({
+        type: 'UPDATE_INTENTION_STRICTNESS',
+        id: id, to_preset: strictness,
+      });
+    }
+  }
+  if (typeof showToast === 'function') showToast('Saved');
+  closeGoalEdit();
+}
+window.saveWeeklyGoal = saveWeeklyGoal;
+
+// ===== Create flow (FIX-3) — open the editor in "new goal" mode =====
+let _editingNewGoal = false;
+function openWeeklyGoalCreate() {
+  _goalEditReturnTo = (window.currentPage === 'plan' || window.currentPage === 'today') ? window.currentPage : 'today';
+  _editingNewGoal = true;
+  navigateTo('goal-edit');
+  renderGoalEditCreate();
+}
+window.openWeeklyGoalCreate = openWeeklyGoalCreate;
+
+function renderGoalEditCreate() {
+  document.getElementById('goal-edit-mount').innerHTML = `
+    <div class="ge-page">
+      <div class="ge-back" onclick="closeGoalEdit()">‹ All Weekly Goals</div>
+      <div class="ge-title-row">
+        <input type="text" class="ge-title-input" id="ge-title-input" placeholder="What's this week's focus?">
+        <div class="ge-rename-hint">Click to rename</div>
+      </div>
+      <div class="ge-main-card" style="--ge-hue: var(--accent-primary);">
+        <div class="gm-header" style="justify-content: space-between;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <h3>What are you working on?</h3>
+            <span class="gm-info" title="Drives AI relevance scoring.">ⓘ</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-tertiary); font-weight:700;">AI scoring</span>
+            <div class="toggle-switch on" id="ge-ai-toggle" onclick="this.classList.toggle('on')"></div>
+          </div>
+        </div>
+        <textarea class="gm-textarea" id="ge-intent-text" maxlength="140"
+          placeholder="Describe what you'll be doing — apps, sites, what success looks like."
+          oninput="document.getElementById('ge-intent-counter').textContent = this.value.length + ' / 140'"></textarea>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-top:6px;">
+          <div style="font-size:11px; color:var(--text-tertiary);">Only used if AI scoring is on.</div>
+          <div class="gm-counter" id="ge-intent-counter">0 / 140</div>
+        </div>
+      </div>
+      <div class="modal-field"><label>Outcome (done looks like)</label>
+        <textarea class="modal-input textarea" id="ge-outcome"></textarea>
+      </div>
+      <div class="modal-row">
+        <div class="modal-field"><label>Status</label>
+          <div class="strict-pills" id="ge-status-pills">
+            <span class="strict-pill" data-value="in_progress">In progress</span>
+            <span class="strict-pill active" data-value="planned">Planned</span>
+            <span class="strict-pill" data-value="done">Done</span>
+          </div>
+        </div>
+        <div class="modal-field"><label>For monthly goal</label>
+          <div class="modal-input" id="ge-monthly-picker" style="cursor:pointer;" onclick="alert('Pick a monthly goal after creating this weekly goal.')">No link · standalone</div>
+        </div>
+      </div>
+      <div class="ge-divider"></div>
+      <div class="ge-advanced-label">Advanced</div>
+      <div class="ge-adv-row">
+        <span class="gm-adv-label">Strictness</span>
+        <div class="strict-pills" id="ge-strict-pills">
+          <span class="strict-pill active" data-value="standard">Standard</span>
+          <span class="strict-pill" data-value="strict">Strict</span>
+        </div>
+        <span class="gm-adv-label" style="margin-left:30px;">Weekly target</span>
+        <input type="number" class="ge-num-input" id="ge-weekly-target" placeholder="—">
+        <span style="font-size:12px; color:var(--text-tertiary);">hrs / week</span>
+      </div>
+      <div class="ge-foot">
+        <div></div>
+        <div class="right" style="display:flex; gap:8px;">
+          <button class="btn-quiet" onclick="closeGoalEdit()">Cancel</button>
+          <button class="ge-done-btn" onclick="saveNewWeeklyGoal()">Save</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.querySelectorAll('#ge-status-pills .strict-pill').forEach(function(p){
+    p.onclick = function() {
+      document.querySelectorAll('#ge-status-pills .strict-pill').forEach(function(x){ x.classList.remove('active'); });
+      p.classList.add('active');
+    };
+  });
+  document.querySelectorAll('#ge-strict-pills .strict-pill').forEach(function(p){
+    p.onclick = function() {
+      document.querySelectorAll('#ge-strict-pills .strict-pill').forEach(function(x){ x.classList.remove('active'); });
+      p.classList.add('active');
+    };
+  });
+}
+window.renderGoalEditCreate = renderGoalEditCreate;
+
+function saveNewWeeklyGoal() {
+  var name = (document.getElementById('ge-title-input').value || '').trim();
+  if (!name) { alert('Give this weekly goal a title.'); return; }
+  var intentText = document.getElementById('ge-intent-text').value;
+  var outcome = document.getElementById('ge-outcome').value;
+  var statusEl = document.querySelector('#ge-status-pills .strict-pill.active');
+  var status = statusEl ? statusEl.dataset.value : 'planned';
+  var strictEl = document.querySelector('#ge-strict-pills .strict-pill.active');
+  var strictness = strictEl ? strictEl.dataset.value : 'standard';
+  var weeklyTarget = parseFloat(document.getElementById('ge-weekly-target').value);
+  if (isNaN(weeklyTarget)) weeklyTarget = null;
+  var aiOn = document.getElementById('ge-ai-toggle').classList.contains('on');
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({
+      type: 'CREATE_INTENTION',
+      name: name,
+      description: '',
+      color_hex: null,
+      icon: null,
+      mac_websites: [],
+      mac_bundle_ids: [],
+      allow_websites: [],
+      allow_bundle_ids: [],
+      monthly_goal_id: null,
+      week_of: _currentWeekISO(),
+      intent_text: intentText,
+      ai_scoring_enabled: aiOn,
+      outcome: outcome,
+      status: status,
+      weekly_target_hours: weeklyTarget,
+      strictness_preset: strictness,
+    });
+  }
+  _editingNewGoal = false;
+  closeGoalEdit();
+  // Pull the fresh list so the new goal appears immediately.
+  setTimeout(function() {
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+      window.webkit.messageHandlers.intentional.postMessage({ type: 'GET_INTENTIONS' });
+    }
+  }, 400);
+}
+window.saveNewWeeklyGoal = saveNewWeeklyGoal;
+
+function openMonthlyGoalCreate() {
+  var title = prompt('Monthly goal title:');
+  if (!title) return;
+  var outcome = prompt('Outcome / "done looks like":') || '';
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({
+      type: 'CREATE_MONTHLY_GOAL',
+      title: title,
+      outcome: outcome,
+      color_hex: null,
+      month_of: new Date().toISOString().slice(0, 7) + '-01',
+      status: 'planned',
+    });
+  }
+  setTimeout(function() {
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+      window.webkit.messageHandlers.intentional.postMessage({ type: 'GET_MONTHLY_GOALS' });
+    }
+  }, 400);
+}
+window.openMonthlyGoalCreate = openMonthlyGoalCreate;
+
+function deleteWeeklyGoal(id) {
+  if (!confirm('Delete this weekly goal? Past sessions stay; future sessions become unlinked.')) return;
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({ type: 'DELETE_INTENTION', id: id });
+  }
+  closeGoalEdit();
+}
+window.deleteWeeklyGoal = deleteWeeklyGoal;
+
+function openGoalCustomRules(goalId) {
+  var g = (window._intentionsCache || []).find(function(x){ return x.id === goalId; });
+  if (!g) return;
+  var blocks = ((g.mac_websites || []).map(function(name){ return { name: name, type: 'site' }; }))
+    .concat((g.mac_bundle_ids || []).map(function(name){ return { name: name, type: 'app' }; }));
+  var allows = ((g.allow_websites || []).map(function(name){ return { name: name, type: 'site' }; }))
+    .concat((g.allow_bundle_ids || []).map(function(name){ return { name: name, type: 'app' }; }));
+  function renderEntries(list, kind) {
+    return list.map(function(e){
+      return '<div class="cr-entry">' +
+        '<span class="name">' + _escapeHTML(e.name) + '</span>' +
+        '<span class="type-pill">' + e.type + '</span>' +
+        '<span class="remove" onclick="removeRule(\'' + goalId + '\', \'' + _escapeHTML(e.name).replace(/'/g, "\\'") + '\', \'' + e.type + '\', \'' + kind + '\')">×</span>' +
+      '</div>';
+    }).join('');
+  }
+  document.getElementById('goal-edit-mount').innerHTML = `
+    <div class="ge-page cr-page">
+      <div class="ge-back" onclick="openWeeklyGoalEdit('${goalId}')">‹ ${_escapeHTML(g.name)}</div>
+
+      <div class="ge-title-row" style="margin-bottom:6px;">
+        <div style="font-size:22px; font-weight:700; color: var(--text-primary);">Custom rules</div>
+        <div style="font-size:13px; color:var(--text-tertiary); margin-top:4px;">During <strong>${_escapeHTML(g.name)}</strong> sessions only.</div>
+      </div>
+
+      <div class="cr-info-card">
+        <strong>Most goals don't need custom rules</strong> — AI scoring handles the rest. Add tweaks here only if you want to.
+      </div>
+
+      <div class="cr-section cr-block">
+        <div class="cr-section-header">
+          <span class="left block"><span class="dot block"></span>Block</span>
+          <span class="right">${blocks.length} entries</span>
+        </div>
+        <div class="cr-input-row">
+          <input type="text" placeholder="e.g. slack.com" id="cr-block-input">
+          <button class="cr-add-btn" onclick="addRule('${goalId}', 'block', 'site')">+ Site</button>
+          <button class="cr-add-btn" onclick="addRule('${goalId}', 'block', 'app')">+ App</button>
+        </div>
+        ${blocks.length === 0 ? '<div class="cr-empty">Nothing extra to block.</div>' : '<div class="cr-entry-list">' + renderEntries(blocks, 'block') + '</div>'}
+      </div>
+
+      <div class="cr-section cr-allow">
+        <div class="cr-section-header">
+          <span class="left allow"><span class="dot allow"></span>Allow</span>
+          <span class="right">${allows.length} entries</span>
+        </div>
+        <div class="cr-input-row">
+          <input type="text" placeholder="e.g. github.com" id="cr-allow-input">
+          <button class="cr-add-btn" onclick="addRule('${goalId}', 'allow', 'site')">+ Site</button>
+          <button class="cr-add-btn" onclick="addRule('${goalId}', 'allow', 'app')">+ App</button>
+        </div>
+        ${allows.length === 0 ? '<div class="cr-empty">No allow overrides.</div>' : '<div class="cr-entry-list">' + renderEntries(allows, 'allow') + '</div>'}
+      </div>
+
+      <div class="ge-foot">
+        <div></div>
+        <div class="right" style="display:flex; gap:8px;">
+          <button class="btn-quiet" onclick="openWeeklyGoalEdit('${goalId}')">Done</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+window.openGoalCustomRules = openGoalCustomRules;
+
+function _sendIntentionUpdate(g) {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({
+      type: 'UPDATE_INTENTION',
+      id: g.id, version: g.version,
+      name: g.name, description: g.description || '',
+      color_hex: g.color_hex || null, icon: g.icon || null,
+      mac_websites: g.mac_websites || [], mac_bundle_ids: g.mac_bundle_ids || [],
+      allow_websites: g.allow_websites || [], allow_bundle_ids: g.allow_bundle_ids || [],
+      monthly_goal_id: g.monthly_goal_id || null,
+      week_of: g.week_of || _currentWeekISO(),
+      intent_text: g.intent_text || '', ai_scoring_enabled: g.ai_scoring_enabled !== false,
+      outcome: g.outcome || '', status: g.status || 'planned',
+      weekly_target_hours: g.weekly_target_hours || null,
+      strictness_preset: g.strictness_preset || 'standard',
+    });
+  }
+}
+
+function addRule(goalId, kind, type) {
+  var g = (window._intentionsCache || []).find(function(x){ return x.id === goalId; });
+  if (!g) return;
+  var inputId = (kind === 'block') ? 'cr-block-input' : 'cr-allow-input';
+  var inputEl = document.getElementById(inputId);
+  var val = inputEl ? (inputEl.value || '').trim() : '';
+  if (!val) return;
+
+  // FIX-9: Heads-up if the user is adding something to the Allow list that's
+  // also covered by an enabled block rule. Globally-active block rules win
+  // during their window (requirements §17b.7), so this surface ensures the
+  // user knows their per-goal allowance won't override the block-rule clock.
+  if (kind === 'allow') {
+    var rules = window._blockRulesCache || [];
+    var lcVal = val.toLowerCase();
+    var conflicts = rules.filter(function(r) {
+      if (!r || r.enabled === false) return false;
+      var field = (type === 'site') ? 'websites' : 'bundle_ids';
+      return (r[field] || []).some(function(x){ return String(x).toLowerCase() === lcVal; });
+    });
+    if (conflicts.length > 0) {
+      var ruleName = conflicts[0].name || 'a block rule';
+      var schedStr = formatRuleSchedule(conflicts[0]);
+      var ok = confirm('Heads up — "' + val + '" is blocked by your "' + ruleName +
+        '" rule (' + schedStr + '). Adding it here won\'t override that during ' +
+        'the blocked window. Add anyway?');
+      if (!ok) return;
+    }
+  }
+
+  var macField = (type === 'site') ? 'mac_websites' : 'mac_bundle_ids';
+  var allowField = (type === 'site') ? 'allow_websites' : 'allow_bundle_ids';
+  var target = (kind === 'block') ? macField : allowField;
+  g[target] = (g[target] || []).concat([val]);
+  _sendIntentionUpdate(g);
+  openGoalCustomRules(goalId);
+}
+window.addRule = addRule;
+
+function removeRule(goalId, name, type, kind) {
+  var g = (window._intentionsCache || []).find(function(x){ return x.id === goalId; });
+  if (!g) return;
+  var macField = (type === 'site') ? 'mac_websites' : 'mac_bundle_ids';
+  var allowField = (type === 'site') ? 'allow_websites' : 'allow_bundle_ids';
+  var target = (kind === 'block') ? macField : allowField;
+  g[target] = (g[target] || []).filter(function(x){ return x !== name; });
+  _sendIntentionUpdate(g);
+  openGoalCustomRules(goalId);
+}
+window.removeRule = removeRule;
+
+function openMonthlyGoalPicker(goalId) {
+  var monthly = window._monthlyGoalsCache || [];
+  if (monthly.length === 0) {
+    if (confirm('No monthly goals yet. Create one?')) {
+      var title = prompt('Monthly goal title:');
+      if (title) {
+        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+          window.webkit.messageHandlers.intentional.postMessage({
+            type: 'CREATE_MONTHLY_GOAL',
+            title: title,
+            month_of: new Date().toISOString().slice(0,7) + '-01',
+            status: 'planned',
+          });
+        }
+      }
+    }
+    return;
+  }
+  var labels = monthly.map(function(m, i){ return (i + 1) + '. ' + m.title; }).join('\n');
+  var pick = prompt('Link to which monthly goal?\n' + labels + '\n(empty = unlink)');
+  var monthlyGoalId = null;
+  if (pick) {
+    var idx = parseInt(pick, 10) - 1;
+    if (!Number.isNaN(idx) && monthly[idx]) monthlyGoalId = monthly[idx].id;
+  }
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({
+      type: 'LINK_WEEKLY_TO_MONTHLY',
+      intention_id: goalId,
+      monthly_goal_id: monthlyGoalId,
+    });
+  }
+  setTimeout(function(){ renderGoalEdit(goalId); }, 200);
+}
+window.openMonthlyGoalPicker = openMonthlyGoalPicker;
+
+// Receiver: when MainWindow pushes _intentionUpdated, refresh the editor in place.
+window._intentionUpdated = function (updated) {
+  if (updated && updated.id) {
+    window._intentionsCache = (window._intentionsCache || []).map(function(x){
+      return x.id === updated.id ? updated : x;
+    });
+    if (typeof renderNowCard === 'function') renderNowCard();
+    if (window.currentPage === 'goal-edit') renderGoalEdit(updated.id);
+  }
+};
+
 function getEditingBlock() {
   return focusState.blocks.find(function(b) { return b.id === focusState.editingBlockId; });
 }
@@ -8400,7 +9915,7 @@ function populateIntentionPicker(sel, block) {
   });
   var optNew = document.createElement('option');
   optNew.value = '__create_new__';
-  optNew.textContent = '+ Create new Intention…';
+  optNew.textContent = '+ Create new weekly goal…';
   sel.appendChild(optNew);
   sel.value = (block && block.intentionId) || '';
   renderEditorStrictnessCaption(block && block.intentionId);
@@ -8482,6 +9997,21 @@ window._scheduleStateResult = function(data) {
     calendarZoomLevel = data.calendarZoom;
     CALENDAR_HOUR_HEIGHT = calendarZoomLevel;
   }
+
+  // FIX-10: Capture the active session's goal id from each schedule push so the
+  // goal editor can grey out strictness controls for that goal while a session
+  // of it is running. Re-render the editor in place if it's currently open.
+  var prevActive = window._activeSessionIntentionId || null;
+  if (Object.prototype.hasOwnProperty.call(data, 'active_intention_id')) {
+    window._activeSessionIntentionId = data.active_intention_id || null;
+  }
+  if (window._activeSessionIntentionId !== prevActive
+      && window.currentPage === 'goal-edit'
+      && window._editingGoalId
+      && typeof renderGoalEdit === 'function') {
+    renderGoalEdit(window._editingGoalId);
+  }
+
   calendarViewDate = null; // Reset to today view
   focusDirty = false;
   renderFocusPage();
@@ -9760,36 +11290,11 @@ function scrollCalendarToTime() {
 function onCalendarHourClick(event, hour) {
   if (!isViewingToday()) return;
   if (event.target.closest('.calendar-block')) return;
-  var track = event.currentTarget;
-  var rect = track.getBoundingClientRect();
-  var yOffset = event.clientY - rect.top;
-  var minuteInHour = Math.round((yOffset / CALENDAR_HOUR_HEIGHT) * 60 / 15) * 15;
-  var startMin = hour * 60 + minuteInHour;
-  var endMin = Math.min(startMin + 30, CALENDAR_END_HOUR * 60);
-  if (endMin - startMin < 2) return;
-  if (hasBlockOverlap(startMin, endMin, null)) return;
-
-  var newBlock = {
-    id: generateFocusUUID(),
-    title: '',
-    description: '',
-    startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
-    endHour: Math.floor(endMin / 60), endMinute: endMin % 60,
-    blockType: 'focusHours',
-    isFree: false,
-    ignoreProfile: false,
-    intention_id: null,        // Spec 2: bind via picker later
-    intensity: 'focusHours'    // Spec 2: mirrors blockType
-  };
-  focusState.blocks.push(newBlock);
-  // Draft pattern: do NOT call markFocusDirty() here. The block is a draft
-  // until the user fills in a title and clicks Done in the editor. On
-  // dismissal without Done, closeBlockEditor() removes the draft from
-  // focusState.blocks so nothing ever gets saved. Mirrors addFocusBlock
-  // (work-block branch) and openNewBlockDraft.
-  renderCalendarBlocks();
-  openBlockEditor(newBlock.id, event);
-  focusState.draftBlockId = newBlock.id;
+  // FIX-13: empty-hour click now opens the New Session modal instead of
+  // dropping a draft block straight onto the calendar. Modal lets the user
+  // pick weekly goal, write outcome, choose blocks, and toggle AI scoring
+  // before the session lands on the calendar.
+  openNewSessionModal(hour);
 }
 
 function hasBlockOverlap(startMin, endMin, excludeId) {
@@ -12486,6 +13991,755 @@ function submitIntentionMiniEditor() {
     mac_bundle_ids: []
   });
 }
+</script>
+
+<!-- ===== Plan tab React app — copied verbatim from docs/unified-design-2026-05-13/app.html (May 2026 prototype port). Bridge-fed MONTHLY/WEEKLY + last-line replaced for lazy mount. ===== -->
+<script type="text/babel">
+const HUE = { coral: 'var(--hue-1)', green: 'var(--hue-2)', pink: 'var(--hue-3)' };
+
+// Bridge-fed MONTHLY + WEEKLY. Falls back to hardcoded sample data when caches are empty (off-line dev / first launch).
+function mapMonthlyFromCache() {
+  const cache = window._monthlyGoalsCache || [];
+  if (cache.length === 0) return null;
+  const hues = [HUE.coral, HUE.green, HUE.pink];
+  return cache.map((g, i) => ({
+    id: g.id,
+    title: g.title || 'Untitled',
+    outcome: g.outcome || '',
+    hue: g.color_hex || hues[i % hues.length],
+  }));
+}
+
+function _isoWeekStartFromDate(d) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const day = x.getDay() || 7;
+  x.setDate(x.getDate() - (day - 1));
+  return x.toISOString().slice(0, 10);
+}
+
+function mapWeeklyFromCache() {
+  const cache = window._intentionsCache || [];
+  if (cache.length === 0) return null;
+  const grouped = {};
+  cache.forEach(i => {
+    const wk = i.week_of || 'unscheduled';
+    if (!grouped[wk]) grouped[wk] = [];
+    grouped[wk].push({
+      id: i.id,
+      title: i.name || 'Untitled',
+      outcome: i.outcome || '',
+      linksTo: i.monthly_goal_id || null,
+      status: (i.status || 'planned').replace('_', '-'),
+    });
+  });
+  return grouped;
+}
+
+// FIX-7: WEEKS list is now derived from the live cache (plus the current ISO Monday).
+// Past weeks are fetched on demand via GET_INTENTIONS_FOR_WEEK when the user picks
+// them from the History dropdown.
+function _currentISOMonday() {
+  const d = new Date();
+  const day = d.getDay() || 7;
+  d.setDate(d.getDate() - (day - 1));
+  return d.toISOString().slice(0, 10);
+}
+
+const _MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function _labelForIsoMonday(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return `${_MONTHS_SHORT[d.getMonth()]} ${d.getDate()}`;
+}
+
+function buildWeeksList(intentionsCache) {
+  const current = _currentISOMonday();
+  const weekSet = new Set([current]);
+  (intentionsCache || []).forEach(i => {
+    if (i && i.week_of) weekSet.add(i.week_of);
+  });
+  const weeks = [...weekSet].sort((a, b) => b.localeCompare(a)); // newest first
+  return weeks.map(iso => ({
+    id: iso,
+    label: _labelForIsoMonday(iso),
+    current: iso === current,
+  }));
+}
+
+function buildWeeklyMap(intentionsCache) {
+  // Keyed by ISO Monday date so it lines up with WEEKS ids.
+  const map = {};
+  (intentionsCache || []).forEach(i => {
+    if (!i || !i.week_of) return;
+    if (!map[i.week_of]) map[i.week_of] = [];
+    map[i.week_of].push({
+      id: i.id,
+      title: i.name || 'Untitled',
+      outcome: i.outcome || '',
+      linksTo: i.monthly_goal_id || null,
+      status: (i.status || 'planned').replace('_', '-'),
+    });
+  });
+  return map;
+}
+
+const fmtStatus = (s) => s.replace('-', ' ');
+
+const SparkIcon = () => (
+  <svg width="11" height="11" viewBox="0 0 16 16" fill="none"
+    stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+    <path d="M8 1 L9.3 6 L14 7 L9.3 8 L8 13 L6.7 8 L2 7 L6.7 6 Z" />
+  </svg>
+);
+const ClockIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 16 16" fill="none"
+    stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+    <path d="M3 8 a5 5 0 1 0 1.5 -3.5" />
+    <path d="M3 3 V5.5 H5.5" />
+    <path d="M8 5 V8 L10 9.5" />
+  </svg>
+);
+const ArrowRight = () => (
+  <svg width="11" height="11" viewBox="0 0 16 16" fill="none"
+    stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+    <path d="M3 8 H13 M9 4 L13 8 L9 12" />
+  </svg>
+);
+
+const HEX = { 'var(--hue-1)': '#D85A30', 'var(--hue-2)': '#1D9E75', 'var(--hue-3)': '#A855C7' };
+const toRgba = (hueRef, a) => {
+  const hex = HEX[hueRef] || hueRef;
+  const r = parseInt(hex.slice(1,3), 16),
+        g = parseInt(hex.slice(3,5), 16),
+        b = parseInt(hex.slice(5,7), 16);
+  return `rgba(${r},${g},${b},${a})`;
+};
+
+function MonthlyCard({ g, sel, dim, onClick }) {
+  return (
+    <div className={`mcard${sel ? ' sel' : ''}${dim ? ' dim' : ''}`}
+      onClick={onClick}
+      style={{
+        '--hue': g.hue,
+        '--m-bg':   toRgba(g.hue, 0.14),
+        '--m-line': toRgba(g.hue, 0.32),
+        '--m-out':  toRgba(g.hue, 0.95),
+      }}>
+      <div className="ttl">{g.title}</div>
+      <div className="out">{g.outcome}</div>
+    </div>
+  );
+}
+
+function WeeklyCard({ g, monthly, dim, onDragStart, onDragEnd, dragging }) {
+  const parent = monthly.find(m => m.id === g.linksTo);
+  const openEdit = () => {
+    if (window.openWeeklyGoalEdit) window.openWeeklyGoalEdit(g.id);
+  };
+  return (
+    <div className={`wcard${dim ? ' dim' : ''}${!parent ? ' unlinked' : ''}${dragging ? ' dragging' : ''}`}
+      onClick={openEdit}
+      style={{ '--hue': parent ? parent.hue : 'transparent', cursor: 'pointer' }}>
+      {parent && <span className="edge" />}
+      <div className="ttl">{g.title}</div>
+      <div className="out">{g.outcome}</div>
+      <div className="foot">
+        <span className={`status ${g.status}`}>{fmtStatus(g.status)}</span>
+        {!parent && <span className="status unlinked">· unlinked</span>}
+        {parent && (
+          <span
+            className="wcard-grip"
+            draggable
+            onDragStart={(e) => { e.stopPropagation(); onDragStart(g, parent, e); }}
+            onDragEnd={onDragEnd}
+            onClick={(e) => e.stopPropagation()}
+            title="Drag to schedule">⋮⋮</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const DAY_START = 8;
+const DAY_END   = 20;
+const NOW_HOUR  = 11.7;
+
+const fmtHr = (h) => {
+  const hh = Math.floor(h), mm = Math.round((h - hh) * 60);
+  const period = hh >= 12 ? 'p' : 'a';
+  const dh = ((hh + 11) % 12) + 1;
+  return mm ? `${dh}:${String(mm).padStart(2,'0')}${period}` : `${dh}${period}`;
+};
+const fmtDur = (hrs) => {
+  if (hrs <= 0) return '0';
+  const h = Math.floor(hrs), m = Math.round((hrs - h) * 60);
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+};
+const snap = (h) => Math.round(h * 4) / 4;
+const hrPct = (h) => ((h - DAY_START) / (DAY_END - DAY_START)) * 100;
+
+function TimelineBlock({ block, onChange }) {
+  const elRef = React.useRef(null);
+  const [dragging, setDragging] = React.useState(false);
+
+  React.useEffect(() => {
+    const el = elRef.current;
+    if (!el) return;
+    let mode = null, startX = 0, startBlock = null, tlWidth = 0;
+    const tl = el.parentElement;
+
+    function down(e) {
+      if (e.target.classList.contains('resize')) {
+        mode = e.target.classList.contains('l') ? 'l' : 'r';
+      } else {
+        mode = 'move';
+      }
+      startX = e.clientX;
+      startBlock = { start: block.start, end: block.end };
+      tlWidth = tl.getBoundingClientRect().width;
+      setDragging(true);
+      e.preventDefault(); e.stopPropagation();
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', up);
+    }
+    function move(e) {
+      const dx = e.clientX - startX;
+      const dhr = (dx / tlWidth) * (DAY_END - DAY_START);
+      let next = { ...startBlock };
+      if (mode === 'move') {
+        const dur = startBlock.end - startBlock.start;
+        let ns = snap(startBlock.start + dhr);
+        ns = Math.max(DAY_START, Math.min(DAY_END - dur, ns));
+        next = { start: ns, end: ns + dur };
+      } else if (mode === 'l') {
+        let ns = snap(startBlock.start + dhr);
+        ns = Math.max(DAY_START, Math.min(block.end - 0.25, ns));
+        next = { ...startBlock, start: ns, end: startBlock.end };
+      } else if (mode === 'r') {
+        let ne = snap(startBlock.end + dhr);
+        ne = Math.max(block.start + 0.25, Math.min(DAY_END, ne));
+        next = { ...startBlock, start: startBlock.start, end: ne };
+      }
+      onChange(next);
+    }
+    function up() {
+      mode = null;
+      setDragging(false);
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+    }
+    el.addEventListener('mousedown', down);
+    return () => el.removeEventListener('mousedown', down);
+  }, [block, onChange]);
+
+  return (
+    <div ref={elRef} className={`block${dragging ? ' dragging' : ''}`}
+      style={{
+        left: hrPct(block.start) + '%',
+        width: (hrPct(block.end) - hrPct(block.start)) + '%',
+        '--blk-bg': toRgba(block.hue, 0.18),
+        '--blk-fg': HEX[block.hue] || block.hue,
+      }}>
+      <div className="resize l" />
+      <div className="ttl">{block.title}</div>
+      <div className="tm">{fmtHr(block.start)}–{fmtHr(block.end)} · {fmtDur(block.end - block.start)}</div>
+      <div className="resize r" />
+    </div>
+  );
+}
+
+function TimelineStrip({ blocks, setBlocks, isDragOverFromCard, onDrop }) {
+  const [open, setOpen] = React.useState(true);
+  const [hover, setHover] = React.useState(false);
+  const tlRef = React.useRef(null);
+
+  const total = blocks.reduce((s, b) => s + (b.end - b.start), 0);
+  const emptyText = 'No sessions planned · drag weekly goals here';
+  const summaryText = blocks.length === 0
+    ? emptyText
+    : `${blocks.length} session${blocks.length > 1 ? 's' : ''} · ${fmtDur(total)} scheduled`;
+
+  const handleDragOver = (e) => {
+    if (!isDragOverFromCard) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    if (!open) setOpen(true);
+    setHover(true);
+  };
+  const handleDragLeave = (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) setHover(false);
+  };
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setHover(false);
+    const tl = tlRef.current;
+    if (!tl) return;
+    const r = tl.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const hr = snap(DAY_START + (x / r.width) * (DAY_END - DAY_START));
+    const start = Math.max(DAY_START, Math.min(DAY_END - 1, hr - 0.5));
+    const end = Math.min(DAY_END, start + 1);
+    onDrop({ start, end });
+  };
+
+  const hours = [];
+  for (let h = DAY_START; h <= DAY_END; h += 2) hours.push(h);
+
+  return (
+    <div className={`tstrip${open ? '' : ' collapsed'}${hover ? ' drop-target' : ''}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}>
+      <div className="tstrip-head" onClick={() => setOpen(o => !o)}>
+        <div className={`summary${blocks.length === 0 ? ' empty' : ''}`}>
+          <ClockIcon />
+          <span>{summaryText}</span>
+        </div>
+        <div className="right">
+          <a className="open-link" onClick={(e) => {
+            e.stopPropagation();
+            if (typeof window.navigateTo === 'function') window.navigateTo('today');
+          }}>
+            Open today <ArrowRight />
+          </a>
+          <svg className="chev" viewBox="0 0 16 16" fill="none"
+            stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+            <path d="M4 10 L8 6 L12 10" />
+          </svg>
+        </div>
+      </div>
+      <div className="tstrip-body">
+        <div ref={tlRef} className={`tline${hover ? ' drop-active' : ''}`}>
+          {hours.map(h => (
+            <React.Fragment key={h}>
+              <div className="hour" style={{ left: hrPct(h) + '%' }} />
+              <div className="hour-lbl" style={{ left: hrPct(h) + '%' }}>{fmtHr(h)}</div>
+            </React.Fragment>
+          ))}
+          <div className="nowline" style={{ left: hrPct(NOW_HOUR) + '%' }} />
+          {blocks.map((b) => (
+            <TimelineBlock key={b.id} block={b}
+              onChange={(patch) => setBlocks(prev => prev.map(x => x.id === b.id ? { ...x, ...patch } : x))} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PlanApp() {
+  // FIX-7: Default to current ISO Monday so the live cache lines up immediately.
+  const [weekId, setWeekId] = React.useState(_currentISOMonday());
+  const [selectedMonthly, setSelectedMonthly] = React.useState(null);
+  const [historyOpen, setHistoryOpen] = React.useState(false);
+
+  // FIX-7: `seed` bumps whenever the intentions cache changes (e.g. after
+  // GET_INTENTIONS_FOR_WEEK lands). Re-derives MONTHLY/WEEKLY/WEEKS off the cache.
+  const [seed, setSeed] = React.useState(0);
+  React.useEffect(() => {
+    window._planAppRefresh = () => setSeed(s => s + 1);
+    return () => { window._planAppRefresh = null; };
+  }, []);
+
+  const MONTHLY = React.useMemo(() => mapMonthlyFromCache() || [], [seed]);
+  const WEEKLY  = React.useMemo(() => buildWeeklyMap(window._intentionsCache), [seed]);
+  const WEEKS   = React.useMemo(() => buildWeeksList(window._intentionsCache), [seed]);
+
+  // FIX-7: On past-week selection, fetch from backend if the cache doesn't already
+  // hold rows for that week.
+  React.useEffect(() => {
+    if (!weekId) return;
+    if (weekId === _currentISOMonday()) return;
+    const hasGoalsForWeek = (window._intentionsCache || []).some(i => i.week_of === weekId);
+    if (hasGoalsForWeek) return;
+    if (window.webkit?.messageHandlers?.intentional) {
+      window.webkit.messageHandlers.intentional.postMessage({
+        type: 'GET_INTENTIONS_FOR_WEEK',
+        week: weekId,
+      });
+    }
+  }, [weekId]);
+
+  const [blocks, setBlocks] = React.useState([
+    { id: 'b1', title: 'Record 3 demo videos', hue: 'var(--hue-1)', start: 9, end: 10.5 },
+  ]);
+  const [dragSource, setDragSource] = React.useState(null);
+  const nextBlockId = React.useRef(2);
+
+  const w = WEEKLY[weekId] || [];
+  const currentWeek = WEEKS.find(x => x.id === weekId);
+  const isCurrent = !!currentWeek?.current;
+  const isPast = !isCurrent;
+
+  const handleCardDragStart = (g, parent, e) => {
+    setDragSource({ goalId: g.id, title: g.title, hue: parent.hue });
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('text/plain', g.id);
+  };
+  const handleCardDragEnd = () => setDragSource(null);
+  const handleDropOnTimeline = ({ start, end }) => {
+    if (!dragSource) return;
+    setBlocks(prev => [...prev, {
+      id: 'b' + (nextBlockId.current++),
+      title: dragSource.title,
+      hue: dragSource.hue,
+      start, end,
+    }]);
+    // Persist to backend so the session shows up on Today + on iOS.
+    // FIX-2: CREATE_SCHEDULED_SESSION builds a real FocusBlock; the receiver
+    // refreshes Today's calendar via window._scheduleStateResult.
+    if (window.webkit?.messageHandlers?.intentional) {
+      window.webkit.messageHandlers.intentional.postMessage({
+        type: 'CREATE_SCHEDULED_SESSION',
+        intention_id: dragSource.goalId,
+        start_hour: Math.floor(start),
+        start_minute: Math.round((start % 1) * 60),
+        end_hour: Math.floor(end),
+        end_minute: Math.round((end % 1) * 60),
+        start_date: new Date().toISOString().slice(0, 10),
+      });
+    }
+    setDragSource(null);
+  };
+
+  return (
+    <div className="page" onClick={() => setHistoryOpen(false)}>
+      <div className="pg-head">
+        <div>
+          <div className="eyebrow-row">
+            {isCurrent
+              ? 'Wednesday · Week 2 of May'
+              : `Viewing week of ${currentWeek?.label}`}
+          </div>
+          <h1>Your plan</h1>
+        </div>
+        <div className="head-actions">
+          <button className="btn-ghost" onClick={() => window.openMonthlyGoalCreate && window.openMonthlyGoalCreate()}>
+            + Monthly
+          </button>
+          <button className="btn-ghost" onClick={() => window.openWeeklyGoalCreate && window.openWeeklyGoalCreate()}>
+            + Weekly
+          </button>
+          <div className="history-wrap" onClick={e => e.stopPropagation()}>
+            <button className="btn-ghost" onClick={() => setHistoryOpen(v => !v)}>
+              <ClockIcon />History
+            </button>
+            {historyOpen && (
+              <div className="history-pop">
+                <div className="hphd">Jump to week</div>
+                {WEEKS.slice().reverse().map(wk => {
+                  const w2 = WEEKLY[wk.id] || [];
+                  const done = w2.filter(x => x.status === 'done').length;
+                  return (
+                    <button key={wk.id}
+                      className={weekId === wk.id ? 'on' : ''}
+                      onClick={() => { setWeekId(wk.id); setSelectedMonthly(null); setHistoryOpen(false); }}>
+                      <span>{wk.label}{wk.current ? ' · this week' : ''}</span>
+                      <span className="hpmeta">
+                        {wk.current ? 'in progress' : `${done}/${w2.length} done`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          {isCurrent && (
+            <button className="btn-ghost">
+              <SparkIcon />Help me plan
+            </button>
+          )}
+        </div>
+      </div>
+
+      {isPast && (
+        <div className="readonly"><b>Read-only</b> · past week</div>
+      )}
+
+      <div>
+        <div className="eyebrow">May</div>
+        {MONTHLY.length === 0 ? (
+          <div className="plan-empty-cta"
+            onClick={() => window.openMonthlyGoalCreate && window.openMonthlyGoalCreate()}>
+            + Add your first monthly goal
+          </div>
+        ) : (
+          <div className="row3">
+            {MONTHLY.map(g => (
+              <MonthlyCard key={g.id} g={g}
+                sel={selectedMonthly === g.id}
+                dim={selectedMonthly && selectedMonthly !== g.id}
+                onClick={() => setSelectedMonthly(selectedMonthly === g.id ? null : g.id)} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <div className="eyebrow">This week</div>
+        {w.length === 0 ? (
+          <div className="plan-empty-cta"
+            onClick={() => window.openWeeklyGoalCreate && window.openWeeklyGoalCreate()}>
+            + Add this week's first weekly goal
+          </div>
+        ) : (
+          <div className="row3">
+            {w.map(g => (
+              <WeeklyCard key={g.id} g={g} monthly={MONTHLY}
+                dim={selectedMonthly && g.linksTo !== selectedMonthly}
+                onDragStart={handleCardDragStart}
+                onDragEnd={handleCardDragEnd}
+                dragging={dragSource?.goalId === g.id} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {isCurrent && (
+        <div>
+          <div className="eyebrow">Today · Wednesday</div>
+          <TimelineStrip
+            blocks={blocks}
+            setBlocks={setBlocks}
+            isDragOverFromCard={!!dragSource}
+            onDrop={handleDropOnTimeline} />
+        </div>
+      )}
+
+      {isPast && (
+        <div>
+          <div className="eyebrow">Last week summary</div>
+          <div className="past-summary">
+            <div className="stat success"><b>{w.filter(x => x.status === 'done').length}</b><span>done</span></div>
+            <div className="stat error"><b>{w.filter(x => x.status === 'slipped').length}</b><span>slipped</span></div>
+            <div className="stat"><b>{w.filter(x => x.status === 'dropped').length}</b><span>dropped</span></div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Mount happens lazily via mountPlanApp() — see navigateTo hook below.
+window.PlanApp = PlanApp;
+</script>
+
+<script>
+  // Mount the Plan React app the first time the user opens the Plan tab.
+  // Avoids console warnings about a missing mount point on initial page load.
+  let _planAppMounted = false;
+  window.mountPlanApp = function () {
+    if (_planAppMounted) return;
+    const root = document.getElementById('plan-react-root');
+    if (!root || !window.PlanApp || !window.ReactDOM || !window.React) return;
+    ReactDOM.createRoot(root).render(React.createElement(window.PlanApp));
+    _planAppMounted = true;
+  };
+  // Hook navigateTo
+  (function () {
+    const orig = window.navigateTo;
+    window.navigateTo = function (page) {
+      if (typeof orig === 'function') orig(page);
+      if (page === 'plan') {
+        // Slight delay to let Babel finish transpiling on first paint.
+        setTimeout(() => window.mountPlanApp(), 50);
+      }
+    };
+  })();
+
+  // React app calls window.openWeeklyGoalEdit when a weekly card is clicked.
+  // The function is defined in C4. Until C4 lands, the placeholder from C2 logs.
+
+  // ===== FIX-13: New Session modal =====
+  // Opens when user clicks empty calendar hour. Lets user pick a weekly
+  // goal (or go standalone), write an outcome, select auto-activate blocks,
+  // and toggle AI scoring before the session lands on the calendar.
+  var _newSessionStartHour = 9;
+
+  function openNewSessionModal(hour) {
+    _newSessionStartHour = (typeof hour === 'number') ? hour : 9;
+    // Populate weekly goal dropdown from intentions cache
+    var sel = document.getElementById('ns-goal-link');
+    if (sel) {
+      sel.innerHTML = '<option value="">No goal — standalone session</option>';
+      var goals = window._intentionsCache || [];
+      goals.forEach(function (g) {
+        if (!g || g.deleted_at) return;
+        var opt = document.createElement('option');
+        opt.value = g.id;
+        opt.textContent = g.name || '(untitled)';
+        sel.appendChild(opt);
+      });
+    }
+    // Populate auto-activate block checkboxes from block rules cache
+    var wrap = document.getElementById('ns-block-checkboxes');
+    if (wrap) {
+      var rules = window._blockRulesCache || [];
+      if (rules.length === 0) {
+        wrap.innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:12px;">No blocks configured yet.</div>';
+      } else {
+        wrap.innerHTML = '';
+        rules.forEach(function (r) {
+          if (!r || !r.id) return;
+          var row = document.createElement('label');
+          row.className = 'ns-modal-toggle-row';
+          var safeId = String(r.id).replace(/"/g, '&quot;');
+          var safeName = (r.name || '(unnamed)').replace(/[<>&]/g, function(c){
+            return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c];
+          });
+          row.innerHTML = '<input type="checkbox" data-rule-id="' + safeId + '"> ' + safeName;
+          wrap.appendChild(row);
+        });
+      }
+    }
+    // Reset form
+    var titleEl = document.getElementById('ns-title');
+    var outcomeEl = document.getElementById('ns-outcome');
+    var aiEl = document.getElementById('ns-ai-scoring');
+    if (titleEl) titleEl.value = '';
+    if (outcomeEl) outcomeEl.value = '';
+    if (aiEl) aiEl.checked = true;
+    // Show + focus
+    var overlay = document.getElementById('new-session-overlay');
+    if (overlay) overlay.hidden = false;
+    setTimeout(function(){ titleEl && titleEl.focus(); }, 30);
+  }
+  window.openNewSessionModal = openNewSessionModal;
+
+  function closeNewSessionModal() {
+    var overlay = document.getElementById('new-session-overlay');
+    if (overlay) overlay.hidden = true;
+  }
+  window.closeNewSessionModal = closeNewSessionModal;
+
+  // ===== FIX-15: Status footer wired to real partner / content / puck state =====
+  function refreshStatusPartner(payload) {
+    var label = document.getElementById('status-partner-label');
+    var item = document.getElementById('status-partner');
+    if (!label || !item) return;
+    var name = (payload && (payload.partnerName || payload.name)) || '';
+    var consent = payload && (payload.consentStatus || payload.consent_status);
+    var success = payload && payload.success !== false;
+    if (success && name && consent === 'confirmed') {
+      label.textContent = name + ' · partner active';
+      item.classList.remove('off');
+    } else if (name) {
+      label.textContent = name + ' · pending';
+      item.classList.add('off');
+    } else {
+      label.textContent = 'No accountability partner';
+      item.classList.add('off');
+    }
+  }
+  function refreshStatusContent(enabled) {
+    var label = document.getElementById('status-content-label');
+    var item = document.getElementById('status-content');
+    if (!label || !item) return;
+    if (enabled) {
+      label.textContent = 'Content protection · ON';
+      item.classList.remove('off');
+    } else {
+      label.textContent = 'Content protection · OFF';
+      item.classList.add('off');
+    }
+  }
+  function refreshStatusPuck(connected) {
+    var label = document.getElementById('status-puck-label');
+    var item = document.getElementById('status-puck');
+    if (!label || !item) return;
+    if (connected) {
+      label.textContent = 'Puck · paired';
+      item.classList.remove('off');
+    } else {
+      label.textContent = 'Puck · not paired';
+      item.classList.add('off');
+    }
+  }
+  window.refreshStatusPartner = refreshStatusPartner;
+  window.refreshStatusContent = refreshStatusContent;
+  window.refreshStatusPuck = refreshStatusPuck;
+
+  // Wrap existing receivers so the footer updates alongside the existing
+  // lock-state UI rerender. Chains via the captured original so we don't
+  // break the existing flow.
+  (function () {
+    var origPartner = window._partnerStatusResult;
+    window._partnerStatusResult = function (payload) {
+      try { refreshStatusPartner(payload); } catch (e) {}
+      if (typeof origPartner === 'function') {
+        try { return origPartner.apply(this, arguments); } catch (e) {}
+      }
+    };
+    var origCS = window._contentSafetyState;
+    window._contentSafetyState = function (state) {
+      try { refreshStatusContent(!!(state && state.enabled)); } catch (e) {}
+      if (typeof origCS === 'function') {
+        try { return origCS.apply(this, arguments); } catch (e) {}
+      }
+    };
+    var origPuck = window._puckStatus;
+    window._puckStatus = function (state) {
+      try { refreshStatusPuck(!!(state && state.connected)); } catch (e) {}
+      if (typeof origPuck === 'function') {
+        try { return origPuck.apply(this, arguments); } catch (e) {}
+      }
+    };
+  })();
+
+  // Pull initial state once the page has settled.
+  window.addEventListener('DOMContentLoaded', function () {
+    setTimeout(function () {
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+        sendMessage({ type: 'GET_PARTNER_STATUS' });
+        sendMessage({ type: 'GET_CONTENT_SAFETY_STATE' });
+        sendMessage({ type: 'GET_PUCK_STATUS' });
+      }
+    }, 500);
+  });
+
+  function saveNewSession() {
+    var titleEl = document.getElementById('ns-title');
+    var outcomeEl = document.getElementById('ns-outcome');
+    var goalSel = document.getElementById('ns-goal-link');
+    var aiEl = document.getElementById('ns-ai-scoring');
+    var title = (titleEl && titleEl.value || '').trim();
+    if (!title) {
+      if (typeof showToast === 'function') showToast('Give this session a title.');
+      else alert('Give this session a title.');
+      titleEl && titleEl.focus();
+      return;
+    }
+    var outcome = (outcomeEl && outcomeEl.value || '').trim();
+    var intentionId = (goalSel && goalSel.value) || null;
+    var aiOn = !!(aiEl && aiEl.checked);
+    var enabledRules = Array.prototype.slice.call(
+      document.querySelectorAll('#ns-block-checkboxes input[type=checkbox]:checked')
+    ).map(function (el) { return el.getAttribute('data-rule-id'); }).filter(Boolean);
+
+    var todayStr = (function(){
+      var d = new Date();
+      var mm = String(d.getMonth()+1).padStart(2,'0');
+      var dd = String(d.getDate()).padStart(2,'0');
+      return d.getFullYear() + '-' + mm + '-' + dd;
+    })();
+
+    var payload = {
+      type: 'CREATE_SCHEDULED_SESSION',
+      intention_id: intentionId,
+      start_hour: _newSessionStartHour,
+      start_minute: 0,
+      start_date: todayStr,
+      title_override: title,
+      outcome: outcome,
+      ai_scoring_enabled: aiOn,
+      auto_activate_block_rules: enabledRules
+    };
+    sendMessage(payload);
+    closeNewSessionModal();
+    if (typeof showToast === 'function') showToast('Session created');
+  }
+  window.saveNewSession = saveNewSession;
 </script>
 
 </body>

@@ -76,6 +76,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Spec 1: cross-device account-scoped focus presets (replaces local-only Project)
     var intentionStore: IntentionStore?
 
+    // May 2026 prototype → production: cross-device monthly goals
+    var monthlyGoalStore: MonthlyGoalStore?
+
     // Slice 1 (Subscription Entitlements): polls /me/entitlements on launch +
     // foreground + every 60s. Caches to entitlement_cache.json for offline
     // resilience. Drives subscription gating across the app (lapsed banner,
@@ -577,9 +580,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             await migration.run(log: { msg in
                 Task { @MainActor in self.postLog(msg) }
             })
+
+            // May 2026 prototype → production: one-shot migration —
+            // copy Intention.description → intentText for goals that don't have it.
+            if let store = self.intentionStore {
+                await IntentTextMigration.runIfNeeded(intentionStore: store) { msg in
+                    Task { @MainActor in self.postLog(msg) }
+                }
+            }
         }
         intentionStore?.startSyncTimer()
         postLog("🎯 IntentionStore wired and pulling")
+
+        // May 2026 prototype → production — MonthlyGoalStore (cross-device monthly goals)
+        monthlyGoalStore = MonthlyGoalStore()
+        Task {
+            await monthlyGoalStore?.wire(backend: backendClient!, appDelegate: self)
+            await monthlyGoalStore?.pull()
+        }
+        monthlyGoalStore?.startSyncTimer()
+        postLog("📅 MonthlyGoalStore wired and pulling")
 
         // Wire TimeTracker callback: deduct social media time from earned pool
         timeTracker?.onSocialMediaTimeRecorded = { [weak self] platform, minutes, isFreeBrowse in

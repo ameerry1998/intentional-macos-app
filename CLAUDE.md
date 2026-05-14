@@ -149,6 +149,41 @@ Cross-repo log: `docs/overnight-run-2026-05-03.md`
 
 ---
 
+## Weekly + Monthly Goals (May 14, 2026) — ACTIVE
+
+Intentions are surfaced to users as "Weekly Goals." The underlying Swift type (`Intention`) and DB table (`intentions`, which is a SQL view over `focus_modes` post-migration 022) keep their names. Each Intention/Weekly Goal carries new fields the prototype editor exposes:
+
+- `outcome` (done-looks-like text)
+- `status` enum (planned | in_progress | done | slipped | dropped)
+- `weeklyTargetHours`
+- `intentText` (≤140 chars; drives AI scoring when `aiScoringEnabled`)
+- `aiScoringEnabled` (bool, default true)
+- `allowWebsites` + `allowBundleIds` (per-goal Allow list — but **globally-active Time Blocks override these** per §17b.7 of requirements doc)
+- `monthlyGoalId` (FK → MonthlyGoal; nullable for "unlinked" goals)
+- `weekOf` (ISO Monday date; nullable = unscheduled)
+
+New top-level type `MonthlyGoal` (`Intentional/MonthlyGoal.swift`) + actor `MonthlyGoalStore`. Cache at `~/Library/Application Support/Intentional/monthly_goals.json`. Sync pattern mirrors `IntentionStore` (pull on launch + foreground + 60s timer).
+
+**One-shot migration:** `IntentTextMigration.runIfNeeded` copies `Intention.description` → `intentText` for goals that don't have it yet. Idempotent via receipt at `migration_intent_text_v1.json`. Runs after first IntentionStore pull on launch.
+
+**New bridge messages (dashboard ↔ Mac):**
+- `GET_MONTHLY_GOALS`, `GET_MONTHLY_GOAL`, `CREATE_MONTHLY_GOAL`, `UPDATE_MONTHLY_GOAL`, `DELETE_MONTHLY_GOAL`
+- `LINK_WEEKLY_TO_MONTHLY` (set/clear `monthly_goal_id` on an Intention)
+- `START_GOAL_SESSION` (alias of `START_INTENTION_SESSION`; carries optional `monthly_goal_id` for future analytics — currently ignored)
+- `intentionToDict` extended with the 9 new fields → `_intentionsList` receiver
+- `monthlyGoalToDict` → `_monthlyGoalsList` / `_monthlyGoalDetail` / `_monthlyGoalCreated` / `_monthlyGoalUpdated` / `_monthlyGoalDeleted` receivers
+
+**Backend:** migration 026 (`intentional-backend`) adds 9 columns to `focus_modes` (refreshes the `intentions` view), creates `monthly_goals` table + indexes + RLS + triggers. CRUD endpoints at `/monthly_goals`. Extended `/intentions` POST + PUT round-trips the new fields. `GET /intentions?week=YYYY-MM-DD` filters by week.
+
+**Theme toggle: OUT OF SCOPE** for this ship (§10 + §17b.12 of requirements doc). Dark-only.
+
+Brief: `docs/prototype-to-production-2026-05-14.md`
+Requirements: `docs/requirements-2026-05-14.md` (§17b authoritative for resolved Q&A)
+Plans: `docs/superpowers/plans/2026-05-14-prototype-to-production-plan-{a,b,c}.md`
+Cross-repo log: `docs/overnight-run-2026-05-14.md`
+
+---
+
 ## Parallel Development (Worktree Workflow)
 
 This repo uses git worktrees for parallel feature development. Multiple Claude Code agents may be working on different features simultaneously in separate worktrees.

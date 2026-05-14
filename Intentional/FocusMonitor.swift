@@ -1865,10 +1865,23 @@ class FocusMonitor {
             guard let scorer = self.relevanceScorer,
                   let block = manager.currentBlock else { return }
 
+            // FIX-11: Resolve the active Weekly Goal's intentText + aiScoringEnabled so the
+            // scorer can short-circuit when the user has disabled AI scoring for this goal
+            // and so prompts use the goal's own intent text rather than legacy block.description.
+            var intentText = ""
+            var aiEnabled = true
+            if let intentionId = block.intentionId,
+               let intention = await IntentionStore.shared.intention(id: intentionId) {
+                intentText = intention.intentText ?? ""
+                aiEnabled = intention.aiScoringEnabled
+            }
+
             let result = await scorer.scoreRelevance(
                 pageTitle: appName,
                 intention: block.title,
                 intentionDescription: block.description,
+                intentText: intentText,
+                aiScoringEnabled: aiEnabled,
                 profile: block.ignoreProfile ? "" : manager.profile,
                 dailyPlan: manager.todaySchedule?.dayNotes ?? "",
                 contentType: .application,
@@ -2175,10 +2188,21 @@ class FocusMonitor {
 
         // Score asynchronously
         Task {
+            // FIX-11: Resolve per-goal AI flag + intentText so the scorer honors them.
+            var intentText = ""
+            var aiEnabled = true
+            if let intentionId = block.intentionId,
+               let intention = await IntentionStore.shared.intention(id: intentionId) {
+                intentText = intention.intentText ?? ""
+                aiEnabled = intention.aiScoringEnabled
+            }
+
             let result = await scorer.scoreRelevance(
                 pageTitle: info.title,
                 intention: block.title,
                 intentionDescription: block.description,
+                intentText: intentText,
+                aiScoringEnabled: aiEnabled,
                 profile: block.ignoreProfile ? "" : manager.profile,
                 dailyPlan: manager.todaySchedule?.dayNotes ?? "",
                 url: info.url,
@@ -3269,12 +3293,24 @@ class FocusMonitor {
         appDelegate?.postLog("💬 Justification submitted: \"\(text)\" for \"\(displayName)\"")
 
         Task {
-            // Re-run relevance check with justification as additional context
-            let enrichedDescription = "\(block.description)\nUser explains why this is relevant: \(text)"
+            // Re-run relevance check with justification as additional context.
+            // FIX-11: enrich whichever source is active (per-goal intentText preferred,
+            // legacy block.description as fallback) so the model sees consistent context.
+            var goalIntentText = ""
+            var aiEnabled = true
+            if let intentionId = block.intentionId,
+               let intention = await IntentionStore.shared.intention(id: intentionId) {
+                goalIntentText = intention.intentText ?? ""
+                aiEnabled = intention.aiScoringEnabled
+            }
+            let baseDescription = goalIntentText.isEmpty ? block.description : goalIntentText
+            let enrichedDescription = "\(baseDescription)\nUser explains why this is relevant: \(text)"
             let result = await scorer.scoreRelevance(
                 pageTitle: displayName,
                 intention: block.title,
                 intentionDescription: enrichedDescription,
+                intentText: "",                        // already merged into intentionDescription above
+                aiScoringEnabled: aiEnabled,
                 profile: block.ignoreProfile ? "" : manager.profile,
                 dailyPlan: manager.todaySchedule?.dayNotes ?? ""
             )

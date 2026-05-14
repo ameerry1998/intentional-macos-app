@@ -803,10 +803,21 @@ class NativeMessagingHost {
         // default to Chrome since native messaging hosts run under Chromium browsers.
         let browserBundleId = self.detectedBrowserBundleId ?? "com.google.Chrome"
         Task {
+            // FIX-11: Resolve the active Weekly Goal's intentText + aiScoringEnabled.
+            var intentText = ""
+            var aiEnabled = true
+            if let intentionId = block.intentionId,
+               let intention = await IntentionStore.shared.intention(id: intentionId) {
+                intentText = intention.intentText ?? ""
+                aiEnabled = intention.aiScoringEnabled
+            }
+
             let result = await scorer.scoreRelevance(
                 pageTitle: pageTitle,
                 intention: block.title,
                 intentionDescription: block.description,
+                intentText: intentText,
+                aiScoringEnabled: aiEnabled,
                 profile: block.ignoreProfile ? "" : manager.profile,
                 dailyPlan: manager.todaySchedule?.dayNotes ?? "",
                 url: url,
