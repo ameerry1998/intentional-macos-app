@@ -541,24 +541,32 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 handleSaveBedtimeSettings(body)
             }
 
-        case "GET_BLOCKING_PROFILES":
+        case "GET_BLOCKING_PROFILES", "GET_BLOCK_RULES":
             handleGetBlockingProfiles()
 
-        case "CREATE_BLOCKING_PROFILE":
+        case "CREATE_BLOCKING_PROFILE", "CREATE_BLOCK_RULE":
             if let body = message.body as? [String: Any] {
                 handleCreateBlockingProfile(body)
             }
 
-        case "UPDATE_BLOCKING_PROFILE":
+        case "UPDATE_BLOCKING_PROFILE", "UPDATE_BLOCK_RULE":
             if let body = message.body as? [String: Any] {
                 handleUpdateBlockingProfile(body)
             }
 
-        case "DELETE_BLOCKING_PROFILE":
+        case "DELETE_BLOCKING_PROFILE", "DELETE_BLOCK_RULE":
             if let body = message.body as? [String: Any],
                let idStr = body["id"] as? String,
                let id = UUID(uuidString: idStr) {
                 handleDeleteBlockingProfile(id: id)
+            }
+
+        case "TOGGLE_BLOCK_RULE":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String,
+               let id = UUID(uuidString: idStr),
+               let enabled = body["enabled"] as? Bool {
+                handleToggleBlockRule(id: id, enabled: enabled)
             }
 
         case "START_PROJECT_SESSION":
@@ -2450,32 +2458,106 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
     // MARK: - Blocking Profile Handlers
 
+    /// Snake-case dict representation of a profile/block-rule for the new
+    /// Today→Blocks UI. Ships alongside the legacy struct-shaped payload so
+    /// existing receivers (ProjectsController, profile detail view) keep working.
+    static func blockingProfileToDict(_ p: BlockingProfile) -> [String: Any] {
+        var d: [String: Any] = [
+            "id": p.id.uuidString,
+            "name": p.name,
+            "websites": p.blockedDomains,
+            "bundle_ids": p.blockedAppBundleIds,
+            "is_default": p.isDefault,
+            "always_active": p.alwaysActive,
+            "enabled": p.enabled,
+            "active_days": p.activeDays,
+            "is_currently_active": p.isCurrentlyActive
+        ]
+        if let sh = p.startHour { d["start_hour"] = sh }
+        if let sm = p.startMinute { d["start_minute"] = sm }
+        if let eh = p.endHour { d["end_hour"] = eh }
+        if let em = p.endMinute { d["end_minute"] = em }
+        return d
+    }
+
     private func handleGetBlockingProfiles() {
         let profiles = appDelegate?.blockingProfileManager?.profiles ?? []
+        // Legacy receiver — keeps the existing profile-detail / ProjectsController flows alive.
         if let data = try? JSONEncoder().encode(profiles),
            let jsonStr = String(data: data, encoding: .utf8) {
             callJS("window.onBlockingProfiles && window.onBlockingProfiles(\(jsonStr))")
         }
+        // New receiver — snake_case payload with schedule + enabled for Today→Blocks UI.
+        let dicts = profiles.map { Self.blockingProfileToDict($0) }
+        if let data = try? JSONSerialization.data(withJSONObject: dicts),
+           let jsonStr = String(data: data, encoding: .utf8) {
+            callJS("window._blockingProfilesList && window._blockingProfilesList(\(jsonStr))")
+        }
     }
 
+    /// Accepts both legacy keys (`domains`, `appBundleIds`) and new snake_case keys
+    /// (`websites`, `bundle_ids`, `start_hour`, etc).
     private func handleCreateBlockingProfile(_ body: [String: Any]) {
         let name = body["name"] as? String ?? "New Profile"
-        let domains = body["domains"] as? [String] ?? []
-        let apps = body["appBundleIds"] as? [String] ?? []
-        appDelegate?.blockingProfileManager?.createProfile(name: name, domains: domains, appBundleIds: apps)
+        let domains = (body["websites"] as? [String]) ?? (body["domains"] as? [String]) ?? []
+        let apps = (body["bundle_ids"] as? [String]) ?? (body["appBundleIds"] as? [String]) ?? []
+        guard let manager = appDelegate?.blockingProfileManager else { return }
+        let created = manager.createProfile(name: name, domains: domains, appBundleIds: apps)
+        // Apply optional schedule + enabled in one update so we don't double-write the file.
+        let enabled = body["enabled"] as? Bool
+        let startHour = body["start_hour"] as? Int
+        let startMinute = body["start_minute"] as? Int
+        let endHour = body["end_hour"] as? Int
+        let endMinute = body["end_minute"] as? Int
+        let activeDays = body["active_days"] as? [Int]
+        if enabled != nil || startHour != nil || startMinute != nil
+            || endHour != nil || endMinute != nil || activeDays != nil {
+            manager.updateProfile(
+                id: created.id,
+                enabled: enabled,
+                startHour: .some(startHour),
+                startMinute: .some(startMinute),
+                endHour: .some(endHour),
+                endMinute: .some(endMinute),
+                activeDays: activeDays
+            )
+        }
+        appDelegate?.applyAlwaysActiveProfiles()
         handleGetBlockingProfiles()
     }
 
     private func handleUpdateBlockingProfile(_ body: [String: Any]) {
         guard let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) else { return }
+        let domains = (body["websites"] as? [String]) ?? (body["domains"] as? [String])
+        let apps = (body["bundle_ids"] as? [String]) ?? (body["appBundleIds"] as? [String])
+        // For schedule fields, treat key-present-and-NSNull as "clear to nil",
+        // key-present-and-Int as "set", key-absent as "leave alone".
+        let scheduleArgs: (Int??, Int??, Int??, Int??) = (
+            body.keys.contains("start_hour") ? .some(body["start_hour"] as? Int) : nil,
+            body.keys.contains("start_minute") ? .some(body["start_minute"] as? Int) : nil,
+            body.keys.contains("end_hour") ? .some(body["end_hour"] as? Int) : nil,
+            body.keys.contains("end_minute") ? .some(body["end_minute"] as? Int) : nil
+        )
         appDelegate?.blockingProfileManager?.updateProfile(
             id: id,
             name: body["name"] as? String,
-            domains: body["domains"] as? [String],
-            appBundleIds: body["appBundleIds"] as? [String],
-            alwaysActive: body["alwaysActive"] as? Bool
+            domains: domains,
+            appBundleIds: apps,
+            alwaysActive: body["alwaysActive"] as? Bool ?? body["always_active"] as? Bool,
+            enabled: body["enabled"] as? Bool,
+            startHour: scheduleArgs.0,
+            startMinute: scheduleArgs.1,
+            endHour: scheduleArgs.2,
+            endMinute: scheduleArgs.3,
+            activeDays: body["active_days"] as? [Int]
         )
         // Re-apply always-active enforcement after profile change
+        appDelegate?.applyAlwaysActiveProfiles()
+        handleGetBlockingProfiles()
+    }
+
+    private func handleToggleBlockRule(id: UUID, enabled: Bool) {
+        appDelegate?.blockingProfileManager?.setEnabled(id: id, enabled: enabled)
         appDelegate?.applyAlwaysActiveProfiles()
         handleGetBlockingProfiles()
     }
