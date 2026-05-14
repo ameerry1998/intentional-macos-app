@@ -129,6 +129,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             self?.handleGetIntentions()
         }
 
+        // May 2026 — re-push monthly goals list to dashboard whenever
+        // MonthlyGoalStore pulls fresh data or any push CRUD lands.
+        NotificationCenter.default.addObserver(
+            forName: .monthlyGoalsDidChange, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.handleGetMonthlyGoals()
+        }
+
         // Load appropriate page
         loadCurrentPage()
     }
@@ -323,7 +331,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             return
         }
 
-        if type.contains("INTENTION") || type.contains("PROJECT") || type == "UPDATE_INTENTION_STRICTNESS" {
+        if type.contains("INTENTION") || type.contains("PROJECT") ||
+           type.contains("MONTHLY_GOAL") || type == "UPDATE_INTENTION_STRICTNESS" ||
+           type == "LINK_WEEKLY_TO_MONTHLY" || type == "START_GOAL_SESSION" {
             appDelegate?.postLog("📥 BRIDGE rx: \(type)")
         }
 
@@ -678,6 +688,43 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             if let body = message.body as? [String: Any],
                let idStr = body["id"] as? String {
                 callJS("window._navigateToIntentionEditor && window._navigateToIntentionEditor('\(idStr)')")
+            }
+
+        // May 2026 — Monthly Goals
+        case "GET_MONTHLY_GOALS":
+            handleGetMonthlyGoals()
+
+        case "GET_MONTHLY_GOAL":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) {
+                handleGetMonthlyGoal(id: id)
+            }
+
+        case "CREATE_MONTHLY_GOAL":
+            if let body = message.body as? [String: Any] {
+                handleCreateMonthlyGoal(body)
+            }
+
+        case "UPDATE_MONTHLY_GOAL":
+            if let body = message.body as? [String: Any] {
+                handleUpdateMonthlyGoal(body)
+            }
+
+        case "DELETE_MONTHLY_GOAL":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) {
+                handleDeleteMonthlyGoal(id: id)
+            }
+
+        case "LINK_WEEKLY_TO_MONTHLY":
+            if let body = message.body as? [String: Any] {
+                handleLinkWeeklyToMonthly(body)
+            }
+
+        case "START_GOAL_SESSION":
+            // Alias for START_INTENTION_SESSION; monthly_goal_id ignored for now (analytics only).
+            if let body = message.body as? [String: Any] {
+                handleStartIntentionSession(body)
             }
 
         case "FOCUS_MODE_TOGGLE":
@@ -3334,7 +3381,37 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 "takes_effect_at": ISO8601DateFormatter().string(from: pc.takesEffectAt)
             ] as [String: Any]
         }
+        // May 2026 prototype → production (weekly-goal vocab):
+        dict["outcome"] = i.outcome ?? ""
+        dict["status"] = i.status.rawValue
+        dict["weekly_target_hours"] = i.weeklyTargetHours as Any? ?? NSNull()
+        dict["intent_text"] = i.intentText ?? ""
+        dict["ai_scoring_enabled"] = i.aiScoringEnabled
+        dict["allow_websites"] = i.allowWebsites
+        dict["allow_bundle_ids"] = i.allowBundleIds
+        dict["monthly_goal_id"] = i.monthlyGoalId?.uuidString as Any? ?? NSNull()
+        dict["week_of"] = i.weekOf as Any? ?? NSNull()
         return dict
+    }
+
+    /// May 2026 prototype → production: dashboard-facing dict for a MonthlyGoal.
+    static func monthlyGoalToDict(_ g: MonthlyGoal) -> [String: Any] {
+        let iso = ISO8601DateFormatter()
+        var d: [String: Any] = [
+            "id": g.id.uuidString,
+            "title": g.title,
+            "outcome": g.outcome ?? "",
+            "color_hex": g.colorHex ?? "",
+            "month_of": g.monthOf,
+            "status": g.status.rawValue,
+            "version": g.version,
+            "created_at": iso.string(from: g.createdAt),
+            "updated_at": iso.string(from: g.updatedAt),
+        ]
+        if let d2 = g.deletedAt {
+            d["deleted_at"] = iso.string(from: d2)
+        }
+        return d
     }
 
     private func handleCreateIntention(_ body: [String: Any]) {
@@ -3599,6 +3676,163 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         guard let data = try? JSONSerialization.data(withJSONObject: dict),
               let json = String(data: data, encoding: .utf8) else { return }
         callJS("window._intentionMutationResult && window._intentionMutationResult(\(json))")
+    }
+
+    // MARK: - Monthly Goals (May 2026)
+
+    private func handleGetMonthlyGoals() {
+        guard let store = appDelegate?.monthlyGoalStore else {
+            emitMonthlyGoalsList([])
+            return
+        }
+        Task {
+            let goals = await store.active()
+            let items = goals.map { Self.monthlyGoalToDict($0) }
+            await MainActor.run { self.emitMonthlyGoalsList(items) }
+        }
+    }
+
+    private func handleGetMonthlyGoal(id: UUID) {
+        guard let store = appDelegate?.monthlyGoalStore else { return }
+        Task {
+            if let g = await store.goal(id: id) {
+                let dict = Self.monthlyGoalToDict(g)
+                await MainActor.run { self.emitMonthlyGoalDetail(dict) }
+            } else {
+                await MainActor.run { self.emitMonthlyGoalDetail(["error": "Not found"]) }
+            }
+        }
+    }
+
+    private func handleCreateMonthlyGoal(_ body: [String: Any]) {
+        guard let store = appDelegate?.monthlyGoalStore else { return }
+        let title = (body["title"] as? String) ?? "Untitled"
+        let monthOf = (body["month_of"] as? String) ?? ""
+        let statusRaw = (body["status"] as? String) ?? "planned"
+        let payload = MonthlyGoalCreatePayload(
+            title: title,
+            outcome: body["outcome"] as? String,
+            colorHex: body["color_hex"] as? String,
+            monthOf: monthOf,
+            status: GoalStatus(rawValue: statusRaw) ?? .planned
+        )
+        Task {
+            do {
+                let created = try await store.create(payload)
+                let dict = Self.monthlyGoalToDict(created)
+                await MainActor.run { self.emitMonthlyGoalCreated(dict) }
+            } catch {
+                await MainActor.run {
+                    self.emitMonthlyGoalCreated(["error": "\(error)"])
+                }
+            }
+        }
+    }
+
+    private func handleUpdateMonthlyGoal(_ body: [String: Any]) {
+        guard let store = appDelegate?.monthlyGoalStore,
+              let idStr = body["id"] as? String,
+              let id = UUID(uuidString: idStr),
+              let version = body["version"] as? Int else { return }
+        let payload = MonthlyGoalUpdatePayload(
+            title: (body["title"] as? String) ?? "Untitled",
+            outcome: body["outcome"] as? String,
+            colorHex: body["color_hex"] as? String,
+            monthOf: (body["month_of"] as? String) ?? "",
+            status: GoalStatus(rawValue: (body["status"] as? String) ?? "planned") ?? .planned,
+            version: version
+        )
+        Task {
+            do {
+                let updated = try await store.update(id: id, payload: payload)
+                let dict = Self.monthlyGoalToDict(updated)
+                await MainActor.run { self.emitMonthlyGoalUpdated(dict) }
+            } catch {
+                await MainActor.run { self.emitMonthlyGoalUpdated(["error": "\(error)"]) }
+            }
+        }
+    }
+
+    private func handleDeleteMonthlyGoal(id: UUID) {
+        guard let store = appDelegate?.monthlyGoalStore else { return }
+        Task {
+            let ok = await store.delete(id: id)
+            await MainActor.run {
+                self.callJS("window._monthlyGoalDeleted && window._monthlyGoalDeleted({id: '\(id.uuidString)', ok: \(ok)})")
+            }
+        }
+    }
+
+    private func handleLinkWeeklyToMonthly(_ body: [String: Any]) {
+        guard let store = appDelegate?.intentionStore,
+              let intentionIdStr = body["intention_id"] as? String,
+              let intentionId = UUID(uuidString: intentionIdStr) else { return }
+        let monthlyGoalId: UUID? = (body["monthly_goal_id"] as? String).flatMap { UUID(uuidString: $0) }
+        Task {
+            guard let i = await store.intention(id: intentionId) else { return }
+            // Round-trip all fields, just patch monthly_goal_id
+            let payload = IntentionUpdatePayload(
+                name: i.name,
+                description: i.description,
+                colorHex: i.colorHex,
+                icon: i.icon,
+                macWebsites: i.macWebsites,
+                macBundleIds: i.macBundleIds,
+                iosAppTokensB64: i.iosAppTokensB64,
+                iosCategoryTokensB64: i.iosCategoryTokensB64,
+                version: i.version,
+                outcome: i.outcome,
+                status: i.status,
+                weeklyTargetHours: i.weeklyTargetHours,
+                intentText: i.intentText,
+                aiScoringEnabled: i.aiScoringEnabled,
+                allowWebsites: i.allowWebsites,
+                allowBundleIds: i.allowBundleIds,
+                monthlyGoalId: monthlyGoalId,
+                weekOf: i.weekOf
+            )
+            do {
+                let updated = try await store.update(id: intentionId, payload: payload)
+                let dict = Self.intentionToDict(updated)
+                await MainActor.run {
+                    let json = self.jsonString(dict)
+                    self.callJS("window._intentionUpdated && window._intentionUpdated(\(json))")
+                }
+            } catch {
+                await MainActor.run {
+                    self.callJS("window._intentionUpdated && window._intentionUpdated({error: 'link failed'})")
+                }
+            }
+        }
+    }
+
+    // MARK: - Monthly Goals emit helpers
+
+    private func emitMonthlyGoalsList(_ items: [[String: Any]]) {
+        let json = jsonString(items)
+        callJS("window._monthlyGoalsList && window._monthlyGoalsList(\(json))")
+    }
+
+    private func emitMonthlyGoalDetail(_ dict: [String: Any]) {
+        let json = jsonString(dict)
+        callJS("window._monthlyGoalDetail && window._monthlyGoalDetail(\(json))")
+    }
+
+    private func emitMonthlyGoalCreated(_ dict: [String: Any]) {
+        let json = jsonString(dict)
+        callJS("window._monthlyGoalCreated && window._monthlyGoalCreated(\(json))")
+    }
+
+    private func emitMonthlyGoalUpdated(_ dict: [String: Any]) {
+        let json = jsonString(dict)
+        callJS("window._monthlyGoalUpdated && window._monthlyGoalUpdated(\(json))")
+    }
+
+    /// JSON-encode dict/array as String. Falls back to "null" on failure.
+    private func jsonString(_ obj: Any) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: obj),
+              let s = String(data: data, encoding: .utf8) else { return "null" }
+        return s
     }
 
 }
