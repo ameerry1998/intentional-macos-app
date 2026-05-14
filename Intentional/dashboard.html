@@ -364,6 +364,89 @@ body.theme-effects-warm::after {
 .sb-blocking .arrow { margin-left: auto; color: var(--text-tertiary); }
 .sb-blocking.empty { opacity: 0.55; }
 
+/* May 2026 prototype port — Today weekly-goal cards strip */
+.wg-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 28px 8px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.wg-section-header .wg-lbl strong { color: var(--text-primary); font-weight: 700; }
+.wg-section-header .wg-hint { font-size: 11px; }
+.wg-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  padding: 0 28px 16px;
+}
+.wg-card {
+  position: relative;
+  background: rgba(255,255,255,0.04);
+  border: 0.5px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 14px 16px 14px 18px;
+  min-height: 92px;
+  overflow: hidden;
+  transition: border-color 120ms ease, transform 120ms ease, opacity 120ms ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+.wg-card:hover { border-color: rgba(255,255,255,0.16); transform: translateY(-1px); }
+.wg-card.unlinked { border-style: dashed; }
+.wg-card .wg-edge {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--wg-hue, transparent);
+}
+.wg-card .wg-ttl {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+.wg-card .wg-out {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+}
+.wg-card .wg-foot {
+  margin-top: auto;
+  padding-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+.wg-card .wg-status { font-weight: 500; }
+.wg-card .wg-status.in-progress { color: var(--accent-primary, #D85A30); font-weight: 600; }
+.wg-card .wg-status.planned { color: var(--text-tertiary); }
+.wg-card .wg-status.done { color: #4EBE92; }
+.wg-card .wg-grip {
+  margin-left: auto;
+  font-size: 13px;
+  opacity: 0.4;
+  cursor: grab;
+  padding: 3px 6px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: all 0.1s;
+}
+.wg-card .wg-grip:hover { opacity: 1; background: rgba(255,255,255,0.06); color: var(--accent-primary, #D85A30); }
+.wg-card .wg-grip:active { cursor: grabbing; }
+.calendar-hour-row.drop-hover, .calendar-row.drop-hover {
+  background: rgba(216, 90, 48, 0.15);
+  border: 1px dashed var(--accent-primary, #D85A30);
+}
+
 /* ===== Main Content ===== */
 .main {
   flex: 1;
@@ -4705,6 +4788,9 @@ body.theme-effects-warm::after {
   <!-- Page: Usage -->
   <div class="page active" id="page-today">
 
+    <!-- May 2026 prototype port — weekly-goal cards strip -->
+    <div id="now-card-mount"></div>
+
     <!-- Coach context: persistent profile + daily plan above calendar -->
     <div id="coach-context-card" class="coach-context-card" style="display:none;">
       <div class="coach-context-title">Coach context</div>
@@ -8445,6 +8531,189 @@ function refreshSidebarBlockingPill() {
   };
 })();
 refreshSidebarBlockingPill();
+
+// May 2026 prototype port — Today weekly-goal cards strip.
+window._intentionsCache = window._intentionsCache || [];
+window._monthlyGoalsCache = window._monthlyGoalsCache || [];
+
+(function () {
+  var orig = window._intentionsList;
+  window._intentionsList = function (items) {
+    window._intentionsCache = Array.isArray(items) ? items : [];
+    renderNowCard();
+    if (typeof orig === 'function') orig(items);
+  };
+})();
+
+window._monthlyGoalsList = function (items) {
+  window._monthlyGoalsCache = Array.isArray(items) ? items : [];
+  renderNowCard();
+};
+window._monthlyGoalCreated = window._monthlyGoalCreated || function () {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional)
+    window.webkit.messageHandlers.intentional.postMessage({type:'GET_MONTHLY_GOALS'});
+};
+window._monthlyGoalUpdated = window._monthlyGoalUpdated || function () {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional)
+    window.webkit.messageHandlers.intentional.postMessage({type:'GET_MONTHLY_GOALS'});
+};
+window._monthlyGoalDeleted = window._monthlyGoalDeleted || function () {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional)
+    window.webkit.messageHandlers.intentional.postMessage({type:'GET_MONTHLY_GOALS'});
+};
+
+function _currentWeekISO() {
+  var d = new Date();
+  var day = d.getDay() || 7;
+  d.setDate(d.getDate() - (day - 1));
+  return d.toISOString().slice(0, 10);
+}
+
+function _escapeHTML(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+  });
+}
+
+function renderNowCard() {
+  var mount = document.getElementById('now-card-mount');
+  if (!mount) return;
+  var week = _currentWeekISO();
+  var goals = (window._intentionsCache || []).filter(function(g) { return g && g.week_of === week; });
+  if (goals.length === 0) {
+    goals = (window._intentionsCache || []).slice(0, 3);
+  } else {
+    goals = goals.slice(0, 3);
+  }
+  if (goals.length === 0) {
+    mount.innerHTML = '<div class="wg-section-header">'
+      + '<span class="wg-lbl"><strong>This week’s goals</strong></span>'
+      + '<span class="wg-hint" onclick="navigateTo(\'plan\')" style="cursor:pointer;color:var(--accent-primary);">Open Plan →</span>'
+      + '</div>'
+      + '<div style="margin:0 28px 18px;padding:18px;border:1px dashed rgba(255,255,255,0.12);border-radius:10px;font-size:13px;color:var(--text-tertiary);text-align:center;">No goals yet. Open Plan to add this week’s goals.</div>';
+    return;
+  }
+  var cards = goals.map(function(g) {
+    var monthly = (window._monthlyGoalsCache || []).find(function(m) { return m.id === g.monthly_goal_id; });
+    var hue = (monthly && monthly.color_hex) ? monthly.color_hex : null;
+    var edge = hue ? '<span class="wg-edge" style="--wg-hue: ' + hue + ';"></span>' : '';
+    var statusRaw = g.status || 'planned';
+    var statusLabel = statusRaw === 'in_progress' ? 'in progress' : statusRaw;
+    var statusClass = monthly ? statusRaw.replace('_', '-') : 'unlinked';
+    var hoursLine = (g.hours_done > 0) ? ' · ' + g.hours_done + 'h done' : '';
+    var title = _escapeHTML(g.name);
+    var outcome = _escapeHTML(g.outcome || '');
+    return '<div class="wg-card' + (monthly ? '' : ' unlinked') + '"'
+      + ' data-goal-id="' + _escapeHTML(g.id) + '"'
+      + ' onclick="openWeeklyGoalEdit(\'' + _escapeHTML(g.id) + '\')">'
+      + edge
+      + '<div class="wg-ttl">' + title + '</div>'
+      + '<div class="wg-out">' + outcome + '</div>'
+      + '<div class="wg-foot">'
+      + '<span class="wg-status ' + statusClass + '">' + statusLabel + hoursLine + '</span>'
+      + '<span class="wg-grip" draggable="true"'
+      + ' ondragstart="event.stopPropagation(); weeklyGoalDragStart(event, \'' + _escapeHTML(g.id) + '\')"'
+      + ' ondragend="weeklyGoalDragEnd(event)"'
+      + ' onclick="event.stopPropagation()"'
+      + ' title="Drag to schedule">⋮⋮</span>'
+      + '</div></div>';
+  }).join('');
+  mount.innerHTML = '<div class="wg-section-header">'
+    + '<span class="wg-lbl"><strong>This week’s goals</strong> · drag onto schedule to create a session</span>'
+    + '<span class="wg-hint" onclick="navigateTo(\'plan\')" style="cursor:pointer;color:var(--accent-primary);">Open Plan →</span>'
+    + '</div>'
+    + '<div class="wg-row">' + cards + '</div>';
+}
+
+var _dragGoalId = null;
+function weeklyGoalDragStart(e, id) {
+  _dragGoalId = id;
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'copy';
+  e.dataTransfer.setData('text/plain', id);
+}
+function weeklyGoalDragEnd(e) {
+  _dragGoalId = null;
+  e.target.classList.remove('dragging');
+  document.querySelectorAll('.calendar-hour-row.drop-hover, .calendar-row.drop-hover').forEach(function(r) { r.classList.remove('drop-hover'); });
+}
+
+function _wireGoalDropTargets() {
+  var rows = document.querySelectorAll('.calendar-hour-row, .calendar-row');
+  rows.forEach(function(row) {
+    if (row.__wgDropWired) return;
+    row.__wgDropWired = true;
+    row.addEventListener('dragover', function(e) {
+      if (!_dragGoalId) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      row.classList.add('drop-hover');
+    });
+    row.addEventListener('dragleave', function() { row.classList.remove('drop-hover'); });
+    row.addEventListener('drop', function(e) {
+      if (!_dragGoalId) return;
+      e.preventDefault();
+      row.classList.remove('drop-hover');
+      // Row holds .calendar-hour-track child with the data-hour; fall back to row's own attr if present.
+      var hourAttr = row.getAttribute('data-hour');
+      if (!hourAttr) {
+        var track = row.querySelector('[data-hour]');
+        if (track) hourAttr = track.getAttribute('data-hour');
+      }
+      var hour = parseInt(hourAttr || '9', 10);
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+        window.webkit.messageHandlers.intentional.postMessage({
+          type: 'START_GOAL_SESSION',
+          intention_id: _dragGoalId,
+          start_hour: hour,
+          start_date: new Date().toISOString().slice(0, 10)
+        });
+      }
+      _dragGoalId = null;
+    });
+  });
+}
+
+// Hook renderCalendar so newly-created rows get drop handlers attached.
+// (renderCalendar is defined later as a bare function; window.renderCalendar
+// still resolves to it in browser global scope. The hook may run before the
+// fn exists, so we also fall back to a delayed wire + a navigateTo hook below.)
+var _origRenderCalendar = window.renderCalendar;
+if (typeof _origRenderCalendar === 'function') {
+  window.renderCalendar = function () {
+    _origRenderCalendar.apply(this, arguments);
+    _wireGoalDropTargets();
+  };
+} else {
+  // Fallback — rewire after dashboard finishes booting.
+  setTimeout(_wireGoalDropTargets, 1000);
+  // Hook navigateTo so we re-wire when the user lands on a page with the calendar.
+  if (typeof window.navigateTo === 'function') {
+    var _origNavigateTo = window.navigateTo;
+    window.navigateTo = function(pageId) {
+      var r = _origNavigateTo.apply(this, arguments);
+      if (pageId === 'today' || pageId === 'schedule') {
+        setTimeout(_wireGoalDropTargets, 50);
+      }
+      return r;
+    };
+  }
+}
+
+// Pull data on dashboard ready.
+window.addEventListener('DOMContentLoaded', function() {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({type: 'GET_INTENTIONS'});
+    window.webkit.messageHandlers.intentional.postMessage({type: 'GET_MONTHLY_GOALS'});
+  }
+});
+
+// Placeholder — full editor lands in C4. For now, log a clear message.
+if (typeof window.openWeeklyGoalEdit !== 'function') {
+  window.openWeeklyGoalEdit = function (id) {
+    console.log('openWeeklyGoalEdit pending C4 implementation; id=', id);
+  };
+}
 
 function getEditingBlock() {
   return focusState.blocks.find(function(b) { return b.id === focusState.editingBlockId; });
