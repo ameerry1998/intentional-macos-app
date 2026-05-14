@@ -4798,6 +4798,14 @@ body.theme-effects-warm::after {
 }
 .fm-v3 .empty-list .em { color: var(--fm-text-3); }
 
+/* Today page — hide legacy sections (per user request, May 2026) */
+#coach-context-card,
+#ai-assessments-card,
+#earned-browse-widget,
+#focus-profile-inline,
+.focus-profile-inline,
+#page-today .collapsible-section { display: none !important; }
+
 /* ===== Cloud Design Plan view CSS — copied verbatim from docs/unified-design-2026-05-13/app.html (May 2026 prototype port). All selectors scoped under .cd-plan. ===== */
 .cd-plan {
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
