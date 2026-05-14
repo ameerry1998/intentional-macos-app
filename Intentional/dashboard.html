@@ -8834,18 +8834,21 @@ function renderNowCard() {
   var mount = document.getElementById('now-card-mount');
   if (!mount) return;
   var week = _currentWeekISO();
-  var goals = (window._intentionsCache || []).filter(function(g) { return g && g.week_of === week; });
-  if (goals.length === 0) {
-    goals = (window._intentionsCache || []).slice(0, 3);
-  } else {
-    goals = goals.slice(0, 3);
-  }
+  // FIX-14: STRICT filter — only goals tagged for this week.
+  // Previously fell back to top-3 unscheduled goals when no week match; this hid the
+  // week-boundary freeze from the user (goals from last week still showed).
+  var goals = (window._intentionsCache || []).filter(function(g) { return g && g.week_of === week; }).slice(0, 3);
   if (goals.length === 0) {
     mount.innerHTML = '<div class="wg-section-header">'
       + '<span class="wg-lbl"><strong>This week’s goals</strong></span>'
+      + '<span style="display:flex;gap:12px;align-items:center;">'
+      + '<span style="cursor:pointer;color:var(--accent-primary);" onclick="openWeeklyGoalCreate()">+ New</span>'
       + '<span class="wg-hint" onclick="navigateTo(\'plan\')" style="cursor:pointer;color:var(--accent-primary);">Open Plan →</span>'
+      + '</span>'
       + '</div>'
-      + '<div style="margin:0 28px 18px;padding:18px;border:1px dashed rgba(255,255,255,0.12);border-radius:10px;font-size:13px;color:var(--text-tertiary);text-align:center;">No goals yet. Open Plan to add this week’s goals.</div>';
+      + '<div style="margin:0 28px 18px;padding:18px;border:1px dashed rgba(255,255,255,0.12);border-radius:10px;font-size:13px;color:var(--text-tertiary);text-align:center;">'
+      + 'No goals for this week yet. <span style="color:var(--accent-primary);cursor:pointer;" onclick="openWeeklyGoalCreate()">+ Create one</span>'
+      + '</div>';
     return;
   }
   var cards = goals.map(function(g) {
