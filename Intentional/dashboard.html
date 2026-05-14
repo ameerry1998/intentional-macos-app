@@ -6085,11 +6085,22 @@ function onInterventionToggle(key, enabled) {
 }
 
 // ===== Settings Drill-Down Navigation =====
+// FIX-12: alias map so external callers can use the requirements-doc IDs
+// ("focus-mode", "content-safety") in addition to the internal IDs that
+// have always been used here ("focusgate", "safety"). Both work.
+var _SETTINGS_SUB_ALIASES = {
+  'focus-mode': 'focusgate',
+  'content-safety': 'safety'
+};
+
 function showSettingsDetail(id) {
+  // FIX-12: resolve external/aliased IDs
+  if (_SETTINGS_SUB_ALIASES[id]) id = _SETTINGS_SUB_ALIASES[id];
   document.getElementById('settings-menu').style.display = 'none';
   document.querySelectorAll('.settings-detail').forEach(function(d) { d.classList.remove('active'); });
   var el = document.getElementById('settings-detail-' + id);
   if (el) el.classList.add('active');
+  window._currentSettingsSub = id;
   // Slice 5/6 followup: pull list contents on detail open
   if (id === 'distractions') {
     sendMessage({ type: 'GET_DISTRACTIONS' });
@@ -6099,6 +6110,13 @@ function showSettingsDetail(id) {
     sendMessage({ type: 'GET_BUDGET_STATE' });
   }
 }
+// FIX-12: spec-compliant aliases for the prototype-to-production handoff
+window.openSettingsSub = showSettingsDetail;
+window.closeSettingsSub = function() {
+  document.getElementById('settings-menu').style.display = '';
+  document.querySelectorAll('.settings-detail').forEach(function(d) { d.classList.remove('active'); });
+  window._currentSettingsSub = null;
+};
 
 // ===== App Taxonomy (Slice 5 of 2026-05-05 redesign) =====
 
@@ -6190,7 +6208,9 @@ function saveBudgetConfig() {
 function hideSettingsDetail() {
   document.getElementById('settings-menu').style.display = '';
   document.querySelectorAll('.settings-detail').forEach(function(d) { d.classList.remove('active'); });
+  window._currentSettingsSub = null;
 }
+window.hideSettingsDetail = hideSettingsDetail;
 
 // ===== Settings State =====
 var settings = {
