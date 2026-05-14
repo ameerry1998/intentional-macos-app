@@ -3620,7 +3620,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
     private func handleCreateIntention(_ body: [String: Any]) {
         Task {
-            let payload = IntentionCreatePayload(
+            let statusRaw = body["status"] as? String ?? "planned"
+            let monthlyGoalId: UUID? = (body["monthly_goal_id"] as? String).flatMap(UUID.init)
+            var payload = IntentionCreatePayload(
                 name: body["name"] as? String ?? "Untitled",
                 description: body["description"] as? String,
                 colorHex: body["color_hex"] as? String,
@@ -3630,6 +3632,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 iosAppTokensB64: nil,
                 iosCategoryTokensB64: nil
             )
+            payload.outcome = body["outcome"] as? String
+            payload.status = GoalStatus(rawValue: statusRaw) ?? .planned
+            payload.weeklyTargetHours = body["weekly_target_hours"] as? Double
+            payload.intentText = body["intent_text"] as? String
+            if let ai = body["ai_scoring_enabled"] as? Bool { payload.aiScoringEnabled = ai }
+            payload.allowWebsites = body["allow_websites"] as? [String] ?? []
+            payload.allowBundleIds = body["allow_bundle_ids"] as? [String] ?? []
+            payload.monthlyGoalId = monthlyGoalId
+            payload.weekOf = body["week_of"] as? String
             do {
                 let created = try await IntentionStore.shared.create(payload)
                 await MainActor.run {
@@ -3663,7 +3674,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 }
                 return
             }
-            let payload = IntentionUpdatePayload(
+            var payload = IntentionUpdatePayload(
                 name: body["name"] as? String ?? existing.name,
                 description: body["description"] as? String ?? existing.description,
                 colorHex: body["color_hex"] as? String ?? existing.colorHex,
@@ -3674,6 +3685,38 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 iosCategoryTokensB64: existing.iosCategoryTokensB64,
                 version: version
             )
+            // Forward weekly-goal fields (May 2026 vocab). Treat missing keys as
+            // "no change" (fall back to existing), explicit nulls as "clear".
+            payload.outcome = body.keys.contains("outcome")
+                ? body["outcome"] as? String
+                : existing.outcome
+            if let statusRaw = body["status"] as? String,
+               let s = GoalStatus(rawValue: statusRaw) {
+                payload.status = s
+            } else {
+                payload.status = existing.status
+            }
+            payload.weeklyTargetHours = body.keys.contains("weekly_target_hours")
+                ? body["weekly_target_hours"] as? Double
+                : existing.weeklyTargetHours
+            payload.intentText = body.keys.contains("intent_text")
+                ? body["intent_text"] as? String
+                : existing.intentText
+            if let ai = body["ai_scoring_enabled"] as? Bool {
+                payload.aiScoringEnabled = ai
+            } else {
+                payload.aiScoringEnabled = existing.aiScoringEnabled
+            }
+            payload.allowWebsites = body["allow_websites"] as? [String]
+                ?? existing.allowWebsites
+            payload.allowBundleIds = body["allow_bundle_ids"] as? [String]
+                ?? existing.allowBundleIds
+            payload.monthlyGoalId = body.keys.contains("monthly_goal_id")
+                ? (body["monthly_goal_id"] as? String).flatMap(UUID.init)
+                : existing.monthlyGoalId
+            payload.weekOf = body.keys.contains("week_of")
+                ? body["week_of"] as? String
+                : existing.weekOf
             do {
                 var updated = try await IntentionStore.shared.update(id: id, payload: payload)
 
