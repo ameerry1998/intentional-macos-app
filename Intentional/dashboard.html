@@ -364,6 +364,36 @@ body.theme-effects-warm::after {
 .sb-blocking .arrow { margin-left: auto; color: var(--text-tertiary); }
 .sb-blocking.empty { opacity: 0.55; }
 
+/* FIX-1: Today → Schedule/Blocks segmented control + Blocks view styles */
+.today-mode-bar { display: flex; align-items: center; justify-content: flex-end; padding: 14px 28px 0; }
+.today-mode-toggle { display: inline-flex; align-items: center; gap: 0; border: 1px solid rgba(255,255,255,0.10); border-radius: 8px; padding: 2px; background: rgba(255,255,255,0.03); }
+.today-mode-toggle .opt { padding: 5px 13px; font-size: 12px; cursor: pointer; border-radius: 6px; color: var(--text-tertiary); transition: all 0.15s; user-select: none; }
+.today-mode-toggle .opt.active { background: var(--accent-primary); color: #fff; }
+.blk-section-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-tertiary); margin: 14px 28px 8px; display: flex; align-items: center; justify-content: space-between; }
+.blk-section-h .blk-count { font-weight: 500; }
+.blk-ideas-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 28px 14px; }
+.blk-idea-btn { background: rgba(255,255,255,0.04); border: 0.5px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; cursor: pointer; transition: background 0.12s; }
+.blk-idea-btn:hover { background: rgba(255,255,255,0.07); }
+.blk-idea-btn.primary { background: var(--accent-primary); color: #fff; }
+.blk-idea-btn .blk-idea-icon { font-size: 18px; }
+.blk-idea-btn .blk-idea-label { font-size: 12.5px; font-weight: 500; }
+.block-card { background: rgba(255,255,255,0.03); border: 0.5px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px 14px; margin: 6px 28px; cursor: pointer; transition: background 0.12s; }
+.block-card:hover { background: rgba(255,255,255,0.06); }
+.block-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.block-card-title { font-size: 13px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.block-card-sched { font-size: 11.5px; color: var(--text-tertiary); margin-top: 4px; }
+.block-card-list { font-size: 11.5px; color: var(--text-tertiary); margin-top: 3px; }
+.block-pill { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+.block-pill.active { background: rgba(74, 222, 128, 0.18); color: #4ade80; }
+.block-pill.upcoming { background: rgba(255, 255, 255, 0.08); color: var(--text-tertiary); }
+.block-pill.off { background: rgba(255, 90, 90, 0.18); color: #fa6464; }
+.block-toggle { width: 32px; height: 18px; background: rgba(255,255,255,0.10); border-radius: 9px; position: relative; cursor: pointer; transition: background 0.15s; flex-shrink: 0; }
+.block-toggle::after { content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #fff; top: 2px; left: 2px; transition: left 0.15s; }
+.block-toggle.on { background: var(--accent-primary); }
+.block-toggle.on::after { left: 16px; }
+.blocks-empty-card { padding: 18px; border: 1px dashed rgba(255,255,255,0.12); border-radius: 10px; font-size: 13px; color: var(--text-tertiary); text-align: center; margin: 12px 28px; }
+.blocks-empty-card .link { color: var(--accent-primary); cursor: pointer; }
+
 /* May 2026 prototype port — Today weekly-goal cards strip */
 .wg-section-header {
   display: flex;
@@ -5018,6 +5048,29 @@ body.theme-effects-warm::after {
   <!-- Page: Usage -->
   <div class="page active" id="page-today">
 
+    <!-- FIX-1: Today → Schedule / Blocks segmented mode toggle.
+         Schedule view = everything below this bar (calendar + AI assessments etc).
+         Blocks view = #view-blocks-inner; toggle via setTodayMode() in JS. -->
+    <div class="today-mode-bar" data-today-mode-keep="1">
+      <div class="today-mode-toggle" id="today-mode-toggle">
+        <span class="opt active" data-mode="schedule" onclick="setTodayMode('schedule')">Schedule</span>
+        <span class="opt" data-mode="blocks" onclick="setTodayMode('blocks')">Blocks</span>
+      </div>
+    </div>
+
+    <!-- FIX-1: Blocks inner view (Opal-style). Hidden until mode switches. -->
+    <div id="view-blocks-inner" data-today-mode-keep="1" hidden>
+      <div class="blk-section-h">Quick actions</div>
+      <div class="blk-ideas-row">
+        <div class="blk-idea-btn primary" onclick="openBlockNowModal()"><div class="blk-idea-icon">▶</div><div class="blk-idea-label">Block Now</div></div>
+        <div class="blk-idea-btn" onclick="navigateTo('plan')"><div class="blk-idea-icon">📓</div><div class="blk-idea-label">Plan Day</div></div>
+        <div class="blk-idea-btn" onclick="startPomodoro()"><div class="blk-idea-icon">🍅</div><div class="blk-idea-label">Pomodoro 25</div></div>
+        <div class="blk-idea-btn" onclick="openBlockRuleCreate()"><div class="blk-idea-icon">⏱</div><div class="blk-idea-label">Set Limits</div></div>
+      </div>
+      <div class="blk-section-h"><span>Your blocks</span><span class="blk-count" id="blocks-count"></span></div>
+      <div id="blocks-list-mount"></div>
+    </div>
+
     <!-- May 2026 prototype port — weekly-goal cards strip -->
     <div id="now-card-mount"></div>
 
@@ -8784,33 +8837,238 @@ window._intentionsList = function(items) {
   }
 };
 
-// May 2026 prototype port — sidebar blocking pill: count of currently-active blocks.
-// Pragmatic stub — counts intentions whose status is `in_progress`. A future slice
-// can wire this to a proper schedule-sync receiver when one lands.
+// FIX-1 + FIX-6: Block rules (renamed from Blocking Profiles in UI) drive both
+// the Today→Blocks list and the sidebar "N blocking" pill. Cache populated by
+// the new `_blockingProfilesList` receiver below.
+window._blockRulesCache = window._blockRulesCache || [];
 window._activeBlockCount = window._activeBlockCount || 0;
+
+function isRuleCurrentlyActive(r) {
+  if (!r || r.enabled === false) return false;
+  // Backend already computes this; trust it when present.
+  if (typeof r.is_currently_active === 'boolean') return r.is_currently_active;
+  // No schedule = always-active rule.
+  if (r.start_hour == null || r.end_hour == null) return true;
+  var now = new Date();
+  var day = (now.getDay() || 7);  // JS Sun=0..Sat=6 -> ISO 1..7 (Mon=1..Sun=7)
+  if (day === 0) day = 7;
+  var activeDays = r.active_days || [1,2,3,4,5,6,7];
+  if (activeDays.indexOf(day) === -1) return false;
+  var nowMin = now.getHours() * 60 + now.getMinutes();
+  var startMin = (r.start_hour || 0) * 60 + (r.start_minute || 0);
+  var endMin = (r.end_hour || 0) * 60 + (r.end_minute || 0);
+  return nowMin >= startMin && nowMin < endMin;
+}
+window.isRuleCurrentlyActive = isRuleCurrentlyActive;
+
+function formatRuleSchedule(r) {
+  if (!r || r.start_hour == null || r.end_hour == null) return 'Always active';
+  var dayLbls = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var days = (r.active_days || [1,2,3,4,5,6,7]);
+  var allWeekdays = days.length === 5 && days.every(function(d){ return d >= 1 && d <= 5; });
+  var dayStr = days.length === 7 ? 'Daily' : (allWeekdays ? 'Weekdays' : days.map(function(d){ return dayLbls[d-1]; }).join('/'));
+  function fmt(h, m) {
+    var period = h >= 12 ? 'p' : 'a';
+    var dh = ((h + 11) % 12) + 1;
+    return dh + (m ? ':' + String(m).padStart(2,'0') : '') + period;
+  }
+  return dayStr + ' · ' + fmt(r.start_hour, r.start_minute) + '–' + fmt(r.end_hour, r.end_minute);
+}
+window.formatRuleSchedule = formatRuleSchedule;
+
 function refreshSidebarBlockingPill() {
-  var count = (typeof window._activeBlockCount === 'number') ? window._activeBlockCount : 0;
+  var rules = window._blockRulesCache || [];
+  var activeCount = rules.filter(function(r){ return isRuleCurrentlyActive(r); }).length;
+  window._activeBlockCount = activeCount;
   var el = document.getElementById('sb-blocking');
   var lbl = document.getElementById('sb-blocking-label');
   if (!el || !lbl) return;
-  if (count === 0) {
+  if (activeCount === 0) {
     el.classList.add('empty');
     lbl.textContent = 'Nothing blocking';
   } else {
     el.classList.remove('empty');
-    lbl.textContent = count + ' blocking';
+    lbl.textContent = activeCount + ' blocking';
   }
 }
-(function() {
-  var orig = window._intentionsList;
-  window._intentionsList = function(items) {
-    if (Array.isArray(items)) {
-      window._activeBlockCount = items.filter(function(i) { return i && i.status === 'in_progress'; }).length;
-      refreshSidebarBlockingPill();
+window.refreshSidebarBlockingPill = refreshSidebarBlockingPill;
+
+// FIX-1: Receiver wired to MainWindow.handleGetBlockingProfiles' new
+// snake_case emit. Keeps the legacy `onBlockingProfiles` receiver alive too
+// (separate JSON shipment from the Swift side).
+window._blockingProfilesList = function(items) {
+  window._blockRulesCache = Array.isArray(items) ? items : [];
+  renderBlocksList();
+  refreshSidebarBlockingPill();
+};
+
+function renderBlocksList() {
+  var mount = document.getElementById('blocks-list-mount');
+  if (!mount) return;
+  var rules = window._blockRulesCache || [];
+  var active = rules.filter(function(r){ return r.enabled !== false && isRuleCurrentlyActive(r); }).length;
+  var countEl = document.getElementById('blocks-count');
+  if (countEl) countEl.textContent = '· ' + active + ' active · ' + rules.length + ' total';
+  if (rules.length === 0) {
+    mount.innerHTML = '<div class="blocks-empty-card">No blocks yet. <span class="link" onclick="openBlockRuleCreate()">+ Create your first block</span></div>';
+    return;
+  }
+  mount.innerHTML = rules.map(function(r) {
+    var sites = (r.websites || []).slice(0,4).join(', ');
+    var appsCount = (r.bundle_ids || []).length;
+    var scheduleStr = formatRuleSchedule(r);
+    var activeNow = isRuleCurrentlyActive(r);
+    var pill = activeNow
+      ? '<span class="block-pill active">ACTIVE</span>'
+      : (r.enabled === false
+          ? '<span class="block-pill off">OFF</span>'
+          : '<span class="block-pill upcoming">UPCOMING</span>');
+    var toggleClass = r.enabled !== false ? 'on' : '';
+    var nextEnabled = r.enabled === false ? 'true' : 'false';
+    var listLine = '';
+    if (sites || appsCount > 0) {
+      listLine = '<div class="block-card-list">Blocking: ' + _escapeHTML(sites) + (appsCount > 0 ? (sites ? ' · ' : '') + appsCount + ' apps' : '') + '</div>';
     }
-    if (typeof orig === 'function') orig(items);
-  };
-})();
+    return '<div class="block-card" onclick="openBlockRuleEdit(\'' + r.id + '\')">'
+      + '<div class="block-card-head">'
+      +   '<div class="block-card-title">' + _escapeHTML(r.name) + ' ' + pill + '</div>'
+      +   '<div class="block-toggle ' + toggleClass + '"'
+      +     ' onclick="event.stopPropagation(); toggleBlockRule(\'' + r.id + '\', ' + nextEnabled + ')"></div>'
+      + '</div>'
+      + '<div class="block-card-sched">' + _escapeHTML(scheduleStr) + '</div>'
+      + listLine
+      + '</div>';
+  }).join('');
+}
+window.renderBlocksList = renderBlocksList;
+
+function toggleBlockRule(id, enabled) {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({ type: 'TOGGLE_BLOCK_RULE', id: id, enabled: !!enabled });
+  }
+  // Optimistic update — Swift will re-broadcast and reconcile.
+  var r = (window._blockRulesCache || []).find(function(x){ return x.id === id; });
+  if (r) r.enabled = !!enabled;
+  renderBlocksList();
+  refreshSidebarBlockingPill();
+}
+window.toggleBlockRule = toggleBlockRule;
+
+function _refreshBlockRules() {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({ type: 'GET_BLOCKING_PROFILES' });
+  }
+}
+
+function openBlockRuleCreate() {
+  var name = prompt('Block name (e.g. "Block social media"):');
+  if (!name || !name.trim()) return;
+  var sitesStr = prompt('Sites to block (comma separated, e.g. instagram.com, tiktok.com):') || '';
+  var sites = sitesStr.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+  var startStr = prompt('Start hour (0-23, blank for always-active):');
+  var endStr = prompt('End hour (0-23):');
+  var startHour = (startStr && startStr.trim()) ? parseInt(startStr, 10) : null;
+  var endHour = (endStr && endStr.trim()) ? parseInt(endStr, 10) : null;
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({
+      type: 'CREATE_BLOCK_RULE',
+      name: name.trim(),
+      websites: sites,
+      bundle_ids: [],
+      enabled: true,
+      start_hour: (isNaN(startHour) ? null : startHour),
+      start_minute: 0,
+      end_hour: (isNaN(endHour) ? null : endHour),
+      end_minute: 0,
+      active_days: [1,2,3,4,5,6,7]
+    });
+  }
+  // Swift re-emits after create, but in case of slow path, force refresh.
+  setTimeout(_refreshBlockRules, 400);
+}
+window.openBlockRuleCreate = openBlockRuleCreate;
+
+function openBlockRuleEdit(id) {
+  var r = (window._blockRulesCache || []).find(function(x){ return x.id === id; });
+  if (!r) return;
+  var name = prompt('Block name:', r.name);
+  if (name == null) return;
+  var sitesStr = prompt('Sites (comma separated):', (r.websites || []).join(', '));
+  if (sitesStr == null) return;
+  var startStr = prompt('Start hour (0-23, blank for always-active):', r.start_hour == null ? '' : String(r.start_hour));
+  if (startStr == null) return;
+  var endStr = prompt('End hour (0-23, blank for always-active):', r.end_hour == null ? '' : String(r.end_hour));
+  if (endStr == null) return;
+  var startHour = (startStr && startStr.trim()) ? parseInt(startStr, 10) : null;
+  var endHour = (endStr && endStr.trim()) ? parseInt(endStr, 10) : null;
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({
+      type: 'UPDATE_BLOCK_RULE',
+      id: id,
+      name: (name || '').trim() || r.name,
+      websites: sitesStr.split(',').map(function(s){ return s.trim(); }).filter(Boolean),
+      bundle_ids: r.bundle_ids || [],
+      enabled: r.enabled !== false,
+      start_hour: (isNaN(startHour) ? null : startHour),
+      start_minute: r.start_minute || 0,
+      end_hour: (isNaN(endHour) ? null : endHour),
+      end_minute: r.end_minute || 0,
+      active_days: r.active_days || [1,2,3,4,5,6,7]
+    });
+  }
+  setTimeout(_refreshBlockRules, 400);
+}
+window.openBlockRuleEdit = openBlockRuleEdit;
+
+function openBlockNowModal() {
+  // Trigger immediate focus session via existing Focus Mode toggle.
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({ type: 'TOGGLE_FOCUS_MODE' });
+  }
+  if (typeof showToast === 'function') showToast('Focus session toggled');
+}
+window.openBlockNowModal = openBlockNowModal;
+
+function startPomodoro() {
+  // No native Pomodoro path yet — surface the gap to the user so the button isn't dead.
+  if (typeof showToast === 'function') showToast('Pomodoro 25 coming soon — use Focus Mode for now');
+}
+window.startPomodoro = startPomodoro;
+
+// FIX-1: Today mode toggle — swap Schedule view (default children of #page-today)
+// with the dedicated Blocks view. We mark the keep-visible siblings (mode bar + blocks view)
+// with `data-today-mode-keep` so the swap only hides the schedule content.
+function setTodayMode(mode) {
+  window._todayMode = mode;
+  var toggle = document.getElementById('today-mode-toggle');
+  if (toggle) {
+    toggle.querySelectorAll('.opt').forEach(function(o){
+      o.classList.toggle('active', o.dataset.mode === mode);
+    });
+  }
+  var page = document.getElementById('page-today');
+  if (!page) return;
+  var blocksView = document.getElementById('view-blocks-inner');
+  if (blocksView) blocksView.hidden = (mode !== 'blocks');
+  // Hide every direct child of page-today except the toggle bar + blocks view.
+  Array.prototype.forEach.call(page.children, function(child){
+    if (child.dataset && child.dataset.todayModeKeep === '1') return;
+    if (mode === 'blocks') {
+      if (child.dataset) child.dataset.todayHiddenByBlocks = '1';
+      child.style.display = 'none';
+    } else if (child.dataset && child.dataset.todayHiddenByBlocks === '1') {
+      delete child.dataset.todayHiddenByBlocks;
+      child.style.display = '';
+    }
+  });
+  if (mode === 'blocks') {
+    _refreshBlockRules();
+  }
+}
+window.setTodayMode = setTodayMode;
+
+// Pull block rules on load so the sidebar pill is accurate immediately.
+_refreshBlockRules();
 refreshSidebarBlockingPill();
 
 // May 2026 prototype port — Today weekly-goal cards strip.
@@ -9425,6 +9683,29 @@ function addRule(goalId, kind, type) {
   var inputEl = document.getElementById(inputId);
   var val = inputEl ? (inputEl.value || '').trim() : '';
   if (!val) return;
+
+  // FIX-9: Heads-up if the user is adding something to the Allow list that's
+  // also covered by an enabled block rule. Globally-active block rules win
+  // during their window (requirements §17b.7), so this surface ensures the
+  // user knows their per-goal allowance won't override the block-rule clock.
+  if (kind === 'allow') {
+    var rules = window._blockRulesCache || [];
+    var lcVal = val.toLowerCase();
+    var conflicts = rules.filter(function(r) {
+      if (!r || r.enabled === false) return false;
+      var field = (type === 'site') ? 'websites' : 'bundle_ids';
+      return (r[field] || []).some(function(x){ return String(x).toLowerCase() === lcVal; });
+    });
+    if (conflicts.length > 0) {
+      var ruleName = conflicts[0].name || 'a block rule';
+      var schedStr = formatRuleSchedule(conflicts[0]);
+      var ok = confirm('Heads up — "' + val + '" is blocked by your "' + ruleName +
+        '" rule (' + schedStr + '). Adding it here won\'t override that during ' +
+        'the blocked window. Add anyway?');
+      if (!ok) return;
+    }
+  }
+
   var macField = (type === 'site') ? 'mac_websites' : 'mac_bundle_ids';
   var allowField = (type === 'site') ? 'allow_websites' : 'allow_bundle_ids';
   var target = (kind === 'block') ? macField : allowField;
