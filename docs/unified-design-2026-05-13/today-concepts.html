@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Today — 10 concepts for Routines vs Tasks</title>
+<style>
+  :root {
+    --bg: #0a0c0a; --bg-2: #111414;
+    --card: rgba(255,255,255,0.04);
+    --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.14);
+    --text: #f7f8f8; --muted: rgba(255,255,255,0.55); --dim: rgba(255,255,255,0.36);
+    --coral: #E87461; --gold: #F0B060; --green: #6FB58E; --blue: #6E8FE0;
+    --violet: #B287D9; --amber: #E5A063; --red: #D45050; --indigo: #8B5CF6;
+    --grad: linear-gradient(135deg, var(--coral), var(--gold));
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif;
+    --mono: "SF Mono", Menlo, Monaco, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; line-height: 1.55; }
+  body { background: radial-gradient(ellipse at top, rgba(232,116,97,0.06), transparent 60%), var(--bg); background-attachment: fixed; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 56px 32px 96px; }
+
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--coral); margin-bottom: 10px; }
+  h1 { font-size: 38px; line-height: 1.15; letter-spacing: -0.8px; font-weight: 700; margin: 0 0 14px; }
+  .lede { font-size: 17px; color: var(--muted); max-width: 760px; margin-bottom: 16px; }
+
+  .concept { margin-top: 56px; padding: 30px 32px; background: var(--card); border: 1px solid var(--border); border-radius: 16px; }
+  .concept-h { display: flex; align-items: baseline; gap: 14px; margin-bottom: 8px; flex-wrap: wrap; }
+  .concept-num { font-family: var(--mono); font-size: 18px; color: var(--coral); font-weight: 700; }
+  .concept-title { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; margin: 0; }
+  .concept-tagline { font-size: 14px; color: var(--muted); font-style: italic; }
+  .concept-body { font-size: 13.5px; color: var(--muted); line-height: 1.65; margin: 12px 0 18px; }
+  .concept-body strong { color: var(--text); }
+
+  .layout-row { display: grid; grid-template-columns: 1.2fr 1fr; gap: 22px; margin-top: 18px; }
+  @media (max-width: 980px) { .layout-row { grid-template-columns: 1fr; } }
+
+  .sketch { background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: 12px; padding: 16px; min-height: 320px; position: relative; overflow: hidden; }
+
+  /* Calendar primitives shared across sketches */
+  .mini-cal { position: relative; }
+  .mini-row { display: flex; align-items: stretch; min-height: 36px; padding: 0; border-top: 1px dashed rgba(255,255,255,0.04); position: relative; }
+  .mini-row:first-child { border-top: none; }
+  .mini-row .lbl { font-family: var(--mono); font-size: 10px; color: var(--dim); width: 50px; padding: 4px 0 0 4px; flex-shrink: 0; }
+  .mini-row .lane { flex: 1; position: relative; padding: 2px 4px 2px 0; }
+
+  /* Routine bands */
+  .r-morning { background: linear-gradient(90deg, rgba(110,143,224,0.12), rgba(110,143,224,0.04) 80%, transparent); }
+  .r-deep { background: linear-gradient(90deg, rgba(139,92,246,0.12), rgba(139,92,246,0.04) 80%, transparent); }
+  .r-workout { background: linear-gradient(90deg, rgba(111,181,142,0.12), rgba(111,181,142,0.04) 80%, transparent); }
+  .r-winddown { background: linear-gradient(90deg, rgba(229,160,99,0.12), rgba(229,160,99,0.04) 80%, transparent); }
+
+  /* Task blocks */
+  .t-block { padding: 5px 8px; border-radius: 5px; font-size: 11px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .t-coral { background: rgba(232,116,97,0.20); border-left: 3px solid var(--coral); }
+  .t-gold { background: rgba(240,176,96,0.20); border-left: 3px solid var(--gold); }
+  .t-violet { background: rgba(178,135,217,0.20); border-left: 3px solid var(--violet); }
+  .t-block .when { font-family: var(--mono); font-size: 9px; color: var(--dim); }
+  .t-block .label { flex: 1; }
+
+  .routine-label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; padding: 1px 5px; border-radius: 2px; }
+  .rl-morning { color: var(--blue); background: rgba(110,143,224,0.18); }
+  .rl-deep { color: var(--indigo); background: rgba(139,92,246,0.18); }
+  .rl-workout { color: var(--green); background: rgba(111,181,142,0.18); }
+  .rl-winddown { color: var(--amber); background: rgba(229,160,99,0.18); }
+
+  .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  .pros, .cons { font-size: 12px; line-height: 1.65; }
+  .pros h4, .cons h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; margin: 0 0 6px; }
+  .pros h4 { color: var(--green); }
+  .cons h4 { color: var(--amber); }
+  .pros ul, .cons ul { margin: 0; padding-left: 16px; color: var(--muted); }
+  .pros li, .cons li { margin-bottom: 3px; }
+
+  .when-row { display: flex; gap: 16px; margin-top: 14px; padding: 12px 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; }
+  .when-row .col { flex: 1; }
+  .when-row .lab { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--dim); font-weight: 700; margin-bottom: 4px; }
+  .when-row .col p { margin: 0; color: var(--muted); line-height: 1.55; }
+
+  hr.div { border: none; border-top: 1px dashed var(--border); margin: 18px 0; }
+
+  .verdict { padding: 32px 36px; background: linear-gradient(135deg, rgba(232,116,97,0.10), rgba(240,176,96,0.04)); border: 1px solid rgba(232,116,97,0.36); border-radius: 16px; margin-top: 64px; }
+  .verdict h2 { font-size: 22px; margin: 0 0 12px; letter-spacing: -0.3px; }
+  .verdict .body { font-size: 14px; line-height: 1.65; color: var(--muted); }
+  .verdict .body strong { color: var(--text); }
+  .verdict-grid { display: grid; grid-template-columns: 80px 1fr; gap: 8px 14px; margin-top: 14px; font-size: 12px; }
+  .verdict-grid .num { font-family: var(--mono); color: var(--coral); font-weight: 700; }
+  .verdict-grid .desc { color: var(--muted); }
+  .verdict-grid .desc strong { color: var(--text); }
+
+  /* Concept-specific styles */
+
+  /* C2: Wrapper container */
+  .wrapper-routine { padding: 6px; margin: 4px 0; border-radius: 8px; border: 1px dashed; }
+  .wr-deep { border-color: rgba(139,92,246,0.40); background: rgba(139,92,246,0.04); }
+  .wr-workout { border-color: rgba(111,181,142,0.40); background: rgba(111,181,142,0.04); }
+  .wrapper-routine .wr-header { font-size: 9px; color: var(--indigo); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; margin-bottom: 4px; padding: 0 4px; }
+  .wr-workout .wr-header { color: var(--green); }
+
+  /* C3: Two-mode toggle preview shown side by side */
+  .twomode { display: flex; gap: 8px; padding: 4px; background: rgba(0,0,0,0.3); border-radius: 7px; margin-bottom: 10px; font-size: 11px; }
+  .twomode .opt { padding: 5px 10px; border-radius: 5px; color: var(--muted); cursor: pointer; }
+  .twomode .opt.active { background: rgba(255,255,255,0.10); color: var(--text); }
+
+  /* C5: Left spine */
+  .spine-cal { display: grid; grid-template-columns: 12px 1fr; gap: 0; }
+  .spine { display: flex; flex-direction: column; }
+  .spine-seg { flex: 1; }
+  .ss-blue { background: var(--blue); }
+  .ss-indigo { background: var(--indigo); }
+  .ss-green { background: var(--green); }
+  .ss-amber { background: var(--amber); }
+  .ss-gap { background: transparent; }
+
+  /* C7: Hatched */
+  .r-deep-hatch {
+    background-image: repeating-linear-gradient(45deg, rgba(139,92,246,0.18) 0 4px, transparent 4px 10px);
+  }
+  .r-morning-hatch {
+    background-image: repeating-linear-gradient(45deg, rgba(110,143,224,0.18) 0 4px, transparent 4px 10px);
+  }
+  .r-workout-hatch {
+    background-image: repeating-linear-gradient(45deg, rgba(111,181,142,0.18) 0 4px, transparent 4px 10px);
+  }
+
+  /* C8: Chip strip */
+  .chip-strip { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+  .chip { font-size: 11px; padding: 5px 10px; border-radius: 999px; border: 1px solid; display: inline-flex; align-items: center; gap: 5px; }
+  .chip .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .chip.blue { color: var(--blue); border-color: rgba(110,143,224,0.36); background: rgba(110,143,224,0.06); }
+  .chip.indigo { color: var(--indigo); border-color: rgba(139,92,246,0.36); background: rgba(139,92,246,0.06); }
+  .chip.green { color: var(--green); border-color: rgba(111,181,142,0.36); background: rgba(111,181,142,0.06); }
+  .chip.amber { color: var(--amber); border-color: rgba(229,160,99,0.36); background: rgba(229,160,99,0.06); }
+  .chip.dim { color: var(--dim); border-color: var(--border); }
+  .chip.active { box-shadow: 0 0 0 1px currentColor, 0 0 12px currentColor; }
+
+  /* C4: Spectrum bar */
+  .spectrum { display: flex; height: 16px; border-radius: 4px; overflow: hidden; margin-bottom: 12px; position: relative; }
+  .spectrum .seg { height: 100%; }
+  .spec-now { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--coral); box-shadow: 0 0 8px var(--coral); }
+  .hour-marks { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 9px; color: var(--dim); margin-top: 4px; padding: 0 1px; }
+
+  /* C6: Dual stacked */
+  .mini-week { display: flex; gap: 4px; padding: 8px 0; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+  .mini-week .day { flex: 1; }
+  .mini-week .day-lbl { font-family: var(--mono); font-size: 9px; color: var(--dim); text-align: center; margin-bottom: 4px; }
+  .mini-week .day-strip { height: 80px; background: var(--card); border-radius: 4px; position: relative; }
+  .mini-week .day-strip .seg { position: absolute; left: 1px; right: 1px; border-radius: 2px; }
+
+  /* C9: Glyph hour labels */
+  .glyph-row .lbl { display: flex; align-items: center; gap: 4px; }
+  .glyph-row .glyph { font-size: 11px; }
+
+  /* C10: Z-axis depth */
+  .depth-cal .depth-bg { position: absolute; top: 16px; left: 16px; right: 16px; bottom: 16px; filter: blur(2px) saturate(0.6); opacity: 0.65; }
+  .depth-cal .depth-fg { position: relative; z-index: 5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">10 concepts · routines vs tasks · 2026-05-13</div>
+  <h1>10 ways to show Routines and Tasks on one calendar</h1>
+  <p class="lede">The problem: two orthogonal scheduling concepts need to share one calendar. Routines (recurring time scaffolding — "Deep Work weekdays 9-11 AM") answer <em>when</em>. Tasks (goal-driven sessions — "Outline blog post #3") answer <em>what</em>. 10 concepts below, each genuinely different. Each has pros, cons, and the situation where it shines vs. fails.</p>
+</header>
+
+<!-- ───────────── CONCEPT 1 ───────────── -->
+<section class="concept">
+  <div class="concept-h">
+    <span class="concept-num">01</span>
+    <h2 class="concept-title">Background tint bands</h2>
+    <span class="concept-tagline">routines whisper, tasks shout</span>
+  </div>
+  <div class="concept-body">Routines render as faint colored backgrounds behind the hour rows. Tasks layer on top as solid colored blocks. The user sees both simultaneously without toggling: the colored bands tell them "this hour is in your Deep Work routine," and the solid block on top tells them "and the specific task you're doing is Outline blog #3." When a task is in a routine, the routine sits behind it as backdrop. When a routine has no task, the band stands alone as an invitation to fill it.</div>
+
+  <div class="layout-row">
+    <div class="sketch">
+      <div class="mini-cal">
+        <div class="mini-row r-morning"><span class="lbl">6 AM</span><span class="lane"><span class="routine-label rl-morning">Morning</span></span></div>
+        <div class="mini-row r-morning"><span class="lbl">7</span><span class="lane"></span></div>
+        <div class="mini-row r-morning"><span class="lbl">8</span><span class="lane"></span></div>
+        <div class="mini-row r-deep"><span class="lbl">9</span><span class="lane"><span class="routine-label rl-deep">Deep Work</span><div class="t-block t-coral"><span class="when">9–10:30</span><span class="label">Morning planning</span></div></span></div>
+        <div class="mini-row r-deep"><span class="lbl">10</span><span class="lane"></span></div>
+        <div class="mini-row"><span class="lbl">11</span><span class="lane"></span></div>
+        <div class="mini-row"><span class="lbl">12</span><span class="lane"></span></div>
+        <div class="mini-row r-deep"><span class="lbl">1 PM</span><span class="lane"><div class="t-block t-gold"><span class="when">1–3</span><span class="label">Outline blog #3</span></div></span></div>
+      </div>
+    </div>
+    <div>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>See both layers at once, zero toggling</li><li>Subtle — routines don't compete with tasks</li><li>Natural mental model: backdrop vs object</li><li>No extra screen real estate needed</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Many overlapping routines = muddy palette</li><li>Routines without labels can be ambiguous</li><li>Colorblind users see less distinction</li></ul></div>
+      </div>
+      <div class="when-row">
+        <div class="col"><div class="lab">Shines when</div><p>2–4 routines/day, each with distinct color</p></div>
+        <div class="col"><div class="lab">Fails when</div><p>5+ overlapping routines, or pure-routine view needed</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── CONCEPT 2 ───────────── -->
+<section class="concept">
+  <div class="concept-h">
+    <span class="concept-num">02</span>
+    <h2 class="concept-title">Routine as wrapper container</h2>
+    <span class="concept-tagline">explicit nesting, tasks live inside</span>
+  </div>
+  <div class="concept-body">Routines are drawn as dashed bordered containers with a labeled header — "DEEP WORK · 9 AM – 11 AM." Tasks live <em>inside</em> these containers as solid blocks. Tasks outside any routine container float standalone with no frame. This makes the parent-child relationship explicit, like nested folders. The visual hierarchy is unambiguous: anything inside a wrapper IS that routine; anything outside is freelance work.</div>
+
+  <div class="layout-row">
+    <div class="sketch">
+      <div class="mini-cal">
+        <div class="wrapper-routine wr-deep">
+          <div class="wr-header">Deep Work · 9 AM – 11 AM</div>
+          <div class="mini-row"><span class="lbl">9</span><span class="lane"><div class="t-block t-coral"><span class="when">9–10:30</span><span class="label">Morning planning ✓</span></div></span></div>
+          <div class="mini-row"><span class="lbl">10</span><span class="lane"></span></div>
+        </div>
+        <div class="mini-row"><span class="lbl">11</span><span class="lane"><div class="t-block t-violet"><span class="when">11–12</span><span class="label">Ad-hoc task (no routine)</span></div></span></div>
+        <div class="mini-row"><span class="lbl">12</span><span class="lane"></span></div>
+        <div class="wrapper-routine wr-deep">
+          <div class="wr-header">Deep Work · 1 PM – 3 PM</div>
+          <div class="mini-row"><span class="lbl">1 PM</span><span class="lane"><div class="t-block t-gold"><span class="when">1–3</span><span class="label">Outline blog #3</span></div></span></div>
+          <div class="mini-row"><span class="lbl">2</span><span class="lane"></span></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Parent-child relationship is unambiguous</li><li>Routine boundaries impossible to miss</li><li>Tasks "outside" routines visually distinct</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Boxes-within-boxes can feel boxed-in</li><li>More visual chrome than necessary</li><li>Routines that span discontinuously look weird</li></ul></div>
+      </div>
+      <div class="when-row">
+        <div class="col"><div class="lab">Shines when</div><p>User wants to feel the structure of their routines explicitly</p></div>
+        <div class="col"><div class="lab">Fails when</div><p>Routines overlap or the user wants a clean timeline</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── CONCEPT 3 ───────────── -->
+<section class="concept">
+  <div class="concept-h">
+    <span class="concept-num">03</span>
+    <h2 class="concept-title">Two-mode toggle (Schedule / Tasks / Both)</h2>
+    <span class="concept-tagline">explicit mode switch, focus per mode</span>
+  </div>
+  <div class="concept-body">A toggle at the top of the calendar switches between three views: <strong>Schedule</strong> (only routines visible, used for setting up the weekly scaffolding), <strong>Tasks</strong> (only today's tasks visible, used for execution), and <strong>Both</strong> (overlay, same as Concept 1). Mental model: setup mode vs. work mode. Like Notion's "Calendar view" vs. "List view."</div>
+
+  <div class="layout-row">
+    <div class="sketch">
+      <div class="twomode"><span class="opt">Schedule</span><span class="opt active">Tasks</span><span class="opt">Both</span></div>
+      <div class="mini-cal">
+        <div class="mini-row"><span class="lbl">9</span><span class="lane"><div class="t-block t-coral"><span class="when">9–10:30</span><span class="label">Morning planning ✓</span></div></span></div>
+        <div class="mini-row"><span class="lbl">10</span><span class="lane"></span></div>
+        <div class="mini-row"><span class="lbl">11</span><span class="lane"></span></div>
+        <div class="mini-row"><span class="lbl">12 PM</span><span class="lane"></span></div>
+        <div class="mini-row"><span class="lbl">1</span><span class="lane"><div class="t-block t-gold"><span class="when">1–3</span><span class="label">Outline blog #3</span></div></span></div>
+        <div class="mini-row"><span class="lbl">2</span><span class="lane"></span></div>
+        <div class="mini-row"><span class="lbl">3</span><span class="lane"><div class="t-block t-violet"><span class="when">3:30–5</span><span class="label">Code review</span></div></span></div>
+      </div>
+    </div>
+    <div>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Clean focus when configuring routines</li><li>Clean focus when executing tasks</li><li>Power-user friendly</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Requires a click to switch modes</li><li>Hides information by default</li><li>User has to remember which mode shows what</li></ul></div>
+      </div>
+      <div class="when-row">
+        <div class="col"><div class="lab">Shines when</div><p>Setup is rare and the user lives in execution view</p></div>
+        <div class="col"><div class="lab">Fails when</div><p>User wants to see both simultaneously by default</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── CONCEPT 4 ───────────── -->
+<section class="concept">
+  <div class="concept-h">
+    <span class="concept-num">04</span>
+    <h2 class="concept-title">Spectrum bar (24h glance + detail)</h2>
+    <span class="concept-tagline">a 24h mood meter above the calendar</span>
+  </div>
+  <div class="concept-body">A horizontal 24-hour bar at the top of the page shows today's routines as colored segments — like a music waveform of your day's structure. A NOW indicator slides along it. Below the spectrum sits the regular vertical calendar showing tasks. The spectrum bar is a glanceable mood/shape preview; the calendar below has the detail.</div>
+
+  <div class="layout-row">
+    <div class="sketch">
+      <div style="font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">Today's shape</div>
+      <div class="spectrum">
+        <div class="seg" style="width:25%; background:transparent;"></div>
+        <div class="seg" style="width:10%; background:rgba(110,143,224,0.5);"></div>
+        <div class="seg" style="width:4%; background:transparent;"></div>
+        <div class="seg" style="width:8%; background:rgba(139,92,246,0.5);"></div>
+        <div class="seg" style="width:8%; background:transparent;"></div>
+        <div class="seg" style="width:8%; background:rgba(139,92,246,0.5);"></div>
+        <div class="seg" style="width:10%; background:transparent;"></div>
+        <div class="seg" style="width:8%; background:rgba(111,181,142,0.5);"></div>
+        <div class="seg" style="width:10%; background:transparent;"></div>
+        <div class="seg" style="width:9%; background:rgba(229,160,99,0.5);"></div>
+        <div class="spec-now" style="left:55%;"></div>
+      </div>
+      <div class="hour-marks"><span>0</span><span>6</span><span>12</span><span>18</span><span>24</span></div>
+      <hr class="div">
+      <div class="mini-cal">
+        <div class="mini-row"><span class="lbl">9</span><span class="lane"><div class="t-block t-coral"><span class="when">9–10:30</span><span class="label">Morning planning ✓</span></div></span></div>
+        <div class="mini-row"><span class="lbl">10</span><span class="lane"></span></div>
+        <div class="mini-row"><span class="lbl">1 PM</span><span class="lane"><div class="t-block t-gold"><span class="when">1–3</span><span class="label">Outline blog #3</span></div></span></div>
+      </div>
+    </div>
+    <div>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Glanceable day shape from 6 feet away</li><li>NOW indicator gives temporal context</li><li>Novel, premium feel</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Duplicates information (routines twice)</li><li>Spectrum tiny → hard to interact</li><li>Adds vertical real estate</li></ul></div>
+      </div>
+      <div class="when-row">
+        <div class="col"><div class="lab">Shines when</div><p>User wants a quick "what's my day look like" check</p></div>
+        <div class="col"><div class="lab">Fails when</div><p>Routines change often or you live in the detail view</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── CONCEPT 5 ───────────── -->
+<section class="concept">
+  <div class="concept-h">
+    <span class="concept-num">05</span>
+    <h2 class="concept-title">Left-edge time spine</h2>
+    <span class="concept-tagline">a vertical color strip indicates routine boundaries</span>
+  </div>
+  <div class="concept-body">A thin (12 px) colored vertical strip on the LEFT of the calendar shows routines as continuous segments. The main calendar lane to the right shows tasks. The spine is like a multi-color "ruler" running down the time axis — at any hour, glance left to see which routine you're in. Compact, distinctive, doesn't compete with the main timeline.</div>
+
+  <div class="layout-row">
+    <div class="sketch">
+      <div class="spine-cal">
+        <div class="spine">
+          <div class="spine-seg ss-blue" style="flex:3;" title="Morning"></div>
+          <div class="spine-seg ss-indigo" style="flex:2;" title="Deep Work"></div>
+          <div class="spine-seg ss-gap" style="flex:2;"></div>
+          <div class="spine-seg ss-indigo" style="flex:2;" title="Deep Work"></div>
+          <div class="spine-seg ss-gap" style="flex:1;"></div>
+          <div class="spine-seg ss-amber" style="flex:2;" title="Wind Down"></div>
+        </div>
+        <div class="mini-cal">
+          <div class="mini-row"><span class="lbl">6</span><span class="lane"></span></div>
+          <div class="mini-row"><span class="lbl">7</span><span class="lane"></span></div>
+          <div class="mini-row"><span class="lbl">8</span><span class="lane"></span></div>
+          <div class="mini-row"><span class="lbl">9</span><span class="lane"><div class="t-block t-coral"><span class="when">9–10:30</span><span class="label">Morning planning ✓</span></div></span></div>
+          <div class="mini-row"><span class="lbl">10</span><span class="lane"></span></div>
+          <div class="mini-row"><span class="lbl">11</span><span class="lane"></span></div>
+          <div class="mini-row"><span class="lbl">12 PM</span><span class="lane"></span></div>
+          <div class="mini-row"><span class="lbl">1</span><span class="lane"><div class="t-block t-gold"><span class="when">1–3</span><span class="label">Outline blog #3</span></div></span></div>
+          <div class="mini-row"><span class="lbl">2</span><span class="lane"></span></div>
+          <div class="mini-row"><span class="lbl">3</span><span class="lane"></span></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Compact — no horizontal/vertical bloat</li><li>Visual rhythm distinct from task blocks</li><li>Beautiful when colors are well-chosen</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Routines feel abstract (no labels in-place)</li><li>Requires a legend nearby</li><li>Hovering for tooltips is delay-y</li></ul></div>
+      </div>
+      <div class="when-row">
+        <div class="col"><div class="lab">Shines when</div><p>User has consistent daily routines they've memorized</p></div>
+        <div class="col"><div class="lab">Fails when</div><p>Routines are new or vary often</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── CONCEPT 6 ───────────── -->
+<section class="concept">
+  <div class="concept-h">
+    <span class="concept-num">06</span>
+    <h2 class="concept-title">Stacked dual calendars (week + day)</h2>
+    <span class="concept-tagline">routines at top, tasks below</span>
+  </div>
+  <div class="concept-body">Two calendars stacked vertically. Top: a compact week strip showing recurring routine patterns across all 7 days (read-only summary). Bottom: today's vertical calendar showing tasks. Like the iPhone Calendar with the month strip + day view — gives both contexts simultaneously without overlapping.</div>
+
+  <div class="layout-row">
+    <div class="sketch">
+      <div style="font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">This week's routines</div>
+      <div class="mini-week">
+        <div class="day"><div class="day-lbl">MON</div><div class="day-strip"><span class="seg" style="top:0%; height:25%; background:var(--blue);"></span><span class="seg" style="top:28%; height:18%; background:var(--indigo);"></span><span class="seg" style="top:78%; height:22%; background:var(--amber);"></span></div></div>
+        <div class="day"><div class="day-lbl">TUE</div><div class="day-strip" style="border: 1px solid var(--coral);"><span class="seg" style="top:0%; height:25%; background:var(--blue);"></span><span class="seg" style="top:28%; height:18%; background:var(--indigo);"></span><span class="seg" style="top:48%; height:18%; background:var(--indigo);"></span><span class="seg" style="top:78%; height:22%; background:var(--amber);"></span></div></div>
+        <div class="day"><div class="day-lbl">WED</div><div class="day-strip"><span class="seg" style="top:0%; height:25%; background:var(--blue);"></span><span class="seg" style="top:28%; height:18%; background:var(--indigo);"></span><span class="seg" style="top:78%; height:22%; background:var(--amber);"></span></div></div>
+        <div class="day"><div class="day-lbl">THU</div><div class="day-strip"><span class="seg" style="top:0%; height:25%; background:var(--blue);"></span><span class="seg" style="top:28%; height:18%; background:var(--indigo);"></span><span class="seg" style="top:78%; height:22%; background:var(--amber);"></span></div></div>
+        <div class="day"><div class="day-lbl">FRI</div><div class="day-strip"><span class="seg" style="top:0%; height:25%; background:var(--blue);"></span><span class="seg" style="top:28%; height:18%; background:var(--indigo);"></span><span class="seg" style="top:78%; height:22%; background:var(--amber);"></span></div></div>
+        <div class="day"><div class="day-lbl">SAT</div><div class="day-strip"><span class="seg" style="top:78%; height:22%; background:var(--amber);"></span></div></div>
+        <div class="day"><div class="day-lbl">SUN</div><div class="day-strip"><span class="seg" style="top:78%; height:22%; background:var(--amber);"></span></div></div>
+      </div>
+      <hr class="div">
+      <div style="font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">Today's tasks</div>
+      <div class="mini-cal">
+        <div class="mini-row"><span class="lbl">9</span><span class="lane"><div class="t-block t-coral"><span class="when">9–10:30</span><span class="label">Morning planning ✓</span></div></span></div>
+        <div class="mini-row"><span class="lbl">1 PM</span><span class="lane"><div class="t-block t-gold"><span class="when">1–3</span><span class="label">Outline blog #3</span></div></span></div>
+      </div>
+    </div>
+    <div>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Week context + today's detail at once</li><li>Familiar Calendar.app-like pattern</li><li>Clean separation, no overlap</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Takes vertical real estate</li><li>Two scans needed for full picture</li><li>Week mini-cal can feel cluttered</li></ul></div>
+      </div>
+      <div class="when-row">
+        <div class="col"><div class="lab">Shines when</div><p>Weekly view matters as much as daily</p></div>
+        <div class="col"><div class="lab">Fails when</div><p>Vertical space is constrained</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── CONCEPT 7 ───────────── -->
+<section class="concept">
+  <div class="concept-h">
+    <span class="concept-num">07</span>
+    <h2 class="concept-title">Hatched-pattern routines</h2>
+    <span class="concept-tagline">stripes = structural, solid = specific</span>
+  </div>
+  <div class="concept-body">Routines render with diagonal stripe (hatching) pattern fills. Tasks render with solid color fills. Pattern signals "structural / recurring." Solid signals "specific / today." The visual language is "scaffolding vs content" via texture. Bonus: accessible for colorblind users — the pattern is a non-color cue.</div>
+
+  <div class="layout-row">
+    <div class="sketch">
+      <div class="mini-cal">
+        <div class="mini-row r-morning-hatch"><span class="lbl">6</span><span class="lane"><span class="routine-label rl-morning">Morning</span></span></div>
+        <div class="mini-row r-morning-hatch"><span class="lbl">7</span><span class="lane"></span></div>
+        <div class="mini-row r-morning-hatch"><span class="lbl">8</span><span class="lane"></span></div>
+        <div class="mini-row r-deep-hatch"><span class="lbl">9</span><span class="lane"><span class="routine-label rl-deep">Deep Work</span><div class="t-block t-coral"><span class="when">9–10:30</span><span class="label">Morning planning ✓</span></div></span></div>
+        <div class="mini-row r-deep-hatch"><span class="lbl">10</span><span class="lane"></span></div>
+        <div class="mini-row"><span class="lbl">11</span><span class="lane"></span></div>
+        <div class="mini-row r-deep-hatch"><span class="lbl">1 PM</span><span class="lane"><div class="t-block t-gold"><span class="when">1–3</span><span class="label">Outline blog #3</span></div></span></div>
+        <div class="mini-row r-deep-hatch"><span class="lbl">2</span><span class="lane"></span></div>
+        <div class="mini-row r-workout-hatch"><span class="lbl">5</span><span class="lane"><span class="routine-label rl-workout">Workout</span></span></div>
+      </div>
+    </div>
+    <div>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Accessible (works for colorblind)</li><li>Distinct visual language at a glance</li><li>Pattern unambiguously says "structural"</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Hatching can look busy / aged</li><li>Print-design feel, not modern app feel</li><li>Hatches lose detail at small sizes</li></ul></div>
+      </div>
+      <div class="when-row">
+        <div class="col"><div class="lab">Shines when</div><p>Accessibility matters, or visual texture is desired</p></div>
+        <div class="col"><div class="lab">Fails when</div><p>Minimal aesthetic preferred (Teenage Engineering / Apple Watch)</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── CONCEPT 8 ───────────── -->
+<section class="concept">
+  <div class="concept-h">
+    <span class="concept-num">08</span>
+    <h2 class="concept-title">Routine pill strip above calendar</h2>
+    <span class="concept-tagline">routines summarized as chips, calendar shows tasks only</span>
+  </div>
+  <div class="concept-body">A horizontal strip of routine chips above the calendar lists today's active routines (Morning · Deep Work · Workout · Wind Down). Each chip shows time range and glows when its routine is currently active. The calendar below shows ONLY tasks. The chips give you the "what routines do I have today" answer at a glance; the calendar gives you "when am I doing my work."</div>
+
+  <div class="layout-row">
+    <div class="sketch">
+      <div class="chip-strip">
+        <span class="chip blue"><span class="dot" style="background:var(--blue);"></span>Morning · 6–8:30</span>
+        <span class="chip indigo active"><span class="dot" style="background:var(--indigo);"></span>Deep Work · 9–11, 1–3</span>
+        <span class="chip green"><span class="dot" style="background:var(--green);"></span>Workout · 5–7</span>
+        <span class="chip amber"><span class="dot" style="background:var(--amber);"></span>Wind Down · 9–11 PM</span>
+      </div>
+      <hr class="div">
+      <div class="mini-cal">
+        <div class="mini-row"><span class="lbl">9</span><span class="lane"><div class="t-block t-coral"><span class="when">9–10:30</span><span class="label">Morning planning ✓</span></div></span></div>
+        <div class="mini-row"><span class="lbl">10</span><span class="lane"></span></div>
+        <div class="mini-row"><span class="lbl">11</span><span class="lane"></span></div>
+        <div class="mini-row"><span class="lbl">12</span><span class="lane"></span></div>
+        <div class="mini-row"><span class="lbl">1 PM</span><span class="lane"><div class="t-block t-gold"><span class="when">1–3</span><span class="label">Outline blog #3</span></div></span></div>
+        <div class="mini-row"><span class="lbl">2</span><span class="lane"></span></div>
+      </div>
+    </div>
+    <div>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Calendar stays clean (tasks only)</li><li>Routine summary glanceable</li><li>Active routine glow is easy to spot</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Routines decoupled from time visualization</li><li>User must mentally map chip times to calendar</li><li>Empty routine slots invisible</li></ul></div>
+      </div>
+      <div class="when-row">
+        <div class="col"><div class="lab">Shines when</div><p>Routines run as background blocking with few empty slots</p></div>
+        <div class="col"><div class="lab">Fails when</div><p>User wants to see routine boundaries on the timeline</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── CONCEPT 9 ───────────── -->
+<section class="concept">
+  <div class="concept-h">
+    <span class="concept-num">09</span>
+    <h2 class="concept-title">Glyph hour labels (emoji-as-routine)</h2>
+    <span class="concept-tagline">a single emoji per hour tells the routine</span>
+  </div>
+  <div class="concept-body">Routine info compresses into a single glyph in the hour label column. "9 AM 🧠" = 9 AM during Deep Work. "5 PM 🏃" = 5 PM during Workout. "9 PM 🌙" = 9 PM during Wind Down. The calendar lane stays clean for tasks. Glyphs are fast to scan, instantly recognizable. The downside: limited info density per glyph.</div>
+
+  <div class="layout-row">
+    <div class="sketch">
+      <div class="mini-cal">
+        <div class="mini-row glyph-row"><span class="lbl"><span class="glyph">🌅</span>6</span><span class="lane"></span></div>
+        <div class="mini-row glyph-row"><span class="lbl"><span class="glyph">🌅</span>7</span><span class="lane"></span></div>
+        <div class="mini-row glyph-row"><span class="lbl"><span class="glyph">🌅</span>8</span><span class="lane"></span></div>
+        <div class="mini-row glyph-row"><span class="lbl"><span class="glyph">🧠</span>9</span><span class="lane"><div class="t-block t-coral"><span class="when">9–10:30</span><span class="label">Morning planning ✓</span></div></span></div>
+        <div class="mini-row glyph-row"><span class="lbl"><span class="glyph">🧠</span>10</span><span class="lane"></span></div>
+        <div class="mini-row glyph-row"><span class="lbl">11</span><span class="lane"></span></div>
+        <div class="mini-row glyph-row"><span class="lbl">12</span><span class="lane"></span></div>
+        <div class="mini-row glyph-row"><span class="lbl"><span class="glyph">🧠</span>1</span><span class="lane"><div class="t-block t-gold"><span class="when">1–3</span><span class="label">Outline blog #3</span></div></span></div>
+        <div class="mini-row glyph-row"><span class="lbl"><span class="glyph">🧠</span>2</span><span class="lane"></span></div>
+        <div class="mini-row glyph-row"><span class="lbl"><span class="glyph">🏃</span>5</span><span class="lane"></span></div>
+        <div class="mini-row glyph-row"><span class="lbl"><span class="glyph">🌙</span>9</span><span class="lane"></span></div>
+      </div>
+    </div>
+    <div>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Iconic, instantly recognizable</li><li>Minimal visual chrome</li><li>Memorable: 🧠 = Deep Work forever</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Limited to ~8 distinct icons</li><li>Emoji rendering varies by OS</li><li>No precision on boundary</li></ul></div>
+      </div>
+      <div class="when-row">
+        <div class="col"><div class="lab">Shines when</div><p>Few routines, each with strong identity</p></div>
+        <div class="col"><div class="lab">Fails when</div><p>User has many routines / emoji feels childish</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── CONCEPT 10 ───────────── -->
+<section class="concept">
+  <div class="concept-h">
+    <span class="concept-num">10</span>
+    <h2 class="concept-title">Z-axis depth (parallax)</h2>
+    <span class="concept-tagline">routines blurred behind, tasks crisp in front</span>
+  </div>
+  <div class="concept-body">A 3D depth effect: routines exist on a "background plane" — slightly blurred, lower saturation. Tasks live on a "foreground plane" — sharp, full saturation. The visual depth signals priority and time-scale: routines are the structure (back), tasks are the action (front). Hover any element to bring it forward and reveal detail.</div>
+
+  <div class="layout-row">
+    <div class="sketch depth-cal" style="position:relative;">
+      <div class="depth-bg">
+        <div class="mini-cal">
+          <div class="mini-row r-deep"><span class="lbl">9</span><span class="lane"><span class="routine-label rl-deep">Deep Work</span></span></div>
+          <div class="mini-row r-deep"><span class="lbl">10</span><span class="lane"></span></div>
+          <div class="mini-row"><span class="lbl">11</span><span class="lane"></span></div>
+          <div class="mini-row"><span class="lbl">12 PM</span><span class="lane"></span></div>
+          <div class="mini-row r-deep"><span class="lbl">1</span><span class="lane"></span></div>
+          <div class="mini-row r-deep"><span class="lbl">2</span><span class="lane"></span></div>
+        </div>
+      </div>
+      <div class="depth-fg">
+        <div class="mini-cal">
+          <div class="mini-row"><span class="lbl" style="opacity:0.3;">9</span><span class="lane"><div class="t-block t-coral" style="box-shadow: 0 8px 24px rgba(0,0,0,0.5);"><span class="when">9–10:30</span><span class="label">Morning planning ✓</span></div></span></div>
+          <div class="mini-row"><span class="lbl" style="opacity:0.3;">10</span><span class="lane"></span></div>
+          <div class="mini-row"><span class="lbl" style="opacity:0.3;">11</span><span class="lane"></span></div>
+          <div class="mini-row"><span class="lbl" style="opacity:0.3;">12 PM</span><span class="lane"></span></div>
+          <div class="mini-row"><span class="lbl" style="opacity:0.3;">1</span><span class="lane"><div class="t-block t-gold" style="box-shadow: 0 8px 24px rgba(0,0,0,0.5);"><span class="when">1–3</span><span class="label">Outline blog #3</span></div></span></div>
+          <div class="mini-row"><span class="lbl" style="opacity:0.3;">2</span><span class="lane"></span></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Premium / cinematic feel</li><li>Priority instantly clear: front = now</li><li>Hover-to-elevate is fun</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Skeuomorphic — ages quickly</li><li>Blur is a perf cost on low-end Macs</li><li>Hard to implement well in HTML</li></ul></div>
+      </div>
+      <div class="when-row">
+        <div class="col"><div class="lab">Shines when</div><p>Visual identity is the headline feature (Opal-tier brand)</p></div>
+        <div class="col"><div class="lab">Fails when</div><p>Information density matters more than feel</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- VERDICT -->
+<div class="verdict">
+  <h2>My ranking and recommendation</h2>
+  <div class="body">
+    All 10 concepts solve the same problem, but they encode different priorities. Here's the ranking by <strong>"intuitive at first glance + flexible for power use + implementable now"</strong>:
+    <div class="verdict-grid">
+      <span class="num">★ #1</span><span class="desc"><strong>Concept 1: Background tint bands.</strong> What's currently shipped in today.html (v4). Best ratio of clarity to simplicity. Don't replace; iterate.</span>
+      <span class="num">#2</span><span class="desc"><strong>Concept 8: Pill strip above.</strong> If we want a cleaner calendar, this is the runner-up. Lets the calendar focus on tasks while keeping routines a single glance away.</span>
+      <span class="num">#3</span><span class="desc"><strong>Concept 5: Left spine.</strong> Beautiful and compact, but requires legend nearby — works as a hybrid with Concept 1's labels.</span>
+      <span class="num">#4</span><span class="desc"><strong>Concept 9: Glyph labels.</strong> Surprisingly delightful in small doses. Could work as an additive layer alongside Concept 1.</span>
+      <span class="num">#5</span><span class="desc"><strong>Concept 3: Two-mode toggle.</strong> Worth keeping as an OPTION on top of Concept 1 — let power users hide one layer when needed.</span>
+      <span class="num">#6</span><span class="desc"><strong>Concept 4: Spectrum bar.</strong> Could be a permanent header element across all tabs (Today, Plan, Settings) — "the day's shape at a glance."</span>
+      <span class="num">#7</span><span class="desc"><strong>Concept 6: Stacked dual.</strong> Better as the Plan tab's primary view (week routines + selected-day tasks) than Today.</span>
+      <span class="num">#8</span><span class="desc"><strong>Concept 2: Wrapper container.</strong> Conceptually right but visually heavy.</span>
+      <span class="num">#9</span><span class="desc"><strong>Concept 7: Hatching.</strong> Best for accessibility mode — could be an Accessibility setting that swaps tints for hatches.</span>
+      <span class="num">#10</span><span class="desc"><strong>Concept 10: Z-axis depth.</strong> Premium but ages fast; revisit when we have a designer / motion lead.</span>
+    </div>
+    <p style="margin-top: 18px;"><strong>My pick:</strong> ship Concept 1 (already done in <code>today.html</code> v4), add Concept 8 as an <em>alternate view</em> the user can switch to from a calendar setting, add Concept 4 as a permanent header strip across the whole app. Three concepts working together, each pulling its weight.</p>
+    <p><strong>Or:</strong> if you want to commit to a single visualization, pick from #1, #2, #8, or #10 — they're the four most distinct, and I'll build whichever you choose into the canonical today.html.</p>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

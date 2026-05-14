@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Intentional — Overlays (modals + popovers)</title>
+<style>
+  :root {
+    --bg: #0a0c0a; --bg-2: #111414;
+    --card: rgba(255,255,255,0.04);
+    --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.14);
+    --text: #f7f8f8; --muted: rgba(255,255,255,0.55); --dim: rgba(255,255,255,0.36);
+    --coral: #E87461; --gold: #F0B060; --green: #6FB58E; --blue: #6E8FE0;
+    --violet: #B287D9; --amber: #E5A063; --red: #D45050;
+    --grad: linear-gradient(135deg, var(--coral), var(--gold));
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif;
+    --mono: "SF Mono", Menlo, Monaco, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; line-height: 1.55; }
+  body { background: radial-gradient(ellipse at top, rgba(232,116,97,0.06), transparent 60%), var(--bg); background-attachment: fixed; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 56px 32px 96px; }
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--coral); margin-bottom: 10px; }
+  h1 { font-size: 38px; line-height: 1.15; letter-spacing: -0.8px; font-weight: 700; margin: 0 0 14px; }
+  .lede { font-size: 17px; color: var(--muted); max-width: 760px; margin-bottom: 16px; }
+  h2 { font-size: 20px; letter-spacing: -0.3px; font-weight: 600; margin: 56px 0 6px; }
+  h2 .meta { font-size: 13px; font-weight: 400; color: var(--dim); margin-left: 12px; }
+  .state-note { font-size: 13px; color: var(--muted); margin: 6px 0 14px; max-width: 760px; }
+  .stage { padding: 36px; background: var(--card); border-radius:14px; border:1px solid var(--border); }
+  .modal { background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: 14px; padding: 24px; max-width: 480px; margin: 0 auto; box-shadow: 0 24px 60px rgba(0,0,0,0.5); }
+  .modal h3 { font-size: 16px; margin: 0 0 14px; font-weight: 700; }
+  .modal h3.danger { color: var(--red); }
+  .modal h3.success { color: var(--green); }
+  .field { margin-bottom: 14px; }
+  .field label { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; display: block; margin-bottom: 6px; }
+  .input { padding: 10px 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; font-size: 14px; color: var(--text); }
+  .input.textarea { min-height: 60px; }
+  .actions { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; }
+  .right { display: flex; gap: 8px; }
+  .btn-primary { background: var(--grad); color: #1a0f0a; border: none; padding: 9px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; font-family: var(--font); }
+  .btn-secondary { background: transparent; color: var(--muted); border: 1px solid var(--border-strong); padding: 9px 14px; border-radius: 8px; font-weight: 500; font-size: 13px; cursor: pointer; font-family: var(--font); }
+  .btn-danger { background: transparent; color: var(--red); border: 1px solid rgba(212,80,80,0.36); padding: 9px 14px; border-radius: 8px; font-weight: 500; font-size: 13px; cursor: pointer; }
+  .btn-quiet { background: transparent; color: var(--muted); border: 0; padding: 9px 6px; font-size: 12px; cursor: pointer; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; font-size: 10px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap; }
+  .pill.coral { background: rgba(232,116,97,0.12); color: var(--coral); border: 1px solid rgba(232,116,97,0.28); }
+  .pill.red { background: rgba(212,80,80,0.12); color: var(--red); border: 1px solid rgba(212,80,80,0.28); }
+  .pill.green { background: rgba(111,181,142,0.12); color: var(--green); border: 1px solid rgba(111,181,142,0.28); }
+  .pill.amber { background: rgba(229,160,99,0.12); color: var(--amber); border: 1px solid rgba(229,160,99,0.28); }
+  .pill.blue { background: rgba(110,143,224,0.12); color: var(--blue); border: 1px solid rgba(110,143,224,0.28); }
+  .pill.dim { background: rgba(255,255,255,0.04); color: var(--dim); border: 1px solid var(--border); }
+  .annot { margin: 12px 0 0; padding: 12px 16px; background: var(--card); border-left: 3px solid var(--coral); border-radius: 0 10px 10px 0; font-size: 13px; line-height: 1.6; color: var(--muted); }
+  .annot strong { color: var(--text); }
+  .annot code { background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 4px; font-size: 12px; font-family: var(--mono); }
+
+  .code-box { display: flex; gap: 6px; }
+  .code-box .input { width: 42px; height: 48px; text-align: center; font-size: 18px; font-family: var(--mono); }
+  .code-box .input.filled { background: rgba(232,116,97,0.10); border-color: var(--coral); }
+
+  .mission-row { display: flex; align-items: center; gap: 12px; padding: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; cursor: pointer; }
+  .mission-row .dot-color { width: 10px; height: 10px; border-radius: 50%; }
+  .mission-row .title { flex: 1; font-size: 13px; }
+  .mission-row .sub { font-size: 11px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Overlays · modals + popovers · 2026-05-13</div>
+  <h1>Overlays — every modal, every popover, every confirm</h1>
+  <p class="lede">33 overlay states from across the app. Mode pickers, partner-unlock flows, status popovers, onboarding, login, and every "are you sure" confirmation. Grouped by source surface.</p>
+</header>
+
+<!-- 1. Mode picker -->
+<h2>1 — Mode picker <span class="meta">opens from Today's "Start something now"</span></h2>
+<p class="state-note">Search + list of weekly missions. "+ Quick block (no mission)" at the bottom routes to State 3.</p>
+<div class="stage">
+  <div class="modal">
+    <h3>Start a session</h3>
+    <div class="field"><label>Pick a mission</label>
+      <div class="input" style="display:flex; align-items:center; gap:8px; color:var(--muted);">🔍 <span>Search missions…</span></div>
+    </div>
+    <div style="margin-top:14px;">
+      <div class="mission-row"><span class="dot-color" style="background:var(--coral);"></span><div style="flex:1;"><div class="title">Outline blog #3</div><div class="sub">Toward "Write 4 blog posts" · Strict</div></div></div>
+      <div class="mission-row"><span class="dot-color" style="background:var(--gold);"></span><div style="flex:1;"><div class="title">Ship Stripe webhook</div><div class="sub">Toward "Ship Mac app v2" · Standard</div></div></div>
+      <div class="mission-row"><span class="dot-color" style="background:var(--violet);"></span><div style="flex:1;"><div class="title">Run 3 times this week</div><div class="sub">Toward "Train for 5k" · Standard</div></div></div>
+    </div>
+    <div class="actions" style="border-top:1px solid var(--border); padding-top:14px;"><button class="btn-secondary">+ Quick block (no mission)</button><div class="right"><button class="btn-quiet">Cancel</button></div></div>
+  </div>
+</div>
+
+<!-- 2. Strictness picker -->
+<h2>2 — Strictness picker <span class="meta">after mission selected (or via mission edit)</span></h2>
+<div class="stage">
+  <div class="modal">
+    <h3>Strictness for "Outline blog #3"</h3>
+    <div style="border:1px solid var(--border-strong); padding:14px 16px; border-radius:10px; margin-bottom:10px;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;"><span style="width:14px; height:14px; border-radius:50%; border:2px solid var(--muted);"></span><strong>Standard</strong></div>
+      <div style="font-size:12px; color:var(--muted); padding-left:24px;">Block all your Distractions list. AI gives nudges when you drift. You can end early without partner.</div>
+    </div>
+    <div style="border:1px solid rgba(212,80,80,0.36); background: rgba(212,80,80,0.06); padding:14px 16px; border-radius:10px;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;"><span style="width:14px; height:14px; border-radius:50%; border:2px solid var(--red); background:var(--red);"></span><strong>Strict</strong></div>
+      <div style="font-size:12px; color:var(--muted); padding-left:24px;">Block Distractions list + AI-redirected off-mission apps. Ending early requires partner approval.</div>
+    </div>
+    <div class="actions"><button class="btn-quiet">Cancel</button><div class="right"><button class="btn-primary">Start</button></div></div>
+  </div>
+</div>
+
+<!-- 3. Block now config -->
+<h2>3 — Block now config (no mission) <span class="meta">ad-hoc focus session</span></h2>
+<div class="stage">
+  <div class="modal">
+    <h3>Block now</h3>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">No mission. Just blocks distractions for a set duration.</p>
+    <div class="field" style="display:flex; gap:16px;">
+      <div style="flex:1;"><label>Duration</label><div style="display:flex; gap:6px;"><span class="pill dim" style="padding:8px 12px;">15m</span><span class="pill coral" style="background:rgba(232,116,97,0.20); border-color:var(--coral); padding:8px 12px;">30m</span><span class="pill dim" style="padding:8px 12px;">60m</span><span class="pill dim" style="padding:8px 12px;">2h</span></div></div>
+      <div style="flex:1;"><label>Strictness</label><div style="display:flex; gap:6px;"><span class="pill coral" style="background:rgba(232,116,97,0.20); border-color:var(--coral); padding:8px 12px;">● Standard</span><span class="pill dim" style="padding:8px 12px;">○ Strict</span></div></div>
+    </div>
+    <div class="field"><label>Apps to block</label><div style="display:flex; gap:6px; flex-wrap:wrap;"><span class="pill coral" style="background:rgba(232,116,97,0.20); border-color:var(--coral); padding:6px 10px;">All Distractions list</span><span class="pill dim" style="padding:6px 10px;">+ Add</span></div></div>
+    <div class="actions"><button class="btn-quiet">Cancel</button><div class="right"><button class="btn-primary">Start</button></div></div>
+  </div>
+</div>
+
+<!-- 4. 5-min break confirm -->
+<h2>4 — 5-min break confirmation <span class="meta">in-session quick action</span></h2>
+<div class="stage">
+  <div class="modal" style="max-width:400px;">
+    <h3>Take a 5-min break?</h3>
+    <p style="font-size:13px; color:var(--muted);">Enforcement pauses for 5 minutes. Pill enters break mode. Your mission session resumes automatically.</p>
+    <div class="actions" style="justify-content:flex-end; gap:8px;"><button class="btn-quiet">Cancel</button><button class="btn-primary">Take break</button></div>
+  </div>
+</div>
+
+<!-- 5. Quick-add session -->
+<h2>5 — Add to today (quick-add session) <span class="meta">from Today Quick Actions</span></h2>
+<div class="stage">
+  <div class="modal">
+    <h3>Add a session to today</h3>
+    <div class="field"><label>For mission</label>
+      <div style="display:flex; gap:6px;"><span class="pill coral" style="background:rgba(232,116,97,0.20); border-color:var(--coral); padding:6px 12px;">● Outline blog #3</span><span class="pill dim" style="padding:6px 12px;">Ship Stripe</span><span class="pill dim" style="padding:6px 12px;">Run 3x</span></div>
+    </div>
+    <div class="field" style="display:flex; gap:16px;">
+      <div style="flex:1;"><label>Start</label><div class="input" style="font-family:var(--mono); text-align:center;">3:00 PM</div></div>
+      <div style="flex:1;"><label>Duration</label><div class="input" style="font-family:var(--mono); text-align:center;">90m</div></div>
+    </div>
+    <div class="actions"><button class="btn-quiet">Cancel</button><div class="right"><button class="btn-primary">Add session</button></div></div>
+  </div>
+</div>
+
+<!-- 6 + 7: End session early -->
+<h2>6 — End session early (Strict) <span class="meta">routes to partner unlock</span></h2>
+<div class="stage">
+  <div class="modal" style="max-width:440px;">
+    <h3>End "Outline blog #3" early?</h3>
+    <p style="font-size:13px; color:var(--muted);">You're in <strong>Strict</strong>. To end early, ask Caity to approve.</p>
+    <div class="actions" style="justify-content:flex-end; gap:8px;"><button class="btn-quiet">Cancel</button><button class="btn-danger">Ask partner to end early</button></div>
+  </div>
+</div>
+
+<h2>7 — End session early (Standard) <span class="meta">simple confirm</span></h2>
+<div class="stage">
+  <div class="modal" style="max-width:400px;">
+    <h3>End early?</h3>
+    <p style="font-size:13px; color:var(--muted);">You're 12 min into "Outline blog #3". This counts as Slipped on your weekly review.</p>
+    <div class="actions" style="justify-content:flex-end; gap:8px;"><button class="btn-quiet">Cancel</button><button class="btn-danger">End now</button></div>
+  </div>
+</div>
+
+<!-- 8: Partner unlock request (sent) -->
+<h2>8 — Partner unlock request (sent state) <span class="meta">waiting for Caity</span></h2>
+<div class="stage">
+  <div class="modal" style="max-width:440px;">
+    <h3>Waiting for Caity…</h3>
+    <p style="font-size:13px; color:var(--muted);">Caity got a notification at 2:31pm. She'll send a 6-digit code when she approves.</p>
+    <div style="background:rgba(232,116,97,0.10); border:1px solid rgba(232,116,97,0.32); border-radius:10px; padding:16px; margin: 14px 0; text-align:center;">
+      <div style="font-size:11px; color:var(--coral); text-transform:uppercase; letter-spacing:1px; font-weight:700; margin-bottom:6px;">Request pending</div>
+      <div style="font-size:13px; color:var(--text);">Sent to caity.enroth@gmail.com · expires in 14:48</div>
+    </div>
+    <div style="font-size:12px; color:var(--muted);">Got the code? <span style="color: var(--coral); cursor:pointer;">Enter it →</span></div>
+    <div class="actions" style="justify-content:flex-end;"><button class="btn-quiet">Cancel request</button></div>
+  </div>
+</div>
+
+<!-- 9: Code entry -->
+<h2>9 — Partner unlock code entry</h2>
+<div class="stage">
+  <div class="modal" style="max-width:440px;">
+    <h3>Enter Caity's code</h3>
+    <div class="field"><label>6-digit code</label>
+      <div class="code-box"><div class="input filled">4</div><div class="input filled">8</div><div class="input filled">2</div><div class="input filled">1</div><div class="input">_</div><div class="input"></div></div>
+    </div>
+    <div style="font-size:12px; color:var(--muted);">Didn't get an email? <span style="color: var(--coral); cursor:pointer;">Resend</span></div>
+    <div class="actions"><button class="btn-quiet">Cancel</button><div class="right"><button class="btn-primary">Verify</button></div></div>
+  </div>
+</div>
+
+<!-- 10: success -->
+<h2>10 — Partner unlock success</h2>
+<div class="stage">
+  <div class="modal" style="max-width:400px; text-align:center;">
+    <div style="font-size:48px; margin-bottom:8px;">✓</div>
+    <h3 class="success" style="text-align:center;">Unlocked</h3>
+    <p style="font-size:13px; color:var(--muted);">Strictness softened for "Outline blog #3" for the next 30 min.</p>
+    <div style="margin-top:14px;"><button class="btn-primary">Done</button></div>
+  </div>
+</div>
+
+<!-- 11: fail -->
+<h2>11 — Partner unlock fail</h2>
+<div class="stage">
+  <div class="modal" style="max-width:400px;">
+    <h3 class="danger">Wrong code</h3>
+    <p style="font-size:13px; color:var(--muted);">Caity's last code was 482103. Try again or have her resend.</p>
+    <div class="actions" style="justify-content:flex-end; gap:8px;"><button class="btn-quiet">Cancel</button><button class="btn-primary">Try again</button></div>
+  </div>
+</div>
+
+<!-- 12: Calendar block editor legacy -->
+<h2>12 — Calendar block editor <span class="meta">legacy — replaced by Plan timeline editor for new flows</span></h2>
+<div class="stage">
+  <div class="modal" style="max-width:520px;">
+    <h3>Edit block</h3>
+    <div class="field"><label>Title</label><div class="input">Focus</div></div>
+    <div class="field"><label>Description</label><div class="input textarea">Outline blog post #3 for May newsletter</div></div>
+    <div class="field" style="display:flex; gap:16px;">
+      <div style="flex:1;"><label>Start</label><div class="input">1:00 PM</div></div>
+      <div style="flex:1;"><label>End</label><div class="input">3:00 PM</div></div>
+    </div>
+    <div class="field"><label>Mission</label>
+      <div style="display:flex; gap:6px;"><span class="pill coral" style="background:rgba(232,116,97,0.20); border-color:var(--coral); padding:6px 12px;">● Outline blog #3</span><span class="pill dim" style="padding:6px 12px;">Other…</span></div>
+    </div>
+    <div class="actions"><button class="btn-danger">Delete</button><div class="right"><button class="btn-quiet">Cancel</button><button class="btn-primary">Done</button></div></div>
+  </div>
+</div>
+
+<!-- 13: Per-block AI assessments -->
+<h2>13 — Per-block AI assessments inline panel <span class="meta">click a done session row → expands</span></h2>
+<div class="stage" style="padding:14px;">
+  <div style="background: var(--card); border:1px solid var(--border); border-radius:10px; padding:14px 18px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <div><strong>Outline blog #3</strong> <span class="pill green" style="margin-left:6px;">87% focus</span></div>
+      <span style="font-size:11px; color:var(--muted);">1:00 PM — 3:00 PM · 2h focused</span>
+    </div>
+    <div style="font-family:var(--mono); font-size:11px; color:var(--muted); background: var(--bg); border:1px solid var(--border); border-radius:6px; padding:8px 12px; max-height:160px; overflow-y:auto;">
+      <div style="padding: 3px 0;"><span style="color: var(--green);">RELEVANT</span> &nbsp; 2:58pm &nbsp; vscode &nbsp; "blog-outline.md"</div>
+      <div style="padding: 3px 0;"><span style="color: var(--red);">OFF-MISSION</span> &nbsp; 2:24pm &nbsp; safari &nbsp; "twitter.com"</div>
+      <div style="padding: 3px 0;"><span style="color: var(--green);">RELEVANT</span> &nbsp; 2:18pm &nbsp; arc &nbsp; "reddit.com/r/writing"</div>
+      <div style="padding: 3px 0;"><span style="color: var(--amber);">UNCERTAIN</span> &nbsp; 2:12pm &nbsp; notes.app &nbsp; "Untitled"</div>
+      <div style="padding: 3px 0;"><span style="color: var(--green);">RELEVANT</span> &nbsp; 1:55pm &nbsp; vscode &nbsp; "blog-outline.md"</div>
+    </div>
+    <div style="display:flex; gap:10px; margin-top:10px;"><span style="color: var(--coral); font-size:12px; cursor:pointer;">View full log →</span><span style="color: var(--muted); font-size:12px;">·</span><span style="color: var(--coral); font-size:12px; cursor:pointer;">Export →</span></div>
+  </div>
+</div>
+
+<!-- 14-17: status footer popovers -->
+<h2>15–18 — Status footer popovers <span class="meta">click any pill on Today's footer</span></h2>
+<div class="stage" style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+  <div class="modal" style="max-width:280px;">
+    <h3 style="font-size:13px; color:var(--coral); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">Partner</h3>
+    <p style="font-size:13px; color:var(--text); margin:0 0 4px;">Caity Enroth</p>
+    <p style="font-size:11px; color:var(--muted); margin:0 0 10px;">caity.enroth@gmail.com<br>Ready to lock · online 5m ago</p>
+    <div style="display:flex; gap:6px;"><button class="btn-secondary" style="font-size:12px; padding:6px 10px;">Request unlock</button><button class="btn-quiet" style="font-size:12px;">Manage →</button></div>
+  </div>
+  <div class="modal" style="max-width:280px;">
+    <h3 style="font-size:13px; color:var(--green); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">Content protection</h3>
+    <p style="font-size:13px; color:var(--text); margin:0 0 4px;">ON · last detection 2 days ago</p>
+    <p style="font-size:11px; color:var(--muted); margin:0 0 10px;">OpenNSFW on-device · Caity notified on detection</p>
+    <div style="display:flex; gap:6px;"><button class="btn-secondary" style="font-size:12px; padding:6px 10px;">Test</button><button class="btn-quiet" style="font-size:12px;">Settings →</button></div>
+  </div>
+  <div class="modal" style="max-width:280px;">
+    <h3 style="font-size:13px; color:var(--dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">Puck</h3>
+    <p style="font-size:13px; color:var(--text); margin:0 0 4px;">Not paired</p>
+    <p style="font-size:11px; color:var(--muted); margin:0 0 10px;">Pair to enable NFC tap-to-wake + tap-to-end-session</p>
+    <div style="display:flex; gap:6px;"><button class="btn-primary" style="font-size:12px; padding:6px 10px;">Pair</button><button class="btn-quiet" style="font-size:12px;">Settings →</button></div>
+  </div>
+  <div class="modal" style="max-width:280px;">
+    <h3 style="font-size:13px; color:var(--amber); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">Strict Mode</h3>
+    <p style="font-size:13px; color:var(--text); margin:0 0 4px;">ACTIVE · watchdog running</p>
+    <p style="font-size:11px; color:var(--muted); margin:0 0 10px;">Cmd+Q disabled · partner approval required to quit/uninstall</p>
+    <div style="display:flex; gap:6px;"><button class="btn-secondary" style="font-size:12px; padding:6px 10px;">Disable</button><button class="btn-quiet" style="font-size:12px;">Settings →</button></div>
+  </div>
+</div>
+
+<!-- 19: Bedtime unlock sheet -->
+<h2>19 — Bedtime unlock-request sheet <span class="meta">separate floating window</span></h2>
+<div class="stage">
+  <div class="modal" style="max-width:480px;">
+    <h3>Ask Caity to release bedtime</h3>
+    <p style="font-size:13px; color:var(--muted);">She'll get a notification. Approve gives you screen access for the duration below.</p>
+    <div class="field"><label>How long?</label>
+      <div style="display:flex; gap:6px;"><span class="pill coral" style="background:rgba(232,116,97,0.20); border-color:var(--coral); padding:8px 14px; font-size:12px;">15 min</span><span class="pill dim" style="padding:8px 14px; font-size:12px;">30 min</span><span class="pill dim" style="padding:8px 14px; font-size:12px;">60 min</span><span class="pill dim" style="padding:8px 14px; font-size:12px;">2 hours</span><span class="pill dim" style="padding:8px 14px; font-size:12px;">Until wake</span></div>
+    </div>
+    <div class="field"><label>Why now (optional)</label><div class="input textarea">Need to grab a flight booking confirmation…</div></div>
+    <div style="background:rgba(229,160,99,0.10); border:1px solid rgba(229,160,99,0.32); border-radius:8px; padding:10px 12px; font-size:12px; color:var(--amber); margin-bottom:14px;">⚠ Once per night cap. After this unlock, no more until tomorrow's bedtime.</div>
+    <div class="actions"><button class="btn-quiet">Cancel</button><div class="right"><button class="btn-primary">Send request</button></div></div>
+  </div>
+</div>
+
+<!-- 20: Intention strictness unlock sheet -->
+<h2>20 — Intention strictness unlock sheet <span class="meta">backend DEFERRED — Strict → softer</span></h2>
+<div class="stage">
+  <div class="modal" style="max-width:480px;">
+    <h3>Ask Caity to soften "Outline blog #3"</h3>
+    <p style="font-size:13px; color:var(--muted);">Strict → Standard for this mission. She'll get a notification.</p>
+    <div class="field"><label>Why now (optional)</label><div class="input textarea">Need to research news sources for blog context…</div></div>
+    <div style="background:rgba(212,80,80,0.10); border:1px solid rgba(212,80,80,0.32); border-radius:8px; padding:10px 12px; font-size:12px; color:var(--red); margin-bottom:14px;">⚠ Backend endpoint not yet deployed. Send Request will fail. Tightening works.</div>
+    <div class="actions"><button class="btn-quiet">Cancel</button><div class="right"><button class="btn-primary">Send request</button></div></div>
+  </div>
+</div>
+
+<!-- 21: Discard plan ritual -->
+<h2>21 — Discard "Help me plan" ritual <span class="meta">Skip → confirm</span></h2>
+<div class="stage">
+  <div class="modal" style="max-width:400px;">
+    <h3>Discard this ritual?</h3>
+    <p style="font-size:13px; color:var(--muted);">Your answers won't be saved. You can return to Plan and try again any time.</p>
+    <div class="actions" style="justify-content:flex-end; gap:8px;"><button class="btn-quiet">Keep going</button><button class="btn-danger">Discard</button></div>
+  </div>
+</div>
+
+<!-- 22: Permission re-prompt -->
+<h2>22 — Permission re-prompt <span class="meta">Accessibility / Screen Recording / Notifications missing</span></h2>
+<div class="stage">
+  <div class="modal" style="max-width:460px;">
+    <h3>Re-grant a permission</h3>
+    <p style="font-size:13px; color:var(--muted);">Some features need permissions that were revoked.</p>
+    <div style="margin: 14px 0;">
+      <div style="display:flex; align-items:center; gap:12px; padding:10px; background: rgba(212,80,80,0.06); border:1px solid rgba(212,80,80,0.24); border-radius:8px; margin-bottom:6px;"><span style="color: var(--red); font-size:18px;">⚠</span><div style="flex:1;"><strong>Screen Recording</strong><div style="font-size:11px; color:var(--muted);">Needed for Content Safety</div></div><button class="btn-secondary" style="font-size:12px; padding:6px 10px;">Open Settings</button></div>
+      <div style="display:flex; align-items:center; gap:12px; padding:10px; background: var(--card); border:1px solid var(--border); border-radius:8px;"><span style="color: var(--green); font-size:18px;">✓</span><div style="flex:1;"><strong>Accessibility</strong><div style="font-size:11px; color:var(--muted);">Granted</div></div></div>
+    </div>
+    <div class="actions" style="justify-content:flex-end;"><button class="btn-primary">Done</button></div>
+  </div>
+</div>
+
+<!-- 23-30: Onboarding sequence -->
+<h2>23–30 — Onboarding sequence <span class="meta">multi-step first-launch wizard</span></h2>
+<p class="state-note">Each step is a clean single-screen modal. Total: 8 steps. Progress dots across the top.</p>
+
+<div class="stage">
+  <div class="modal" style="max-width:520px; text-align:center; padding:36px 28px;">
+    <div style="display:flex; gap:6px; justify-content:center; margin-bottom:24px;"><span style="width:6px; height:6px; border-radius:50%; background:var(--coral);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span></div>
+    <h2 style="font-size:24px; margin:0 0 8px; font-weight:600;">Welcome to Intentional</h2>
+    <p style="font-size:14px; color:var(--muted); margin:0 0 20px;">A focus system you can't bypass. Plan your day, defend it across every screen, and let hardware lock you in when willpower runs out.</p>
+    <button class="btn-primary">Get started →</button>
+  </div>
+</div>
+
+<div class="stage" style="margin-top:10px;">
+  <div class="modal" style="max-width:520px;">
+    <div style="display:flex; gap:6px; justify-content:center; margin-bottom:18px;"><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--coral);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span></div>
+    <h3>Pick a lock mode</h3>
+    <div style="border:1px solid var(--border-strong); padding:14px; border-radius:10px; margin-bottom:8px;"><strong>None</strong> <span style="font-size:12px; color:var(--muted); margin-left:8px;">You're the only check on yourself. Recommended for first-time users.</span></div>
+    <div style="border:1px solid var(--coral); background:rgba(232,116,97,0.06); padding:14px; border-radius:10px;"><strong>Partner</strong> <span style="font-size:12px; color:var(--muted); margin-left:8px;">An accountability partner approves any disable. The non-bypassable mode.</span></div>
+    <div class="actions"><button class="btn-quiet">← Back</button><div class="right"><button class="btn-primary">Next →</button></div></div>
+  </div>
+</div>
+
+<div class="stage" style="margin-top:10px;">
+  <div class="modal" style="max-width:520px;">
+    <div style="display:flex; gap:6px; justify-content:center; margin-bottom:18px;"><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--coral);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span></div>
+    <h3>Who's your partner?</h3>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">They'll get an email asking to confirm. They don't need to install anything.</p>
+    <div class="field"><label>Email</label><div class="input">_</div></div>
+    <div class="field"><label>Name (so we can address them properly)</label><div class="input">_</div></div>
+    <div class="actions"><button class="btn-quiet">← Back</button><div class="right"><button class="btn-secondary">Skip</button><button class="btn-primary">Send invite →</button></div></div>
+  </div>
+</div>
+
+<div class="stage" style="margin-top:10px;">
+  <div class="modal" style="max-width:520px;">
+    <div style="display:flex; gap:6px; justify-content:center; margin-bottom:18px;"><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--coral);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span></div>
+    <h3>Pick a theme</h3>
+    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;">
+      <div style="border:1px solid var(--coral); border-radius:10px; padding:10px; text-align:center;"><div style="height:60px; background:linear-gradient(135deg, #1a0a08, #3a1a14); border-radius:6px; margin-bottom:6px;"></div><span style="font-size:12px;">Deep Lush</span></div>
+      <div style="border:1px solid var(--border); border-radius:10px; padding:10px; text-align:center;"><div style="height:60px; background:linear-gradient(135deg, #0a1020, #2a3358); border-radius:6px; margin-bottom:6px;"></div><span style="font-size:12px; color:var(--muted);">Iridescent</span></div>
+      <div style="border:1px solid var(--border); border-radius:10px; padding:10px; text-align:center;"><div style="height:60px; background:linear-gradient(135deg, #2a1a08, #4a3018); border-radius:6px; margin-bottom:6px;"></div><span style="font-size:12px; color:var(--muted);">Warm</span></div>
+    </div>
+    <div class="actions"><button class="btn-quiet">← Back</button><div class="right"><button class="btn-primary">Next →</button></div></div>
+  </div>
+</div>
+
+<div class="stage" style="margin-top:10px;">
+  <div class="modal" style="max-width:520px;">
+    <div style="display:flex; gap:6px; justify-content:center; margin-bottom:18px;"><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--coral);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span></div>
+    <h3>Grant permissions</h3>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">Intentional needs these to defend your attention.</p>
+    <div style="margin-bottom:8px; padding:10px 14px; background:var(--card); border:1px solid var(--border); border-radius:8px; display:flex; align-items:center; gap:10px;"><span style="color: var(--green);">✓</span><div style="flex:1;"><strong>Accessibility</strong><div style="font-size:11px; color:var(--muted);">Monitor active app for AI scoring</div></div></div>
+    <div style="margin-bottom:8px; padding:10px 14px; background:rgba(229,160,99,0.06); border:1px solid rgba(229,160,99,0.32); border-radius:8px; display:flex; align-items:center; gap:10px;"><span style="color: var(--amber);">⏳</span><div style="flex:1;"><strong>Screen Recording</strong><div style="font-size:11px; color:var(--muted);">Content Safety NSFW detection (optional but recommended)</div></div><button class="btn-secondary" style="font-size:12px; padding:6px 10px;">Grant</button></div>
+    <div style="margin-bottom:8px; padding:10px 14px; background:var(--card); border:1px solid var(--border); border-radius:8px; display:flex; align-items:center; gap:10px;"><span style="color: var(--green);">✓</span><div style="flex:1;"><strong>Notifications</strong><div style="font-size:11px; color:var(--muted);">Session start, drift, wind-down alerts</div></div></div>
+    <div class="actions"><button class="btn-quiet">← Back</button><div class="right"><button class="btn-secondary">Skip</button><button class="btn-primary">Next →</button></div></div>
+  </div>
+</div>
+
+<div class="stage" style="margin-top:10px;">
+  <div class="modal" style="max-width:520px;">
+    <div style="display:flex; gap:6px; justify-content:center; margin-bottom:18px;"><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--coral);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span></div>
+    <h3>Connect Puck (optional)</h3>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">A physical NFC tag you tap your phone on. Tap to wake, tap to end sessions, tap to enter morning ritual.</p>
+    <div style="background: var(--card); border:1px dashed var(--border-strong); border-radius:12px; padding:24px; text-align:center;"><div style="font-size:36px; opacity:0.5;">📱→⬜</div><div style="font-size:12px; color:var(--muted); margin-top:10px;">Hold phone near Puck and tap</div></div>
+    <div class="actions"><button class="btn-quiet">← Back</button><div class="right"><button class="btn-secondary">Pair later</button><button class="btn-primary">Pair now →</button></div></div>
+  </div>
+</div>
+
+<div class="stage" style="margin-top:10px;">
+  <div class="modal" style="max-width:520px;">
+    <div style="display:flex; gap:6px; justify-content:center; margin-bottom:18px;"><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--green);"></span><span style="width:6px; height:6px; border-radius:50%; background:var(--coral);"></span></div>
+    <h3>Tell me about yourself</h3>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">The AI uses this to score relevance. Be specific: role, tools, what's normal work for you.</p>
+    <div class="input textarea" style="min-height:120px;">I'm a software engineer building a focus app called Intentional. My work is mostly coding in VSCode, design in Figma, and writing in Notion. Twitter and Reddit are distractions.</div>
+    <div class="actions"><button class="btn-quiet">← Back</button><div class="right"><button class="btn-secondary">Skip</button><button class="btn-primary">Finish →</button></div></div>
+  </div>
+</div>
+
+<div class="stage" style="margin-top:10px;">
+  <div class="modal" style="max-width:520px; text-align:center; padding:36px 28px;">
+    <div style="font-size:48px; margin-bottom:10px;">✓</div>
+    <h2 style="font-size:24px; margin:0 0 8px; font-weight:600;">You're set.</h2>
+    <p style="font-size:14px; color:var(--muted); margin:0 0 20px;">Set today's first plan to start defending your time.</p>
+    <button class="btn-primary">Set today's first plan →</button>
+  </div>
+</div>
+
+<!-- 31-32: Login -->
+<h2>31–32 — Login sequence</h2>
+<div class="stage">
+  <div class="modal" style="max-width:440px;">
+    <h3>Sign in to Intentional</h3>
+    <div class="field"><label>Email</label><div class="input">ameer.rayan@gmail.com</div></div>
+    <div class="actions" style="justify-content:flex-end;"><button class="btn-primary">Send magic link</button></div>
+  </div>
+</div>
+
+<div class="stage" style="margin-top:10px;">
+  <div class="modal" style="max-width:440px;">
+    <h3>Enter the code from your email</h3>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">Sent to ameer.rayan@gmail.com</p>
+    <div class="code-box"><div class="input filled">4</div><div class="input filled">8</div><div class="input filled">2</div><div class="input filled">1</div><div class="input">_</div><div class="input"></div></div>
+    <div style="font-size:12px; color:var(--muted); margin-top:10px;">Didn't get it? <span style="color:var(--coral); cursor:pointer;">Resend</span></div>
+    <div class="actions" style="justify-content:flex-end;"><button class="btn-primary">Verify</button></div>
+  </div>
+</div>
+
+<!-- 33: Daemon degraded -->
+<h2>33 — Daemon-degraded inline expand</h2>
+<div class="stage">
+  <div style="padding: 14px 18px; background: rgba(229,160,99,0.10); border: 1px solid rgba(229,160,99,0.32); border-radius: 10px; color: var(--amber); font-size: 13px;">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;"><span>⚠</span><strong>Watchdog daemon not running.</strong> Strict Mode is degraded. The app can be force-quit without partner approval until the daemon is restored.</div>
+    <div style="font-size:12px; color:var(--muted); padding-left:28px;">This usually happens after a macOS update. The signed PKG re-installs the daemon. Reinstall from the website.</div>
+    <div style="margin-top:8px; padding-left:28px;"><button class="btn-secondary" style="font-size:12px; padding:6px 10px;">Reinstall</button></div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

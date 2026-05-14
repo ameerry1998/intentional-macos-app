@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Today — Two-mode toggle + 7 radical alternatives</title>
+<style>
+  :root {
+    --bg: #0a0c0a; --bg-2: #111414;
+    --card: rgba(255,255,255,0.04);
+    --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.14);
+    --text: #f7f8f8; --muted: rgba(255,255,255,0.55); --dim: rgba(255,255,255,0.36);
+    --coral: #E87461; --gold: #F0B060; --green: #6FB58E; --blue: #6E8FE0;
+    --violet: #B287D9; --amber: #E5A063; --red: #D45050; --indigo: #8B5CF6;
+    --grad: linear-gradient(135deg, var(--coral), var(--gold));
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif;
+    --mono: "SF Mono", Menlo, Monaco, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; line-height: 1.55; }
+  body { background: radial-gradient(ellipse at top, rgba(232,116,97,0.06), transparent 60%), var(--bg); background-attachment: fixed; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 56px 32px 96px; }
+
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--coral); margin-bottom: 10px; }
+  h1 { font-size: 38px; line-height: 1.15; letter-spacing: -0.8px; font-weight: 700; margin: 0 0 14px; }
+  .lede { font-size: 17px; color: var(--muted); max-width: 760px; margin-bottom: 16px; }
+
+  h2 { font-size: 24px; letter-spacing: -0.4px; font-weight: 700; margin: 64px 0 6px; }
+  h2 .meta { font-size: 13px; font-weight: 400; color: var(--dim); margin-left: 12px; }
+  h3.sub-title { font-size: 16px; font-weight: 600; color: var(--coral); margin: 28px 0 10px; letter-spacing: -0.2px; }
+  .state-note { font-size: 13.5px; color: var(--muted); margin: 6px 0 16px; max-width: 760px; line-height: 1.65; }
+  .state-note strong { color: var(--text); }
+
+  .stage { background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: 14px; padding: 22px; min-height: 360px; }
+
+  /* Shared mini-cal */
+  .mini-cal { position: relative; }
+  .mini-row { display: flex; align-items: stretch; min-height: 36px; padding: 0; border-top: 1px dashed rgba(255,255,255,0.04); position: relative; }
+  .mini-row:first-child { border-top: none; }
+  .mini-row .lbl { font-family: var(--mono); font-size: 10px; color: var(--dim); width: 50px; padding: 4px 0 0 4px; flex-shrink: 0; }
+  .mini-row .lane { flex: 1; position: relative; padding: 2px 4px 2px 0; }
+
+  .r-morning { background: linear-gradient(90deg, rgba(110,143,224,0.14), transparent 80%); }
+  .r-deep { background: linear-gradient(90deg, rgba(139,92,246,0.14), transparent 80%); }
+  .r-workout { background: linear-gradient(90deg, rgba(111,181,142,0.14), transparent 80%); }
+  .r-winddown { background: linear-gradient(90deg, rgba(229,160,99,0.14), transparent 80%); }
+
+  .t-block { padding: 5px 10px; border-radius: 5px; font-size: 11px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .t-coral { background: rgba(232,116,97,0.20); border-left: 3px solid var(--coral); }
+  .t-gold { background: rgba(240,176,96,0.20); border-left: 3px solid var(--gold); }
+  .t-violet { background: rgba(178,135,217,0.20); border-left: 3px solid var(--violet); }
+  .t-block .when { font-family: var(--mono); font-size: 9px; color: var(--dim); }
+  .t-block .label { flex: 1; }
+
+  .routine-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .routine-pill .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .rp-morning { background: rgba(110,143,224,0.14); color: var(--blue); border: 1px solid rgba(110,143,224,0.32); }
+  .rp-deep { background: rgba(139,92,246,0.14); color: var(--indigo); border: 1px solid rgba(139,92,246,0.32); }
+  .rp-workout { background: rgba(111,181,142,0.14); color: var(--green); border: 1px solid rgba(111,181,142,0.32); }
+  .rp-winddown { background: rgba(229,160,99,0.14); color: var(--amber); border: 1px solid rgba(229,160,99,0.32); }
+
+  .annot { margin: 18px 0 0; padding: 16px 20px; background: var(--card); border-left: 3px solid var(--coral); border-radius: 0 10px 10px 0; font-size: 13.5px; line-height: 1.65; color: var(--muted); }
+  .annot strong { color: var(--text); }
+  .annot ul { margin: 6px 0 0; padding-left: 20px; }
+
+  .toggle-bar { display: inline-flex; gap: 2px; padding: 3px; background: rgba(0,0,0,0.4); border-radius: 8px; margin-bottom: 14px; }
+  .toggle-bar .opt { padding: 6px 14px; font-size: 12px; color: var(--muted); border-radius: 6px; cursor: pointer; }
+  .toggle-bar .opt.active { background: rgba(232,116,97,0.20); color: var(--coral); }
+
+  .three-stage { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 1024px) { .three-stage { grid-template-columns: 1fr; } }
+
+  .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  .pros, .cons { font-size: 12px; line-height: 1.6; }
+  .pros h4, .cons h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; margin: 0 0 6px; }
+  .pros h4 { color: var(--green); }
+  .cons h4 { color: var(--amber); }
+  .pros ul, .cons ul { margin: 0; padding-left: 16px; color: var(--muted); }
+  .pros li, .cons li { margin-bottom: 3px; }
+
+  .why-different { padding: 12px 14px; background: rgba(232,116,97,0.06); border: 1px solid rgba(232,116,97,0.20); border-radius: 8px; font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+  .why-different strong { color: var(--coral); }
+
+  /* ============ CONCEPT-SPECIFIC ============ */
+
+  /* SIDE-BY-SIDE */
+  .sbs { display: grid; grid-template-columns: 1fr 1fr; gap: 0; min-height: 320px; }
+  .sbs-panel { padding: 14px; }
+  .sbs-panel.left { background: rgba(0,0,0,0.2); border-right: 1px solid var(--border); }
+  .sbs-panel-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); font-weight: 700; margin-bottom: 10px; }
+
+  /* STATE CARD */
+  .state-card-hero { padding: 30px 32px; background: linear-gradient(135deg, rgba(139,92,246,0.10), rgba(232,116,97,0.04)); border: 1px solid rgba(139,92,246,0.30); border-radius: 14px; text-align: center; }
+  .state-card-hero .ring { width: 140px; height: 140px; border-radius: 50%; border: 6px solid rgba(232,116,97,0.30); border-top-color: var(--coral); margin: 0 auto 20px; position: relative; display: flex; align-items: center; justify-content: center; transform: rotate(-90deg); }
+  .state-card-hero .ring .inner { transform: rotate(90deg); font-size: 22px; font-weight: 700; font-family: var(--mono); }
+  .state-card-hero .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px; color: var(--indigo); font-weight: 700; margin-bottom: 8px; }
+  .state-card-hero h3 { font-size: 24px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.3px; }
+  .state-card-hero .body { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+  .state-card-hero .actions { display: flex; gap: 8px; justify-content: center; margin-top: 14px; }
+  .state-card-hero .actions button { background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--border-strong); padding: 7px 14px; border-radius: 7px; font-size: 12px; cursor: pointer; }
+
+  /* AGENDA STORY */
+  .agenda { display: flex; flex-direction: column; gap: 6px; }
+  .agenda .moment { padding: 10px 14px; border-radius: 8px; display: flex; gap: 12px; align-items: center; }
+  .agenda .moment.boundary { background: transparent; padding: 14px 14px 4px; border-bottom: 1px dashed var(--border); margin-top: 10px; }
+  .agenda .moment.boundary .time { color: var(--coral); font-weight: 700; }
+  .agenda .moment.task { background: var(--card); border-left: 3px solid var(--coral); }
+  .agenda .moment.task.gold { border-left-color: var(--gold); }
+  .agenda .moment.task.violet { border-left-color: var(--violet); }
+  .agenda .moment.routine-only { background: rgba(139,92,246,0.06); border: 1px solid rgba(139,92,246,0.20); padding: 10px 14px; }
+  .agenda .moment .time { font-family: var(--mono); font-size: 11px; color: var(--dim); width: 70px; flex-shrink: 0; }
+  .agenda .moment .body { flex: 1; font-size: 13px; }
+  .agenda .moment .body .h { font-weight: 600; color: var(--text); }
+  .agenda .moment .body .sub { font-size: 11px; color: var(--muted); }
+
+  /* GANTT */
+  .gantt { padding: 12px; }
+  .gantt-hours { display: flex; font-family: var(--mono); font-size: 9px; color: var(--dim); margin-bottom: 8px; padding-left: 90px; }
+  .gantt-hours .hh { flex: 1; text-align: left; }
+  .gantt-row { display: flex; align-items: center; min-height: 40px; margin-bottom: 4px; }
+  .gantt-row .label { width: 80px; font-size: 11px; color: var(--muted); padding-right: 10px; flex-shrink: 0; text-align: right; }
+  .gantt-row .lane { flex: 1; height: 28px; background: rgba(255,255,255,0.02); border-radius: 4px; position: relative; }
+  .gantt-bar { position: absolute; top: 0; bottom: 0; border-radius: 4px; padding: 5px 8px; font-size: 11px; color: var(--text); display: flex; align-items: center; }
+  .gantt-routine { background: rgba(139,92,246,0.18); border: 1px solid rgba(139,92,246,0.36); }
+  .gantt-routine.morning { background: rgba(110,143,224,0.18); border-color: rgba(110,143,224,0.36); }
+  .gantt-routine.workout { background: rgba(111,181,142,0.18); border-color: rgba(111,181,142,0.36); }
+  .gantt-routine.winddown { background: rgba(229,160,99,0.18); border-color: rgba(229,160,99,0.36); }
+  .gantt-task { background: var(--coral); color: #1a0f0a; font-weight: 600; box-shadow: 0 4px 12px rgba(232,116,97,0.3); }
+  .gantt-task.gold { background: var(--gold); }
+  .gantt-task.violet { background: var(--violet); color: white; }
+  .gantt-now { position: absolute; top: -10px; bottom: -10px; width: 2px; background: var(--coral); box-shadow: 0 0 8px var(--coral); z-index: 10; }
+  .gantt-now::before { content: 'NOW'; position: absolute; top: -14px; left: -16px; font-size: 9px; font-family: var(--mono); color: var(--coral); font-weight: 700; }
+
+  /* CIRCULAR CLOCK */
+  .clock-stage { display: flex; gap: 24px; align-items: center; padding: 20px; }
+  .clock { width: 280px; height: 280px; flex-shrink: 0; position: relative; }
+  .clock-svg { width: 100%; height: 100%; }
+  .clock-list { flex: 1; }
+  .clock-list h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); margin: 0 0 10px; }
+  .clock-list .row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .clock-list .row .swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+  .clock-list .row .label { flex: 1; }
+  .clock-list .row .time { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+
+  /* BENTO */
+  .bento { display: grid; grid-template-columns: 2fr 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; min-height: 380px; }
+  .bento .panel { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .bento .panel-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--dim); font-weight: 700; margin-bottom: 8px; }
+  .bento .now-panel { grid-row: 1 / 3; background: linear-gradient(135deg, rgba(232,116,97,0.10), rgba(232,116,97,0.02)); border-color: rgba(232,116,97,0.30); padding: 18px; }
+  .bento .now-panel h2 { font-size: 18px; margin: 4px 0 6px; letter-spacing: -0.2px; }
+  .bento .now-panel .progress { height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; margin: 12px 0; overflow: hidden; }
+  .bento .now-panel .progress .bar { height: 100%; background: var(--coral); width: 31%; }
+  .bento .next-panel .item, .bento .routines-panel .item { font-size: 11px; padding: 5px 0; color: var(--muted); }
+  .bento .next-panel .item .h { color: var(--text); font-weight: 600; display: block; }
+
+  /* AI STREAM */
+  .ai-stream { padding: 22px; max-height: 420px; overflow-y: auto; }
+  .ai-msg { display: flex; gap: 12px; margin-bottom: 16px; }
+  .ai-msg .avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--coral), var(--gold)); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .ai-msg .body { flex: 1; }
+  .ai-msg .time { font-size: 10px; color: var(--dim); font-family: var(--mono); margin-bottom: 4px; }
+  .ai-msg .text { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; font-size: 13px; line-height: 1.55; color: var(--text); }
+  .ai-msg .text strong { color: var(--coral); }
+  .ai-msg .text .pill-inline { display: inline-block; padding: 2px 8px; border-radius: 999px; background: rgba(139,92,246,0.18); color: var(--indigo); font-size: 11px; font-weight: 600; margin: 0 2px; }
+  .ai-msg .actions { display: flex; gap: 6px; margin-top: 6px; }
+  .ai-msg .actions button { background: var(--card); color: var(--coral); border: 1px solid rgba(232,116,97,0.30); padding: 5px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; }
+
+  /* TIME RIVER */
+  .river { position: relative; padding: 50px 20px 50px; min-height: 280px; overflow: hidden; }
+  .river-flow { position: relative; width: 100%; height: 60px; background: linear-gradient(90deg, transparent, rgba(110,143,224,0.10), rgba(139,92,246,0.18), transparent, rgba(139,92,246,0.18), transparent, rgba(229,160,99,0.18), transparent); border-radius: 30px; }
+  .river-bank { position: absolute; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent); }
+  .river-bank.top { top: -1px; }
+  .river-bank.bot { bottom: -1px; }
+  .river-boat { position: absolute; top: 8px; padding: 6px 12px; background: var(--coral); color: #1a0f0a; font-size: 11px; font-weight: 700; border-radius: 8px; box-shadow: 0 6px 16px rgba(232,116,97,0.4); }
+  .river-boat.gold { background: var(--gold); }
+  .river-boat.violet { background: var(--violet); color: white; }
+  .river-now { position: absolute; top: -10px; bottom: -10px; width: 2px; background: var(--coral); box-shadow: 0 0 12px var(--coral); }
+  .river-now::after { content: '⬇'; position: absolute; top: -12px; left: -6px; color: var(--coral); font-size: 14px; }
+  .river-segments { position: absolute; left: 0; right: 0; bottom: 8px; display: flex; font-family: var(--mono); font-size: 9px; color: var(--dim); padding: 0 20px; }
+  .river-segments span { flex: 1; text-align: center; }
+  .river-routine-labels { position: absolute; top: 8px; left: 20px; right: 20px; display: flex; }
+  .river-routine-labels .lab { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--indigo); }
+
+  hr.div { border: none; border-top: 1px dashed var(--border); margin: 22px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Two-mode toggle + 7 radical alternatives · 2026-05-13</div>
+  <h1>Two-mode toggle, then 7 truly different paradigms</h1>
+  <p class="lede">First: the toggle's three states sketched in detail. Then: seven schedule paradigms that are NOT "calendar with backgrounds." Different shapes, different metaphors, different relationships between routines and tasks.</p>
+</header>
+
+<!-- ============ TWO-MODE TOGGLE ============ -->
+<h2>Two-mode toggle — what each mode looks like</h2>
+<p class="state-note">A single toggle at the top of the calendar swaps between three views. The same data, three different rendering modes. User chooses what to focus on.</p>
+
+<div class="three-stage">
+
+<!-- SCHEDULE MODE -->
+<div>
+  <h3 class="sub-title">Mode 1: Schedule (routines only)</h3>
+  <div class="stage" style="padding: 14px;">
+    <div class="toggle-bar"><span class="opt active">Schedule</span><span class="opt">Tasks</span><span class="opt">Both</span></div>
+    <div class="mini-cal">
+      <div class="mini-row r-morning"><span class="lbl">6 AM</span><span class="lane" style="display:flex; align-items:center;"><span style="font-size:10px; color:var(--blue); font-weight:700; padding-left:4px;">MORNING ROUTINE</span></span></div>
+      <div class="mini-row r-morning"><span class="lbl">7</span><span class="lane"></span></div>
+      <div class="mini-row r-morning"><span class="lbl">8</span><span class="lane"></span></div>
+      <div class="mini-row r-deep"><span class="lbl">9</span><span class="lane" style="display:flex; align-items:center;"><span style="font-size:10px; color:var(--indigo); font-weight:700; padding-left:4px;">DEEP WORK</span></span></div>
+      <div class="mini-row r-deep"><span class="lbl">10</span><span class="lane"></span></div>
+      <div class="mini-row"><span class="lbl">11</span><span class="lane"></span></div>
+      <div class="mini-row"><span class="lbl">12 PM</span><span class="lane"></span></div>
+      <div class="mini-row r-deep"><span class="lbl">1</span><span class="lane" style="display:flex; align-items:center;"><span style="font-size:10px; color:var(--indigo); font-weight:700; padding-left:4px;">DEEP WORK</span></span></div>
+      <div class="mini-row r-deep"><span class="lbl">2</span><span class="lane"></span></div>
+      <div class="mini-row r-workout"><span class="lbl">5 PM</span><span class="lane" style="display:flex; align-items:center;"><span style="font-size:10px; color:var(--green); font-weight:700; padding-left:4px;">WORKOUT</span></span></div>
+      <div class="mini-row r-winddown"><span class="lbl">9 PM</span><span class="lane" style="display:flex; align-items:center;"><span style="font-size:10px; color:var(--amber); font-weight:700; padding-left:4px;">WIND DOWN</span></span></div>
+    </div>
+  </div>
+  <div class="annot" style="margin-top:10px;">
+    <strong>What the user sees:</strong> Just the time scaffolding. No tasks. Used when configuring routines (drag to extend, click to edit, +Add to create new).
+  </div>
+</div>
+
+<!-- TASKS MODE -->
+<div>
+  <h3 class="sub-title">Mode 2: Tasks (today's work only)</h3>
+  <div class="stage" style="padding: 14px;">
+    <div class="toggle-bar"><span class="opt">Schedule</span><span class="opt active">Tasks</span><span class="opt">Both</span></div>
+    <div class="mini-cal">
+      <div class="mini-row"><span class="lbl">6 AM</span><span class="lane"></span></div>
+      <div class="mini-row"><span class="lbl">7</span><span class="lane"></span></div>
+      <div class="mini-row"><span class="lbl">8</span><span class="lane"></span></div>
+      <div class="mini-row"><span class="lbl">9</span><span class="lane"><div class="t-block t-coral"><span class="when">9–10:30</span><span class="label">Morning planning ✓</span></div></span></div>
+      <div class="mini-row"><span class="lbl">10</span><span class="lane"></span></div>
+      <div class="mini-row"><span class="lbl">11</span><span class="lane"></span></div>
+      <div class="mini-row"><span class="lbl">12 PM</span><span class="lane"></span></div>
+      <div class="mini-row"><span class="lbl">1</span><span class="lane"><div class="t-block t-gold"><span class="when">1–3</span><span class="label">Outline blog post #3 (strict)</span></div></span></div>
+      <div class="mini-row"><span class="lbl">2</span><span class="lane"></span></div>
+      <div class="mini-row"><span class="lbl">3</span><span class="lane"><div class="t-block t-violet"><span class="when">3:30–5</span><span class="label">Code review backlog</span></div></span></div>
+    </div>
+  </div>
+  <div class="annot" style="margin-top:10px;">
+    <strong>What the user sees:</strong> Just today's specific work. No routine bands. Used during execution — when you want to focus on what you're doing, not the recurring scaffolding.
+  </div>
+</div>
+
+<!-- BOTH MODE -->
+<div>
+  <h3 class="sub-title">Mode 3: Both (overlay default)</h3>
+  <div class="stage" style="padding: 14px;">
+    <div class="toggle-bar"><span class="opt">Schedule</span><span class="opt">Tasks</span><span class="opt active">Both</span></div>
+    <div class="mini-cal">
+      <div class="mini-row r-morning"><span class="lbl">6</span><span class="lane"></span></div>
+      <div class="mini-row r-morning"><span class="lbl">7</span><span class="lane"></span></div>
+      <div class="mini-row r-morning"><span class="lbl">8</span><span class="lane"></span></div>
+      <div class="mini-row r-deep"><span class="lbl">9</span><span class="lane"><div class="t-block t-coral"><span class="when">9–10:30</span><span class="label">Morning planning ✓</span></div></span></div>
+      <div class="mini-row r-deep"><span class="lbl">10</span><span class="lane"></span></div>
+      <div class="mini-row"><span class="lbl">11</span><span class="lane"></span></div>
+      <div class="mini-row"><span class="lbl">12 PM</span><span class="lane"></span></div>
+      <div class="mini-row r-deep"><span class="lbl">1</span><span class="lane"><div class="t-block t-gold"><span class="when">1–3</span><span class="label">Outline blog post #3</span></div></span></div>
+      <div class="mini-row r-deep"><span class="lbl">2</span><span class="lane"></span></div>
+      <div class="mini-row"><span class="lbl">3</span><span class="lane"><div class="t-block t-violet"><span class="when">3:30–5</span><span class="label">Code review</span></div></span></div>
+      <div class="mini-row r-workout"><span class="lbl">5</span><span class="lane"></span></div>
+      <div class="mini-row r-winddown"><span class="lbl">9 PM</span><span class="lane"></span></div>
+    </div>
+  </div>
+  <div class="annot" style="margin-top:10px;">
+    <strong>What the user sees:</strong> Both layers stacked. The default mode for everyday use. Same as the v4 today.html.
+  </div>
+</div>
+
+</div>
+
+<div class="annot" style="margin-top:24px; border-left-color: var(--gold);">
+  <strong>How it works:</strong> Toggle persists per-session — once you pick Schedule mode, it stays in Schedule mode until you switch. Setting in <code>Settings → App → Default calendar mode</code>. Power-user keyboard shortcut: <code>⌘1</code> = Schedule, <code>⌘2</code> = Tasks, <code>⌘3</code> = Both.
+</div>
+
+<!-- ============ COLLAPSE ACK ============ -->
+<h2>Collapsing 1, 2, 7, 10 into one family <span class="meta">you were right</span></h2>
+<div class="annot">
+  Background tint (1), Wrapper container (2), Hatched pattern (7), Z-axis depth (10) all share the same idea: <strong>"routines as background, tasks as foreground."</strong> The visual treatment varies; the mental model is identical. Treat them as one family — call it the <strong>Overlay family</strong>. Pick one rendering and ship it (currently #1 background tint in <code>today.html</code> v4). The others are paint jobs, not paradigm shifts.
+</div>
+
+<!-- ============ 7 RADICAL ALTERNATIVES ============ -->
+<h2 style="margin-top: 80px;">7 truly different paradigms <span class="meta">not "calendar with paint"</span></h2>
+
+<!-- ─── ALT A: SIDE-BY-SIDE ─── -->
+<h3 class="sub-title">Alt A — Side-by-side panels (spatial separation)</h3>
+<div class="why-different"><strong>Why this is different:</strong> routines and tasks live in separate spatial regions. Never overlay. Left panel = recurring scaffolding. Right panel = today's work. Each gets its own dedicated screen real estate.</div>
+<div class="stage" style="padding: 0; min-height: 380px;">
+  <div class="sbs">
+    <div class="sbs-panel left">
+      <div class="sbs-panel-title">Routines this week</div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <div class="routine-pill rp-morning"><span class="dot" style="background:var(--blue);"></span>Morning · weekdays 6–8:30 AM</div>
+        <div class="routine-pill rp-deep"><span class="dot" style="background:var(--indigo);"></span>Deep Work · weekdays 9–11 AM &amp; 1–3 PM</div>
+        <div class="routine-pill rp-workout"><span class="dot" style="background:var(--green);"></span>Workout · M/W/F 5–7 PM</div>
+        <div class="routine-pill rp-winddown"><span class="dot" style="background:var(--amber);"></span>Wind Down · daily 9–11 PM</div>
+      </div>
+      <hr class="div">
+      <div class="sbs-panel-title">Active right now</div>
+      <div class="routine-pill rp-deep" style="font-size:13px; padding:8px 12px;"><span class="dot" style="background:var(--indigo); width:8px; height:8px; box-shadow:0 0 8px var(--indigo);"></span>Deep Work · ends in 36 min</div>
+    </div>
+    <div class="sbs-panel">
+      <div class="sbs-panel-title">Today's tasks</div>
+      <div class="mini-cal">
+        <div class="mini-row"><span class="lbl">9</span><span class="lane"><div class="t-block t-coral"><span class="when">9–10:30</span><span class="label">Morning planning ✓</span></div></span></div>
+        <div class="mini-row"><span class="lbl">10</span><span class="lane"></span></div>
+        <div class="mini-row"><span class="lbl">11</span><span class="lane"></span></div>
+        <div class="mini-row"><span class="lbl">12 PM</span><span class="lane"></span></div>
+        <div class="mini-row"><span class="lbl">1</span><span class="lane"><div class="t-block t-gold"><span class="when">1–3</span><span class="label">Outline blog #3</span></div></span></div>
+        <div class="mini-row"><span class="lbl">2</span><span class="lane"></span></div>
+        <div class="mini-row"><span class="lbl">3</span><span class="lane"><div class="t-block t-violet"><span class="when">3:30–5</span><span class="label">Code review</span></div></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="pros-cons">
+  <div class="pros"><h4>Pros</h4><ul><li>Cleanest separation possible</li><li>No overlap = no visual conflict</li><li>Each panel can be configured independently</li></ul></div>
+  <div class="cons"><h4>Cons</h4><ul><li>Loses temporal alignment ("which routine is this task in?")</li><li>Wide screen needed</li><li>Two scans for full picture</li></ul></div>
+</div>
+
+<!-- ─── ALT B: STATE CARD HERO ─── -->
+<h3 class="sub-title" style="margin-top: 64px;">Alt B — State Card hero (calendar collapsed)</h3>
+<div class="why-different"><strong>Why this is different:</strong> there's no calendar by default. The page is dominated by ONE big card showing the current state ("In Deep Work · doing Outline blog #3 · 1h 22m left"). The full calendar is collapsed behind a "Today" expand. Inspired by Apple Watch — context-first, drilldown for detail.</div>
+<div class="stage">
+  <div class="state-card-hero">
+    <div class="ring"><span class="inner">31%</span></div>
+    <div class="label">In session · 1h 22m left</div>
+    <h3>Outline blog post #3</h3>
+    <div class="body">Inside Deep Work routine · toward "Write 4 blog posts in May" · 6h of 16h done</div>
+    <div class="actions">
+      <button>5-min break</button>
+      <button>End early</button>
+      <button>Show full schedule ↓</button>
+    </div>
+  </div>
+  <div style="text-align:center; padding:14px 0; font-size:11px; color:var(--dim); font-family:var(--mono);">— calendar collapsed by default · click "Show full schedule" to expand —</div>
+</div>
+<div class="pros-cons">
+  <div class="pros"><h4>Pros</h4><ul><li>Radically clean — one thing matters at a time</li><li>The "what should I be doing" answer in 1 second</li><li>Very Apple Watch / very modern</li></ul></div>
+  <div class="cons"><h4>Cons</h4><ul><li>Hides the calendar by default</li><li>Hard to glance "what's coming"</li><li>Requires expand for any planning</li></ul></div>
+</div>
+
+<!-- ─── ALT C: AGENDA STORY ─── -->
+<h3 class="sub-title" style="margin-top: 64px;">Alt C — Linear agenda story (no grid)</h3>
+<div class="why-different"><strong>Why this is different:</strong> not a calendar grid. A vertical scroll of moments through the day, like a story. Routine boundaries are inline events ("9 AM — Deep Work begins"). Tasks are inline cards. Reads top-to-bottom as a narrative of your day.</div>
+<div class="stage">
+  <div class="agenda">
+    <div class="moment boundary"><span class="time">6:00 AM</span><span class="body"><span class="h">🌅 Morning routine begins</span></span></div>
+    <div class="moment routine-only"><span class="time">6 — 8:30</span><span class="body"><span class="h">Routine slot · no task assigned</span><span class="sub">Distractions blocked. Free to do whatever.</span></span></div>
+    <div class="moment boundary"><span class="time">9:00 AM</span><span class="body"><span class="h">🧠 Deep Work begins</span></span></div>
+    <div class="moment task"><span class="time">9 — 10:30</span><span class="body"><span class="h">Morning planning ritual ✓</span><span class="sub">Toward "Plan deliberately" · 91% focus · done</span></span></div>
+    <div class="moment boundary"><span class="time">11:00 AM</span><span class="body"><span class="h">Deep Work pauses · open hours</span></span></div>
+    <div class="moment boundary"><span class="time">1:00 PM</span><span class="body"><span class="h">🧠 Deep Work begins again</span></span></div>
+    <div class="moment task gold"><span class="time">1 — 3</span><span class="body"><span class="h">Outline blog post #3 <span style="color:var(--red); font-size:10px; padding:1px 6px; background:rgba(212,80,80,0.18); border-radius:3px; margin-left:6px;">STRICT</span></span><span class="sub">Toward "Write 4 blog posts in May" · planned</span></span></div>
+    <div class="moment task violet"><span class="time">3:30 — 5</span><span class="body"><span class="h">Code review backlog</span><span class="sub">Toward "Ship Mac app v2" · standard · planned</span></span></div>
+    <div class="moment boundary"><span class="time">9:00 PM</span><span class="body"><span class="h">🌙 Wind Down begins</span></span></div>
+  </div>
+</div>
+<div class="pros-cons">
+  <div class="pros"><h4>Pros</h4><ul><li>Reads like a story — emotionally engaging</li><li>Routine boundaries explicitly marked as events</li><li>No grid = no rigid time slots to fight against</li></ul></div>
+  <div class="cons"><h4>Cons</h4><ul><li>Less efficient at showing time density</li><li>Harder to "see the day at a glance"</li><li>Drag-and-drop is awkward without grid</li></ul></div>
+</div>
+
+<!-- ─── ALT D: HORIZONTAL GANTT ─── -->
+<h3 class="sub-title" style="margin-top: 64px;">Alt D — Horizontal Gantt (project mgmt orientation)</h3>
+<div class="why-different"><strong>Why this is different:</strong> time flows LEFT-TO-RIGHT instead of top-to-bottom. Two rows: routines as bars on the top row, tasks as bars on the bottom. Looks like a Gantt chart. Spatial separation by row + horizontal time axis. Glanceable at a different scale.</div>
+<div class="stage" style="padding: 0;">
+  <div class="gantt">
+    <div class="gantt-hours">
+      <span class="hh">6 AM</span><span class="hh">9</span><span class="hh">12 PM</span><span class="hh">3</span><span class="hh">6</span><span class="hh">9 PM</span>
+    </div>
+    <div class="gantt-row">
+      <span class="label" style="color:var(--blue);">Morning</span>
+      <div class="lane"><div class="gantt-bar gantt-routine morning" style="left:0%; width:13%;">6–8:30</div></div>
+    </div>
+    <div class="gantt-row">
+      <span class="label" style="color:var(--indigo);">Deep Work</span>
+      <div class="lane"><div class="gantt-bar gantt-routine" style="left:17%; width:11%;">9–11</div><div class="gantt-bar gantt-routine" style="left:39%; width:11%;">1–3</div></div>
+    </div>
+    <div class="gantt-row">
+      <span class="label" style="color:var(--green);">Workout</span>
+      <div class="lane"><div class="gantt-bar gantt-routine workout" style="left:60%; width:11%;">5–7</div></div>
+    </div>
+    <div class="gantt-row">
+      <span class="label" style="color:var(--amber);">Wind Down</span>
+      <div class="lane"><div class="gantt-bar gantt-routine winddown" style="left:78%; width:11%;">9–11 PM</div></div>
+    </div>
+    <hr class="div" style="margin: 14px 0;">
+    <div class="gantt-row">
+      <span class="label" style="color:var(--coral); font-weight:700;">Today's tasks</span>
+      <div class="lane" style="height:36px;">
+        <div class="gantt-bar gantt-task" style="left:17%; width:8%;">Morning planning ✓</div>
+        <div class="gantt-bar gantt-task gold" style="left:39%; width:11%;">Outline blog #3</div>
+        <div class="gantt-bar gantt-task violet" style="left:53%; width:8%;">Code review</div>
+        <div class="gantt-now" style="left:46%;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="pros-cons">
+  <div class="pros"><h4>Pros</h4><ul><li>Routines and tasks separately rowed but time-aligned</li><li>Horizontal scan = day at a glance</li><li>Gantt feel = serious / pro</li></ul></div>
+  <div class="cons"><h4>Cons</h4><ul><li>Project-mgmt aesthetic = less consumer-friendly</li><li>Wide screen needed</li><li>Less familiar to non-technical users</li></ul></div>
+</div>
+
+<!-- ─── ALT E: CIRCULAR CLOCK ─── -->
+<h3 class="sub-title" style="margin-top: 64px;">Alt E — Circular 24-hour clock</h3>
+<div class="why-different"><strong>Why this is different:</strong> a circular clock face for 24 hours. Inner ring shows routines as colored arcs. Outer ring shows tasks as labeled segments. The NOW indicator is a hand. Like a watch face for your day. Glanceable from a distance, beautiful at hero scale.</div>
+<div class="stage">
+  <div class="clock-stage">
+    <div class="clock">
+      <svg class="clock-svg" viewBox="0 0 200 200">
+        <!-- Hour ticks -->
+        <g stroke="rgba(255,255,255,0.15)" stroke-width="1">
+          <line x1="100" y1="10" x2="100" y2="18"/>
+          <line x1="190" y1="100" x2="182" y2="100"/>
+          <line x1="100" y1="190" x2="100" y2="182"/>
+          <line x1="10" y1="100" x2="18" y2="100"/>
+        </g>
+        <!-- Hour numbers (24h) -->
+        <text x="100" y="6" text-anchor="middle" font-size="7" fill="rgba(255,255,255,0.36)" font-family="monospace">0</text>
+        <text x="196" y="103" text-anchor="middle" font-size="7" fill="rgba(255,255,255,0.36)" font-family="monospace">6</text>
+        <text x="100" y="200" text-anchor="middle" font-size="7" fill="rgba(255,255,255,0.36)" font-family="monospace">12</text>
+        <text x="4" y="103" text-anchor="middle" font-size="7" fill="rgba(255,255,255,0.36)" font-family="monospace">18</text>
+        <!-- Inner routine ring (24h, starts at top) -->
+        <!-- 6-8:30 = blue (Morning) -->
+        <path d="M 100 30 A 70 70 0 0 1 134.6 39.5" fill="none" stroke="#6E8FE0" stroke-width="14" stroke-linecap="round" opacity="0.6"/>
+        <!-- 9-11 = indigo (Deep Work) -->
+        <path d="M 158 56 A 70 70 0 0 1 170 100" fill="none" stroke="#8B5CF6" stroke-width="14" stroke-linecap="round" opacity="0.7"/>
+        <!-- 13-15 = indigo again -->
+        <path d="M 158 144 A 70 70 0 0 1 134.6 160.5" fill="none" stroke="#8B5CF6" stroke-width="14" stroke-linecap="round" opacity="0.7"/>
+        <!-- 17-19 = green (Workout) -->
+        <path d="M 65 195 A 70 70 0 0 1 30 170" fill="none" stroke="#6FB58E" stroke-width="14" stroke-linecap="round" opacity="0.6"/>
+        <!-- 21-23 = amber (Wind Down) -->
+        <path d="M 30 56 A 70 70 0 0 1 65 30" fill="none" stroke="#E5A063" stroke-width="14" stroke-linecap="round" opacity="0.6"/>
+        <!-- Outer task ring -->
+        <!-- 9-10:30 = coral done -->
+        <path d="M 158 56 A 70 70 0 0 1 173 86" fill="none" stroke="#E87461" stroke-width="6" stroke-linecap="round" opacity="0.55"/>
+        <!-- 13-15 = gold -->
+        <path d="M 158 144 A 70 70 0 0 1 134.6 160.5" fill="none" stroke="#F0B060" stroke-width="6" stroke-linecap="round" opacity="0.85"/>
+        <!-- 15:30-17 = violet -->
+        <path d="M 110 173 A 70 70 0 0 1 78 168" fill="none" stroke="#B287D9" stroke-width="6" stroke-linecap="round" opacity="0.7"/>
+
+        <!-- NOW hand (e.g., 1:48 PM = 13.8h) -->
+        <line x1="100" y1="100" x2="142" y2="155" stroke="#E87461" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="100" cy="100" r="5" fill="#E87461"/>
+
+        <!-- Center label -->
+        <text x="100" y="92" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.55)" font-family="-apple-system">Now</text>
+        <text x="100" y="115" text-anchor="middle" font-size="14" fill="white" font-family="monospace" font-weight="700">1:48 PM</text>
+      </svg>
+    </div>
+    <div class="clock-list">
+      <h4>Right now</h4>
+      <div class="row"><span class="swatch" style="background:var(--gold);"></span><span class="label"><strong style="color:var(--text);">Outline blog post #3</strong><br><span style="color:var(--muted); font-size:11px;">Inside Deep Work routine · ends 3 PM</span></span></div>
+      <h4 style="margin-top:18px;">Today's routines</h4>
+      <div class="row"><span class="swatch" style="background:var(--blue);"></span><span class="label">Morning</span><span class="time">6 – 8:30 AM</span></div>
+      <div class="row"><span class="swatch" style="background:var(--indigo);"></span><span class="label">Deep Work</span><span class="time">9–11, 1–3</span></div>
+      <div class="row"><span class="swatch" style="background:var(--green);"></span><span class="label">Workout</span><span class="time">5 – 7 PM</span></div>
+      <div class="row"><span class="swatch" style="background:var(--amber);"></span><span class="label">Wind Down</span><span class="time">9 – 11 PM</span></div>
+    </div>
+  </div>
+</div>
+<div class="pros-cons">
+  <div class="pros"><h4>Pros</h4><ul><li>Beautiful — could be the brand signature</li><li>Spatial = circadian, matches body clock intuition</li><li>Glanceable at hero scale</li></ul></div>
+  <div class="cons"><h4>Cons</h4><ul><li>Clock face is small — labels get crowded</li><li>Editing tasks via dragging arc segments is tricky</li><li>List on the right is needed for usability</li></ul></div>
+</div>
+
+<!-- ─── ALT F: BENTO BOX ─── -->
+<h3 class="sub-title" style="margin-top: 64px;">Alt F — Bento-box multi-panel</h3>
+<div class="why-different"><strong>Why this is different:</strong> not one calendar — five panels, each with a different lens on today. Now / Up next / Today's routines / Today's tasks / Defenses status. Like the iOS 18 widget grid. Each panel is the right size for what it shows.</div>
+<div class="stage" style="padding: 14px;">
+  <div class="bento">
+    <div class="panel now-panel">
+      <div class="panel-title">Now · ends in 1h 22m</div>
+      <h2>Outline blog post #3</h2>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:8px;">Inside Deep Work · toward "Write 4 blogs"</div>
+      <div class="progress"><div class="bar"></div></div>
+      <div style="display:flex; gap:6px; margin-top:12px;"><button style="background:rgba(255,255,255,0.06); color:var(--text); border:1px solid var(--border-strong); padding:5px 10px; border-radius:6px; font-size:11px;">Break</button><button style="background:rgba(255,255,255,0.06); color:var(--text); border:1px solid var(--border-strong); padding:5px 10px; border-radius:6px; font-size:11px;">End</button></div>
+    </div>
+    <div class="panel next-panel">
+      <div class="panel-title">Up next</div>
+      <div class="item"><span class="h">3:30 PM Code review</span><span style="color:var(--dim);">in 1h 42m</span></div>
+      <hr class="div" style="margin:8px 0;">
+      <div class="item"><span class="h">5 PM Workout window</span><span style="color:var(--dim);">routine</span></div>
+    </div>
+    <div class="panel routines-panel">
+      <div class="panel-title">Today's routines</div>
+      <div class="item"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--indigo); margin-right:6px;"></span>Deep Work · active</div>
+      <div class="item"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--green); margin-right:6px;"></span>Workout · 5 PM</div>
+      <div class="item"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--amber); margin-right:6px;"></span>Wind Down · 9 PM</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Tasks today · 1/3 done</div>
+      <div class="item">✓ <s style="color:var(--dim);">Morning planning</s></div>
+      <div class="item" style="color:var(--coral);">▶ Outline blog #3</div>
+      <div class="item">○ Code review backlog</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Defenses</div>
+      <div class="item"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--green); margin-right:6px;"></span>Caity</div>
+      <div class="item"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--green); margin-right:6px;"></span>Content ON</div>
+      <div class="item"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--dim); margin-right:6px;"></span>Puck</div>
+    </div>
+  </div>
+</div>
+<div class="pros-cons">
+  <div class="pros"><h4>Pros</h4><ul><li>Each piece of info gets its own optimized panel</li><li>Modern iOS widget aesthetic</li><li>Customizable layout = personalization opportunity</li></ul></div>
+  <div class="cons"><h4>Cons</h4><ul><li>No single timeline — harder to see time relationships</li><li>Panels can become cluttered</li><li>Loses the "story of the day" feel</li></ul></div>
+</div>
+
+<!-- ─── ALT G: AI COMMENTARY STREAM ─── -->
+<h3 class="sub-title" style="margin-top: 64px;">Alt G — AI commentary stream (chat-shaped day)</h3>
+<div class="why-different"><strong>Why this is different:</strong> the schedule is presented as the AI talking to you about your day. Not a grid, not a list — a conversation. The AI tells you what's happening, what's next, what your routines say. You can ask questions and reschedule via chat. Replaces the calendar entirely with a stream.</div>
+<div class="stage" style="padding: 0;">
+  <div class="ai-stream">
+    <div class="ai-msg">
+      <div class="avatar">🌅</div>
+      <div class="body">
+        <div class="time">7:30 AM</div>
+        <div class="text">Morning, Ameer. Your <span class="pill-inline">Morning routine</span> just started — distractions are blocked till 8:30. You don't have a task in this slot, just open hours.</div>
+      </div>
+    </div>
+    <div class="ai-msg">
+      <div class="avatar">🧠</div>
+      <div class="body">
+        <div class="time">9:00 AM</div>
+        <div class="text"><span class="pill-inline">Deep Work</span> begins. Your task: <strong>Morning planning ritual</strong>. 90 min. Want to start?</div>
+        <div class="actions"><button>Start</button><button>Skip</button><button>Snooze 5</button></div>
+      </div>
+    </div>
+    <div class="ai-msg">
+      <div class="avatar">✓</div>
+      <div class="body">
+        <div class="time">10:32 AM</div>
+        <div class="text">Morning planning <strong>done · 91% focus</strong> · 2 quick recoveries. Nice. Next up at 1 PM: Outline blog post #3, in your second Deep Work block.</div>
+      </div>
+    </div>
+    <div class="ai-msg">
+      <div class="avatar">⚠</div>
+      <div class="body">
+        <div class="time">1:48 PM (now)</div>
+        <div class="text">You're 48 min into <strong>Outline blog post #3</strong>. <span class="pill-inline">Strict</span> mode is on — 1h 12m to go. Want a quick check-in or shall I let you work?</div>
+        <div class="actions"><button>Let me work</button><button>5-min break</button><button>Show calendar ↓</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="pros-cons">
+  <div class="pros"><h4>Pros</h4><ul><li>Most intimate / coach-like feel</li><li>AI is the headline (matches your "ADHD coach" vision)</li><li>Conversational interface = less screen anxiety</li></ul></div>
+  <div class="cons"><h4>Cons</h4><ul><li>Loses spatial overview entirely</li><li>Hard to drag/edit times</li><li>Requires GPT-quality copy or it feels chintzy</li></ul></div>
+</div>
+
+<!-- VERDICT -->
+<div class="annot" style="margin-top: 80px; border-left-color: var(--gold); padding: 22px 28px;">
+  <h3 style="margin: 0 0 12px; font-size: 18px; color: var(--text); letter-spacing:-0.2px;">My honest take across all 7</h3>
+  <p style="margin: 0 0 14px;">If you want <strong>fundamentally different feel</strong>, the strongest contenders are:</p>
+  <ul style="margin: 0 0 14px; padding-left: 22px;">
+    <li><strong>Alt B (State Card hero)</strong> — most striking. Most "different." Closest to the Apple Watch / premium wearable aesthetic. Risk: hides the calendar.</li>
+    <li><strong>Alt C (Linear agenda story)</strong> — feels human, story-shaped, more emotional than a grid. Risk: less efficient for power users.</li>
+    <li><strong>Alt E (Circular clock)</strong> — beautiful, brand-signature potential. Risk: editing is hard, needs the list panel.</li>
+    <li><strong>Alt G (AI commentary stream)</strong> — most aligned with your "AI coach" vision for the product. Risk: requires very good AI copy or it feels gimmicky.</li>
+  </ul>
+  <p>The "boring but solid" choice is still the Overlay family (1/2/7/10) — it's familiar, scales, works. <strong>The "I want to make a statement" choice is Alt B or Alt G.</strong> Pick the lane that matches the product's identity: tool (Overlay) vs. companion (AI stream) vs. premium watch (State card / Clock).</p>
+  <p style="margin: 14px 0 0; padding-top: 14px; border-top: 1px solid var(--border);"><strong>Next move:</strong> tell me which of these (the 7 alts + the 2-mode toggle + Overlay family) you want me to fully build out as the canonical Today page. I'll commit it as the next version.</p>
+</div>
+
+</div>
+</body>
+</html>

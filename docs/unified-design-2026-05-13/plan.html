@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Intentional — Plan (all states)</title>
+<style>
+  :root {
+    --bg: #0a0c0a; --bg-2: #111414;
+    --card: rgba(255,255,255,0.04); --card-hover: rgba(255,255,255,0.07);
+    --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.14);
+    --text: #f7f8f8; --muted: rgba(255,255,255,0.55); --dim: rgba(255,255,255,0.36);
+    --coral: #E87461; --gold: #F0B060; --green: #6FB58E; --blue: #6E8FE0;
+    --violet: #B287D9; --amber: #E5A063; --red: #D45050;
+    --grad: linear-gradient(135deg, var(--coral), var(--gold));
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif;
+    --mono: "SF Mono", Menlo, Monaco, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; line-height: 1.55; }
+  body { background: radial-gradient(ellipse at top, rgba(232,116,97,0.06), transparent 60%), var(--bg); background-attachment: fixed; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 56px 32px 96px; }
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--coral); margin-bottom: 10px; }
+  h1 { font-size: 38px; line-height: 1.15; letter-spacing: -0.8px; font-weight: 700; margin: 0 0 14px; }
+  .lede { font-size: 17px; color: var(--muted); max-width: 760px; margin-bottom: 16px; }
+  h2 { font-size: 22px; letter-spacing: -0.4px; font-weight: 600; margin: 56px 0 6px; }
+  h2 .meta { font-size: 13px; font-weight: 400; color: var(--dim); margin-left: 12px; }
+  .state-note { font-size: 13px; color: var(--muted); margin: 6px 0 16px; max-width: 760px; }
+  .app-frame { display: flex; border: 1px solid var(--border-strong); border-radius: 16px; overflow: hidden; background: var(--bg-2); box-shadow: 0 20px 60px rgba(0,0,0,0.4); min-height: 600px; }
+  .sidebar { width: 200px; background: rgba(0,0,0,0.30); border-right: 1px solid var(--border); padding: 24px 14px; display: flex; flex-direction: column; gap: 4px; }
+  .brand { font-size: 15px; font-weight: 700; color: var(--coral); margin-bottom: 28px; padding: 0 10px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; color: var(--muted); font-size: 14px; font-weight: 500; }
+  .nav-item .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); }
+  .nav-item.active { background: rgba(232,116,97,0.10); color: var(--coral); }
+  .nav-item.active .dot { background: var(--coral); box-shadow: 0 0 8px var(--coral); }
+  .sidebar-foot { margin-top: auto; padding: 12px 10px 0; font-size: 11px; color: var(--dim); font-family: var(--mono); line-height: 1.6; }
+  .content { flex: 1; padding: 28px 36px; }
+  .page-title { font-size: 22px; font-weight: 700; margin: 0 0 2px; letter-spacing: -0.3px; }
+  .page-sub { font-size: 13px; color: var(--dim); margin-bottom: 22px; }
+  .btn-primary { background: var(--grad); color: #1a0f0a; border: none; padding: 9px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; font-family: var(--font); }
+  .btn-secondary { background: transparent; color: var(--muted); border: 1px solid var(--border-strong); padding: 9px 14px; border-radius: 8px; font-weight: 500; font-size: 13px; cursor: pointer; font-family: var(--font); }
+  .btn-danger { background: transparent; color: var(--red); border: 1px solid rgba(212,80,80,0.36); padding: 9px 14px; border-radius: 8px; font-weight: 500; font-size: 13px; cursor: pointer; }
+  .btn-quiet { background: transparent; color: var(--muted); border: 0; padding: 9px 6px; font-size: 12px; cursor: pointer; }
+
+  .section-h3 { font-size: 13px; color: var(--dim); margin: 8px 0 12px; letter-spacing: 0.6px; text-transform: uppercase; font-weight: 600; }
+  .toolbar { display:flex; align-items:center; justify-content:space-between; margin-bottom: 18px; }
+  .toolbar .left { display:flex; align-items:center; gap:14px; }
+  .toolbar .toggle { display:flex; gap:2px; background:rgba(255,255,255,0.05); border-radius:8px; padding:2px; }
+  .toolbar .toggle .opt { padding:6px 14px; font-size:12px; color:var(--muted); border-radius:6px; cursor:pointer; }
+  .toolbar .toggle .opt.active { background:rgba(255,255,255,0.10); color:var(--text); }
+
+  .goals-row { display:flex; gap:10px; margin-bottom: 22px; }
+  .goal-card { flex:1; padding: 16px 18px; border-radius: 12px; border:1px solid; min-height: 92px; cursor: pointer; }
+  .goal-card.coral { background: rgba(232,116,97,0.10); border-color: rgba(232,116,97,0.36); }
+  .goal-card.gold { background: rgba(240,176,96,0.10); border-color: rgba(240,176,96,0.36); }
+  .goal-card.violet { background: rgba(178,135,217,0.10); border-color: rgba(178,135,217,0.36); }
+  .goal-card.dashed { background: transparent; border: 1px dashed var(--border-strong); color: var(--dim); display:flex; align-items:center; justify-content:center; font-size: 13px; }
+  .goal-card .title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .goal-card .outcome { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  .missions-row { display:flex; gap:10px; margin-bottom:22px; }
+  .mission-card { flex:1; padding: 14px 16px 14px 14px; border-radius:10px; background: var(--card); border:1px solid var(--border); border-left: 4px solid var(--dim); cursor: pointer; }
+  .mission-card.coral { border-left-color: var(--coral); }
+  .mission-card.gold { border-left-color: var(--gold); }
+  .mission-card.violet { border-left-color: var(--violet); }
+  .mission-card.dashed { background: transparent; border: 1px dashed var(--border-strong); border-left: 1px dashed var(--border-strong); display: flex; align-items: center; justify-content: center; color: var(--dim); font-size: 13px; min-height: 92px; }
+  .mission-card .title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .mission-card .outcome { font-size: 12px; color: var(--muted); margin-bottom: 8px; line-height:1.5; }
+  .mission-card .meta { display:flex; gap:6px; align-items:center; }
+  .mission-card .status { font-size: 11px; text-transform:uppercase; letter-spacing:0.5px; color: var(--dim); }
+  .mission-card .status.in-progress { color: var(--coral); }
+  .mission-card .status.done { color: var(--green); }
+  .mission-card .status.slipped { color: var(--amber); }
+
+  .timeline { background: var(--card); border:1px solid var(--border); border-radius: 12px; padding: 8px 0; position: relative; min-height: 280px; }
+  .timeline .hour { display: flex; align-items: center; padding: 0 14px; min-height: 32px; border-top: 1px dashed rgba(255,255,255,0.04); }
+  .timeline .hour .lbl { font-family: var(--mono); font-size: 11px; color: var(--dim); width: 60px; }
+  .timeline .block-block { position: relative; flex: 1; margin: 4px 0; padding: 10px 12px; border-radius: 8px; font-size: 13px; color: var(--text); }
+  .tl-coral { background: rgba(232,116,97,0.18); border: 1px solid rgba(232,116,97,0.36); }
+  .tl-gold { background: rgba(240,176,96,0.18); border: 1px solid rgba(240,176,96,0.36); }
+  .tl-violet { background: rgba(178,135,217,0.18); border: 1px solid rgba(178,135,217,0.36); }
+  .timeline .now-line { position:absolute; left:0; right:0; height:1px; background:var(--coral); top:50%; box-shadow:0 0 8px var(--coral); }
+  .timeline .now-line::before { content:'NOW'; position:absolute; left: 64px; top:-7px; font-size: 10px; font-weight:700; color:var(--coral); background: var(--bg-2); padding: 0 6px; letter-spacing: 1px; }
+
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; font-size: 10px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap; }
+  .pill.coral { background: rgba(232,116,97,0.12); color: var(--coral); border: 1px solid rgba(232,116,97,0.28); }
+  .pill.red { background: rgba(212,80,80,0.12); color: var(--red); border: 1px solid rgba(212,80,80,0.28); }
+  .pill.green { background: rgba(111,181,142,0.12); color: var(--green); border: 1px solid rgba(111,181,142,0.28); }
+  .pill.amber { background: rgba(229,160,99,0.12); color: var(--amber); border: 1px solid rgba(229,160,99,0.28); }
+  .pill.dim { background: rgba(255,255,255,0.04); color: var(--dim); border: 1px solid var(--border); }
+
+  .modal { background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: 14px; padding: 24px; max-width: 480px; margin: 0 auto; box-shadow: 0 24px 60px rgba(0,0,0,0.5); }
+  .modal h3 { font-size: 16px; margin: 0 0 14px; font-weight: 700; }
+  .modal .field { margin-bottom: 14px; }
+  .modal .field label { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; display: block; margin-bottom: 6px; }
+  .modal .field .input { padding: 10px 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; font-size: 14px; color: var(--text); }
+  .modal .field .input.textarea { min-height: 60px; }
+  .modal .actions { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; }
+  .modal .actions .right { display: flex; gap: 8px; }
+
+  .annot { margin: 14px 0 0; padding: 14px 18px; background: var(--card); border-left: 3px solid var(--coral); border-radius: 0 10px 10px 0; font-size: 13px; line-height: 1.6; color: var(--muted); }
+  .annot strong { color: var(--text); }
+  .annot ul { margin: 6px 0 0; padding-left: 20px; }
+  .annot code { background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 4px; font-size: 12px; font-family: var(--mono); }
+
+  .ritual-screen { background: linear-gradient(180deg, rgba(232,116,97,0.04), transparent), var(--bg-2); border: 1px solid var(--border-strong); border-radius: 14px; padding: 60px 40px; text-align: center; }
+  .ritual-screen .step { font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px; color: var(--coral); font-weight: 700; margin-bottom: 14px; }
+  .ritual-screen h2.q { font-size: 24px; font-weight: 600; letter-spacing: -0.3px; max-width: 520px; margin: 0 auto 24px; }
+  .ritual-screen .input-box { max-width: 520px; margin: 0 auto; background: var(--card); border: 1px solid var(--border-strong); border-radius: 12px; padding: 14px 16px; font-size: 14px; color: var(--muted); min-height: 120px; text-align: left; }
+  .ritual-screen .nav { margin-top: 24px; display: flex; gap: 10px; justify-content: center; }
+
+  .review-row { display:flex; align-items:center; gap: 14px; padding: 14px 8px; border-bottom: 1px solid var(--border); }
+  .review-row .dot-color { width: 8px; height: 8px; border-radius: 50%; }
+  .review-row .body { flex: 1; }
+  .review-row .title { font-size: 14px; font-weight: 600; }
+  .review-row .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .review-row .progress { width: 100px; height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; }
+  .review-row .progress .bar { height: 100%; border-radius: 3px; }
+  .review-row .hours { font-family: var(--mono); font-size: 11px; color: var(--muted); width: 60px; text-align: right; }
+  .seg { display: flex; gap: 0; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 2px; }
+  .seg .opt { padding: 6px 10px; font-size: 11px; color: var(--muted); cursor: pointer; border-radius: 6px; }
+  .seg .opt.active { background: var(--green); color: white; }
+  .seg .opt.active.amber { background: var(--amber); }
+  .seg .opt.active.red { background: var(--red); }
+
+  .insight-card { background: rgba(229,160,99,0.06); border:1px solid rgba(229,160,99,0.24); border-radius: 12px; padding: 14px 18px; margin-top: 16px; font-size: 13px; }
+  .insight-card .lbl { font-size: 10px; text-transform:uppercase; letter-spacing:1px; color: var(--amber); font-weight:700; margin-bottom:6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Plan · all states · 2026-05-13</div>
+  <h1>Plan — the structured planning ritual</h1>
+  <p class="lede">23 states covering every entry point: empty (new month), partial (mid-week), full, the drag-to-timeline flow, every edit modal, the "Help me plan" guided ritual, weekly review, monthly review. Every button has a documented follow-on.</p>
+</header>
+
+<!-- STATE 1 -->
+<h2>State 1 — Empty (new month, no goals set yet) <span class="meta">first-touch on Plan</span></h2>
+<p class="state-note">User has never set a goal in this month. The page invites the planning ritual with three dashed monthly placeholders and a clear primary CTA.</p>
+<div class="app-frame">
+  <aside class="sidebar"><div class="brand">Intentional</div><div class="nav-item"><span class="dot"></span>Today</div><div class="nav-item active"><span class="dot"></span>Plan</div><div class="nav-item"><span class="dot"></span>Settings</div><div class="sidebar-foot">May 1, 9:14 AM</div></aside>
+  <main class="content">
+    <div class="toolbar">
+      <div class="left">
+        <h3 class="page-title">May 2026</h3>
+        <div class="toggle"><span class="opt active">Today</span><span class="opt">Week</span></div>
+      </div>
+      <button class="btn-primary">Help me plan →</button>
+    </div>
+    <div class="section-h3">Monthly goals · 0/3</div>
+    <div class="goals-row">
+      <div class="goal-card dashed">+ Add monthly goal</div>
+      <div class="goal-card dashed">+ Add monthly goal</div>
+      <div class="goal-card dashed">+ Add monthly goal</div>
+    </div>
+    <div class="section-h3">Weekly missions</div>
+    <div style="padding: 28px 20px; text-align: center; background: var(--card); border: 1px dashed var(--border-strong); border-radius: 12px; color: var(--muted); font-size: 13px;">Set monthly goals first.</div>
+  </main>
+</div>
+<div class="annot"><strong>Empty-state behavior:</strong> User never plans on a blank canvas. The "Help me plan" button is the primary action and lives in the toolbar (always-visible across Plan states). Clicking any dashed monthly card opens the edit modal (State 7). The weekly section explicitly hides itself until monthlies exist.</div>
+
+<!-- STATE 2 -->
+<h2>State 2 — Monthly set, weekly empty <span class="meta">Sunday morning, planning the week</span></h2>
+<p class="state-note">Monthly goals exist. Weekly missions need to be set. The empty weekly row prompts both "Review last week" and "Start ritual" (if last week had missions).</p>
+<div class="app-frame">
+  <aside class="sidebar"><div class="brand">Intentional</div><div class="nav-item"><span class="dot"></span>Today</div><div class="nav-item active"><span class="dot"></span>Plan</div><div class="nav-item"><span class="dot"></span>Settings</div><div class="sidebar-foot">May 12, 8:14 AM</div></aside>
+  <main class="content">
+    <div class="toolbar">
+      <div class="left"><h3 class="page-title">May 12 — 18</h3><div class="toggle"><span class="opt active">Today</span><span class="opt">Week</span></div></div>
+      <button class="btn-primary">Help me plan →</button>
+    </div>
+    <div class="section-h3">Monthly goals · 3/3</div>
+    <div class="goals-row">
+      <div class="goal-card coral"><div class="title">Write 4 blog posts</div><div class="outcome">All 4 published by May 31 with at least 500 words each</div></div>
+      <div class="goal-card gold"><div class="title">Ship Mac app v2</div><div class="outcome">Beta testers onboarded by May 25</div></div>
+      <div class="goal-card violet"><div class="title">Train for a 5k</div><div class="outcome">Run 4x/week, finish a timed 5k by May 31</div></div>
+    </div>
+    <div class="section-h3">Weekly missions · 0/3 · week starts Monday</div>
+    <div class="missions-row">
+      <div class="mission-card dashed">+ Add weekly mission</div>
+      <div class="mission-card dashed">+ Add weekly mission</div>
+      <div class="mission-card dashed">+ Add weekly mission</div>
+    </div>
+    <div style="display:flex; gap:10px; margin-top: 18px;">
+      <button class="btn-secondary">Review last week first</button>
+      <button class="btn-primary">Help me plan this week</button>
+    </div>
+  </main>
+</div>
+<div class="annot">If last week had uncompleted missions, "Review last week first" auto-fires when entering Plan on Monday — see State 13. The user can also bypass and just hit "Help me plan."</div>
+
+<!-- STATE 3 -->
+<h2>State 3 — Weekly partially planned <span class="meta">1–2 missions set, 1 still empty</span></h2>
+<p class="state-note">User has set some weekly missions but not all three. Today's timeline begins to populate as missions are dragged onto it.</p>
+<div class="app-frame">
+  <aside class="sidebar"><div class="brand">Intentional</div><div class="nav-item"><span class="dot"></span>Today</div><div class="nav-item active"><span class="dot"></span>Plan</div><div class="nav-item"><span class="dot"></span>Settings</div><div class="sidebar-foot">May 13, 8:54 AM</div></aside>
+  <main class="content">
+    <div class="toolbar"><div class="left"><h3 class="page-title">May 12 — 18</h3><div class="toggle"><span class="opt active">Today</span><span class="opt">Week</span></div></div><button class="btn-primary">Help me plan →</button></div>
+    <div class="section-h3">Monthly goals · 3/3</div>
+    <div class="goals-row">
+      <div class="goal-card coral"><div class="title">Write 4 blog posts</div><div class="outcome">All 4 published by May 31</div></div>
+      <div class="goal-card gold"><div class="title">Ship Mac app v2</div><div class="outcome">Beta by May 25</div></div>
+      <div class="goal-card violet"><div class="title">Train for a 5k</div><div class="outcome">Timed 5k by May 31</div></div>
+    </div>
+    <div class="section-h3">Weekly missions · 2/3</div>
+    <div class="missions-row">
+      <div class="mission-card coral"><div class="title">Outline blog #3</div><div class="outcome">Outline + 500 words by Wed</div><div class="meta"><span class="pill red">STRICT</span><span class="pill dim">4h target</span></div></div>
+      <div class="mission-card gold"><div class="title">Ship Stripe webhook</div><div class="outcome">PR merged by Fri</div><div class="meta"><span class="pill coral">STANDARD</span><span class="pill dim">6h target</span></div></div>
+      <div class="mission-card dashed">+ Add weekly mission</div>
+    </div>
+    <div class="section-h3">Today's timeline · Tuesday May 13</div>
+    <div class="timeline">
+      <div class="hour"><span class="lbl">8 AM</span></div>
+      <div class="hour"><span class="lbl">9</span><div class="block-block tl-coral" style="margin-left:4px;">Morning planning ritual <span class="pill dim" style="margin-left:6px;">90m</span></div></div>
+      <div class="hour"><span class="lbl">10</span></div>
+      <div class="hour"><span class="lbl">11</span></div>
+      <div class="hour"><span class="lbl">12 PM</span></div>
+      <div class="hour"><span class="lbl">1</span><div class="block-block tl-coral" style="margin-left:4px;">Outline blog #3 <span class="pill red" style="margin-left:6px;">STRICT</span></div></div>
+      <div class="hour"><span class="lbl">2</span></div>
+      <div class="hour"><span class="lbl">3</span></div>
+      <div class="hour"><span class="lbl">4</span></div>
+      <div class="hour"><span class="lbl">5</span></div>
+      <div class="now-line"></div>
+    </div>
+  </main>
+</div>
+<div class="annot"><strong>Drag-to-schedule:</strong> drag a weekly mission card down onto an empty timeline slot → creates a session block in that mission's color. 15-min snap. NOW indicator marks current time. Click any block to edit; drag body to move; drag edge to resize.</div>
+
+<!-- STATE 4 -->
+<h2>State 4 — Fully planned <span class="meta">3 monthly + 3 weekly + sessions on timeline</span></h2>
+<p class="state-note">Canonical "everything set" view. The user can navigate to Today and start executing.</p>
+<div class="app-frame">
+  <aside class="sidebar"><div class="brand">Intentional</div><div class="nav-item"><span class="dot"></span>Today</div><div class="nav-item active"><span class="dot"></span>Plan</div><div class="nav-item"><span class="dot"></span>Settings</div><div class="sidebar-foot">May 13, 9:14 AM</div></aside>
+  <main class="content">
+    <div class="toolbar"><div class="left"><h3 class="page-title">May 12 — 18</h3><div class="toggle"><span class="opt active">Today</span><span class="opt">Week</span></div></div><button class="btn-secondary">Open today →</button></div>
+    <div class="section-h3">Monthly goals · 3/3</div>
+    <div class="goals-row">
+      <div class="goal-card coral"><div class="title">Write 4 blog posts</div><div class="outcome">2 of 4 published</div></div>
+      <div class="goal-card gold"><div class="title">Ship Mac app v2</div><div class="outcome">Beta starts in 12 days</div></div>
+      <div class="goal-card violet"><div class="title">Train for a 5k</div><div class="outcome">3/16 runs done</div></div>
+    </div>
+    <div class="section-h3">Weekly missions · 3/3</div>
+    <div class="missions-row">
+      <div class="mission-card coral"><div class="title">Outline blog #3</div><div class="outcome">Outline + 500 words by Wed</div><div class="meta"><span class="pill red">STRICT</span><span class="pill dim">4h target</span></div></div>
+      <div class="mission-card gold"><div class="title">Ship Stripe webhook</div><div class="outcome">PR merged by Fri</div><div class="meta"><span class="pill coral">STANDARD</span><span class="pill dim">6h target</span></div></div>
+      <div class="mission-card violet"><div class="title">Run 3 times this week</div><div class="outcome">Tue/Thu/Sat mornings</div><div class="meta"><span class="pill dim">STANDARD</span><span class="pill dim">3h target</span></div></div>
+    </div>
+    <div class="section-h3">Today's timeline · Tuesday May 13</div>
+    <div class="timeline">
+      <div class="hour"><span class="lbl">8 AM</span></div>
+      <div class="hour"><span class="lbl">9</span><div class="block-block tl-violet" style="margin-left:4px;">5k training run <span class="pill dim" style="margin-left:6px;">60m</span></div></div>
+      <div class="hour"><span class="lbl">10</span></div>
+      <div class="hour"><span class="lbl">11</span></div>
+      <div class="hour"><span class="lbl">12 PM</span></div>
+      <div class="hour"><span class="lbl">1</span><div class="block-block tl-coral" style="margin-left:4px;">Outline blog #3 <span class="pill red" style="margin-left:6px;">STRICT · 2h</span></div></div>
+      <div class="hour"><span class="lbl">2</span></div>
+      <div class="hour"><span class="lbl">3</span><div class="block-block tl-gold" style="margin-left:4px;">Code review backlog <span class="pill coral" style="margin-left:6px;">90m</span></div></div>
+      <div class="hour"><span class="lbl">4</span></div>
+      <div class="hour"><span class="lbl">5</span></div>
+      <div class="now-line"></div>
+    </div>
+  </main>
+</div>
+<div class="annot">Three sessions on today's timeline, one per mission. Monthly goal cards show progress (e.g. "2 of 4 published", "3/16 runs done") — this is the progress-aggregates-upward principle made visible.</div>
+
+<!-- STATE 5 -->
+<h2>State 5 — Mid-drag (mission → timeline) <span class="meta">visual snap targets visible</span></h2>
+<p class="state-note">User has grabbed a mission card and is dragging down to the timeline. Snap-to-15-min grid is visible. Target slot highlights.</p>
+<div class="app-frame">
+  <aside class="sidebar" style="opacity:0.6;"><div class="brand">Intentional</div><div class="nav-item"><span class="dot"></span>Today</div><div class="nav-item active"><span class="dot"></span>Plan</div><div class="nav-item"><span class="dot"></span>Settings</div><div class="sidebar-foot">May 13, 9:18 AM</div></aside>
+  <main class="content">
+    <div class="section-h3">Weekly missions · 3/3</div>
+    <div class="missions-row">
+      <div class="mission-card coral"><div class="title">Outline blog #3</div><div class="outcome">Outline + 500 words by Wed</div></div>
+      <div class="mission-card gold" style="opacity:0.4;"><div class="title">Ship Stripe webhook</div><div class="outcome">— being dragged —</div></div>
+      <div class="mission-card violet"><div class="title">Run 3 times this week</div><div class="outcome">Tue/Thu/Sat</div></div>
+    </div>
+    <div style="position:relative;">
+      <div class="section-h3">Today's timeline</div>
+      <div class="timeline">
+        <div class="hour"><span class="lbl">9 AM</span><div class="block-block tl-violet" style="margin-left:4px;">5k training run</div></div>
+        <div class="hour"><span class="lbl">10</span></div>
+        <div class="hour"><span class="lbl">11</span><div class="block-block tl-gold" style="margin-left:4px; opacity:0.7; border-style:dashed;">Ship Stripe webhook <span class="pill dim" style="margin-left:6px;">drop here</span></div></div>
+        <div class="hour"><span class="lbl">12 PM</span></div>
+        <div class="hour"><span class="lbl">1</span><div class="block-block tl-coral" style="margin-left:4px;">Outline blog #3</div></div>
+        <div class="hour"><span class="lbl">2</span></div>
+        <div class="hour"><span class="lbl">3</span></div>
+        <div class="hour"><span class="lbl">4</span></div>
+        <div class="hour"><span class="lbl">5</span></div>
+      </div>
+    </div>
+  </main>
+</div>
+<div class="annot">Dragged card shows preview at hover position with dashed border. Cursor indicates drop intent. Release → session created at that slot, duration defaults to mission's hours-target ÷ session-count (or 60 min if no target).</div>
+
+<!-- STATE 6 -->
+<h2>State 6 — Drag complete (session created) <span class="meta">visual confirmation pulse</span></h2>
+<p class="state-note">Drop registered. Session inserted at the snapped slot. Subtle pulse animation confirms creation.</p>
+<div class="app-frame">
+  <aside class="sidebar"><div class="brand">Intentional</div><div class="nav-item"><span class="dot"></span>Today</div><div class="nav-item active"><span class="dot"></span>Plan</div><div class="nav-item"><span class="dot"></span>Settings</div><div class="sidebar-foot">May 13, 9:19 AM</div></aside>
+  <main class="content">
+    <div class="section-h3">Today's timeline</div>
+    <div class="timeline">
+      <div class="hour"><span class="lbl">9 AM</span><div class="block-block tl-violet" style="margin-left:4px;">5k training run</div></div>
+      <div class="hour"><span class="lbl">10</span></div>
+      <div class="hour"><span class="lbl">11</span><div class="block-block tl-gold" style="margin-left:4px; box-shadow:0 0 0 2px rgba(240,176,96,0.5), 0 0 20px rgba(240,176,96,0.3);">Ship Stripe webhook <span class="pill coral" style="margin-left:6px;">STANDARD · 90m</span> <span style="float:right; color:var(--green); font-size:11px;">✓ scheduled</span></div></div>
+      <div class="hour"><span class="lbl">12 PM</span></div>
+      <div class="hour"><span class="lbl">1</span><div class="block-block tl-coral" style="margin-left:4px;">Outline blog #3</div></div>
+      <div class="hour"><span class="lbl">2</span></div>
+      <div class="hour"><span class="lbl">3</span></div>
+    </div>
+  </main>
+</div>
+<div class="annot">Brief (~600ms) gold glow on the newly-placed block. "✓ scheduled" stamp fades after 2s. Today is updated immediately (Today's "missions list" picks up the new session).</div>
+
+<!-- STATE 7 -->
+<h2>State 7 — Edit monthly goal modal <span class="meta">Title / Done looks like / Color / Delete</span></h2>
+<p class="state-note">Compact form. Four fields. Footer has Delete on the left, Cancel + Save on the right.</p>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal">
+    <h3>Edit monthly goal</h3>
+    <div class="field"><label>Title</label><div class="input">Write 4 blog posts</div></div>
+    <div class="field"><label>Done looks like</label><div class="input textarea">All 4 published by May 31 with at least 500 words each, shared to my newsletter</div></div>
+    <div class="field"><label>Identity color</label><div style="display:flex; gap:6px;"><span style="width:24px; height:24px; border-radius:50%; background:var(--coral); box-shadow:0 0 0 2px white;"></span><span style="width:24px; height:24px; border-radius:50%; background:var(--gold);"></span><span style="width:24px; height:24px; border-radius:50%; background:var(--violet);"></span><span style="width:24px; height:24px; border-radius:50%; background:var(--green);"></span><span style="width:24px; height:24px; border-radius:50%; background:var(--blue);"></span></div></div>
+    <div class="actions">
+      <button class="btn-danger">Delete</button>
+      <div class="right"><button class="btn-quiet">Cancel</button><button class="btn-primary">Save</button></div>
+    </div>
+  </div>
+</div>
+<div class="annot">Color picker shows 5 monthly-goal palette colors. Selected = white ring outline. Color cascades to all linked weekly missions automatically (preserves the visual continuity principle). Delete → confirmation modal (State 22) listing how many weeklies will be unlinked.</div>
+
+<!-- STATE 8 -->
+<h2>State 8 — Edit weekly mission modal <span class="meta">Title / Outcome / For monthly / Hours / Strictness / Delete</span></h2>
+<p class="state-note">Six fields stacked. "For monthly goal" is a pill picker. "Hours target" is a +/− stepper. "Strictness" is a radio.</p>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal">
+    <h3>Edit weekly mission</h3>
+    <div class="field"><label>Title</label><div class="input">Outline blog #3</div></div>
+    <div class="field"><label>Done looks like</label><div class="input textarea">Outline + first 500 words drafted by Wednesday EOD</div></div>
+    <div class="field"><label>For monthly goal</label>
+      <div style="display:flex; gap:6px;">
+        <span class="pill coral" style="font-size:12px; padding:6px 12px; background: rgba(232,116,97,0.20); border-color: var(--coral);">● Write 4 blog posts</span>
+        <span class="pill" style="font-size:12px; padding:6px 12px; background: rgba(255,255,255,0.04); color: var(--muted); border:1px solid var(--border);">○ Ship Mac app v2</span>
+        <span class="pill" style="font-size:12px; padding:6px 12px; background: rgba(255,255,255,0.04); color: var(--muted); border:1px solid var(--border);">○ Train for 5k</span>
+        <span class="pill" style="font-size:12px; padding:6px 12px; background: rgba(255,255,255,0.04); color: var(--dim); border:1px dashed var(--border-strong);">No link</span>
+      </div>
+    </div>
+    <div class="field" style="display:flex; gap:16px;">
+      <div style="flex:1;"><label>Hours target (optional)</label><div style="display:flex; align-items:center; gap:8px;"><button style="width:28px; height:28px; border-radius:6px; border:1px solid var(--border); background:var(--card); color:var(--text);">−</button><span class="input" style="text-align:center; width:60px;">4h</span><button style="width:28px; height:28px; border-radius:6px; border:1px solid var(--border); background:var(--card); color:var(--text);">+</button></div></div>
+      <div style="flex:1;"><label>Strictness</label><div style="display:flex; gap:6px;"><span class="pill" style="font-size:12px; padding:6px 14px; background: rgba(255,255,255,0.04); color: var(--muted); border:1px solid var(--border);">○ Standard</span><span class="pill red" style="font-size:12px; padding:6px 14px; background:rgba(212,80,80,0.20); border-color: var(--red);">● Strict</span></div><div style="font-size:11px; color: var(--amber); margin-top:6px;">⚠ Strict: ending early requires partner approval</div></div>
+    </div>
+    <div class="actions"><button class="btn-danger">Delete</button><div class="right"><button class="btn-quiet">Cancel</button><button class="btn-primary">Save</button></div></div>
+  </div>
+</div>
+<div class="annot">Hours target uses +/− stepper in 1-hour increments. Aspirational, not enforced — surfaces in pattern insights at week review. Strictness selecting "Strict" surfaces an inline amber note about partner-end-early requirement.</div>
+
+<!-- STATE 9–12 (Help me plan ritual) -->
+<h2>States 9–12 — "Help me plan" guided ritual <span class="meta">3 questions + draft cards</span></h2>
+<p class="state-note">Modal flow. Voice-first in feel (text input plus 🎙 icon for direction). Each step has Back / Skip / Next. Final step shows 3 pre-filled draft cards to review and save.</p>
+<div class="ritual-screen">
+  <div class="step">Help me plan · Step 1 of 3</div>
+  <h2 class="q">What 1–3 things would make this week feel meaningfully better?</h2>
+  <div class="input-box">Type or speak…&nbsp;<span style="color:var(--coral);">🎙</span></div>
+  <div class="nav"><button class="btn-secondary">Skip ritual</button><button class="btn-primary">Next →</button></div>
+</div>
+<div style="height:10px"></div>
+<div class="ritual-screen">
+  <div class="step">Help me plan · Step 2 of 3</div>
+  <h2 class="q">Which monthly goal does each connect to? <span style="font-size:14px; color:var(--muted); display:block; margin-top:6px; font-weight:400;">(Optional — one can be standalone.)</span></h2>
+  <div style="max-width:520px; margin:0 auto; text-align:left;">
+    <div style="margin-bottom:12px;">
+      <div style="font-size:13px; color:var(--muted); margin-bottom:6px;">Mission 1: Outline blog #3</div>
+      <div style="display:flex; gap:6px;"><span class="pill coral" style="background:rgba(232,116,97,0.20); border-color:var(--coral);">● Write 4 blog posts</span><span class="pill" style="background:rgba(255,255,255,0.04);color:var(--muted);border:1px solid var(--border);">Ship Mac app</span><span class="pill" style="background:rgba(255,255,255,0.04);color:var(--muted);border:1px solid var(--border);">Train for 5k</span><span class="pill dim">No link</span></div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <div style="font-size:13px; color:var(--muted); margin-bottom:6px;">Mission 2: Ship Stripe webhook</div>
+      <div style="display:flex; gap:6px;"><span class="pill" style="background:rgba(255,255,255,0.04);color:var(--muted);border:1px solid var(--border);">Blog</span><span class="pill" style="background:rgba(240,176,96,0.20);color:var(--gold);border:1px solid var(--gold);">● Ship Mac app</span><span class="pill" style="background:rgba(255,255,255,0.04);color:var(--muted);border:1px solid var(--border);">5k</span><span class="pill dim">No link</span></div>
+    </div>
+  </div>
+  <div class="nav"><button class="btn-secondary">← Back</button><button class="btn-primary">Next →</button></div>
+</div>
+<div style="height:10px"></div>
+<div class="ritual-screen">
+  <div class="step">Help me plan · Step 3 of 3</div>
+  <h2 class="q">What would "done" look like for each by Sunday?</h2>
+  <div style="max-width:520px; margin:0 auto;">
+    <div class="input-box" style="margin-bottom:10px; min-height:80px;">Mission 1: Outline + 500 words by Wed EOD</div>
+    <div class="input-box" style="min-height:80px;">Mission 2: PR merged by Fri</div>
+  </div>
+  <div class="nav"><button class="btn-secondary">← Back</button><button class="btn-primary">Next →</button></div>
+</div>
+<div style="height:10px"></div>
+<div class="ritual-screen">
+  <div class="step">Help me plan · Draft</div>
+  <h2 class="q" style="font-size:18px;">Here's what I drafted. Edit any one to refine.</h2>
+  <div class="missions-row" style="max-width:760px; margin:0 auto;">
+    <div class="mission-card coral"><div class="title">Outline blog #3</div><div class="outcome">Outline + 500 words by Wed EOD</div><div class="meta"><span class="pill coral">Write 4 blog posts</span></div></div>
+    <div class="mission-card gold"><div class="title">Ship Stripe webhook</div><div class="outcome">PR merged by Fri</div><div class="meta"><span class="pill" style="background:rgba(240,176,96,0.20);color:var(--gold);border:1px solid rgba(240,176,96,0.36);">Ship Mac app</span></div></div>
+    <div class="mission-card violet"><div class="title">Run 3 times this week</div><div class="outcome">Tue/Thu/Sat mornings</div><div class="meta"><span class="pill" style="background:rgba(178,135,217,0.20);color:var(--violet);border:1px solid rgba(178,135,217,0.36);">Train for 5k</span></div></div>
+  </div>
+  <div class="nav"><button class="btn-secondary">← Back · refine</button><button class="btn-primary">Save 3 goals</button></div>
+</div>
+<div class="annot"><strong>Discarding mid-ritual:</strong> Back returns to prior step. "Skip ritual" first-step shows a "Discard?" mini confirmation (overlays.html state 21). Step 4 (draft) → clicking any draft card opens the edit modal (State 8) inline. "Save 3 goals" creates all three missions, closes the ritual, returns to Plan State 4.</div>
+
+<!-- STATE 13 -->
+<h2>State 13 — Weekly review (auto-fires Monday morning if last week had missions) <span class="meta">3-button segmented per row + pattern insight</span></h2>
+<p class="state-note">Review last week's missions before planning this one. Three buttons per row: Done / Slipped / Dropped. Planned vs actual hours shown via mini bar. Pattern insight at bottom.</p>
+<div class="app-frame">
+  <aside class="sidebar"><div class="brand">Intentional</div><div class="nav-item"><span class="dot"></span>Today</div><div class="nav-item active"><span class="dot"></span>Plan</div><div class="nav-item"><span class="dot"></span>Settings</div><div class="sidebar-foot">May 19, 8:14 AM</div></aside>
+  <main class="content">
+    <div class="toolbar"><div class="left"><h3 class="page-title">Week of May 12 — review</h3><div class="toggle"><span class="opt active">Review</span><span class="opt">Plan</span></div></div></div>
+    <div class="page-sub">3 missions last week · how did it go?</div>
+    <div class="review-row">
+      <span class="dot-color" style="background:var(--coral);"></span>
+      <div class="body"><div class="title">Outline blog #3</div><div class="sub">Toward "Write 4 blog posts"</div></div>
+      <div class="progress" title="Planned 4h, did 4h 12m"><div class="bar" style="width:100%; background:var(--green);"></div></div>
+      <span class="hours">4h 12m / 4h</span>
+      <div class="seg"><span class="opt active">Done</span><span class="opt">Slipped</span><span class="opt">Dropped</span></div>
+    </div>
+    <div class="review-row">
+      <span class="dot-color" style="background:var(--gold);"></span>
+      <div class="body"><div class="title">Ship Stripe webhook</div><div class="sub">Toward "Ship Mac app v2"</div></div>
+      <div class="progress"><div class="bar" style="width:42%; background:var(--amber);"></div></div>
+      <span class="hours">2h 30m / 6h</span>
+      <div class="seg"><span class="opt">Done</span><span class="opt active amber">Slipped</span><span class="opt">Dropped</span></div>
+    </div>
+    <div class="review-row">
+      <span class="dot-color" style="background:var(--violet);"></span>
+      <div class="body"><div class="title">Run 3 times</div><div class="sub">Toward "Train for 5k"</div></div>
+      <div class="progress"><div class="bar" style="width:0%;"></div></div>
+      <span class="hours">0h / 3h</span>
+      <div class="seg"><span class="opt">Done</span><span class="opt">Slipped</span><span class="opt active red">Dropped</span></div>
+    </div>
+    <div class="insight-card">
+      <div class="lbl">Pattern</div>
+      Mac-app missions have come up short 4 weeks running. Average planned 6h, actual 2.5h. Want to set a smaller target next week?
+    </div>
+    <div style="display:flex; justify-content:space-between; margin-top: 22px;">
+      <button class="btn-quiet">Skip review</button>
+      <button class="btn-primary">Plan this week →</button>
+    </div>
+  </main>
+</div>
+<div class="annot">Each row is a tap (Done/Slipped/Dropped), not a free-text field. Hours are display-only. Pattern insight surfaces multi-week trends; clicking the card expands to a 4-week chart (State 15). "Plan this week" closes review and routes to State 2 (empty week) or directly to Help me plan.</div>
+
+<!-- STATE 14 -->
+<h2>State 14 — Monthly review (last week of the month) <span class="meta">extends weekly review with monthly goal segmented control</span></h2>
+<p class="state-note">Last Monday of the month. Top section asks: per monthly goal, Complete / Continue / Drop / Replace. Then the normal weekly review fills the rest.</p>
+<div class="app-frame">
+  <aside class="sidebar"><div class="brand">Intentional</div><div class="nav-item"><span class="dot"></span>Today</div><div class="nav-item active"><span class="dot"></span>Plan</div><div class="nav-item"><span class="dot"></span>Settings</div><div class="sidebar-foot">May 26, 8:14 AM</div></aside>
+  <main class="content">
+    <div class="toolbar"><div class="left"><h3 class="page-title">May review · last week + month</h3></div></div>
+    <div class="page-sub">3 monthly goals to evaluate · then plan June</div>
+    <div class="section-h3">Monthly goals · how did May go?</div>
+    <div class="review-row">
+      <span class="dot-color" style="background:var(--coral); width:10px; height:10px;"></span>
+      <div class="body"><div class="title">Write 4 blog posts</div><div class="sub">3 of 4 published · ~75%</div></div>
+      <div class="progress"><div class="bar" style="width:75%; background:var(--green);"></div></div>
+      <span class="hours">75%</span>
+      <div class="seg"><span class="opt">Complete</span><span class="opt active">Continue</span><span class="opt">Drop</span><span class="opt">Replace</span></div>
+    </div>
+    <div class="review-row">
+      <span class="dot-color" style="background:var(--gold); width:10px; height:10px;"></span>
+      <div class="body"><div class="title">Ship Mac app v2</div><div class="sub">Beta live · users onboarding</div></div>
+      <div class="progress"><div class="bar" style="width:100%; background:var(--green);"></div></div>
+      <span class="hours">100%</span>
+      <div class="seg"><span class="opt active green">Complete</span><span class="opt">Continue</span><span class="opt">Drop</span><span class="opt">Replace</span></div>
+    </div>
+    <div class="review-row">
+      <span class="dot-color" style="background:var(--violet); width:10px; height:10px;"></span>
+      <div class="body"><div class="title">Train for 5k</div><div class="sub">8/16 runs · 50%</div></div>
+      <div class="progress"><div class="bar" style="width:50%; background:var(--amber);"></div></div>
+      <span class="hours">50%</span>
+      <div class="seg"><span class="opt">Complete</span><span class="opt active">Continue</span><span class="opt">Drop</span><span class="opt">Replace</span></div>
+    </div>
+    <div class="insight-card"><div class="lbl">Pattern</div>You completed the goal with the smallest hours commitment, slipped the largest. Next month, consider 2 smaller goals + 1 stretch.</div>
+    <div style="display:flex; justify-content:space-between; margin-top: 22px;">
+      <button class="btn-quiet">Skip review</button>
+      <button class="btn-primary">Plan June →</button>
+    </div>
+  </main>
+</div>
+<div class="annot"><strong>Same shape as weekly review</strong>, just with one extra row of buttons per goal. Replace → opens edit modal pre-populated for a new goal. Continue → carries goal forward unchanged. Drop → archives without judgment. Complete → celebrates with a brief animation.</div>
+
+<!-- STATE 15 -->
+<h2>State 15 — Pattern insight expanded <span class="meta">click insight to expand 4-week chart</span></h2>
+<p class="state-note">User clicks a pattern insight card. Modal-like expansion shows the chart.</p>
+<div class="app-frame">
+  <aside class="sidebar" style="opacity:0.4;"><div class="brand">Intentional</div><div class="nav-item"><span class="dot"></span>Today</div><div class="nav-item active"><span class="dot"></span>Plan</div><div class="nav-item"><span class="dot"></span>Settings</div></aside>
+  <main class="content" style="position:relative;">
+    <div class="toolbar"><div class="left"><h3 class="page-title">Pattern</h3></div></div>
+    <div style="background:var(--bg-2); border:1px solid var(--border-strong); border-radius:12px; padding:24px;">
+      <div style="font-size:13px; color:var(--muted); margin-bottom:14px;">Mac-app missions · last 4 weeks</div>
+      <div style="display:flex; gap:14px; align-items:flex-end; height:120px;">
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center;"><div style="width:100%; background:rgba(255,255,255,0.10); height:80%; border-radius:4px 4px 0 0;"></div><div style="width:100%; background:var(--amber); height:50%; border-radius:0 0 4px 4px;"></div><div style="font-size:10px; color:var(--dim); margin-top:6px;">W1</div></div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center;"><div style="width:100%; background:rgba(255,255,255,0.10); height:80%; border-radius:4px 4px 0 0;"></div><div style="width:100%; background:var(--amber); height:30%; border-radius:0 0 4px 4px;"></div><div style="font-size:10px; color:var(--dim); margin-top:6px;">W2</div></div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center;"><div style="width:100%; background:rgba(255,255,255,0.10); height:80%; border-radius:4px 4px 0 0;"></div><div style="width:100%; background:var(--amber); height:42%; border-radius:0 0 4px 4px;"></div><div style="font-size:10px; color:var(--dim); margin-top:6px;">W3</div></div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center;"><div style="width:100%; background:rgba(255,255,255,0.10); height:80%; border-radius:4px 4px 0 0;"></div><div style="width:100%; background:var(--amber); height:42%; border-radius:0 0 4px 4px;"></div><div style="font-size:10px; color:var(--dim); margin-top:6px;">W4</div></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-top: 14px; font-size:11px; color:var(--muted);"><span>Light = planned hours</span><span>Coral = actual</span></div>
+      <div style="margin-top:18px; font-size:13px; color:var(--muted);">Avg planned: 6h · avg actual: 2h 30m. Want to set a smaller target next week (3–4h)?</div>
+      <div style="margin-top:14px; display:flex; gap:8px;"><button class="btn-primary">Yes, set 4h next week</button><button class="btn-secondary">Keep 6h</button><button class="btn-quiet">Close</button></div>
+    </div>
+  </main>
+</div>
+<div class="annot">Single inline insight. Action buttons let the user adjust planning immediately based on the pattern. Closes back to review.</div>
+
+<!-- STATE 16 -->
+<h2>State 16 — Strictness picker <span class="meta">Standard vs Strict with descriptions</span></h2>
+<p class="state-note">Opens from the edit mission modal's strictness pill or via "Set strictness" on the mission card. Soft preset is dropped per the May 2026 decision.</p>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal">
+    <h3>Strictness for "Outline blog #3"</h3>
+    <div style="border:1px solid var(--border-strong); padding:14px 16px; border-radius:10px; margin-bottom:10px;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;"><span style="width:14px; height:14px; border-radius:50%; border:2px solid var(--muted);"></span><strong>Standard</strong></div>
+      <div style="font-size:12px; color:var(--muted); padding-left:24px;">Block all your Distractions list. AI gives nudges when you drift. You can end early without partner.</div>
+    </div>
+    <div style="border:1px solid rgba(212,80,80,0.36); background: rgba(212,80,80,0.06); padding:14px 16px; border-radius:10px;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;"><span style="width:14px; height:14px; border-radius:50%; border:2px solid var(--red); background:var(--red);"></span><strong>Strict</strong></div>
+      <div style="font-size:12px; color:var(--muted); padding-left:24px;">Block your Distractions list + apps off-mission to AI. AI redirects drift, not just blocks. Ending early requires Caity's approval.</div>
+    </div>
+    <div class="actions"><div></div><div class="right"><button class="btn-quiet">Cancel</button><button class="btn-primary">Save</button></div></div>
+  </div>
+</div>
+<div class="annot">Two presets only. Soft removed per the May 2026 spec. Strict has prominent red treatment to signal weight of choice.</div>
+
+<!-- STATE 17 -->
+<h2>State 17 — Pending strictness change banner (24h cool-down) <span class="meta">softening from Standard takes time</span></h2>
+<p class="state-note">User has chosen to soften from Standard → (would be Soft, which is removed). This banner is from the deprecated Soft path. Kept here because the cool-down behavior still applies for any future softening direction.</p>
+<div class="app-frame">
+  <aside class="sidebar"><div class="brand">Intentional</div><div class="nav-item"><span class="dot"></span>Today</div><div class="nav-item active"><span class="dot"></span>Plan</div><div class="nav-item"><span class="dot"></span>Settings</div><div class="sidebar-foot">May 13, 11:14 AM</div></aside>
+  <main class="content">
+    <div class="missions-row">
+      <div class="mission-card coral" style="position:relative;">
+        <div class="title">Outline blog #3</div>
+        <div class="outcome">Outline + 500 words by Wed</div>
+        <div class="meta"><span class="pill coral">STANDARD</span><span class="pill amber">SOFTENING IN 23h</span></div>
+        <div style="position:absolute; bottom:8px; right:8px; font-size:11px; color:var(--coral); cursor:pointer;">Cancel</div>
+      </div>
+    </div>
+    <div class="insight-card" style="background:rgba(229,160,99,0.10); border-color:rgba(229,160,99,0.32);">
+      <div class="lbl" style="color:var(--amber);">Softening pending</div>
+      Your strictness will drop in 23h 12m. You can cancel anytime. We add the delay because in-the-moment-you wants something past-you wouldn't.
+    </div>
+  </main>
+</div>
+<div class="annot">"Cancel" → State 18 confirmation modal. Backend cron handles the delay. Warm copy intentional — not punitive.</div>
+
+<!-- STATE 18 -->
+<h2>State 18 — Cancel pending strictness change confirmation</h2>
+<p class="state-note">Small modal. Two actions.</p>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal" style="max-width:400px;">
+    <h3>Cancel the strictness change?</h3>
+    <p style="font-size:13px; color:var(--muted);">"Outline blog #3" will stay at <strong>Standard</strong>. You can change it again any time.</p>
+    <div class="actions" style="justify-content:flex-end; gap:8px;"><button class="btn-quiet">Keep softening</button><button class="btn-primary">Cancel softening</button></div>
+  </div>
+</div>
+<div class="annot">Click "Cancel softening" → pending change is removed, mission stays at current strictness. Click "Keep softening" → returns to State 17.</div>
+
+<!-- STATE 19 -->
+<h2>State 19 — Strict → softer partner unlock flow (backend DEFERRED) <span class="meta">UI exists, runtime errors</span></h2>
+<p class="state-note">User picks Strict → Standard in the strictness picker. UI opens the partner unlock sheet. Backend endpoints not yet deployed — currently fails with error toast.</p>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal">
+    <h3>Ask Caity to soften "Outline blog #3"</h3>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">She'll get a notification and can approve or deny. Approval lets you soften from <strong>Strict → Standard</strong> for this mission.</p>
+    <div class="field"><label>Why now (optional)</label><div class="input textarea">Need to research news articles for context, can't with strict on…</div></div>
+    <div class="actions" style="justify-content:flex-end; gap:8px;"><button class="btn-quiet">Cancel</button><button class="btn-primary">Send request</button></div>
+    <div style="background:rgba(212,80,80,0.10); border:1px solid rgba(212,80,80,0.32); border-radius:8px; padding:10px 12px; margin-top:14px; font-size:12px; color:var(--red);">⚠ Backend endpoint not yet deployed. "Send request" will fail. Tighten works; softening from Strict pending Plan B backend work.</div>
+  </div>
+</div>
+<div class="annot">Honest UI: surfaces the backend-deferred status to user (or to dev). When backend lands, the error banner disappears and the unlock flow connects to the same view as the bedtime unlock sheet.</div>
+
+<!-- STATE 20 -->
+<h2>State 20 — Carry-over prompt (uncompleted mission → next week) <span class="meta">deferred per open question 2</span></h2>
+<p class="state-note">Mission slipped last week. Carry to next week as-is, or drop? (Open question — resolution in `open-questions.md`.)</p>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal">
+    <h3>Carry "Ship Stripe webhook" forward?</h3>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">You did 2h 30m of 6h planned. Carry the remaining work into next week, or drop and revisit later?</p>
+    <div class="actions" style="justify-content:flex-end; gap:8px;"><button class="btn-quiet">Drop</button><button class="btn-secondary">Edit before carrying</button><button class="btn-primary">Carry as-is</button></div>
+  </div>
+</div>
+<div class="annot">Auto-fires after weekly review marks a row "Slipped". Edit-before-carrying opens State 8 modal pre-populated.</div>
+
+<!-- STATE 21 -->
+<h2>State 21 — Multi-day timeline (FUTURE — open question 3) <span class="meta">placeholder</span></h2>
+<p class="state-note">If Plan gets a multi-day view, this is the shape. For v1, deferred. Today's timeline only.</p>
+<div class="app-frame">
+  <aside class="sidebar"><div class="brand">Intentional</div><div class="nav-item"><span class="dot"></span>Today</div><div class="nav-item active"><span class="dot"></span>Plan</div><div class="nav-item"><span class="dot"></span>Settings</div></aside>
+  <main class="content">
+    <div class="toolbar"><div class="left"><h3 class="page-title">Week of May 12 — multi-day</h3><div class="toggle"><span class="opt">Today</span><span class="opt active">Week</span></div></div></div>
+    <div class="section-h3">Drag missions onto any day</div>
+    <div style="display:grid; grid-template-columns: repeat(7, 1fr); gap:6px;">
+      <div style="background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px; min-height:200px;"><div style="font-family:var(--mono); font-size:10px; color:var(--dim); margin-bottom:8px;">MON</div><div class="block-block tl-coral" style="font-size:11px; padding:6px 8px;">Outline blog</div></div>
+      <div style="background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px; min-height:200px;"><div style="font-family:var(--mono); font-size:10px; color:var(--dim); margin-bottom:8px;">TUE</div><div class="block-block tl-violet" style="font-size:11px; padding:6px 8px;">5k run</div><div class="block-block tl-coral" style="font-size:11px; padding:6px 8px; margin-top:4px;">Outline blog</div></div>
+      <div style="background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px; min-height:200px;"><div style="font-family:var(--mono); font-size:10px; color:var(--dim); margin-bottom:8px;">WED</div></div>
+      <div style="background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px; min-height:200px;"><div style="font-family:var(--mono); font-size:10px; color:var(--dim); margin-bottom:8px;">THU</div><div class="block-block tl-violet" style="font-size:11px; padding:6px 8px;">5k run</div></div>
+      <div style="background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px; min-height:200px;"><div style="font-family:var(--mono); font-size:10px; color:var(--dim); margin-bottom:8px;">FRI</div><div class="block-block tl-gold" style="font-size:11px; padding:6px 8px;">Stripe ship</div></div>
+      <div style="background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px; min-height:200px;"><div style="font-family:var(--mono); font-size:10px; color:var(--dim); margin-bottom:8px;">SAT</div><div class="block-block tl-violet" style="font-size:11px; padding:6px 8px;">5k run</div></div>
+      <div style="background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px; min-height:200px;"><div style="font-family:var(--mono); font-size:10px; color:var(--dim); margin-bottom:8px;">SUN</div></div>
+    </div>
+    <div style="margin-top:14px; font-size:12px; color:var(--amber);">⚠ Multi-day view DEFERRED in v1 — open question 3.</div>
+  </main>
+</div>
+
+<!-- STATE 22 -->
+<h2>State 22 — Delete monthly goal confirmation</h2>
+<p class="state-note">Deleting a monthly goal unlinks any weekly missions tied to it (they become standalone, dashed).</p>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal" style="max-width:440px;">
+    <h3>Delete "Write 4 blog posts"?</h3>
+    <p style="font-size:13px; color:var(--muted);">3 weekly missions are linked to this goal. They'll become unlinked (still exist, just standalone).</p>
+    <div class="actions" style="justify-content:flex-end; gap:8px;"><button class="btn-quiet">Cancel</button><button class="btn-danger">Delete goal</button></div>
+  </div>
+</div>
+
+<!-- STATE 23 -->
+<h2>State 23 — Delete weekly mission confirmation</h2>
+<p class="state-note">If mission has scheduled sessions on today's timeline, they'll be removed.</p>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal" style="max-width:440px;">
+    <h3>Delete "Outline blog #3"?</h3>
+    <p style="font-size:13px; color:var(--muted);">1 session is scheduled on today's timeline (1:00 PM — 3:00 PM). It will be removed.</p>
+    <div class="actions" style="justify-content:flex-end; gap:8px;"><button class="btn-quiet">Cancel</button><button class="btn-danger">Delete mission</button></div>
+  </div>
+</div>
+
+<h2>Plan button → follow-on map</h2>
+<div class="annot" style="border-left-color: var(--gold);">
+  <ul>
+    <li><strong>+ Goal</strong> → State 7 modal (empty)</li>
+    <li><strong>Click monthly card</strong> → State 7 modal (populated)</li>
+    <li><strong>Monthly trash icon</strong> → State 22 confirmation</li>
+    <li><strong>+ Mission</strong> → State 8 modal (empty)</li>
+    <li><strong>Click weekly card</strong> → State 8 modal (populated)</li>
+    <li><strong>Strictness pill on weekly card</strong> → State 16 picker</li>
+    <li><strong>Strictness Strict → softer (in picker)</strong> → State 19 partner unlock</li>
+    <li><strong>Cancel pending strictness</strong> → State 18 confirmation</li>
+    <li><strong>Weekly trash icon</strong> → State 23 confirmation</li>
+    <li><strong>Drag mission to timeline</strong> → State 5 (mid-drag) → State 6 (placed)</li>
+    <li><strong>Click timeline block</strong> → mini-popover: edit start/end/duration</li>
+    <li><strong>Drag timeline block body</strong> → move (autosave)</li>
+    <li><strong>Drag timeline block edge</strong> → resize (snap 15-min)</li>
+    <li><strong>Timeline empty-area click</strong> → quick-add modal (overlays.html state 5)</li>
+    <li><strong>"Help me plan" toolbar button</strong> → State 9 → 10 → 11 → 12</li>
+    <li><strong>Step Skip / Cancel</strong> → overlays.html state 21 (discard confirm)</li>
+    <li><strong>Step Next / Back</strong> → step navigation</li>
+    <li><strong>Save 3 goals</strong> → State 4 (fully planned)</li>
+    <li><strong>Plan/Review toggle (auto Monday)</strong> → State 13 weekly review</li>
+    <li><strong>Done / Slipped / Dropped (in review)</strong> → marks row, save indicator</li>
+    <li><strong>Slipped → State 20 carry-over prompt</strong> on next-week planning</li>
+    <li><strong>Pattern card click</strong> → State 15 expanded</li>
+    <li><strong>"Plan this week →"</strong> → exits review, enters State 2 (empty week) or State 9 (help me plan)</li>
+    <li><strong>"Skip review"</strong> → stamps a "reviewed" receipt, exits to Plan</li>
+    <li><strong>Open today →</strong> → Today tab</li>
+    <li><strong>Monthly review · Complete</strong> → goal archived with celebration animation</li>
+    <li><strong>Monthly review · Replace</strong> → State 7 modal pre-populated for replacement goal</li>
+  </ul>
+</div>
+
+</div>
+</body>
+</html>

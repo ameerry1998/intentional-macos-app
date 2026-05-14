@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Intentional — Pill widget (every mode)</title>
+<style>
+  :root {
+    --bg: #0a0c0a; --bg-2: #111414;
+    --card: rgba(255,255,255,0.04);
+    --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.14);
+    --text: #f7f8f8; --muted: rgba(255,255,255,0.55); --dim: rgba(255,255,255,0.36);
+    --coral: #E87461; --gold: #F0B060; --green: #6FB58E; --blue: #6E8FE0;
+    --violet: #B287D9; --amber: #E5A063; --red: #D45050;
+    --grad: linear-gradient(135deg, var(--coral), var(--gold));
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif;
+    --mono: "SF Mono", Menlo, Monaco, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; line-height: 1.55; }
+  body { background: radial-gradient(ellipse at top, rgba(232,116,97,0.06), transparent 60%), var(--bg); background-attachment: fixed; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 56px 32px 96px; }
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--coral); margin-bottom: 10px; }
+  h1 { font-size: 38px; line-height: 1.15; letter-spacing: -0.8px; font-weight: 700; margin: 0 0 14px; }
+  .lede { font-size: 17px; color: var(--muted); max-width: 760px; margin-bottom: 16px; }
+  h2 { font-size: 20px; letter-spacing: -0.3px; font-weight: 600; margin: 56px 0 6px; }
+  h2 .meta { font-size: 13px; font-weight: 400; color: var(--dim); margin-left: 12px; }
+  .state-note { font-size: 13px; color: var(--muted); margin: 6px 0 14px; max-width: 760px; }
+  .stage { padding: 36px; background: linear-gradient(135deg, #1a1817, #0d0d0c); border-radius: 14px; border: 1px solid var(--border); display:flex; align-items:center; justify-content:center; min-height: 140px; }
+  .annot { margin: 12px 0 0; padding: 12px 16px; background: var(--card); border-left: 3px solid var(--coral); border-radius: 0 10px 10px 0; font-size: 13px; line-height: 1.6; color: var(--muted); }
+  .annot strong { color: var(--text); }
+  .annot code { background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 4px; font-size: 12px; font-family: var(--mono); }
+
+  /* Pill base */
+  .pill-widget { background: rgba(20,20,20,0.92); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 14px 18px; color: var(--text); box-shadow: 0 12px 40px rgba(0,0,0,0.5); font-size: 13px; }
+  .pill-widget.w-300 { width: 300px; }
+  .pill-widget.w-310 { width: 310px; }
+  .pill-widget.w-460 { width: 460px; }
+  .pill-widget.amber-border { border: 1px solid rgba(229,160,99,0.40); }
+  .pill-widget.coral-border { border: 1px solid rgba(232,116,97,0.40); }
+  .pill-widget.green-border { border: 1px solid rgba(111,181,142,0.40); }
+  .pill-widget.red-border { border: 1px solid rgba(212,80,80,0.40); }
+  .pill-widget.blue-border { border: 1px solid rgba(110,143,224,0.40); }
+
+  .row { display: flex; align-items: center; gap: 10px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot.indigo { background: #8B5CF6; box-shadow: 0 0 8px #8B5CF6; }
+  .dot.red { background: var(--red); box-shadow: 0 0 8px var(--red); }
+  .dot.green { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .dot.amber { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+  .dot.blue { background: var(--blue); box-shadow: 0 0 8px var(--blue); }
+
+  .title { font-size: 13px; font-weight: 500; }
+  .time { font-family: var(--mono); font-size: 16px; font-weight: 600; letter-spacing: -0.3px; margin-left: auto; }
+  .sub-row { display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 10px; color: var(--muted); font-family: var(--mono); }
+  .stat { display: flex; align-items: center; gap: 4px; }
+  .badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+  .badge.deep { background: rgba(139,92,246,0.18); color: #B59CFA; }
+  .badge.focus-h { background: rgba(232,116,97,0.18); color: var(--coral); }
+  .badge.free { background: rgba(111,181,142,0.18); color: var(--green); }
+
+  .btn-pill { background: var(--grad); color: #1a0f0a; border: 0; padding: 6px 12px; border-radius: 6px; font-weight: 600; font-size: 11px; cursor: pointer; font-family: var(--font); }
+  .btn-pill.red { background: var(--red); color: white; }
+  .btn-pill.ghost { background: transparent; border: 1px solid rgba(255,255,255,0.20); color: var(--text); }
+
+  .reco-message { text-align: center; font-size: 17px; font-weight: 500; padding: 8px 0; letter-spacing: -0.2px; }
+  .distraction { padding: 10px 12px; background: rgba(212,80,80,0.10); border: 1px solid rgba(212,80,80,0.32); border-radius: 8px; display: flex; align-items: center; gap: 10px; font-size: 12px; margin-top: 8px; }
+  .distraction .lbl { flex: 1; }
+
+  .celebration { width: 460px; padding: 24px; text-align: center; }
+  .celebration h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px; font-weight: 700; margin: 0 0 12px; }
+  .celebration .big { font-size: 48px; font-weight: 700; letter-spacing: -1px; margin: 0; line-height: 1; }
+  .celebration .dots { display: flex; gap: 6px; justify-content: center; margin: 18px 0 0; }
+  .celebration .dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); }
+  .celebration .dots span.active { background: var(--coral); }
+
+  .ritual-card { width: 460px; padding: 22px 24px; text-align:left; }
+  .ritual-card .upnext { font-size: 10px; text-transform:uppercase; letter-spacing:1.4px; color: var(--green); font-weight:700; margin-bottom:8px; }
+  .ritual-card h3 { font-size: 18px; font-weight:700; margin:0 0 4px; letter-spacing: -0.3px; }
+  .ritual-card .desc { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+  .ritual-card .actions-row { display:flex; gap:8px; }
+
+  .ritual-edit { width: 460px; padding: 22px 24px; }
+  .ritual-edit .field { margin-bottom: 10px; }
+  .ritual-edit label { font-size: 10px; text-transform:uppercase; letter-spacing:0.6px; color: var(--dim); font-weight:600; display:block; margin-bottom:4px; }
+  .ritual-edit .input { background: rgba(255,255,255,0.04); border: 1px solid var(--border); padding: 8px 10px; border-radius: 6px; font-size: 13px; }
+  .ritual-edit .input.textarea { min-height: 50px; }
+
+  .noplan { width: 310px; padding: 18px; }
+  .noplan h3 { font-size: 13px; margin: 0 0 8px; font-weight: 700; letter-spacing: -0.1px; }
+  .noplan .desc { font-size: 11px; color: var(--muted); margin-bottom: 12px; line-height: 1.5; }
+  .noplan .qb-row { display: flex; gap: 6px; margin-bottom: 8px; }
+  .noplan .qb { flex: 1; padding: 6px; text-align: center; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; cursor: pointer; }
+  .noplan .qb.primary { background: rgba(232,116,97,0.10); border-color: rgba(232,116,97,0.32); color: var(--coral); }
+
+  .bedtime-pill { width: 300px; padding: 14px 18px; }
+  .bedtime-pill .row { gap: 10px; align-items: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Pill widget · every mode · 2026-05-13</div>
+  <h1>Pill — every floating mode</h1>
+  <p class="lede">23 mode/sub-mode states for the floating pill. Driven by FocusMonitor (focus state) and BedtimeEnforcer (bedtime state). Position persists; drag to move; minimize to dock.</p>
+</header>
+
+<!-- 1 -->
+<h2>1 — <code>.timer</code> · focused (indigo dot) <span class="meta">300×70 · primary in-session state</span></h2>
+<div class="stage">
+  <div class="pill-widget w-300">
+    <div class="row"><span class="dot indigo"></span><span class="title">Outline blog post #3</span><span class="time">1:36:12</span></div>
+    <div class="sub-row"><span class="badge focus-h">FOCUS HOURS</span><span class="stat">87% focus</span><span class="stat">3 earned</span></div>
+  </div>
+</div>
+
+<!-- 2 -->
+<h2>2 — <code>.timer</code> · recovery message (3s takeover) <span class="meta">replaces timer content briefly</span></h2>
+<div class="stage">
+  <div class="pill-widget w-300 green-border">
+    <div class="reco-message">Welcome back ✨</div>
+  </div>
+</div>
+<div class="annot">Pool: "Welcome back", "Back in the zone", "Nice recovery", "Locked in", "You got this", "Focus regained", "On track", "Let's go". Randomized.</div>
+
+<!-- 3 -->
+<h2>3 — <code>.timer</code> · distraction card (Level 1 nudge, 8s) <span class="meta">in-pill — not external toast</span></h2>
+<div class="stage">
+  <div class="pill-widget w-300">
+    <div class="row"><span class="dot red"></span><span class="title">Outline blog post #3</span><span class="time">1:36:08</span></div>
+    <div class="distraction"><span class="lbl">Not related — <strong>twitter.com</strong></span><button class="btn-pill red">Back to Task</button></div>
+  </div>
+</div>
+
+<!-- 4 -->
+<h2>4 — <code>.blockComplete</code> <span class="meta">amber border, 0:00</span></h2>
+<div class="stage">
+  <div class="pill-widget w-300 amber-border">
+    <div class="row"><span class="dot amber"></span><span class="title" style="color:var(--amber);">Block complete</span><span class="time" style="color:var(--amber);">0:00</span></div>
+  </div>
+</div>
+
+<!-- 5 -->
+<h2>5 — <code>.celebration</code> · Session Complete card</h2>
+<div class="stage">
+  <div class="pill-widget celebration">
+    <h3 style="color: var(--green);">Session complete</h3>
+    <p class="big">2h focused</p>
+    <div style="font-size:13px; color: var(--muted); margin-top: 8px;">Toward "Write 4 blog posts" · 6h of 16h done</div>
+    <div style="margin-top: 12px; font-size: 11px; color: var(--green);">+ 4 min earned for distraction budget</div>
+    <div class="dots"><span class="active"></span><span></span><span></span><span></span></div>
+    <div style="margin-top: 10px; font-size: 11px; color: var(--coral); cursor:pointer;">Skip</div>
+  </div>
+</div>
+
+<!-- 6 -->
+<h2>6 — <code>.celebration</code> · Focus Score card</h2>
+<div class="stage">
+  <div class="pill-widget celebration">
+    <h3 style="color: var(--green);">Focus score</h3>
+    <p class="big" style="color: var(--green);">91%</p>
+    <div style="height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px; margin: 16px 0;"><div style="height:100%; width:91%; background:var(--green); border-radius:3px;"></div></div>
+    <div style="font-size:13px; color: var(--muted);">Great session. 2 drift moments, both recovered.</div>
+    <div class="dots"><span></span><span class="active"></span><span></span><span></span></div>
+  </div>
+</div>
+
+<!-- 7 -->
+<h2>7 — <code>.celebration</code> · App Breakdown card</h2>
+<div class="stage">
+  <div class="pill-widget celebration" style="text-align:left;">
+    <h3 style="color: var(--gold);">Time spent</h3>
+    <div style="margin: 14px 0;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;"><span>VSCode</span><span style="color:var(--muted); font-family:var(--mono);">1h 24m</span></div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;"><span>Arc — research</span><span style="color:var(--muted); font-family:var(--mono);">22m</span></div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;"><span>Notes.app</span><span style="color:var(--muted); font-family:var(--mono);">9m</span></div>
+      <div style="display:flex; justify-content:space-between; font-size:13px;"><span style="color: var(--red);">Twitter (off-mission)</span><span style="color:var(--red); font-family:var(--mono);">5m</span></div>
+    </div>
+    <div class="dots"><span></span><span></span><span class="active"></span><span></span></div>
+  </div>
+</div>
+
+<!-- 8 -->
+<h2>8 — <code>.celebration</code> · Up Next card (back-to-back only)</h2>
+<div class="stage">
+  <div class="pill-widget celebration">
+    <h3 style="color: var(--coral);">Up next · 3:30 PM</h3>
+    <p class="big" style="font-size:22px; font-weight:700;">Code review backlog</p>
+    <div style="font-size:13px; color: var(--muted); margin-top: 8px;">Toward "Ship Mac app v2" · 90 min · Standard</div>
+    <div style="margin-top:18px;"><button class="btn-pill">Start now →</button></div>
+    <div class="dots"><span></span><span></span><span></span><span class="active"></span></div>
+  </div>
+</div>
+
+<!-- 9 -->
+<h2>9 — <code>.startRitual</code> · Up Next ritual</h2>
+<div class="stage">
+  <div class="pill-widget ritual-card green-border">
+    <div class="upnext">Up next · DEEP WORK · 2h</div>
+    <h3>Outline blog post #3</h3>
+    <div class="desc">Toward "Write 4 blog posts in May" · 6h of 16h done</div>
+    <div style="font-size: 11px; font-family: var(--mono); color: var(--green); margin-bottom: 14px;">Auto-starting in 2:48</div>
+    <div class="actions-row">
+      <button class="btn-pill">Start now</button>
+      <button class="btn-pill ghost">Edit</button>
+      <button class="btn-pill ghost">Push back 5 min</button>
+    </div>
+  </div>
+</div>
+
+<!-- 10 -->
+<h2>10 — <code>.startRitualEdit</code></h2>
+<div class="stage">
+  <div class="pill-widget ritual-edit">
+    <div class="field"><label>Title</label><div class="input">Outline blog post #3</div></div>
+    <div class="field"><label>Description</label><div class="input textarea">Specifics the AI can't guess: language/framework, what to focus on</div></div>
+    <div class="field" style="display:flex; gap: 12px;">
+      <div style="flex:1;"><label>Type</label><div style="display:flex; gap:4px; background:rgba(255,255,255,0.04); border-radius:6px; padding:2px;"><span style="padding:6px 12px; font-size:11px; color:var(--text); background:rgba(255,255,255,0.10); border-radius:4px;">Deep work</span><span style="padding:6px 12px; font-size:11px; color:var(--muted);">Focus hours</span><span style="padding:6px 12px; font-size:11px; color:var(--muted);">Free</span></div></div>
+    </div>
+    <div style="display:flex; gap:8px; margin-top:12px; justify-content:flex-end;">
+      <button class="btn-pill ghost">Cancel</button>
+      <button class="btn-pill">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- 11 -->
+<h2>11 — <code>.startRitualEdit</code> empty-title rejection toast</h2>
+<div class="stage" style="position:relative; padding-bottom: 50px;">
+  <div class="pill-widget ritual-edit">
+    <div class="field"><label>Title</label><div class="input" style="border-color: var(--red);"> </div></div>
+    <div style="font-size:11px; color:var(--red); margin-bottom: 8px;">Title required for work blocks.</div>
+    <div style="display:flex; gap:8px; justify-content:flex-end;"><button class="btn-pill ghost">Cancel</button><button class="btn-pill">Done</button></div>
+  </div>
+</div>
+
+<!-- 12 -->
+<h2>12 — <code>.noPlan</code> · noPlan substate (first thing in the day)</h2>
+<div class="stage">
+  <div class="pill-widget noplan">
+    <h3>No plan today</h3>
+    <div class="desc">Pick a quick block, or open Plan to set today's missions.</div>
+    <div class="qb-row"><div class="qb">15 min</div><div class="qb">30 min</div><div class="qb primary">60 min</div></div>
+    <div style="display:flex; gap:6px;">
+      <button class="btn-pill" style="flex:1;">Plan Day →</button>
+      <button class="btn-pill ghost" style="font-size: 11px; padding: 6px 8px;">Snooze 30m</button>
+    </div>
+  </div>
+</div>
+
+<!-- 13 -->
+<h2>13 — <code>.noPlan</code> · gap substate (between blocks)</h2>
+<div class="stage">
+  <div class="pill-widget noplan">
+    <h3>20 min free</h3>
+    <div class="desc">Next block: <strong>Code review</strong> at 3:30 PM</div>
+    <div class="qb-row"><div class="qb">Read</div><div class="qb">Email</div><div class="qb">Walk</div></div>
+    <div><button class="btn-pill" style="width:100%;">Schedule Now →</button></div>
+  </div>
+</div>
+
+<!-- 14 -->
+<h2>14 — <code>.noPlan</code> · allCaughtUp substate (before 9 PM)</h2>
+<div class="stage">
+  <div class="pill-widget noplan">
+    <h3 style="color: var(--green);">All caught up</h3>
+    <div class="desc">3 missions done · 87% avg focus · 6h 4m total. It's only 5:30 PM — plan more, or call it.</div>
+    <div style="display:flex; gap:6px;">
+      <button class="btn-pill" style="flex:1;">Schedule More</button>
+      <button class="btn-pill ghost">Plan Full Day</button>
+    </div>
+  </div>
+</div>
+
+<!-- 15 -->
+<h2>15 — <code>.noPlan</code> · doneForDay substate (9 PM+)</h2>
+<div class="stage">
+  <div class="pill-widget noplan green-border">
+    <h3 style="color: var(--green); font-size:18px; letter-spacing: 1px;">DAY COMPLETE</h3>
+    <div class="desc">3 missions · 6h 4m focused · 91% focus high</div>
+    <div style="display:flex; gap:6px;">
+      <button class="btn-pill" style="flex:1;">Plan tomorrow</button>
+      <button class="btn-pill ghost">Reflect</button>
+    </div>
+  </div>
+</div>
+
+<!-- 16 -->
+<h2>16 — <code>.bedtimeWindDown</code> · T-30 (minimize allowed)</h2>
+<div class="stage">
+  <div class="pill-widget bedtime-pill blue-border">
+    <div class="row"><span style="font-size:18px;">🌙</span><span class="title">Bedtime in 30 min</span><span class="time" style="color:var(--blue);">10:30 PM</span></div>
+    <div class="sub-row"><span style="cursor:pointer; color:var(--coral); font-family: var(--font); font-size: 11px;">Minimize until T-15</span></div>
+  </div>
+</div>
+
+<!-- 17 -->
+<h2>17 — <code>.bedtimeWindDown</code> · T-15 / T-10 / T-5 / T-1 (progressively louder)</h2>
+<div class="stage" style="flex-wrap:wrap; gap:14px;">
+  <div class="pill-widget bedtime-pill blue-border" style="box-shadow: 0 0 0 1px rgba(110,143,224,0.4), 0 12px 40px rgba(0,0,0,0.5);">
+    <div class="row"><span style="font-size:18px;">🌙</span><span class="title">Bedtime in 15 min</span><span class="time" style="color:var(--blue);">10:45 PM</span></div>
+  </div>
+  <div class="pill-widget bedtime-pill blue-border" style="box-shadow: 0 0 0 2px rgba(110,143,224,0.5), 0 12px 40px rgba(0,0,0,0.5);">
+    <div class="row"><span style="font-size:18px;">🌙</span><span class="title">Bedtime in 5 min</span><span class="time" style="color:var(--blue);">10:55 PM</span></div>
+  </div>
+  <div class="pill-widget bedtime-pill" style="background: rgba(110,143,224,0.20); border: 1px solid var(--blue); box-shadow: 0 0 16px var(--blue);">
+    <div class="row"><span style="font-size:18px;">🌙</span><span class="title">Bedtime in 1 min</span><span class="time" style="color:var(--blue);">10:59 PM</span></div>
+  </div>
+</div>
+
+<!-- 18 -->
+<h2>18 — <code>.bedtimeLocked</code></h2>
+<div class="stage">
+  <div class="pill-widget bedtime-pill" style="background: rgba(110,143,224,0.10); border: 1px solid rgba(110,143,224,0.40);">
+    <div class="row"><span style="font-size:18px;">🔒</span><span class="title" style="color: var(--blue);">Bedtime — locked until 6:30 AM</span></div>
+    <div style="margin-top: 10px;"><button class="btn-pill" style="width:100%; background: var(--blue); color: white;">Ask Partner</button></div>
+  </div>
+</div>
+
+<!-- 19 -->
+<h2>19 — <code>.bedtimeLocked</code> after Ask Partner pressed</h2>
+<div class="stage">
+  <div class="pill-widget bedtime-pill" style="background: rgba(229,160,99,0.10); border: 1px solid rgba(229,160,99,0.40);">
+    <div class="row"><span style="font-size:18px;">⏳</span><span class="title" style="color: var(--amber);">Request sent to Caity</span></div>
+    <div style="font-size: 11px; color: var(--muted); margin-top: 6px;">Waiting for code. Expires in 14:48.</div>
+  </div>
+</div>
+
+<!-- 20 -->
+<h2>20 — Pill minimized to dock <span class="meta">badge shows session state</span></h2>
+<div class="stage">
+  <div style="background: var(--card); border: 1px solid var(--border-strong); border-radius: 14px; padding: 10px; display: inline-flex; align-items: center; gap: 6px;">
+    <div style="width: 48px; height: 48px; border-radius: 10px; background: linear-gradient(135deg, var(--coral), var(--gold)); display: flex; align-items: center; justify-content: center; font-size: 22px;">◉</div>
+    <div style="position:relative;"><div style="position:absolute; top:-4px; right:-4px; width: 14px; height: 14px; border-radius: 50%; background: var(--coral); display:flex; align-items:center; justify-content:center; font-size: 8px; font-weight: 700; color: white;">⏱</div></div>
+  </div>
+</div>
+
+<!-- 21 -->
+<h2>21 — Drag handle (visible on hover) <span class="meta">pill drag-to-move</span></h2>
+<div class="stage">
+  <div class="pill-widget w-300">
+    <div class="row"><span class="dot indigo"></span><span class="title">Outline blog post #3</span><span class="time">1:36:12</span></div>
+    <div style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); color: var(--dim); font-size: 16px; cursor: grab;">⋮⋮</div>
+  </div>
+</div>
+
+<!-- 22 -->
+<h2>22 — Pill paused (Snooze 5 min active)</h2>
+<div class="stage">
+  <div class="pill-widget w-300 amber-border">
+    <div class="row"><span class="dot amber"></span><span class="title">Outline blog #3 · paused</span><span class="time" style="color:var(--amber);">4:36</span></div>
+    <div style="font-size: 11px; color: var(--amber); margin-top: 4px;">Snooze ends in 4:36 — resumes automatically</div>
+  </div>
+</div>
+
+<!-- 23 -->
+<h2>23 — Break mode (5-min break)</h2>
+<div class="stage">
+  <div class="pill-widget w-300 green-border">
+    <div class="row"><span class="dot green"></span><span class="title">5-min break</span><span class="time" style="color: var(--green);">4:36</span></div>
+    <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">Mission resumes at 2:33 PM</div>
+  </div>
+</div>
+
+<h2>Pill button → follow-on map</h2>
+<div class="annot" style="border-left-color: var(--gold);">
+  <ul>
+    <li>Drag handle (visible on hover) → moves pill; position persisted to UserDefault</li>
+    <li>Minimize (-) on any mode → minimize to dock (state 20)</li>
+    <li>Click-through on stats area in <code>.timer</code> → opens Today tab (focuses main window)</li>
+    <li><code>.timer</code> distraction card "Back to Task" → restores last-relevant tab in browser, dismisses card</li>
+    <li><code>.startRitual</code> "Start now" → exits ritual, transitions to <code>.timer</code></li>
+    <li><code>.startRitual</code> "Edit" → opens <code>.startRitualEdit</code> (state 10)</li>
+    <li><code>.startRitual</code> "Push back 5 min" → schedules a 5-min delay, returns to noPlan or next pill state</li>
+    <li><code>.startRitual</code> auto-start countdown → 3 min for work blocks, 30s for free blocks</li>
+    <li><code>.startRitualEdit</code> "Done" with empty title (work block) → state 11 rejection toast</li>
+    <li><code>.startRitualEdit</code> "Cancel" → return to <code>.startRitual</code></li>
+    <li><code>.celebration</code> dots → manual carousel advance</li>
+    <li><code>.celebration</code> skip link → end celebration, transition to next state (noPlan or next start ritual)</li>
+    <li><code>.celebration</code> Up Next card "Start now" → begins next session immediately</li>
+    <li><code>.noPlan</code> quick block (15/30/60 min) → starts immediate quick block, transitions to <code>.timer</code></li>
+    <li><code>.noPlan</code> "Plan Day" / "Schedule Now" → opens Plan tab</li>
+    <li><code>.noPlan</code> "Snooze 30m" → hides pill for 30 min</li>
+    <li><code>.noPlan</code> dismiss (-) → minimize to dock (state 20)</li>
+    <li><code>.bedtimeWindDown</code> T-30 "Minimize until T-15" → hides pill, reappears at T-15</li>
+    <li><code>.bedtimeLocked</code> "Ask Partner" → opens bedtime unlock-request sheet (overlays.html state 19), pill transitions to state 19 "request sent"</li>
+  </ul>
+</div>
+
+</div>
+</body>
+</html>

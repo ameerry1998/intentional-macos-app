@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Intentional — Unified Design Sketch (2026-05-13)</title>
+<style>
+  :root {
+    --bg: #0a0c0a;
+    --bg-2: #111414;
+    --card: rgba(255,255,255,0.04);
+    --card-hover: rgba(255,255,255,0.07);
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.14);
+    --text: #f7f8f8;
+    --muted: rgba(255,255,255,0.55);
+    --dim: rgba(255,255,255,0.36);
+    --coral: #E87461;
+    --gold: #F0B060;
+    --green: #6FB58E;
+    --blue: #6E8FE0;
+    --violet: #B287D9;
+    --amber: #E5A063;
+    --grad: linear-gradient(135deg, var(--coral), var(--gold));
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif;
+    --mono: "SF Mono", Menlo, Monaco, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; line-height: 1.55; }
+  body {
+    background: radial-gradient(ellipse at top, rgba(232,116,97,0.06), transparent 60%), var(--bg);
+    background-attachment: fixed;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 56px 32px 96px; }
+
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--coral); margin-bottom: 10px; }
+  h1 { font-size: 38px; line-height: 1.15; letter-spacing: -0.8px; font-weight: 700; margin: 0 0 14px; }
+  .lede { font-size: 17px; color: var(--muted); max-width: 760px; margin-bottom: 16px; }
+
+  h2 { font-size: 22px; letter-spacing: -0.4px; font-weight: 600; margin: 64px 0 12px; }
+  h2 .meta { font-size: 13px; font-weight: 400; color: var(--dim); margin-left: 12px; }
+  h3 { font-size: 14px; font-weight: 600; margin: 32px 0 12px; letter-spacing: 0.8px; text-transform: uppercase; color: var(--dim); }
+  p { color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+  th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: top; }
+  th { color: var(--dim); font-weight: 600; font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; }
+  td { color: var(--text); }
+  td .desc { color: var(--muted); font-size: 13px; line-height: 1.5; }
+  td strong { color: var(--text); }
+
+  ul.bullets { color: var(--muted); line-height: 1.75; padding-left: 22px; }
+  ul.bullets strong { color: var(--text); }
+
+  .process {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin: 24px 0 32px;
+  }
+  .process h3 { margin: 0 0 10px; text-transform: none; letter-spacing: 0; font-size: 15px; color: var(--text); }
+  .process ol { margin: 0; padding-left: 22px; color: var(--muted); font-size: 14px; line-height: 1.75; }
+  .process ol strong { color: var(--text); }
+
+  .app-frame {
+    display: flex;
+    border: 1px solid var(--border-strong);
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--bg-2);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    min-height: 560px;
+    margin-top: 16px;
+  }
+  .sidebar {
+    width: 200px;
+    background: rgba(0,0,0,0.30);
+    border-right: 1px solid var(--border);
+    padding: 24px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .sidebar .brand { font-size: 15px; font-weight: 700; color: var(--coral); margin-bottom: 28px; padding: 0 10px; }
+  .sidebar .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 8px;
+    color: var(--muted); font-size: 14px; font-weight: 500;
+  }
+  .sidebar .nav-item .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); }
+  .sidebar .nav-item.active { background: rgba(232,116,97,0.10); color: var(--coral); }
+  .sidebar .nav-item.active .dot { background: var(--coral); box-shadow: 0 0 8px var(--coral); }
+  .sidebar .footer { margin-top: auto; padding: 16px 10px 0; font-size: 11px; color: var(--dim); font-family: var(--mono); line-height: 1.6; }
+
+  .content { flex: 1; padding: 36px 40px; overflow: hidden; }
+  .page-title { font-size: 24px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; margin: 0 0 4px; }
+  .page-sub { font-size: 13px; color: var(--dim); margin-bottom: 28px; }
+
+  .now-card {
+    border: 1px solid rgba(232,116,97,0.30);
+    background: linear-gradient(180deg, rgba(232,116,97,0.06), rgba(232,116,97,0.02));
+    border-radius: 14px;
+    padding: 22px;
+    margin-bottom: 22px;
+  }
+  .now-card.idle { border-color: var(--border-strong); background: var(--card); }
+  .now-card .label { font-size: 11px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--coral); margin-bottom: 10px; }
+  .now-card.idle .label { color: var(--dim); }
+  .now-card .mission-title { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 4px; }
+  .now-card.idle .mission-title { color: var(--muted); }
+  .now-card .mission-goal { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+  .now-card .progress { height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin-bottom: 14px; }
+  .now-card .progress .bar { height: 100%; border-radius: 3px; background: var(--coral); }
+  .now-card .meta-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted); }
+  .now-card .time { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .now-card .actions { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+  .btn-primary {
+    background: var(--grad); color: #1a0f0a; border: none;
+    padding: 10px 18px; border-radius: 8px;
+    font-weight: 600; font-size: 13px; cursor: pointer;
+    font-family: var(--font);
+  }
+  .btn-secondary {
+    background: transparent; color: var(--muted); border: 1px solid var(--border-strong);
+    padding: 10px 14px; border-radius: 8px;
+    font-weight: 500; font-size: 13px; cursor: pointer;
+    font-family: var(--font);
+  }
+
+  .up-next {
+    padding: 12px 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 22px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .up-next .when { font-family: var(--mono); font-size: 12px; color: var(--dim); min-width: 50px; }
+  .up-next .what { font-size: 14px; color: var(--text); }
+  .up-next .what .dim { color: var(--muted); }
+
+  .quick-row { display: flex; gap: 8px; margin-bottom: 26px; flex-wrap: wrap; }
+  .quick-row .quick {
+    flex: 1; min-width: 130px;
+    padding: 14px 10px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    text-align: center;
+  }
+  .quick-row .quick .icon { font-size: 18px; margin-bottom: 4px; opacity: 0.85; }
+  .quick-row .quick .label { font-size: 12px; color: var(--muted); }
+
+  .plan-list { margin-bottom: 22px; }
+  .plan-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 6px;
+    border-top: 1px solid var(--border);
+  }
+  .plan-row:first-child { border-top: none; }
+  .plan-row .time { font-family: var(--mono); font-size: 12px; color: var(--dim); width: 80px; }
+  .plan-row .marker { width: 4px; height: 32px; border-radius: 2px; flex-shrink: 0; }
+  .plan-row.coral .marker { background: var(--coral); }
+  .plan-row.gold .marker { background: var(--gold); }
+  .plan-row.violet .marker { background: var(--violet); }
+  .plan-row .body { flex: 1; }
+  .plan-row .title { font-size: 14px; font-weight: 600; }
+  .plan-row .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .plan-row .status { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.6px; }
+  .plan-row .status.done { color: var(--green); }
+
+  .status-footer {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    padding: 14px 16px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .status-footer .item { display: flex; align-items: center; gap: 6px; }
+  .status-footer .item .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+  .status-footer .item.off .dot { background: var(--dim); }
+
+  .annotations {
+    margin: 18px 0 0;
+    padding: 18px 22px;
+    background: var(--card);
+    border-left: 3px solid var(--coral);
+    border-radius: 0 12px 12px 0;
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+  .annotations strong { color: var(--text); font-weight: 600; }
+  .annotations ul { margin: 6px 0 0; padding-left: 20px; }
+  .annotations li { margin-bottom: 5px; }
+
+  .section-h3 { font-size: 13px; color: var(--dim); margin: 4px 0 12px; letter-spacing: 0.8px; text-transform: uppercase; font-weight: 600; }
+
+  .setting-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 8px;
+  }
+  .setting-row .body { flex: 1; padding-right: 16px; }
+  .setting-row .title { font-size: 14px; font-weight: 600; margin-bottom: 3px; display: flex; align-items: center; gap: 8px; }
+  .setting-row .desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .setting-row .control { font-size: 13px; }
+  .setting-row .manage { color: var(--coral); font-weight: 500; cursor: pointer; }
+
+  .toggle { width: 36px; height: 20px; border-radius: 999px; background: rgba(255,255,255,0.10); position: relative; flex-shrink: 0; }
+  .toggle.on { background: var(--green); }
+  .toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: white; transition: left 0.15s; }
+  .toggle.on::after { left: 18px; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 9px; border-radius: 999px;
+    font-size: 10px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .pill.green { background: rgba(111,181,142,0.12); color: var(--green); border: 1px solid rgba(111,181,142,0.28); }
+  .pill.amber { background: rgba(229,160,99,0.12); color: var(--amber); border: 1px solid rgba(229,160,99,0.28); }
+  .pill.coral { background: rgba(232,116,97,0.12); color: var(--coral); border: 1px solid rgba(232,116,97,0.28); }
+  .pill.off { background: rgba(255,255,255,0.04); color: var(--dim); border: 1px solid var(--border); }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 56px 0 0; }
+
+  .footer-note { margin-top: 56px; padding: 20px 22px; background: var(--card); border: 1px dashed var(--border-strong); border-radius: 12px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+  .footer-note strong { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Sketch · 2026-05-13 · Not final</div>
+  <h1>Unified Design — taking Opal's simplicity into Intentional</h1>
+  <p class="lede">A sketch of how to fold Opal's blocker feel, Unbed's wake ritual, Covenant Eyes' accountability, and our planning system into one coherent product surface. The goal: drop the sidebar from 5 items to 3, make Today look like "Now + Next + Plan + Status," and stop hiding our differentiators on pages users never visit.</p>
+</header>
+
+<section class="process">
+  <h3>Process used to build this sketch</h3>
+  <ol>
+    <li><strong>Tear down each reference app.</strong> What does Opal / Unbed / Covenant Eyes do better than us, and what specifically would we copy?</li>
+    <li><strong>Audit what our app gets wrong today.</strong> Where is it busy, redundant, or burying our best features?</li>
+    <li><strong>Identify the unifying moves.</strong> Two or three architectural changes that reduce surface area without losing capability.</li>
+    <li><strong>Sketch the resulting screens</strong>, starting with the one the user lives in (Today), then the configuration surface (Settings). Plan + Wake follow in their own sketches.</li>
+  </ol>
+</section>
+
+<h2>What we're copying from each reference</h2>
+<table>
+  <thead>
+    <tr><th style="width:140px">Reference</th><th style="width:50%">Copy</th><th>Don't copy</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Opal</strong><div class="desc">Premium blocker</div></td>
+      <td>
+        <strong>The "Now" card.</strong> The active session is the loudest thing on screen — title, progress, remaining time, status pill. No Coach Context box, no extension status, no AI Assessments competing for attention.
+        <br><br>
+        <strong>Two-tab sidebar.</strong> Blocks + Settings. That's it. Everything else lives inside those two surfaces.
+        <br><br>
+        <strong>Preset cards with +Add.</strong> "Work Time, Morning, Deep Work Hour, Wind Down" are pre-configured one-tap options. The user doesn't have to design a block from scratch.
+        <br><br>
+        <strong>The 4-field edit modal.</strong> Title / Apps / Difficulty / Time + Days. No more.
+      </td>
+      <td>Cute illustrations, wellness-y gradients, gamified streaks, "Color Theme" pickers. The visual chrome.</td>
+    </tr>
+    <tr>
+      <td><strong>Unbed</strong><div class="desc">NFC alarm</div></td>
+      <td>
+        <strong>Tap target across the room.</strong> Phone fires the alarm. Only way to dismiss is to physically walk to and tap the Puck (NFC tag).
+        <br><br>
+        <strong>Dismissal routes into ritual.</strong> Tap = alarm off + enter the morning planning ritual. One continuous flow from waking to planning.
+      </td>
+      <td>Whatever Unbed shows on its idle home screen. We need their primitive, not their app surface.</td>
+    </tr>
+    <tr>
+      <td><strong>Covenant Eyes</strong><div class="desc">Accountability</div></td>
+      <td>
+        <strong>Partner gets a stream of events.</strong> Real-time pings or daily digest (we choose) — partner sees attempted access, not just monthly summaries. Relationship is active, not passive.
+        <br><br>
+        <strong>Partner-locked unlock.</strong> User cannot disable monitoring alone. Partner approval required.
+      </td>
+      <td>The Christian-accountability framing. The church-newsletter aesthetic. Their pricing model.</td>
+    </tr>
+    <tr>
+      <td><strong>Our planning system</strong><div class="desc">Cat 2, designed</div></td>
+      <td>
+        <strong>The Plan page (already spec'd).</strong> 3 monthly goals → 3 weekly missions → drag to today's timeline. Hard caps. "Help me plan" AI ritual for empty states.
+        <br><br>
+        <strong>Plan = decide. Today = do.</strong> Two surfaces, one mental model.
+      </td>
+      <td>n/a — this is our own.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>What our current app gets wrong</h2>
+<ul class="bullets">
+  <li><strong>Five sidebar items</strong> (Today, Focus Modes, Sensitive Content, Accountability, Settings). Opal does it with 2. <em>Sensitive Content holds a single toggle and still gets its own tab.</em></li>
+  <li><strong>Focus Modes are configurations, not missions.</strong> A grid of named cards with no schedule attached forces a clunky two-step "create the mode, then go elsewhere to schedule it."</li>
+  <li><strong>Today has four competing sections.</strong> Coach Context + Schedule + Focus Mode toggle + AI Assessments. None is the headline. Opal's "Now" card IS the headline.</li>
+  <li><strong>Our differentiators are buried.</strong> Sensitive Content and Accountability — the two things Opal can't do — are tucked away on separate pages. They should be visible always, even if just as a status row.</li>
+  <li><strong>No "what's active right now" surface.</strong> A new user opens our app and can't tell at a glance if they're in a session, if a partner is connected, if content protection is on, or what's next. Opal answers all of that in the first card.</li>
+</ul>
+
+<h2>The unifying moves</h2>
+<table>
+  <thead><tr><th style="width:46%">Move</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>1. Collapse sidebar to 3 items.</strong> Today / Plan / Settings.</td>
+      <td>Focus Modes folds into Plan (they become missions tied to goals). Sensitive Content + Accountability fold into Settings as rows in a "Defenses" section. Their <em>status</em> becomes pills in a status footer on Today.</td>
+    </tr>
+    <tr>
+      <td><strong>2. Today = "Now + Next + Plan + Status."</strong> Opal-shaped page.</td>
+      <td>One loud Now card. One Up-Next row. Quick-action buttons. Today's missions as a list. Status footer pinning Partner + Content + Puck as always-visible.</td>
+    </tr>
+    <tr>
+      <td><strong>3. Plan absorbs Focus Modes.</strong></td>
+      <td>You don't create "modes" in isolation. You create missions in Plan, give each a strictness, drop them onto today's timeline. Same surface, simpler concept, fewer steps.</td>
+    </tr>
+    <tr>
+      <td><strong>4. Defenses earn an always-on status row.</strong></td>
+      <td><em>Caity · partner active</em> — <em>Content protection · ON</em> — <em>Puck · paired</em>. Visible on every Today view. The user is reminded what's running without navigating to verify.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- STATE 1 -->
+<h2>State 1 — Today, with a session running <span class="meta">the "Now" view, Opal-shaped</span></h2>
+<div class="app-frame">
+  <aside class="sidebar">
+    <div class="brand">Intentional</div>
+    <div class="nav-item active"><span class="dot"></span> Today</div>
+    <div class="nav-item"><span class="dot"></span> Plan</div>
+    <div class="nav-item"><span class="dot"></span> Settings</div>
+    <div class="footer">5:24 PM<br>Caity ✓ &nbsp;·&nbsp; Content ON</div>
+  </aside>
+  <main class="content">
+    <h3 class="page-title">Tuesday, May 13</h3>
+    <div class="page-sub">3 missions planned · 1 active · 2 to go</div>
+
+    <div class="now-card">
+      <div class="label">Now · ends in 36 min</div>
+      <div class="mission-title">Outline blog post #3</div>
+      <div class="mission-goal">Toward "Write 4 blog posts in May" · 6h of 16h done</div>
+      <div class="progress"><div class="bar" style="width: 64%;"></div></div>
+      <div class="meta-row">
+        <span><span class="pill coral">STRICT</span> &nbsp;AI redirecting drift</span>
+        <span class="time">0:36:12 remaining</span>
+      </div>
+    </div>
+
+    <div class="up-next">
+      <span class="when">6:00 PM</span>
+      <span class="what">Code review backlog <span class="dim">· toward "Ship the Mac app" · Standard</span></span>
+    </div>
+
+    <div class="quick-row">
+      <div class="quick"><div class="icon">▶</div><div class="label">Start something now</div></div>
+      <div class="quick"><div class="icon">⏸</div><div class="label">5-min break</div></div>
+      <div class="quick"><div class="icon">⊕</div><div class="label">Add to today</div></div>
+      <div class="quick"><div class="icon">📓</div><div class="label">Open Plan</div></div>
+    </div>
+
+    <div class="status-footer">
+      <span class="item"><span class="dot"></span> Caity · partner active</span>
+      <span class="item"><span class="dot"></span> Content protection · ON</span>
+      <span class="item off"><span class="dot"></span> Puck · not paired</span>
+    </div>
+  </main>
+</div>
+<div class="annotations">
+  <strong>What this fixes vs today's app:</strong>
+  <ul>
+    <li>Active session is the page's <em>headline</em>, not buried behind a Coach Context box.</li>
+    <li>The mission ladders up: <em>"Toward Write 4 blog posts in May · 6h of 16h done"</em> — the user sees the goal connection on every glance.</li>
+    <li>"Up next" is one line, not a calendar to scroll.</li>
+    <li>Quick actions are one click — Opal's "More Ideas" pattern, kept.</li>
+    <li>The status footer makes <strong>partner + content protection visible without navigation</strong>. They're the differentiators; they earn permanent screen real estate.</li>
+  </ul>
+</div>
+
+<!-- STATE 2 -->
+<h2>State 2 — Today, between sessions <span class="meta">no active mission, plan still visible</span></h2>
+<div class="app-frame">
+  <aside class="sidebar">
+    <div class="brand">Intentional</div>
+    <div class="nav-item active"><span class="dot"></span> Today</div>
+    <div class="nav-item"><span class="dot"></span> Plan</div>
+    <div class="nav-item"><span class="dot"></span> Settings</div>
+    <div class="footer">11:48 AM<br>Caity ✓ &nbsp;·&nbsp; Content ON</div>
+  </aside>
+  <main class="content">
+    <h3 class="page-title">Tuesday, May 13</h3>
+    <div class="page-sub">3 missions planned · 1 done · 2 to go · between sessions</div>
+
+    <div class="now-card idle">
+      <div class="label">Right now</div>
+      <div class="mission-title">Nothing running</div>
+      <div class="mission-goal">Next session at 1:00 PM · "Outline blog post #3"</div>
+      <div class="actions">
+        <button class="btn-primary">Start "Outline blog post #3" now</button>
+        <button class="btn-secondary">Block now (no mission)</button>
+      </div>
+    </div>
+
+    <h3 style="text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--dim); margin-top: 22px;">Today's missions</h3>
+    <div class="plan-list">
+      <div class="plan-row coral">
+        <div class="time">9:00 – 10:30</div>
+        <div class="marker"></div>
+        <div class="body">
+          <div class="title">Morning planning ritual</div>
+          <div class="sub">Toward "Plan deliberately every day"</div>
+        </div>
+        <div class="status done">✓ Done</div>
+      </div>
+      <div class="plan-row gold">
+        <div class="time">1:00 – 3:00</div>
+        <div class="marker"></div>
+        <div class="body">
+          <div class="title">Outline blog post #3</div>
+          <div class="sub">Toward "Write 4 blog posts in May" · Strict</div>
+        </div>
+        <div class="status">Planned</div>
+      </div>
+      <div class="plan-row violet">
+        <div class="time">3:30 – 5:00</div>
+        <div class="marker"></div>
+        <div class="body">
+          <div class="title">Code review backlog</div>
+          <div class="sub">Toward "Ship the Mac app" · Standard</div>
+        </div>
+        <div class="status">Planned</div>
+      </div>
+    </div>
+
+    <div class="status-footer">
+      <span class="item"><span class="dot"></span> Caity · partner active</span>
+      <span class="item"><span class="dot"></span> Content protection · ON</span>
+      <span class="item off"><span class="dot"></span> Puck · not paired</span>
+    </div>
+  </main>
+</div>
+<div class="annotations">
+  <strong>What this fixes:</strong>
+  <ul>
+    <li>When nothing's running, Today still has <em>shape</em> — a clear day's plan, in plain language, with status per mission. No empty calendar to stare at.</li>
+    <li>One-click "Start &lt;next mission&gt; now" or "Block now (no mission)" — Opal's quick-start pattern without losing our mission framing.</li>
+    <li>Each row shows <strong>which goal it ladders up to</strong>. The connection between today's work and this month's outcome is visible on every glance.</li>
+    <li>Colors match the planning system's monthly-goal palette (coral / gold / violet) — visual continuity from Plan to Today.</li>
+  </ul>
+</div>
+
+<!-- STATE 3 -->
+<h2>State 3 — Settings, with differentiators folded in <span class="meta">Sensitive Content + Accountability are rows, not pages</span></h2>
+<div class="app-frame">
+  <aside class="sidebar">
+    <div class="brand">Intentional</div>
+    <div class="nav-item"><span class="dot"></span> Today</div>
+    <div class="nav-item"><span class="dot"></span> Plan</div>
+    <div class="nav-item active"><span class="dot"></span> Settings</div>
+    <div class="footer">5:24 PM<br>Caity ✓ &nbsp;·&nbsp; Content ON</div>
+  </aside>
+  <main class="content">
+    <h3 class="page-title">Settings</h3>
+    <div class="page-sub">Defenses · App preferences</div>
+
+    <div class="section-h3">Defenses</div>
+
+    <div class="setting-row">
+      <div class="body">
+        <div class="title">Content protection <span class="pill green">ON</span></div>
+        <div class="desc">Scans your screen every 2 sec for explicit content. Blocks the screen and notifies Caity on detection.</div>
+      </div>
+      <div class="control"><div class="toggle on"></div></div>
+    </div>
+
+    <div class="setting-row">
+      <div class="body">
+        <div class="title">Accountability partner <span class="pill coral">CAITY</span></div>
+        <div class="desc">caity.enroth@gmail.com · ready to lock. She must approve to disable any defense or end strict sessions early.</div>
+      </div>
+      <div class="control manage">Manage →</div>
+    </div>
+
+    <div class="setting-row">
+      <div class="body">
+        <div class="title">Strict mode <span class="pill amber">ACTIVE</span></div>
+        <div class="desc">App cannot be quit or uninstalled without Caity's approval. Watchdog daemon running.</div>
+      </div>
+      <div class="control"><div class="toggle on"></div></div>
+    </div>
+
+    <div class="setting-row">
+      <div class="body">
+        <div class="title">Puck (NFC tap target) <span class="pill off">NOT PAIRED</span></div>
+        <div class="desc">Tap your phone on Puck to dismiss alarms, end sessions, and trigger the morning planning ritual.</div>
+      </div>
+      <div class="control manage">Pair →</div>
+    </div>
+
+    <div class="section-h3" style="margin-top: 28px;">App</div>
+
+    <div class="setting-row">
+      <div class="body">
+        <div class="title">Open on login</div>
+        <div class="desc">Required for blocking to work after restart.</div>
+      </div>
+      <div class="control"><div class="toggle on"></div></div>
+    </div>
+
+    <div class="setting-row">
+      <div class="body">
+        <div class="title">Notifications</div>
+        <div class="desc">Session start, drift redirects, end-of-block summaries.</div>
+      </div>
+      <div class="control"><div class="toggle on"></div></div>
+    </div>
+  </main>
+</div>
+<div class="annotations">
+  <strong>What this fixes:</strong>
+  <ul>
+    <li>"Sensitive Content" and "Accountability" no longer take up sidebar slots for a single toggle and a single contact. They're rows in a "Defenses" section, grouped with Strict Mode and Puck pairing.</li>
+    <li>Each defense row shows <strong>its current state at a glance</strong> via a pill (ON / CAITY / ACTIVE / NOT PAIRED). User can audit their entire setup in 5 seconds.</li>
+    <li>Settings becomes the place for <em>everything that's not part of the daily loop</em>. The daily loop is Today + Plan. Settings is "rules of the game" + app config.</li>
+  </ul>
+</div>
+
+<h2>Sidebar before vs after <span class="meta">5 → 3</span></h2>
+<table>
+  <thead><tr><th>Today (5 items)</th><th>Proposed (3 items)</th></tr></thead>
+  <tbody>
+    <tr><td>Today</td><td>Today</td></tr>
+    <tr><td>Focus Modes</td><td>Plan <em style="color:var(--dim);">— absorbs Focus Modes; they become missions tied to goals</em></td></tr>
+    <tr><td>Sensitive Content</td><td><em style="color:var(--dim);">folded into Settings → Defenses row + status pill on Today</em></td></tr>
+    <tr><td>Accountability</td><td><em style="color:var(--dim);">folded into Settings → Defenses row + status pill on Today</em></td></tr>
+    <tr><td>Settings</td><td>Settings <em style="color:var(--dim);">— Defenses + App sections</em></td></tr>
+  </tbody>
+</table>
+
+<h2 style="margin-bottom: 4px;">What's still to sketch</h2>
+<p style="margin-top: 8px;">This sketch covers Today + Settings. The next sketches should cover, in priority order:</p>
+<ul class="bullets">
+  <li><strong>The Plan page</strong> — already spec'd in <code>docs/superpowers/specs/2026-05-13-planning-system-spec.md</code>, but should be re-sketched in this same visual language so all three tabs feel like one product.</li>
+  <li><strong>The wake-up flow</strong> — alarm fires → phone shows "Tap Puck to wake" → after tap, transition into the planning ritual. Spec after the Cat 4 Perplexity research on Unbed + AlarmKit lands.</li>
+  <li><strong>The drift redirect overlay</strong> — when AI detects off-mission activity. Currently an external nudge; should feel more like a coach message, less like an interrupt.</li>
+  <li><strong>The end-of-session card</strong> — already exists ("Block Complete" + carousel) but needs to be re-sized against this new visual language.</li>
+</ul>
+
+<div class="footer-note">
+  <strong>Sketch, not spec.</strong> Don't build from these pixels. The intent is to lock the <em>architecture</em> (3-tab sidebar, "Now + Next + Plan + Status" on Today, defenses folded into Settings, status pills always visible) and the <em>shape</em> of each surface. Visual polish — typography scale, exact spacing, motion, color refinement — comes in a real design pass against the architecture this sketch defines.
+</div>
+
+</div>
+</body>
+</html>
