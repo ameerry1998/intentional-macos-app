@@ -1717,6 +1717,21 @@ body.theme-effects-warm::after {
   transform: translateX(-50%) translateY(0);
 }
 
+/* FIX-13: New session overlay */
+.ns-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1100; display: flex; align-items: center; justify-content: center; }
+.ns-modal-overlay[hidden] { display: none; }
+.ns-modal-card { background: #1d1d20; border-radius: 14px; padding: 24px 28px; min-width: 440px; max-width: 520px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); box-sizing: border-box; }
+.ns-modal-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: var(--text-primary); }
+.ns-modal-field { margin-bottom: 12px; }
+.ns-modal-field label { font-size: 11.5px; font-weight: 600; color: var(--text-tertiary); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+.ns-modal-input { width: 100%; background: rgba(255,255,255,0.04); border: 0.5px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 12px; color: var(--text-primary); font-size: 13.5px; box-sizing: border-box; font-family: inherit; }
+.ns-modal-input.textarea { min-height: 64px; resize: vertical; }
+.ns-modal-section { margin-bottom: 8px; border: 0.5px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px 12px; }
+.ns-modal-section summary { font-size: 12.5px; cursor: pointer; color: var(--text-secondary); font-weight: 500; }
+.ns-modal-section[open] summary { color: var(--text-primary); margin-bottom: 8px; }
+.ns-modal-toggle-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 4px 0; cursor: pointer; color: var(--text-primary); }
+.ns-modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+
 .toast.error {
   background: var(--color-error);
 }
@@ -5874,6 +5889,47 @@ body.theme-effects-warm::after {
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
+
+<!-- FIX-13: New session overlay (opens when user clicks empty hour on calendar) -->
+<div class="ns-modal-overlay" id="new-session-overlay" hidden onclick="if(event.target===this)closeNewSessionModal()">
+  <div class="ns-modal-card">
+    <div class="ns-modal-title">New session</div>
+    <div class="ns-modal-field">
+      <label>Title <span style="color: var(--color-error);">*</span></label>
+      <input type="text" class="ns-modal-input" id="ns-title" placeholder="What are you working on?">
+    </div>
+
+    <details class="ns-modal-section">
+      <summary>Done looks like</summary>
+      <textarea class="ns-modal-input textarea" id="ns-outcome" placeholder="What does done look like?"></textarea>
+    </details>
+
+    <details class="ns-modal-section">
+      <summary>Weekly goal link</summary>
+      <select class="ns-modal-input" id="ns-goal-link">
+        <option value="">No goal — standalone session</option>
+      </select>
+    </details>
+
+    <details class="ns-modal-section">
+      <summary>Auto-activate blocks</summary>
+      <div id="ns-block-checkboxes"><div style="color:rgba(255,255,255,0.4);font-size:12px;">No blocks configured yet.</div></div>
+    </details>
+
+    <details class="ns-modal-section">
+      <summary>AI scoring</summary>
+      <label class="ns-modal-toggle-row">
+        <input type="checkbox" id="ns-ai-scoring" checked>
+        AI relevance scoring for this session
+      </label>
+    </details>
+
+    <div class="ns-modal-footer">
+      <button class="btn-secondary" onclick="closeNewSessionModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveNewSession()">Create session</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ===== Test mode for Playwright =====
@@ -11212,36 +11268,11 @@ function scrollCalendarToTime() {
 function onCalendarHourClick(event, hour) {
   if (!isViewingToday()) return;
   if (event.target.closest('.calendar-block')) return;
-  var track = event.currentTarget;
-  var rect = track.getBoundingClientRect();
-  var yOffset = event.clientY - rect.top;
-  var minuteInHour = Math.round((yOffset / CALENDAR_HOUR_HEIGHT) * 60 / 15) * 15;
-  var startMin = hour * 60 + minuteInHour;
-  var endMin = Math.min(startMin + 30, CALENDAR_END_HOUR * 60);
-  if (endMin - startMin < 2) return;
-  if (hasBlockOverlap(startMin, endMin, null)) return;
-
-  var newBlock = {
-    id: generateFocusUUID(),
-    title: '',
-    description: '',
-    startHour: Math.floor(startMin / 60), startMinute: startMin % 60,
-    endHour: Math.floor(endMin / 60), endMinute: endMin % 60,
-    blockType: 'focusHours',
-    isFree: false,
-    ignoreProfile: false,
-    intention_id: null,        // Spec 2: bind via picker later
-    intensity: 'focusHours'    // Spec 2: mirrors blockType
-  };
-  focusState.blocks.push(newBlock);
-  // Draft pattern: do NOT call markFocusDirty() here. The block is a draft
-  // until the user fills in a title and clicks Done in the editor. On
-  // dismissal without Done, closeBlockEditor() removes the draft from
-  // focusState.blocks so nothing ever gets saved. Mirrors addFocusBlock
-  // (work-block branch) and openNewBlockDraft.
-  renderCalendarBlocks();
-  openBlockEditor(newBlock.id, event);
-  focusState.draftBlockId = newBlock.id;
+  // FIX-13: empty-hour click now opens the New Session modal instead of
+  // dropping a draft block straight onto the calendar. Modal lets the user
+  // pick weekly goal, write outcome, choose blocks, and toggle AI scoring
+  // before the session lands on the calendar.
+  openNewSessionModal(hour);
 }
 
 function hasBlockOverlap(startMin, endMin, excludeId) {
@@ -14497,6 +14528,111 @@ window.PlanApp = PlanApp;
 
   // React app calls window.openWeeklyGoalEdit when a weekly card is clicked.
   // The function is defined in C4. Until C4 lands, the placeholder from C2 logs.
+
+  // ===== FIX-13: New Session modal =====
+  // Opens when user clicks empty calendar hour. Lets user pick a weekly
+  // goal (or go standalone), write an outcome, select auto-activate blocks,
+  // and toggle AI scoring before the session lands on the calendar.
+  var _newSessionStartHour = 9;
+
+  function openNewSessionModal(hour) {
+    _newSessionStartHour = (typeof hour === 'number') ? hour : 9;
+    // Populate weekly goal dropdown from intentions cache
+    var sel = document.getElementById('ns-goal-link');
+    if (sel) {
+      sel.innerHTML = '<option value="">No goal — standalone session</option>';
+      var goals = window._intentionsCache || [];
+      goals.forEach(function (g) {
+        if (!g || g.deleted_at) return;
+        var opt = document.createElement('option');
+        opt.value = g.id;
+        opt.textContent = g.name || '(untitled)';
+        sel.appendChild(opt);
+      });
+    }
+    // Populate auto-activate block checkboxes from block rules cache
+    var wrap = document.getElementById('ns-block-checkboxes');
+    if (wrap) {
+      var rules = window._blockRulesCache || [];
+      if (rules.length === 0) {
+        wrap.innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:12px;">No blocks configured yet.</div>';
+      } else {
+        wrap.innerHTML = '';
+        rules.forEach(function (r) {
+          if (!r || !r.id) return;
+          var row = document.createElement('label');
+          row.className = 'ns-modal-toggle-row';
+          var safeId = String(r.id).replace(/"/g, '&quot;');
+          var safeName = (r.name || '(unnamed)').replace(/[<>&]/g, function(c){
+            return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c];
+          });
+          row.innerHTML = '<input type="checkbox" data-rule-id="' + safeId + '"> ' + safeName;
+          wrap.appendChild(row);
+        });
+      }
+    }
+    // Reset form
+    var titleEl = document.getElementById('ns-title');
+    var outcomeEl = document.getElementById('ns-outcome');
+    var aiEl = document.getElementById('ns-ai-scoring');
+    if (titleEl) titleEl.value = '';
+    if (outcomeEl) outcomeEl.value = '';
+    if (aiEl) aiEl.checked = true;
+    // Show + focus
+    var overlay = document.getElementById('new-session-overlay');
+    if (overlay) overlay.hidden = false;
+    setTimeout(function(){ titleEl && titleEl.focus(); }, 30);
+  }
+  window.openNewSessionModal = openNewSessionModal;
+
+  function closeNewSessionModal() {
+    var overlay = document.getElementById('new-session-overlay');
+    if (overlay) overlay.hidden = true;
+  }
+  window.closeNewSessionModal = closeNewSessionModal;
+
+  function saveNewSession() {
+    var titleEl = document.getElementById('ns-title');
+    var outcomeEl = document.getElementById('ns-outcome');
+    var goalSel = document.getElementById('ns-goal-link');
+    var aiEl = document.getElementById('ns-ai-scoring');
+    var title = (titleEl && titleEl.value || '').trim();
+    if (!title) {
+      if (typeof showToast === 'function') showToast('Give this session a title.');
+      else alert('Give this session a title.');
+      titleEl && titleEl.focus();
+      return;
+    }
+    var outcome = (outcomeEl && outcomeEl.value || '').trim();
+    var intentionId = (goalSel && goalSel.value) || null;
+    var aiOn = !!(aiEl && aiEl.checked);
+    var enabledRules = Array.prototype.slice.call(
+      document.querySelectorAll('#ns-block-checkboxes input[type=checkbox]:checked')
+    ).map(function (el) { return el.getAttribute('data-rule-id'); }).filter(Boolean);
+
+    var todayStr = (function(){
+      var d = new Date();
+      var mm = String(d.getMonth()+1).padStart(2,'0');
+      var dd = String(d.getDate()).padStart(2,'0');
+      return d.getFullYear() + '-' + mm + '-' + dd;
+    })();
+
+    var payload = {
+      type: 'CREATE_SCHEDULED_SESSION',
+      intention_id: intentionId,
+      start_hour: _newSessionStartHour,
+      start_minute: 0,
+      start_date: todayStr,
+      title_override: title,
+      outcome: outcome,
+      ai_scoring_enabled: aiOn,
+      auto_activate_block_rules: enabledRules
+    };
+    sendMessage(payload);
+    closeNewSessionModal();
+    if (typeof showToast === 'function') showToast('Session created');
+  }
+  window.saveNewSession = saveNewSession;
 </script>
 
 </body>

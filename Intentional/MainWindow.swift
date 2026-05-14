@@ -3721,11 +3721,21 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     // goal (Intention) and add it via ScheduleManager.addBlock — which handles
     // local persistence, backend push, and recalculateState in one call.
     private func handleCreateScheduledSession(_ body: [String: Any]) {
-        guard let intentionIdStr = body["intention_id"] as? String,
-              let intentionId = UUID(uuidString: intentionIdStr) else {
-            callJS("window._scheduledSessionCreated && window._scheduledSessionCreated({status:'error', reason:'Missing weekly goal id'})")
-            return
-        }
+        // FIX-13: intention_id is now optional. When null, the session is
+        // standalone (no weekly-goal binding) and uses title_override + outcome.
+        // We also accept title_override, outcome, ai_scoring_enabled, and
+        // auto_activate_block_rules from the New Session modal.
+        let intentionIdStr = body["intention_id"] as? String
+        let intentionIdOpt: UUID? = intentionIdStr.flatMap { UUID(uuidString: $0) }
+        let titleOverride = (body["title_override"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let outcome = (body["outcome"] as? String) ?? ""
+        // ai_scoring_enabled and auto_activate_block_rules are accepted but
+        // not yet wired into FocusBlock — ScheduleManager.FocusBlock doesn't
+        // model per-session AI override or auto-activate rule sets. Logged
+        // so future plumbing can pick them up.
+        let aiScoringEnabled = body["ai_scoring_enabled"] as? Bool
+        let autoActivateRules = body["auto_activate_block_rules"] as? [String] ?? []
+
         let startHour = body["start_hour"] as? Int ?? 9
         let startMinute = body["start_minute"] as? Int ?? 0
         var endHour = body["end_hour"] as? Int ?? (startHour + 1)
@@ -3747,26 +3757,43 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         Task { [weak self] in
             guard let self = self else { return }
-            guard let intention = await IntentionStore.shared.intention(id: intentionId),
-                  intention.deletedAt == nil else {
+
+            // Resolve intention (if any). For standalone sessions we need a title.
+            var resolvedIntention: Intention? = nil
+            if let iid = intentionIdOpt {
+                guard let intention = await IntentionStore.shared.intention(id: iid),
+                      intention.deletedAt == nil else {
+                    await MainActor.run {
+                        self.callJS("window._scheduledSessionCreated && window._scheduledSessionCreated({status:'error', reason:'Weekly goal not found'})")
+                    }
+                    return
+                }
+                resolvedIntention = intention
+            } else if (titleOverride ?? "").isEmpty {
+                // Standalone session without a title — reject.
                 await MainActor.run {
-                    self.callJS("window._scheduledSessionCreated && window._scheduledSessionCreated({status:'error', reason:'Weekly goal not found'})")
+                    self.callJS("window._scheduledSessionCreated && window._scheduledSessionCreated({status:'error', reason:'Title required for standalone session'})")
                 }
                 return
             }
 
-            // Compute ISO weekday (Mon=1..Sun=7) of start_date for activeDays.
-            // ScheduleManager.FocusBlock doesn't model activeDays today — recurring
-            // is encoded as "lives in todaySchedule.blocks". This is a single-day
-            // session by construction, so we just insert it into today's schedule.
-            // (start_date is consumed as a no-op if it isn't today; ScheduleManager's
-            // todaySchedule is keyed on "today" so future-day blocks would require a
-            // bigger refactor — out of scope for FIX-2.)
-
             // Map intention strictness → block intensity.
             // Strict goal → deep_work (hard block). Standard/Soft → focus_hours.
+            // Standalone session (no intention) defaults to focusHours.
             let blockType: ScheduleManager.BlockType =
-                intention.strictnessPreset == .strict ? .deepWork : .focusHours
+                resolvedIntention?.strictnessPreset == .strict ? .deepWork : .focusHours
+
+            // Choose final block title: explicit override wins, else fall back
+            // to the intention name. For standalone we've already required a
+            // title above.
+            let finalTitle: String = {
+                if let t = titleOverride, !t.isEmpty { return t }
+                return resolvedIntention?.name ?? "Session"
+            }()
+            let finalDescription: String = {
+                if !outcome.isEmpty { return outcome }
+                return resolvedIntention?.description ?? ""
+            }()
 
             await MainActor.run {
                 guard let sm = self.appDelegate?.scheduleManager else {
@@ -3776,30 +3803,29 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 let newId = UUID().uuidString
                 let newBlock = ScheduleManager.FocusBlock(
                     id: newId,
-                    title: intention.name,
-                    description: intention.description ?? "",
+                    title: finalTitle,
+                    description: finalDescription,
                     startHour: startHour,
                     startMinute: startMinute,
                     endHour: endHour,
                     endMinute: endMinute,
                     blockType: blockType,
                     ignoreProfile: false,
-                    intentionId: intentionId,
+                    intentionId: intentionIdOpt,
                     intensity: blockType
                 )
-                // addBlock: appends, sorts, saves to disk, recalcs state, pushes to backend.
                 sm.addBlock(newBlock)
-                // Push refreshed schedule to the dashboard immediately (don't wait
-                // for the schedule change to fan out via onBlockChanged — that only
-                // fires when state actually changes).
                 self.pushScheduleUpdate()
-                self.appDelegate?.postLog("📋 CREATE_SCHEDULED_SESSION: \(intention.name) \(startHour):\(String(format: "%02d", startMinute))–\(endHour):\(String(format: "%02d", endMinute)) date=\(startDateStr)")
-                // JSON-safe emit
-                let payload: [String: Any] = [
+                let aiLog = aiScoringEnabled.map { $0 ? "ai=on" : "ai=off" } ?? "ai=default"
+                let rulesLog = autoActivateRules.isEmpty ? "" : " rules=\(autoActivateRules.count)"
+                self.appDelegate?.postLog("📋 CREATE_SCHEDULED_SESSION: \(finalTitle) \(startHour):\(String(format: "%02d", startMinute))–\(endHour):\(String(format: "%02d", endMinute)) date=\(startDateStr) goal=\(intentionIdOpt?.uuidString ?? "nil") \(aiLog)\(rulesLog)")
+                var payload: [String: Any] = [
                     "status": "ok",
-                    "block_id": newId,
-                    "intention_id": intentionId.uuidString
+                    "block_id": newId
                 ]
+                if let iid = intentionIdOpt {
+                    payload["intention_id"] = iid.uuidString
+                }
                 if let data = try? JSONSerialization.data(withJSONObject: payload),
                    let json = String(data: data, encoding: .utf8) {
                     self.callJS("window._scheduledSessionCreated && window._scheduledSessionCreated(\(json))")
