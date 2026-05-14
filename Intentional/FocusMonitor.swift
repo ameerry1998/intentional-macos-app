@@ -87,6 +87,24 @@ class FocusMonitor {
     /// (e.g. Gmail, Slack — ambiguous sites where AI can't determine relevance from title/URL alone)
     var alwaysRelevantHostnames: Set<String> = []
 
+    /// BlockRuleEnforcer-driven blocked apps. Engages enforcement even when no
+    /// focus session is active — that's the whole point of Blocks-with-schedule.
+    /// Composes with focus-session enforcement via union.
+    private var standaloneBlockedBundleIds: Set<String> = []
+
+    /// Public setter — called by BlockRuleEnforcer on every tick (30s) and on
+    /// every BlockingProfile mutation. Pure setter; the next `evaluateApp`
+    /// invocation (driven by polling / app switch) picks up the new set.
+    func setStandaloneBlockedBundleIds(_ bundles: [String]) {
+        let next = Set(bundles)
+        guard next != standaloneBlockedBundleIds else { return }
+        standaloneBlockedBundleIds = next
+        appDelegate?.postLog("👁️🛡 FocusMonitor: standaloneBlockedBundleIds updated (\(next.count) apps): \(Array(next).sorted())")
+        // Re-evaluate the current foreground app immediately so a newly engaged
+        // rule blocks on the next instant instead of waiting for an app switch.
+        if let app = currentApp { evaluateApp(app) }
+    }
+
     /// Per-project allow/block overlay, populated while a project session is active.
     /// Evaluated BEFORE the global distraction checks so project rules win.
     struct ProjectEnforcement {
@@ -1618,6 +1636,21 @@ class FocusMonitor {
         let state = manager.currentTimeState
         debugLog("👁️ State check: enabled=\(manager.isEnabled), state=\(state.rawValue), hasPlan=\(manager.todaySchedule != nil), blocks=\(manager.todaySchedule?.blocks.count ?? 0)")
 
+        // BlockRuleEnforcer (Opal-style Blocks): a BlockingProfile in its
+        // scheduled window blocks the listed apps EVEN WHEN no focus session
+        // is active. Must engage BEFORE the focusModeController gate below
+        // because that gate would otherwise return early.
+        // Composes with session enforcement via union: if Focus Mode IS on,
+        // we still hit the existing distractingAppBundleIds branch below (which
+        // gives the full session-style UX). Here we only handle the
+        // "no session, but a rule says block this app" case.
+        if let bidStandalone = app.bundleIdentifier,
+           standaloneBlockedBundleIds.contains(bidStandalone),
+           focusModeController?.isOn != true {
+            handleStandaloneBlockedApp(app: app, bundleId: bidStandalone)
+            return
+        }
+
         // Enforcement runs IFF Focus Mode is ON. Bedtime and Off both bypass.
         // (Replaces the earlier TimeState allowlist — disabled, freeTime, snoozed,
         // and unplanned all route through Focus Mode being off rather than this
@@ -1745,7 +1778,9 @@ class FocusMonitor {
         // User-configured distracting apps: always treat as irrelevant during work blocks
         // Checked BEFORE always-allowed — user intent overrides defaults
         // Skip grace period — user explicitly configured this app as distracting
-        if distractingAppBundleIds.contains(bid) {
+        // Union with BlockRuleEnforcer-driven standaloneBlockedBundleIds so a
+        // Block rule's app list ALSO blocks during an active focus session.
+        if distractingAppBundleIds.contains(bid) || standaloneBlockedBundleIds.contains(bid) {
             debugLog("👁️ \(appName) is user-configured distracting app — direct enforcement (no grace)")
             stopBrowserPolling()
             logAssessment(
@@ -3160,6 +3195,45 @@ class FocusMonitor {
     /// Check if a specific enforcement mechanism is enabled for the current block type.
     private func isEnforcementEnabled(_ mechanism: ScheduleManager.EnforcementMechanism) -> Bool {
         return scheduleManager?.isEnforcementEnabled(mechanism) ?? true
+    }
+
+    /// Enforce a BlockRuleEnforcer-driven block (rule active outside a focus
+    /// session). Shows the blocking overlay with a copy that names the rule
+    /// rather than the user's focus intention. Mirrors the distractingApp branch
+    /// for during-session enforcement but skips the parts that require an active
+    /// block (recordAssessment, grayscale that's coupled to focus minutes, etc).
+    private func handleStandaloneBlockedApp(app: NSRunningApplication, bundleId bid: String) {
+        let appName = app.localizedName ?? bid
+        debugLog("👁️🛡 \(appName) blocked by active BlockingProfile rule (no session) — direct enforcement")
+        stopBrowserPolling()
+        stopWorkTickTimer()
+        stopNeutralTickTimer()
+        logAssessment(
+            title: appName,
+            intention: "",
+            relevant: false,
+            confidence: 100,
+            reason: "Block rule (standalone)",
+            action: "overlay",
+            isEvent: true
+        )
+        // Update transient state minimally (no grace, no streak math — there's
+        // no focus session to score against).
+        cancelGracePeriod()
+        warnedTargets.insert(bid)
+        currentTarget = appName
+        currentTargetKey = bid
+        isCurrentlyIrrelevant = true
+        deepWorkTimerController?.update(isDistracted: true)
+        // Show blocking overlay. Rules are explicit user intent, so always
+        // show the overlay regardless of block-type enforcement settings.
+        showOverlay(
+            intention: "Active block rule",
+            reason: "App blocked by rule",
+            focusDurationMinutes: 0,
+            isNoPlan: false,
+            displayName: appName
+        )
     }
 
     /// Show the full-screen intervention overlay with a random game.

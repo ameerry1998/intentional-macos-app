@@ -25,6 +25,24 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     // Blocked domains (fully user-configured via dashboard Distracting Websites list)
     private var blockedDomains: [String]
 
+    // Standalone domains driven by BlockRuleEnforcer (BlockingProfile schedules
+    // active OUTSIDE of a focus session). Unioned with `blockedDomains` at
+    // match-time so rule schedules engage even when no session is running.
+    // Lowercased. See BlockRuleEnforcer for the producer.
+    private var standaloneDomains: Set<String> = []
+
+    /// Returns the union of session-driven `blockedDomains` and BlockRuleEnforcer
+    /// `standaloneDomains`. All matching helpers below iterate over this — keeps
+    /// "session enforcement" and "rule enforcement" composing as a union.
+    private var effectiveBlockedDomains: [String] {
+        if standaloneDomains.isEmpty { return blockedDomains }
+        var seen = Set<String>()
+        var out: [String] = []
+        for d in blockedDomains where seen.insert(d).inserted { out.append(d) }
+        for d in standaloneDomains where seen.insert(d).inserted { out.append(d) }
+        return out
+    }
+
     // Custom blocking page URL (will be in app bundle)
     private var blockPageURL: String {
         if let bundlePath = Bundle.main.resourcePath {
@@ -101,12 +119,37 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         appDelegate?.postLog("🌐🔍 WebsiteBlocker: full domain list: \(allDomains)")
     }
 
+    /// Update the BlockRuleEnforcer-driven standalone blocklist (BlockingProfile
+    /// schedules active outside a focus session). Unioned with `blockedDomains`
+    /// at match-time. Lowercased.
+    /// Pure setter — periodic 0.5s sweep picks it up on next tick. If the new
+    /// set differs from the old, the recently-blocked cache is cleared so newly
+    /// added domains take effect on the very next sweep instead of waiting for
+    /// the 1s cache TTL.
+    func setStandaloneBlocklist(domains: [String]) {
+        let normalized = Set(domains.map { $0.lowercased() })
+        let changed = normalized != standaloneDomains
+        standaloneDomains = normalized
+        if changed {
+            recentlyBlockedDomains.removeAll()
+            appDelegate?.postLog("🌐🛡 WebsiteBlocker: standaloneDomains updated (\(normalized.count) domains): \(Array(normalized).sorted())")
+            // Ensure the 0.5s sweep is running if there's anything to block.
+            // (When no focus session is active, isBlocking may be false even
+            // though there ARE rule-driven domains to enforce.)
+            if !normalized.isEmpty && !isBlocking {
+                startBlocking()
+            }
+        }
+    }
+
     /// Log current blocking state (for debugging)
     func logBlockingState() {
         appDelegate?.postLog("🌐🔍 === WebsiteBlocker STATE ===")
         appDelegate?.postLog("🌐🔍   isBlocking: \(isBlocking)")
         appDelegate?.postLog("🌐🔍   blockedDomains count: \(blockedDomains.count)")
         appDelegate?.postLog("🌐🔍   blockedDomains: \(blockedDomains)")
+        appDelegate?.postLog("🌐🔍   standaloneDomains count: \(standaloneDomains.count)")
+        appDelegate?.postLog("🌐🔍   standaloneDomains: \(Array(standaloneDomains).sorted())")
         appDelegate?.postLog("🌐🔍   activeBrowsers: \(activeBrowsers)")
         appDelegate?.postLog("🌐🔍 === END STATE ===")
     }
@@ -286,8 +329,10 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
             return nil
         }
 
-        // For our blocked domains, find which one this host matches
-        for domain in blockedDomains {
+        // For our blocked domains, find which one this host matches.
+        // Uses effectiveBlockedDomains so BlockRuleEnforcer-driven entries are
+        // included (union of session-driven + rule-driven blocklists).
+        for domain in effectiveBlockedDomains {
             if host == domain || host.hasSuffix("." + domain) {
                 // Return the base domain (e.g., "youtube.com" not "m.youtube.com")
                 // This ensures m.youtube.com and www.youtube.com share the same cache entry
@@ -318,14 +363,16 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
                lowercased.hasPrefix("file://")
     }
 
-    // Check if URL matches any blocked domain (regardless of cache)
+    // Check if URL matches any blocked domain (regardless of cache).
+    // Uses effectiveBlockedDomains so BlockRuleEnforcer-driven entries are
+    // included.
     private func matchesBlockedDomain(url: String) -> Bool {
         guard let urlObj = URL(string: url),
               let host = urlObj.host?.lowercased() else {
             return false
         }
 
-        return blockedDomains.contains { domain in
+        return effectiveBlockedDomains.contains { domain in
             host == domain || host.hasSuffix("." + domain)
         }
     }
@@ -527,9 +574,11 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         let protectedBrowsers = getProtectedBrowsersList()
         let encodedBrowser = "Chrome".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Chrome"
 
-        // Build domain checks for the active tab
+        // Build domain checks for the active tab.
+        // Uses effectiveBlockedDomains so BlockRuleEnforcer-driven entries are
+        // included.
         var domainChecks = ""
-        for domain in blockedDomains {
+        for domain in effectiveBlockedDomains {
             let encodedDomain = domain.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? domain
             let blockURL = "\(blockPageURL)?blocked=\(encodedDomain)&browser=\(encodedBrowser)&protected=\(protectedBrowsers)"
             domainChecks += """
@@ -578,7 +627,9 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         let encodedBrowser = "Chrome".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Chrome"
 
         var domainChecks = ""
-        for domain in blockedDomains {
+        // Uses effectiveBlockedDomains so BlockRuleEnforcer-driven entries are
+        // included.
+        for domain in effectiveBlockedDomains {
             let encodedDomain = domain.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? domain
             let blockURL = "\(blockPageURL)?blocked=\(encodedDomain)&browser=\(encodedBrowser)&protected=\(protectedBrowsers)"
             domainChecks += """
@@ -1000,35 +1051,39 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
             return false
         }
 
-        // If no blocked domains configured, never block
-        if blockedDomains.isEmpty {
-            appDelegate?.postLog("🌐🔍 shouldBlock(\(url)): NO — blockedDomains is EMPTY")
+        // If no blocked domains configured (neither session-driven nor rule-driven),
+        // never block.
+        let effective = effectiveBlockedDomains
+        if effective.isEmpty {
+            appDelegate?.postLog("🌐🔍 shouldBlock(\(url)): NO — effectiveBlockedDomains is EMPTY")
             return false
         }
 
         guard let urlObj = URL(string: url),
               let host = urlObj.host?.lowercased() else {
             let urlWithoutQuery = url.components(separatedBy: "?").first ?? url
-            let result = blockedDomains.contains { domain in
+            let result = effective.contains { domain in
                 urlWithoutQuery.lowercased().contains(domain)
             }
-            appDelegate?.postLog("🌐🔍 shouldBlock(\(url)): \(result ? "YES" : "NO") (fallback parse, host=nil, \(blockedDomains.count) domains)")
+            appDelegate?.postLog("🌐🔍 shouldBlock(\(url)): \(result ? "YES" : "NO") (fallback parse, host=nil, \(effective.count) effective domains)")
             return result
         }
 
-        let result = blockedDomains.contains { domain in
+        let result = effective.contains { domain in
             host == domain || host.hasSuffix("." + domain)
         }
         if result {
-            appDelegate?.postLog("🌐🔍 shouldBlock(\(url)): YES — host '\(host)' matched in \(blockedDomains.count) domains")
+            appDelegate?.postLog("🌐🔍 shouldBlock(\(url)): YES — host '\(host)' matched in \(effective.count) effective domains")
         }
         return result
     }
 
     private func getSafeDomain(from url: String) -> String {
-        // Extract main domain for matching (e.g., "youtube.com" from full URL)
+        // Extract main domain for matching (e.g., "youtube.com" from full URL).
+        // Uses effectiveBlockedDomains so BlockRuleEnforcer-driven entries are
+        // included.
         let lowercasedURL = url.lowercased()
-        for domain in blockedDomains {
+        for domain in effectiveBlockedDomains {
             if lowercasedURL.contains(domain) {
                 return domain
             }

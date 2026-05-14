@@ -2577,6 +2577,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             )
         }
         appDelegate?.applyAlwaysActiveProfiles()
+        // Engage BlockRuleEnforcer immediately on the newly-created rule
+        // (otherwise the user waits up to 30s for the next tick).
+        BlockRuleEnforcer.shared.reevaluateNow()
         handleGetBlockingProfiles()
     }
 
@@ -2607,12 +2610,17 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         )
         // Re-apply always-active enforcement after profile change
         appDelegate?.applyAlwaysActiveProfiles()
+        // Engage BlockRuleEnforcer immediately on schedule/enabled/list edits.
+        BlockRuleEnforcer.shared.reevaluateNow()
         handleGetBlockingProfiles()
     }
 
     private func handleToggleBlockRule(id: UUID, enabled: Bool) {
         appDelegate?.blockingProfileManager?.setEnabled(id: id, enabled: enabled)
         appDelegate?.applyAlwaysActiveProfiles()
+        // Toggle is the single most common user action on a rule — must engage
+        // immediately, not on the next 30s tick.
+        BlockRuleEnforcer.shared.reevaluateNow()
         handleGetBlockingProfiles()
     }
 
@@ -2632,6 +2640,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             }
             await MainActor.run {
                 _ = self.appDelegate?.blockingProfileManager?.deleteProfile(id: id)
+                // Engage BlockRuleEnforcer immediately so the deleted rule's
+                // blocklist is removed from the standalone enforcement layer.
+                BlockRuleEnforcer.shared.reevaluateNow()
                 self.handleGetBlockingProfiles()
             }
         }

@@ -821,6 +821,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         postLog("🎯 BlockingProfileManager initialized")
 
+        // BlockRuleEnforcer (Opal-style Blocks): every 30s, evaluates each
+        // BlockingProfile for `enabled && isCurrentlyActive`, then unions
+        // their blockedDomains + blockedAppBundleIds and pushes the union into
+        // WebsiteBlocker + FocusMonitor. Engages enforcement OUTSIDE of a focus
+        // session and composes with session enforcement via union (both apply).
+        if let bpm = blockingProfileManager {
+            BlockRuleEnforcer.shared.wire(
+                profileManager: bpm,
+                websiteBlocker: websiteBlocker,
+                focusMonitor: focusMonitor
+            )
+            BlockRuleEnforcer.shared.start()
+            postLog("🛡 BlockRuleEnforcer started")
+        }
+
         // WebSocket focus signal client (receives start/stop from Puck via backend)
         focusWebSocketClient = FocusWebSocketClient()
         focusWebSocketClient?.onFocusSignal = { [weak self] action, sessionId, triggeredBy in
