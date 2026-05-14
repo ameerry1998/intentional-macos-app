@@ -404,6 +404,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "GET_PARTNER_STATUS":
             handleGetPartnerStatus()
 
+        case "GET_CONTENT_SAFETY_STATE":
+            // FIX-15: status footer pull — emits _contentSafetyState
+            handleGetContentSafetyState()
+
+        case "GET_PUCK_STATUS":
+            // FIX-15: status footer pull — Mac has no Puck pairing yet, so
+            // this always emits connected:false. Stub for cross-device parity.
+            handleGetPuckStatus()
+
         case "RELOCK_SETTINGS":
             handleRelockSettings()
 
@@ -1444,6 +1453,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         if let cs = contentSafety {
             let csEnabled = cs["enabled"] as? Bool ?? false
             appDelegate?.contentSafetyMonitor?.onSettingsChanged(enabled: csEnabled)
+            // FIX-15: keep the sidebar status footer in sync immediately.
+            callJS("window._contentSafetyState && window._contentSafetyState({ enabled: \(csEnabled ? "true" : "false") })")
         }
 
         // Update FocusMonitor with always-relevant sites whitelist
@@ -1989,6 +2000,22 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 }
             }
         }
+    }
+
+    // MARK: - Status Footer (FIX-15)
+
+    /// Emits the current ContentSafetyMonitor.isEnabled to the dashboard.
+    /// Used by the sidebar status footer.
+    private func handleGetContentSafetyState() {
+        let enabled = appDelegate?.contentSafetyMonitor?.isEnabled ?? false
+        callJS("window._contentSafetyState && window._contentSafetyState({ enabled: \(enabled ? "true" : "false") })")
+    }
+
+    /// Mac currently has no Puck pairing path (Puck pairs to the iPhone via
+    /// the puck-ios app). Stub the bridge so the footer can render the
+    /// "not paired" state without inventing a new symbol later.
+    private func handleGetPuckStatus() {
+        callJS("window._puckStatus && window._puckStatus({ connected: false })")
     }
 
     // MARK: - Resend Partner Invite

@@ -364,6 +364,13 @@ body.theme-effects-warm::after {
 .sb-blocking .arrow { margin-left: auto; color: var(--text-tertiary); }
 .sb-blocking.empty { opacity: 0.55; }
 
+/* FIX-15: status footer at the bottom of the sidebar — partner / content / puck */
+.status-footer { display: flex; flex-direction: column; gap: 6px; padding: 10px 16px 14px; margin-top: 4px; border-top: 0.5px solid rgba(255,255,255,0.06); font-size: 11px; color: var(--text-tertiary); }
+.status-footer .item { display: flex; align-items: center; gap: 6px; cursor: default; }
+.status-footer .item .sf-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; flex-shrink: 0; }
+.status-footer .item.off .sf-dot { background: rgba(255,255,255,0.18); }
+.status-footer .item.off { opacity: 0.65; }
+
 /* FIX-1: Today → Schedule/Blocks segmented control + Blocks view styles */
 .today-mode-bar { display: flex; align-items: center; justify-content: flex-end; padding: 14px 28px 0; }
 .today-mode-toggle { display: inline-flex; align-items: center; gap: 0; border: 1px solid rgba(255,255,255,0.10); border-radius: 8px; padding: 2px; background: rgba(255,255,255,0.03); }
@@ -5044,6 +5051,21 @@ body.theme-effects-warm::after {
   <div style="padding:4px 20px 8px;">
     <div id="sidebar-session-status" style="font-size:11px;color:var(--text-tertiary);">Free Time</div>
     <div id="sidebar-session-detail" style="font-size:10px;color:var(--text-tertiary);margin-top:2px;">No active session</div>
+  </div>
+  <!-- FIX-15: Status footer wired to real partner / content / puck state. -->
+  <div class="status-footer" id="status-footer">
+    <span class="item off" id="status-partner" title="Accountability partner status">
+      <span class="sf-dot"></span>
+      <span id="status-partner-label">Partner — checking…</span>
+    </span>
+    <span class="item off" id="status-content" title="Content protection status">
+      <span class="sf-dot"></span>
+      <span id="status-content-label">Content — checking…</span>
+    </span>
+    <span class="item off" id="status-puck" title="Puck pairing status">
+      <span class="sf-dot"></span>
+      <span id="status-puck-label">Puck — checking…</span>
+    </span>
   </div>
 </div>
 
@@ -14590,6 +14612,91 @@ window.PlanApp = PlanApp;
     if (overlay) overlay.hidden = true;
   }
   window.closeNewSessionModal = closeNewSessionModal;
+
+  // ===== FIX-15: Status footer wired to real partner / content / puck state =====
+  function refreshStatusPartner(payload) {
+    var label = document.getElementById('status-partner-label');
+    var item = document.getElementById('status-partner');
+    if (!label || !item) return;
+    var name = (payload && (payload.partnerName || payload.name)) || '';
+    var consent = payload && (payload.consentStatus || payload.consent_status);
+    var success = payload && payload.success !== false;
+    if (success && name && consent === 'confirmed') {
+      label.textContent = name + ' · partner active';
+      item.classList.remove('off');
+    } else if (name) {
+      label.textContent = name + ' · pending';
+      item.classList.add('off');
+    } else {
+      label.textContent = 'No accountability partner';
+      item.classList.add('off');
+    }
+  }
+  function refreshStatusContent(enabled) {
+    var label = document.getElementById('status-content-label');
+    var item = document.getElementById('status-content');
+    if (!label || !item) return;
+    if (enabled) {
+      label.textContent = 'Content protection · ON';
+      item.classList.remove('off');
+    } else {
+      label.textContent = 'Content protection · OFF';
+      item.classList.add('off');
+    }
+  }
+  function refreshStatusPuck(connected) {
+    var label = document.getElementById('status-puck-label');
+    var item = document.getElementById('status-puck');
+    if (!label || !item) return;
+    if (connected) {
+      label.textContent = 'Puck · paired';
+      item.classList.remove('off');
+    } else {
+      label.textContent = 'Puck · not paired';
+      item.classList.add('off');
+    }
+  }
+  window.refreshStatusPartner = refreshStatusPartner;
+  window.refreshStatusContent = refreshStatusContent;
+  window.refreshStatusPuck = refreshStatusPuck;
+
+  // Wrap existing receivers so the footer updates alongside the existing
+  // lock-state UI rerender. Chains via the captured original so we don't
+  // break the existing flow.
+  (function () {
+    var origPartner = window._partnerStatusResult;
+    window._partnerStatusResult = function (payload) {
+      try { refreshStatusPartner(payload); } catch (e) {}
+      if (typeof origPartner === 'function') {
+        try { return origPartner.apply(this, arguments); } catch (e) {}
+      }
+    };
+    var origCS = window._contentSafetyState;
+    window._contentSafetyState = function (state) {
+      try { refreshStatusContent(!!(state && state.enabled)); } catch (e) {}
+      if (typeof origCS === 'function') {
+        try { return origCS.apply(this, arguments); } catch (e) {}
+      }
+    };
+    var origPuck = window._puckStatus;
+    window._puckStatus = function (state) {
+      try { refreshStatusPuck(!!(state && state.connected)); } catch (e) {}
+      if (typeof origPuck === 'function') {
+        try { return origPuck.apply(this, arguments); } catch (e) {}
+      }
+    };
+  })();
+
+  // Pull initial state once the page has settled.
+  window.addEventListener('DOMContentLoaded', function () {
+    setTimeout(function () {
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+        sendMessage({ type: 'GET_PARTNER_STATUS' });
+        sendMessage({ type: 'GET_CONTENT_SAFETY_STATE' });
+        sendMessage({ type: 'GET_PUCK_STATUS' });
+      }
+    }, 500);
+  });
 
   function saveNewSession() {
     var titleEl = document.getElementById('ns-title');
