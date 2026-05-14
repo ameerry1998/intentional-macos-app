@@ -9773,11 +9773,13 @@ window.addEventListener('DOMContentLoaded', function() {
 
 // ===== May 2026 prototype port — Weekly Goal full-page editor + Custom Rules =====
 
-let _goalEditReturnTo = 'today';
+let _goalEditReturnTo = 'plan';
 
 function openWeeklyGoalEdit(id) {
-  _goalEditReturnTo = (window.currentPage === 'plan' || window.currentPage === 'today')
-    ? window.currentPage : 'today';
+  // Weekly goals are a Plan concept — editor always lives under the Plan tab
+  // regardless of which page the user clicked the card from. (Per user
+  // feedback May 2026: editor opening from Plan should not jump sidebar to Today.)
+  _goalEditReturnTo = 'plan';
   navigateTo('goal-edit');
   renderGoalEdit(id);
 }
@@ -9958,7 +9960,8 @@ window.saveWeeklyGoal = saveWeeklyGoal;
 // ===== Create flow (FIX-3) — open the editor in "new goal" mode =====
 let _editingNewGoal = false;
 function openWeeklyGoalCreate() {
-  _goalEditReturnTo = (window.currentPage === 'plan' || window.currentPage === 'today') ? window.currentPage : 'today';
+  // Editor lives under Plan (see openWeeklyGoalEdit comment).
+  _goalEditReturnTo = 'plan';
   _editingNewGoal = true;
   navigateTo('goal-edit');
   renderGoalEditCreate();
