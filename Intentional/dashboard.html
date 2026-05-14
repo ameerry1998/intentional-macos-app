@@ -1737,7 +1737,18 @@ body.theme-effects-warm::after {
 .ns-modal-section summary { font-size: 12.5px; cursor: pointer; color: var(--text-secondary); font-weight: 500; }
 .ns-modal-section[open] summary { color: var(--text-primary); margin-bottom: 8px; }
 .ns-modal-toggle-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 4px 0; cursor: pointer; color: var(--text-primary); }
-.ns-modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.ns-modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; align-items: center; }
+
+/* Block-rule modal extras */
+.br-app-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: rgba(255,255,255,0.04); border-radius: 6px; margin-bottom: 4px; }
+.br-app-name { font-size: 13px; color: var(--text-primary); }
+.br-app-remove { background: none; border: none; color: var(--text-tertiary); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px; }
+.br-app-remove:hover { color: #fa6464; }
+.br-empty { font-size: 12px; color: var(--text-tertiary); padding: 8px 4px; font-style: italic; }
+.br-add-app-btn { margin-top: 6px; background: transparent; border: 0.5px dashed rgba(255,255,255,0.16); color: var(--text-secondary); border-radius: 6px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; }
+.br-add-app-btn:hover { background: rgba(255,255,255,0.04); color: var(--text-primary); }
+.br-day-chip { width: 28px; height: 28px; border-radius: 50%; background: transparent; color: var(--text-tertiary); border: 0.5px solid rgba(255,255,255,0.14); cursor: pointer; font-size: 11px; font-weight: 600; padding: 0; }
+.br-day-chip.on { background: var(--accent-primary); color: #fff; border-color: var(--accent-primary); }
 
 .toast.error {
   background: var(--color-error);
@@ -5104,7 +5115,10 @@ body.theme-effects-warm::after {
         <div class="blk-idea-btn" onclick="startPomodoro()"><div class="blk-idea-icon">🍅</div><div class="blk-idea-label">Pomodoro 25</div></div>
         <div class="blk-idea-btn" onclick="openBlockRuleCreate()"><div class="blk-idea-icon">⏱</div><div class="blk-idea-label">Set Limits</div></div>
       </div>
-      <div class="blk-section-h"><span>Your blocks</span><span class="blk-count" id="blocks-count"></span></div>
+      <div class="blk-section-h" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <div><span>Your blocks</span><span class="blk-count" id="blocks-count"></span></div>
+        <button class="ge-done-btn" style="padding:6px 14px; font-size:12px;" onclick="openBlockRuleCreate()">+ New Block</button>
+      </div>
       <div id="blocks-list-mount"></div>
     </div>
 
@@ -9058,65 +9072,249 @@ function _refreshBlockRules() {
   }
 }
 
+// ===== Block-rule modal (replaces prompt() chain — WKWebView blocks window.prompt) =====
+var _blockRuleDraft = null;  // { id?, name, websites:[], bundle_ids:[], enabled, alwaysActive, startHour, startMinute, endHour, endMinute, activeDays:[] }
+var _blockRuleAppNames = {}; // bundleId → friendly name, hydrated from installedAppsCache
+
+function _hydrateAppNames() {
+  var apps = (typeof installedAppsCache !== 'undefined' && installedAppsCache) ? installedAppsCache : [];
+  apps.forEach(function(a) { _blockRuleAppNames[a.bundleId] = a.name; });
+}
+
 function openBlockRuleCreate() {
-  var name = prompt('Block name (e.g. "Block social media"):');
-  if (!name || !name.trim()) return;
-  var sitesStr = prompt('Sites to block (comma separated, e.g. instagram.com, tiktok.com):') || '';
-  var sites = sitesStr.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
-  var startStr = prompt('Start hour (0-23, blank for always-active):');
-  var endStr = prompt('End hour (0-23):');
-  var startHour = (startStr && startStr.trim()) ? parseInt(startStr, 10) : null;
-  var endHour = (endStr && endStr.trim()) ? parseInt(endStr, 10) : null;
-  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
-    window.webkit.messageHandlers.intentional.postMessage({
-      type: 'CREATE_BLOCK_RULE',
-      name: name.trim(),
-      websites: sites,
-      bundle_ids: [],
-      enabled: true,
-      start_hour: (isNaN(startHour) ? null : startHour),
-      start_minute: 0,
-      end_hour: (isNaN(endHour) ? null : endHour),
-      end_minute: 0,
-      active_days: [1,2,3,4,5,6,7]
-    });
-  }
-  // Swift re-emits after create, but in case of slow path, force refresh.
-  setTimeout(_refreshBlockRules, 400);
+  _blockRuleDraft = {
+    id: null,
+    name: '',
+    websites: [],
+    bundle_ids: [],
+    enabled: true,
+    alwaysActive: true,
+    startHour: 9, startMinute: 0,
+    endHour: 17, endMinute: 0,
+    activeDays: [1,2,3,4,5]
+  };
+  _showBlockRuleModal('New block');
 }
 window.openBlockRuleCreate = openBlockRuleCreate;
 
 function openBlockRuleEdit(id) {
   var r = (window._blockRulesCache || []).find(function(x){ return x.id === id; });
   if (!r) return;
-  var name = prompt('Block name:', r.name);
-  if (name == null) return;
-  var sitesStr = prompt('Sites (comma separated):', (r.websites || []).join(', '));
-  if (sitesStr == null) return;
-  var startStr = prompt('Start hour (0-23, blank for always-active):', r.start_hour == null ? '' : String(r.start_hour));
-  if (startStr == null) return;
-  var endStr = prompt('End hour (0-23, blank for always-active):', r.end_hour == null ? '' : String(r.end_hour));
-  if (endStr == null) return;
-  var startHour = (startStr && startStr.trim()) ? parseInt(startStr, 10) : null;
-  var endHour = (endStr && endStr.trim()) ? parseInt(endStr, 10) : null;
-  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
-    window.webkit.messageHandlers.intentional.postMessage({
-      type: 'UPDATE_BLOCK_RULE',
-      id: id,
-      name: (name || '').trim() || r.name,
-      websites: sitesStr.split(',').map(function(s){ return s.trim(); }).filter(Boolean),
-      bundle_ids: r.bundle_ids || [],
-      enabled: r.enabled !== false,
-      start_hour: (isNaN(startHour) ? null : startHour),
-      start_minute: r.start_minute || 0,
-      end_hour: (isNaN(endHour) ? null : endHour),
-      end_minute: r.end_minute || 0,
-      active_days: r.active_days || [1,2,3,4,5,6,7]
-    });
-  }
-  setTimeout(_refreshBlockRules, 400);
+  var hasSchedule = (r.start_hour != null && r.end_hour != null);
+  _blockRuleDraft = {
+    id: r.id,
+    name: r.name || '',
+    websites: (r.websites || []).slice(),
+    bundle_ids: (r.bundle_ids || []).slice(),
+    enabled: r.enabled !== false,
+    alwaysActive: !hasSchedule,
+    startHour: r.start_hour != null ? r.start_hour : 9,
+    startMinute: r.start_minute || 0,
+    endHour: r.end_hour != null ? r.end_hour : 17,
+    endMinute: r.end_minute || 0,
+    activeDays: (r.active_days && r.active_days.length) ? r.active_days.slice() : [1,2,3,4,5]
+  };
+  _showBlockRuleModal('Edit block');
 }
 window.openBlockRuleEdit = openBlockRuleEdit;
+
+function _showBlockRuleModal(titleText) {
+  _hydrateAppNames();
+  var d = _blockRuleDraft;
+  var existing = document.getElementById('br-modal-overlay');
+  if (existing) existing.parentNode.removeChild(existing);
+
+  // Sites + apps lists
+  var sitesText = (d.websites || []).join('\n');
+  var appsHtml = (d.bundle_ids || []).map(function(bid) {
+    var nm = _blockRuleAppNames[bid] || bid;
+    return '<div class="br-app-row" data-bid="' + _escapeHTML(bid) + '">' +
+             '<span class="br-app-name">' + _escapeHTML(nm) + '</span>' +
+             '<button class="br-app-remove" onclick="_removeBlockRuleApp(\'' + _escapeHTML(bid) + '\')" title="Remove">&times;</button>' +
+           '</div>';
+  }).join('');
+  if (!appsHtml) appsHtml = '<div class="br-empty">No apps yet.</div>';
+
+  // Day chips
+  var dayLabels = ['M','T','W','T','F','S','S'];
+  var dayChips = dayLabels.map(function(lbl, i) {
+    var iso = i + 1;
+    var on = (d.activeDays || []).indexOf(iso) !== -1;
+    return '<button type="button" class="br-day-chip' + (on ? ' on' : '') + '" data-day="' + iso + '" onclick="_toggleBlockRuleDay(' + iso + ')">' + lbl + '</button>';
+  }).join('');
+
+  var html =
+    '<div id="br-modal-overlay" class="ns-modal-overlay">' +
+      '<div class="ns-modal-card" style="min-width:520px; max-width:600px;">' +
+        '<div class="ns-modal-title">' + _escapeHTML(titleText) + '</div>' +
+
+        '<div class="ns-modal-field"><label>Name</label>' +
+          '<input type="text" class="ns-modal-input" id="br-name" value="' + _escapeHTML(d.name) + '" placeholder="e.g. Block social media" autofocus></div>' +
+
+        '<div class="ns-modal-field"><label>Sites to block (one per line)</label>' +
+          '<textarea class="ns-modal-input textarea" id="br-sites" placeholder="instagram.com\ntiktok.com\nreddit.com" style="min-height:88px;">' + _escapeHTML(sitesText) + '</textarea>' +
+        '</div>' +
+
+        '<div class="ns-modal-field"><label>Apps to block</label>' +
+          '<div id="br-apps-list">' + appsHtml + '</div>' +
+          '<button class="br-add-app-btn" onclick="_openBlockRuleAppPicker()">+ Add app</button>' +
+        '</div>' +
+
+        '<div class="ns-modal-field"><label>Schedule</label>' +
+          '<label class="ns-modal-toggle-row">' +
+            '<input type="checkbox" id="br-always" ' + (d.alwaysActive ? 'checked' : '') + ' onchange="_toggleBlockRuleAlwaysActive(this.checked)"> ' +
+            'Always active' +
+          '</label>' +
+          '<div id="br-schedule-detail" style="margin-top:8px;' + (d.alwaysActive ? 'display:none;' : '') + '">' +
+            '<div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">' +
+              '<span style="font-size:12px; color:var(--text-tertiary);">From</span>' +
+              '<input type="number" min="0" max="23" class="ns-modal-input" style="width:64px;" id="br-start-h" value="' + d.startHour + '"> :' +
+              '<input type="number" min="0" max="59" class="ns-modal-input" style="width:64px;" id="br-start-m" value="' + d.startMinute + '">' +
+              '<span style="font-size:12px; color:var(--text-tertiary); margin-left:8px;">to</span>' +
+              '<input type="number" min="0" max="23" class="ns-modal-input" style="width:64px;" id="br-end-h" value="' + d.endHour + '"> :' +
+              '<input type="number" min="0" max="59" class="ns-modal-input" style="width:64px;" id="br-end-m" value="' + d.endMinute + '">' +
+            '</div>' +
+            '<div style="font-size:11px; color:var(--text-tertiary); margin-bottom:4px;">Active days:</div>' +
+            '<div id="br-day-chips" style="display:flex; gap:6px;">' + dayChips + '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="ns-modal-footer">' +
+          (d.id ? '<button class="ge-delete-link" style="margin-right:auto;" onclick="_deleteBlockRuleFromModal()">Delete</button>' : '') +
+          '<button class="btn-quiet" onclick="_closeBlockRuleModal()">Cancel</button>' +
+          '<button class="ge-done-btn" onclick="_saveBlockRuleFromModal()">' + (d.id ? 'Save' : 'Create') + '</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+  setTimeout(function() { var el = document.getElementById('br-name'); if (el) el.focus(); }, 50);
+}
+
+function _closeBlockRuleModal() {
+  var overlay = document.getElementById('br-modal-overlay');
+  if (overlay) overlay.parentNode.removeChild(overlay);
+  _blockRuleDraft = null;
+}
+window._closeBlockRuleModal = _closeBlockRuleModal;
+
+function _toggleBlockRuleAlwaysActive(checked) {
+  if (!_blockRuleDraft) return;
+  _blockRuleDraft.alwaysActive = !!checked;
+  var detail = document.getElementById('br-schedule-detail');
+  if (detail) detail.style.display = checked ? 'none' : '';
+}
+window._toggleBlockRuleAlwaysActive = _toggleBlockRuleAlwaysActive;
+
+function _toggleBlockRuleDay(iso) {
+  if (!_blockRuleDraft) return;
+  var days = _blockRuleDraft.activeDays || [];
+  var idx = days.indexOf(iso);
+  if (idx >= 0) days.splice(idx, 1); else days.push(iso);
+  days.sort();
+  _blockRuleDraft.activeDays = days;
+  document.querySelectorAll('#br-day-chips .br-day-chip').forEach(function(el){
+    var d = parseInt(el.getAttribute('data-day'), 10);
+    el.classList.toggle('on', days.indexOf(d) !== -1);
+  });
+}
+window._toggleBlockRuleDay = _toggleBlockRuleDay;
+
+function _openBlockRuleAppPicker() {
+  // Reuse existing app picker
+  appPickerContext = {
+    onPick: function(app) {
+      if (!_blockRuleDraft) return;
+      if ((_blockRuleDraft.bundle_ids || []).indexOf(app.bundleId) === -1) {
+        _blockRuleDraft.bundle_ids.push(app.bundleId);
+        _blockRuleAppNames[app.bundleId] = app.name;
+      }
+      hideAppPicker();
+      // Re-render the modal apps list inline
+      _refreshBlockRuleAppsList();
+    },
+    getAddedIds: function() { return (_blockRuleDraft && _blockRuleDraft.bundle_ids) || []; }
+  };
+  showAppPicker('Add app to block');
+}
+window._openBlockRuleAppPicker = _openBlockRuleAppPicker;
+
+function _refreshBlockRuleAppsList() {
+  var listEl = document.getElementById('br-apps-list');
+  if (!listEl || !_blockRuleDraft) return;
+  var bids = _blockRuleDraft.bundle_ids || [];
+  if (!bids.length) { listEl.innerHTML = '<div class="br-empty">No apps yet.</div>'; return; }
+  listEl.innerHTML = bids.map(function(bid){
+    var nm = _blockRuleAppNames[bid] || bid;
+    return '<div class="br-app-row" data-bid="' + _escapeHTML(bid) + '">' +
+             '<span class="br-app-name">' + _escapeHTML(nm) + '</span>' +
+             '<button class="br-app-remove" onclick="_removeBlockRuleApp(\'' + _escapeHTML(bid) + '\')" title="Remove">&times;</button>' +
+           '</div>';
+  }).join('');
+}
+
+function _removeBlockRuleApp(bid) {
+  if (!_blockRuleDraft) return;
+  _blockRuleDraft.bundle_ids = (_blockRuleDraft.bundle_ids || []).filter(function(x){ return x !== bid; });
+  _refreshBlockRuleAppsList();
+}
+window._removeBlockRuleApp = _removeBlockRuleApp;
+
+function _saveBlockRuleFromModal() {
+  if (!_blockRuleDraft) return;
+  var nameEl = document.getElementById('br-name');
+  var sitesEl = document.getElementById('br-sites');
+  var name = (nameEl ? nameEl.value : '').trim();
+  if (!name) { if (nameEl) nameEl.focus(); return; }
+  var sites = (sitesEl ? sitesEl.value : '').split(/[\n,]+/).map(function(s){ return s.trim(); }).filter(Boolean);
+  var d = _blockRuleDraft;
+  var startH = null, startM = 0, endH = null, endM = 0;
+  if (!d.alwaysActive) {
+    startH = parseInt(document.getElementById('br-start-h').value, 10);
+    startM = parseInt(document.getElementById('br-start-m').value, 10) || 0;
+    endH = parseInt(document.getElementById('br-end-h').value, 10);
+    endM = parseInt(document.getElementById('br-end-m').value, 10) || 0;
+    if (isNaN(startH)) startH = null;
+    if (isNaN(endH)) endH = null;
+  }
+  var payload = {
+    name: name,
+    websites: sites,
+    bundle_ids: d.bundle_ids || [],
+    enabled: d.enabled !== false,
+    start_hour: startH,
+    start_minute: startM,
+    end_hour: endH,
+    end_minute: endM,
+    active_days: (d.activeDays && d.activeDays.length) ? d.activeDays : [1,2,3,4,5,6,7]
+  };
+  var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional;
+  if (bridge) {
+    if (d.id) {
+      payload.type = 'UPDATE_BLOCK_RULE';
+      payload.id = d.id;
+    } else {
+      payload.type = 'CREATE_BLOCK_RULE';
+    }
+    bridge.postMessage(payload);
+  }
+  _closeBlockRuleModal();
+  if (typeof showToast === 'function') showToast(d.id ? 'Block saved' : 'Block created');
+  // Belt-and-braces refresh — Swift also re-emits after create/update.
+  setTimeout(_refreshBlockRules, 600);
+}
+window._saveBlockRuleFromModal = _saveBlockRuleFromModal;
+
+function _deleteBlockRuleFromModal() {
+  if (!_blockRuleDraft || !_blockRuleDraft.id) return;
+  if (!confirm('Delete this block?')) return;
+  var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional;
+  if (bridge) {
+    bridge.postMessage({ type: 'DELETE_BLOCK_RULE', id: _blockRuleDraft.id });
+  }
+  _closeBlockRuleModal();
+  setTimeout(_refreshBlockRules, 400);
+}
+window._deleteBlockRuleFromModal = _deleteBlockRuleFromModal;
 
 function openBlockNowModal() {
   // Trigger immediate focus session via existing Focus Mode toggle.
