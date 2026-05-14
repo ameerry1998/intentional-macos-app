@@ -8867,7 +8867,10 @@ function renderNowCard() {
   }).join('');
   mount.innerHTML = '<div class="wg-section-header">'
     + '<span class="wg-lbl"><strong>This week’s goals</strong> · drag onto schedule to create a session</span>'
+    + '<span style="display:flex;gap:12px;align-items:center;">'
+    + '<span style="cursor:pointer;color:var(--accent-primary);" onclick="openWeeklyGoalCreate()">+ New</span>'
     + '<span class="wg-hint" onclick="navigateTo(\'plan\')" style="cursor:pointer;color:var(--accent-primary);">Open Plan →</span>'
+    + '</span>'
     + '</div>'
     + '<div class="wg-row">' + cards + '</div>';
 }
@@ -9129,6 +9132,160 @@ function saveWeeklyGoal(id) {
   closeGoalEdit();
 }
 window.saveWeeklyGoal = saveWeeklyGoal;
+
+// ===== Create flow (FIX-3) — open the editor in "new goal" mode =====
+let _editingNewGoal = false;
+function openWeeklyGoalCreate() {
+  _goalEditReturnTo = (window.currentPage === 'plan' || window.currentPage === 'today') ? window.currentPage : 'today';
+  _editingNewGoal = true;
+  navigateTo('goal-edit');
+  renderGoalEditCreate();
+}
+window.openWeeklyGoalCreate = openWeeklyGoalCreate;
+
+function renderGoalEditCreate() {
+  document.getElementById('goal-edit-mount').innerHTML = `
+    <div class="ge-page">
+      <div class="ge-back" onclick="closeGoalEdit()">‹ All Weekly Goals</div>
+      <div class="ge-title-row">
+        <input type="text" class="ge-title-input" id="ge-title-input" placeholder="What's this week's focus?">
+        <div class="ge-rename-hint">Click to rename</div>
+      </div>
+      <div class="ge-main-card" style="--ge-hue: var(--accent-primary);">
+        <div class="gm-header" style="justify-content: space-between;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <h3>What are you working on?</h3>
+            <span class="gm-info" title="Drives AI relevance scoring.">ⓘ</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-tertiary); font-weight:700;">AI scoring</span>
+            <div class="toggle-switch on" id="ge-ai-toggle" onclick="this.classList.toggle('on')"></div>
+          </div>
+        </div>
+        <textarea class="gm-textarea" id="ge-intent-text" maxlength="140"
+          placeholder="Describe what you'll be doing — apps, sites, what success looks like."
+          oninput="document.getElementById('ge-intent-counter').textContent = this.value.length + ' / 140'"></textarea>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-top:6px;">
+          <div style="font-size:11px; color:var(--text-tertiary);">Only used if AI scoring is on.</div>
+          <div class="gm-counter" id="ge-intent-counter">0 / 140</div>
+        </div>
+      </div>
+      <div class="modal-field"><label>Outcome (done looks like)</label>
+        <textarea class="modal-input textarea" id="ge-outcome"></textarea>
+      </div>
+      <div class="modal-row">
+        <div class="modal-field"><label>Status</label>
+          <div class="strict-pills" id="ge-status-pills">
+            <span class="strict-pill" data-value="in_progress">In progress</span>
+            <span class="strict-pill active" data-value="planned">Planned</span>
+            <span class="strict-pill" data-value="done">Done</span>
+          </div>
+        </div>
+        <div class="modal-field"><label>For monthly goal</label>
+          <div class="modal-input" id="ge-monthly-picker" style="cursor:pointer;" onclick="alert('Pick a monthly goal after creating this weekly goal.')">No link · standalone</div>
+        </div>
+      </div>
+      <div class="ge-divider"></div>
+      <div class="ge-advanced-label">Advanced</div>
+      <div class="ge-adv-row">
+        <span class="gm-adv-label">Strictness</span>
+        <div class="strict-pills" id="ge-strict-pills">
+          <span class="strict-pill active" data-value="standard">Standard</span>
+          <span class="strict-pill" data-value="strict">Strict</span>
+        </div>
+        <span class="gm-adv-label" style="margin-left:30px;">Weekly target</span>
+        <input type="number" class="ge-num-input" id="ge-weekly-target" placeholder="—">
+        <span style="font-size:12px; color:var(--text-tertiary);">hrs / week</span>
+      </div>
+      <div class="ge-foot">
+        <div></div>
+        <div class="right" style="display:flex; gap:8px;">
+          <button class="btn-quiet" onclick="closeGoalEdit()">Cancel</button>
+          <button class="ge-done-btn" onclick="saveNewWeeklyGoal()">Save</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.querySelectorAll('#ge-status-pills .strict-pill').forEach(function(p){
+    p.onclick = function() {
+      document.querySelectorAll('#ge-status-pills .strict-pill').forEach(function(x){ x.classList.remove('active'); });
+      p.classList.add('active');
+    };
+  });
+  document.querySelectorAll('#ge-strict-pills .strict-pill').forEach(function(p){
+    p.onclick = function() {
+      document.querySelectorAll('#ge-strict-pills .strict-pill').forEach(function(x){ x.classList.remove('active'); });
+      p.classList.add('active');
+    };
+  });
+}
+window.renderGoalEditCreate = renderGoalEditCreate;
+
+function saveNewWeeklyGoal() {
+  var name = (document.getElementById('ge-title-input').value || '').trim();
+  if (!name) { alert('Give this weekly goal a title.'); return; }
+  var intentText = document.getElementById('ge-intent-text').value;
+  var outcome = document.getElementById('ge-outcome').value;
+  var statusEl = document.querySelector('#ge-status-pills .strict-pill.active');
+  var status = statusEl ? statusEl.dataset.value : 'planned';
+  var strictEl = document.querySelector('#ge-strict-pills .strict-pill.active');
+  var strictness = strictEl ? strictEl.dataset.value : 'standard';
+  var weeklyTarget = parseFloat(document.getElementById('ge-weekly-target').value);
+  if (isNaN(weeklyTarget)) weeklyTarget = null;
+  var aiOn = document.getElementById('ge-ai-toggle').classList.contains('on');
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({
+      type: 'CREATE_INTENTION',
+      name: name,
+      description: '',
+      color_hex: null,
+      icon: null,
+      mac_websites: [],
+      mac_bundle_ids: [],
+      allow_websites: [],
+      allow_bundle_ids: [],
+      monthly_goal_id: null,
+      week_of: _currentWeekISO(),
+      intent_text: intentText,
+      ai_scoring_enabled: aiOn,
+      outcome: outcome,
+      status: status,
+      weekly_target_hours: weeklyTarget,
+      strictness_preset: strictness,
+    });
+  }
+  _editingNewGoal = false;
+  closeGoalEdit();
+  // Pull the fresh list so the new goal appears immediately.
+  setTimeout(function() {
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+      window.webkit.messageHandlers.intentional.postMessage({ type: 'GET_INTENTIONS' });
+    }
+  }, 400);
+}
+window.saveNewWeeklyGoal = saveNewWeeklyGoal;
+
+function openMonthlyGoalCreate() {
+  var title = prompt('Monthly goal title:');
+  if (!title) return;
+  var outcome = prompt('Outcome / "done looks like":') || '';
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({
+      type: 'CREATE_MONTHLY_GOAL',
+      title: title,
+      outcome: outcome,
+      color_hex: null,
+      month_of: new Date().toISOString().slice(0, 7) + '-01',
+      status: 'planned',
+    });
+  }
+  setTimeout(function() {
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+      window.webkit.messageHandlers.intentional.postMessage({ type: 'GET_MONTHLY_GOALS' });
+    }
+  }, 400);
+}
+window.openMonthlyGoalCreate = openMonthlyGoalCreate;
 
 function deleteWeeklyGoal(id) {
   if (!confirm('Delete this weekly goal? Past sessions stay; future sessions become unlinked.')) return;
@@ -13764,6 +13921,12 @@ function PlanApp() {
           <h1>Your plan</h1>
         </div>
         <div className="head-actions">
+          <button className="btn-ghost" onClick={() => window.openMonthlyGoalCreate && window.openMonthlyGoalCreate()}>
+            + Monthly
+          </button>
+          <button className="btn-ghost" onClick={() => window.openWeeklyGoalCreate && window.openWeeklyGoalCreate()}>
+            + Weekly
+          </button>
           <div className="history-wrap" onClick={e => e.stopPropagation()}>
             <button className="btn-ghost" onClick={() => setHistoryOpen(v => !v)}>
               <ClockIcon />History
