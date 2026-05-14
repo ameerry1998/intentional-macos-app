@@ -580,6 +580,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             await migration.run(log: { msg in
                 Task { @MainActor in self.postLog(msg) }
             })
+
+            // May 2026 prototype → production: one-shot migration —
+            // copy Intention.description → intentText for goals that don't have it.
+            if let store = self.intentionStore {
+                await IntentTextMigration.runIfNeeded(intentionStore: store) { msg in
+                    Task { @MainActor in self.postLog(msg) }
+                }
+            }
         }
         intentionStore?.startSyncTimer()
         postLog("🎯 IntentionStore wired and pulling")
