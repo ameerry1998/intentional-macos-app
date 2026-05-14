@@ -4719,7 +4719,159 @@ body.theme-effects-warm::after {
 }
 .fm-v3 .empty-list .em { color: var(--fm-text-3); }
 
+/* ===== Cloud Design Plan view CSS — copied verbatim from docs/unified-design-2026-05-13/app.html (May 2026 prototype port). All selectors scoped under .cd-plan. ===== */
+.cd-plan {
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+  --r-sm: 6px; --r-md: 10px; --r-lg: 14px;
+  --hue-1: #D85A30;
+  --hue-2: #1D9E75;
+  --hue-3: #A855C7;
+
+  background: var(--bg);
+  color: var(--text-1);
+  font: 13px/1.5 var(--font);
+  display: block;
+  -webkit-font-smoothing: antialiased;
+}
+.cd-plan[data-theme="light"] {
+  --bg:        #E2DCC8;
+  --bg-app:    #F7F3EA;
+  --bg-side:   #EDE5D2;
+  --surface:   #FFFFFF;
+  --surface-2: #F4EEDE;
+  --line:      rgba(26,20,16,0.09);
+  --line-2:    rgba(26,20,16,0.18);
+  --line-3:    rgba(26,20,16,0.28);
+  --text-1:    #1A1410;
+  --text-2:    rgba(26,20,16,0.62);
+  --text-3:    rgba(26,20,16,0.42);
+  --text-4:    rgba(26,20,16,0.22);
+  --primary-bg: #1A1410;
+  --primary-fg: #F7F3EA;
+  --primary-bg-h: #2c241d;
+  --status-success: #1D9E75;
+  --status-warning: #B97316;
+  --status-error:   #B8323C;
+  --status-info:    #355AB4;
+}
+.cd-plan[data-theme="dark"] {
+  --bg:        #0A0B0D;
+  --bg-app:    #14161A;
+  --bg-side:   #14161A;
+  --surface:   #1A1D22;
+  --surface-2: #22262C;
+  --line:      rgba(255,255,255,0.08);
+  --line-2:    rgba(255,255,255,0.16);
+  --line-3:    rgba(255,255,255,0.26);
+  --text-1:    #F4F5F6;
+  --text-2:    rgba(255,255,255,0.62);
+  --text-3:    rgba(255,255,255,0.42);
+  --text-4:    rgba(255,255,255,0.22);
+  --primary-bg: #F2EFE5;
+  --primary-fg: #1A1410;
+  --primary-bg-h: #FFFCF2;
+  --status-success: #4EBE92;
+  --status-warning: #D9A04A;
+  --status-error:   #E26676;
+  --status-info:    #9CB7EE;
+}
+.cd-plan .stage { padding: 0; min-height: auto; display: block; }
+.cd-plan .win { width: 100%; border-radius: 0; background: transparent; border: 0; box-shadow: none; }
+.cd-plan .titlebar { display: none; }
+.cd-plan .traffic { display: none; }
+.cd-plan .win-body { display: block; min-height: auto; grid-template-columns: 1fr; }
+.cd-plan .sidebar { display: none; }
+.cd-plan .brand { display: none; }
+.cd-plan .nav-list { display: none; }
+.cd-plan .page { padding: 0; display: flex; flex-direction: column; gap: 22px; }
+.cd-plan .pg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.cd-plan .pg-head .eyebrow-row { font: 500 11px var(--font); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-3); margin-bottom: 4px; }
+.cd-plan .pg-head h1 { font: 600 22px/1.15 var(--font); letter-spacing: -0.01em; margin: 0; color: var(--text-1); }
+.cd-plan .head-actions { display: flex; gap: 6px; align-items: center; }
+.cd-plan .btn-ghost { background: transparent; border: 0.5px solid var(--line-2); color: var(--text-1); padding: 6px 11px; border-radius: var(--r-sm); font: 500 12.5px var(--font); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: border-color 120ms ease; }
+.cd-plan .btn-ghost:hover { border-color: var(--line-3); }
+.cd-plan .btn-ghost svg { width: 12px; height: 12px; opacity: 0.7; }
+.cd-plan .btn-primary { background: var(--primary-bg); color: var(--primary-fg); border: 0.5px solid var(--primary-bg); padding: 7px 13px; border-radius: var(--r-sm); font: 600 12.5px var(--font); cursor: pointer; }
+.cd-plan .btn-primary:hover { background: var(--primary-bg-h); border-color: var(--primary-bg-h); }
+.cd-plan .btn-link { background: transparent; border: 0; color: var(--text-2); padding: 4px 6px; font: 500 12.5px var(--font); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.cd-plan .btn-link:hover { color: var(--text-1); }
+.cd-plan .eyebrow { font: 500 11px var(--font); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-3); margin-bottom: 12px; }
+.cd-plan .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.cd-plan .mcard { background: var(--m-bg, var(--surface)); border: 0.5px solid var(--m-line, var(--line)); border-radius: var(--r-lg); padding: 14px 16px; min-height: 92px; cursor: pointer; transition: filter 120ms ease, border-color 120ms ease, opacity 120ms ease; display: flex; flex-direction: column; gap: 6px; }
+.cd-plan .mcard:hover { filter: brightness(1.04); }
+.cd-plan .mcard.sel { box-shadow: 0 0 0 1.5px var(--hue, transparent) inset; }
+.cd-plan .mcard.dim { opacity: 0.35; filter: none; }
+.cd-plan .mcard .ttl { font: 600 14px/1.3 var(--font); color: var(--text-1); }
+.cd-plan .mcard .out { font: 12px/1.4 var(--font); color: var(--m-out, var(--text-3)); }
+.cd-plan .wcard { position: relative; background: var(--surface); border: 0.5px solid var(--line); border-radius: var(--r-lg); padding: 14px 16px 14px 18px; min-height: 92px; overflow: hidden; transition: border-color 120ms ease, opacity 120ms ease, transform 120ms ease; display: flex; flex-direction: column; gap: 4px; cursor: pointer; user-select: none; }
+.cd-plan .wcard:hover { border-color: var(--line-2); transform: translateY(-1px); }
+.cd-plan .wcard-grip { margin-left: auto; font-size: 13px; opacity: 0.4; cursor: grab; padding: 3px 6px; border-radius: 4px; line-height: 1; transition: all 0.1s; }
+.cd-plan .wcard-grip:hover { opacity: 1; background: rgba(255,255,255,0.06); color: var(--accent, #D85A30); }
+.cd-plan .wcard-grip:active { cursor: grabbing; }
+.cd-plan .wcard.dragging { opacity: 0.4; }
+.cd-plan .wcard.dim { opacity: 0.35; }
+.cd-plan .wcard.unlinked { border-style: dashed; cursor: pointer; }
+.cd-plan .wcard .edge { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--hue, transparent); }
+.cd-plan .wcard .ttl { font: 600 14px/1.3 var(--font); color: var(--text-1); }
+.cd-plan .wcard .out { font: 12px/1.4 var(--font); color: var(--text-3); }
+.cd-plan .wcard .foot { margin-top: auto; padding-top: 4px; font: 500 11.5px var(--font); color: var(--text-3); display: flex; align-items: center; gap: 6px; }
+.cd-plan .status { font-weight: 500; }
+.cd-plan .status.in-progress { color: var(--status-info); font-weight: 600; }
+.cd-plan .status.planned    { color: var(--text-3); }
+.cd-plan .status.done       { color: var(--status-success); }
+.cd-plan .status.slipped    { color: var(--status-error); }
+.cd-plan .status.dropped    { color: var(--text-4); text-decoration: line-through; }
+.cd-plan .status.unlinked   { color: var(--text-4); }
+.cd-plan .tstrip { background: var(--surface); border: 0.5px solid var(--line); border-radius: var(--r-lg); overflow: hidden; transition: border-color 120ms ease, box-shadow 120ms ease; }
+.cd-plan .tstrip.drop-target { border-color: var(--line-3); }
+.cd-plan .tstrip-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; cursor: pointer; transition: background 120ms ease; }
+.cd-plan .tstrip-head:hover { background: var(--surface-2); }
+.cd-plan .tstrip-head .summary { display: flex; align-items: center; gap: 10px; color: var(--text-1); font: 500 13px var(--font); min-width: 0; }
+.cd-plan .tstrip-head .summary.empty { color: var(--text-3); }
+.cd-plan .tstrip-head .summary svg { width: 13px; height: 13px; color: var(--text-3); flex-shrink: 0; }
+.cd-plan .tstrip-head .right { display: flex; align-items: center; gap: 14px; }
+.cd-plan .tstrip-head .right .open-link { font: 500 12.5px var(--font); color: var(--status-info); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.cd-plan .tstrip-head .right .open-link:hover { text-decoration: underline; }
+.cd-plan .tstrip-head .chev { width: 12px; height: 12px; color: var(--text-3); transition: transform 180ms ease; }
+.cd-plan .tstrip.collapsed .chev { transform: rotate(180deg); }
+.cd-plan .tstrip-body { padding: 26px 18px 18px; border-top: 0.5px solid var(--line); }
+.cd-plan .tstrip.collapsed .tstrip-body { display: none; }
+.cd-plan .tline { position: relative; height: 80px; user-select: none; }
+.cd-plan .tline .hour { position: absolute; top: 0; bottom: 0; border-left: 0.5px solid var(--line); }
+.cd-plan .tline .hour-lbl { position: absolute; top: -18px; font: 500 10px var(--font); color: var(--text-3); transform: translateX(-50%); }
+.cd-plan .tline .nowline { position: absolute; top: -8px; bottom: -8px; width: 1.5px; background: var(--status-warning); z-index: 4; pointer-events: none; }
+.cd-plan .tline .nowline::before { content: 'NOW'; position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font: 600 9px var(--font); color: var(--status-warning); letter-spacing: 0.06em; white-space: nowrap; }
+.cd-plan .tline .block { position: absolute; top: 6px; bottom: 6px; border-radius: var(--r-md); padding: 6px 9px; background: var(--blk-bg); border-left: 2px solid var(--blk-fg); color: var(--blk-fg); cursor: grab; overflow: hidden; display: flex; flex-direction: column; justify-content: center; transition: box-shadow 80ms ease; }
+.cd-plan .tline .block:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.10); z-index: 3; }
+.cd-plan .tline .block.dragging { cursor: grabbing; box-shadow: 0 6px 18px rgba(0,0,0,0.18); z-index: 5; }
+.cd-plan .tline .block .ttl { font: 600 11px/1.2 var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cd-plan .tline .block .tm  { font: 500 10px var(--font); opacity: 0.85; margin-top: 1px; font-variant-numeric: tabular-nums; }
+.cd-plan .tline .block .resize { position: absolute; top: 0; bottom: 0; width: 6px; cursor: ew-resize; }
+.cd-plan .tline .block .resize.l { left: 0; }
+.cd-plan .tline .block .resize.r { right: 0; }
+.cd-plan .tline.drop-active { background: var(--surface-2); border-radius: var(--r-md); }
+.cd-plan .past-summary { background: var(--surface); border: 0.5px solid var(--line); border-radius: var(--r-md); padding: 14px 18px; display: flex; align-items: center; gap: 28px; }
+.cd-plan .past-summary .stat { font: 500 12px var(--font); color: var(--text-3); display: flex; align-items: baseline; gap: 6px; }
+.cd-plan .past-summary .stat b { font: 600 18px var(--font); font-variant-numeric: tabular-nums; color: var(--text-1); }
+.cd-plan .past-summary .stat.success b { color: var(--status-success); }
+.cd-plan .past-summary .stat.error b { color: var(--status-error); }
+.cd-plan .readonly { color: var(--text-3); font: 500 12px var(--font); background: var(--surface-2); border: 0.5px solid var(--line); border-radius: var(--r-md); padding: 6px 12px; width: fit-content; }
+.cd-plan .readonly b { color: var(--text-2); font-weight: 600; }
+.cd-plan .history-wrap { position: relative; }
+.cd-plan .history-pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 40; background: var(--surface); border: 0.5px solid var(--line-2); border-radius: var(--r-md); padding: 6px; min-width: 220px; box-shadow: 0 14px 40px rgba(0,0,0,0.10); display: flex; flex-direction: column; gap: 1px; }
+.cd-plan[data-theme="dark"] .history-pop { box-shadow: 0 14px 40px rgba(0,0,0,0.5); }
+.cd-plan .history-pop .hphd { font: 500 11px var(--font); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-3); padding: 8px 10px 4px; }
+.cd-plan .history-pop button { background: transparent; border: 0; color: var(--text-1); padding: 8px 10px; border-radius: 6px; font: 500 12.5px var(--font); cursor: pointer; text-align: left; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cd-plan .history-pop button:hover { background: var(--surface-2); }
+.cd-plan .history-pop button.on { background: var(--surface-2); color: var(--text-1); font-weight: 600; }
+.cd-plan .history-pop button .hpmeta { font: 500 11.5px var(--font); color: var(--text-3); }
+.cd-plan { background: var(--bg-app); padding: 20px; border-radius: 10px; }
+
 </style>
+<!-- React + Babel CDN for the Plan tab (May 2026 prototype port — Cloud Design verbatim). -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body>
 
@@ -12820,6 +12972,507 @@ function submitIntentionMiniEditor() {
     mac_bundle_ids: []
   });
 }
+</script>
+
+<!-- ===== Plan tab React app — copied verbatim from docs/unified-design-2026-05-13/app.html (May 2026 prototype port). Bridge-fed MONTHLY/WEEKLY + last-line replaced for lazy mount. ===== -->
+<script type="text/babel">
+const HUE = { coral: 'var(--hue-1)', green: 'var(--hue-2)', pink: 'var(--hue-3)' };
+
+// Bridge-fed MONTHLY + WEEKLY. Falls back to hardcoded sample data when caches are empty (off-line dev / first launch).
+function mapMonthlyFromCache() {
+  const cache = window._monthlyGoalsCache || [];
+  if (cache.length === 0) return null;
+  const hues = [HUE.coral, HUE.green, HUE.pink];
+  return cache.map((g, i) => ({
+    id: g.id,
+    title: g.title || 'Untitled',
+    outcome: g.outcome || '',
+    hue: g.color_hex || hues[i % hues.length],
+  }));
+}
+
+function _isoWeekStartFromDate(d) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const day = x.getDay() || 7;
+  x.setDate(x.getDate() - (day - 1));
+  return x.toISOString().slice(0, 10);
+}
+
+function mapWeeklyFromCache() {
+  const cache = window._intentionsCache || [];
+  if (cache.length === 0) return null;
+  const grouped = {};
+  cache.forEach(i => {
+    const wk = i.week_of || 'unscheduled';
+    if (!grouped[wk]) grouped[wk] = [];
+    grouped[wk].push({
+      id: i.id,
+      title: i.name || 'Untitled',
+      outcome: i.outcome || '',
+      linksTo: i.monthly_goal_id || null,
+      status: (i.status || 'planned').replace('_', '-'),
+    });
+  });
+  return grouped;
+}
+
+const _LIVE_MONTHLY = mapMonthlyFromCache();
+const _LIVE_WEEKLY = mapWeeklyFromCache();
+
+const MONTHLY = _LIVE_MONTHLY || [
+  { id:'m1', title:'Ship Puck to 25 founding members', outcome:'25 paid orders by May 31', hue: HUE.coral },
+  { id:'m2', title:'4hr deep work daily',              outcome:'20 weekdays averaged',     hue: HUE.green },
+  { id:'m3', title:'Hit 10k followers on Puck IG',     outcome:'From 0 to 10k by May 31',  hue: HUE.pink  },
+];
+
+const WEEKLY = _LIVE_WEEKLY || {
+  may11: [
+    { id:'wg1', title:'Record 3 demo videos', outcome:'Posted to IG by Sun', linksTo:'m1', status:'in-progress' },
+    { id:'wg2', title:'Block phone 9-5 daily', outcome:'Zero IG scrolls 9-5', linksTo:'m2', status:'planned' },
+    { id:'wg3', title:'Pitch 3 podcasts', outcome:'1 booked recording', linksTo:null, status:'planned' },
+  ],
+  may4: [
+    { id:'pa1', title:'Set up WeWork desk', outcome:'Laptop stays at desk M-F', linksTo:'m2', status:'done' },
+    { id:'pa2', title:'Block IG on phone after 9am', outcome:'Zero scrolls 9-5', linksTo:'m2', status:'slipped' },
+    { id:'pa3', title:'DM 10 founders', outcome:'10 sent', linksTo:'m1', status:'done' },
+  ],
+  apr27: [
+    { id:'pb1', title:'Ship v0.2 beta', outcome:'5 users on it', linksTo:'m1', status:'done' },
+    { id:'pb2', title:'Write launch post', outcome:'Posted IG + Twitter', linksTo:'m3', status:'slipped' },
+    { id:'pb3', title:'Reading hour daily', outcome:'5 sessions', linksTo:'m2', status:'done' },
+  ],
+  apr20: [
+    { id:'pc1', title:'Customer interviews', outcome:'5 calls', linksTo:'m1', status:'done' },
+    { id:'pc2', title:'Set up alarm system', outcome:'Works on first try', linksTo:'m2', status:'done' },
+    { id:'pc3', title:'IG demo clip #1', outcome:'Posted Sunday', linksTo:'m3', status:'done' },
+  ],
+};
+
+const WEEKS = [
+  { id:'apr20', label:'Apr 20' },
+  { id:'apr27', label:'Apr 27' },
+  { id:'may4',  label:'May 4' },
+  { id:'may11', label:'May 11', current:true },
+];
+
+const fmtStatus = (s) => s.replace('-', ' ');
+
+const SparkIcon = () => (
+  <svg width="11" height="11" viewBox="0 0 16 16" fill="none"
+    stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+    <path d="M8 1 L9.3 6 L14 7 L9.3 8 L8 13 L6.7 8 L2 7 L6.7 6 Z" />
+  </svg>
+);
+const ClockIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 16 16" fill="none"
+    stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+    <path d="M3 8 a5 5 0 1 0 1.5 -3.5" />
+    <path d="M3 3 V5.5 H5.5" />
+    <path d="M8 5 V8 L10 9.5" />
+  </svg>
+);
+const ArrowRight = () => (
+  <svg width="11" height="11" viewBox="0 0 16 16" fill="none"
+    stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+    <path d="M3 8 H13 M9 4 L13 8 L9 12" />
+  </svg>
+);
+
+const HEX = { 'var(--hue-1)': '#D85A30', 'var(--hue-2)': '#1D9E75', 'var(--hue-3)': '#A855C7' };
+const toRgba = (hueRef, a) => {
+  const hex = HEX[hueRef] || hueRef;
+  const r = parseInt(hex.slice(1,3), 16),
+        g = parseInt(hex.slice(3,5), 16),
+        b = parseInt(hex.slice(5,7), 16);
+  return `rgba(${r},${g},${b},${a})`;
+};
+
+function MonthlyCard({ g, sel, dim, onClick }) {
+  return (
+    <div className={`mcard${sel ? ' sel' : ''}${dim ? ' dim' : ''}`}
+      onClick={onClick}
+      style={{
+        '--hue': g.hue,
+        '--m-bg':   toRgba(g.hue, 0.14),
+        '--m-line': toRgba(g.hue, 0.32),
+        '--m-out':  toRgba(g.hue, 0.95),
+      }}>
+      <div className="ttl">{g.title}</div>
+      <div className="out">{g.outcome}</div>
+    </div>
+  );
+}
+
+function WeeklyCard({ g, monthly, dim, onDragStart, onDragEnd, dragging }) {
+  const parent = monthly.find(m => m.id === g.linksTo);
+  const openEdit = () => {
+    if (window.openWeeklyGoalEdit) window.openWeeklyGoalEdit(g.id);
+  };
+  return (
+    <div className={`wcard${dim ? ' dim' : ''}${!parent ? ' unlinked' : ''}${dragging ? ' dragging' : ''}`}
+      onClick={openEdit}
+      style={{ '--hue': parent ? parent.hue : 'transparent', cursor: 'pointer' }}>
+      {parent && <span className="edge" />}
+      <div className="ttl">{g.title}</div>
+      <div className="out">{g.outcome}</div>
+      <div className="foot">
+        <span className={`status ${g.status}`}>{fmtStatus(g.status)}</span>
+        {!parent && <span className="status unlinked">· unlinked</span>}
+        {parent && (
+          <span
+            className="wcard-grip"
+            draggable
+            onDragStart={(e) => { e.stopPropagation(); onDragStart(g, parent, e); }}
+            onDragEnd={onDragEnd}
+            onClick={(e) => e.stopPropagation()}
+            title="Drag to schedule">⋮⋮</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const DAY_START = 8;
+const DAY_END   = 20;
+const NOW_HOUR  = 11.7;
+
+const fmtHr = (h) => {
+  const hh = Math.floor(h), mm = Math.round((h - hh) * 60);
+  const period = hh >= 12 ? 'p' : 'a';
+  const dh = ((hh + 11) % 12) + 1;
+  return mm ? `${dh}:${String(mm).padStart(2,'0')}${period}` : `${dh}${period}`;
+};
+const fmtDur = (hrs) => {
+  if (hrs <= 0) return '0';
+  const h = Math.floor(hrs), m = Math.round((hrs - h) * 60);
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+};
+const snap = (h) => Math.round(h * 4) / 4;
+const hrPct = (h) => ((h - DAY_START) / (DAY_END - DAY_START)) * 100;
+
+function TimelineBlock({ block, onChange }) {
+  const elRef = React.useRef(null);
+  const [dragging, setDragging] = React.useState(false);
+
+  React.useEffect(() => {
+    const el = elRef.current;
+    if (!el) return;
+    let mode = null, startX = 0, startBlock = null, tlWidth = 0;
+    const tl = el.parentElement;
+
+    function down(e) {
+      if (e.target.classList.contains('resize')) {
+        mode = e.target.classList.contains('l') ? 'l' : 'r';
+      } else {
+        mode = 'move';
+      }
+      startX = e.clientX;
+      startBlock = { start: block.start, end: block.end };
+      tlWidth = tl.getBoundingClientRect().width;
+      setDragging(true);
+      e.preventDefault(); e.stopPropagation();
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', up);
+    }
+    function move(e) {
+      const dx = e.clientX - startX;
+      const dhr = (dx / tlWidth) * (DAY_END - DAY_START);
+      let next = { ...startBlock };
+      if (mode === 'move') {
+        const dur = startBlock.end - startBlock.start;
+        let ns = snap(startBlock.start + dhr);
+        ns = Math.max(DAY_START, Math.min(DAY_END - dur, ns));
+        next = { start: ns, end: ns + dur };
+      } else if (mode === 'l') {
+        let ns = snap(startBlock.start + dhr);
+        ns = Math.max(DAY_START, Math.min(block.end - 0.25, ns));
+        next = { ...startBlock, start: ns, end: startBlock.end };
+      } else if (mode === 'r') {
+        let ne = snap(startBlock.end + dhr);
+        ne = Math.max(block.start + 0.25, Math.min(DAY_END, ne));
+        next = { ...startBlock, start: startBlock.start, end: ne };
+      }
+      onChange(next);
+    }
+    function up() {
+      mode = null;
+      setDragging(false);
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+    }
+    el.addEventListener('mousedown', down);
+    return () => el.removeEventListener('mousedown', down);
+  }, [block, onChange]);
+
+  return (
+    <div ref={elRef} className={`block${dragging ? ' dragging' : ''}`}
+      style={{
+        left: hrPct(block.start) + '%',
+        width: (hrPct(block.end) - hrPct(block.start)) + '%',
+        '--blk-bg': toRgba(block.hue, 0.18),
+        '--blk-fg': HEX[block.hue] || block.hue,
+      }}>
+      <div className="resize l" />
+      <div className="ttl">{block.title}</div>
+      <div className="tm">{fmtHr(block.start)}–{fmtHr(block.end)} · {fmtDur(block.end - block.start)}</div>
+      <div className="resize r" />
+    </div>
+  );
+}
+
+function TimelineStrip({ blocks, setBlocks, isDragOverFromCard, onDrop }) {
+  const [open, setOpen] = React.useState(true);
+  const [hover, setHover] = React.useState(false);
+  const tlRef = React.useRef(null);
+
+  const total = blocks.reduce((s, b) => s + (b.end - b.start), 0);
+  const emptyText = 'No sessions planned · drag weekly goals here';
+  const summaryText = blocks.length === 0
+    ? emptyText
+    : `${blocks.length} session${blocks.length > 1 ? 's' : ''} · ${fmtDur(total)} scheduled`;
+
+  const handleDragOver = (e) => {
+    if (!isDragOverFromCard) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    if (!open) setOpen(true);
+    setHover(true);
+  };
+  const handleDragLeave = (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) setHover(false);
+  };
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setHover(false);
+    const tl = tlRef.current;
+    if (!tl) return;
+    const r = tl.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const hr = snap(DAY_START + (x / r.width) * (DAY_END - DAY_START));
+    const start = Math.max(DAY_START, Math.min(DAY_END - 1, hr - 0.5));
+    const end = Math.min(DAY_END, start + 1);
+    onDrop({ start, end });
+  };
+
+  const hours = [];
+  for (let h = DAY_START; h <= DAY_END; h += 2) hours.push(h);
+
+  return (
+    <div className={`tstrip${open ? '' : ' collapsed'}${hover ? ' drop-target' : ''}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}>
+      <div className="tstrip-head" onClick={() => setOpen(o => !o)}>
+        <div className={`summary${blocks.length === 0 ? ' empty' : ''}`}>
+          <ClockIcon />
+          <span>{summaryText}</span>
+        </div>
+        <div className="right">
+          <a className="open-link" onClick={(e) => {
+            e.stopPropagation();
+            if (typeof window.navigateTo === 'function') window.navigateTo('today');
+          }}>
+            Open today <ArrowRight />
+          </a>
+          <svg className="chev" viewBox="0 0 16 16" fill="none"
+            stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+            <path d="M4 10 L8 6 L12 10" />
+          </svg>
+        </div>
+      </div>
+      <div className="tstrip-body">
+        <div ref={tlRef} className={`tline${hover ? ' drop-active' : ''}`}>
+          {hours.map(h => (
+            <React.Fragment key={h}>
+              <div className="hour" style={{ left: hrPct(h) + '%' }} />
+              <div className="hour-lbl" style={{ left: hrPct(h) + '%' }}>{fmtHr(h)}</div>
+            </React.Fragment>
+          ))}
+          <div className="nowline" style={{ left: hrPct(NOW_HOUR) + '%' }} />
+          {blocks.map((b) => (
+            <TimelineBlock key={b.id} block={b}
+              onChange={(patch) => setBlocks(prev => prev.map(x => x.id === b.id ? { ...x, ...patch } : x))} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PlanApp() {
+  const [weekId, setWeekId] = React.useState('may11');
+  const [selectedMonthly, setSelectedMonthly] = React.useState(null);
+  const [historyOpen, setHistoryOpen] = React.useState(false);
+
+  const [blocks, setBlocks] = React.useState([
+    { id: 'b1', title: 'Record 3 demo videos', hue: 'var(--hue-1)', start: 9, end: 10.5 },
+  ]);
+  const [dragSource, setDragSource] = React.useState(null);
+  const nextBlockId = React.useRef(2);
+
+  const w = WEEKLY[weekId] || [];
+  const currentWeek = WEEKS.find(x => x.id === weekId);
+  const isCurrent = !!currentWeek?.current;
+  const isPast = !isCurrent;
+
+  const handleCardDragStart = (g, parent, e) => {
+    setDragSource({ goalId: g.id, title: g.title, hue: parent.hue });
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('text/plain', g.id);
+  };
+  const handleCardDragEnd = () => setDragSource(null);
+  const handleDropOnTimeline = ({ start, end }) => {
+    if (!dragSource) return;
+    setBlocks(prev => [...prev, {
+      id: 'b' + (nextBlockId.current++),
+      title: dragSource.title,
+      hue: dragSource.hue,
+      start, end,
+    }]);
+    // Persist to backend so the session shows up on Today + on iOS.
+    if (window.webkit?.messageHandlers?.intentional) {
+      window.webkit.messageHandlers.intentional.postMessage({
+        type: 'START_GOAL_SESSION',
+        intention_id: dragSource.goalId,
+        start_hour: Math.floor(start),
+        start_minute: Math.round((start % 1) * 60),
+        end_hour: Math.floor(end),
+        end_minute: Math.round((end % 1) * 60),
+        start_date: new Date().toISOString().slice(0, 10),
+      });
+    }
+    setDragSource(null);
+  };
+
+  return (
+    <div className="page" onClick={() => setHistoryOpen(false)}>
+      <div className="pg-head">
+        <div>
+          <div className="eyebrow-row">
+            {isCurrent
+              ? 'Wednesday · Week 2 of May'
+              : `Viewing week of ${currentWeek?.label}`}
+          </div>
+          <h1>Your plan</h1>
+        </div>
+        <div className="head-actions">
+          <div className="history-wrap" onClick={e => e.stopPropagation()}>
+            <button className="btn-ghost" onClick={() => setHistoryOpen(v => !v)}>
+              <ClockIcon />History
+            </button>
+            {historyOpen && (
+              <div className="history-pop">
+                <div className="hphd">Jump to week</div>
+                {WEEKS.slice().reverse().map(wk => {
+                  const w2 = WEEKLY[wk.id] || [];
+                  const done = w2.filter(x => x.status === 'done').length;
+                  return (
+                    <button key={wk.id}
+                      className={weekId === wk.id ? 'on' : ''}
+                      onClick={() => { setWeekId(wk.id); setSelectedMonthly(null); setHistoryOpen(false); }}>
+                      <span>{wk.label}{wk.current ? ' · this week' : ''}</span>
+                      <span className="hpmeta">
+                        {wk.current ? 'in progress' : `${done}/${w2.length} done`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          {isCurrent && (
+            <button className="btn-ghost">
+              <SparkIcon />Help me plan
+            </button>
+          )}
+        </div>
+      </div>
+
+      {isPast && (
+        <div className="readonly"><b>Read-only</b> · past week</div>
+      )}
+
+      <div>
+        <div className="eyebrow">May</div>
+        <div className="row3">
+          {MONTHLY.map(g => (
+            <MonthlyCard key={g.id} g={g}
+              sel={selectedMonthly === g.id}
+              dim={selectedMonthly && selectedMonthly !== g.id}
+              onClick={() => setSelectedMonthly(selectedMonthly === g.id ? null : g.id)} />
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="eyebrow">This week</div>
+        <div className="row3">
+          {w.map(g => (
+            <WeeklyCard key={g.id} g={g} monthly={MONTHLY}
+              dim={selectedMonthly && g.linksTo !== selectedMonthly}
+              onDragStart={handleCardDragStart}
+              onDragEnd={handleCardDragEnd}
+              dragging={dragSource?.goalId === g.id} />
+          ))}
+        </div>
+      </div>
+
+      {isCurrent && (
+        <div>
+          <div className="eyebrow">Today · Wednesday</div>
+          <TimelineStrip
+            blocks={blocks}
+            setBlocks={setBlocks}
+            isDragOverFromCard={!!dragSource}
+            onDrop={handleDropOnTimeline} />
+        </div>
+      )}
+
+      {isPast && (
+        <div>
+          <div className="eyebrow">Last week summary</div>
+          <div className="past-summary">
+            <div className="stat success"><b>{w.filter(x => x.status === 'done').length}</b><span>done</span></div>
+            <div className="stat error"><b>{w.filter(x => x.status === 'slipped').length}</b><span>slipped</span></div>
+            <div className="stat"><b>{w.filter(x => x.status === 'dropped').length}</b><span>dropped</span></div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Mount happens lazily via mountPlanApp() — see navigateTo hook below.
+window.PlanApp = PlanApp;
+</script>
+
+<script>
+  // Mount the Plan React app the first time the user opens the Plan tab.
+  // Avoids console warnings about a missing mount point on initial page load.
+  let _planAppMounted = false;
+  window.mountPlanApp = function () {
+    if (_planAppMounted) return;
+    const root = document.getElementById('plan-react-root');
+    if (!root || !window.PlanApp || !window.ReactDOM || !window.React) return;
+    ReactDOM.createRoot(root).render(React.createElement(window.PlanApp));
+    _planAppMounted = true;
+  };
+  // Hook navigateTo
+  (function () {
+    const orig = window.navigateTo;
+    window.navigateTo = function (page) {
+      if (typeof orig === 'function') orig(page);
+      if (page === 'plan') {
+        // Slight delay to let Babel finish transpiling on first paint.
+        setTimeout(() => window.mountPlanApp(), 50);
+      }
+    };
+  })();
+
+  // React app calls window.openWeeklyGoalEdit when a weekly card is clicked.
+  // The function is defined in C4. Until C4 lands, the placeholder from C2 logs.
 </script>
 
 </body>
