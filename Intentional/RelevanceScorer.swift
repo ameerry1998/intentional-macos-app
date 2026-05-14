@@ -545,6 +545,8 @@ class RelevanceScorer {
         pageTitle: String,
         intention: String,
         intentionDescription: String = "",
+        intentText: String = "",                  // FIX-11: ≤140-char per-goal intent string from Weekly Goal editor
+        aiScoringEnabled: Bool = true,            // FIX-11: per-goal toggle; when false, AI scoring is skipped entirely
         profile: String,
         dailyPlan: String,
         url: String = "",
@@ -564,6 +566,25 @@ class RelevanceScorer {
             appDelegate?.postLog(tracer.summary(label: traceLabel))
             return out
         }
+
+        // FIX-11: When the active Weekly Goal has AI scoring disabled, short-circuit
+        // before keyword/cache/LLM work and allow the page through. The user opted out
+        // of relevance enforcement for this goal — defer to the dumb blocklist only.
+        if !aiScoringEnabled {
+            tracer.record("ai_disabled", "ai_scoring_enabled=false → allow")
+            return finalize(Result(
+                relevant: true,
+                confidence: 100,
+                reason: "AI scoring disabled for this goal",
+                path: .metadataRelevant
+            ))
+        }
+
+        // FIX-11: Prefer the explicit per-goal `intentText` when present; fall back to
+        // legacy `intentionDescription` for callers that haven't been updated yet.
+        let effectiveDescription = intentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? intentionDescription
+            : intentText
 
         // Include URL in cache key so same-title pages on different URLs get scored separately.
         // Append a short hash of profile+dailyPlan so edits to either invalidate stale cache entries.
@@ -669,7 +690,7 @@ class RelevanceScorer {
                     metadataResult = try await scoreWithMLX(
                         pageTitle: pageTitle,
                         intention: intention,
-                        intentionDescription: intentionDescription,
+                        intentionDescription: effectiveDescription, // FIX-11
                         profile: profile,
                         dailyPlan: dailyPlan,
                         url: url,
@@ -689,7 +710,7 @@ class RelevanceScorer {
                 metadataResult = try await scoreWithFoundationModels(
                     pageTitle: pageTitle,
                     intention: intention,
-                    intentionDescription: intentionDescription,
+                    intentionDescription: effectiveDescription, // FIX-11
                     profile: profile,
                     dailyPlan: dailyPlan,
                     url: url,
@@ -735,7 +756,7 @@ class RelevanceScorer {
                     let verifiedResult = await rescoreWithOCR(
                         pageTitle: pageTitle,
                         intention: intention,
-                        intentionDescription: intentionDescription,
+                        intentionDescription: effectiveDescription, // FIX-11
                         profile: profile,
                         dailyPlan: dailyPlan,
                         url: url,
