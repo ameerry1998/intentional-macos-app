@@ -266,6 +266,17 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         guard let manager = appDelegate?.scheduleManager else { return }
         var state = manager.getScheduleSyncPayload()
         state.removeValue(forKey: "type")
+        // FIX-10: Surface the live intention id of the active session so the dashboard
+        // can grey out strictness controls for that goal while it's running. Prefer the
+        // explicit manual project session; fall back to the current scheduled block's
+        // bound intentionId if a scheduled block is active without a manual session.
+        if let sessionId = appDelegate?.activeProjectSession?.projectId {
+            state["active_intention_id"] = sessionId.uuidString
+        } else if let blockIntentionId = manager.currentBlock?.intentionId {
+            state["active_intention_id"] = blockIntentionId.uuidString
+        } else {
+            state["active_intention_id"] = NSNull()
+        }
         if let data = try? JSONSerialization.data(withJSONObject: state),
            let json = String(data: data, encoding: .utf8) {
             callJS("window._scheduleStateResult && window._scheduleStateResult(\(json))")
@@ -2284,6 +2295,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         // Use getScheduleSyncPayload() to include the full blocks array for the calendar view
         var state = manager.getScheduleSyncPayload()
         state.removeValue(forKey: "type") // Don't send the "SCHEDULE_SYNC" type to dashboard
+        // FIX-10: Surface the live intention id of the active session for strictness greying.
+        // Prefer the manual project session; fall back to the active block's intentionId.
+        if let sessionId = appDelegate?.activeProjectSession?.projectId {
+            state["active_intention_id"] = sessionId.uuidString
+        } else if let blockIntentionId = manager.currentBlock?.intentionId {
+            state["active_intention_id"] = blockIntentionId.uuidString
+        } else {
+            state["active_intention_id"] = NSNull()
+        }
         if let data = try? JSONSerialization.data(withJSONObject: state),
            let json = String(data: data, encoding: .utf8) {
             callJS("window._scheduleStateResult && window._scheduleStateResult(\(json))")

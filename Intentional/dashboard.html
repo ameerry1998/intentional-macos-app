@@ -9281,11 +9281,13 @@ function openWeeklyGoalEdit(id) {
 window.openWeeklyGoalEdit = openWeeklyGoalEdit;
 
 function closeGoalEdit() {
+  window._editingGoalId = null; // FIX-10: clear so schedule pushes don't try to re-render a stale editor.
   navigateTo(_goalEditReturnTo || 'today');
 }
 window.closeGoalEdit = closeGoalEdit;
 
 function renderGoalEdit(id) {
+  window._editingGoalId = id; // FIX-10: track which goal is being edited so schedule pushes can re-render.
   var g = (window._intentionsCache || []).find(function(x){ return x.id === id; });
   if (!g) {
     document.getElementById('goal-edit-mount').innerHTML =
@@ -9301,6 +9303,12 @@ function renderGoalEdit(id) {
   var aiOn = g.ai_scoring_enabled !== false;
   var status = g.status || 'planned';
   var strict = g.strictness_preset || 'standard';
+  // FIX-10: When a session of THIS goal is currently active, strictness changes
+  // are disallowed to prevent gaming the enforcement mid-session.
+  var isActiveNow = window._activeSessionIntentionId && window._activeSessionIntentionId === id;
+  var strictDisabledAttr = isActiveNow
+    ? ' style="opacity:0.5; pointer-events:none;" title="Can\'t change strictness during an active session of this goal"'
+    : '';
 
   document.getElementById('goal-edit-mount').innerHTML = `
     <div class="ge-page">
@@ -9364,7 +9372,7 @@ function renderGoalEdit(id) {
 
       <div class="ge-adv-row">
         <span class="gm-adv-label">Strictness</span>
-        <div class="strict-pills" id="ge-strict-pills">
+        <div class="strict-pills" id="ge-strict-pills"${strictDisabledAttr}>
           <span class="strict-pill ${strict==='standard'?'active':''}" data-value="standard">Standard</span>
           <span class="strict-pill ${strict==='strict'?'active':''}" data-value="strict">Strict</span>
         </div>
@@ -9372,6 +9380,7 @@ function renderGoalEdit(id) {
         <input type="number" class="ge-num-input" id="ge-weekly-target" value="${g.weekly_target_hours || ''}" placeholder="—">
         <span style="font-size:12px; color:var(--text-tertiary);">hrs / week</span>
       </div>
+      ${isActiveNow ? '<div style="font-size:11px; color:var(--text-tertiary); margin-top:4px;">Strictness locked — an active session of this goal is running.</div>' : ''}
 
       <div class="ge-foot">
         <button class="ge-delete-link" onclick="deleteWeeklyGoal('${g.id}')">Delete this Weekly Goal</button>
@@ -9890,6 +9899,21 @@ window._scheduleStateResult = function(data) {
     calendarZoomLevel = data.calendarZoom;
     CALENDAR_HOUR_HEIGHT = calendarZoomLevel;
   }
+
+  // FIX-10: Capture the active session's goal id from each schedule push so the
+  // goal editor can grey out strictness controls for that goal while a session
+  // of it is running. Re-render the editor in place if it's currently open.
+  var prevActive = window._activeSessionIntentionId || null;
+  if (Object.prototype.hasOwnProperty.call(data, 'active_intention_id')) {
+    window._activeSessionIntentionId = data.active_intention_id || null;
+  }
+  if (window._activeSessionIntentionId !== prevActive
+      && window.currentPage === 'goal-edit'
+      && window._editingGoalId
+      && typeof renderGoalEdit === 'function') {
+    renderGoalEdit(window._editingGoalId);
+  }
+
   calendarViewDate = null; // Reset to today view
   focusDirty = false;
   renderFocusPage();
