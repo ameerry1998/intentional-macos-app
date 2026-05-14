@@ -638,6 +638,13 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "GET_INTENTIONS":
             handleGetIntentions()
 
+        case "GET_INTENTIONS_FOR_WEEK":
+            // FIX-7: On-demand fetch for past weeks selected from Plan history dropdown.
+            if let body = message.body as? [String: Any],
+               let week = body["week"] as? String {
+                handleGetIntentionsForWeek(week: week)
+            }
+
         case "GET_INTENTION":
             if let body = message.body as? [String: Any],
                let idStr = body["id"] as? String,
@@ -3443,6 +3450,27 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 } else {
                     self.emitIntentionDetail(["error": "Focus mode not found"])
                 }
+            }
+        }
+    }
+
+    /// FIX-7: Fetch goals for an arbitrary past week (ISO Monday date)
+    /// and push them into the dashboard's cache via `window._intentionsForWeek`.
+    /// The dashboard merges these into `_intentionsCache` so the Plan history view
+    /// can render past weeks even after the active set has rotated.
+    private func handleGetIntentionsForWeek(week: String) {
+        guard let backend = appDelegate?.backendClient else { return }
+        Task {
+            guard let intentions = await backend.getIntentions(includeDeleted: false, week: week) else {
+                await MainActor.run {
+                    self.callJS("window._intentionsForWeek && window._intentionsForWeek([])")
+                }
+                return
+            }
+            let items = intentions.map { Self.intentionToDict($0) }
+            await MainActor.run {
+                let json = self.jsonString(items)
+                self.callJS("window._intentionsForWeek && window._intentionsForWeek(\(json))")
             }
         }
     }

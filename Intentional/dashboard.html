@@ -9080,9 +9080,24 @@ window._monthlyGoalsCache = window._monthlyGoalsCache || [];
   window._intentionsList = function (items) {
     window._intentionsCache = Array.isArray(items) ? items : [];
     renderNowCard();
+    // FIX-7: nudge the Plan React app so it re-derives WEEKS / WEEKLY off the cache.
+    if (typeof window._planAppRefresh === 'function') window._planAppRefresh();
     if (typeof orig === 'function') orig(items);
   };
 })();
+
+// FIX-7: Merge past-week goals returned by GET_INTENTIONS_FOR_WEEK into the cache.
+// Plan history dropdown calls this; the receiver bumps the Plan app via _planAppRefresh.
+window._intentionsForWeek = function (items) {
+  if (!Array.isArray(items)) return;
+  var cache = window._intentionsCache || [];
+  var byId = {};
+  cache.forEach(function (i) { if (i && i.id) byId[i.id] = i; });
+  items.forEach(function (i) { if (i && i.id) byId[i.id] = i; });
+  window._intentionsCache = Object.keys(byId).map(function (k) { return byId[k]; });
+  if (typeof renderNowCard === 'function') renderNowCard();
+  if (typeof window._planAppRefresh === 'function') window._planAppRefresh();
+};
 
 window._monthlyGoalsList = function (items) {
   window._monthlyGoalsCache = Array.isArray(items) ? items : [];
@@ -13923,18 +13938,52 @@ function mapWeeklyFromCache() {
   return grouped;
 }
 
-const _LIVE_MONTHLY = mapMonthlyFromCache();
-const _LIVE_WEEKLY = mapWeeklyFromCache();
+// FIX-7: WEEKS list is now derived from the live cache (plus the current ISO Monday).
+// Past weeks are fetched on demand via GET_INTENTIONS_FOR_WEEK when the user picks
+// them from the History dropdown.
+function _currentISOMonday() {
+  const d = new Date();
+  const day = d.getDay() || 7;
+  d.setDate(d.getDate() - (day - 1));
+  return d.toISOString().slice(0, 10);
+}
 
-const MONTHLY = _LIVE_MONTHLY || [];
-const WEEKLY = _LIVE_WEEKLY || {};
+const _MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function _labelForIsoMonday(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return `${_MONTHS_SHORT[d.getMonth()]} ${d.getDate()}`;
+}
 
-const WEEKS = [
-  { id:'apr20', label:'Apr 20' },
-  { id:'apr27', label:'Apr 27' },
-  { id:'may4',  label:'May 4' },
-  { id:'may11', label:'May 11', current:true },
-];
+function buildWeeksList(intentionsCache) {
+  const current = _currentISOMonday();
+  const weekSet = new Set([current]);
+  (intentionsCache || []).forEach(i => {
+    if (i && i.week_of) weekSet.add(i.week_of);
+  });
+  const weeks = [...weekSet].sort((a, b) => b.localeCompare(a)); // newest first
+  return weeks.map(iso => ({
+    id: iso,
+    label: _labelForIsoMonday(iso),
+    current: iso === current,
+  }));
+}
+
+function buildWeeklyMap(intentionsCache) {
+  // Keyed by ISO Monday date so it lines up with WEEKS ids.
+  const map = {};
+  (intentionsCache || []).forEach(i => {
+    if (!i || !i.week_of) return;
+    if (!map[i.week_of]) map[i.week_of] = [];
+    map[i.week_of].push({
+      id: i.id,
+      title: i.name || 'Untitled',
+      outcome: i.outcome || '',
+      linksTo: i.monthly_goal_id || null,
+      status: (i.status || 'planned').replace('_', '-'),
+    });
+  });
+  return map;
+}
 
 const fmtStatus = (s) => s.replace('-', ' ');
 
@@ -14183,9 +14232,37 @@ function TimelineStrip({ blocks, setBlocks, isDragOverFromCard, onDrop }) {
 }
 
 function PlanApp() {
-  const [weekId, setWeekId] = React.useState('may11');
+  // FIX-7: Default to current ISO Monday so the live cache lines up immediately.
+  const [weekId, setWeekId] = React.useState(_currentISOMonday());
   const [selectedMonthly, setSelectedMonthly] = React.useState(null);
   const [historyOpen, setHistoryOpen] = React.useState(false);
+
+  // FIX-7: `seed` bumps whenever the intentions cache changes (e.g. after
+  // GET_INTENTIONS_FOR_WEEK lands). Re-derives MONTHLY/WEEKLY/WEEKS off the cache.
+  const [seed, setSeed] = React.useState(0);
+  React.useEffect(() => {
+    window._planAppRefresh = () => setSeed(s => s + 1);
+    return () => { window._planAppRefresh = null; };
+  }, []);
+
+  const MONTHLY = React.useMemo(() => mapMonthlyFromCache() || [], [seed]);
+  const WEEKLY  = React.useMemo(() => buildWeeklyMap(window._intentionsCache), [seed]);
+  const WEEKS   = React.useMemo(() => buildWeeksList(window._intentionsCache), [seed]);
+
+  // FIX-7: On past-week selection, fetch from backend if the cache doesn't already
+  // hold rows for that week.
+  React.useEffect(() => {
+    if (!weekId) return;
+    if (weekId === _currentISOMonday()) return;
+    const hasGoalsForWeek = (window._intentionsCache || []).some(i => i.week_of === weekId);
+    if (hasGoalsForWeek) return;
+    if (window.webkit?.messageHandlers?.intentional) {
+      window.webkit.messageHandlers.intentional.postMessage({
+        type: 'GET_INTENTIONS_FOR_WEEK',
+        week: weekId,
+      });
+    }
+  }, [weekId]);
 
   const [blocks, setBlocks] = React.useState([
     { id: 'b1', title: 'Record 3 demo videos', hue: 'var(--hue-1)', start: 9, end: 10.5 },
