@@ -6172,8 +6172,16 @@ function navigateTo(pageId) {
   document.querySelectorAll('.sidebar-item').forEach(function(s) { s.classList.remove('active'); });
   var page = document.getElementById('page-' + pageId);
   if (page) page.classList.add('active');
-  var nav = document.querySelector('[data-page="' + pageId + '"]');
-  if (nav) nav.classList.add('active');
+  // FIX-8: When opening the goal editor (a sub-page with no sidebar item of its own),
+  // keep the originating tab's highlight so the user knows where they came from.
+  if (pageId === 'goal-edit' || pageId === 'goal-custom-rules') {
+    var originating = window._goalEditReturnTo || 'today';
+    var originatingItem = document.querySelector('[data-page="' + originating + '"]');
+    if (originatingItem) originatingItem.classList.add('active');
+  } else {
+    var nav = document.querySelector('[data-page="' + pageId + '"]');
+    if (nav) nav.classList.add('active');
+  }
   window.currentPage = pageId;
 
   // Poll consent status when viewing accountability page with pending consent
