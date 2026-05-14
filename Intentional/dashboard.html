@@ -394,6 +394,13 @@ body.theme-effects-warm::after {
 .block-pill.active { background: rgba(74, 222, 128, 0.18); color: #4ade80; }
 .block-pill.upcoming { background: rgba(255, 255, 255, 0.08); color: var(--text-tertiary); }
 .block-pill.off { background: rgba(255, 90, 90, 0.18); color: #fa6464; }
+.block-pill.snoozed { background: rgba(243, 139, 92, 0.18); color: #f38b5c; }
+.block-card.active { border-color: rgba(74, 222, 128, 0.35); background: rgba(74, 222, 128, 0.04); }
+.block-card.snoozed { border-style: dashed; opacity: 0.85; }
+.block-card-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06); }
+.block-card-remaining { font-size: 11px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.block-card-snooze { background: rgba(243, 139, 92, 0.14); color: #f38b5c; border: none; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 500; cursor: pointer; transition: background 0.15s; }
+.block-card-snooze:hover { background: rgba(243, 139, 92, 0.22); }
 .block-toggle { width: 32px; height: 18px; background: rgba(255,255,255,0.10); border-radius: 9px; position: relative; cursor: pointer; transition: background 0.15s; flex-shrink: 0; }
 .block-toggle::after { content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #fff; top: 2px; left: 2px; transition: left 0.15s; }
 .block-toggle.on { background: var(--accent-primary); }
@@ -9014,34 +9021,98 @@ window._blockingProfilesList = function(items) {
   refreshSidebarBlockingPill();
 };
 
+function _ruleWindowEndDate(r) {
+  // Compute today's window-end Date for the active-now display.
+  // For always-active rules, return end of day.
+  var now = new Date();
+  if (r.end_hour == null) {
+    var endOfDay = new Date(now);
+    endOfDay.setHours(23, 59, 59, 999);
+    return endOfDay;
+  }
+  var endMin = r.end_minute || 0;
+  var d = new Date(now);
+  d.setHours(r.end_hour, endMin, 0, 0);
+  return d;
+}
+
+function _formatRemaining(msRemaining) {
+  if (msRemaining <= 0) return '0m';
+  var totalMin = Math.floor(msRemaining / 60000);
+  if (totalMin < 60) return totalMin + 'm';
+  var hrs = Math.floor(totalMin / 60);
+  var mins = totalMin % 60;
+  return hrs + 'h ' + (mins ? mins + 'm' : '0m');
+}
+
 function renderBlocksList() {
   var mount = document.getElementById('blocks-list-mount');
   if (!mount) return;
   var rules = window._blockRulesCache || [];
-  var active = rules.filter(function(r){ return r.enabled !== false && isRuleCurrentlyActive(r); }).length;
+  // "active" means enabled + in-window + not snoozed (per backend is_currently_active)
+  var active = rules.filter(function(r){ return r.is_currently_active === true; }).length;
   var countEl = document.getElementById('blocks-count');
   if (countEl) countEl.textContent = '· ' + active + ' active · ' + rules.length + ' total';
   if (rules.length === 0) {
     mount.innerHTML = '<div class="blocks-empty-card">No blocks yet. <span class="link" onclick="openBlockRuleCreate()">+ Create your first block</span></div>';
     return;
   }
+  var now = new Date();
   mount.innerHTML = rules.map(function(r) {
     var sites = (r.websites || []).slice(0,4).join(', ');
     var appsCount = (r.bundle_ids || []).length;
     var scheduleStr = formatRuleSchedule(r);
-    var activeNow = isRuleCurrentlyActive(r);
-    var pill = activeNow
-      ? '<span class="block-pill active">ACTIVE</span>'
-      : (r.enabled === false
-          ? '<span class="block-pill off">OFF</span>'
-          : '<span class="block-pill upcoming">UPCOMING</span>');
+    var snoozed = r.is_snoozed === true;
+    var inWindow = (r.is_in_window === true) || (r.is_in_window == null && isRuleCurrentlyActive(r));
+    var activeNow = (r.is_currently_active === true);
+    var pill;
+    if (snoozed) {
+      pill = '<span class="block-pill snoozed">SNOOZED</span>';
+    } else if (activeNow) {
+      pill = '<span class="block-pill active">ACTIVE</span>';
+    } else if (r.enabled === false) {
+      pill = '<span class="block-pill off">OFF</span>';
+    } else {
+      pill = '<span class="block-pill upcoming">UPCOMING</span>';
+    }
     var toggleClass = r.enabled !== false ? 'on' : '';
     var nextEnabled = r.enabled === false ? 'true' : 'false';
     var listLine = '';
     if (sites || appsCount > 0) {
       listLine = '<div class="block-card-list">Blocking: ' + _escapeHTML(sites) + (appsCount > 0 ? (sites ? ' · ' : '') + appsCount + ' apps' : '') + '</div>';
     }
-    return '<div class="block-card" onclick="openBlockRuleEdit(\'' + r.id + '\')">'
+
+    // Countdown + snooze controls on ACTIVE cards
+    var actionsLine = '';
+    if (activeNow) {
+      var endDate = _ruleWindowEndDate(r);
+      var remaining = endDate.getTime() - now.getTime();
+      var remainTxt = _formatRemaining(remaining);
+      actionsLine =
+        '<div class="block-card-actions">' +
+          '<span class="block-card-remaining" data-rule-id="' + r.id + '" data-end-iso="' + endDate.toISOString() + '">' +
+            'Ends in ' + _escapeHTML(remainTxt) +
+          '</span>' +
+          '<button class="block-card-snooze" onclick="event.stopPropagation(); snoozeBlockRule(\'' + r.id + '\')" title="Pause for the rest of today\'s window">Snooze for today</button>' +
+        '</div>';
+    } else if (snoozed) {
+      var until = r.snoozed_until ? new Date(r.snoozed_until) : null;
+      var untilTxt = '';
+      if (until && !isNaN(until.getTime())) {
+        var hh = until.getHours();
+        var mm = until.getMinutes();
+        var period = hh >= 12 ? 'p' : 'a';
+        var dh = ((hh + 11) % 12) + 1;
+        untilTxt = ' until ' + dh + ':' + String(mm).padStart(2,'0') + period;
+      }
+      actionsLine =
+        '<div class="block-card-actions">' +
+          '<span class="block-card-remaining">Snoozed' + _escapeHTML(untilTxt) + '</span>' +
+          '<button class="block-card-snooze" onclick="event.stopPropagation(); unsnoozeBlockRule(\'' + r.id + '\')">Resume now</button>' +
+        '</div>';
+    }
+
+    return '<div class="block-card' + (activeNow ? ' active' : '') + (snoozed ? ' snoozed' : '') + '" onclick="openBlockRuleEdit(\'' + r.id + '\')">'
       + '<div class="block-card-head">'
       +   '<div class="block-card-title">' + _escapeHTML(r.name) + ' ' + pill + '</div>'
       +   '<div class="block-toggle ' + toggleClass + '"'
@@ -9049,10 +9120,40 @@ function renderBlocksList() {
       + '</div>'
       + '<div class="block-card-sched">' + _escapeHTML(scheduleStr) + '</div>'
       + listLine
+      + actionsLine
       + '</div>';
   }).join('');
 }
 window.renderBlocksList = renderBlocksList;
+
+function snoozeBlockRule(id) {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({ type: 'SNOOZE_BLOCK_RULE', id: id });
+  }
+}
+window.snoozeBlockRule = snoozeBlockRule;
+
+function unsnoozeBlockRule(id) {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({ type: 'UNSNOOZE_BLOCK_RULE', id: id });
+  }
+}
+window.unsnoozeBlockRule = unsnoozeBlockRule;
+
+// Light-weight 30s tick that only updates the visible "Ends in X" text — no DOM re-render
+// (otherwise the user can never read the countdown).
+window._blockCountdownTick = window._blockCountdownTick || setInterval(function() {
+  var nodes = document.querySelectorAll('.block-card-remaining[data-end-iso]');
+  if (!nodes.length) return;
+  var now = Date.now();
+  nodes.forEach(function(el) {
+    var iso = el.getAttribute('data-end-iso');
+    if (!iso) return;
+    var endMs = new Date(iso).getTime();
+    if (isNaN(endMs)) return;
+    el.textContent = 'Ends in ' + _formatRemaining(endMs - now);
+  });
+}, 30000);
 
 function toggleBlockRule(id, enabled) {
   if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {

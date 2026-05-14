@@ -127,6 +127,12 @@ final class BlockRuleEnforcer {
         return Set(snoozedUntil.filter { $0.value > now }.keys)
     }
 
+    /// Returns the release Date for a snoozed profile, or nil if not snoozed (or expired).
+    func snoozeReleaseDate(profileId: UUID) -> Date? {
+        guard let d = snoozedUntil[profileId], d > Date() else { return nil }
+        return d
+    }
+
     /// Returns true iff this profile is in its scheduled window, enabled, AND not snoozed.
     func isEffectivelyActive(_ profile: BlockingProfile) -> Bool {
         if let until = snoozedUntil[profile.id], until > Date() { return false }

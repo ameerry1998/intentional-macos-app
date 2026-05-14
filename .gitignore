@@ -21,3 +21,4 @@ xcuserdata/
 *.swp
 *.swo
 *~
+scripts/playwright-tests/node_modules/

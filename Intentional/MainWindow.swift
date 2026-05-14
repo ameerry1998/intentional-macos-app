@@ -589,6 +589,22 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 handleToggleBlockRule(id: id, enabled: enabled)
             }
 
+        case "SNOOZE_BLOCK_RULE":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String,
+               let id = UUID(uuidString: idStr) {
+                BlockRuleEnforcer.shared.snoozeForRemainderOfWindow(profileId: id)
+                handleGetBlockingProfiles()
+            }
+
+        case "UNSNOOZE_BLOCK_RULE":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String,
+               let id = UUID(uuidString: idStr) {
+                BlockRuleEnforcer.shared.clearSnooze(profileId: id)
+                handleGetBlockingProfiles()
+            }
+
         case "START_PROJECT_SESSION":
             if let body = message.body as? [String: Any] {
                 handleStartProjectSession(body)
@@ -2515,7 +2531,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     /// Snake-case dict representation of a profile/block-rule for the new
     /// Today→Blocks UI. Ships alongside the legacy struct-shaped payload so
     /// existing receivers (ProjectsController, profile detail view) keep working.
+    @MainActor
     static func blockingProfileToDict(_ p: BlockingProfile) -> [String: Any] {
+        let snoozed = BlockRuleEnforcer.shared.currentlySnoozedIds().contains(p.id)
         var d: [String: Any] = [
             "id": p.id.uuidString,
             "name": p.name,
@@ -2525,12 +2543,21 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             "always_active": p.alwaysActive,
             "enabled": p.enabled,
             "active_days": p.activeDays,
-            "is_currently_active": p.isCurrentlyActive
+            // Effective active: in-window AND enabled AND NOT snoozed
+            "is_currently_active": snoozed ? false : p.isCurrentlyActive,
+            // Raw "in-window-and-enabled" so UI can tell snooze apart from out-of-window
+            "is_in_window": p.isCurrentlyActive,
+            "is_snoozed": snoozed
         ]
         if let sh = p.startHour { d["start_hour"] = sh }
         if let sm = p.startMinute { d["start_minute"] = sm }
         if let eh = p.endHour { d["end_hour"] = eh }
         if let em = p.endMinute { d["end_minute"] = em }
+        if snoozed,
+           let until = BlockRuleEnforcer.shared.snoozeReleaseDate(profileId: p.id) {
+            let fmt = ISO8601DateFormatter()
+            d["snoozed_until"] = fmt.string(from: until)
+        }
         return d
     }
 
