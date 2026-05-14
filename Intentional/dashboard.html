@@ -4867,6 +4867,79 @@ body.theme-effects-warm::after {
 .cd-plan .history-pop button .hpmeta { font: 500 11.5px var(--font); color: var(--text-3); }
 .cd-plan { background: var(--bg-app); padding: 20px; border-radius: 10px; }
 
+/* ===== Weekly Goal full-page editor + Custom Rules sub-page (May 2026 prototype port) ===== */
+/* Adapted from docs/unified-design-2026-05-13/app.html — CSS var names translated to the dashboard palette. */
+.ge-page { max-width: 760px; margin: 0 auto; padding: 8px 0 80px; }
+.ge-page .ge-back { color: var(--accent-primary); font-size: 13px; cursor: pointer; margin-bottom: 14px; display: inline-flex; align-items: center; gap: 4px; }
+.ge-page .ge-back:hover { filter: brightness(1.2); }
+.ge-page .ge-title-row { margin-bottom: 22px; }
+.ge-page .ge-title-input { font-size: 28px; font-weight: 700; letter-spacing: -0.3px; background: transparent; border: 0; outline: 0; color: var(--text-primary); padding: 0; width: 100%; font-family: inherit; }
+.ge-page .ge-title-input:focus { background: var(--bg-elevated); padding: 4px 8px; margin: -4px -8px; border-radius: 6px; }
+.ge-page .ge-rename-hint { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+.ge-page .ge-main-card { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-left: 4px solid var(--ge-hue, var(--accent-primary)); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }
+.ge-page .ge-main-card .gm-header { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
+.ge-page .ge-main-card .gm-header h3 { font-size: 16px; font-weight: 700; margin: 0; letter-spacing: -0.1px; color: var(--text-primary); }
+.ge-page .ge-main-card .gm-info { color: var(--text-tertiary); font-size: 12px; cursor: help; }
+.ge-page .ge-main-card .gm-textarea { width: 100%; background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px 14px; font-size: 13px; color: var(--text-primary); resize: vertical; min-height: 100px; font-family: inherit; line-height: 1.5; }
+.ge-page .ge-main-card .gm-counter { text-align: right; font-size: 11px; color: var(--text-tertiary); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.ge-page .ge-row { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: background 0.1s; margin-bottom: 14px; }
+.ge-page .ge-row:hover { background: var(--bg-card-hover); }
+.ge-page .ge-row .gm-color-square { width: 24px; height: 24px; border-radius: 5px; background: var(--ge-hue, var(--accent-primary)); flex-shrink: 0; opacity: 0.5; }
+.ge-page .ge-row .gm-row-title { flex: 1; font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.ge-page .ge-row .gm-row-counts { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 12px; }
+.ge-page .ge-row .gm-count { display: inline-flex; align-items: center; gap: 5px; }
+.ge-page .ge-row .gm-count .dot { width: 6px; height: 6px; border-radius: 50%; }
+.ge-page .ge-row .gm-count .dot.block { background: var(--color-error); }
+.ge-page .ge-row .gm-count .dot.allow { background: var(--color-success); }
+.ge-page .ge-row .gm-row-chev { color: var(--text-tertiary); font-size: 14px; }
+.ge-page .modal-field { margin-bottom: 14px; display: flex; flex-direction: column; gap: 6px; }
+.ge-page .modal-field label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-tertiary); font-weight: 700; }
+.ge-page .modal-input { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 12px; color: var(--text-primary); font-size: 13px; font-family: inherit; }
+.ge-page .modal-input.textarea { min-height: 70px; resize: vertical; }
+.ge-page .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.ge-page .ge-divider { border-top: 1px solid var(--border-subtle); margin: 22px 0 16px; }
+.ge-page .ge-advanced-label { font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 1.4px; font-weight: 700; margin-bottom: 14px; }
+.ge-page .ge-adv-row { display: flex; align-items: center; gap: 18px; margin-bottom: 14px; flex-wrap: wrap; }
+.ge-page .ge-adv-row .gm-adv-label { font-size: 13px; font-weight: 600; color: var(--text-primary); min-width: 100px; }
+.ge-page .ge-num-input { width: 72px; padding: 7px 10px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 7px; font-size: 13px; color: var(--text-primary); text-align: center; font-family: monospace; }
+.ge-page .ge-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--border-subtle); }
+.ge-page .ge-delete-link { background: transparent; border: 0; color: var(--accent-primary); font-size: 13px; cursor: pointer; padding: 6px 0; }
+.ge-page .ge-delete-link:hover { text-decoration: underline; }
+.ge-page .ge-done-btn { background: var(--accent-gradient); color: #1a0f0a; border: 0; padding: 9px 22px; border-radius: 7px; font-weight: 700; font-size: 13px; cursor: pointer; }
+.ge-page .btn-quiet { background: transparent; border: 1px solid var(--border-subtle); color: var(--text-secondary); padding: 8px 14px; border-radius: 7px; font-size: 13px; cursor: pointer; }
+.ge-page .btn-quiet:hover { color: var(--text-primary); border-color: var(--border-hover); }
+.ge-page .strict-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.ge-page .strict-pill { padding: 7px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border-subtle); background: rgba(255,255,255,0.04); color: var(--text-secondary); cursor: pointer; }
+.ge-page .strict-pill.active { background: rgba(232,116,97,0.18); color: var(--accent-primary); border-color: var(--accent-primary); }
+.ge-page .toggle-switch { width: 38px; height: 22px; border-radius: 999px; background: rgba(255,255,255,0.10); position: relative; flex-shrink: 0; cursor: pointer; transition: background 0.15s; }
+.ge-page .toggle-switch.on { background: var(--accent-primary); }
+.ge-page .toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: white; transition: left 0.15s; }
+.ge-page .toggle-switch.on::after { left: 18px; }
+
+/* Custom Rules sub-page (extends .ge-page) */
+.cr-page .cr-info-card { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 12px 14px; margin-bottom: 22px; font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+.cr-page .cr-info-card strong { color: var(--text-primary); }
+.cr-page .cr-section { margin-bottom: 24px; }
+.cr-page .cr-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.cr-page .cr-section-header .left { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+.cr-page .cr-section-header .left .dot { width: 8px; height: 8px; border-radius: 50%; }
+.cr-page .cr-section-header .left .dot.block { background: var(--color-error); }
+.cr-page .cr-section-header .left .dot.allow { background: var(--color-success); }
+.cr-page .cr-section-header .left.block { color: var(--color-error); }
+.cr-page .cr-section-header .left.allow { color: var(--color-success); }
+.cr-page .cr-section-header .right { font-size: 12px; color: var(--text-tertiary); }
+.cr-page .cr-input-row { display: flex; gap: 6px; margin-bottom: 10px; }
+.cr-page .cr-input-row input { flex: 1; padding: 10px 12px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 7px; font-size: 13px; color: var(--text-primary); font-family: inherit; }
+.cr-page .cr-add-btn { padding: 10px 14px; background: var(--bg-elevated); border: 1px solid var(--border-hover); border-radius: 7px; font-size: 12.5px; font-weight: 600; color: var(--text-primary); cursor: pointer; }
+.cr-page .cr-add-btn:hover { background: var(--bg-card-hover); }
+.cr-page .cr-empty { padding: 14px; border: 1px dashed var(--border-hover); border-radius: 8px; text-align: center; color: var(--text-secondary); font-size: 12.5px; }
+.cr-page .cr-entry-list { display: flex; flex-direction: column; gap: 4px; }
+.cr-page .cr-entry { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; font-size: 13px; color: var(--text-primary); }
+.cr-page .cr-entry .name { flex: 1; }
+.cr-page .cr-entry .type-pill { padding: 1px 7px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 10px; color: var(--text-secondary); text-transform: capitalize; }
+.cr-page .cr-entry .remove { color: var(--text-tertiary); cursor: pointer; font-size: 14px; padding: 2px 6px; }
+.cr-page .cr-entry .remove:hover { color: var(--color-error); }
+
 </style>
 <!-- React + Babel CDN for the Plan tab (May 2026 prototype port — Cloud Design verbatim). -->
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -5129,6 +5202,11 @@ body.theme-effects-warm::after {
         <div style="padding:32px;color:var(--text-tertiary);text-align:center;">Loading planning view…</div>
       </div>
     </div>
+  </div>
+
+  <!-- Page: Weekly Goal full-page editor (May 2026 prototype port) -->
+  <div class="page" id="page-goal-edit">
+    <div id="goal-edit-mount"></div>
   </div>
 
   <!-- Page: Intentions (Spec 3 — renamed from Projects) -->
@@ -6080,6 +6158,7 @@ function navigateTo(pageId) {
   if (page) page.classList.add('active');
   var nav = document.querySelector('[data-page="' + pageId + '"]');
   if (nav) nav.classList.add('active');
+  window.currentPage = pageId;
 
   // Poll consent status when viewing accountability page with pending consent
   if (pageId === 'lock' && settings.consentStatus === 'pending') {
@@ -8860,12 +8939,349 @@ window.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-// Placeholder — full editor lands in C4. For now, log a clear message.
-if (typeof window.openWeeklyGoalEdit !== 'function') {
-  window.openWeeklyGoalEdit = function (id) {
-    console.log('openWeeklyGoalEdit pending C4 implementation; id=', id);
-  };
+// ===== May 2026 prototype port — Weekly Goal full-page editor + Custom Rules =====
+
+let _goalEditReturnTo = 'today';
+
+function openWeeklyGoalEdit(id) {
+  _goalEditReturnTo = (window.currentPage === 'plan' || window.currentPage === 'today')
+    ? window.currentPage : 'today';
+  navigateTo('goal-edit');
+  renderGoalEdit(id);
 }
+window.openWeeklyGoalEdit = openWeeklyGoalEdit;
+
+function closeGoalEdit() {
+  navigateTo(_goalEditReturnTo || 'today');
+}
+window.closeGoalEdit = closeGoalEdit;
+
+function renderGoalEdit(id) {
+  var g = (window._intentionsCache || []).find(function(x){ return x.id === id; });
+  if (!g) {
+    document.getElementById('goal-edit-mount').innerHTML =
+      '<div style="padding:24px;color:var(--text-tertiary);">Goal not found.</div>';
+    return;
+  }
+  var monthly = (window._monthlyGoalsCache || []).find(function(m){ return m.id === g.monthly_goal_id; });
+  var hue = (monthly && monthly.color_hex) ? monthly.color_hex : 'var(--accent-primary)';
+  var intentLen = (g.intent_text || '').length;
+  var blockCount = ((g.mac_websites || []).length) + ((g.mac_bundle_ids || []).length);
+  var allowCount = ((g.allow_websites || []).length) + ((g.allow_bundle_ids || []).length);
+  var monthlyLabel = monthly ? monthly.title : 'No link · standalone';
+  var aiOn = g.ai_scoring_enabled !== false;
+  var status = g.status || 'planned';
+  var strict = g.strictness_preset || 'standard';
+
+  document.getElementById('goal-edit-mount').innerHTML = `
+    <div class="ge-page">
+      <div class="ge-back" onclick="closeGoalEdit()">‹ All Weekly Goals</div>
+
+      <div class="ge-title-row">
+        <input type="text" class="ge-title-input" value="${_escapeHTML(g.name)}" id="ge-title-input">
+        <div class="ge-rename-hint">Click to rename</div>
+      </div>
+
+      <div class="ge-main-card" style="--ge-hue: ${hue};">
+        <div class="gm-header" style="justify-content: space-between;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <h3>What are you working on?</h3>
+            <span class="gm-info" title="Drives local AI relevance scoring for this goal.">ⓘ</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-tertiary); font-weight:700;">AI scoring</span>
+            <div class="toggle-switch ${aiOn ? 'on' : ''}" id="ge-ai-toggle" onclick="this.classList.toggle('on')"></div>
+          </div>
+        </div>
+        <textarea class="gm-textarea" id="ge-intent-text" maxlength="140"
+          placeholder="Describe what you'll be doing — apps, sites, what success looks like."
+          oninput="document.getElementById('ge-intent-counter').textContent = this.value.length + ' / 140'"
+          >${_escapeHTML(g.intent_text || '')}</textarea>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-top:6px;">
+          <div style="font-size:11px; color:var(--text-tertiary);">Only used if AI scoring is on.</div>
+          <div class="gm-counter" id="ge-intent-counter">${intentLen} / 140</div>
+        </div>
+      </div>
+
+      <div class="ge-row" onclick="openGoalCustomRules('${g.id}')" style="--ge-hue: ${hue};">
+        <div class="gm-color-square"></div>
+        <div class="gm-row-title">Custom rules</div>
+        <div class="gm-row-counts">
+          <span class="gm-count"><span class="dot block"></span>${blockCount} blocked</span>
+          <span class="gm-count"><span class="dot allow"></span>${allowCount} allowed</span>
+        </div>
+        <span class="gm-row-chev">›</span>
+      </div>
+
+      <div class="modal-field"><label>Outcome (done looks like)</label>
+        <textarea class="modal-input textarea" id="ge-outcome">${_escapeHTML(g.outcome || '')}</textarea>
+      </div>
+
+      <div class="modal-row">
+        <div class="modal-field"><label>Status</label>
+          <div class="strict-pills" id="ge-status-pills">
+            <span class="strict-pill ${status==='in_progress'?'active':''}" data-value="in_progress">In progress</span>
+            <span class="strict-pill ${status==='planned'?'active':''}" data-value="planned">Planned</span>
+            <span class="strict-pill ${status==='done'?'active':''}" data-value="done">Done</span>
+          </div>
+        </div>
+        <div class="modal-field"><label>For monthly goal</label>
+          <div class="modal-input" id="ge-monthly-picker" style="cursor:pointer;" onclick="openMonthlyGoalPicker('${g.id}')">${_escapeHTML(monthlyLabel)}</div>
+        </div>
+      </div>
+
+      <div class="ge-divider"></div>
+      <div class="ge-advanced-label">Advanced</div>
+
+      <div class="ge-adv-row">
+        <span class="gm-adv-label">Strictness</span>
+        <div class="strict-pills" id="ge-strict-pills">
+          <span class="strict-pill ${strict==='standard'?'active':''}" data-value="standard">Standard</span>
+          <span class="strict-pill ${strict==='strict'?'active':''}" data-value="strict">Strict</span>
+        </div>
+        <span class="gm-adv-label" style="margin-left:30px;">Weekly target</span>
+        <input type="number" class="ge-num-input" id="ge-weekly-target" value="${g.weekly_target_hours || ''}" placeholder="—">
+        <span style="font-size:12px; color:var(--text-tertiary);">hrs / week</span>
+      </div>
+
+      <div class="ge-foot">
+        <button class="ge-delete-link" onclick="deleteWeeklyGoal('${g.id}')">Delete this Weekly Goal</button>
+        <div class="right" style="display:flex; gap:8px;">
+          <button class="btn-quiet" onclick="closeGoalEdit()">Cancel</button>
+          <button class="ge-done-btn" onclick="saveWeeklyGoal('${g.id}')">Done</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.querySelectorAll('#ge-status-pills .strict-pill').forEach(function(p){
+    p.onclick = function() {
+      document.querySelectorAll('#ge-status-pills .strict-pill').forEach(function(x){ x.classList.remove('active'); });
+      p.classList.add('active');
+    };
+  });
+  document.querySelectorAll('#ge-strict-pills .strict-pill').forEach(function(p){
+    p.onclick = function() {
+      document.querySelectorAll('#ge-strict-pills .strict-pill').forEach(function(x){ x.classList.remove('active'); });
+      p.classList.add('active');
+    };
+  });
+}
+window.renderGoalEdit = renderGoalEdit;
+
+function saveWeeklyGoal(id) {
+  var g = (window._intentionsCache || []).find(function(x){ return x.id === id; });
+  if (!g) return;
+  var name = (document.getElementById('ge-title-input').value || '').trim() || g.name;
+  var intentText = document.getElementById('ge-intent-text').value;
+  var outcome = document.getElementById('ge-outcome').value;
+  var statusEl = document.querySelector('#ge-status-pills .strict-pill.active');
+  var status = statusEl ? statusEl.dataset.value : 'planned';
+  var strictEl = document.querySelector('#ge-strict-pills .strict-pill.active');
+  var strictness = strictEl ? strictEl.dataset.value : 'standard';
+  var weeklyTarget = parseFloat(document.getElementById('ge-weekly-target').value);
+  if (isNaN(weeklyTarget)) weeklyTarget = null;
+  var aiOn = document.getElementById('ge-ai-toggle').classList.contains('on');
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({
+      type: 'UPDATE_INTENTION',
+      id: id, version: g.version,
+      name: name,
+      description: g.description || '',
+      color_hex: g.color_hex || null,
+      icon: g.icon || null,
+      mac_websites: g.mac_websites || [],
+      mac_bundle_ids: g.mac_bundle_ids || [],
+      allow_websites: g.allow_websites || [],
+      allow_bundle_ids: g.allow_bundle_ids || [],
+      monthly_goal_id: g.monthly_goal_id || null,
+      week_of: g.week_of || _currentWeekISO(),
+      intent_text: intentText,
+      ai_scoring_enabled: aiOn,
+      outcome: outcome,
+      status: status,
+      weekly_target_hours: weeklyTarget,
+      strictness_preset: strictness,
+    });
+    if (g.strictness_preset && g.strictness_preset !== strictness) {
+      window.webkit.messageHandlers.intentional.postMessage({
+        type: 'UPDATE_INTENTION_STRICTNESS',
+        id: id, to_preset: strictness,
+      });
+    }
+  }
+  if (typeof showToast === 'function') showToast('Saved');
+  closeGoalEdit();
+}
+window.saveWeeklyGoal = saveWeeklyGoal;
+
+function deleteWeeklyGoal(id) {
+  if (!confirm('Delete this weekly goal? Past sessions stay; future sessions become unlinked.')) return;
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({ type: 'DELETE_INTENTION', id: id });
+  }
+  closeGoalEdit();
+}
+window.deleteWeeklyGoal = deleteWeeklyGoal;
+
+function openGoalCustomRules(goalId) {
+  var g = (window._intentionsCache || []).find(function(x){ return x.id === goalId; });
+  if (!g) return;
+  var blocks = ((g.mac_websites || []).map(function(name){ return { name: name, type: 'site' }; }))
+    .concat((g.mac_bundle_ids || []).map(function(name){ return { name: name, type: 'app' }; }));
+  var allows = ((g.allow_websites || []).map(function(name){ return { name: name, type: 'site' }; }))
+    .concat((g.allow_bundle_ids || []).map(function(name){ return { name: name, type: 'app' }; }));
+  function renderEntries(list, kind) {
+    return list.map(function(e){
+      return '<div class="cr-entry">' +
+        '<span class="name">' + _escapeHTML(e.name) + '</span>' +
+        '<span class="type-pill">' + e.type + '</span>' +
+        '<span class="remove" onclick="removeRule(\'' + goalId + '\', \'' + _escapeHTML(e.name).replace(/'/g, "\\'") + '\', \'' + e.type + '\', \'' + kind + '\')">×</span>' +
+      '</div>';
+    }).join('');
+  }
+  document.getElementById('goal-edit-mount').innerHTML = `
+    <div class="ge-page cr-page">
+      <div class="ge-back" onclick="openWeeklyGoalEdit('${goalId}')">‹ ${_escapeHTML(g.name)}</div>
+
+      <div class="ge-title-row" style="margin-bottom:6px;">
+        <div style="font-size:22px; font-weight:700; color: var(--text-primary);">Custom rules</div>
+        <div style="font-size:13px; color:var(--text-tertiary); margin-top:4px;">During <strong>${_escapeHTML(g.name)}</strong> sessions only.</div>
+      </div>
+
+      <div class="cr-info-card">
+        <strong>Most goals don't need custom rules</strong> — AI scoring handles the rest. Add tweaks here only if you want to.
+      </div>
+
+      <div class="cr-section cr-block">
+        <div class="cr-section-header">
+          <span class="left block"><span class="dot block"></span>Block</span>
+          <span class="right">${blocks.length} entries</span>
+        </div>
+        <div class="cr-input-row">
+          <input type="text" placeholder="e.g. slack.com" id="cr-block-input">
+          <button class="cr-add-btn" onclick="addRule('${goalId}', 'block', 'site')">+ Site</button>
+          <button class="cr-add-btn" onclick="addRule('${goalId}', 'block', 'app')">+ App</button>
+        </div>
+        ${blocks.length === 0 ? '<div class="cr-empty">Nothing extra to block.</div>' : '<div class="cr-entry-list">' + renderEntries(blocks, 'block') + '</div>'}
+      </div>
+
+      <div class="cr-section cr-allow">
+        <div class="cr-section-header">
+          <span class="left allow"><span class="dot allow"></span>Allow</span>
+          <span class="right">${allows.length} entries</span>
+        </div>
+        <div class="cr-input-row">
+          <input type="text" placeholder="e.g. github.com" id="cr-allow-input">
+          <button class="cr-add-btn" onclick="addRule('${goalId}', 'allow', 'site')">+ Site</button>
+          <button class="cr-add-btn" onclick="addRule('${goalId}', 'allow', 'app')">+ App</button>
+        </div>
+        ${allows.length === 0 ? '<div class="cr-empty">No allow overrides.</div>' : '<div class="cr-entry-list">' + renderEntries(allows, 'allow') + '</div>'}
+      </div>
+
+      <div class="ge-foot">
+        <div></div>
+        <div class="right" style="display:flex; gap:8px;">
+          <button class="btn-quiet" onclick="openWeeklyGoalEdit('${goalId}')">Done</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+window.openGoalCustomRules = openGoalCustomRules;
+
+function _sendIntentionUpdate(g) {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({
+      type: 'UPDATE_INTENTION',
+      id: g.id, version: g.version,
+      name: g.name, description: g.description || '',
+      color_hex: g.color_hex || null, icon: g.icon || null,
+      mac_websites: g.mac_websites || [], mac_bundle_ids: g.mac_bundle_ids || [],
+      allow_websites: g.allow_websites || [], allow_bundle_ids: g.allow_bundle_ids || [],
+      monthly_goal_id: g.monthly_goal_id || null,
+      week_of: g.week_of || _currentWeekISO(),
+      intent_text: g.intent_text || '', ai_scoring_enabled: g.ai_scoring_enabled !== false,
+      outcome: g.outcome || '', status: g.status || 'planned',
+      weekly_target_hours: g.weekly_target_hours || null,
+      strictness_preset: g.strictness_preset || 'standard',
+    });
+  }
+}
+
+function addRule(goalId, kind, type) {
+  var g = (window._intentionsCache || []).find(function(x){ return x.id === goalId; });
+  if (!g) return;
+  var inputId = (kind === 'block') ? 'cr-block-input' : 'cr-allow-input';
+  var inputEl = document.getElementById(inputId);
+  var val = inputEl ? (inputEl.value || '').trim() : '';
+  if (!val) return;
+  var macField = (type === 'site') ? 'mac_websites' : 'mac_bundle_ids';
+  var allowField = (type === 'site') ? 'allow_websites' : 'allow_bundle_ids';
+  var target = (kind === 'block') ? macField : allowField;
+  g[target] = (g[target] || []).concat([val]);
+  _sendIntentionUpdate(g);
+  openGoalCustomRules(goalId);
+}
+window.addRule = addRule;
+
+function removeRule(goalId, name, type, kind) {
+  var g = (window._intentionsCache || []).find(function(x){ return x.id === goalId; });
+  if (!g) return;
+  var macField = (type === 'site') ? 'mac_websites' : 'mac_bundle_ids';
+  var allowField = (type === 'site') ? 'allow_websites' : 'allow_bundle_ids';
+  var target = (kind === 'block') ? macField : allowField;
+  g[target] = (g[target] || []).filter(function(x){ return x !== name; });
+  _sendIntentionUpdate(g);
+  openGoalCustomRules(goalId);
+}
+window.removeRule = removeRule;
+
+function openMonthlyGoalPicker(goalId) {
+  var monthly = window._monthlyGoalsCache || [];
+  if (monthly.length === 0) {
+    if (confirm('No monthly goals yet. Create one?')) {
+      var title = prompt('Monthly goal title:');
+      if (title) {
+        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+          window.webkit.messageHandlers.intentional.postMessage({
+            type: 'CREATE_MONTHLY_GOAL',
+            title: title,
+            month_of: new Date().toISOString().slice(0,7) + '-01',
+            status: 'planned',
+          });
+        }
+      }
+    }
+    return;
+  }
+  var labels = monthly.map(function(m, i){ return (i + 1) + '. ' + m.title; }).join('\n');
+  var pick = prompt('Link to which monthly goal?\n' + labels + '\n(empty = unlink)');
+  var monthlyGoalId = null;
+  if (pick) {
+    var idx = parseInt(pick, 10) - 1;
+    if (!Number.isNaN(idx) && monthly[idx]) monthlyGoalId = monthly[idx].id;
+  }
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({
+      type: 'LINK_WEEKLY_TO_MONTHLY',
+      intention_id: goalId,
+      monthly_goal_id: monthlyGoalId,
+    });
+  }
+  setTimeout(function(){ renderGoalEdit(goalId); }, 200);
+}
+window.openMonthlyGoalPicker = openMonthlyGoalPicker;
+
+// Receiver: when MainWindow pushes _intentionUpdated, refresh the editor in place.
+window._intentionUpdated = function (updated) {
+  if (updated && updated.id) {
+    window._intentionsCache = (window._intentionsCache || []).map(function(x){
+      return x.id === updated.id ? updated : x;
+    });
+    if (typeof renderNowCard === 'function') renderNowCard();
+    if (window.currentPage === 'goal-edit') renderGoalEdit(updated.id);
+  }
+};
 
 function getEditingBlock() {
   return focusState.blocks.find(function(b) { return b.id === focusState.editingBlockId; });
