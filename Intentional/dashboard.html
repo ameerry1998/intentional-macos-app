@@ -9650,35 +9650,58 @@ function saveNewWeeklyGoal() {
   var weeklyTarget = parseFloat(document.getElementById('ge-weekly-target').value);
   if (isNaN(weeklyTarget)) weeklyTarget = null;
   var aiOn = document.getElementById('ge-ai-toggle').classList.contains('on');
-  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
-    window.webkit.messageHandlers.intentional.postMessage({
-      type: 'CREATE_INTENTION',
-      name: name,
-      description: '',
-      color_hex: null,
-      icon: null,
-      mac_websites: [],
-      mac_bundle_ids: [],
-      allow_websites: [],
-      allow_bundle_ids: [],
-      monthly_goal_id: null,
-      week_of: _currentWeekISO(),
-      intent_text: intentText,
-      ai_scoring_enabled: aiOn,
-      outcome: outcome,
-      status: status,
-      weekly_target_hours: weeklyTarget,
-      strictness_preset: strictness,
-    });
-  }
+  var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional;
+  if (!bridge) { _editingNewGoal = false; closeGoalEdit(); return; }
+
+  // Listen ONCE for the next CREATE mutation result. Avoids the 400ms-timeout
+  // race where GET fires before the backend write commits (the bug user hit).
+  var origCb = window._intentionMutationResult;
+  window._intentionMutationResult = function(res) {
+    window._intentionMutationResult = origCb;
+    if (origCb) { try { origCb(res); } catch (e) {} }
+    if (res && res.status === 'created') {
+      // Refresh the list now that backend has confirmed the write.
+      bridge.postMessage({ type: 'GET_INTENTIONS' });
+      if (typeof showToast === 'function') showToast('Saved');
+    } else {
+      // Roll back UX — reopen editor and surface the error
+      if (typeof showToast === 'function') {
+        showToast((res && res.error) || 'Could not save weekly goal');
+      } else {
+        alert((res && res.error) || 'Could not save weekly goal');
+      }
+    }
+  };
+
+  bridge.postMessage({
+    type: 'CREATE_INTENTION',
+    name: name,
+    description: '',
+    color_hex: null,
+    icon: null,
+    mac_websites: [],
+    mac_bundle_ids: [],
+    allow_websites: [],
+    allow_bundle_ids: [],
+    monthly_goal_id: null,
+    week_of: _currentWeekISO(),
+    intent_text: intentText,
+    ai_scoring_enabled: aiOn,
+    outcome: outcome,
+    status: status,
+    weekly_target_hours: weeklyTarget,
+    strictness_preset: strictness,
+  });
+
   _editingNewGoal = false;
   closeGoalEdit();
-  // Pull the fresh list so the new goal appears immediately.
+
+  // Belt-and-braces fallback in case the mutation callback never fires
+  // (e.g. bridge dropped). Longer than the previous 400ms so the backend
+  // write has time to commit + the response-driven refresh wins under normal conditions.
   setTimeout(function() {
-    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
-      window.webkit.messageHandlers.intentional.postMessage({ type: 'GET_INTENTIONS' });
-    }
-  }, 400);
+    if (bridge) bridge.postMessage({ type: 'GET_INTENTIONS' });
+  }, 2500);
 }
 window.saveNewWeeklyGoal = saveNewWeeklyGoal;
 
@@ -9686,21 +9709,35 @@ function openMonthlyGoalCreate() {
   var title = prompt('Monthly goal title:');
   if (!title) return;
   var outcome = prompt('Outcome / "done looks like":') || '';
-  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
-    window.webkit.messageHandlers.intentional.postMessage({
-      type: 'CREATE_MONTHLY_GOAL',
-      title: title,
-      outcome: outcome,
-      color_hex: null,
-      month_of: new Date().toISOString().slice(0, 7) + '-01',
-      status: 'planned',
-    });
-  }
-  setTimeout(function() {
-    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
-      window.webkit.messageHandlers.intentional.postMessage({ type: 'GET_MONTHLY_GOALS' });
+  var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional;
+  if (!bridge) return;
+
+  // Wait for the create response, then refresh — same pattern as saveNewWeeklyGoal.
+  var origCb = window._monthlyGoalCreated;
+  window._monthlyGoalCreated = function(res) {
+    window._monthlyGoalCreated = origCb;
+    if (origCb) { try { origCb(res); } catch (e) {} }
+    if (res && !res.error) {
+      bridge.postMessage({ type: 'GET_MONTHLY_GOALS' });
+      if (typeof showToast === 'function') showToast('Saved');
+    } else {
+      alert((res && res.error) || 'Could not save monthly goal');
     }
-  }, 400);
+  };
+
+  bridge.postMessage({
+    type: 'CREATE_MONTHLY_GOAL',
+    title: title,
+    outcome: outcome,
+    color_hex: null,
+    month_of: new Date().toISOString().slice(0, 7) + '-01',
+    status: 'planned',
+  });
+
+  // Belt-and-braces fallback if the callback never fires.
+  setTimeout(function() {
+    if (bridge) bridge.postMessage({ type: 'GET_MONTHLY_GOALS' });
+  }, 2500);
 }
 window.openMonthlyGoalCreate = openMonthlyGoalCreate;
 
