@@ -168,3 +168,49 @@ This is net-new scope beyond the original 17 — call it FIX-18, est. ~3–4 hou
 ---
 
 **TL;DR:** Cross-repo log started. Phase 1 planning underway; three plans to write before the user signs off and Phase 2 implementation begins.
+
+---
+
+## FIX-18 Phase 3 + Phase 4 (post-user-feedback, 2026-05-14 ~18:30)
+
+User reported Blocks tab non-functional: "you can't create a new rule... it doesn't actually block anything." Investigation surfaced in `docs/blocks-opal-parity-investigation-2026-05-14.md`. Three root causes:
+1. Quick Action buttons were stubs / no-ops
+2. CRUD modal used `prompt()` which WKWebView silently drops
+3. **Schedule + enabled fields existed on BlockingProfile but nothing read them outside a focus session** — the actual show-stopper
+
+After AskUserQuestion answers (full Opal parity / layered union / snooze-rest-of-window / existing app picker), shipped in successive PKGs:
+
+### Phase 1 (commit 99dd68e) — Enforcement
+- New `Intentional/BlockRuleEnforcer.swift`: 30s ticker that filters `BlockingProfileManager.profiles` to those `enabled && isCurrentlyActive && !snoozed`, unions blocklists, pushes into `WebsiteBlocker.setStandaloneBlocklist` + `FocusMonitor.setStandaloneBlockedBundleIds`
+- Composes with focus-session enforcement via UNION — both layers apply simultaneously
+- Snooze receipts persisted at `~/Library/Application Support/Intentional/block_rule_snoozes.json`
+
+### Phase 2 (commit 0ffd8f1) — Real CRUD modal
+- Replaced `prompt()` chain in `openBlockRuleCreate` / `openBlockRuleEdit` with `.ns-modal-overlay` HTML modal
+- Uses existing `appPickerContext = { onPick, getAddedIds }; showAppPicker('Add app to block')` per user's "use existing picker" instruction
+- Sites textarea + apps list + always-active toggle + time pickers + active-days chips
+
+### Phase 3 (commit cf7be63) — Active-block countdown + snooze
+- ACTIVE cards now show "Ends in Xh Ym" + "Snooze for today" button
+- SNOOZE_BLOCK_RULE / UNSNOOZE_BLOCK_RULE bridge messages → `BlockRuleEnforcer.snoozeForRemainderOfWindow` / `clearSnooze`
+- Snooze releases at the rule's `endHour` (or end-of-day for always-active rules)
+- Payload extended with `is_snoozed`, `snoozed_until` (ISO 8601), `is_in_window` so UI distinguishes snoozed vs out-of-window
+- 30s ticker updates "Ends in X" text without re-rendering
+
+### Phase 4 (commit ed4cd2e) — Opal-parity highlights
+- **Category presets**: Quick-add chips in the create/edit modal (Social / Games / News / Streaming / Shopping) append curated domain lists + auto-fill name if blank
+- **Block Now duration picker**: replaces the silent `TOGGLE_FOCUS_MODE` (which previously failed because the handler requires `on: Bool` in body — fixed). Chips for 15/30/60/90 min + "Until I stop"; picking a duration starts focus session AND schedules JS auto-stop
+- **Pomodoro 25**: now routes through `_startBlockNow(25)` — real 25-min focus session
+
+### Phase 4 deferrals
+The following were named in the user's "Full Opal parity" answer but require non-trivial new infrastructure:
+- **Time Limit per app** (Opal "10 min/day on X"): needs per-app usage tracking + daily reset + reactive enforcement when budget exhausted. Not in this PR.
+- **Open Limit per app** (Opal "5 opens/day on X"): needs launch-event counting per app per day. Not in this PR.
+- **Difficulty modes** (Easy/Medium/Impossible bypass): needs new `bypassPolicy` field on BlockingProfile + UI in modal + enforcement gate at unlock-attempt time. Not in this PR.
+- **Screen Time Today counter** in the Blocks header: would need to wire `TimeTracker.todayTotalMinutes` into the dashboard view. Not in this PR.
+
+These are documented as v2 scope. The current shipped feature set is: real CRUD modal, schedule enforcement, snooze, countdown, category presets, working Block Now, working Pomodoro — i.e. the "actually blocks things on a schedule" core that the user was missing.
+
+---
+
+**TL;DR (FIX-18 Phase 3+4):** Built active-block countdown, snooze for the rest of today's window, app-category quick-add presets, real Block Now duration picker (15/30/60/90/until-I-stop), and real Pomodoro 25. Layered with the existing schedule enforcer. Install latest PKG to test. Time-limits / open-limits / difficulty modes are deferred to a v2 — they need new tracking infra that doesn't exist yet.
