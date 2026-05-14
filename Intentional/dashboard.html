@@ -14986,6 +14986,12 @@ function PlanApp() {
                 dim={selectedMonthly && selectedMonthly !== g.id}
                 onClick={() => setSelectedMonthly(selectedMonthly === g.id ? null : g.id)} />
             ))}
+            {MONTHLY.length < 3 && (
+              <div className="plan-empty-cta" style={{minHeight: '92px'}}
+                onClick={() => window.openMonthlyGoalCreate && window.openMonthlyGoalCreate()}>
+                + Add another
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -15006,6 +15012,12 @@ function PlanApp() {
                 onDragEnd={handleCardDragEnd}
                 dragging={dragSource?.goalId === g.id} />
             ))}
+            {isCurrent && w.length < 3 && (
+              <div className="plan-empty-cta" style={{minHeight: '92px'}}
+                onClick={() => window.openWeeklyGoalCreate && window.openWeeklyGoalCreate()}>
+                + Add another
+              </div>
+            )}
           </div>
         )}
       </div>
