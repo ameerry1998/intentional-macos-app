@@ -423,7 +423,7 @@ body.theme-effects-warm::after {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 28px 8px;
+  padding: 14px 0 8px;  /* was 14px 28px 8px — match the calendar's edge (only .page padding) */
   font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -435,7 +435,7 @@ body.theme-effects-warm::after {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 12px;
-  padding: 0 28px 16px;
+  padding: 0 0 16px;  /* was 0 28px 16px — same alignment fix */
 }
 .wg-card {
   position: relative;
