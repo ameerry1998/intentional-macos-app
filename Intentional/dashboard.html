@@ -4961,6 +4961,26 @@ body.theme-effects-warm::after {
 .cd-plan .tline .block .resize.r { right: 0; }
 .cd-plan .tline .block { cursor: grab; }
 .cd-plan .tline .block.dragging { cursor: grabbing; opacity: 0.85; }
+.cd-plan .tline .block.overlap { outline: 1.5px dashed #fa6464; outline-offset: -1.5px; }
+.cd-plan .tline .block .goal { font: 600 9px var(--font); text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cd-plan .tline .block .ttl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cd-plan .tline-empty-hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--text-3); font: 500 12.5px var(--font); border: 1px dashed var(--line-2); padding: 8px 16px; border-radius: 8px; pointer-events: none; }
+
+/* Weekly card — log time + truncation */
+.cd-plan .wcard .ttl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cd-plan .wcard .out { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cd-plan .wcard-log-btn { background: rgba(255,255,255,0.06); color: var(--text-2); border: 0; padding: 3px 8px; border-radius: 4px; font: 500 11px var(--font); cursor: pointer; }
+.cd-plan .wcard-log-btn:hover { background: rgba(255,255,255,0.14); color: var(--text-1); }
+.cd-plan .wcard-done-btn.reopen { background: rgba(156, 183, 238, 0.14); color: #9cb7ee; border-color: rgba(156, 183, 238, 0.25); }
+.cd-plan .wcard-done-btn.reopen:hover { background: rgba(156, 183, 238, 0.22); }
+
+/* Block context menu */
+.blk-ctx-menu { position: fixed; background: #1a1d22; border: 0.5px solid rgba(255,255,255,0.16); border-radius: 8px; padding: 4px; min-width: 180px; box-shadow: 0 8px 24px rgba(0,0,0,0.45); z-index: 9999; }
+.blk-ctx-menu .ctx-item { padding: 8px 12px; font-size: 12.5px; color: var(--text-primary, #f4f5f6); cursor: pointer; border-radius: 4px; }
+.blk-ctx-menu .ctx-item:hover { background: rgba(255,255,255,0.08); }
+.blk-ctx-menu .ctx-item.danger { color: #fa6464; }
+.blk-ctx-menu .ctx-item.danger:hover { background: rgba(250, 100, 100, 0.12); }
+.blk-ctx-menu .ctx-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 4px 0; }
 .cd-plan .tline.drop-active { background: var(--surface-2); border-radius: var(--r-md); }
 .cd-plan .past-summary { background: var(--surface); border: 0.5px solid var(--line); border-radius: var(--r-md); padding: 14px 18px; display: flex; align-items: center; gap: 28px; }
 .cd-plan .past-summary .stat { font: 500 12px var(--font); color: var(--text-3); display: flex; align-items: baseline; gap: 6px; }
@@ -14798,12 +14818,108 @@ window._commitPlanBlockEdit = function(blockId, patch) {
   });
   var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional;
   if (!bridge) return;
+  // Optimistically update focusState.blocks so the visual sticks even before
+  // the backend round-trip lands. _scheduleStateResult will reconcile when
+  // the push arrives.
+  if (window.focusState) window.focusState.blocks = updated;
   bridge.postMessage({
     type: 'SET_SCHEDULE',
     blocks: updated,
     goals: (window.focusState && window.focusState.goals) || [],
     dailyPlan: (window.focusState && window.focusState.dailyPlan) || '',
   });
+};
+
+// Flaw fix #6: surface commit errors. _scheduleResult receiver fires after
+// SET_SCHEDULE; on failure, refresh from backend to discard the optimistic patch.
+var _origScheduleResult = window._scheduleResult;
+window._scheduleResult = function(res) {
+  if (_origScheduleResult) try { _origScheduleResult(res); } catch (e) {}
+  if (res && res.success === false) {
+    if (typeof showToast === 'function') showToast('Couldn\'t save — reverted', 'error');
+    var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional;
+    if (bridge) bridge.postMessage({ type: 'GET_SCHEDULE_STATE' });
+  }
+};
+
+// Flaw fix #3: right-click context menu on a Plan timeline block.
+window._showBlockContextMenu = function(block, x, y) {
+  var existing = document.getElementById('blk-ctx-menu');
+  if (existing) existing.parentNode.removeChild(existing);
+  var html =
+    '<div id="blk-ctx-menu" class="blk-ctx-menu" style="left:' + x + 'px; top:' + y + 'px;">' +
+      '<div class="ctx-item" onclick="_blkCtxEdit(\'' + _escapeHTML(block.id) + '\')">✎ Edit session…</div>' +
+      (block.intentionId
+        ? '<div class="ctx-item" onclick="_blkCtxUnlink(\'' + _escapeHTML(block.id) + '\')">⊘ Unlink from goal</div>'
+        : '') +
+      '<div class="ctx-divider"></div>' +
+      '<div class="ctx-item danger" onclick="_blkCtxDelete(\'' + _escapeHTML(block.id) + '\')">✕ Delete session</div>' +
+    '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+  // Dismiss on next click outside
+  setTimeout(function() {
+    document.addEventListener('click', _hideBlockContextMenu, { once: true });
+  }, 50);
+};
+window._hideBlockContextMenu = function() {
+  var m = document.getElementById('blk-ctx-menu');
+  if (m) m.parentNode.removeChild(m);
+};
+window._blkCtxEdit = function(blockId) {
+  _hideBlockContextMenu();
+  navigateTo('today');
+  setTimeout(function() {
+    if (typeof window.openBlockEditor === 'function') window.openBlockEditor(blockId, { clientX: 500, clientY: 300 });
+  }, 250);
+};
+window._blkCtxUnlink = function(blockId) {
+  _hideBlockContextMenu();
+  var blocks = (window.focusState && window.focusState.blocks) || [];
+  var updated = blocks.map(function(b) {
+    if (b.id !== blockId) return b;
+    var copy = Object.assign({}, b);
+    delete copy.intentionId;
+    return copy;
+  });
+  if (window.focusState) window.focusState.blocks = updated;
+  var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional;
+  if (bridge) {
+    bridge.postMessage({
+      type: 'SET_SCHEDULE', blocks: updated,
+      goals: (window.focusState && window.focusState.goals) || [],
+      dailyPlan: (window.focusState && window.focusState.dailyPlan) || '',
+    });
+    if (typeof showToast === 'function') showToast('Unlinked');
+  }
+};
+window._blkCtxDelete = function(blockId) {
+  _hideBlockContextMenu();
+  if (!confirm('Delete this scheduled session?')) return;
+  var blocks = (window.focusState && window.focusState.blocks) || [];
+  var updated = blocks.filter(function(b) { return b.id !== blockId; });
+  if (window.focusState) window.focusState.blocks = updated;
+  var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional;
+  if (bridge) {
+    bridge.postMessage({
+      type: 'SET_SCHEDULE', blocks: updated,
+      goals: (window.focusState && window.focusState.goals) || [],
+      dailyPlan: (window.focusState && window.focusState.dailyPlan) || '',
+    });
+    if (typeof showToast === 'function') showToast('Deleted');
+  }
+};
+
+// Flaw fix #2: openNewSessionModal — quick session creation at a given hour.
+// Reuses existing "New session" modal if present; otherwise navigates to Today
+// and lets the user click an empty hour there.
+window.openNewSessionModal = window.openNewSessionModal || function(startHour) {
+  // Defer to Today tab's existing empty-hour click handler.
+  navigateTo('today');
+  setTimeout(function() {
+    if (typeof window.openNewBlockDraft === 'function') {
+      window.openNewBlockDraft({ startHour: Math.floor(startHour) });
+    }
+  }, 250);
 };
 
 const fmtStatus = (s) => s.replace('-', ' ');
@@ -14906,22 +15022,27 @@ function WeeklyCard({ g, monthly, dim, onDragStart, onDragEnd, dragging }) {
         <span className={`status ${g.status}`}>{fmtStatus(g.status)}</span>
         {!parent && <span className="status unlinked">· unlinked</span>}
         <span style={{ flex: 1 }} />
-        {g.status !== 'done' && (
+        <button className="wcard-log-btn"
+          onClick={(e) => { e.stopPropagation(); window.openLogTimeModal && window.openLogTimeModal(g.id); }}
+          title="Log time you spent on this goal">⏱</button>
+        {g.status === 'done' ? (
+          <button className="wcard-done-btn reopen"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (window.webkit?.messageHandlers?.intentional) {
+                window.webkit.messageHandlers.intentional.postMessage({
+                  type: 'UPDATE_INTENTION', id: g.id, status: 'in_progress',
+                  version: (window._intentionsCache || []).find(x => x.id === g.id)?.version || 1,
+                });
+                if (typeof showToast === 'function') showToast('Reopened');
+              }
+            }}
+            title="Reopen this goal">↺ Reopen</button>
+        ) : (
           <button className="wcard-done-btn" onClick={markDone} title="Mark this goal as done">✓ Done</button>
         )}
-        {/* Drag grip — works for both linked AND unlinked goals. Unlinked goals
-            use the accent color as a fallback hue. */}
-        <span
-          className="wcard-grip"
-          draggable
-          onDragStart={(e) => {
-            e.stopPropagation();
-            const hue = parent ? parent.hue : 'var(--accent-primary)';
-            onDragStart(g, { hue }, e);
-          }}
-          onDragEnd={onDragEnd}
-          onClick={(e) => e.stopPropagation()}
-          title="Drag to schedule">⋮⋮</span>
+        {/* Visual grip (still draggable as fallback if user prefers small target). */}
+        <span className="wcard-grip" title="Drag the whole card to schedule">⋮⋮</span>
       </div>
     </div>
   );
@@ -15025,9 +15146,23 @@ function TimelineBlock({ block, onChange, onCommit }) {
       }
     }, 250);
   };
+  // Linked-goal title: when block.intentionId is set, show the goal name as
+  // a prominent secondary label so the user can see WHAT this session is for.
+  const linkedGoal = block.intentionId
+    ? (window._intentionsCache || []).find(g => g.id === block.intentionId)
+    : null;
+  // Right-click context menu — Edit / Delete / Unlink goal.
+  const handleContextMenu = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (typeof window._showBlockContextMenu === 'function') {
+      window._showBlockContextMenu(block, e.clientX, e.clientY);
+    }
+  };
   return (
-    <div ref={elRef} className={`block${dragging ? ' dragging' : ''}`}
+    <div ref={elRef} className={`block${dragging ? ' dragging' : ''}${block._overlap ? ' overlap' : ''}`}
       onClick={handleClick}
+      onContextMenu={handleContextMenu}
+      title={linkedGoal ? `${linkedGoal.name} · ${block.title}` : block.title}
       style={{
         left: hrPct(block.start) + '%',
         width: (hrPct(block.end) - hrPct(block.start)) + '%',
@@ -15035,6 +15170,7 @@ function TimelineBlock({ block, onChange, onCommit }) {
         '--blk-fg': HEX[block.hue] || block.hue,
       }}>
       <div className="resize l" title="Drag to change start time" />
+      {linkedGoal && <div className="goal">{linkedGoal.name}</div>}
       <div className="ttl">{block.title}</div>
       <div className="tm">{fmtHr(block.start)}–{fmtHr(block.end)} · {fmtDur(block.end - block.start)}</div>
       <div className="resize r" title="Drag to change end time" />
@@ -15097,6 +15233,22 @@ function TimelineStrip({ blocks, setBlocks, isDragOverFromCard, onDrop }) {
     onDrop({ start, end });
   };
 
+  // Flaw fix: click empty area on the timeline → open the new-session modal
+  // pre-filled with that time. Ignores clicks on existing blocks (they handle
+  // their own click). Allows quick session creation without a goal drag.
+  const handleEmptyClick = (e) => {
+    if (e.target.closest && e.target.closest('.block')) return;
+    const tl = tlRef.current;
+    if (!tl) return;
+    const r = tl.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const hr = snap(DAY_START + (x / r.width) * (DAY_END - DAY_START));
+    const start = Math.max(DAY_START, Math.min(DAY_END - 1, hr));
+    if (typeof window.openNewSessionModal === 'function') {
+      window.openNewSessionModal(start);
+    }
+  };
+
   const hours = [];
   for (let h = DAY_START; h <= DAY_END; h += 2) hours.push(h);
 
@@ -15132,7 +15284,13 @@ function TimelineStrip({ blocks, setBlocks, isDragOverFromCard, onDrop }) {
         <div ref={tlScrollRef} className="tline-scroll">
           <div ref={tlRef}
             className={`tline${hover ? ' drop-active' : ''}`}
+            onClick={handleEmptyClick}
             style={{ width: (100 * zoom) + '%', minWidth: '100%' }}>
+            {blocks.length === 0 && (
+              <div className="tline-empty-hint">
+                Drag a weekly goal here, or click to add a session
+              </div>
+            )}
             {hours.map(h => (
               <React.Fragment key={h}>
                 <div className="hour" style={{ left: hrPct(h) + '%' }} />
@@ -15214,9 +15372,23 @@ function PlanApp() {
       };
     });
   }, []);
-  const [blocks, setBlocks] = React.useState(deriveBlocks);
+  // Flag overlap: any block whose [start,end) intersects another's gets ._overlap=true
+  const flagOverlaps = (bs) => {
+    const sorted = [...bs].sort((a, b) => a.start - b.start);
+    for (let i = 0; i < sorted.length; i++) sorted[i]._overlap = false;
+    for (let i = 0; i < sorted.length; i++) {
+      for (let j = i + 1; j < sorted.length; j++) {
+        if (sorted[j].start < sorted[i].end) {
+          sorted[i]._overlap = true;
+          sorted[j]._overlap = true;
+        }
+      }
+    }
+    return sorted;
+  };
+  const [blocks, setBlocks] = React.useState(() => flagOverlaps(deriveBlocks()));
   React.useEffect(() => {
-    setBlocks(deriveBlocks());
+    setBlocks(flagOverlaps(deriveBlocks()));
   }, [scheduleSeed, seed, deriveBlocks]);
   const [dragSource, setDragSource] = React.useState(null);
 
