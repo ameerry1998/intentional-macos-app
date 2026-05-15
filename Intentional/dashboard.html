@@ -14707,6 +14707,46 @@ window._intentionHoursDoneResult = function(payload) {
     if (typeof window._planAppRefresh === 'function') window._planAppRefresh();
     if (typeof renderNowCard === 'function') renderNowCard();
   }
+  // Flaw #18: auto-status — if hours_done >= weekly_target_hours, bump status to 'done'.
+  // Only fires when status is currently planned/in_progress (don't downgrade 'done' back).
+  if (hit && hit.weekly_target_hours && payload.hours_done >= hit.weekly_target_hours
+      && hit.status !== 'done') {
+    var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional;
+    if (bridge) {
+      bridge.postMessage({
+        type: 'UPDATE_INTENTION', id: hit.id, status: 'done',
+        version: hit.version || 1,
+      });
+      hit.status = 'done'; // optimistic
+      if (typeof showToast === 'function') showToast('🎉 Goal reached: ' + hit.name);
+    }
+  }
+};
+
+// Commit a Plan-timeline block edit (drag-to-move/resize) back to the backend.
+// Rebuilds the full schedule (since SET_SCHEDULE replaces the whole day) with
+// the patched block, then fires SET_SCHEDULE — _scheduleStateResult pushes back.
+window._commitPlanBlockEdit = function(blockId, patch) {
+  var blocks = (window.focusState && window.focusState.blocks) || [];
+  var updated = blocks.map(function(b) {
+    if (b.id !== blockId) return b;
+    var startHour = Math.floor(patch.start);
+    var startMinute = Math.round((patch.start % 1) * 60);
+    var endHour = Math.floor(patch.end);
+    var endMinute = Math.round((patch.end % 1) * 60);
+    return Object.assign({}, b, {
+      startHour: startHour, startMinute: startMinute,
+      endHour: endHour, endMinute: endMinute,
+    });
+  });
+  var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional;
+  if (!bridge) return;
+  bridge.postMessage({
+    type: 'SET_SCHEDULE',
+    blocks: updated,
+    goals: (window.focusState && window.focusState.goals) || [],
+    dailyPlan: (window.focusState && window.focusState.dailyPlan) || '',
+  });
 };
 
 const fmtStatus = (s) => s.replace('-', ' ');
@@ -14841,9 +14881,10 @@ const fmtDur = (hrs) => {
 const snap = (h) => Math.round(h * 4) / 4;
 const hrPct = (h) => ((h - DAY_START) / (DAY_END - DAY_START)) * 100;
 
-function TimelineBlock({ block, onChange }) {
+function TimelineBlock({ block, onChange, onCommit }) {
   const elRef = React.useRef(null);
   const [dragging, setDragging] = React.useState(false);
+  const lastPatchRef = React.useRef(null);
 
   React.useEffect(() => {
     const el = elRef.current;
@@ -14883,6 +14924,7 @@ function TimelineBlock({ block, onChange }) {
         ne = Math.max(block.start + 0.25, Math.min(DAY_END, ne));
         next = { ...startBlock, start: startBlock.start, end: ne };
       }
+      lastPatchRef.current = next;
       onChange(next);
     }
     function up() {
@@ -14890,10 +14932,15 @@ function TimelineBlock({ block, onChange }) {
       setDragging(false);
       document.removeEventListener('mousemove', move);
       document.removeEventListener('mouseup', up);
+      // Persist via backend on commit (single source of truth).
+      if (lastPatchRef.current && typeof onCommit === 'function') {
+        onCommit(block.id, lastPatchRef.current);
+        lastPatchRef.current = null;
+      }
     }
     el.addEventListener('mousedown', down);
     return () => el.removeEventListener('mousedown', down);
-  }, [block, onChange]);
+  }, [block, onChange, onCommit]);
 
   return (
     <div ref={elRef} className={`block${dragging ? ' dragging' : ''}`}
@@ -14991,7 +15038,8 @@ function TimelineStrip({ blocks, setBlocks, isDragOverFromCard, onDrop }) {
           )}
           {blocks.map((b) => (
             <TimelineBlock key={b.id} block={b}
-              onChange={(patch) => setBlocks(prev => prev.map(x => x.id === b.id ? { ...x, ...patch } : x))} />
+              onChange={(patch) => setBlocks(prev => prev.map(x => x.id === b.id ? { ...x, ...patch } : x))}
+              onCommit={(id, patch) => window._commitPlanBlockEdit && window._commitPlanBlockEdit(id, patch)} />
           ))}
         </div>
       </div>
@@ -15216,16 +15264,26 @@ function PlanApp() {
         </div>
       )}
 
-      {isPast && (
-        <div>
-          <div className="eyebrow">Last week summary</div>
-          <div className="past-summary">
-            <div className="stat success"><b>{w.filter(x => x.status === 'done').length}</b><span>done</span></div>
-            <div className="stat error"><b>{w.filter(x => x.status === 'slipped').length}</b><span>slipped</span></div>
-            <div className="stat"><b>{w.filter(x => x.status === 'dropped').length}</b><span>dropped</span></div>
+      {isPast && (() => {
+        // Real metrics, not just status counts: total goals, hours done across all,
+        // and how many hit their weekly_target. Sourced from the live cache so it
+        // reflects the latest hours_done aggregation.
+        const totalGoals = w.length;
+        const totalHours = w.reduce((s, x) => s + (x.hoursDone || 0), 0);
+        const hitTarget = w.filter(x => x.target > 0 && (x.hoursDone || 0) >= x.target).length;
+        const explicitDone = w.filter(x => x.status === 'done').length;
+        return (
+          <div>
+            <div className="eyebrow">Last week summary</div>
+            <div className="past-summary">
+              <div className="stat"><b>{totalGoals}</b><span>goals</span></div>
+              <div className="stat success"><b>{Math.round(totalHours * 10) / 10}h</b><span>focused</span></div>
+              <div className="stat success"><b>{Math.max(hitTarget, explicitDone)}</b><span>done</span></div>
+              <div className="stat error"><b>{totalGoals - Math.max(hitTarget, explicitDone)}</b><span>incomplete</span></div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
