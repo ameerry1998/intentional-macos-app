@@ -6330,7 +6330,7 @@ function stopActiveSession() {
   // Confirm to prevent accidental session-kill.
   if (!confirm('Stop the current focus session?')) return;
   if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
-    window.webkit.messageHandlers.intentional.postMessage({ type: 'TOGGLE_FOCUS_MODE', on: false });
+    window.webkit.messageHandlers.intentional.postMessage({ type: 'FOCUS_MODE_TOGGLE', on: false });
   }
   if (typeof showToast === 'function') showToast('Session stopped');
 }
@@ -10039,7 +10039,7 @@ window._closeBlockNowModal = _closeBlockNowModal;
 function _startBlockNow(minutes) {
   _closeBlockNowModal();
   if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
-    window.webkit.messageHandlers.intentional.postMessage({ type: 'TOGGLE_FOCUS_MODE', on: true });
+    window.webkit.messageHandlers.intentional.postMessage({ type: 'FOCUS_MODE_TOGGLE', on: true });
   }
   if (minutes > 0) {
     // Schedule auto-stop. Persisted in window so a re-render preserves it; if the page
@@ -10048,7 +10048,7 @@ function _startBlockNow(minutes) {
     if (window._blockNowAutoStopTimer) clearTimeout(window._blockNowAutoStopTimer);
     window._blockNowAutoStopTimer = setTimeout(function() {
       if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
-        window.webkit.messageHandlers.intentional.postMessage({ type: 'TOGGLE_FOCUS_MODE', on: false });
+        window.webkit.messageHandlers.intentional.postMessage({ type: 'FOCUS_MODE_TOGGLE', on: false });
       }
       if (typeof showToast === 'function') showToast('Block session complete');
     }, minutes * 60 * 1000);
