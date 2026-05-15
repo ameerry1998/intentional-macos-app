@@ -4908,6 +4908,14 @@ body.theme-effects-warm::after {
 .cd-plan .wcard .ttl { font: 600 14px/1.3 var(--font); color: var(--text-1); }
 .cd-plan .wcard .out { font: 12px/1.4 var(--font); color: var(--text-3); }
 .cd-plan .wcard .foot { margin-top: auto; padding-top: 4px; font: 500 11.5px var(--font); color: var(--text-3); display: flex; align-items: center; gap: 6px; }
+.cd-plan .wcard-progress { margin-top: 6px; }
+.cd-plan .wcard-progress-bar { height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+.cd-plan .wcard-progress-fill { height: 100%; background: var(--hue, var(--accent-primary)); transition: width 200ms ease; }
+.cd-plan .wcard-progress-lbl { font: 500 10.5px var(--font); color: var(--text-3); margin-top: 3px; }
+.cd-plan .wcard-done-btn { background: rgba(74, 222, 128, 0.12); color: #4ade80; border: 0.5px solid rgba(74, 222, 128, 0.25); padding: 3px 8px; border-radius: 4px; font: 500 10.5px var(--font); cursor: pointer; transition: background 120ms ease; }
+.cd-plan .wcard-done-btn:hover { background: rgba(74, 222, 128, 0.22); }
+.cd-plan .back-to-week { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; background: rgba(243, 139, 92, 0.14); color: var(--accent-primary); font: 500 12px var(--font); cursor: pointer; margin-left: 8px; border: 0; }
+.cd-plan .back-to-week:hover { background: rgba(243, 139, 92, 0.22); }
 .cd-plan .status { font-weight: 500; }
 .cd-plan .status.in-progress { color: var(--status-info); font-weight: 600; }
 .cd-plan .status.planned    { color: var(--text-3); }
@@ -10597,6 +10605,9 @@ window._scheduleStateResult = function(data) {
   focusDirty = false;
   renderFocusPage();
   renderCalendar();
+  // Plan tab's timeline strip subscribes to schedule updates via this hook
+  // so dragging a goal onto Today auto-creates a session that appears on Plan.
+  if (typeof window._planScheduleRefresh === 'function') window._planScheduleRefresh();
   updateDateNavUI();
   loadFocusScore();
   loadEarnedStatus();
@@ -14658,10 +14669,31 @@ function buildWeeklyMap(intentionsCache) {
       outcome: i.outcome || '',
       linksTo: i.monthly_goal_id || null,
       status: (i.status || 'planned').replace('_', '-'),
+      // Goal-hours fields: hoursDone is summed by the backend or aggregated client-side
+      // (computeHoursDoneForGoal). target comes straight from weekly_target_hours.
+      target: i.weekly_target_hours || null,
+      hoursDone: (typeof i.hours_done === 'number') ? i.hours_done : computeHoursDoneForGoal(i.id),
     });
   });
   return map;
 }
+
+// Client-side fallback: sum durations of all backend FocusBlocks whose intentionId
+// matches goalId AND whose date is today (or any in current week). Until the backend
+// /intentions/{id}/hours_done endpoint ships, this gives a real "h done" number
+// derived from today's scheduled sessions in focusState.blocks.
+function computeHoursDoneForGoal(goalId) {
+  var blocks = (window.focusState && window.focusState.blocks) || [];
+  var total = 0;
+  blocks.forEach(function(b) {
+    if (b.intentionId !== goalId) return;
+    var start = (b.startHour || 0) + (b.startMinute || 0) / 60;
+    var end   = (b.endHour   || 0) + (b.endMinute   || 0) / 60;
+    if (end > start) total += (end - start);
+  });
+  return total > 0 ? Math.round(total * 10) / 10 : 0;
+}
+window.computeHoursDoneForGoal = computeHoursDoneForGoal;
 
 const fmtStatus = (s) => s.replace('-', ' ');
 
@@ -14716,6 +14748,23 @@ function WeeklyCard({ g, monthly, dim, onDragStart, onDragEnd, dragging }) {
   const openEdit = () => {
     if (window.openWeeklyGoalEdit) window.openWeeklyGoalEdit(g.id);
   };
+  const markDone = (e) => {
+    e.stopPropagation();
+    if (g.status === 'done') return;
+    if (window.webkit?.messageHandlers?.intentional) {
+      window.webkit.messageHandlers.intentional.postMessage({
+        type: 'UPDATE_INTENTION',
+        id: g.id,
+        status: 'done',
+        version: (window._intentionsCache || []).find(x => x.id === g.id)?.version || 1,
+      });
+      if (typeof showToast === 'function') showToast('Marked done');
+    }
+  };
+  // Progress: hoursDone / target. Render a bar + label if a target is set.
+  const target = g.target || 0;
+  const done = g.hoursDone || 0;
+  const pct = target > 0 ? Math.min(100, Math.round((done / target) * 100)) : 0;
   return (
     <div className={`wcard${dim ? ' dim' : ''}${!parent ? ' unlinked' : ''}${dragging ? ' dragging' : ''}`}
       onClick={openEdit}
@@ -14723,9 +14772,21 @@ function WeeklyCard({ g, monthly, dim, onDragStart, onDragEnd, dragging }) {
       {parent && <span className="edge" />}
       <div className="ttl">{g.title}</div>
       <div className="out">{g.outcome}</div>
+      {target > 0 && (
+        <div className="wcard-progress">
+          <div className="wcard-progress-bar">
+            <div className="wcard-progress-fill" style={{ width: pct + '%' }} />
+          </div>
+          <div className="wcard-progress-lbl">{done}h / {target}h</div>
+        </div>
+      )}
       <div className="foot">
         <span className={`status ${g.status}`}>{fmtStatus(g.status)}</span>
         {!parent && <span className="status unlinked">· unlinked</span>}
+        <span style={{ flex: 1 }} />
+        {g.status !== 'done' && (
+          <button className="wcard-done-btn" onClick={markDone} title="Mark this goal as done">✓ Done</button>
+        )}
         {parent && (
           <span
             className="wcard-grip"
@@ -14740,9 +14801,15 @@ function WeeklyCard({ g, monthly, dim, onDragStart, onDragEnd, dragging }) {
   );
 }
 
-const DAY_START = 8;
-const DAY_END   = 20;
-const NOW_HOUR  = 11.7;
+// Plan timeline visible range. Was 8–20 hardcoded; widened to 6–23 so early
+// workouts + late work both fit. The NOW indicator is a live wall-clock value
+// (see PlanApp's _useWallClock hook), not a frozen constant.
+const DAY_START = 6;
+const DAY_END   = 23;
+function _wallClockHour() {
+  const d = new Date();
+  return d.getHours() + d.getMinutes() / 60;
+}
 
 const fmtHr = (h) => {
   const hh = Math.floor(h), mm = Math.round((h - hh) * 60);
@@ -14835,6 +14902,13 @@ function TimelineStrip({ blocks, setBlocks, isDragOverFromCard, onDrop }) {
   const [hover, setHover] = React.useState(false);
   const tlRef = React.useRef(null);
 
+  // Wall-clock NOW indicator — re-renders every 30s so the line drifts in real time.
+  const [nowHour, setNowHour] = React.useState(_wallClockHour());
+  React.useEffect(() => {
+    const t = setInterval(() => setNowHour(_wallClockHour()), 30000);
+    return () => clearInterval(t);
+  }, []);
+
   const total = blocks.reduce((s, b) => s + (b.end - b.start), 0);
   const emptyText = 'No sessions planned · drag weekly goals here';
   const summaryText = blocks.length === 0
@@ -14898,7 +14972,9 @@ function TimelineStrip({ blocks, setBlocks, isDragOverFromCard, onDrop }) {
               <div className="hour-lbl" style={{ left: hrPct(h) + '%' }}>{fmtHr(h)}</div>
             </React.Fragment>
           ))}
-          <div className="nowline" style={{ left: hrPct(NOW_HOUR) + '%' }} />
+          {nowHour >= DAY_START && nowHour <= DAY_END && (
+            <div className="nowline" style={{ left: hrPct(nowHour) + '%' }} />
+          )}
           {blocks.map((b) => (
             <TimelineBlock key={b.id} block={b}
               onChange={(patch) => setBlocks(prev => prev.map(x => x.id === b.id ? { ...x, ...patch } : x))} />
@@ -14942,11 +15018,34 @@ function PlanApp() {
     }
   }, [weekId]);
 
-  const [blocks, setBlocks] = React.useState([
-    { id: 'b1', title: 'Record 3 demo videos', hue: 'var(--hue-1)', start: 9, end: 10.5 },
-  ]);
+  // Plan timeline blocks: derived from real ScheduleManager data (focusState.blocks)
+  // — was hardcoded with a fake "Record..." block. `scheduleSeed` bumps when
+  // _scheduleStateResult lands, causing this to recompute.
+  const [scheduleSeed, setScheduleSeed] = React.useState(0);
+  React.useEffect(() => {
+    window._planScheduleRefresh = () => setScheduleSeed(s => s + 1);
+    return () => { window._planScheduleRefresh = null; };
+  }, []);
+  const blocks = React.useMemo(() => {
+    const raw = (window.focusState && window.focusState.blocks) || [];
+    return raw.map(b => {
+      const start = (b.startHour || 0) + (b.startMinute || 0) / 60;
+      const end   = (b.endHour   || 0) + (b.endMinute   || 0) / 60;
+      // Color by linked Intention's monthly goal hue if available, else neutral.
+      const goal = (window._intentionsCache || []).find(g => g.id === b.intentionId);
+      const monthly = goal && (window._monthlyGoalsCache || []).find(m => m.id === goal.monthly_goal_id);
+      const hue = (monthly && monthly.color_hex) ? monthly.color_hex : 'var(--accent-primary)';
+      return {
+        id: b.id,
+        title: b.title || 'Session',
+        intentionId: b.intentionId || null,
+        start, end, hue,
+      };
+    });
+  }, [scheduleSeed, seed]);
+  // setBlocks is no-op for the Plan strip — backend round-trip is the only writer.
+  const setBlocks = () => {};
   const [dragSource, setDragSource] = React.useState(null);
-  const nextBlockId = React.useRef(2);
 
   const w = WEEKLY[weekId] || [];
   const currentWeek = WEEKS.find(x => x.id === weekId);
@@ -14961,15 +15060,10 @@ function PlanApp() {
   const handleCardDragEnd = () => setDragSource(null);
   const handleDropOnTimeline = ({ start, end }) => {
     if (!dragSource) return;
-    setBlocks(prev => [...prev, {
-      id: 'b' + (nextBlockId.current++),
-      title: dragSource.title,
-      hue: dragSource.hue,
-      start, end,
-    }]);
-    // Persist to backend so the session shows up on Today + on iOS.
-    // FIX-2: CREATE_SCHEDULED_SESSION builds a real FocusBlock; the receiver
-    // refreshes Today's calendar via window._scheduleStateResult.
+    // Backend is the single source of truth. CREATE_SCHEDULED_SESSION builds
+    // the real FocusBlock + persists to /time_blocks; _scheduleStateResult
+    // pushes back, _planScheduleRefresh re-derives `blocks`, the new session
+    // appears on this strip and on the Today calendar simultaneously.
     if (window.webkit?.messageHandlers?.intentional) {
       window.webkit.messageHandlers.intentional.postMessage({
         type: 'CREATE_SCHEDULED_SESSION',
@@ -14980,6 +15074,7 @@ function PlanApp() {
         end_minute: Math.round((end % 1) * 60),
         start_date: new Date().toISOString().slice(0, 10),
       });
+      if (typeof showToast === 'function') showToast('Scheduling…');
     }
     setDragSource(null);
   };
@@ -15035,7 +15130,12 @@ function PlanApp() {
       </div>
 
       {isPast && (
-        <div className="readonly"><b>Read-only</b> · past week</div>
+        <div className="readonly">
+          <b>Read-only</b> · past week
+          <button className="back-to-week" onClick={() => setWeekId(_currentISOMonday())}>
+            ← Back to this week
+          </button>
+        </div>
       )}
 
       <div>

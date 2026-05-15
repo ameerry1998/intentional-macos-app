@@ -949,7 +949,7 @@ class ScheduleManager {
     var todayBlockCount: Int { todaySchedule?.blocks.count ?? 0 }
 
     private func blockToDict(_ block: FocusBlock) -> [String: Any] {
-        return [
+        var d: [String: Any] = [
             "id": block.id,
             "title": block.title,
             "description": block.description,
@@ -961,6 +961,10 @@ class ScheduleManager {
             "isFree": block.isFree,  // backwards compat for extension
             "ignoreProfile": block.ignoreProfile
         ]
+        if let intentionId = block.intentionId {
+            d["intentionId"] = intentionId.uuidString
+        }
+        return d
     }
 
     static func todayString() -> String {
