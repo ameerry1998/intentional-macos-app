@@ -14894,15 +14894,19 @@ function WeeklyCard({ g, monthly, dim, onDragStart, onDragEnd, dragging }) {
         {g.status !== 'done' && (
           <button className="wcard-done-btn" onClick={markDone} title="Mark this goal as done">✓ Done</button>
         )}
-        {parent && (
-          <span
-            className="wcard-grip"
-            draggable
-            onDragStart={(e) => { e.stopPropagation(); onDragStart(g, parent, e); }}
-            onDragEnd={onDragEnd}
-            onClick={(e) => e.stopPropagation()}
-            title="Drag to schedule">⋮⋮</span>
-        )}
+        {/* Drag grip — works for both linked AND unlinked goals. Unlinked goals
+            use the accent color as a fallback hue. */}
+        <span
+          className="wcard-grip"
+          draggable
+          onDragStart={(e) => {
+            e.stopPropagation();
+            const hue = parent ? parent.hue : 'var(--accent-primary)';
+            onDragStart(g, { hue }, e);
+          }}
+          onDragEnd={onDragEnd}
+          onClick={(e) => e.stopPropagation()}
+          title="Drag to schedule">⋮⋮</span>
       </div>
     </div>
   );
