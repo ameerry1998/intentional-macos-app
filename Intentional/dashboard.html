@@ -4954,9 +4954,13 @@ body.theme-effects-warm::after {
 .cd-plan .tline .block.dragging { cursor: grabbing; box-shadow: 0 6px 18px rgba(0,0,0,0.18); z-index: 5; }
 .cd-plan .tline .block .ttl { font: 600 11px/1.2 var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cd-plan .tline .block .tm  { font: 500 10px var(--font); opacity: 0.85; margin-top: 1px; font-variant-numeric: tabular-nums; }
-.cd-plan .tline .block .resize { position: absolute; top: 0; bottom: 0; width: 6px; cursor: ew-resize; }
+.cd-plan .tline .block .resize { position: absolute; top: 4px; bottom: 4px; width: 8px; cursor: ew-resize; background: rgba(255,255,255,0); border-radius: 2px; transition: background 120ms ease; }
+.cd-plan .tline .block:hover .resize { background: rgba(255,255,255,0.18); }
+.cd-plan .tline .block .resize:hover { background: var(--accent-primary) !important; }
 .cd-plan .tline .block .resize.l { left: 0; }
 .cd-plan .tline .block .resize.r { right: 0; }
+.cd-plan .tline .block { cursor: grab; }
+.cd-plan .tline .block.dragging { cursor: grabbing; opacity: 0.85; }
 .cd-plan .tline.drop-active { background: var(--surface-2); border-radius: var(--r-md); }
 .cd-plan .past-summary { background: var(--surface); border: 0.5px solid var(--line); border-radius: var(--r-md); padding: 14px 18px; display: flex; align-items: center; gap: 28px; }
 .cd-plan .past-summary .stat { font: 500 12px var(--font); color: var(--text-3); display: flex; align-items: baseline; gap: 6px; }
@@ -14868,14 +14872,25 @@ function WeeklyCard({ g, monthly, dim, onDragStart, onDragEnd, dragging }) {
       if (typeof showToast === 'function') showToast('Marked done');
     }
   };
+  // The entire card is now the drag handle. Click still opens editor —
+  // HTML5 DnD distinguishes a click from a drag automatically (click fires
+  // when the mouse hasn't moved past a threshold).
+  const handleCardDragStart = (e) => {
+    const hue = parent ? parent.hue : 'var(--accent-primary)';
+    onDragStart(g, { hue }, e);
+  };
   // Progress: hoursDone / target. Render a bar + label if a target is set.
   const target = g.target || 0;
   const done = g.hoursDone || 0;
   const pct = target > 0 ? Math.min(100, Math.round((done / target) * 100)) : 0;
   return (
     <div className={`wcard${dim ? ' dim' : ''}${!parent ? ' unlinked' : ''}${dragging ? ' dragging' : ''}`}
+      draggable
+      onDragStart={handleCardDragStart}
+      onDragEnd={onDragEnd}
       onClick={openEdit}
-      style={{ '--hue': parent ? parent.hue : 'transparent', cursor: 'pointer' }}>
+      style={{ '--hue': parent ? parent.hue : 'transparent', cursor: 'grab' }}
+      title="Drag onto the timeline below to schedule a session">
       {parent && <span className="edge" />}
       <div className="ttl">{g.title}</div>
       <div className="out">{g.outcome}</div>
@@ -14999,18 +15014,30 @@ function TimelineBlock({ block, onChange, onCommit }) {
     return () => el.removeEventListener('mousedown', down);
   }, [block, onChange, onCommit]);
 
+  // Click without drag → jump to Today tab and open this block's editor
+  // in the real calendar (which has full editing UX: rename, link goal, etc.)
+  const handleClick = (e) => {
+    if (dragging || e.target.classList.contains('resize')) return;
+    if (typeof window.navigateTo === 'function') window.navigateTo('today');
+    setTimeout(() => {
+      if (typeof window.openBlockEditor === 'function') {
+        window.openBlockEditor(block.id, { clientX: 500, clientY: 300 });
+      }
+    }, 250);
+  };
   return (
     <div ref={elRef} className={`block${dragging ? ' dragging' : ''}`}
+      onClick={handleClick}
       style={{
         left: hrPct(block.start) + '%',
         width: (hrPct(block.end) - hrPct(block.start)) + '%',
         '--blk-bg': toRgba(block.hue, 0.18),
         '--blk-fg': HEX[block.hue] || block.hue,
       }}>
-      <div className="resize l" />
+      <div className="resize l" title="Drag to change start time" />
       <div className="ttl">{block.title}</div>
       <div className="tm">{fmtHr(block.start)}–{fmtHr(block.end)} · {fmtDur(block.end - block.start)}</div>
-      <div className="resize r" />
+      <div className="resize r" title="Drag to change end time" />
     </div>
   );
 }
@@ -15168,12 +15195,14 @@ function PlanApp() {
     window._planScheduleRefresh = () => setScheduleSeed(s => s + 1);
     return () => { window._planScheduleRefresh = null; };
   }, []);
-  const blocks = React.useMemo(() => {
+  // Derive raw blocks from focusState; keep a LOCAL editable copy so drag-to-
+  // move/resize gives instant visual feedback. Local copy is re-synced any
+  // time the backend pushes fresh schedule data (scheduleSeed bump).
+  const deriveBlocks = React.useCallback(() => {
     const raw = (window.focusState && window.focusState.blocks) || [];
     return raw.map(b => {
       const start = (b.startHour || 0) + (b.startMinute || 0) / 60;
       const end   = (b.endHour   || 0) + (b.endMinute   || 0) / 60;
-      // Color by linked Intention's monthly goal hue if available, else neutral.
       const goal = (window._intentionsCache || []).find(g => g.id === b.intentionId);
       const monthly = goal && (window._monthlyGoalsCache || []).find(m => m.id === goal.monthly_goal_id);
       const hue = (monthly && monthly.color_hex) ? monthly.color_hex : 'var(--accent-primary)';
@@ -15184,9 +15213,11 @@ function PlanApp() {
         start, end, hue,
       };
     });
-  }, [scheduleSeed, seed]);
-  // setBlocks is no-op for the Plan strip — backend round-trip is the only writer.
-  const setBlocks = () => {};
+  }, []);
+  const [blocks, setBlocks] = React.useState(deriveBlocks);
+  React.useEffect(() => {
+    setBlocks(deriveBlocks());
+  }, [scheduleSeed, seed, deriveBlocks]);
   const [dragSource, setDragSource] = React.useState(null);
 
   const w = WEEKLY[weekId] || [];
