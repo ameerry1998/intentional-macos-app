@@ -387,6 +387,19 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "TEST_CONTENT_SAFETY":
             appDelegate?.contentSafetyMonitor?.triggerTestDetection()
 
+        case "GET_NSFW_THRESHOLD":
+            let t = ContentSafetyMonitor.currentNSFWThreshold()
+            callJS("window._nsfwThresholdResult && window._nsfwThresholdResult({ threshold: \(t) })")
+
+        case "SET_NSFW_THRESHOLD":
+            if let body = message.body as? [String: Any],
+               let t = body["threshold"] as? Double {
+                ContentSafetyMonitor.setNSFWThreshold(Float(t))
+                let stored = ContentSafetyMonitor.currentNSFWThreshold()
+                callJS("window._nsfwThresholdResult && window._nsfwThresholdResult({ threshold: \(stored) })")
+                appDelegate?.postLog("🛡️ NSFW threshold set to \(stored)")
+            }
+
         case "OPEN_CONTENT_SAFETY_SETTINGS":
             if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
                 NSWorkspace.shared.open(url)

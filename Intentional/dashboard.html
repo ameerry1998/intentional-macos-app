@@ -5750,6 +5750,23 @@ body.theme-effects-warm::after {
           <button onclick="openContentSafetySettings()" style="margin-top: 8px; padding: 6px 14px; border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-size: 12px; cursor: pointer;">Open System Settings</button>
         </div>
       </div>
+      <div class="setting-row" id="content-safety-sensitivity-row" style="display:none; flex-direction:column; align-items:stretch; gap:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div>
+            <div class="setting-label">Detection sensitivity</div>
+            <div class="setting-desc">Lower = more aggressive (more false positives). Higher = only very high confidence triggers. Default 95%.</div>
+          </div>
+          <div id="cs-sensitivity-value" style="font-size:14px; font-weight:600; color:var(--accent-primary); min-width:48px; text-align:right;">95%</div>
+        </div>
+        <input type="range" id="cs-sensitivity-slider" min="85" max="99" step="1" value="95"
+          oninput="onSensitivitySlide(this.value)"
+          onchange="onSensitivityCommit(this.value)"
+          style="width:100%; accent-color: var(--accent-primary);">
+        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-tertiary);">
+          <span>85% · strict (catches more)</span>
+          <span>99% · only very confident</span>
+        </div>
+      </div>
       <div class="setting-row" id="content-safety-test-row" style="display:none;">
         <div>
           <div class="setting-label">Test detection</div>
@@ -7324,6 +7341,32 @@ function saveAllSettings() {
   });
 }
 
+// NSFW sensitivity slider (range 85-99%, stored as float 0.85-0.99 in Swift)
+function onSensitivitySlide(pct) {
+  var lbl = document.getElementById('cs-sensitivity-value');
+  if (lbl) lbl.textContent = pct + '%';
+}
+window.onSensitivitySlide = onSensitivitySlide;
+
+function onSensitivityCommit(pct) {
+  var n = parseInt(pct, 10);
+  if (isNaN(n) || n < 85 || n > 99) return;
+  sendMessage({ type: 'SET_NSFW_THRESHOLD', threshold: n / 100 });
+  if (typeof showToast === 'function') showToast('Sensitivity: ' + pct + '%');
+}
+window.onSensitivityCommit = onSensitivityCommit;
+
+window._nsfwThresholdResult = function(payload) {
+  var t = (payload && typeof payload.threshold === 'number') ? payload.threshold : 0.95;
+  var pct = Math.round(t * 100);
+  if (pct < 85) pct = 85;
+  if (pct > 99) pct = 99;
+  var slider = document.getElementById('cs-sensitivity-slider');
+  var lbl = document.getElementById('cs-sensitivity-value');
+  if (slider) slider.value = String(pct);
+  if (lbl) lbl.textContent = pct + '%';
+};
+
 function onContentSafetyToggle(enabled) {
   if (enabled) {
     if (!confirm('This will request Screen Recording permission and monitor all screens for explicit content every 2 seconds. Your accountability partner will be notified of any detections.\n\nContinue?')) {
@@ -7346,12 +7389,17 @@ window._contentSafetyStatus = function(status) {
   var testRow = document.getElementById('content-safety-test-row');
   if (!statusEl || !textEl) return;
 
+  var sensitivityRow = document.getElementById('content-safety-sensitivity-row');
   if (!status.isEnabled) {
     statusEl.style.display = 'none';
     if (testRow) testRow.style.display = 'none';
+    if (sensitivityRow) sensitivityRow.style.display = 'none';
     return;
   }
   if (testRow) testRow.style.display = status.isMonitoring ? '' : 'none';
+  if (sensitivityRow) sensitivityRow.style.display = status.isMonitoring ? 'flex' : 'none';
+  // Pull the current threshold so the slider reflects what the monitor is using.
+  sendMessage({ type: 'GET_NSFW_THRESHOLD' });
 
   statusEl.style.display = 'block';
   var banner = document.getElementById('content-safety-permission-banner');

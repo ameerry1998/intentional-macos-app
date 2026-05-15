@@ -109,11 +109,26 @@ class ContentSafetyMonitor {
     private let temporalWindowSize = 5
     private let temporalThreshold = 3
 
-    /// NSFW score threshold — only trigger above this (0.95 = very high confidence).
-    /// Was 0.90 but produced false positives on news anchors / low-cut tops in
-    /// normal clothing. OpenNSFW typically scores actual nudes ≥0.99 so 0.95
-    /// keeps real detection working while killing the obvious false positives.
-    private let nsfwScoreThreshold: Float = 0.95
+    /// NSFW score threshold — only trigger above this. User-tunable in Settings
+    /// → Sensitive Content (range 0.85–0.99, default 0.95). Stored in
+    /// UserDefaults under `cs_nsfw_threshold`. Capped at 0.99 max so it can
+    /// never be effectively disabled (which would defeat the partner lock).
+    private static let nsfwDefaultsKey = "cs_nsfw_threshold"
+    private var nsfwScoreThreshold: Float {
+        let raw = UserDefaults.standard.object(forKey: Self.nsfwDefaultsKey) as? Double
+        let val = Float(raw ?? 0.95)
+        // Clamp defensively
+        return min(max(val, 0.85), 0.99)
+    }
+    /// Persist a new threshold (called from MainWindow bridge handler).
+    static func setNSFWThreshold(_ value: Float) {
+        let clamped = min(max(value, 0.85), 0.99)
+        UserDefaults.standard.set(Double(clamped), forKey: nsfwDefaultsKey)
+    }
+    static func currentNSFWThreshold() -> Float {
+        let raw = UserDefaults.standard.object(forKey: nsfwDefaultsKey) as? Double
+        return Float(raw ?? 0.95)
+    }
 
     /// Debug: save flagged screenshots so we can review what triggered detection
     private let debugSaveScreenshots = true
