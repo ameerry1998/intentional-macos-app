@@ -14629,6 +14629,11 @@ function submitIntentionMiniEditor() {
         (res && res.error) || 'Create failed';
     }
   };
+  // Tag the new goal with THIS week's Monday so it shows up in the block
+  // editor's filtered Weekly Goal dropdown (and on the Today + Plan strips).
+  var weekOf = (typeof _currentISOMonday === 'function')
+    ? _currentISOMonday()
+    : (typeof _currentWeekISO === 'function' ? _currentWeekISO() : null);
   sendMessage({
     type: 'CREATE_INTENTION',
     name: name,
@@ -14636,7 +14641,10 @@ function submitIntentionMiniEditor() {
     color_hex: null,
     icon: null,
     mac_websites: [],
-    mac_bundle_ids: []
+    mac_bundle_ids: [],
+    week_of: weekOf,
+    status: 'planned',
+    ai_scoring_enabled: true,
   });
 }
 </script>
