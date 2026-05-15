@@ -5161,6 +5161,12 @@ body.theme-effects-warm::after {
   <div style="padding:4px 20px 8px;">
     <div id="sidebar-session-status" style="font-size:11px;color:var(--text-tertiary);">Free Time</div>
     <div id="sidebar-session-detail" style="font-size:10px;color:var(--text-tertiary);margin-top:2px;">No active session</div>
+    <!-- Stop-session button — only visible when a focus session is active.
+         Replaces the bottom-of-Today "Focus Mode" toggle that used to do this. -->
+    <button id="sidebar-stop-session" onclick="stopActiveSession()"
+            style="display:none; margin-top:6px; width:100%; padding:5px 8px; font-size:11px;
+                   background:rgba(250,100,100,0.10); color:#fa6464; border:0.5px solid rgba(250,100,100,0.30);
+                   border-radius:5px; cursor:pointer;">⏹ Stop session</button>
   </div>
   <!-- FIX-15: Status footer wired to real partner / content / puck state. -->
   <div class="status-footer" id="status-footer">
@@ -6313,7 +6319,22 @@ function onFocusModeStateUpdate(stateRaw) {
   if (toggle) {
     toggle.checked = (stateRaw === "focus");
   }
+  // Sidebar "⏹ Stop session" button is only visible during an active focus session.
+  var stopBtn = document.getElementById('sidebar-stop-session');
+  if (stopBtn) {
+    stopBtn.style.display = (stateRaw === 'focus') ? '' : 'none';
+  }
 }
+
+function stopActiveSession() {
+  // Confirm to prevent accidental session-kill.
+  if (!confirm('Stop the current focus session?')) return;
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({ type: 'TOGGLE_FOCUS_MODE', on: false });
+  }
+  if (typeof showToast === 'function') showToast('Session stopped');
+}
+window.stopActiveSession = stopActiveSession;
 
 // ===== Interventions =====
 var INTERVENTIONS = [
@@ -6427,6 +6448,9 @@ function renderStrictModePage() {
   sendMessage({ type: 'GET_SETTINGS' });
   sendMessage({ type: 'GET_PARTNER_STATUS' });
   _updateStrictModeUI();
+  // Render the mechanism toggles with defaults immediately so the section
+  // isn't empty while waiting for the settings push.
+  renderEnforcementMechanisms();
 }
 
 function _updateStrictModeUI() {
@@ -6496,8 +6520,14 @@ function _defaultStrictLocks() {
 function renderEnforcementMechanisms() {
   var mount = document.getElementById('strict-enforcement-list');
   if (!mount) return;
+  // Default to all-on if settings haven't loaded yet — better than rendering
+  // nothing. The settings push will re-render with actual values when it arrives.
   var settings = (window._enforcementSettings && (window._enforcementSettings.focusHours
-    || window._enforcementSettings.deepWork)) || {};
+    || window._enforcementSettings.deepWork)) || {
+    nudge: true, screenRedShift: true, autoRedirect: true,
+    blockingOverlay: true, interventionExercises: true,
+    backgroundAudioDetection: true, contextSwitchOverlay: true,
+  };
   mount.innerHTML = (window._enforcementMechanisms || []).map(function(m) {
     var on = settings[m.key] !== false;
     return '<div class="strict-lock-row">' +
@@ -15286,6 +15316,52 @@ window._blkCtxUnlink = function(blockId) {
     if (typeof showToast === 'function') showToast('Unlinked');
   }
 };
+// Right-click context menus for Plan-tab Weekly + Monthly goal cards.
+// Provide a delete-from-card affordance — users didn't realize delete lives
+// inside the editor's footer link.
+window._showWeeklyContextMenu = function(g, x, y) {
+  var existing = document.getElementById('blk-ctx-menu');
+  if (existing) existing.parentNode.removeChild(existing);
+  var html =
+    '<div id="blk-ctx-menu" class="blk-ctx-menu" style="left:' + x + 'px; top:' + y + 'px;">' +
+      '<div class="ctx-item" onclick="_wkCtxEdit(\'' + _escapeHTML(g.id) + '\')">✎ Edit goal…</div>' +
+      '<div class="ctx-item" onclick="_wkCtxLog(\'' + _escapeHTML(g.id) + '\')">⏱ Log time</div>' +
+      '<div class="ctx-divider"></div>' +
+      '<div class="ctx-item danger" onclick="_wkCtxDelete(\'' + _escapeHTML(g.id) + '\')">✕ Delete weekly goal</div>' +
+    '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+  setTimeout(function() {
+    document.addEventListener('click', _hideBlockContextMenu, { once: true });
+  }, 50);
+};
+window._wkCtxEdit = function(id) { _hideBlockContextMenu(); if (window.openWeeklyGoalEdit) window.openWeeklyGoalEdit(id); };
+window._wkCtxLog  = function(id) { _hideBlockContextMenu(); if (window.openLogTimeModal) window.openLogTimeModal(id); };
+window._wkCtxDelete = function(id) {
+  _hideBlockContextMenu();
+  if (typeof deleteWeeklyGoal === 'function') deleteWeeklyGoal(id);
+};
+
+window._showMonthlyContextMenu = function(g, x, y) {
+  var existing = document.getElementById('blk-ctx-menu');
+  if (existing) existing.parentNode.removeChild(existing);
+  var html =
+    '<div id="blk-ctx-menu" class="blk-ctx-menu" style="left:' + x + 'px; top:' + y + 'px;">' +
+      '<div class="ctx-item danger" onclick="_mgCtxDelete(\'' + _escapeHTML(g.id) + '\')">✕ Delete monthly goal</div>' +
+    '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+  setTimeout(function() {
+    document.addEventListener('click', _hideBlockContextMenu, { once: true });
+  }, 50);
+};
+window._mgCtxDelete = function(id) {
+  _hideBlockContextMenu();
+  if (!confirm('Delete this monthly goal? Linked weekly goals will become unlinked but not deleted.')) return;
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({ type: 'DELETE_MONTHLY_GOAL', id: id });
+    if (typeof showToast === 'function') showToast('Deleted');
+  }
+};
+
 window._blkCtxDelete = function(blockId) {
   _hideBlockContextMenu();
   if (!confirm('Delete this scheduled session?')) return;
@@ -15349,9 +15425,17 @@ const toRgba = (hueRef, a) => {
 };
 
 function MonthlyCard({ g, sel, dim, onClick }) {
+  const handleContextMenu = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (typeof window._showMonthlyContextMenu === 'function') {
+      window._showMonthlyContextMenu(g, e.clientX, e.clientY);
+    }
+  };
   return (
     <div className={`mcard${sel ? ' sel' : ''}${dim ? ' dim' : ''}`}
       onClick={onClick}
+      onContextMenu={handleContextMenu}
+      title="Right-click for options"
       style={{
         '--hue': g.hue,
         '--m-bg':   toRgba(g.hue, 0.14),
@@ -15389,6 +15473,12 @@ function WeeklyCard({ g, monthly, dim, onDragStart, onDragEnd, dragging }) {
     const hue = parent ? parent.hue : 'var(--accent-primary)';
     onDragStart(g, { hue }, e);
   };
+  const handleContextMenu = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (typeof window._showWeeklyContextMenu === 'function') {
+      window._showWeeklyContextMenu(g, e.clientX, e.clientY);
+    }
+  };
   // Progress: hoursDone / target. Render a bar + label if a target is set.
   const target = g.target || 0;
   const done = g.hoursDone || 0;
@@ -15399,8 +15489,9 @@ function WeeklyCard({ g, monthly, dim, onDragStart, onDragEnd, dragging }) {
       onDragStart={handleCardDragStart}
       onDragEnd={onDragEnd}
       onClick={openEdit}
+      onContextMenu={handleContextMenu}
       style={{ '--hue': parent ? parent.hue : 'transparent', cursor: 'grab' }}
-      title="Drag onto the timeline below to schedule a session">
+      title="Click to edit. Drag onto the timeline to schedule. Right-click for delete.">
       {parent && <span className="edge" />}
       <div className="ttl">{g.title}</div>
       <div className="out">{g.outcome}</div>
