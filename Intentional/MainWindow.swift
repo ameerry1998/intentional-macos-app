@@ -400,6 +400,24 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 appDelegate?.postLog("🛡️ NSFW threshold set to \(stored)")
             }
 
+        case "LOG_GOAL_TIME":
+            if let body = message.body as? [String: Any],
+               let goalIdStr = body["intention_id"] as? String,
+               let goalId = UUID(uuidString: goalIdStr),
+               let minutes = body["minutes"] as? Int,
+               minutes > 0 {
+                Task {
+                    guard let backend = self.appDelegate?.backendClient else { return }
+                    let result = await backend.logIntentionTime(id: goalId, minutes: minutes)
+                    await MainActor.run {
+                        if let hours = result {
+                            // Patch cache + refresh Plan
+                            self.callJS("window._intentionHoursDoneResult && window._intentionHoursDoneResult({ id: '\(goalIdStr)', hours_done: \(hours) })")
+                        }
+                    }
+                }
+            }
+
         case "OPEN_CONTENT_SAFETY_SETTINGS":
             if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
                 NSWorkspace.shared.open(url)

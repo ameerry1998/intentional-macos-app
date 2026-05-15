@@ -4937,6 +4937,13 @@ body.theme-effects-warm::after {
 .cd-plan .tstrip.collapsed .chev { transform: rotate(180deg); }
 .cd-plan .tstrip-body { padding: 26px 18px 18px; border-top: 0.5px solid var(--line); }
 .cd-plan .tstrip.collapsed .tstrip-body { display: none; }
+.cd-plan .tline-scroll { overflow-x: auto; overflow-y: hidden; padding-top: 20px; padding-bottom: 4px; scrollbar-width: thin; }
+.cd-plan .tline-scroll::-webkit-scrollbar { height: 6px; }
+.cd-plan .tline-scroll::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 3px; }
+.cd-plan .zoom-ctrl { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; font: 500 11.5px var(--font); color: var(--text-2); }
+.cd-plan .zoom-ctrl button { background: rgba(255,255,255,0.04); border: 0.5px solid var(--line-2); color: var(--text-1); width: 22px; height: 22px; border-radius: 4px; cursor: pointer; font-weight: 600; padding: 0; line-height: 1; }
+.cd-plan .zoom-ctrl button:hover { background: rgba(255,255,255,0.08); }
+.cd-plan .zoom-ctrl span { font-variant-numeric: tabular-nums; min-width: 30px; text-align: center; }
 .cd-plan .tline { position: relative; height: 80px; user-select: none; }
 .cd-plan .tline .hour { position: absolute; top: 0; bottom: 0; border-left: 0.5px solid var(--line); }
 .cd-plan .tline .hour-lbl { position: absolute; top: -18px; font: 500 10px var(--font); color: var(--text-3); transform: translateX(-50%); }
@@ -9983,6 +9990,7 @@ function renderGoalEdit(id) {
       <div class="ge-foot">
         <button class="ge-delete-link" onclick="deleteWeeklyGoal('${g.id}')">Delete this Weekly Goal</button>
         <div class="right" style="display:flex; gap:8px;">
+          <button class="btn-quiet" onclick="openLogTimeModal('${g.id}')" title="Manually log time you spent on this goal">⏱ Log time</button>
           <button class="btn-quiet" onclick="closeGoalEdit()">Cancel</button>
           <button class="ge-done-btn" onclick="saveWeeklyGoal('${g.id}')">Done</button>
         </div>
@@ -14695,6 +14703,51 @@ function computeHoursDoneForGoal(goalId) {
 }
 window.computeHoursDoneForGoal = computeHoursDoneForGoal;
 
+// Flaw #17: Manual hour-marking. Opens a small modal to add minutes spent
+// on this goal — fires LOG_GOAL_TIME which inserts a backend focus_session.
+function openLogTimeModal(goalId) {
+  var existing = document.getElementById('logtime-overlay');
+  if (existing) existing.parentNode.removeChild(existing);
+  var html =
+    '<div id="logtime-overlay" class="ns-modal-overlay" onclick="if(event.target===this)_closeLogTimeModal()">' +
+      '<div class="ns-modal-card" style="min-width:360px;max-width:420px;">' +
+        '<div class="ns-modal-title">Log time on this goal</div>' +
+        '<div class="ns-modal-field"><label>How many minutes did you spend?</label>' +
+          '<input type="number" id="logtime-minutes" class="ns-modal-input" min="1" max="600" value="30" autofocus>' +
+        '</div>' +
+        '<div class="setting-desc" style="padding:0 4px 8px; font-size:11px;">Adds a backend focus session — counts toward your hours_done.</div>' +
+        '<div class="ns-modal-footer" style="margin-top:10px;">' +
+          '<button class="btn-quiet" onclick="_closeLogTimeModal()">Cancel</button>' +
+          '<button class="ge-done-btn" onclick="_submitLogTime(\'' + _escapeHTML(goalId) + '\')">Log</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+window.openLogTimeModal = openLogTimeModal;
+
+function _closeLogTimeModal() {
+  var o = document.getElementById('logtime-overlay');
+  if (o) o.parentNode.removeChild(o);
+}
+window._closeLogTimeModal = _closeLogTimeModal;
+
+function _submitLogTime(goalId) {
+  var el = document.getElementById('logtime-minutes');
+  var minutes = el ? parseInt(el.value, 10) : 0;
+  if (!minutes || minutes < 1) { if (el) el.focus(); return; }
+  _closeLogTimeModal();
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({
+      type: 'LOG_GOAL_TIME',
+      intention_id: goalId,
+      minutes: minutes,
+    });
+    if (typeof showToast === 'function') showToast('Logged ' + minutes + ' min');
+  }
+}
+window._submitLogTime = _submitLogTime;
+
 // Receiver for the backend's per-goal hours_done aggregation. MainWindow fans
 // out a request per active intention after the list is emitted; each result
 // patches the cache here and re-renders Plan so progress bars update.
@@ -14855,11 +14908,11 @@ function WeeklyCard({ g, monthly, dim, onDragStart, onDragEnd, dragging }) {
   );
 }
 
-// Plan timeline visible range. Was 8–20 hardcoded; widened to 6–23 so early
-// workouts + late work both fit. The NOW indicator is a live wall-clock value
-// (see PlanApp's _useWallClock hook), not a frozen constant.
-const DAY_START = 6;
-const DAY_END   = 23;
+// Plan timeline range. Spans the full day; the visible slice depends on the
+// zoom level. zoom=1 → see ~17h in viewport (6a–11p); zoom=2 → see ~8.5h; etc.
+// User can scroll horizontally to see hours outside the visible window.
+const DAY_START = 0;
+const DAY_END   = 24;
 function _wallClockHour() {
   const d = new Date();
   return d.getHours() + d.getMinutes() / 60;
@@ -14962,6 +15015,10 @@ function TimelineStrip({ blocks, setBlocks, isDragOverFromCard, onDrop }) {
   const [open, setOpen] = React.useState(true);
   const [hover, setHover] = React.useState(false);
   const tlRef = React.useRef(null);
+  const tlScrollRef = React.useRef(null);
+
+  // Zoom levels: 1x ≈ full 24h visible, 2x ≈ 12h, 3x ≈ 6-8h.
+  const [zoom, setZoom] = React.useState(1.5);
 
   // Wall-clock NOW indicator — re-renders every 30s so the line drifts in real time.
   const [nowHour, setNowHour] = React.useState(_wallClockHour());
@@ -14969,6 +15026,16 @@ function TimelineStrip({ blocks, setBlocks, isDragOverFromCard, onDrop }) {
     const t = setInterval(() => setNowHour(_wallClockHour()), 30000);
     return () => clearInterval(t);
   }, []);
+
+  // Auto-scroll so NOW is roughly centered on first open + on zoom change.
+  React.useEffect(() => {
+    if (!open || !tlScrollRef.current) return;
+    const sc = tlScrollRef.current;
+    const innerW = sc.scrollWidth;
+    const viewW  = sc.clientWidth;
+    const targetLeft = (nowHour / (DAY_END - DAY_START)) * innerW - viewW / 2;
+    sc.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+  }, [zoom, open]);
 
   const total = blocks.reduce((s, b) => s + (b.end - b.start), 0);
   const emptyText = 'No sessions planned · drag weekly goals here';
@@ -15013,6 +15080,11 @@ function TimelineStrip({ blocks, setBlocks, isDragOverFromCard, onDrop }) {
           <span>{summaryText}</span>
         </div>
         <div className="right">
+          <div className="zoom-ctrl" onClick={e => e.stopPropagation()}>
+            <button title="Zoom out" onClick={() => setZoom(z => Math.max(1, +(z - 0.5).toFixed(2)))}>−</button>
+            <span>{zoom.toFixed(1)}×</span>
+            <button title="Zoom in" onClick={() => setZoom(z => Math.min(4, +(z + 0.5).toFixed(2)))}>+</button>
+          </div>
           <a className="open-link" onClick={(e) => {
             e.stopPropagation();
             if (typeof window.navigateTo === 'function') window.navigateTo('today');
@@ -15026,21 +15098,25 @@ function TimelineStrip({ blocks, setBlocks, isDragOverFromCard, onDrop }) {
         </div>
       </div>
       <div className="tstrip-body">
-        <div ref={tlRef} className={`tline${hover ? ' drop-active' : ''}`}>
-          {hours.map(h => (
-            <React.Fragment key={h}>
-              <div className="hour" style={{ left: hrPct(h) + '%' }} />
-              <div className="hour-lbl" style={{ left: hrPct(h) + '%' }}>{fmtHr(h)}</div>
-            </React.Fragment>
-          ))}
-          {nowHour >= DAY_START && nowHour <= DAY_END && (
-            <div className="nowline" style={{ left: hrPct(nowHour) + '%' }} />
-          )}
-          {blocks.map((b) => (
-            <TimelineBlock key={b.id} block={b}
-              onChange={(patch) => setBlocks(prev => prev.map(x => x.id === b.id ? { ...x, ...patch } : x))}
-              onCommit={(id, patch) => window._commitPlanBlockEdit && window._commitPlanBlockEdit(id, patch)} />
-          ))}
+        <div ref={tlScrollRef} className="tline-scroll">
+          <div ref={tlRef}
+            className={`tline${hover ? ' drop-active' : ''}`}
+            style={{ width: (100 * zoom) + '%', minWidth: '100%' }}>
+            {hours.map(h => (
+              <React.Fragment key={h}>
+                <div className="hour" style={{ left: hrPct(h) + '%' }} />
+                <div className="hour-lbl" style={{ left: hrPct(h) + '%' }}>{fmtHr(h)}</div>
+              </React.Fragment>
+            ))}
+            {nowHour >= DAY_START && nowHour <= DAY_END && (
+              <div className="nowline" style={{ left: hrPct(nowHour) + '%' }} />
+            )}
+            {blocks.map((b) => (
+              <TimelineBlock key={b.id} block={b}
+                onChange={(patch) => setBlocks(prev => prev.map(x => x.id === b.id ? { ...x, ...patch } : x))}
+                onCommit={(id, patch) => window._commitPlanBlockEdit && window._commitPlanBlockEdit(id, patch)} />
+            ))}
+          </div>
         </div>
       </div>
     </div>
