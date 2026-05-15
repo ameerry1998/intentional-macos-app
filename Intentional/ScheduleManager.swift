@@ -402,8 +402,14 @@ class ScheduleManager {
     }
 
     /// Check if a specific enforcement mechanism is enabled for the current block type.
+    /// If no scheduled block is currently active (e.g. manual focus session, or
+    /// during free time but a non-block enforcer is asking), fall back to the
+    /// user's Focus Hours (Strict) intensity preference rather than defaulting
+    /// to `true`. The old `return true` fallback meant the saved toggle was
+    /// silently ignored anywhere outside a scheduled block — bug surfaced when
+    /// users tried to disable context-switch countdown.
     func isEnforcementEnabled(_ mechanism: EnforcementMechanism) -> Bool {
-        guard let blockType = currentBlock?.blockType else { return true }
+        let blockType = currentBlock?.blockType ?? .focusHours
         let settings = enforcementSettings.settings(for: blockType)
         switch mechanism {
         case .nudge: return settings.nudgeNotifications
