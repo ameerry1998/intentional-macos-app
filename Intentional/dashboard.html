@@ -10528,12 +10528,36 @@ function populateIntentionPicker(sel, block) {
   opt0.value = '';
   opt0.textContent = '(none)';
   sel.appendChild(opt0);
-  intentionsCache.forEach(function(i) {
-    var opt = document.createElement('option');
-    opt.value = i.id;
-    opt.textContent = i.name;
-    sel.appendChild(opt);
+
+  // Only show weekly goals from THIS week. The legacy "Focus Mode" dropdown
+  // dumped every Intention ever created — those without a week_of are stale
+  // and shouldn't be selectable. If the block is already linked to a legacy
+  // (no-week) intention, keep that one visible so the user can see it.
+  var currentMonday = (typeof _currentISOMonday === 'function')
+    ? _currentISOMonday()
+    : (typeof _currentWeekISO === 'function' ? _currentWeekISO() : null);
+  var keepId = block && block.intentionId;
+  var visible = intentionsCache.filter(function(i) {
+    if (!i) return false;
+    if (i.week_of === currentMonday) return true;
+    if (i.id === keepId) return true; // preserve currently-linked even if past-week
+    return false;
   });
+
+  if (visible.length === 0) {
+    var optEmpty = document.createElement('option');
+    optEmpty.value = '';
+    optEmpty.disabled = true;
+    optEmpty.textContent = 'No weekly goals for this week';
+    sel.appendChild(optEmpty);
+  } else {
+    visible.forEach(function(i) {
+      var opt = document.createElement('option');
+      opt.value = i.id;
+      opt.textContent = i.name + (i.week_of !== currentMonday ? ' (past)' : '');
+      sel.appendChild(opt);
+    });
+  }
   var optNew = document.createElement('option');
   optNew.value = '__create_new__';
   optNew.textContent = '+ Create new weekly goal…';
@@ -12045,7 +12069,7 @@ function openBlockEditor(blockId, event) {
     '<input type="time" class="block-editor-input block-editor-time-input" id="editor-end" value="' + padFocusTime(block.endHour, block.endMinute) + '">' +
     '</div></div>' +
     '<div class="block-editor-row">' +
-    '<label>Focus Mode</label>' +
+    '<label>Weekly Goal</label>' +
     '<select id="editor-intention-picker" class="block-editor-input" onchange="onEditorIntentionChange(this)"></select>' +
     '<div id="editor-intention-strictness-caption" style="margin-top:4px;font-size:11px;color:rgba(255,255,255,0.5);"></div>' +
     '</div>' +
