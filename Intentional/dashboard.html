@@ -5542,6 +5542,15 @@ body.theme-effects-warm::after {
         <div id="strict-checklist" style="padding:4px 16px 14px; display:flex; flex-direction:column; gap:4px;"></div>
       </div>
 
+      <!-- Enforcement mechanisms — the 7 things that fire when you're off-task -->
+      <div class="settings-card" style="margin-top:14px;">
+        <div class="settings-card-title">What happens when you're off-task</div>
+        <div class="setting-desc" style="padding:2px 16px 12px; font-size:12px;">
+          These are the actual interventions that fire during a focus session. Disable any you don't want — but remember, less friction means easier to bypass.
+        </div>
+        <div id="strict-enforcement-list" style="padding:4px 16px 14px; display:flex; flex-direction:column; gap:4px;"></div>
+      </div>
+
       <!-- Disable card (only when ON) -->
       <div id="strict-disable-card" class="settings-card" style="margin-top:14px; display:none;">
         <div class="setting-row">
@@ -5577,11 +5586,11 @@ body.theme-effects-warm::after {
           <div class="settings-menu-info"><div class="settings-menu-title">AI Scoring</div><div class="settings-menu-sub">Relevance scoring</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
-        <div class="settings-menu-row" onclick="showSettingsDetail('enforcement')">
-          <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1);color:var(--accent-primary);">◈</div>
-          <div class="settings-menu-info"><div class="settings-menu-title">Focus intensity</div><div class="settings-menu-sub">Nudges, red shift, overlays</div></div>
-          <span class="settings-menu-chevron">›</span>
-        </div>
+        <!-- Focus intensity entry removed 2026-05-15 — the 7 enforcement
+             toggles are now inline on the Strict Mode page (Accountability tab)
+             so users find them next to "What to lock". The detail page
+             is still accessible via deep-link if needed. -->
+
         <div class="settings-menu-row" onclick="showSettingsDetail('safety')">
           <div class="settings-menu-icon" style="background:rgba(92,192,154,0.1);color:#5cc09a;">◉</div>
           <div class="settings-menu-info"><div class="settings-menu-title">Content Safety</div><div class="settings-menu-sub" id="settings-safety-sub">Screen monitoring</div></div>
@@ -6388,15 +6397,29 @@ window._strictModeState = window._strictModeState || {
   partnerName: null,
 };
 
-// Items shown in the "What strict mode locks" checklist. Each one corresponds
-// to a real check in the codebase that consults isLockedByStrictMode().
+// Items shown in the "What to lock" checklist. Each one corresponds to a real
+// check in the codebase. Labels written for clarity — "Weekly goal tampering"
+// was jargon; users don't think in those terms.
 window._strictModeChecklist = [
-  { key: 'sensitive_content', label: 'Sensitive content blocking', desc: 'Can\'t be disabled or set to a less-strict level.' },
-  { key: 'block_rules',       label: 'Block rules',                desc: 'Can\'t be deleted or toggled off (snooze for today still works).' },
-  { key: 'weekly_goals',      label: 'Weekly goal tampering',      desc: 'Can\'t rename, change target, or disable AI scoring within the week.' },
-  { key: 'ai_scoring',        label: 'AI scoring stays on',        desc: 'Per-goal AI-scoring toggle is frozen.' },
-  { key: 'today_schedule',    label: 'Today\'s schedule',          desc: 'Sessions scheduled for today can\'t be deleted (future days remain editable).' },
-  { key: 'strict_mode_self',  label: 'Strict mode itself',         desc: 'Only the partner unlock code can disable this.' },
+  { key: 'sensitive_content', label: 'Sensitive content protection', desc: 'Stays on. Sensitivity can\'t be set lower than 95%.' },
+  { key: 'block_rules',       label: 'Site & app blocks',            desc: 'Can\'t delete or disable a block (snooze for today still works).' },
+  { key: 'weekly_goals',      label: 'Editing weekly goals',         desc: 'Can\'t rename, change target hours, or disable AI scoring within the week.' },
+  { key: 'ai_scoring',        label: 'AI relevance scoring',         desc: 'Per-goal AI scoring stays on. You can\'t turn it off to game the system.' },
+  { key: 'today_schedule',    label: 'Today\'s scheduled sessions',  desc: 'Can\'t delete sessions scheduled for today (future days remain editable).' },
+  { key: 'strict_mode_self',  label: 'Strict Mode itself',           desc: 'Only the partner-unlock code can disable this.' },
+];
+
+// Enforcement mechanisms — the 7 actual things that happen when you go off-task.
+// These were buried in Settings → Focus intensity behind two confusing
+// "Standard / Strict" columns. Inlined here as a single column.
+window._enforcementMechanisms = [
+  { key: 'nudge',                     label: 'Nudge notifications',     desc: 'A small toast when you open a distracting site/app.' },
+  { key: 'screenRedShift',            label: 'Screen tint',             desc: 'Tints the screen red when you\'re off-task. Visible signal.' },
+  { key: 'autoRedirect',              label: 'Auto-redirect',           desc: 'Closes the distracting tab and brings you back to your goal.' },
+  { key: 'blockingOverlay',           label: 'Blocking overlay',        desc: 'Full-screen overlay over the distracting app.' },
+  { key: 'interventionExercises',     label: 'Intervention exercises',  desc: '60–120s breathing exercise before you can continue.' },
+  { key: 'backgroundAudioDetection',  label: 'Block background audio',  desc: 'Kills YouTube/streaming audio playing in another tab.' },
+  { key: 'contextSwitchOverlay',      label: 'Context-switch countdown',desc: 'Brief countdown when you switch apps mid-session.' },
 ];
 
 function renderStrictModePage() {
@@ -6464,6 +6487,50 @@ function _defaultStrictLocks() {
   (window._strictModeChecklist || []).forEach(function(it) { d[it.key] = true; });
   return d;
 }
+
+// Render the 7 enforcement mechanism toggles inline on the Strict Mode page.
+// Source of truth is window._enforcementSettings (loaded via GET_SETTINGS →
+// _enforcementSettingsResult). We write both deepWork + focusHours intensity
+// to the same value (simplified single-column model — the dual-column split
+// confused users and wasn't earning its complexity).
+function renderEnforcementMechanisms() {
+  var mount = document.getElementById('strict-enforcement-list');
+  if (!mount) return;
+  var settings = (window._enforcementSettings && (window._enforcementSettings.focusHours
+    || window._enforcementSettings.deepWork)) || {};
+  mount.innerHTML = (window._enforcementMechanisms || []).map(function(m) {
+    var on = settings[m.key] !== false;
+    return '<div class="strict-lock-row">' +
+      '<label class="strict-lock-toggle">' +
+        '<input type="checkbox"' + (on ? ' checked' : '') +
+          ' onchange="onEnforcementMechanismToggle(\'' + m.key + '\', this.checked)">' +
+        '<span class="cbx"></span>' +
+      '</label>' +
+      '<div style="flex:1;">' +
+        '<div style="font-size:13px; color:var(--text-primary);">' + m.label + '</div>' +
+        '<div style="font-size:11.5px; color:rgba(255,255,255,0.45); margin-top:2px;">' + m.desc + '</div>' +
+      '</div></div>';
+  }).join('');
+}
+
+function onEnforcementMechanismToggle(key, on) {
+  // Read current enforcement settings, patch this key in BOTH dwork + fhours,
+  // fire SET_ENFORCEMENT_SETTINGS so the change applies regardless of which
+  // block-type intensity is current.
+  if (!window._enforcementSettings) window._enforcementSettings = { deepWork: {}, focusHours: {} };
+  ['deepWork', 'focusHours'].forEach(function(bucket) {
+    if (!window._enforcementSettings[bucket]) window._enforcementSettings[bucket] = {};
+    window._enforcementSettings[bucket][key] = !!on;
+  });
+  sendMessage({
+    type: 'SET_ENFORCEMENT_SETTINGS',
+    settings: window._enforcementSettings,
+  });
+  if (typeof showToast === 'function') {
+    showToast((on ? 'Enabled' : 'Disabled') + ': ' + key.replace(/([A-Z])/g, ' $1').toLowerCase().replace(/^./, function(c) { return c.toUpperCase(); }));
+  }
+}
+window.onEnforcementMechanismToggle = onEnforcementMechanismToggle;
 
 function onStrictLockItemToggle(key, on) {
   if (!window._strictModeLocks) window._strictModeLocks = _defaultStrictLocks();
@@ -6570,7 +6637,12 @@ window._strictModeResult = function(res) {
       }
       // strict_mode_self is always locked (can't be unchecked).
       window._strictModeLocks.strict_mode_self = true;
+      // Capture enforcement settings for the inline mechanism toggles.
+      if (data.enforcementSettings) {
+        window._enforcementSettings = data.enforcementSettings;
+      }
       _updateStrictModeUI();
+      if (typeof renderEnforcementMechanisms === 'function') renderEnforcementMechanisms();
       if (typeof refreshSidebarStrictPill === 'function') refreshSidebarStrictPill();
     }
   };
