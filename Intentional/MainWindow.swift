@@ -3530,11 +3530,33 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     private func handleGetIntentions() {
         Task {
             let intentions = await IntentionStore.shared.active()
-            let items = intentions.map { i -> [String: Any] in
+            // First emit the list immediately so cards render fast without waiting
+            // for the per-goal hours_done aggregation.
+            let baseItems = intentions.map { i -> [String: Any] in
                 return Self.intentionToDict(i)
             }
             await MainActor.run {
-                self.emitIntentionsList(items)
+                self.emitIntentionsList(baseItems)
+            }
+
+            // Then fan out a hours_done request per goal that has a week_of.
+            // Fire-and-forget — each result patches the cache via _intentionUpdated.
+            guard let backend = appDelegate?.backendClient else { return }
+            await withTaskGroup(of: (UUID, Double?).self) { group in
+                for i in intentions {
+                    guard i.weekOf != nil else { continue }
+                    group.addTask {
+                        let h = await backend.getIntentionHoursDone(id: i.id, week: i.weekOf)
+                        return (i.id, h)
+                    }
+                }
+                for await (id, hours) in group {
+                    guard let h = hours else { continue }
+                    await MainActor.run {
+                        // Surface the live total via a small JS patch so cards re-render.
+                        self.callJS("window._intentionHoursDoneResult && window._intentionHoursDoneResult({ id: '\(id.uuidString)', hours_done: \(h) })")
+                    }
+                }
             }
         }
     }

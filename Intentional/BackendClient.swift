@@ -1545,6 +1545,32 @@ class BackendClient {
         }
     }
 
+    /// GET /intentions/{id}/hours_done?week=YYYY-MM-DD — sums focus_sessions for
+    /// the week (defaults to current week). Returns nil on any error.
+    func getIntentionHoursDone(id: UUID, week: String? = nil) async -> Double? {
+        var components = URLComponents(string: "\(baseURL)/intentions/\(id.uuidString)/hours_done")
+        if let week = week {
+            components?.queryItems = [URLQueryItem(name: "week", value: week)]
+        }
+        guard let url = components?.url else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                return nil
+            }
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let hours = json["hours_done"] as? Double {
+                return hours
+            }
+            return nil
+        } catch {
+            return nil
+        }
+    }
+
     /// POST /intentions — server assigns id and version=1.
     func createIntention(_ payload: IntentionCreatePayload) async throws -> Intention {
         guard let url = URL(string: "\(baseURL)/intentions") else {

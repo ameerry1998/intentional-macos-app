@@ -14695,6 +14695,20 @@ function computeHoursDoneForGoal(goalId) {
 }
 window.computeHoursDoneForGoal = computeHoursDoneForGoal;
 
+// Receiver for the backend's per-goal hours_done aggregation. MainWindow fans
+// out a request per active intention after the list is emitted; each result
+// patches the cache here and re-renders Plan so progress bars update.
+window._intentionHoursDoneResult = function(payload) {
+  if (!payload || !payload.id || typeof payload.hours_done !== 'number') return;
+  var cache = window._intentionsCache || [];
+  var hit = cache.find(function(x) { return x.id === payload.id; });
+  if (hit) {
+    hit.hours_done = payload.hours_done;
+    if (typeof window._planAppRefresh === 'function') window._planAppRefresh();
+    if (typeof renderNowCard === 'function') renderNowCard();
+  }
+};
+
 const fmtStatus = (s) => s.replace('-', ' ');
 
 const SparkIcon = () => (
@@ -15122,7 +15136,9 @@ function PlanApp() {
             )}
           </div>
           {isCurrent && (
-            <button className="btn-ghost">
+            <button className="btn-ghost"
+              onClick={() => window.openWeeklyGoalCreate && window.openWeeklyGoalCreate()}
+              title="Quick-start: open a fresh weekly goal editor (LLM-assisted planning is a future feature)">
               <SparkIcon />Help me plan
             </button>
           )}
