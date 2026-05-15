@@ -6433,8 +6433,10 @@ window._strictModeChecklist = [
 // Enforcement mechanisms — the 7 actual things that happen when you go off-task.
 // These were buried in Settings → Focus intensity behind two confusing
 // "Standard / Strict" columns. Inlined here as a single column.
+// IMPORTANT: keys here MUST match Swift's BlockEnforcementSettings CodingKeys exactly,
+// otherwise SET_ENFORCEMENT_SETTINGS fails to decode and you get a "Parse error" toast.
 window._enforcementMechanisms = [
-  { key: 'nudge',                     label: 'Nudge notifications',     desc: 'A small toast when you open a distracting site/app.' },
+  { key: 'nudgeNotifications',        label: 'Nudge notifications',     desc: 'A small toast when you open a distracting site/app.' },
   { key: 'screenRedShift',            label: 'Screen tint',             desc: 'Tints the screen red when you\'re off-task. Visible signal.' },
   { key: 'autoRedirect',              label: 'Auto-redirect',           desc: 'Closes the distracting tab and brings you back to your goal.' },
   { key: 'blockingOverlay',           label: 'Blocking overlay',        desc: 'Full-screen overlay over the distracting app.' },
@@ -6442,6 +6444,14 @@ window._enforcementMechanisms = [
   { key: 'backgroundAudioDetection',  label: 'Block background audio',  desc: 'Kills YouTube/streaming audio playing in another tab.' },
   { key: 'contextSwitchOverlay',      label: 'Context-switch countdown',desc: 'Brief countdown when you switch apps mid-session.' },
 ];
+
+// Defaults used both for rendering before GET_SETTINGS lands AND for filling in
+// any missing keys before sending to Swift (decoder rejects partial dicts).
+window._enforcementMechanismDefaults = {
+  nudgeNotifications: true, screenRedShift: true, autoRedirect: true,
+  blockingOverlay: true, interventionExercises: true,
+  backgroundAudioDetection: true, contextSwitchOverlay: true,
+};
 
 function renderStrictModePage() {
   // Fetch fresh state.
@@ -6523,11 +6533,7 @@ function renderEnforcementMechanisms() {
   // Default to all-on if settings haven't loaded yet — better than rendering
   // nothing. The settings push will re-render with actual values when it arrives.
   var settings = (window._enforcementSettings && (window._enforcementSettings.focusHours
-    || window._enforcementSettings.deepWork)) || {
-    nudge: true, screenRedShift: true, autoRedirect: true,
-    blockingOverlay: true, interventionExercises: true,
-    backgroundAudioDetection: true, contextSwitchOverlay: true,
-  };
+    || window._enforcementSettings.deepWork)) || window._enforcementMechanismDefaults;
   mount.innerHTML = (window._enforcementMechanisms || []).map(function(m) {
     var on = settings[m.key] !== false;
     return '<div class="strict-lock-row">' +
@@ -6544,13 +6550,17 @@ function renderEnforcementMechanisms() {
 }
 
 function onEnforcementMechanismToggle(key, on) {
-  // Read current enforcement settings, patch this key in BOTH dwork + fhours,
-  // fire SET_ENFORCEMENT_SETTINGS so the change applies regardless of which
-  // block-type intensity is current.
-  if (!window._enforcementSettings) window._enforcementSettings = { deepWork: {}, focusHours: {} };
+  // Patch this key in BOTH deepWork + focusHours buckets so the change applies
+  // regardless of which block-type intensity is current. Swift's decoder requires
+  // ALL 7 keys present in each bucket — merge defaults under any existing values
+  // so a first-toggle before GET_SETTINGS still produces a complete dict.
+  if (!window._enforcementSettings) window._enforcementSettings = {};
+  var defaults = window._enforcementMechanismDefaults;
   ['deepWork', 'focusHours'].forEach(function(bucket) {
-    if (!window._enforcementSettings[bucket]) window._enforcementSettings[bucket] = {};
-    window._enforcementSettings[bucket][key] = !!on;
+    var existing = window._enforcementSettings[bucket] || {};
+    var merged = Object.assign({}, defaults, existing);
+    merged[key] = !!on;
+    window._enforcementSettings[bucket] = merged;
   });
   sendMessage({
     type: 'SET_ENFORCEMENT_SETTINGS',
