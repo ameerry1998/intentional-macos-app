@@ -765,6 +765,13 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 )
             }
 
+        case "OPEN_PARTNER_UNLOCK_SHEET":
+            // Generic partner-unlock sheet (BedtimeUnlockRequestView in .bedtime mode).
+            // Used by Strict Mode disable flow. Reuses the bedtime unlock plumbing
+            // since the underlying contract (request code → partner emails → user
+            // enters code → verify) is identical.
+            appDelegate?.openBedtimeUnlockRequestSheet()
+
         case "OPEN_INTENTION_EDITOR":
             // Deep-link from the block editor's "Coding · Standard" caption tap →
             // navigate the dashboard to the Intentions tab and open this intention.

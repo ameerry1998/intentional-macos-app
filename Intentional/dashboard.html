@@ -5116,6 +5116,15 @@ body.theme-effects-warm::after {
     <span class="sidebar-item-icon">⚙</span> Settings
   </div>
   <div style="flex:1;"></div>
+  <!-- Strict Mode status pill — shows current lockdown state at a glance.
+       Hidden by default; revealed when strict mode is ON (and dimly when OFF
+       but a partner is set up). -->
+  <div class="sb-blocking" id="sb-strict-pill" style="display:none;"
+       onclick="navigateTo('settings'); setTimeout(function(){ showSettingsDetail('strict-mode'); }, 50);">
+    <span class="shield" id="sb-strict-icon">🔒</span>
+    <span id="sb-strict-label">Strict Mode</span>
+    <span class="arrow">›</span>
+  </div>
   <!-- Bottom-left blocking pill (May 2026 prototype port) -->
   <div class="sb-blocking empty" id="sb-blocking" onclick="navigateTo('today');setTodayMode && setTodayMode('blocks');">
     <span class="shield">🛡</span>
@@ -5480,14 +5489,14 @@ body.theme-effects-warm::after {
     <div id="settings-menu">
       <div class="section-title">Settings</div>
       <div class="settings-card">
+        <div class="settings-menu-row" onclick="showSettingsDetail('strict-mode')">
+          <div class="settings-menu-icon" style="background:rgba(232,116,97,0.16);color:var(--accent-primary);">🔒</div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Strict Mode</div><div class="settings-menu-sub" id="settings-strict-mode-sub">Partner-locked enforcement</div></div>
+          <span class="settings-menu-chevron">›</span>
+        </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('account')">
           <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1);color:var(--accent-primary);">⊕</div>
           <div class="settings-menu-info"><div class="settings-menu-title">Account</div><div class="settings-menu-sub" id="settings-account-sub">Loading...</div></div>
-          <span class="settings-menu-chevron">›</span>
-        </div>
-        <div class="settings-menu-row" onclick="showSettingsDetail('theme')">
-          <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1);color:var(--accent-primary);">◐</div>
-          <div class="settings-menu-info"><div class="settings-menu-title">Theme</div><div class="settings-menu-sub" id="settings-theme-sub">Deep Lush</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('ai')">
@@ -5497,7 +5506,7 @@ body.theme-effects-warm::after {
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('enforcement')">
           <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1);color:var(--accent-primary);">◈</div>
-          <div class="settings-menu-info"><div class="settings-menu-title">Enforcement</div><div class="settings-menu-sub">Nudges, red shift, overlays</div></div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Focus intensity</div><div class="settings-menu-sub">Nudges, red shift, overlays</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('safety')">
@@ -5508,11 +5517,6 @@ body.theme-effects-warm::after {
         <div class="settings-menu-row" onclick="showSettingsDetail('distractions')">
           <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1);color:var(--accent-primary);">⊘</div>
           <div class="settings-menu-info"><div class="settings-menu-title">Distractions</div><div class="settings-menu-sub" id="settings-distractions-sub">Apps that drain your daily budget</div></div>
-          <span class="settings-menu-chevron">›</span>
-        </div>
-        <div class="settings-menu-row" onclick="showSettingsDetail('budget')">
-          <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1);color:var(--accent-primary);">⏱</div>
-          <div class="settings-menu-info"><div class="settings-menu-title">Distraction Budget</div><div class="settings-menu-sub" id="settings-budget-sub">Daily allowance + lock</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('always-blocked')">
@@ -5538,6 +5542,67 @@ body.theme-effects-warm::after {
         <div class="settings-menu-row" onclick="showSettingsDetail('reset')">
           <div class="settings-menu-icon" style="background:rgba(212,80,80,0.1);color:#d45050;">⊖</div>
           <div class="settings-menu-info"><div class="settings-menu-title">Reset & Delete</div></div>
+          <span class="settings-menu-chevron">›</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail: Strict Mode -->
+    <div class="settings-detail" id="settings-detail-strict-mode">
+      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
+      <div class="settings-detail-title">Strict Mode</div>
+      <div class="settings-detail-sub" style="font-size:13px; color:rgba(255,255,255,0.55); margin-bottom:18px;">
+        A single switch that locks your protections in place. To turn it off you need a code from your accountability partner — the friction is the feature.
+      </div>
+
+      <!-- Master toggle card -->
+      <div class="settings-card" id="strict-master-card">
+        <div class="setting-row">
+          <div>
+            <div class="setting-label" style="font-size:15px;">
+              <span id="strict-master-icon">🔒</span>
+              <span id="strict-master-label" style="margin-left:6px;">Strict Mode</span>
+            </div>
+            <div class="setting-desc" id="strict-master-status">Loading…</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="strict-mode-toggle" onchange="onStrictModeToggle(this.checked)">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <div id="strict-mode-error" style="display:none; padding:0 16px 12px; font-size:12px; color:#fa6464;"></div>
+      </div>
+
+      <!-- What gets locked checklist -->
+      <div class="settings-card" style="margin-top:14px;">
+        <div class="settings-card-title">What strict mode locks</div>
+        <div id="strict-checklist" style="padding:6px 16px 14px; display:flex; flex-direction:column; gap:10px;">
+          <!-- Items injected by JS -->
+        </div>
+        <div class="setting-desc" style="padding:0 16px 14px; font-size:11.5px;">
+          Each item is locked when Strict Mode is on. You can still set how aggressive enforcement is below — strict mode controls whether you can dodge it, not how strong it is.
+        </div>
+      </div>
+
+      <!-- Disable / partner-unlock action -->
+      <div id="strict-disable-card" class="settings-card" style="margin-top:14px; display:none;">
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Disable Strict Mode</div>
+            <div class="setting-desc">Request a code from your accountability partner. They'll get a notification.</div>
+          </div>
+          <button class="btn-danger" onclick="onRequestStrictDisable()">Request code</button>
+        </div>
+      </div>
+
+      <!-- Focus intensity (links to existing Enforcement page) -->
+      <div class="settings-card" style="margin-top:14px;">
+        <div class="settings-menu-row" onclick="showSettingsDetail('enforcement')" style="cursor:pointer;">
+          <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1); color:var(--accent-primary);">◈</div>
+          <div class="settings-menu-info">
+            <div class="settings-menu-title">Focus intensity</div>
+            <div class="settings-menu-sub">Tune red shift, overlays, intervention exercises…</div>
+          </div>
           <span class="settings-menu-chevron">›</span>
         </div>
       </div>
@@ -5674,8 +5739,8 @@ body.theme-effects-warm::after {
     <!-- Detail: Enforcement -->
     <div class="settings-detail" id="settings-detail-enforcement">
       <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
-      <div class="settings-detail-title">Enforcement</div>
-      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">What happens when you're off-task during focus</div>
+      <div class="settings-detail-title">Focus intensity</div>
+      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:16px;">How aggressively the app intervenes when you're off-task. Standard = lighter touch (nudges, red shift). Strict = full enforcement (overlays, intervention exercises).</div>
     <div class="settings-card" id="enforcement-settings-card">
       <div class="settings-card-title">Enforcement Settings</div>
       <style>
@@ -5715,8 +5780,8 @@ body.theme-effects-warm::after {
       </style>
       <div class="enf-grid">
         <div></div>
-        <div class="enf-header" style="color: #f87171;">Focus</div>
-        <div class="enf-header" style="color: #a78bfa;">Focus</div>
+        <div class="enf-header" style="color: #f87171;">Standard</div>
+        <div class="enf-header" style="color: #a78bfa;">Strict</div>
 
         <div class="enf-row">
           <div class="enf-label">Nudge notifications</div>
@@ -6297,8 +6362,181 @@ function showSettingsDetail(id) {
     sendMessage({ type: 'GET_ALWAYS_BLOCKED' });
   } else if (id === 'budget') {
     sendMessage({ type: 'GET_BUDGET_STATE' });
+  } else if (id === 'strict-mode') {
+    renderStrictModePage();
   }
 }
+// ===== Strict Mode page =====
+// `strictModeEnabled` is the canonical boolean. The Swift side enforces all the
+// hard rules (daemon syncs, partner-unlock required to disable, etc.). The JS
+// here is just the surface area: master toggle, status, checklist, disable flow.
+
+window._strictModeState = window._strictModeState || {
+  enabled: false,
+  consentStatus: 'none',   // 'none' | 'pending' | 'confirmed'
+  isUnlocked: false,        // active unlock window from partner code
+  partnerName: null,
+};
+
+// Items shown in the "What strict mode locks" checklist. Each one corresponds
+// to a real check in the codebase that consults isLockedByStrictMode().
+window._strictModeChecklist = [
+  { key: 'sensitive_content', label: 'Sensitive content blocking', desc: 'Can\'t be disabled or set to a less-strict level.' },
+  { key: 'block_rules',       label: 'Block rules',                desc: 'Can\'t be deleted or toggled off (snooze for today still works).' },
+  { key: 'weekly_goals',      label: 'Weekly goal tampering',      desc: 'Can\'t rename, change target, or disable AI scoring within the week.' },
+  { key: 'ai_scoring',        label: 'AI scoring stays on',        desc: 'Per-goal AI-scoring toggle is frozen.' },
+  { key: 'today_schedule',    label: 'Today\'s schedule',          desc: 'Sessions scheduled for today can\'t be deleted (future days remain editable).' },
+  { key: 'strict_mode_self',  label: 'Strict mode itself',         desc: 'Only the partner unlock code can disable this.' },
+];
+
+function renderStrictModePage() {
+  // Fetch fresh state.
+  sendMessage({ type: 'GET_SETTINGS' });
+  sendMessage({ type: 'GET_PARTNER_STATUS' });
+  _updateStrictModeUI();
+}
+
+function _updateStrictModeUI() {
+  var s = window._strictModeState;
+  var toggle = document.getElementById('strict-mode-toggle');
+  var label = document.getElementById('strict-master-label');
+  var status = document.getElementById('strict-master-status');
+  var icon = document.getElementById('strict-master-icon');
+  var disableCard = document.getElementById('strict-disable-card');
+  var err = document.getElementById('strict-mode-error');
+  if (toggle) toggle.checked = !!s.enabled;
+  if (icon) icon.textContent = s.enabled ? '🔒' : '🔓';
+  if (label) label.textContent = s.enabled ? 'Strict Mode · on' : 'Strict Mode · off';
+  if (status) {
+    if (s.enabled) {
+      status.textContent = s.partnerName
+        ? 'Partner: ' + s.partnerName + ' · they\'ll need to send you a code to disable.'
+        : 'Locked.';
+    } else {
+      status.textContent = s.consentStatus === 'confirmed'
+        ? 'Off. Flip on to lock down your protections.'
+        : 'Off. Set up an accountability partner first (Accountability tab).';
+    }
+  }
+  if (disableCard) disableCard.style.display = s.enabled ? '' : 'none';
+  if (err) err.style.display = 'none';
+  // Render checklist with lock icons reflecting current state
+  var list = document.getElementById('strict-checklist');
+  if (list) {
+    list.innerHTML = window._strictModeChecklist.map(function(item) {
+      var lockSym = s.enabled ? '🔒' : '○';
+      var color = s.enabled ? 'var(--accent-primary)' : 'rgba(255,255,255,0.25)';
+      return '<div style="display:flex; gap:10px; align-items:flex-start;">' +
+        '<span style="color:' + color + '; font-size:14px; line-height:1.2; min-width:18px;">' + lockSym + '</span>' +
+        '<div style="flex:1;">' +
+          '<div style="font-size:13px; color:' + (s.enabled ? 'var(--text-primary)' : 'rgba(255,255,255,0.6)') + ';">' + item.label + '</div>' +
+          '<div style="font-size:11.5px; color:rgba(255,255,255,0.4); margin-top:2px;">' + item.desc + '</div>' +
+        '</div></div>';
+    }).join('');
+  }
+}
+
+function onStrictModeToggle(checked) {
+  var s = window._strictModeState;
+  if (checked) {
+    // Enable path: backend will reject if no confirmed partner.
+    sendMessage({ type: 'SAVE_STRICT_MODE', enabled: true });
+  } else {
+    // Disable path: needs an active unlock window. If we don't have one,
+    // revert the toggle UI and prompt for partner-unlock flow.
+    if (!s.isUnlocked) {
+      var toggle = document.getElementById('strict-mode-toggle');
+      if (toggle) toggle.checked = true;
+      onRequestStrictDisable();
+      return;
+    }
+    sendMessage({ type: 'SAVE_STRICT_MODE', enabled: false });
+  }
+}
+window.onStrictModeToggle = onStrictModeToggle;
+
+function onRequestStrictDisable() {
+  // Reuse the existing partner-unlock SwiftUI sheet (BedtimeUnlockRequestView).
+  // The Swift side handles request→partner email→user enters code→verify.
+  sendMessage({ type: 'OPEN_PARTNER_UNLOCK_SHEET', purpose: 'strict_mode' });
+}
+window.onRequestStrictDisable = onRequestStrictDisable;
+
+// Swift pushes the strict-mode mutation result here.
+function refreshSidebarStrictPill() {
+  var pill = document.getElementById('sb-strict-pill');
+  var lbl = document.getElementById('sb-strict-label');
+  var icon = document.getElementById('sb-strict-icon');
+  if (!pill || !lbl) return;
+  var s = window._strictModeState;
+  if (s.enabled) {
+    pill.style.display = '';
+    pill.classList.remove('empty');
+    if (icon) icon.textContent = '🔒';
+    lbl.textContent = 'Strict Mode · locked';
+  } else if (s.consentStatus === 'confirmed') {
+    // Partner set up but strict mode off — show dimly so user knows the option exists
+    pill.style.display = '';
+    pill.classList.add('empty');
+    if (icon) icon.textContent = '🔓';
+    lbl.textContent = 'Strict Mode · off';
+  } else {
+    pill.style.display = 'none';
+  }
+}
+window.refreshSidebarStrictPill = refreshSidebarStrictPill;
+
+window._strictModeResult = function(res) {
+  var err = document.getElementById('strict-mode-error');
+  if (!res || res.success === false) {
+    if (err) {
+      err.textContent = (res && res.message) || 'Couldn\'t update strict mode.';
+      err.style.display = '';
+    }
+    // Revert the toggle to actual server state
+    sendMessage({ type: 'GET_SETTINGS' });
+    return;
+  }
+  window._strictModeState.enabled = !!res.enabled;
+  _updateStrictModeUI();
+  if (typeof showToast === 'function') {
+    showToast(res.enabled ? 'Strict Mode on — locked down' : 'Strict Mode off');
+  }
+  // Bump the sidebar pill in case the count display changed
+  if (typeof refreshSidebarStrictPill === 'function') refreshSidebarStrictPill();
+};
+
+// Hook into the existing settings/partner-status receivers to keep our local
+// _strictModeState in sync. We piggyback on whatever fires after GET_SETTINGS.
+(function() {
+  var origSettings = window._settingsResult;
+  window._settingsResult = function(data) {
+    if (origSettings) try { origSettings(data); } catch (e) {}
+    if (data && typeof data === 'object') {
+      window._strictModeState.enabled = !!data.strictModeEnabled;
+      // temporaryUnlockUntil indicates active unlock window
+      if (data.temporaryUnlockUntil) {
+        var until = new Date(data.temporaryUnlockUntil);
+        window._strictModeState.isUnlocked = !isNaN(until) && until > new Date();
+      } else {
+        window._strictModeState.isUnlocked = false;
+      }
+      window._strictModeState.consentStatus = data.consentStatus || 'none';
+      _updateStrictModeUI();
+      if (typeof refreshSidebarStrictPill === 'function') refreshSidebarStrictPill();
+    }
+  };
+  var origPartner = window._partnerStatusResult;
+  window._partnerStatusResult = function(data) {
+    if (origPartner) try { origPartner(data); } catch (e) {}
+    if (data) {
+      window._strictModeState.partnerName = data.partnerName || data.partner_name || null;
+      if (data.consentStatus) window._strictModeState.consentStatus = data.consentStatus;
+      _updateStrictModeUI();
+    }
+  };
+})();
+
 // FIX-12: spec-compliant aliases for the prototype-to-production handoff
 window.openSettingsSub = showSettingsDetail;
 window.closeSettingsSub = function() {
