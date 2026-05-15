@@ -576,6 +576,17 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "SAVE_STRICT_MODE":
             handleSaveStrictMode(body)
 
+        case "SAVE_STRICT_MODE_LOCKS":
+            // Per-item lock map for Strict Mode. Stored in settings JSON so the
+            // enforcement code (FocusMonitor, ContentSafetyMonitor, etc.) can
+            // consult which protections to actually freeze when strict is on.
+            if let locks = body["locks"] as? [String: Any] {
+                updateSettingsFile { settings in
+                    settings["strictModeLocks"] = locks
+                }
+                appDelegate?.postLog("🔒 SAVE_STRICT_MODE_LOCKS: \(locks)")
+            }
+
         case "SAVE_IF_THEN_PLAN":
             if let planIndex = body["planIndex"] as? Int {
                 UserDefaults.standard.set(planIndex, forKey: "defaultIfThenPlan")
@@ -1292,6 +1303,12 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         result["soundTone"] = (savedSettings["soundTone"] as? String) ?? "Glass"
         result["theme"] = (savedSettings["theme"] as? String) ?? "iridescent"
         result["strictModeEnabled"] = UserDefaults.standard.bool(forKey: "strictModeEnabled")
+        // Per-item lock map. Defaults: every protection locked (true) when strict
+        // mode is on. JS hydrates checkbox state from this. strict_mode_self is
+        // always true (enforced JS-side; user can't uncheck the master lock).
+        if let locks = savedSettings["strictModeLocks"] as? [String: Any] {
+            result["strictModeLocks"] = locks
+        }
 
         // Intentional Mode settings — read directly from UserDefaults (controller deleted in Task 9)
         let defaults = UserDefaults.standard

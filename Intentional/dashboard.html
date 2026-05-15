@@ -4981,6 +4981,32 @@ body.theme-effects-warm::after {
 .blk-ctx-menu .ctx-item.danger { color: #fa6464; }
 .blk-ctx-menu .ctx-item.danger:hover { background: rgba(250, 100, 100, 0.12); }
 .blk-ctx-menu .ctx-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 4px 0; }
+
+/* Strict Mode per-item lock checkboxes (Accountability page) */
+.strict-lock-row { display: flex; gap: 12px; padding: 8px 0; align-items: flex-start; border-top: 0.5px solid rgba(255,255,255,0.04); }
+.strict-lock-row:first-child { border-top: 0; }
+.strict-lock-toggle { position: relative; flex-shrink: 0; cursor: pointer; padding-top: 1px; }
+.strict-lock-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.strict-lock-toggle .cbx {
+  display: block; width: 18px; height: 18px; border-radius: 4px;
+  border: 1.5px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.02);
+  transition: all 120ms ease;
+  position: relative;
+}
+.strict-lock-toggle:hover .cbx { border-color: rgba(255,255,255,0.45); }
+.strict-lock-toggle input:checked + .cbx {
+  background: var(--accent-primary, #F38B5C);
+  border-color: var(--accent-primary, #F38B5C);
+}
+.strict-lock-toggle input:checked + .cbx::after {
+  content: ''; position: absolute; left: 5px; top: 1px;
+  width: 5px; height: 10px; border: solid #1a1410;
+  border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+.strict-lock-toggle input:disabled + .cbx {
+  opacity: 0.55; cursor: not-allowed;
+}
 .cd-plan .tline.drop-active { background: var(--surface-2); border-radius: var(--r-md); }
 .cd-plan .past-summary { background: var(--surface); border: 0.5px solid var(--line); border-radius: var(--r-md); padding: 14px 18px; display: flex; align-items: center; gap: 28px; }
 .cd-plan .past-summary .stat { font: 500 12px var(--font); color: var(--text-3); display: flex; align-items: baseline; gap: 6px; }
@@ -5232,14 +5258,12 @@ body.theme-effects-warm::after {
       <div class="calendar-container" id="calendar-container"></div>
     </div>
 
-    <!-- Focus Mode toggle (compact) -->
-    <div class="settings-card" style="margin-top:12px; padding:0;">
-      <div style="display:flex; align-items:center; padding:12px 16px; gap:12px;">
-        <div style="width:28px;height:28px;border-radius:6px;background:rgba(52,211,153,0.1);color:var(--accent-primary);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">⊞</div>
-        <div style="flex:1;font-size:13px;font-weight:500;">Focus Mode</div>
-        <label class="toggle"><input type="checkbox" id="focus-mode-toggle" onchange="onFocusModeToggle(this.checked)"><span class="toggle-track"></span></label>
-      </div>
-    </div>
+    <!-- Focus Mode toggle removed 2026-05-15 — was redundant with schedule-based
+         session activation. To start a focus session: use the +Focus button on
+         the schedule, drag a weekly goal onto the timeline, or have a scheduled
+         block become current. Strict Mode (the partner-locked commitment) lives
+         in the Accountability tab. -->
+    <input type="checkbox" id="focus-mode-toggle" style="display:none;">
 
     <!-- AI Assessments (always visible; shows last 30 coach verdicts) -->
     <div class="settings-card" id="ai-assessments-card" style="margin-top:12px; padding:0;">
@@ -5480,6 +5504,55 @@ body.theme-effects-warm::after {
     <div class="lock-container" id="lock-content">
       <div class="lock-title" style="color:rgba(255,255,255,0.5); text-align:center; padding:20px 0;">Loading...</div>
     </div>
+
+    <!-- Strict Mode commitment section — lives here because it's fundamentally
+         a partner-relationship lockdown, not a setting. -->
+    <div style="margin-top:32px;">
+      <div class="section-title" style="margin-bottom:14px; display:flex; align-items:center; gap:10px;">
+        <span id="strict-master-icon" style="font-size:20px;">🔓</span>
+        <span>Strict Mode</span>
+      </div>
+      <div style="font-size:13px; color:rgba(255,255,255,0.55); margin-bottom:18px;">
+        Lock your protections so you can't dodge them on impulse. To turn it off you need a code from your accountability partner — the friction is the feature.
+      </div>
+
+      <!-- Master toggle card -->
+      <div class="settings-card" id="strict-master-card">
+        <div class="setting-row">
+          <div>
+            <div class="setting-label" style="font-size:15px;">
+              <span id="strict-master-label">Strict Mode</span>
+            </div>
+            <div class="setting-desc" id="strict-master-status">Loading…</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="strict-mode-toggle" onchange="onStrictModeToggle(this.checked)">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <div id="strict-mode-error" style="display:none; padding:0 16px 12px; font-size:12px; color:#fa6464;"></div>
+      </div>
+
+      <!-- Per-item lock checklist — each one user-configurable -->
+      <div class="settings-card" style="margin-top:14px;">
+        <div class="settings-card-title">What to lock</div>
+        <div class="setting-desc" style="padding:2px 16px 12px; font-size:12px;">
+          When Strict Mode is on, the items you check below become partner-gated. Uncheck to keep them user-editable.
+        </div>
+        <div id="strict-checklist" style="padding:4px 16px 14px; display:flex; flex-direction:column; gap:4px;"></div>
+      </div>
+
+      <!-- Disable card (only when ON) -->
+      <div id="strict-disable-card" class="settings-card" style="margin-top:14px; display:none;">
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Disable Strict Mode</div>
+            <div class="setting-desc">Request a code from your partner. They'll get a notification.</div>
+          </div>
+          <button class="btn-danger" onclick="onRequestStrictDisable()">Request code</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Page: Settings (Account + Browsers + Time Limits + Device + Reset & Delete) -->
@@ -5489,9 +5562,9 @@ body.theme-effects-warm::after {
     <div id="settings-menu">
       <div class="section-title">Settings</div>
       <div class="settings-card">
-        <div class="settings-menu-row" onclick="showSettingsDetail('strict-mode')">
+        <div class="settings-menu-row" onclick="navigateTo('lock')">
           <div class="settings-menu-icon" style="background:rgba(232,116,97,0.16);color:var(--accent-primary);">🔒</div>
-          <div class="settings-menu-info"><div class="settings-menu-title">Strict Mode</div><div class="settings-menu-sub" id="settings-strict-mode-sub">Partner-locked enforcement</div></div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Strict Mode</div><div class="settings-menu-sub">Manage in Accountability →</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('account')">
@@ -5542,67 +5615,6 @@ body.theme-effects-warm::after {
         <div class="settings-menu-row" onclick="showSettingsDetail('reset')">
           <div class="settings-menu-icon" style="background:rgba(212,80,80,0.1);color:#d45050;">⊖</div>
           <div class="settings-menu-info"><div class="settings-menu-title">Reset & Delete</div></div>
-          <span class="settings-menu-chevron">›</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Detail: Strict Mode -->
-    <div class="settings-detail" id="settings-detail-strict-mode">
-      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
-      <div class="settings-detail-title">Strict Mode</div>
-      <div class="settings-detail-sub" style="font-size:13px; color:rgba(255,255,255,0.55); margin-bottom:18px;">
-        A single switch that locks your protections in place. To turn it off you need a code from your accountability partner — the friction is the feature.
-      </div>
-
-      <!-- Master toggle card -->
-      <div class="settings-card" id="strict-master-card">
-        <div class="setting-row">
-          <div>
-            <div class="setting-label" style="font-size:15px;">
-              <span id="strict-master-icon">🔒</span>
-              <span id="strict-master-label" style="margin-left:6px;">Strict Mode</span>
-            </div>
-            <div class="setting-desc" id="strict-master-status">Loading…</div>
-          </div>
-          <label class="toggle">
-            <input type="checkbox" id="strict-mode-toggle" onchange="onStrictModeToggle(this.checked)">
-            <span class="toggle-track"></span>
-          </label>
-        </div>
-        <div id="strict-mode-error" style="display:none; padding:0 16px 12px; font-size:12px; color:#fa6464;"></div>
-      </div>
-
-      <!-- What gets locked checklist -->
-      <div class="settings-card" style="margin-top:14px;">
-        <div class="settings-card-title">What strict mode locks</div>
-        <div id="strict-checklist" style="padding:6px 16px 14px; display:flex; flex-direction:column; gap:10px;">
-          <!-- Items injected by JS -->
-        </div>
-        <div class="setting-desc" style="padding:0 16px 14px; font-size:11.5px;">
-          Each item is locked when Strict Mode is on. You can still set how aggressive enforcement is below — strict mode controls whether you can dodge it, not how strong it is.
-        </div>
-      </div>
-
-      <!-- Disable / partner-unlock action -->
-      <div id="strict-disable-card" class="settings-card" style="margin-top:14px; display:none;">
-        <div class="setting-row">
-          <div>
-            <div class="setting-label">Disable Strict Mode</div>
-            <div class="setting-desc">Request a code from your accountability partner. They'll get a notification.</div>
-          </div>
-          <button class="btn-danger" onclick="onRequestStrictDisable()">Request code</button>
-        </div>
-      </div>
-
-      <!-- Focus intensity (links to existing Enforcement page) -->
-      <div class="settings-card" style="margin-top:14px;">
-        <div class="settings-menu-row" onclick="showSettingsDetail('enforcement')" style="cursor:pointer;">
-          <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1); color:var(--accent-primary);">◈</div>
-          <div class="settings-menu-info">
-            <div class="settings-menu-title">Focus intensity</div>
-            <div class="settings-menu-sub">Tune red shift, overlays, intervention exercises…</div>
-          </div>
           <span class="settings-menu-chevron">›</span>
         </div>
       </div>
@@ -6362,8 +6374,6 @@ function showSettingsDetail(id) {
     sendMessage({ type: 'GET_ALWAYS_BLOCKED' });
   } else if (id === 'budget') {
     sendMessage({ type: 'GET_BUDGET_STATE' });
-  } else if (id === 'strict-mode') {
-    renderStrictModePage();
   }
 }
 // ===== Strict Mode page =====
@@ -6420,21 +6430,51 @@ function _updateStrictModeUI() {
   }
   if (disableCard) disableCard.style.display = s.enabled ? '' : 'none';
   if (err) err.style.display = 'none';
-  // Render checklist with lock icons reflecting current state
+  // Render checklist: each item is a checkbox controlling whether that specific
+  // protection is locked when Strict Mode is on. Stored in UserDefaults via
+  // SAVE_STRICT_MODE_LOCKS bridge so the Swift enforcement code can consult it.
   var list = document.getElementById('strict-checklist');
   if (list) {
+    var locks = window._strictModeLocks || _defaultStrictLocks();
     list.innerHTML = window._strictModeChecklist.map(function(item) {
-      var lockSym = s.enabled ? '🔒' : '○';
-      var color = s.enabled ? 'var(--accent-primary)' : 'rgba(255,255,255,0.25)';
-      return '<div style="display:flex; gap:10px; align-items:flex-start;">' +
-        '<span style="color:' + color + '; font-size:14px; line-height:1.2; min-width:18px;">' + lockSym + '</span>' +
+      var checked = locks[item.key] !== false; // default to ON
+      // The master "strict_mode_self" item is always locked when strict is on —
+      // can't disable strict mode without partner code by design.
+      var forced = (item.key === 'strict_mode_self');
+      return '<div class="strict-lock-row">' +
+        '<label class="strict-lock-toggle">' +
+          '<input type="checkbox"' + (checked ? ' checked' : '') +
+            (forced ? ' disabled' : '') +
+            ' onchange="onStrictLockItemToggle(\'' + item.key + '\', this.checked)">' +
+          '<span class="cbx"></span>' +
+        '</label>' +
         '<div style="flex:1;">' +
-          '<div style="font-size:13px; color:' + (s.enabled ? 'var(--text-primary)' : 'rgba(255,255,255,0.6)') + ';">' + item.label + '</div>' +
-          '<div style="font-size:11.5px; color:rgba(255,255,255,0.4); margin-top:2px;">' + item.desc + '</div>' +
+          '<div style="font-size:13px; color:var(--text-primary);">' + item.label +
+            (forced ? ' <span style="color:rgba(255,255,255,0.4); font-size:11px;">· always</span>' : '') +
+          '</div>' +
+          '<div style="font-size:11.5px; color:rgba(255,255,255,0.45); margin-top:2px;">' + item.desc + '</div>' +
         '</div></div>';
     }).join('');
   }
 }
+
+function _defaultStrictLocks() {
+  // Default: every protection locked when strict mode is on.
+  var d = {};
+  (window._strictModeChecklist || []).forEach(function(it) { d[it.key] = true; });
+  return d;
+}
+
+function onStrictLockItemToggle(key, on) {
+  if (!window._strictModeLocks) window._strictModeLocks = _defaultStrictLocks();
+  window._strictModeLocks[key] = !!on;
+  // Persist via bridge so Swift can consult these flags during enforcement.
+  sendMessage({
+    type: 'SAVE_STRICT_MODE_LOCKS',
+    locks: window._strictModeLocks,
+  });
+}
+window.onStrictLockItemToggle = onStrictLockItemToggle;
 
 function onStrictModeToggle(checked) {
   var s = window._strictModeState;
@@ -6522,6 +6562,14 @@ window._strictModeResult = function(res) {
         window._strictModeState.isUnlocked = false;
       }
       window._strictModeState.consentStatus = data.consentStatus || 'none';
+      // Per-item lock map persisted across sessions.
+      if (data.strictModeLocks && typeof data.strictModeLocks === 'object') {
+        window._strictModeLocks = data.strictModeLocks;
+      } else if (!window._strictModeLocks) {
+        window._strictModeLocks = _defaultStrictLocks();
+      }
+      // strict_mode_self is always locked (can't be unchecked).
+      window._strictModeLocks.strict_mode_self = true;
       _updateStrictModeUI();
       if (typeof refreshSidebarStrictPill === 'function') refreshSidebarStrictPill();
     }
@@ -6693,6 +6741,10 @@ function navigateTo(pageId) {
     startConsentPolling();
   } else {
     stopConsentPolling();
+  }
+  // Render Strict Mode section when entering the Accountability page.
+  if (pageId === 'lock' && typeof renderStrictModePage === 'function') {
+    renderStrictModePage();
   }
 
   // Load account + browser status when viewing settings page
