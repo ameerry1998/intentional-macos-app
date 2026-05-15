@@ -109,8 +109,11 @@ class ContentSafetyMonitor {
     private let temporalWindowSize = 5
     private let temporalThreshold = 3
 
-    /// NSFW score threshold — only trigger above this (0.90 = very high confidence)
-    private let nsfwScoreThreshold: Float = 0.90
+    /// NSFW score threshold — only trigger above this (0.95 = very high confidence).
+    /// Was 0.90 but produced false positives on news anchors / low-cut tops in
+    /// normal clothing. OpenNSFW typically scores actual nudes ≥0.99 so 0.95
+    /// keeps real detection working while killing the obvious false positives.
+    private let nsfwScoreThreshold: Float = 0.95
 
     /// Debug: save flagged screenshots so we can review what triggered detection
     private let debugSaveScreenshots = true

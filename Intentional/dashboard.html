@@ -407,6 +407,10 @@ body.theme-effects-warm::after {
 .bn-duration-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .bn-dur-chip { background: rgba(255,255,255,0.06); border: 0.5px solid rgba(255,255,255,0.14); color: var(--text-primary); padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.12s; flex: 1 1 30%; min-width: 90px; }
 .bn-dur-chip:hover { background: var(--accent-primary); border-color: var(--accent-primary); color: #fff; }
+.mg-link-row { padding: 12px 14px; border: 0.5px solid rgba(255,255,255,0.10); border-radius: 8px; margin-bottom: 6px; cursor: pointer; transition: all 0.12s; }
+.mg-link-row:hover { background: rgba(255,255,255,0.05); border-color: var(--accent-primary); }
+.mg-link-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.mg-link-out { font-size: 12px; color: var(--text-tertiary); margin-top: 3px; }
 .block-toggle { width: 32px; height: 18px; background: rgba(255,255,255,0.10); border-radius: 9px; position: relative; cursor: pointer; transition: background 0.15s; flex-shrink: 0; }
 .block-toggle::after { content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #fff; top: 2px; left: 2px; transition: left 0.15s; }
 .block-toggle.on { background: var(--accent-primary); }
@@ -10364,30 +10368,41 @@ function removeRule(goalId, name, type, kind) {
 window.removeRule = removeRule;
 
 function openMonthlyGoalPicker(goalId) {
+  // WKWebView silently drops window.prompt() — use an inline HTML modal.
   var monthly = window._monthlyGoalsCache || [];
-  if (monthly.length === 0) {
-    if (confirm('No monthly goals yet. Create one?')) {
-      var title = prompt('Monthly goal title:');
-      if (title) {
-        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
-          window.webkit.messageHandlers.intentional.postMessage({
-            type: 'CREATE_MONTHLY_GOAL',
-            title: title,
-            month_of: new Date().toISOString().slice(0,7) + '-01',
-            status: 'planned',
-          });
-        }
-      }
-    }
-    return;
-  }
-  var labels = monthly.map(function(m, i){ return (i + 1) + '. ' + m.title; }).join('\n');
-  var pick = prompt('Link to which monthly goal?\n' + labels + '\n(empty = unlink)');
-  var monthlyGoalId = null;
-  if (pick) {
-    var idx = parseInt(pick, 10) - 1;
-    if (!Number.isNaN(idx) && monthly[idx]) monthlyGoalId = monthly[idx].id;
-  }
+  var existing = document.getElementById('mg-link-overlay');
+  if (existing) existing.parentNode.removeChild(existing);
+  var rows = monthly.length === 0
+    ? '<div class="setting-desc" style="padding:12px 4px;">No monthly goals yet. Create one first from the Plan tab.</div>'
+    : monthly.map(function(m) {
+        return '<div class="mg-link-row" onclick="_pickMonthlyLink(\'' + _escapeHTML(goalId) + '\', \'' + _escapeHTML(m.id) + '\')">' +
+                 '<div class="mg-link-title">' + _escapeHTML(m.title) + '</div>' +
+                 (m.outcome ? '<div class="mg-link-out">' + _escapeHTML(m.outcome) + '</div>' : '') +
+               '</div>';
+      }).join('');
+  var html =
+    '<div id="mg-link-overlay" class="ns-modal-overlay" onclick="if(event.target===this)_closeMonthlyLinkPicker()">' +
+      '<div class="ns-modal-card" style="min-width:420px;max-width:520px;">' +
+        '<div class="ns-modal-title">Link to monthly goal</div>' +
+        '<div style="max-height:320px;overflow-y:auto;margin-top:8px;">' + rows + '</div>' +
+        '<div class="ns-modal-footer" style="margin-top:14px;justify-content:space-between;">' +
+          '<button class="btn-quiet" onclick="_pickMonthlyLink(\'' + _escapeHTML(goalId) + '\', null)">Unlink</button>' +
+          '<button class="btn-quiet" onclick="_closeMonthlyLinkPicker()">Cancel</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+window.openMonthlyGoalPicker = openMonthlyGoalPicker;
+
+function _closeMonthlyLinkPicker() {
+  var o = document.getElementById('mg-link-overlay');
+  if (o) o.parentNode.removeChild(o);
+}
+window._closeMonthlyLinkPicker = _closeMonthlyLinkPicker;
+
+function _pickMonthlyLink(goalId, monthlyGoalId) {
+  _closeMonthlyLinkPicker();
   if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
     window.webkit.messageHandlers.intentional.postMessage({
       type: 'LINK_WEEKLY_TO_MONTHLY',
@@ -10395,9 +10410,13 @@ function openMonthlyGoalPicker(goalId) {
       monthly_goal_id: monthlyGoalId,
     });
   }
-  setTimeout(function(){ renderGoalEdit(goalId); }, 200);
+  if (typeof showToast === 'function') showToast(monthlyGoalId ? 'Linked' : 'Unlinked');
+  // Optimistic local update so the editor reflects the link immediately.
+  var g = (window._intentionsCache || []).find(function(x){ return x.id === goalId; });
+  if (g) g.monthly_goal_id = monthlyGoalId;
+  setTimeout(function(){ renderGoalEdit(goalId); }, 100);
 }
-window.openMonthlyGoalPicker = openMonthlyGoalPicker;
+window._pickMonthlyLink = _pickMonthlyLink;
 
 // Receiver: when MainWindow pushes _intentionUpdated, refresh the editor in place.
 window._intentionUpdated = function (updated) {
