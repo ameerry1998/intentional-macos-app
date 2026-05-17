@@ -334,6 +334,8 @@ Standard `xcodebuild` or Xcode IDE. Debug builds run directly from DerivedData. 
 
 ### Running a fresh build on the user's locked-down Mac (MANDATORY READ)
 
+**Use the script:** `./scripts/dev-launch.sh` (or `./scripts/dev-launch.sh --no-build` to skip rebuild). It handles all of the below automatically and auto-diagnoses the failure mode if the new instance dies. The rest of this section explains *why* it works so you can debug if it ever breaks.
+
 The user's Mac has Strict Mode + tamper-protection daemon installed. `open <bundle>` does not work. `sudo installer ... .pkg` works but the user does not want to install for every iteration. This is the procedure that actually runs a fresh build against the daemon-managed install — **follow it exactly**, none of the obvious alternatives work:
 
 **Why the obvious paths fail:**
