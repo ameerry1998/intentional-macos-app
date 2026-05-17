@@ -725,6 +725,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             self.relevanceScorer?.clearCache()
 
+            // Before the fanout: if transitioning to .focus and no schedule
+            // block backs the activation (cross-device, puck, or manual
+            // FOCUS_MODE_TOGGLE), inject a synthetic block so the AI scoring +
+            // enforcement paths (which all `guard let block = manager.currentBlock`)
+            // have context to work with. MUST run before earnedBrowseManager /
+            // focusMonitor fanout below so they see the injected block on this
+            // very first transition. Schedule-driven activations already have
+            // currentBlock set; this is a no-op for them.
+            if new == .focus && old != .focus && self.scheduleManager?.currentBlock == nil {
+                let now = Date()
+                let cal = Calendar.current
+                let synthetic = ScheduleManager.FocusBlock(
+                    id: UUID().uuidString,
+                    title: period?.intention ?? "Focus",
+                    description: "",
+                    startHour: cal.component(.hour, from: now),
+                    startMinute: cal.component(.minute, from: now),
+                    endHour: 23, endMinute: 59,
+                    blockType: .focusHours,
+                    intentionId: period?.intentionId
+                )
+                self.scheduleManager?.injectFocusSessionBlock(synthetic)
+                self.postLog("🎯 Injected synthetic block for sessionless .focus activation: \"\(synthetic.title)\"")
+            }
+
             // earnedBrowseManager.onBlockChanged MUST run before focusMonitor.onBlockChanged
             // — recordWorkTick reads activeBlockId. (CLAUDE.md Known Bug Fixes #2.)
             // Read currentBlock from the schedule because Period doesn't carry blockId.
@@ -747,6 +772,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if new == .off {
                 self.switchCoordinator?.reset()
                 self.applyAlwaysActiveProfiles()
+                // Clear any synthetic block we injected so the next activation
+                // doesn't re-engage stale context.
+                self.scheduleManager?.clearInjectedFocusSessionBlock()
+                // Dismiss the pill if it's stuck in `.blockComplete` — this is
+                // the "session ended but celebration was skipped" state (happens
+                // when prevStats.totalTicks == 0, i.e. user was distracted the
+                // whole block). Without this, the pill sits showing "Block
+                // complete" indefinitely, making users think a session is still
+                // active when it isn't. Celebration mode self-dismisses via its
+                // own carousel, so we leave that alone.
+                if self.focusMonitor?.deepWorkTimerController?.viewModel?.mode == .blockComplete {
+                    self.focusMonitor?.deepWorkTimerController?.dismiss()
+                }
             }
             self.mainWindowController?.pushFocusModeUpdate(state: new)
         }
