@@ -4866,6 +4866,10 @@ body.theme-effects-warm::after {
   --status-error:   #E26676;
   --status-info:    #9CB7EE;
 }
+/* Plan page fills the full content area instead of being capped at the default
+   .page max-width (720px). The Cloud Design layout has its own internal grid that
+   needs the room to breathe. */
+#page-plan { max-width: none; padding: 24px 32px; }
 .cd-plan .stage { padding: 0; min-height: auto; display: block; }
 .cd-plan .win { width: 100%; border-radius: 0; background: transparent; border: 0; box-shadow: none; }
 .cd-plan .titlebar { display: none; }
