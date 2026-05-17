@@ -881,20 +881,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 guard let self = self else { return }
                 if action == "start" {
                     self.postLog("🔌 Focus signal: START (session: \(sessionId), triggeredBy: \(triggeredBy))")
+                    // Per product scope (May 2026): puck = morning alarm only for now.
+                    // Ignore puck-triggered focus start signals — the Mac does not
+                    // engage local enforcement for them.
+                    if triggeredBy == "puck" {
+                        self.postLog("🔌 Focus signal: ignoring puck-triggered start (puck = alarm only for now)")
+                        return
+                    }
                     self.focusWebSocketClient?.startHeartbeat(sessionId: sessionId)
                     // Cross-device start: the user is on the originating device
-                    // (iPhone, Puck), not at the Mac. Auto-engage so enforcement
+                    // (iPhone), not at the Mac. Auto-engage so enforcement
                     // fires immediately — don't wait for a click on the local
                     // intention picker. If a stale picker is already on screen
                     // from a prior signal or local Cmd+Shift+P, dismiss it first
                     // so it doesn't compete with the auto-started session.
                     self.dismissFocusStartOverlay()
 
-                    let intention = triggeredBy == "puck"
-                        ? "Focus session (started on phone)"
-                        : "Focus session"
-                    let source: FocusModeController.ActivationSource = triggeredBy == "puck" ? .puck : .crossDevice
-                    self.focusModeController?.activate(intention: intention, source: source)
+                    let intention = "Focus session"
+                    self.focusModeController?.activate(intention: intention, source: .crossDevice)
                 } else if action == "stop" {
                     self.postLog("🔌 Focus signal: STOP (session: \(sessionId))")
                     self.focusWebSocketClient?.stopHeartbeat()
@@ -1786,7 +1790,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
-                self.postLog("🔌 Found active Puck focus session on reconnect — engaging enforcement (session=\(sessionId), triggeredBy=\(triggeredBy))")
+                // Per product scope (May 2026): puck = morning alarm only.
+                // Ignore puck-triggered sessions found on WS reconnect.
+                if triggeredBy == "puck" {
+                    self.postLog("🔌 Found puck-triggered session on reconnect — ignoring (puck = alarm only for now)")
+                    return
+                }
+                self.postLog("🔌 Found active focus session on reconnect — engaging enforcement (session=\(sessionId), triggeredBy=\(triggeredBy))")
 
                 // Auto-engage with default profile + placeholder intention,
                 // matching the WS-signal handler. Don't show the interactive
@@ -1796,14 +1806,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 let defaultProfileIds = self.blockingProfileManager?.profiles
                     .filter { $0.isDefault }
                     .map { $0.id } ?? []
-                let intention = triggeredBy == "puck"
-                    ? "Focus session (recovered from phone)"
-                    : "Focus session (recovered)"
+                let intention = "Focus session (recovered)"
                 self.startFocusSession(
                     profileIds: defaultProfileIds,
                     intention: intention,
                     aiEnabled: false,
-                    triggeredByPuck: triggeredBy == "puck"
+                    triggeredByPuck: false
                 )
                 if !sessionId.isEmpty {
                     self.focusWebSocketClient?.startHeartbeat(sessionId: sessionId)

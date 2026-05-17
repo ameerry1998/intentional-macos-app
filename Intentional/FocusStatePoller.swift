@@ -119,6 +119,15 @@ final class FocusStatePoller {
         lastKnownActive = active
         lastKnownSessionId = sessionId
 
+        // Per product scope (May 2026): puck's only role for now is morning alarm
+        // dismissal. Puck-triggered focus sessions on the backend are ignored by
+        // the Mac client — we do not engage local enforcement for them. The
+        // backend session record stays as-is; we just don't react.
+        if triggeredBy == "puck" {
+            appDelegate?.postLog("🔄 FocusStatePoller: ignoring puck-triggered session (puck = alarm only for now)")
+            return
+        }
+
         if active && !prevActive {
             appDelegate?.postLog("🔄 FocusStatePoller: detected START (session: \(sessionId ?? "-"), triggeredBy: \(triggeredBy), intentionId: \(intentionId?.uuidString ?? "-"))")
             engage(triggeredBy: triggeredBy, intentionId: intentionId, sessionId: sessionId)
