@@ -332,6 +332,66 @@ timeTracker.onSessionChanged = { platform in
 ### Development (Xcode)
 Standard `xcodebuild` or Xcode IDE. Debug builds run directly from DerivedData. Uses Apple Development signing with automatic provisioning.
 
+### Running a fresh build on the user's locked-down Mac (MANDATORY READ)
+
+The user's Mac has Strict Mode + tamper-protection daemon installed. `open <bundle>` does not work. `sudo installer ... .pkg` works but the user does not want to install for every iteration. This is the procedure that actually runs a fresh build against the daemon-managed install — **follow it exactly**, none of the obvious alternatives work:
+
+**Why the obvious paths fail:**
+- ❌ `open /tmp/intentional-pkg-build/Intentional.app` → LaunchServices ignores your path and starts the registered `/Applications/Intentional.app` (the OLD one).
+- ❌ Exec the PKG-built binary at `/tmp/intentional-pkg-build/Intentional.app/Contents/MacOS/Intentional` directly → AMFI SIGKILLs it silently. PKG output is Developer ID signed; cannot run standalone outside the installer. Log shows splash lines then nothing — exit code 137, no crash report.
+- ❌ Exec the DerivedData Debug binary plainly (`nohup .../Intentional &`) → main.swift's single-instance check sees the daemon-launched process, takes the "duplicate launch — exit silently" branch (line ~169 of `Intentional/main.swift`), your new instance disappears within 1s.
+- ❌ Reading `docs/dev-build-and-launch.md` and pasting its DerivedData hash → that hash drifts. The doc's `Intentional-cjpaicwfawcwqgepfrsxstqebhev` is stale. Always discover the current hash at runtime.
+
+**The procedure that works:**
+
+```bash
+# 1. Build Debug (NOT a PKG — PKG-signed binaries get AMFI-killed standalone).
+#    Run from the worktree root (or main repo root if not in a worktree).
+xcodebuild -project Intentional.xcodeproj -scheme Intentional -configuration Debug build 2>&1 | tail -5
+
+# 2. Discover the current DerivedData hash dynamically. There are typically
+#    multiple Intentional-* folders; pick the one with the newest Debug binary.
+DERIVED_DIR=$(ls -dt /Users/arayan/Library/Developer/Xcode/DerivedData/Intentional-*/Build/Products/Debug 2>/dev/null | head -1)
+DERIVED_BINARY="$DERIVED_DIR/Intentional.app/Contents/MacOS/Intentional"
+ls -la "$DERIVED_BINARY"  # sanity check + mtime confirms fresh build
+
+# 3. CRITICAL: set __XCODE_BUILT_PRODUCTS_DIR_PATHS before exec'ing the binary.
+#    This is the env var Xcode sets when running from the Run button. main.swift
+#    keys off this to take the "Xcode launch — kill the existing PID, take over,
+#    bootout the LaunchAgent + Login Item so the daemon won't immediately
+#    relaunch the OLD version" branch (see main.swift:106 and 113-168).
+#    Without it, your launch silently exits as a "duplicate" — no error, no log.
+nohup env __XCODE_BUILT_PRODUCTS_DIR_PATHS="$DERIVED_DIR" "$DERIVED_BINARY" \
+  &> /tmp/intentional-fresh.log &
+NEW_PID=$!
+echo "Launched PID $NEW_PID"
+sleep 5
+
+# 4. Verify the new instance survived. If pgrep returns DerivedData paths, the
+#    takeover worked. If it returns only /Applications paths, the takeover
+#    failed — check /tmp/intentional-fresh.log for the reason.
+pgrep -lf "DerivedData.*Intentional.app/Contents/MacOS" | head -3
+tail -15 /tmp/intentional-fresh.log
+```
+
+**Expected log signature when takeover works:**
+```
+🚀🚀🚀 MAIN.SWIFT EXECUTING - PID: <new>
+... <env vars, launch time> ...
+🏗️ Creating NSApplication and AppDelegate...
+✅ AppDelegate assigned, calling NSApplicationMain...
+=== applicationDidFinishLaunching CALLED ===
+[DaemonXPC] Connection established to com.intentional.daemon.xpc
+```
+
+If the log stops after the PID line with no `🏗️ Creating NSApplication` — AMFI killed it (you ran the PKG binary, not the Debug binary).
+If the log gets to `applicationDidFinishLaunching` but the process dies — single-instance check exited as duplicate (the env var wasn't set).
+
+**To roll back to the daemon-managed `/Applications` build:**
+Just quit the dev instance — the LaunchAgent + watchdog will respawn `/Applications/Intentional.app` within seconds (the takeover bootouts them but the system-level LaunchDaemon at `/Library/LaunchDaemons/com.intentional.watchdog.plist` survives a logout/login cycle and will reload them).
+
+**When this procedure isn't enough:** if you need the dock icon (the persistent click target) or the watchdog respawn to point at the new build, you do have to physically replace `/Applications/Intentional.app`. That requires sudo and is documented in `docs/dev-build-and-launch.md`.
+
 ### Production (PKG Installer)
 **Build command:** `./scripts/build-pkg.sh`
 **Skip notarization:** `NOTARIZE=0 ./scripts/build-pkg.sh`

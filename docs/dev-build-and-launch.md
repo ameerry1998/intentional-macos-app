@@ -2,84 +2,134 @@
 
 ## The Problem
 
-In production the Mac app is installed at `/Applications/Intentional.app` (root-owned, from the PKG installer) and a launch agent at `/Library/LaunchAgents/com.intentional.agent.plist` (also root-owned) keeps it running. So during dev:
+In production the Mac app is installed at `/Applications/Intentional.app` (root-owned, from the PKG installer). Multiple layers fight you when you try to run a fresh Debug build:
 
 1. **`open <new-build>`** doesn't run the new build — LaunchServices resolves the `com.intentional.app` bundle ID and starts `/Applications/Intentional.app` (the OLD one).
-2. **`pkill`** kills the running app, but the watchdog respawns the OLD one within seconds.
-3. **`rm -rf /Applications/Intentional.app`** fails without sudo because the bundle is root-owned.
-4. The user clicks the dock icon to verify changes — and the dock launches `/Applications/...` (the OLD one) too.
+2. **The LaunchAgent** at `/Library/LaunchAgents/com.intentional.agent.plist` keeps the OLD app running. `pkill` triggers a respawn within ~10s.
+3. **The system-level LaunchDaemon** at `/Library/LaunchDaemons/com.intentional.watchdog.plist` re-installs the LaunchAgent on logout/reboot if you remove it.
+4. **`rm -rf /Applications/Intentional.app`** fails without sudo (root-owned).
+5. **PKG-built `Intentional.app`** (the one in `/tmp/intentional-pkg-build/`) **cannot be exec'd standalone.** It's Developer-ID-signed; AMFI SIGKILLs it within ~50ms of launch with no crash report, exit code 137. Log shows splash lines then nothing.
+6. **The Debug binary from DerivedData** can be exec'd — but `main.swift` has a single-instance check that exits silently as a "duplicate launch" unless one specific env var is set.
+7. **Stale DerivedData hash.** This doc previously hard-coded `Intentional-cjpaicwfawcwqgepfrsxstqebhev`, but Xcode picks a new hash on certain project changes (worktree paths, project file edits, derived-data resets). Always discover dynamically.
 
-End result: you build a new version, run `open`, and STILL see the old sidebar / old behavior. Hours of confusion.
+End result if you skip any of these: you build a new version, the launch appears to succeed, and you STILL see the old sidebar / old behavior because either (a) LaunchServices ran `/Applications`, (b) AMFI killed your binary, or (c) main.swift's duplicate-detect silently exited.
 
-## The Fix — launch the binary directly
-
-The Debug build lives in DerivedData. Instead of `open`-ing the bundle (which goes through LaunchServices), execute the binary directly. This bypasses both the registered-bundle resolution AND avoids needing sudo.
+## The Procedure That Actually Works
 
 ```bash
-# 1. Kill the old running app (the one from /Applications)
-pkill -9 -f "/Applications/Intentional.app"
+# 1. Build Debug (NOT a PKG — PKG binaries get AMFI-killed standalone).
+#    Run from the repo root or worktree root.
+xcodebuild -project Intentional.xcodeproj -scheme Intentional -configuration Debug build 2>&1 | tail -5
 
-# 2. (Optional but recommended) Rebuild from your current branch
-cd /Users/arayan/Documents/GitHub/intentional-macos-app
-xcodebuild -project Intentional.xcodeproj -scheme Intentional -configuration Debug build 2>&1 | tail -3
+# 2. Discover the current DerivedData folder dynamically.
+#    `ls -dt` sorts newest-first; we want the one xcodebuild just wrote to.
+DERIVED_DIR=$(ls -dt /Users/arayan/Library/Developer/Xcode/DerivedData/Intentional-*/Build/Products/Debug 2>/dev/null | head -1)
+DERIVED_BINARY="$DERIVED_DIR/Intentional.app/Contents/MacOS/Intentional"
+ls -la "$DERIVED_BINARY"  # sanity check + mtime confirms freshness
 
-# 3. Launch the binary DIRECTLY (NOT via `open`).
-#    The path uses the DerivedData folder Xcode picks for the project.
-DERIVED_BINARY="/Users/arayan/Library/Developer/Xcode/DerivedData/Intentional-cjpaicwfawcwqgepfrsxstqebhev/Build/Products/Debug/Intentional.app/Contents/MacOS/Intentional"
-"$DERIVED_BINARY" &> /tmp/intentional-fresh.log &
-echo "running at PID $!"
+# 3. THE CRITICAL STEP: set __XCODE_BUILT_PRODUCTS_DIR_PATHS before exec'ing.
+#    Xcode sets this env var when running via the Run button. main.swift checks
+#    `ProcessInfo.processInfo.environment["__XCODE_BUILT_PRODUCTS_DIR_PATHS"] != nil`
+#    (see main.swift:106) to decide whether to take the "Xcode launch — terminate
+#    the existing PID, bootout the LaunchAgent + Login Item, take over as the
+#    primary instance" branch (main.swift:113-168). Without this env var, your
+#    new process takes the `else` branch at main.swift:169 — "Normal duplicate
+#    launch — silently exit" — and disappears within 1s. NO error message, NO
+#    log line beyond the early NSLog splash. This is THE thing that breaks new
+#    sessions trying to figure out why their build "doesn't work."
+nohup env __XCODE_BUILT_PRODUCTS_DIR_PATHS="$DERIVED_DIR" "$DERIVED_BINARY" \
+  &> /tmp/intentional-fresh.log &
+NEW_PID=$!
+echo "Launched PID $NEW_PID"
+sleep 5
+
+# 4. Verify the new instance is alive AND it took over (the old PIDs are gone).
+pgrep -lf "Intentional.app/Contents/MacOS/Intentional" | head -5
+tail -20 /tmp/intentional-fresh.log
 ```
 
-(The DerivedData folder name `Intentional-cjpaicwfawcwqgepfrsxstqebhev` is project-specific and stable — Xcode uses the same folder until you rename the project. If a project rename ever happens, find the current folder via `ls /Users/arayan/Library/Developer/Xcode/DerivedData/ | grep Intentional`.)
+## Reading the launch log to diagnose failures
 
-## Why this works
-
-- The watchdog daemon respawns the binary at `/Applications/Intentional.app/Contents/MacOS/Intentional`. Killing that process triggers a respawn — but the respawn is the OLD binary, NOT the one we just launched from DerivedData. Our new process runs alongside it, with full window access.
-- LaunchServices DOES NOT relink the bundle ID just because we ran a different binary — it stays mapped to `/Applications`. But that's fine: we don't go through LaunchServices, we exec the binary directly.
-- The new process has its own NSWindow and shows up as a separate dock icon (if multiple instances are visible). The user clicks the new one.
-
-## When this isn't enough
-
-If you need the dock icon (the persistent one users click) to point at the new build instead of the old, you need to physically replace `/Applications/Intentional.app`. This requires sudo:
+Expected success signature in `/tmp/intentional-fresh.log`:
 
 ```
-! sudo launchctl bootout system /Library/LaunchDaemons/com.intentional.watchdog.plist
-! sudo pkill -9 -f Intentional
+🚀🚀🚀 MAIN.SWIFT EXECUTING - PID: <new>
+📁 NSTemporaryDirectory: ...
+🔍 Diagnostic log path: ...
+⏰ Launch time: ...
+🆔 PID: <new>
+📡 Launched via extension: false
+🏗️ Creating NSApplication and AppDelegate...
+✅ AppDelegate assigned, calling NSApplicationMain...
+=== applicationDidFinishLaunching CALLED (NSLog) ===
+🌫️ [FORCE] forceRestoreSaturation called
+🌫️ [FORCE] ✅ All restored
+[DaemonXPC] Connection established to com.intentional.daemon.xpc
+```
+
+| Log stops at... | Diagnosis | Fix |
+|---|---|---|
+| `📡 Launched via extension: false` (no `🏗️ Creating NSApplication`) | AMFI killed it. You ran the PKG-built binary, not the Debug binary. | Re-run from DerivedData path, NOT `/tmp/intentional-pkg-build/`. |
+| `applicationDidFinishLaunching CALLED`, then process dies in <2s | `main.swift:169` "Normal duplicate launch — silently exit." Env var missing. | Re-launch with `env __XCODE_BUILT_PRODUCTS_DIR_PATHS="$DERIVED_DIR"` prefix. |
+| No log file at all | Bash backgrounding failed or the binary path is wrong. | `ls -la "$DERIVED_BINARY"` to confirm path. |
+| `[DaemonXPC] Connection established` | Success — you should see the new build's window. | — |
+
+## Why the env-var trick works
+
+`main.swift:104-181` implements a single-instance guard. When a second `Intentional` process starts and the lock file points at a live PID:
+
+- **If `__XCODE_BUILT_PRODUCTS_DIR_PATHS` is set** (Xcode-launch detection): the new process terminates the existing PID, bootouts the `com.intentional.agent` LaunchAgent so launchd won't relaunch it, sweeps Login Items via `launchctl list`, then takes over the lock file. This is "Xcode wins."
+- **If NOT set:** the new process silently `exit(0)`s. This is the production guard preventing accidental double-launches from the user manually clicking the dock icon while the LaunchAgent has already started the app.
+
+Setting the env var when you're driving the launch from a shell is what tells main.swift "treat me as the Xcode Run button — kick the old one out."
+
+## When the bootouts aren't enough
+
+If the daemon-managed install respawns the OLD `/Applications/Intentional.app` after your takeover (the system-level `/Library/LaunchDaemons/com.intentional.watchdog.plist` survives a logout/login), and you need the dock icon + the watchdog to point at the new build permanently, you have to physically replace `/Applications/Intentional.app`. That requires sudo:
+
+```bash
+! sudo launchctl bootout system /Library/LaunchDaemons/com.intentional.watchdog.plist 2>/dev/null
+! sudo launchctl bootout system /Library/LaunchDaemons/com.intentional.daemon.plist 2>/dev/null
+! sudo pkill -9 -f "/Applications/Intentional.app"
 ! sudo rm -rf /Applications/Intentional.app
-! sudo cp -R /Users/arayan/Library/Developer/Xcode/DerivedData/Intentional-cjpaicwfawcwqgepfrsxstqebhev/Build/Products/Debug/Intentional.app /Applications/
+! sudo cp -R "$DERIVED_DIR/Intentional.app" /Applications/
+! sudo launchctl bootstrap system /Library/LaunchDaemons/com.intentional.daemon.plist
+! sudo launchctl bootstrap system /Library/LaunchDaemons/com.intentional.watchdog.plist
 ! open /Applications/Intentional.app
 ```
 
-(The `!` prefix runs the line in your shell with your sudo password, so Claude Code can drive it.)
+(The `!` prefix runs the line in the user's shell with their sudo password so Claude Code can drive it via the conversation.)
 
-After this:
-- The dock icon launches the new build
-- The watchdog respawns the new build (because its target path `/Applications/Intentional.app/Contents/MacOS/Intentional` now points to the Debug binary)
-- Future "click the dock to test" works as expected
+After this the dock icon, watchdog respawn target, and menu bar all point at the new build until the next PKG install overwrites it.
 
 ## Quick reference
 
 | Goal | Command |
 |---|---|
-| Run new build once, see your changes | `pkill -9 -f "/Applications/Intentional.app"` then exec `…/Debug/Intentional.app/Contents/MacOS/Intentional` directly |
-| Make `/Applications` dock icon point at new build (persistent) | sudo `cp` over `/Applications/Intentional.app` after killing the watchdog |
-| Disable watchdog so old binary stops respawning | `sudo launchctl bootout system /Library/LaunchDaemons/com.intentional.watchdog.plist` |
-| Re-enable watchdog after you're done dev'ing | `sudo launchctl bootstrap system /Library/LaunchDaemons/com.intentional.watchdog.plist` |
+| Build new Debug + run alongside old daemon-managed instance | `xcodebuild ... build` → `nohup env __XCODE_BUILT_PRODUCTS_DIR_PATHS=$DERIVED_DIR $DERIVED_BINARY &` |
+| Find current DerivedData hash | `ls -dt /Users/arayan/Library/Developer/Xcode/DerivedData/Intentional-*/Build/Products/Debug \| head -1` |
+| Make `/Applications` dock icon point at new build (persistent) | sudo `cp` after `bootout` of daemon + watchdog; see above |
+| Re-enable watchdog after dev | `sudo launchctl bootstrap system /Library/LaunchDaemons/com.intentional.watchdog.plist` |
+| Roll back to daemon-managed `/Applications` build | Just quit the dev instance — LaunchAgent/watchdog respawn the OLD `/Applications/Intentional.app` within ~10s |
 
 ## What NOT to do
 
-- **Don't `open <bundle-path>`** — LaunchServices ignores your path and starts the registered `/Applications` version.
-- **Don't `xcrun simctl install`** — that's iOS Simulator only.
-- **Don't try to disable Gatekeeper** — Debug builds are signed with Apple Development which is trusted; the issue isn't signing, it's bundle ID resolution.
-- **Don't kill the watchdog plist file directly** — without `launchctl bootout`, it'll just reload on reboot.
+- ❌ `open /tmp/intentional-pkg-build/Intentional.app` — LaunchServices starts `/Applications/Intentional.app` regardless.
+- ❌ Exec `/tmp/intentional-pkg-build/Intentional.app/Contents/MacOS/Intentional` directly — AMFI silent-kills Developer-ID binaries outside the installer. CLAUDE.md "Known Bug Fixes #8."
+- ❌ Exec DerivedData Debug binary without `__XCODE_BUILT_PRODUCTS_DIR_PATHS` — process exits as "duplicate" without printing why.
+- ❌ Paste a hard-coded DerivedData hash from this doc or memory — hashes drift. Always rediscover.
+- ❌ `xcrun simctl install` — that's iOS Simulator only.
+- ❌ Disable Gatekeeper — Debug builds are Apple-Development-signed, the issue isn't signing, it's bundle ID resolution and single-instance detection.
+- ❌ `sudo rm` the LaunchDaemon plist file directly — without `launchctl bootout` it'll reload on reboot.
 
 ## Troubleshooting
 
-- **"I clicked the dock icon and still see old sidebar"** → you clicked `/Applications`. Either run the binary directly per above, OR sudo-replace `/Applications`.
-- **"My changes aren't in the build"** → check that you're on the right branch (`git branch --show-current`). Build before launch.
-- **"`xcodebuild` fails with codesign errors"** → it's signing with Apple Development; if entitlements changed recently, check `Intentional.entitlements`. Don't strip entitlements (per CLAUDE.md item 8).
-- **"Two Intentional windows open"** → both the old (PID from `/Applications`) and new (PID from DerivedData) are running. Kill the old one with `pkill -9 -f "/Applications/Intentional.app"` and the watchdog respawn won't matter — your new process keeps running.
+- **"Build succeeded, my new code isn't running"** → check `pgrep -lf Intentional` — if PIDs all point at `/Applications/...`, your new process exited. Re-check that you set the env var. Inspect `/tmp/intentional-fresh.log`.
+- **"Two Intentional windows open"** → the LaunchAgent respawned the OLD `/Applications` version after your takeover. Click the window opened by the new PID; the old one will respawn but lose focus. Or do the sudo-replace flow above for a clean swap.
+- **"My changes aren't in the build"** → wrong branch (`git branch --show-current`) or wrong DerivedData folder (you have multiple `Intentional-*` directories and used the older one). Use the `ls -dt | head -1` trick.
+- **"`xcodebuild` fails with codesign errors"** → Apple Development signing; if entitlements changed recently, check `Intentional.entitlements`. Don't strip entitlements (CLAUDE.md item 8).
+- **"AMFI Error 163, no crash report"** → you ran the PKG binary, not Debug. CLAUDE.md "Known Bug Fixes #8" — never exec PKG-signed app standalone.
 
 ---
 
-**TL;DR:** Don't `open` the bundle — exec the DerivedData binary directly. Watchdog respawns the OLD `/Applications` version but your new one runs alongside. To make the dock icon permanently point at new build, sudo-replace `/Applications/Intentional.app`.
+**TL;DR:** Build Debug, find the current DerivedData hash dynamically, exec the binary with `__XCODE_BUILT_PRODUCTS_DIR_PATHS` set. Without that env var, `main.swift:169` silently exits your process as a duplicate. Without Debug (i.e., if you exec the PKG-built `/tmp/...` binary), AMFI silent-kills it. The combination of those two failure modes is what makes "just run the new app" feel impossible.
