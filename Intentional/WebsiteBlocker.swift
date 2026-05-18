@@ -1297,31 +1297,50 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
 
         let titleProp = isSafari ? "name" : "title"
         let urlProp = "URL"
-        let pinnedExpr = isSafari ? "false" : "(get pinned of tabRef)"
+        // Per-property try blocks — a missing property on one tab must NOT
+        // drop the whole tab. Browsers like Comet may not expose `pinned`.
+        let pinnedBlock = isSafari ? "" : """
+                try
+                    set tPinned to (get pinned of tabRef) as text
+                end try
+        """
 
         let script = """
-        set output to ""
         tell application "\(appName)"
             if it is not running then return ""
+            set output to ""
             set winIdx to 0
             repeat with w in windows
                 set winIdx to winIdx + 1
                 set tabIdx to 0
                 repeat with tabRef in tabs of w
                     set tabIdx to tabIdx + 1
+                    set tTitle to ""
+                    set tURL to ""
+                    set tPinned to "false"
                     try
-                        set t to \(titleProp) of tabRef
-                        set u to \(urlProp) of tabRef
-                        set p to \(pinnedExpr)
-                        set output to output & winIdx & "\\t" & tabIdx & "\\t" & p & "\\t" & u & "\\t" & t & "\\n"
+                        set tURL to \(urlProp) of tabRef
                     end try
+                    try
+                        set tTitle to \(titleProp) of tabRef
+                    end try
+        \(pinnedBlock)
+                    if tURL is not "" then
+                        set output to output & winIdx & "\\t" & tabIdx & "\\t" & tPinned & "\\t" & tURL & "\\t" & tTitle & "\\n"
+                    end if
                 end repeat
             end repeat
+            return output
         end tell
-        return output
         """
 
         let raw = await runAppleScript(script, label: "readAllTabs(\(appName))")
+        // Diagnostic: log raw output (first 300 chars, with tab/newline visualised)
+        // so we can see WHY a browser returns zero tabs when it shouldn't.
+        let preview = String(raw.prefix(300))
+            .replacingOccurrences(of: "\n", with: "↵")
+            .replacingOccurrences(of: "\t", with: "→")
+        appDelegate?.postLog("📝 readAllTabs(\(appName)) raw=\(raw.count) chars: '\(preview)'")
         guard !raw.isEmpty else { return [] }
 
         var out = [AllTabsInfo]()
