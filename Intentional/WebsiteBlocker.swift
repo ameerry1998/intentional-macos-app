@@ -1286,18 +1286,18 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
 
     /// Read every tab across every window of the given browser. Used by the
     /// close-the-noise sweep. Returns empty on AppleScript failure (logged).
-    func readAllTabsAcrossWindows(forBundleId bundleId: String) async -> [AllTabsInfo] {
-        let appName: String
-        switch bundleId {
-        case "com.google.Chrome": appName = "Google Chrome"
-        case "company.thebrowser.Browser": appName = "Arc"
-        case "com.apple.Safari": appName = "Safari"
-        default: return []
-        }
+    ///
+    /// `appName` is the AppleScript application name (e.g. "Google Chrome",
+    /// "Comet"). It's sourced from BrowserMonitor's runtime discovery so this
+    /// works with every Chromium-based browser without hardcoding.
+    func readAllTabsAcrossWindows(forBundleId bundleId: String, appName: String) async -> [AllTabsInfo] {
+        let isSafari = (bundleId == "com.apple.Safari")
+        let isFirefoxFamily = bundleId.hasPrefix("org.mozilla.")  // No AppleScript dictionary.
+        if isFirefoxFamily { return [] }
 
-        let titleProp = (bundleId == "com.apple.Safari") ? "name" : "title"
+        let titleProp = isSafari ? "name" : "title"
         let urlProp = "URL"
-        let pinnedExpr = (bundleId == "com.apple.Safari") ? "false" : "(get pinned of tabRef)"
+        let pinnedExpr = isSafari ? "false" : "(get pinned of tabRef)"
 
         let script = """
         set output to ""
@@ -1339,41 +1339,32 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         return out
     }
 
-    /// Create a bookmark folder in the given browser. Returns the folder name
-    /// (used as the identifier — AppleScript exposes no stable IDs across
-    /// Chromium browsers consistently). Returns nil on failure.
-    func createBookmarkFolder(forBundleId bundleId: String, name: String) async -> String? {
-        let scriptSource: String
-        switch bundleId {
-        case "com.google.Chrome", "company.thebrowser.Browser":
-            let appName = (bundleId == "com.google.Chrome") ? "Google Chrome" : "Arc"
-            let safeName = name.replacingOccurrences(of: "\"", with: "\\\"")
-            scriptSource = """
-            tell application "\(appName)"
-                make new bookmark folder at end of bookmark folder "Bookmarks Bar" of bookmarks bar with properties {title:"\(safeName)"}
-            end tell
-            return "\(safeName)"
-            """
-        case "com.apple.Safari":
-            // Safari doesn't expose bookmark CRUD via AppleScript in modern macOS.
-            // Degraded: tabs still close but the user can't restore via bookmarks.
+    /// Create a bookmark folder. Works for any Chromium-based browser (Chrome,
+    /// Arc, Comet, Brave, Edge, etc.) — they all share the same AppleScript
+    /// bookmark dictionary. Safari is unsupported in modern macOS; Firefox
+    /// family has no AppleScript dictionary at all. `appName` is the
+    /// AppleScript application name from BrowserMonitor's runtime discovery.
+    func createBookmarkFolder(forBundleId bundleId: String, appName: String, name: String) async -> String? {
+        if bundleId == "com.apple.Safari" {
             appDelegate?.postLog("⚠️ Safari bookmark folder creation not supported — tabs close without stash")
             return nil
-        default: return nil
         }
-
-        let raw = await runAppleScript(scriptSource, label: "createBookmarkFolder(\(bundleId))")
+        if bundleId.hasPrefix("org.mozilla.") { return nil }
+        let safeName = name.replacingOccurrences(of: "\"", with: "\\\"")
+        let scriptSource = """
+        tell application "\(appName)"
+            make new bookmark folder at end of bookmark folder "Bookmarks Bar" of bookmarks bar with properties {title:"\(safeName)"}
+        end tell
+        return "\(safeName)"
+        """
+        let raw = await runAppleScript(scriptSource, label: "createBookmarkFolder(\(appName))")
         return raw.isEmpty ? nil : raw.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Add a single bookmark to the named folder. Best-effort; no return value.
-    func addBookmark(forBundleId bundleId: String, folderName: String, title: String, url: String) async {
-        let appName: String
-        switch bundleId {
-        case "com.google.Chrome": appName = "Google Chrome"
-        case "company.thebrowser.Browser": appName = "Arc"
-        default: return
-        }
+    func addBookmark(forBundleId bundleId: String, appName: String, folderName: String, title: String, url: String) async {
+        if bundleId == "com.apple.Safari" { return }
+        if bundleId.hasPrefix("org.mozilla.") { return }
         let safeTitle = title.replacingOccurrences(of: "\"", with: "\\\"")
         let safeURL = url.replacingOccurrences(of: "\"", with: "\\\"")
         let safeFolder = folderName.replacingOccurrences(of: "\"", with: "\\\"")
@@ -1386,15 +1377,9 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     }
 
     /// Close every tab whose URL is in `urls` across every window of the given browser.
-    func closeTabsByURL(_ urls: Set<String>, forBundleId bundleId: String) async {
+    func closeTabsByURL(_ urls: Set<String>, forBundleId bundleId: String, appName: String) async {
         guard !urls.isEmpty else { return }
-        let appName: String
-        switch bundleId {
-        case "com.google.Chrome": appName = "Google Chrome"
-        case "company.thebrowser.Browser": appName = "Arc"
-        case "com.apple.Safari": appName = "Safari"
-        default: return
-        }
+        if bundleId.hasPrefix("org.mozilla.") { return }
         let urlProp = "URL"
 
         // Build a single AppleScript that walks tabs in reverse so indexes stay valid.

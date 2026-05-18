@@ -1861,14 +1861,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let activeRuleHosts: Set<String> = Set(blockingProfileManager?.activeBlockedDomains() ?? [])
         let activeRuleBundleIds: Set<String> = Set(blockingProfileManager?.activeBlockedBundleIds() ?? [])
 
-        // 3. Sweep browser tabs across Chrome / Arc / Safari.
-        let browserBundles = ["com.google.Chrome", "company.thebrowser.Browser", "com.apple.Safari"]
+        // 3. Sweep browser tabs across every browser BrowserMonitor discovered
+        //    at launch (Launch Services → LSCopyAllHandlersForURLScheme).
+        //    No hardcoded list — Chromium-based browsers (Comet, Brave, Edge,
+        //    Vivaldi, etc.) are picked up automatically.
+        let discoveredBrowsers = self.browserMonitor?.getAllBrowsers() ?? [:]
+        // Same list serves as the never-hide set in the native-app sweep —
+        // browsers are containers; their tabs are what the sweep acts on.
+        let neverHideBrowsers: Set<String> = Set(discoveredBrowsers.keys)
         var stashedTabs: [StashedTab] = []
         var bookmarksFolderName: String? = nil
         let stampedName = "Intentional / Stash \(SessionStashStore.timestampString())"
 
-        for browserBid in browserBundles {
-            let allTabs = await blocker.readAllTabsAcrossWindows(forBundleId: browserBid)
+        postLog("🧹 Sweep starting. Scope: domains=\(scope.domains.count) bundleIds=\(scope.bundleIds.count) intent=\"\(scope.voiceIntent.prefix(120))\"")
+        postLog("🧹   Always-allowed: \(alwaysAllowed.bundleIds.count) apps, \(alwaysAllowed.domains.count) domains")
+        postLog("🧹   Active block rules: \(activeRuleHosts.count) hosts, \(activeRuleBundleIds.count) bundleIds")
+
+        for (browserBid, browserInfo) in discoveredBrowsers {
+            let appName = browserInfo.scriptName
+            let allTabs = await blocker.readAllTabsAcrossWindows(forBundleId: browserBid, appName: appName)
+            postLog("🧹   [\(browserInfo.name)] read \(allTabs.count) tab(s)")
             if allTabs.isEmpty { continue }
 
             var keepURLs = Set<String>()
@@ -1886,6 +1898,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 case .needsAI: needsAI.append(t)
                 }
             }
+            postLog("🧹   [\(browserInfo.name)] decisions: keep=\(keepURLs.count) stashOnRule=\(stashCandidates.count) needsAI=\(needsAI.count)")
 
             // AI batch for the borderline tabs.
             if !needsAI.isEmpty, let scorer = relevanceScorer {
@@ -1894,26 +1907,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     intent: intentForAI,
                     tabs: needsAI.map { ($0.title, $0.url) }
                 )
+                var aiKept = 0
+                var aiStashed = 0
                 for (i, v) in verdicts.enumerated() {
                     if v.relevant && v.confidence >= 50 {
                         keepURLs.insert(needsAI[i].url)
+                        aiKept += 1
                     } else {
                         stashCandidates.append(needsAI[i])
+                        aiStashed += 1
                     }
                 }
+                postLog("🧹   [\(browserInfo.name)] AI batch: \(aiKept) kept, \(aiStashed) stashed (\(verdicts.count) verdicts)")
             }
 
-            if stashCandidates.isEmpty { continue }
+            if stashCandidates.isEmpty {
+                postLog("🧹   [\(browserInfo.name)] nothing to stash — skipping")
+                continue
+            }
 
             // Stash: create bookmarks folder once across browsers (folder name
             // is global), then add bookmarks + close tabs.
             if bookmarksFolderName == nil {
                 bookmarksFolderName = await blocker.createBookmarkFolder(forBundleId: browserBid,
+                                                                         appName: appName,
                                                                          name: stampedName)
             }
             if let folder = bookmarksFolderName {
                 for info in stashCandidates {
-                    await blocker.addBookmark(forBundleId: browserBid, folderName: folder,
+                    await blocker.addBookmark(forBundleId: browserBid, appName: appName, folderName: folder,
                                               title: info.title, url: info.url)
                     stashedTabs.append(StashedTab(title: info.title,
                                                   url: info.url,
@@ -1932,16 +1954,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                                                   originalIndex: info.tabIndex))
                 }
             }
-            await blocker.closeTabsByURL(Set(stashCandidates.map { $0.url }), forBundleId: browserBid)
+            let urlsToClose = Set(stashCandidates.map { $0.url })
+            postLog("🧹   [\(browserInfo.name)] closing \(urlsToClose.count) tab(s); bookmarked under \"\(bookmarksFolderName ?? "(none — Safari)")\"")
+            await blocker.closeTabsByURL(urlsToClose, forBundleId: browserBid, appName: appName)
         }
 
         // 4. Sweep native apps (Cmd+H, no quitting).
+        // NEVER hide browsers — they're containers, their tabs are what the
+        // sweep acts on. Hiding the browser itself nukes the session UX.
         var hiddenBundleIds: [String] = []
+        var skippedAsBrowser: [String] = []
         let ownBundleId = Bundle.main.bundleIdentifier ?? ""
         for app in NSWorkspace.shared.runningApplications {
             guard let bid = app.bundleIdentifier,
                   app.activationPolicy == .regular,
                   bid != ownBundleId else { continue }
+            if neverHideBrowsers.contains(bid) {
+                skippedAsBrowser.append(bid)
+                continue
+            }
             let v = Sweeper.decideApp(bundleId: bid,
                                       blockedBundleIds: activeRuleBundleIds,
                                       scope: scope, alwaysAllowed: alwaysAllowed)
@@ -1949,6 +1980,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 app.hide()
                 hiddenBundleIds.append(bid)
             }
+        }
+        if !skippedAsBrowser.isEmpty {
+            let joined = skippedAsBrowser.joined(separator: ", ")
+            postLog("🧹   Browsers spared from hide: \(joined)")
+        }
+        if !hiddenBundleIds.isEmpty {
+            let joined = hiddenBundleIds.joined(separator: ", ")
+            postLog("🧹   Hidden: \(joined)")
         }
 
         // 5. Persist + toast.
