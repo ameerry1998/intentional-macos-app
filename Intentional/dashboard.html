@@ -5634,6 +5634,11 @@ body.theme-effects-warm::after {
           <div class="settings-menu-info"><div class="settings-menu-title">Always Blocked</div><div class="settings-menu-sub" id="settings-always-blocked-sub">Apps that are never usable</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
+        <div class="settings-menu-row" onclick="showSettingsDetail('always-allowed')">
+          <div class="settings-menu-icon" style="background:rgba(120,180,140,0.12);color:#7cc492;">✓</div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Always Allowed</div><div class="settings-menu-sub" id="settings-always-allowed-sub">Apps & sites the sweep never touches</div></div>
+          <span class="settings-menu-chevron">›</span>
+        </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('bedtime')">
           <div class="settings-menu-icon" style="background:rgba(168,152,200,0.1);color:#a898c8;">☾</div>
           <div class="settings-menu-info"><div class="settings-menu-title">Bedtime</div><div class="settings-menu-sub" id="settings-bedtime-sub">Configure</div></div>
@@ -6044,6 +6049,35 @@ body.theme-effects-warm::after {
         <div id="budget-state-readout" style="margin-top:14px;padding:10px;background:rgba(255,255,255,0.02);border-radius:6px;font-size:12px;color:rgba(255,255,255,0.5);">Loading current state…</div>
         <div style="margin-top:14px;display:flex;gap:8px;">
           <button class="btn-small" onclick="saveBudgetConfig()" id="budget-save-btn" disabled>Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail: Always-Allowed list (Stage 2 close-the-noise sweep) -->
+    <div class="settings-detail" id="settings-detail-always-allowed">
+      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
+      <div class="settings-detail-title">Always Allowed</div>
+      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">Apps and websites the close-the-noise sweep never touches at session start. Things like your password manager, music app, calendar — stuff you want available no matter what you're working on. Ships with sensible defaults; add or remove as needed.</div>
+      <div class="settings-card" style="padding:16px; margin-bottom:14px;">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:rgba(255,255,255,0.6);">APPS (BUNDLE IDS)</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <input id="always-allowed-app-input" type="text" placeholder="com.example.app"
+                 style="flex:1;padding:8px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--border-default);border-radius:6px;color:var(--text-primary);font-size:13px;font-family:monospace;">
+          <button class="btn-small" onclick="addAlwaysAllowedApp()">+ Add</button>
+        </div>
+        <div id="always-allowed-apps-list" style="display:flex;flex-direction:column;gap:6px;">
+          <div style="color:rgba(255,255,255,0.4);font-size:12px;">Loading…</div>
+        </div>
+      </div>
+      <div class="settings-card" style="padding:16px;">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:rgba(255,255,255,0.6);">WEBSITES (DOMAINS)</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <input id="always-allowed-domain-input" type="text" placeholder="example.com"
+                 style="flex:1;padding:8px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--border-default);border-radius:6px;color:var(--text-primary);font-size:13px;font-family:monospace;">
+          <button class="btn-small" onclick="addAlwaysAllowedDomain()">+ Add</button>
+        </div>
+        <div id="always-allowed-domains-list" style="display:flex;flex-direction:column;gap:6px;">
+          <div style="color:rgba(255,255,255,0.4);font-size:12px;">Loading…</div>
         </div>
       </div>
     </div>
@@ -6789,6 +6823,91 @@ function addAlwaysBlockedEntry() {
   sendMessage({ type: 'ADD_ALWAYS_BLOCKED', app_identifier: v });
   inputEl.value = '';
 }
+
+// ===== Always Allowed list (Stage 2 close-the-noise sweep) =====
+// Mirrors the Always Blocked UI pattern but inverted semantics: these apps + sites
+// are SPARED from the sweep at session-start regardless of session scope.
+
+window._alwaysAllowedState = { bundleIds: [], domains: [] };
+
+window._alwaysAllowedResult = function(data) {
+  if (!data || typeof data !== 'object') return;
+  window._alwaysAllowedState.bundleIds = data.bundleIds || [];
+  window._alwaysAllowedState.domains = data.domains || [];
+  renderAlwaysAllowed();
+};
+
+function renderAlwaysAllowed() {
+  var appsEl = document.getElementById('always-allowed-apps-list');
+  var domainsEl = document.getElementById('always-allowed-domains-list');
+  if (!appsEl || !domainsEl) return;
+  var s = window._alwaysAllowedState;
+  appsEl.innerHTML = s.bundleIds.length === 0
+    ? '<div style="color:rgba(255,255,255,0.4);font-size:12px;">(empty)</div>'
+    : s.bundleIds.map(function(b) {
+        return '<div class="setting-row" style="padding:6px 10px;background:rgba(255,255,255,0.03);border-radius:6px;font-size:12.5px;">' +
+          '<span style="flex:1;font-family:monospace;">' + b + '</span>' +
+          '<button onclick="removeAlwaysAllowedApp(\'' + b + '\')" class="btn-small" style="font-size:10.5px;">Remove</button>' +
+          '</div>';
+      }).join('');
+  domainsEl.innerHTML = s.domains.length === 0
+    ? '<div style="color:rgba(255,255,255,0.4);font-size:12px;">(empty)</div>'
+    : s.domains.map(function(d) {
+        return '<div class="setting-row" style="padding:6px 10px;background:rgba(255,255,255,0.03);border-radius:6px;font-size:12.5px;">' +
+          '<span style="flex:1;font-family:monospace;">' + d + '</span>' +
+          '<button onclick="removeAlwaysAllowedDomain(\'' + d + '\')" class="btn-small" style="font-size:10.5px;">Remove</button>' +
+          '</div>';
+      }).join('');
+}
+
+function addAlwaysAllowedApp() {
+  var input = document.getElementById('always-allowed-app-input');
+  var v = (input && input.value || '').trim();
+  if (!v) return;
+  if (window._alwaysAllowedState.bundleIds.indexOf(v) < 0) {
+    window._alwaysAllowedState.bundleIds.push(v);
+    window._alwaysAllowedState.bundleIds.sort();
+    persistAlwaysAllowed();
+  }
+  if (input) input.value = '';
+}
+
+function removeAlwaysAllowedApp(bid) {
+  window._alwaysAllowedState.bundleIds = window._alwaysAllowedState.bundleIds.filter(function(b) { return b !== bid; });
+  persistAlwaysAllowed();
+}
+
+function addAlwaysAllowedDomain() {
+  var input = document.getElementById('always-allowed-domain-input');
+  var v = (input && input.value || '').trim().toLowerCase();
+  if (!v) return;
+  if (window._alwaysAllowedState.domains.indexOf(v) < 0) {
+    window._alwaysAllowedState.domains.push(v);
+    window._alwaysAllowedState.domains.sort();
+    persistAlwaysAllowed();
+  }
+  if (input) input.value = '';
+}
+
+function removeAlwaysAllowedDomain(d) {
+  window._alwaysAllowedState.domains = window._alwaysAllowedState.domains.filter(function(x) { return x !== d; });
+  persistAlwaysAllowed();
+}
+
+function persistAlwaysAllowed() {
+  sendMessage({
+    type: 'SAVE_ALWAYS_ALLOWED',
+    bundleIds: window._alwaysAllowedState.bundleIds,
+    domains:   window._alwaysAllowedState.domains
+  });
+  renderAlwaysAllowed();
+  if (typeof showToast === 'function') showToast('Always Allowed updated');
+}
+
+window.addAlwaysAllowedApp = addAlwaysAllowedApp;
+window.removeAlwaysAllowedApp = removeAlwaysAllowedApp;
+window.addAlwaysAllowedDomain = addAlwaysAllowedDomain;
+window.removeAlwaysAllowedDomain = removeAlwaysAllowedDomain;
 
 // ===== Distraction Budget config (Slice 3/6 of 2026-05-05 redesign) =====
 
@@ -9014,6 +9133,15 @@ window._settingsResult = function(data) {
 
   try { populateSettingsUI(data); } catch(e) { console.error('populateSettingsUI error:', e); }
   try { loadIntentionalModeSettings(data); } catch(e) { console.error('loadIntentionalModeSettings error:', e); }
+
+  // Always-Allowed list: pre-populate from GET_SETTINGS so the Settings page
+  // shows the current state immediately when the user opens it.
+  if (data.alwaysAllowed && window._alwaysAllowedState) {
+    window._alwaysAllowedState.bundleIds = data.alwaysAllowed.bundleIds || [];
+    window._alwaysAllowedState.domains = data.alwaysAllowed.domains || [];
+    if (typeof renderAlwaysAllowed === 'function') renderAlwaysAllowed();
+  }
+
   _settingsLoaded = true;
   renderLockState();
 };
