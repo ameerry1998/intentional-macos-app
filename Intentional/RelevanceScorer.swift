@@ -1244,12 +1244,23 @@ class RelevanceScorer {
           * Generic newtab / chrome://newtab pages.
 
         ─── Confidence calibration ───
-          * 90-100: obvious match or obvious mismatch.
-          * 60-89: probable, with some uncertainty.
-          * 30-59: weak signal — could go either way.
-          * 0-29: no signal at all. Default these to relevant=false.
-        When you genuinely cannot tell from the title + URL, say
-        relevant=false with confidence=30. Don't default to relevant=true.
+        Use the FULL confidence range. Don't default to 30 for everything.
+
+          * 90-100: OBVIOUS off-task / on-task. The category is unmistakable.
+          * 70-89: clear signal but title is a bit ambiguous.
+          * 40-69: genuine uncertainty — weak signal, could go either way.
+          * 0-39: title gives literally no clue what the tab is.
+
+        IMPORTANT: when a tab is OBVIOUSLY OFF-TASK because of its CATEGORY
+        — a job board (ZipRecruiter, SmartRecruiters, LinkedIn jobs), a
+        news site, social media, recreational video, shopping, competitor
+        research, an unrelated app's marketing page — return confidence
+        80-95 with relevant=false. Do NOT use confidence=30 for these.
+        Confidence=30 is reserved for tabs whose category itself is unclear.
+
+        Same applies in reverse: an OBVIOUS on-task tab (the user's own
+        project domain, a tool they explicitly named) should return
+        confidence 80-95 with relevant=true.
 
         ─── Examples ───
         Intent: "Working on website setup for thebeseen.app — domains, email, Claude, IDE"
