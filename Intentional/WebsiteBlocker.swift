@@ -1271,6 +1271,182 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
+    // MARK: - Close-the-noise sweep helpers (multi-tab read + bookmarks + close-by-URL)
+    //
+    // These run on appleScriptQueue (CLAUDE.md rule: never sync AppleScript on main).
+    // Sweep is once-per-session, so single-shot async is fine — no checkInFlight gating.
+
+    struct AllTabsInfo {
+        let windowIndex: Int
+        let tabIndex: Int
+        let title: String
+        let url: String
+        let isPinned: Bool
+    }
+
+    /// Read every tab across every window of the given browser. Used by the
+    /// close-the-noise sweep. Returns empty on AppleScript failure (logged).
+    func readAllTabsAcrossWindows(forBundleId bundleId: String) async -> [AllTabsInfo] {
+        let appName: String
+        switch bundleId {
+        case "com.google.Chrome": appName = "Google Chrome"
+        case "company.thebrowser.Browser": appName = "Arc"
+        case "com.apple.Safari": appName = "Safari"
+        default: return []
+        }
+
+        let titleProp = (bundleId == "com.apple.Safari") ? "name" : "title"
+        let urlProp = "URL"
+        let pinnedExpr = (bundleId == "com.apple.Safari") ? "false" : "(get pinned of tabRef)"
+
+        let script = """
+        set output to ""
+        tell application "\(appName)"
+            if it is not running then return ""
+            set winIdx to 0
+            repeat with w in windows
+                set winIdx to winIdx + 1
+                set tabIdx to 0
+                repeat with tabRef in tabs of w
+                    set tabIdx to tabIdx + 1
+                    try
+                        set t to \(titleProp) of tabRef
+                        set u to \(urlProp) of tabRef
+                        set p to \(pinnedExpr)
+                        set output to output & winIdx & "\\t" & tabIdx & "\\t" & p & "\\t" & u & "\\t" & t & "\\n"
+                    end try
+                end repeat
+            end repeat
+        end tell
+        return output
+        """
+
+        let raw = await runAppleScript(script, label: "readAllTabs(\(appName))")
+        guard !raw.isEmpty else { return [] }
+
+        var out = [AllTabsInfo]()
+        for line in raw.components(separatedBy: "\n") {
+            let parts = line.components(separatedBy: "\t")
+            guard parts.count >= 5,
+                  let wi = Int(parts[0]),
+                  let ti = Int(parts[1]) else { continue }
+            let isPinned = (parts[2] == "true")
+            let url = parts[3]
+            let title = parts[4]
+            if url.isEmpty { continue }
+            out.append(AllTabsInfo(windowIndex: wi, tabIndex: ti, title: title, url: url, isPinned: isPinned))
+        }
+        return out
+    }
+
+    /// Create a bookmark folder in the given browser. Returns the folder name
+    /// (used as the identifier — AppleScript exposes no stable IDs across
+    /// Chromium browsers consistently). Returns nil on failure.
+    func createBookmarkFolder(forBundleId bundleId: String, name: String) async -> String? {
+        let scriptSource: String
+        switch bundleId {
+        case "com.google.Chrome", "company.thebrowser.Browser":
+            let appName = (bundleId == "com.google.Chrome") ? "Google Chrome" : "Arc"
+            let safeName = name.replacingOccurrences(of: "\"", with: "\\\"")
+            scriptSource = """
+            tell application "\(appName)"
+                make new bookmark folder at end of bookmark folder "Bookmarks Bar" of bookmarks bar with properties {title:"\(safeName)"}
+            end tell
+            return "\(safeName)"
+            """
+        case "com.apple.Safari":
+            // Safari doesn't expose bookmark CRUD via AppleScript in modern macOS.
+            // Degraded: tabs still close but the user can't restore via bookmarks.
+            appDelegate?.postLog("⚠️ Safari bookmark folder creation not supported — tabs close without stash")
+            return nil
+        default: return nil
+        }
+
+        let raw = await runAppleScript(scriptSource, label: "createBookmarkFolder(\(bundleId))")
+        return raw.isEmpty ? nil : raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Add a single bookmark to the named folder. Best-effort; no return value.
+    func addBookmark(forBundleId bundleId: String, folderName: String, title: String, url: String) async {
+        let appName: String
+        switch bundleId {
+        case "com.google.Chrome": appName = "Google Chrome"
+        case "company.thebrowser.Browser": appName = "Arc"
+        default: return
+        }
+        let safeTitle = title.replacingOccurrences(of: "\"", with: "\\\"")
+        let safeURL = url.replacingOccurrences(of: "\"", with: "\\\"")
+        let safeFolder = folderName.replacingOccurrences(of: "\"", with: "\\\"")
+        let script = """
+        tell application "\(appName)"
+            make new bookmark item at end of bookmark folder "\(safeFolder)" of bookmark folder "Bookmarks Bar" of bookmarks bar with properties {title:"\(safeTitle)", URL:"\(safeURL)"}
+        end tell
+        """
+        _ = await runAppleScript(script, label: "addBookmark(\(appName))")
+    }
+
+    /// Close every tab whose URL is in `urls` across every window of the given browser.
+    func closeTabsByURL(_ urls: Set<String>, forBundleId bundleId: String) async {
+        guard !urls.isEmpty else { return }
+        let appName: String
+        switch bundleId {
+        case "com.google.Chrome": appName = "Google Chrome"
+        case "company.thebrowser.Browser": appName = "Arc"
+        case "com.apple.Safari": appName = "Safari"
+        default: return
+        }
+        let urlProp = "URL"
+
+        // Build a single AppleScript that walks tabs in reverse so indexes stay valid.
+        var lines = ["tell application \"\(appName)\""]
+        lines.append("    if it is not running then return")
+        lines.append("    repeat with w in windows")
+        lines.append("        set tabCount to count of tabs of w")
+        lines.append("        repeat with i from tabCount to 1 by -1")
+        lines.append("            try")
+        lines.append("                set tabRef to tab i of w")
+        lines.append("                set u to \(urlProp) of tabRef")
+        lines.append("                if (")
+        var first = true
+        for u in urls {
+            let safe = u.replacingOccurrences(of: "\"", with: "\\\"")
+            let op = first ? "" : "or "
+            lines.append("                    \(op)u is \"\(safe)\"")
+            first = false
+        }
+        lines.append("                ) then close tabRef")
+        lines.append("            end try")
+        lines.append("        end repeat")
+        lines.append("    end repeat")
+        lines.append("end tell")
+
+        _ = await runAppleScript(lines.joined(separator: "\n"), label: "closeTabsByURL(\(appName))")
+    }
+
+    /// One-shot AppleScript runner for the sweep helpers. Dispatches to the
+    /// existing background `appleScriptQueue` to keep main free (CLAUDE.md bug #9).
+    /// Returns the script's string output (or "" on failure / no result).
+    private func runAppleScript(_ source: String, label: String) async -> String {
+        await withCheckedContinuation { (continuation: CheckedContinuation<String, Never>) in
+            appleScriptQueue.async { [weak self] in
+                guard let script = NSAppleScript(source: source) else {
+                    DispatchQueue.main.async { self?.appDelegate?.postLog("⚠️ \(label) failed to compile") }
+                    continuation.resume(returning: "")
+                    return
+                }
+                var err: NSDictionary?
+                let output = script.executeAndReturnError(&err)
+                if let err = err {
+                    let msg = err["NSAppleScriptErrorMessage"] as? String ?? "unknown"
+                    DispatchQueue.main.async { self?.appDelegate?.postLog("⚠️ \(label) failed: \(msg)") }
+                    continuation.resume(returning: "")
+                    return
+                }
+                continuation.resume(returning: output.stringValue ?? "")
+            }
+        }
+    }
+
     deinit {
         stopBlocking()
     }
