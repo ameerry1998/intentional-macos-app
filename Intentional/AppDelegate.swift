@@ -71,9 +71,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Blocking Profiles & Focus Sessions (Puck integration)
     var blockingProfileManager: BlockingProfileManager?
 
-    // Close-the-noise (Stage 2 of Deep Work Protocol): global Always-Allowed list.
-    // Per-session stash store + sweep orchestrator land in Task 9.
+    // Close-the-noise (Stage 2 of Deep Work Protocol): global Always-Allowed list +
+    // per-session stash store. Sweep orchestrator fires from focusModeController.onStateChanged
+    // when the .off → .focus transition lands.
     var alwaysAllowedStore: AlwaysAllowedStore?
+    var sessionStashStore: SessionStashStore?
 
     var projectStore: ProjectStore?
 
@@ -421,6 +423,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             store: self.alwaysAllowedStore!,
             receiptPath: intentionalDir + "/migration_always_allowed_v1.json"
         )
+
+        // Session-stash store + 3-day auto-purge (close-the-noise sweep).
+        self.sessionStashStore = SessionStashStore(storageDir: intentionalDir + "/session_stashes")
+        let purgedCount = self.sessionStashStore?.purgeOlderThan(maxAgeSeconds: 3 * 24 * 3600) ?? 0
+        if purgedCount > 0 { self.postLog("🧹 Purged \(purgedCount) old session stash(es)") }
 
         // DIAGNOSTIC: Log every launch attempt to persistent file
         let diagnosticLogPath = NSTemporaryDirectory() + "intentional-launches.log"
@@ -792,6 +799,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 // those paths actually block. The picker path runs AFTER this
                 // and overrides with its explicit profileIds.
                 self.applyDefaultBlockingProfile()
+
+                // Close-the-noise sweep: stash off-scope browser tabs and hide
+                // off-scope native apps so the user starts the session clean.
+                // Fire-and-forget Task — sweep does its own logging + toast.
+                let sweepSessionId = period?.id.uuidString ?? UUID().uuidString
+                let voiceIntent = period?.intention ?? ""
+                let intentionId = period?.intentionId
+                Task { @MainActor in
+                    await self.runCloseTheNoiseSweep(sessionId: sweepSessionId,
+                                                    voiceIntent: voiceIntent,
+                                                    intentionId: intentionId)
+                }
             }
             if new == .off {
                 self.switchCoordinator?.reset()
@@ -1791,6 +1810,145 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         websiteBlocker?.updateDistractingSites(merged.domains)
         focusMonitor?.distractingAppBundleIds = Set(merged.appBundleIds)
         postLog("🎯 Default profile '\(defaultProfile.name)' applied: \(merged.domains.count) domains, \(merged.appBundleIds.count) apps")
+    }
+
+    /// Close-the-noise sweep at session start.
+    ///
+    /// Pipeline: resolve scope → read all browser tabs → three-tier decide →
+    /// AI-batch the borderline tabs → stash (bookmarks folder + close tabs) →
+    /// hide off-scope native apps via Cmd+H → persist SessionStash + push
+    /// dashboard toast.
+    ///
+    /// Fire-and-forget from FocusModeController.onStateChanged on the
+    /// .off → .focus transition. The `voiceIntent` + `intentionId` come from
+    /// the new Period so we don't re-read state mid-flight.
+    @MainActor
+    func runCloseTheNoiseSweep(sessionId: String,
+                               voiceIntent: String,
+                               intentionId: UUID?) async {
+        guard let alwaysAllowed = alwaysAllowedStore?.list,
+              let stashStore = sessionStashStore,
+              let blocker = websiteBlocker else {
+            postLog("⚠️ Sweep skipped — stores not ready")
+            return
+        }
+
+        // 1. Resolve scope (intentText + outcome + voice). Always-Allowed list
+        //    is consulted separately so it can't be lost in the merge.
+        var scope = ResolvedScope(domains: [], bundleIds: [], voiceIntent: voiceIntent)
+        if let intentionId = intentionId,
+           let intention = await IntentionStore.shared.intention(id: intentionId) {
+            let parts = [voiceIntent, intention.intentText ?? "", intention.outcome ?? ""]
+                .filter { !$0.isEmpty }
+            scope.voiceIntent = parts.joined(separator: ". ")
+        }
+
+        // 2. Active block-rule hosts + bundleIds (enabled + inside scheduled
+        //    window if any).
+        let activeRuleHosts: Set<String> = Set(blockingProfileManager?.activeBlockedDomains() ?? [])
+        let activeRuleBundleIds: Set<String> = Set(blockingProfileManager?.activeBlockedBundleIds() ?? [])
+
+        // 3. Sweep browser tabs across Chrome / Arc / Safari.
+        let browserBundles = ["com.google.Chrome", "company.thebrowser.Browser", "com.apple.Safari"]
+        var stashedTabs: [StashedTab] = []
+        var bookmarksFolderName: String? = nil
+        let stampedName = "Intentional / Stash \(SessionStashStore.timestampString())"
+
+        for browserBid in browserBundles {
+            let allTabs = await blocker.readAllTabsAcrossWindows(forBundleId: browserBid)
+            if allTabs.isEmpty { continue }
+
+            var keepURLs = Set<String>()
+            var stashCandidates: [WebsiteBlocker.AllTabsInfo] = []
+            var needsAI: [WebsiteBlocker.AllTabsInfo] = []
+            for t in allTabs {
+                let host = URL(string: t.url)?.host ?? ""
+                if host.isEmpty { keepURLs.insert(t.url); continue }
+                let v = Sweeper.decideTab(host: host, isPinned: t.isPinned,
+                                          blockedHosts: activeRuleHosts,
+                                          scope: scope, alwaysAllowed: alwaysAllowed)
+                switch v {
+                case .keep:    keepURLs.insert(t.url)
+                case .stash:   stashCandidates.append(t)
+                case .needsAI: needsAI.append(t)
+                }
+            }
+
+            // AI batch for the borderline tabs.
+            if !needsAI.isEmpty, let scorer = relevanceScorer {
+                let intentForAI = scope.voiceIntent.isEmpty ? "Focused work session" : scope.voiceIntent
+                let verdicts = await scorer.scoreTabBatch(
+                    intent: intentForAI,
+                    tabs: needsAI.map { ($0.title, $0.url) }
+                )
+                for (i, v) in verdicts.enumerated() {
+                    if v.relevant && v.confidence >= 50 {
+                        keepURLs.insert(needsAI[i].url)
+                    } else {
+                        stashCandidates.append(needsAI[i])
+                    }
+                }
+            }
+
+            if stashCandidates.isEmpty { continue }
+
+            // Stash: create bookmarks folder once across browsers (folder name
+            // is global), then add bookmarks + close tabs.
+            if bookmarksFolderName == nil {
+                bookmarksFolderName = await blocker.createBookmarkFolder(forBundleId: browserBid,
+                                                                         name: stampedName)
+            }
+            if let folder = bookmarksFolderName {
+                for info in stashCandidates {
+                    await blocker.addBookmark(forBundleId: browserBid, folderName: folder,
+                                              title: info.title, url: info.url)
+                    stashedTabs.append(StashedTab(title: info.title,
+                                                  url: info.url,
+                                                  browserBundleId: browserBid,
+                                                  originalWindow: info.windowIndex,
+                                                  originalIndex: info.tabIndex))
+                }
+            } else {
+                // Bookmarks unsupported (Safari) — still record what we'll close
+                // so the inspector can offer restore via 'open location'.
+                for info in stashCandidates {
+                    stashedTabs.append(StashedTab(title: info.title,
+                                                  url: info.url,
+                                                  browserBundleId: browserBid,
+                                                  originalWindow: info.windowIndex,
+                                                  originalIndex: info.tabIndex))
+                }
+            }
+            await blocker.closeTabsByURL(Set(stashCandidates.map { $0.url }), forBundleId: browserBid)
+        }
+
+        // 4. Sweep native apps (Cmd+H, no quitting).
+        var hiddenBundleIds: [String] = []
+        let ownBundleId = Bundle.main.bundleIdentifier ?? ""
+        for app in NSWorkspace.shared.runningApplications {
+            guard let bid = app.bundleIdentifier,
+                  app.activationPolicy == .regular,
+                  bid != ownBundleId else { continue }
+            let v = Sweeper.decideApp(bundleId: bid,
+                                      blockedBundleIds: activeRuleBundleIds,
+                                      scope: scope, alwaysAllowed: alwaysAllowed)
+            if v == .hide {
+                app.hide()
+                hiddenBundleIds.append(bid)
+            }
+        }
+
+        // 5. Persist + toast.
+        let stash = SessionStash(sessionId: sessionId,
+                                 createdAt: Date(),
+                                 bookmarksFolderId: bookmarksFolderName,
+                                 hiddenBundleIds: hiddenBundleIds,
+                                 stashedTabs: stashedTabs)
+        stashStore.save(stash)
+        postLog("🧹 Sweep complete: stashed \(stashedTabs.count) tab(s), hid \(hiddenBundleIds.count) app(s)")
+        mainWindowController?.pushSweepToast(stashedTabs: stashedTabs.count,
+                                             hiddenApps: hiddenBundleIds.count,
+                                             sessionId: sessionId)
     }
 
     func checkForActiveFocusSession() {

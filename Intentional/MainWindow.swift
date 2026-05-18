@@ -283,6 +283,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         }
     }
 
+    /// Close-the-noise toast: dashboard renders 30s undo banner with
+    /// [View stash] + [Restore everything] buttons. Fires from
+    /// AppDelegate.runCloseTheNoiseSweep when the sweep finishes.
+    func pushSweepToast(stashedTabs: Int, hiddenApps: Int, sessionId: String) {
+        let safeSession = sessionId.replacingOccurrences(of: "'", with: "")
+        callJS("window._sweepToast && window._sweepToast({" +
+               "stashedTabs:\(stashedTabs), hiddenApps:\(hiddenApps), sessionId:'\(safeSession)'})")
+    }
+
     /// Navigate the dashboard to a specific page (e.g., "today", "settings", "youtube").
     func navigateToPage(_ pageId: String) {
         webView.evaluateJavaScript("navigateTo('\(pageId)')") { _, error in

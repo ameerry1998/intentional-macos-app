@@ -283,6 +283,25 @@ class BlockingProfileManager {
         return MergedBlockList(domains: orderedDomains, appBundleIds: orderedApps)
     }
 
+    // MARK: - Close-the-noise sweep helpers
+
+    /// Hosts blocked by a rule that is currently enforcing (enabled + inside
+    /// its scheduled window, if any). Used by the sweep to stash a tab
+    /// regardless of the AI verdict.
+    func activeBlockedDomains() -> [String] {
+        return profiles
+            .filter { $0.isCurrentlyActive }
+            .flatMap { $0.blockedDomains }
+    }
+
+    /// App bundle IDs blocked by a currently-enforcing rule. Used by the sweep
+    /// to hide a native app regardless of the in-scope check.
+    func activeBlockedBundleIds() -> [String] {
+        return profiles
+            .filter { $0.isCurrentlyActive }
+            .flatMap { $0.blockedAppBundleIds }
+    }
+
     // MARK: - Persistence
 
     private func save() {
