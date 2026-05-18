@@ -1165,6 +1165,115 @@ class RelevanceScorer {
         return Result(relevant: relevant, confidence: confidence, reason: reason)
     }
 
+    // MARK: - Batch Tab Scoring (close-the-noise sweep)
+
+    /// Verdict for a single tab in a batch scoring call.
+    struct TabVerdict: Equatable {
+        let title: String
+        let url: String
+        let relevant: Bool
+        let confidence: Int
+    }
+
+    /// Score N browser tabs against a single intent in one LLM call.
+    /// Used by the close-the-noise sweep to decide which tabs to stash.
+    ///
+    /// Prompt asks the model to emit one JSON line per tab so we can stream-parse
+    /// (vs returning a single giant array that's brittle on truncation).
+    /// Unparseable / missing entries default to `relevant: false, confidence: 0` —
+    /// matches the spec's "default-stash for unsure" rule (stash is recoverable).
+    func scoreTabBatch(intent: String,
+                       tabs: [(title: String, url: String)]) async -> [TabVerdict] {
+        guard !tabs.isEmpty else { return [] }
+
+        var lines = [String]()
+        for (i, t) in tabs.enumerated() {
+            let trimmedTitle = String(t.title.prefix(140))
+            let trimmedURL = String(t.url.prefix(200))
+            lines.append("\(i + 1). [\(trimmedTitle)] \(trimmedURL)")
+        }
+
+        let prompt = """
+        The user's session intent is:
+        \(intent)
+
+        For each numbered tab below, decide whether keeping it open would
+        be on-task. Output ONE JSON object per line, in the same order:
+        {"i": <number>, "relevant": true|false, "confidence": 0-100}
+
+        Examples of off-task: news, social media, recreational video, job
+        boards (unless the intent is job search), shopping (unless the
+        intent is shopping), forums unrelated to the intent.
+
+        Tabs:
+        \(lines.joined(separator: "\n"))
+
+        Output (one JSON per line, no other text):
+
+        /no_think
+        """
+
+        let raw = await runBatchPrompt(prompt: prompt)
+        return parseTabBatchOutput(raw: raw, tabs: tabs)
+    }
+
+    /// Routes the batch prompt to whichever model is loaded. Prefers Qwen
+    /// (the user's chosen model); falls back to Apple Foundation Models on
+    /// macOS 26+ if Qwen isn't loaded. Fail-closed: returns empty string on
+    /// any failure (caller will default-stash all tabs).
+    private func runBatchPrompt(prompt: String) async -> String {
+        // Prefer MLX Qwen if loaded.
+        if mlxModelLoaded, let session = mlxSession {
+            do {
+                return try await session.respond(to: prompt)
+            } catch {
+                appDelegate?.postLog("⚠️ scoreTabBatch MLX error: \(error)")
+            }
+        }
+
+        // Fallback: Apple Foundation Models (macOS 26+).
+        #if canImport(FoundationModels)
+        if #available(macOS 26.0, *) {
+            do {
+                let response = try await session.respond(to: prompt)
+                return response.content
+            } catch {
+                appDelegate?.postLog("⚠️ scoreTabBatch Apple FM error: \(error)")
+            }
+        }
+        #endif
+
+        // No model available — caller will default-stash everything.
+        appDelegate?.postLog("⚠️ scoreTabBatch: no LLM available; defaulting all tabs to stash")
+        return ""
+    }
+
+    private func parseTabBatchOutput(raw: String,
+                                     tabs: [(title: String, url: String)]) -> [TabVerdict] {
+        // Strip any <think>...</think> blocks that might appear despite /no_think.
+        var cleaned = raw
+        while let thinkStart = cleaned.range(of: "<think>"),
+              let thinkEnd = cleaned.range(of: "</think>") {
+            cleaned.removeSubrange(thinkStart.lowerBound...thinkEnd.upperBound)
+        }
+
+        var byIndex: [Int: (Bool, Int)] = [:]
+        for line in cleaned.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("{"),
+                  let data = trimmed.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let i = json["i"] as? Int,
+                  let rel = json["relevant"] as? Bool else { continue }
+            let conf = (json["confidence"] as? Int) ?? 0
+            byIndex[i] = (rel, conf)
+        }
+        return tabs.enumerated().map { i, t in
+            let (rel, conf) = byIndex[i + 1] ?? (false, 0)
+            return TabVerdict(title: t.title, url: t.url, relevant: rel, confidence: conf)
+        }
+    }
+
     // MARK: - Justification Assessment
 
     /// Assess whether a user's justification for visiting social media is work-related.
