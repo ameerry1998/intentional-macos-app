@@ -6909,6 +6909,61 @@ window.removeAlwaysAllowedApp = removeAlwaysAllowedApp;
 window.addAlwaysAllowedDomain = addAlwaysAllowedDomain;
 window.removeAlwaysAllowedDomain = removeAlwaysAllowedDomain;
 
+// ===== Close-the-noise sweep toast (Stage 2 of Deep Work Protocol) =====
+// 30s undo banner with [View stash] + [Restore everything]. Fires from
+// AppDelegate.runCloseTheNoiseSweep → MainWindow.pushSweepToast when the
+// sweep finishes at session start.
+
+window._sweepToast = function(data) {
+  if (!data) return;
+  var stashed = data.stashedTabs | 0;
+  var hidden  = data.hiddenApps  | 0;
+  if (stashed === 0 && hidden === 0) return;
+
+  var existing = document.getElementById('sweep-toast');
+  if (existing) existing.remove();
+
+  var safeSession = (data.sessionId || '').replace(/[^a-zA-Z0-9\-]/g, '');
+
+  var el = document.createElement('div');
+  el.id = 'sweep-toast';
+  el.style.cssText = 'position:fixed; top:20px; right:20px; z-index:99999;' +
+    'background:rgba(20,20,22,0.95); color:#fff; padding:14px 18px;' +
+    'border-radius:10px; border:0.5px solid rgba(255,255,255,0.12);' +
+    'box-shadow:0 8px 32px rgba(0,0,0,0.4); font-size:13px; max-width:340px;' +
+    'backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);';
+
+  el.innerHTML =
+    '<div style="font-weight:600; margin-bottom:6px;">Stashed ' + stashed + ' tab' +
+      (stashed === 1 ? '' : 's') + ' · hid ' + hidden + ' app' + (hidden === 1 ? '' : 's') + '</div>' +
+    '<div style="font-size:12px; color:rgba(255,255,255,0.7); margin-bottom:10px;">' +
+      'Off-scope stuff is stashed in your Bookmarks. Recoverable for 3 days.</div>' +
+    '<div style="display:flex; gap:6px;">' +
+      '<button id="sweep-toast-view" style="flex:1; padding:6px 10px; font-size:12px; background:rgba(255,255,255,0.08); color:#fff; border:0.5px solid rgba(255,255,255,0.18); border-radius:6px; cursor:pointer;">View stash</button>' +
+      '<button id="sweep-toast-restore" style="flex:1; padding:6px 10px; font-size:12px; background:#fa6464; color:#fff; border:0; border-radius:6px; cursor:pointer;">Restore everything</button>' +
+    '</div>';
+
+  document.body.appendChild(el);
+  document.getElementById('sweep-toast-view').addEventListener('click', function() { viewStash(safeSession); });
+  document.getElementById('sweep-toast-restore').addEventListener('click', function() { restoreAllFromStash(safeSession); });
+
+  setTimeout(function() { if (el.parentNode) el.remove(); }, 30000);
+};
+
+function viewStash(sessionId) {
+  sendMessage({ type: 'OPEN_STASH_INSPECTOR', sessionId: sessionId });
+}
+
+function restoreAllFromStash(sessionId) {
+  sendMessage({ type: 'RESTORE_FROM_STASH_ALL', sessionId: sessionId });
+  var el = document.getElementById('sweep-toast');
+  if (el) el.remove();
+  if (typeof showToast === 'function') showToast('Everything restored');
+}
+
+window.viewStash = viewStash;
+window.restoreAllFromStash = restoreAllFromStash;
+
 // ===== Distraction Budget config (Slice 3/6 of 2026-05-05 redesign) =====
 
 var _budgetDirty = false;
