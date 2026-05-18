@@ -356,7 +356,17 @@ Standard `xcodebuild` or Xcode IDE. Debug builds run directly from DerivedData. 
 
 **Use the script:** `./scripts/dev-launch.sh` (or `./scripts/dev-launch.sh --no-build` to skip rebuild). It handles all of the below automatically and auto-diagnoses the failure mode if the new instance dies. The rest of this section explains *why* it works so you can debug if it ever breaks.
 
-The user's Mac has Strict Mode + tamper-protection daemon installed. `open <bundle>` does not work. `sudo installer ... .pkg` works but the user does not want to install for every iteration. This is the procedure that actually runs a fresh build against the daemon-managed install — **follow it exactly**, none of the obvious alternatives work:
+**Critical fact: the user is `arayan`, NOT an admin. Caity is the admin. The user has NO sudo access.** That means anything starting with `sudo`, `! sudo`, `pkill -9` against `/Applications/Intentional.app`, etc. **will fail with "operation not permitted"** — the production binary runs as user `caity` (not `arayan`), so even non-sudo `pkill` can't signal it. Do not suggest sudo workflows to the user; the answer is always "use `dev-launch.sh`, the dev instance runs alongside the production one."
+
+**Two-user split-brain consequence (important):**
+- Production `/Applications/Intentional.app` runs as user `caity` (via the system LaunchDaemon). It owns its own menubar / pill in caity's GUI session.
+- Dev build from DerivedData runs as user `arayan`. It owns the menubar / pill in arayan's GUI session.
+- Both processes coexist after `dev-launch.sh`. The takeover code (`main.swift:159 → kill(existingPID, SIGTERM)`) **silently fails** when the existing PID belongs to caity — `arayan` cannot signal caity's processes. The new arayan-owned dev instance launches anyway; the production caity-owned one keeps running.
+- The user is logged in as arayan, so they only see arayan's menubar — clicking it lands on the dev build. That's the intended path; you don't need to kill the caity-owned process.
+
+**Sweep / state caveat:** `FocusModeController` persists state to disk on every transition. If a session is already active when the dev build launches, the new instance rehydrates `state=focus` and re-engages enforcement via the "boot reconcile" branch — **without going through `onStateChanged`**, so anything wired to the `.off → .focus` *transition* (the close-the-noise sweep, for example) **does not fire on app restart mid-session**. To exercise transition-driven code paths during dev, end the active session from the dashboard / menubar before testing, then start a fresh one. Puck-triggered sessions are also ignored by `FocusStatePoller` on Mac per current spec (`puck = alarm only`), so use the **Mac dashboard manual toggle** to drive a `.off → .focus` transition.
+
+The user's Mac has Strict Mode + tamper-protection daemon installed. `open <bundle>` does not work. `sudo installer ... .pkg` works but the user does not have sudo, so this is moot. This is the procedure that actually runs a fresh build against the daemon-managed install — **follow it exactly**, none of the obvious alternatives work:
 
 **Why the obvious paths fail:**
 - ❌ `open /tmp/intentional-pkg-build/Intentional.app` → LaunchServices ignores your path and starts the registered `/Applications/Intentional.app` (the OLD one).

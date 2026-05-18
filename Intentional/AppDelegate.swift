@@ -803,10 +803,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 // those paths actually block. The picker path runs AFTER this
                 // and overrides with its explicit profileIds.
                 self.applyDefaultBlockingProfile()
+            }
 
-                // Close-the-noise sweep: stash off-scope browser tabs and hide
-                // off-scope native apps so the user starts the session clean.
-                // Fire-and-forget Task — sweep does its own logging + toast.
+            if new == .focus {
+                // Close-the-noise sweep: fires whenever a focus session starts —
+                // entering focus from .off OR switching intention while already in
+                // focus (Schedule swap, Cmd+Shift+P switch, etc.). FocusModeController
+                // only notifies on .focus → .focus when intention/intentionId actually
+                // changed, so this branch is naturally guarded against same-session
+                // noise. Each intention swap is a NEW session and deserves a fresh
+                // sweep (the spec describes Stage 2 as "before the session timer
+                // starts" — every session, not just the day's first).
+                //
+                // Fire-and-forget Task; sweep does its own logging + toast.
                 let sweepSessionId = period?.id.uuidString ?? UUID().uuidString
                 let voiceIntent = period?.intention ?? ""
                 let intentionId = period?.intentionId
