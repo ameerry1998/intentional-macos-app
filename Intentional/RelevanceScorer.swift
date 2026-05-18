@@ -1228,6 +1228,12 @@ class RelevanceScorer {
     /// macOS 26+ if Qwen isn't loaded. Fail-closed: returns empty string on
     /// any failure (caller will default-stash all tabs).
     private func runBatchPrompt(prompt: String) async -> String {
+        // Ensure MLX model is loaded before the first scoring call. Without
+        // this await, scoreTabBatch races the lazy load and returns empty on
+        // first invocation (every tab default-stashes / default-keeps).
+        // scoreRelevance already has this guard — mirror it here.
+        await loadMLXModelIfNeeded()
+
         // Prefer MLX Qwen if loaded.
         if mlxModelLoaded, let session = mlxSession {
             do {
