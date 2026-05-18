@@ -71,6 +71,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Blocking Profiles & Focus Sessions (Puck integration)
     var blockingProfileManager: BlockingProfileManager?
 
+    // Close-the-noise (Stage 2 of Deep Work Protocol): global Always-Allowed list.
+    // Per-session stash store + sweep orchestrator land in Task 9.
+    var alwaysAllowedStore: AlwaysAllowedStore?
+
     var projectStore: ProjectStore?
 
     // Spec 1: cross-device account-scoped focus presets (replaces local-only Project)
@@ -404,6 +408,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         UserDefaults.standard.register(defaults: [
             "planFirstPromptEnabled": true,
         ])
+
+        // Always-Allowed store (used by close-the-noise sweep + Settings UI).
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let intentionalDir = appSupport.appendingPathComponent("Intentional").path
+        try? FileManager.default.createDirectory(atPath: intentionalDir, withIntermediateDirectories: true)
+        self.alwaysAllowedStore = AlwaysAllowedStore(storageDir: intentionalDir)
+
+        // One-shot migration: per-Intention allowlists → global.
+        MigrationAlwaysAllowed.runIfNeeded(
+            intentionsCachePath: intentionalDir + "/intentions.json",
+            store: self.alwaysAllowedStore!,
+            receiptPath: intentionalDir + "/migration_always_allowed_v1.json"
+        )
 
         // DIAGNOSTIC: Log every launch attempt to persistent file
         let diagnosticLogPath = NSTemporaryDirectory() + "intentional-launches.log"

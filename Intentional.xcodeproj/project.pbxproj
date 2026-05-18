@@ -53,6 +53,11 @@
 		A1000076000000000000031 /* ContentSafetyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000077000000000000031 /* ContentSafetyMonitor.swift */; };
 		A1000081000000000000033 /* OpenNSFW.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = A1000080000000000000033 /* OpenNSFW.mlmodel */; };
 		A1000082000000000000034 /* NudeNetDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000083000000000000034 /* NudeNetDetector.swift */; };
+		A1000096000000000000041 /* AlwaysAllowedList.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000097000000000000041 /* AlwaysAllowedList.swift */; };
+		A1000098000000000000042 /* MigrationAlwaysAllowed.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000099000000000000042 /* MigrationAlwaysAllowed.swift */; };
+		A1000100000000000000043 /* SessionStash.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000101000000000000043 /* SessionStash.swift */; };
+		A1000102000000000000044 /* Sweeper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000103000000000000044 /* Sweeper.swift */; };
+		A1000104000000000000045 /* StashInspectorWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000105000000000000045 /* StashInspectorWindow.swift */; };
 		A1000084000000000000035 /* NudeNetV3.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = A1000085000000000000035 /* NudeNetV3.mlpackage */; };
 		A1000086000000000000036 /* ScreenCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000087000000000000036 /* ScreenCapture.swift */; };
 		A1000088000000000000037 /* OCREngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000089000000000000037 /* OCREngine.swift */; };
@@ -188,6 +193,11 @@
 		A1000077000000000000031 /* ContentSafetyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentSafetyMonitor.swift; sourceTree = "<group>"; };
 		A1000080000000000000033 /* OpenNSFW.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = OpenNSFW.mlmodel; sourceTree = "<group>"; };
 		A1000083000000000000034 /* NudeNetDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NudeNetDetector.swift; sourceTree = "<group>"; };
+		A1000097000000000000041 /* AlwaysAllowedList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlwaysAllowedList.swift; sourceTree = "<group>"; };
+		A1000099000000000000042 /* MigrationAlwaysAllowed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationAlwaysAllowed.swift; sourceTree = "<group>"; };
+		A1000101000000000000043 /* SessionStash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStash.swift; sourceTree = "<group>"; };
+		A1000103000000000000044 /* Sweeper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sweeper.swift; sourceTree = "<group>"; };
+		A1000105000000000000045 /* StashInspectorWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StashInspectorWindow.swift; sourceTree = "<group>"; };
 		A1000085000000000000035 /* NudeNetV3.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = NudeNetV3.mlpackage; sourceTree = "<group>"; };
 		A1000087000000000000036 /* ScreenCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCapture.swift; sourceTree = "<group>"; };
 		A1000089000000000000037 /* OCREngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCREngine.swift; sourceTree = "<group>"; };
@@ -346,6 +356,11 @@
 				A200000300000000000001 /* DaemonXPCProtocol.swift */,
 				A1000080000000000000033 /* OpenNSFW.mlmodel */,
 				A1000083000000000000034 /* NudeNetDetector.swift */,
+				A1000097000000000000041 /* AlwaysAllowedList.swift */,
+				A1000099000000000000042 /* MigrationAlwaysAllowed.swift */,
+				A1000101000000000000043 /* SessionStash.swift */,
+				A1000103000000000000044 /* Sweeper.swift */,
+				A1000105000000000000045 /* StashInspectorWindow.swift */,
 				A1000085000000000000035 /* NudeNetV3.mlpackage */,
 				A1000087000000000000036 /* ScreenCapture.swift */,
 				A1000089000000000000037 /* OCREngine.swift */,
@@ -590,6 +605,11 @@
 				AD00000100000000000001 /* ConstraintEvaluator.swift in Sources */,
 				A1000081000000000000033 /* OpenNSFW.mlmodel in Sources */,
 				A1000082000000000000034 /* NudeNetDetector.swift in Sources */,
+				A1000096000000000000041 /* AlwaysAllowedList.swift in Sources */,
+				A1000098000000000000042 /* MigrationAlwaysAllowed.swift in Sources */,
+				A1000100000000000000043 /* SessionStash.swift in Sources */,
+				A1000102000000000000044 /* Sweeper.swift in Sources */,
+				A1000104000000000000045 /* StashInspectorWindow.swift in Sources */,
 				A1000084000000000000035 /* NudeNetV3.mlpackage in Sources */,
 				A1000086000000000000036 /* ScreenCapture.swift in Sources */,
 				A1000088000000000000037 /* OCREngine.swift in Sources */,

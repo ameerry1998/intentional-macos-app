@@ -600,6 +600,26 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 appDelegate?.postLog("📋 SAVE_PLAN_FIRST_PROMPT: enabled=\(enabled)")
             }
 
+        case "GET_ALWAYS_ALLOWED":
+            if let store = appDelegate?.alwaysAllowedStore {
+                let dict: [String: Any] = [
+                    "bundleIds": Array(store.list.bundleIds).sorted(),
+                    "domains":   Array(store.list.domains).sorted()
+                ]
+                if let data = try? JSONSerialization.data(withJSONObject: dict),
+                   let json = String(data: data, encoding: .utf8) {
+                    callJS("window._alwaysAllowedResult && window._alwaysAllowedResult(\(json))")
+                }
+            }
+
+        case "SAVE_ALWAYS_ALLOWED":
+            if let store = appDelegate?.alwaysAllowedStore,
+               let bids = body["bundleIds"] as? [String],
+               let domains = body["domains"] as? [String] {
+                store.replace(AlwaysAllowedList(bundleIds: Set(bids), domains: Set(domains)))
+                appDelegate?.postLog("✅ SAVE_ALWAYS_ALLOWED: \(bids.count) apps, \(domains.count) sites")
+            }
+
         case "SAVE_INTENTIONAL_MODE":
             handleSaveIntentionalMode(body)
 
@@ -1312,6 +1332,12 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         result["theme"] = (savedSettings["theme"] as? String) ?? "iridescent"
         result["strictModeEnabled"] = UserDefaults.standard.bool(forKey: "strictModeEnabled")
         result["planFirstPromptEnabled"] = UserDefaults.standard.bool(forKey: "planFirstPromptEnabled")
+        if let store = appDelegate?.alwaysAllowedStore {
+            result["alwaysAllowed"] = [
+                "bundleIds": Array(store.list.bundleIds).sorted(),
+                "domains":   Array(store.list.domains).sorted()
+            ]
+        }
         // Per-item lock map. Defaults: every protection locked (true) when strict
         // mode is on. JS hydrates checkbox state from this. strict_mode_self is
         // always true (enforced JS-side; user can't uncheck the master lock).
