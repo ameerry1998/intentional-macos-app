@@ -1395,15 +1395,21 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         _ = await runAppleScript(script, label: "addBookmark(\(appName))")
     }
 
-    /// Close every tab whose URL is in `urls` across every window of the given browser.
-    func closeTabsByURL(_ urls: Set<String>, forBundleId bundleId: String, appName: String) async {
-        guard !urls.isEmpty else { return }
-        if bundleId.hasPrefix("org.mozilla.") { return }
+    /// Close every tab whose URL is in `urls` across every window of the given
+    /// browser. Returns the count of tabs actually closed (which can exceed
+    /// `urls.count` when duplicate-URL tabs are spread across windows).
+    @discardableResult
+    func closeTabsByURL(_ urls: Set<String>, forBundleId bundleId: String, appName: String) async -> Int {
+        guard !urls.isEmpty else { return 0 }
+        if bundleId.hasPrefix("org.mozilla.") { return 0 }
         let urlProp = "URL"
 
-        // Build a single AppleScript that walks tabs in reverse so indexes stay valid.
+        // Build a single AppleScript that walks tabs in reverse so indexes stay
+        // valid. Counts each close so we can verify in the log that AppleScript
+        // actually acted (not just compiled and returned silently).
         var lines = ["tell application \"\(appName)\""]
-        lines.append("    if it is not running then return")
+        lines.append("    if it is not running then return 0")
+        lines.append("    set closedCount to 0")
         lines.append("    repeat with w in windows")
         lines.append("        set tabCount to count of tabs of w")
         lines.append("        repeat with i from tabCount to 1 by -1")
@@ -1418,13 +1424,20 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
             lines.append("                    \(op)u is \"\(safe)\"")
             first = false
         }
-        lines.append("                ) then close tabRef")
+        lines.append("                ) then")
+        lines.append("                    close tabRef")
+        lines.append("                    set closedCount to closedCount + 1")
+        lines.append("                end if")
         lines.append("            end try")
         lines.append("        end repeat")
         lines.append("    end repeat")
+        lines.append("    return closedCount")
         lines.append("end tell")
 
-        _ = await runAppleScript(lines.joined(separator: "\n"), label: "closeTabsByURL(\(appName))")
+        let raw = await runAppleScript(lines.joined(separator: "\n"), label: "closeTabsByURL(\(appName))")
+        let closed = Int(raw.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+        appDelegate?.postLog("📝 closeTabsByURL(\(appName)): script returned \(raw.isEmpty ? "(empty)" : raw) → \(closed) tabs closed")
+        return closed
     }
 
     /// One-shot AppleScript runner for the sweep helpers. Dispatches to the

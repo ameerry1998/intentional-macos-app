@@ -2001,8 +2001,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
             let urlsToClose = Set(stashCandidates.map { $0.url })
-            postLog("🧹   [\(browserInfo.name)] closing \(urlsToClose.count) tab(s); bookmarked under \"\(bookmarksFolderName ?? "(none — Safari)")\"")
-            await blocker.closeTabsByURL(urlsToClose, forBundleId: browserBid, appName: appName)
+            postLog("🧹   [\(browserInfo.name)] closing \(urlsToClose.count) unique URL(s); bookmarked under \"\(bookmarksFolderName ?? "(none)")\"")
+            let actualClosed = await blocker.closeTabsByURL(urlsToClose, forBundleId: browserBid, appName: appName)
+            postLog("🧹   [\(browserInfo.name)] AppleScript closed \(actualClosed) tab(s) (URLs sent: \(urlsToClose.count))")
         }
 
         // 4. Sweep native apps (Cmd+H, no quitting).
