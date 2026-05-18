@@ -163,21 +163,39 @@ final class SweepBenchmark {
                          mode: SweepBenchmarkMode,
                          scorer: RelevanceScorer,
                          modelId: String = "") async -> SweepBenchmarkResult {
-        // Map test tabs → batch input with labels matching scoreTabBatch signature.
-        let tabInputs: [(title: String, url: String)] = tc.tabs.map { (title: $0.title, url: $0.url) }
-        let verdicts: [RelevanceScorer.TabVerdict]
+        // Pre-pass: apply intent-keyword auto-keep so the benchmark mirrors
+        // the production sweep's decision flow. Tabs whose host/URL/title
+        // contains a token extracted from the intent skip the AI entirely.
+        let intentKeywords = IntentKeywordExtractor.extract(from: tc.intent)
+        var preKeptIndices = Set<Int>()
+        if !intentKeywords.isEmpty {
+            let scope = ResolvedScope(domains: [], bundleIds: [], voiceIntent: tc.intent, intentKeywords: intentKeywords)
+            for (i, tab) in tc.tabs.enumerated() {
+                let host = URL(string: tab.url)?.host ?? ""
+                if scope.matchesIntentKeyword(host: host, url: tab.url, title: tab.title) {
+                    preKeptIndices.insert(i)
+                }
+            }
+            let kwJoined = intentKeywords.sorted().joined(separator: ", ")
+            appDelegate?.postLog("📊 SweepBenchmark: intent-keyword auto-keep matched \(preKeptIndices.count) tab(s); keywords=\(kwJoined)")
+        }
+
+        // Tabs that didn't auto-keep go through the AI.
+        let aiTabIndices = (0..<tc.tabs.count).filter { !preKeptIndices.contains($0) }
+        let aiTabs: [(title: String, url: String)] = aiTabIndices.map { (title: tc.tabs[$0].title, url: tc.tabs[$0].url) }
+        let aiVerdicts: [RelevanceScorer.TabVerdict]
 
         let startTime = Date()
 
         switch mode {
         case .batch:
-            verdicts = await scorer.scoreTabBatch(intent: tc.intent, tabs: tabInputs)
+            aiVerdicts = await scorer.scoreTabBatch(intent: tc.intent, tabs: aiTabs)
         case .single:
             // Run one prompt per tab — slower but uses the model's full attention per tab.
             // Reuses the production single-tab scoreRelevance path via a thin shim:
             // we treat each as a webpage with the intent as 'intention' + intent text.
             var out: [RelevanceScorer.TabVerdict] = []
-            for tab in tabInputs {
+            for tab in aiTabs {
                 let r = await scorer.scoreRelevance(
                     pageTitle: tab.title,
                     intention: tc.intent,
@@ -196,7 +214,23 @@ final class SweepBenchmark {
                     relevant: r.relevant, confidence: r.confidence
                 ))
             }
-            verdicts = out
+            aiVerdicts = out
+        }
+
+        // Build a tab-index → verdict map. Tabs that passed the intent-keyword
+        // gate get an implicit (keep, conf=100) verdict. Tabs that went to AI
+        // get their actual verdict.
+        var verdictByIndex: [Int: RelevanceScorer.TabVerdict] = [:]
+        for keptIndex in preKeptIndices {
+            verdictByIndex[keptIndex] = RelevanceScorer.TabVerdict(
+                title: tc.tabs[keptIndex].title, url: tc.tabs[keptIndex].url,
+                relevant: true, confidence: 100
+            )
+        }
+        for (j, aiIndex) in aiTabIndices.enumerated() {
+            if j < aiVerdicts.count {
+                verdictByIndex[aiIndex] = aiVerdicts[j]
+            }
         }
 
         // Mirror the live sweep orchestrator's asymmetric rule:
@@ -208,7 +242,7 @@ final class SweepBenchmark {
         var errors: [(tab: SweepTestTab, aiVerdict: String, aiConfidence: Int)] = []
 
         for (i, tab) in tc.tabs.enumerated() {
-            let v = i < verdicts.count ? verdicts[i] : RelevanceScorer.TabVerdict(
+            let v = verdictByIndex[i] ?? RelevanceScorer.TabVerdict(
                 title: tab.title, url: tab.url, relevant: false, confidence: 0
             )
             let highConfidenceStash = !v.relevant && v.confidence >= stashConfidenceFloor

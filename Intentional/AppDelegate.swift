@@ -1888,6 +1888,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             postLog("🧹 Stage 1: skipped — using Intention's intentText + outcome (\(scope.voiceIntent.count) chars)")
         }
 
+        // 1b. Extract intent keywords (project domains, stems, named tools) so
+        //     tabs that name those tokens get auto-kept without consulting the
+        //     model. Solves the "model can't connect 'thebeseen.app' in intent
+        //     with 'Resend - thebeseen.app · Domains' in title" plateau.
+        scope.intentKeywords = IntentKeywordExtractor.extract(from: scope.voiceIntent)
+        if !scope.intentKeywords.isEmpty {
+            let kws = scope.intentKeywords.sorted().joined(separator: ", ")
+            postLog("🧹   Intent keywords (auto-keep): \(kws)")
+        }
+
         // 2. Active block-rule hosts + bundleIds (enabled + inside scheduled
         //    window if any).
         let activeRuleHosts: Set<String> = Set(blockingProfileManager?.activeBlockedDomains() ?? [])
@@ -1935,6 +1945,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             var keepURLs = Set<String>()
             var stashCandidates: [WebsiteBlocker.AllTabsInfo] = []
             var needsAI: [WebsiteBlocker.AllTabsInfo] = []
+            var intentKeywordMatches = 0
             for t in allTabs {
                 let host = URL(string: t.url)?.host ?? ""
                 if host.isEmpty { keepURLs.insert(t.url); continue }
@@ -1944,10 +1955,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 switch v {
                 case .keep:    keepURLs.insert(t.url)
                 case .stash:   stashCandidates.append(t)
-                case .needsAI: needsAI.append(t)
+                case .needsAI:
+                    // Intent-keyword auto-keep gate: if the tab's host/URL/title
+                    // contains a domain or tool name we extracted from the intent,
+                    // skip the AI and keep. Catches "thebeseen.app" mentions in
+                    // Resend / Cloudflare / Railway titles that the model can't
+                    // reliably link to the intent.
+                    if scope.matchesIntentKeyword(host: host, url: t.url, title: t.title) {
+                        keepURLs.insert(t.url)
+                        intentKeywordMatches += 1
+                    } else {
+                        needsAI.append(t)
+                    }
                 }
             }
-            postLog("🧹   [\(browserInfo.name)] decisions: keep=\(keepURLs.count) stashOnRule=\(stashCandidates.count) needsAI=\(needsAI.count)")
+            postLog("🧹   [\(browserInfo.name)] decisions: keep=\(keepURLs.count) (incl. \(intentKeywordMatches) by intent-keyword) stashOnRule=\(stashCandidates.count) needsAI=\(needsAI.count)")
 
             // AI batch for the borderline tabs.
             //
