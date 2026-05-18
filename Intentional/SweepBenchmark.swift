@@ -43,6 +43,7 @@ struct SweepBenchmarkResult {
     let trueNegative: Int     // expected keep,  AI said keep
     let falsePositive: Int    // expected keep,  AI said stash (the bad kind — closed a relevant tab)
     let falseNegative: Int    // expected stash, AI said keep  (left noise around)
+    let elapsedSeconds: Double
     let errors: [(tab: SweepTestTab, aiVerdict: String, aiConfidence: Int)]
 
     var accuracy: Double {
@@ -60,11 +61,14 @@ struct SweepBenchmarkResult {
 
     func report() -> String {
         let pct = { (d: Double) in String(format: "%.0f%%", d * 100) }
+        let secs = String(format: "%.2fs", elapsedSeconds)
+        let perTab = totalTabs > 0 ? String(format: "%.2fs", elapsedSeconds / Double(totalTabs)) : "n/a"
         var lines = [
             "════════════════════════════════════════════════",
             "📊 Benchmark: \(caseName)  [mode: \(mode.rawValue)]",
             "════════════════════════════════════════════════",
             "  Total tabs:        \(totalTabs)",
+            "  ⏱️  Elapsed:        \(secs)   (\(perTab) per tab)",
             "  ✅ Correct keep:   \(trueNegative)",
             "  ✅ Correct stash:  \(truePositive)",
             "  ❌ False stash:    \(falsePositive)  (kept-relevant-tab closed — bad UX)",
@@ -150,6 +154,8 @@ final class SweepBenchmark {
         let tabInputs: [(title: String, url: String)] = tc.tabs.map { (title: $0.title, url: $0.url) }
         let verdicts: [RelevanceScorer.TabVerdict]
 
+        let startTime = Date()
+
         switch mode {
         case .batch:
             verdicts = await scorer.scoreTabBatch(intent: tc.intent, tabs: tabInputs)
@@ -204,6 +210,7 @@ final class SweepBenchmark {
             }
         }
 
+        let elapsed = Date().timeIntervalSince(startTime)
         return SweepBenchmarkResult(
             caseName: tc.name,
             mode: mode,
@@ -212,6 +219,7 @@ final class SweepBenchmark {
             trueNegative: tn,
             falsePositive: fp,
             falseNegative: fn,
+            elapsedSeconds: elapsed,
             errors: errors
         )
     }

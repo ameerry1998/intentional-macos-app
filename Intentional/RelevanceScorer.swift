@@ -1017,24 +1017,30 @@ class RelevanceScorer {
     }
     #endif
 
-    // MARK: - MLX (Qwen3-4B)
+    // MARK: - MLX (Qwen3-8B)
 
-    /// Lazily load the MLX Qwen3-4B model on first use.
+    /// Lazily load the MLX Qwen3-8B model on first use.
+    /// Swap from 4B → 8B on 2026-05-18 to test whether bigger model fixes
+    /// the false-stash problem on the close-the-noise sweep benchmark.
+    /// Temperature kept at 0.2 (matches 4B baseline) for apples-to-apples.
     func loadMLXModelIfNeeded() async {
         guard !mlxModelLoaded && !mlxModelLoading else { return }
         mlxModelLoading = true
         do {
             MLX.GPU.set(cacheLimit: 20 * 1024 * 1024)
             let model = try await loadModel(
-                id: "mlx-community/Qwen3-4B-Instruct-2507-4bit"
+                id: "mlx-community/Qwen3-8B-Instruct-2507-4bit"
             )
             mlxContext = model
             let session = ChatSession(model)
-            // Use low temperature for deterministic classification
-            session.generateParameters.temperature = 0.2
+            // Greedy decoding (temp=0) for classification. Trades token
+            // diversity for determinism — same prompt + same model always
+            // produces same verdict, so benchmark numbers are stable across
+            // runs and we can isolate the impact of one knob at a time.
+            session.generateParameters.temperature = 0.0
             mlxSession = session
             mlxModelLoaded = true
-            appDelegate?.postLog("🧠 MLX Qwen3-4B (4-bit) loaded successfully")
+            appDelegate?.postLog("🧠 MLX Qwen3-8B (4-bit) loaded successfully (temp=0.0)")
         } catch {
             appDelegate?.postLog("⚠️ MLX model load failed: \(error)")
         }
