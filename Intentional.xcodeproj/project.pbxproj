@@ -53,6 +53,7 @@
 		A1000076000000000000031 /* ContentSafetyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000077000000000000031 /* ContentSafetyMonitor.swift */; };
 		A1000081000000000000033 /* OpenNSFW.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = A1000080000000000000033 /* OpenNSFW.mlmodel */; };
 		A1000082000000000000034 /* NudeNetDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000083000000000000034 /* NudeNetDetector.swift */; };
+		A1000106000000000000046 /* StageOneIntentWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000107000000000000046 /* StageOneIntentWindow.swift */; };
 		A1000096000000000000041 /* AlwaysAllowedList.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000097000000000000041 /* AlwaysAllowedList.swift */; };
 		A1000098000000000000042 /* MigrationAlwaysAllowed.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000099000000000000042 /* MigrationAlwaysAllowed.swift */; };
 		A1000100000000000000043 /* SessionStash.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000101000000000000043 /* SessionStash.swift */; };
@@ -193,6 +194,7 @@
 		A1000077000000000000031 /* ContentSafetyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentSafetyMonitor.swift; sourceTree = "<group>"; };
 		A1000080000000000000033 /* OpenNSFW.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = OpenNSFW.mlmodel; sourceTree = "<group>"; };
 		A1000083000000000000034 /* NudeNetDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NudeNetDetector.swift; sourceTree = "<group>"; };
+		A1000107000000000000046 /* StageOneIntentWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StageOneIntentWindow.swift; sourceTree = "<group>"; };
 		A1000097000000000000041 /* AlwaysAllowedList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlwaysAllowedList.swift; sourceTree = "<group>"; };
 		A1000099000000000000042 /* MigrationAlwaysAllowed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationAlwaysAllowed.swift; sourceTree = "<group>"; };
 		A1000101000000000000043 /* SessionStash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStash.swift; sourceTree = "<group>"; };
@@ -356,6 +358,7 @@
 				A200000300000000000001 /* DaemonXPCProtocol.swift */,
 				A1000080000000000000033 /* OpenNSFW.mlmodel */,
 				A1000083000000000000034 /* NudeNetDetector.swift */,
+				A1000107000000000000046 /* StageOneIntentWindow.swift */,
 				A1000097000000000000041 /* AlwaysAllowedList.swift */,
 				A1000099000000000000042 /* MigrationAlwaysAllowed.swift */,
 				A1000101000000000000043 /* SessionStash.swift */,
@@ -605,6 +608,7 @@
 				AD00000100000000000001 /* ConstraintEvaluator.swift in Sources */,
 				A1000081000000000000033 /* OpenNSFW.mlmodel in Sources */,
 				A1000082000000000000034 /* NudeNetDetector.swift in Sources */,
+				A1000106000000000000046 /* StageOneIntentWindow.swift in Sources */,
 				A1000096000000000000041 /* AlwaysAllowedList.swift in Sources */,
 				A1000098000000000000042 /* MigrationAlwaysAllowed.swift in Sources */,
 				A1000100000000000000043 /* SessionStash.swift in Sources */,

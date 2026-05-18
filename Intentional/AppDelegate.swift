@@ -77,6 +77,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var alwaysAllowedStore: AlwaysAllowedStore?
     var sessionStashStore: SessionStashStore?
     var stashInspectorController: StashInspectorWindowController?
+    var stageOneIntentController: StageOneIntentWindowController?
 
     var projectStore: ProjectStore?
 
@@ -432,6 +433,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Stash inspector window controller (opens on [View stash] toast action).
         self.stashInspectorController = StashInspectorWindowController(appDelegate: self)
+
+        // Stage 1 of the Deep Work Protocol — forced declaration of intent
+        // before the close-the-noise sweep runs at session start.
+        self.stageOneIntentController = StageOneIntentWindowController(appDelegate: self)
 
         // DIAGNOSTIC: Log every launch attempt to persistent file
         let diagnosticLogPath = NSTemporaryDirectory() + "intentional-launches.log"
@@ -1846,14 +1851,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        // 1. Resolve scope (intentText + outcome + voice). Always-Allowed list
-        //    is consulted separately so it can't be lost in the merge.
-        var scope = ResolvedScope(domains: [], bundleIds: [], voiceIntent: voiceIntent)
+        // 0. Stage 1 prompt — forced declaration of intent before the sweep
+        //    runs. Text-only v1. User can Skip to fall back to Intention's
+        //    saved intentText.
+        var intentionSavedText = ""
+        var intentionOutcome = ""
         if let intentionId = intentionId,
            let intention = await IntentionStore.shared.intention(id: intentionId) {
-            let parts = [voiceIntent, intention.intentText ?? "", intention.outcome ?? ""]
-                .filter { !$0.isEmpty }
+            intentionSavedText = intention.intentText ?? ""
+            intentionOutcome = intention.outcome ?? ""
+        }
+        let suggestedIntent = [voiceIntent, intentionSavedText].filter { !$0.isEmpty }.joined(separator: " — ")
+        let stageOneAnswer = await stageOneIntentController?.prompt(suggestedIntent: suggestedIntent) ?? .skipped
+
+        // 1. Resolve scope. Stage 1 user-typed answer (if any) takes priority;
+        //    falls back to Intention's saved intentText + outcome + the
+        //    schedule-derived intention title.
+        var scope = ResolvedScope(domains: [], bundleIds: [], voiceIntent: "")
+        if let stageOne = stageOneAnswer.combinedIntent {
+            scope.voiceIntent = stageOne
+            postLog("🧹 Stage 1: user answered (\(stageOne.count) chars)")
+        } else {
+            let parts = [voiceIntent, intentionSavedText, intentionOutcome].filter { !$0.isEmpty }
             scope.voiceIntent = parts.joined(separator: ". ")
+            postLog("🧹 Stage 1: skipped — using Intention's intentText + outcome (\(scope.voiceIntent.count) chars)")
         }
 
         // 2. Active block-rule hosts + bundleIds (enabled + inside scheduled
