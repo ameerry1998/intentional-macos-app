@@ -43,6 +43,47 @@ struct AlwaysAllowedListTests {
             assertTrue(!store.isDomainAllowed("notexample.com"), "must not match by substring")
         }
 
+        test("migration unions per-Intention lists into global, is idempotent via receipt") {
+            let dir = testDir + "/t4"
+            try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+            // Fake intentions cache file that mirrors what IntentionStore writes
+            let intentionsJSON = """
+            {
+              "intentions": [
+                { "id": "11111111-1111-1111-1111-111111111111", "name": "Code",
+                  "allowWebsites": ["github.com", "stackoverflow.com"],
+                  "allowBundleIds": ["com.todesktop.230313mzl4w4u92"]
+                },
+                { "id": "22222222-2222-2222-2222-222222222222", "name": "Write",
+                  "allowWebsites": ["github.com", "notion.so"],
+                  "allowBundleIds": ["com.todesktop.230313mzl4w4u92", "notion.id"]
+                }
+              ]
+            }
+            """
+            try? intentionsJSON.write(toFile: dir + "/intentions.json", atomically: true, encoding: .utf8)
+
+            let store = AlwaysAllowedStore(storageDir: dir)
+            let receiptPath = dir + "/migration_always_allowed_v1.json"
+
+            // First run: merges
+            MigrationAlwaysAllowed.runIfNeeded(intentionsCachePath: dir + "/intentions.json",
+                                               store: store, receiptPath: receiptPath)
+            assertTrue(store.list.domains.contains("github.com"))
+            assertTrue(store.list.domains.contains("stackoverflow.com"))
+            assertTrue(store.list.domains.contains("notion.so"))
+            assertTrue(store.list.bundleIds.contains("com.todesktop.230313mzl4w4u92"))
+            assertTrue(FileManager.default.fileExists(atPath: receiptPath), "receipt should be written")
+
+            // Second run: no-op (receipt present)
+            let countBefore = store.list.domains.count
+            store.addDomain("manually-added.com")
+            MigrationAlwaysAllowed.runIfNeeded(intentionsCachePath: dir + "/intentions.json",
+                                               store: store, receiptPath: receiptPath)
+            assertEqual(store.list.domains.count, countBefore + 1, "second run must not re-merge")
+            assertTrue(store.list.domains.contains("manually-added.com"))
+        }
+
         print("\n\(passed) passed, \(failed) failed\n")
         exit(failed == 0 ? 0 : 1)
     }
