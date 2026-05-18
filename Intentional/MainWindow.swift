@@ -592,6 +592,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 UserDefaults.standard.set(planIndex, forKey: "defaultIfThenPlan")
             }
 
+        case "SAVE_PLAN_FIRST_PROMPT":
+            // Toggle the plan-first prompt feature (FocusMonitor.maybeShowNoPlanPill
+            // reads this on every evaluateApp tick).
+            if let enabled = body["enabled"] as? Bool {
+                UserDefaults.standard.set(enabled, forKey: "planFirstPromptEnabled")
+                appDelegate?.postLog("📋 SAVE_PLAN_FIRST_PROMPT: enabled=\(enabled)")
+            }
+
         case "SAVE_INTENTIONAL_MODE":
             handleSaveIntentionalMode(body)
 
@@ -1303,6 +1311,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         result["soundTone"] = (savedSettings["soundTone"] as? String) ?? "Glass"
         result["theme"] = (savedSettings["theme"] as? String) ?? "iridescent"
         result["strictModeEnabled"] = UserDefaults.standard.bool(forKey: "strictModeEnabled")
+        result["planFirstPromptEnabled"] = UserDefaults.standard.bool(forKey: "planFirstPromptEnabled")
         // Per-item lock map. Defaults: every protection locked (true) when strict
         // mode is on. JS hydrates checkbox state from this. strict_mode_self is
         // always true (enforced JS-side; user can't uncheck the master lock).

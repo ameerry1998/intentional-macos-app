@@ -1656,7 +1656,12 @@ class FocusMonitor {
         // and unplanned all route through Focus Mode being off rather than this
         // gate. The unplanned-bypass behavior is preserved by definition: with
         // no schedule block and no active session, FocusModeController is .off.)
-        guard focusModeController?.isOn == true else {
+        if focusModeController?.isOn != true {
+            // Focus Mode off — if the user has the plan-first prompt enabled and
+            // currently has no block scheduled, show the noPlan pill. Restores
+            // the trigger that was wired before the April 2026 TimeState
+            // consolidation (see the long-standing TODO that used to live here).
+            maybeShowNoPlanPill(currentApp: app)
             debugLog("👁️ EXIT: focus mode not on (state=\(focusModeController?.state.rawValue ?? "nil")) — browsing allowed freely")
             handleRelevantContent()
             stopBrowserPolling()
@@ -3558,6 +3563,84 @@ class FocusMonitor {
                 trace: triggerTrace
             )
         }
+    }
+
+    /// Plan-first prompt: when Focus Mode is off AND no block is current AND the user has
+    /// the planFirstPrompt setting enabled, show the full-screen noPlan overlay so the user
+    /// is FORCED to plan / start a block / snooze (this is the aggressive version the user
+    /// remembered — covers the screen, doesn't politely sit in the corner). Restores the
+    /// trigger that lived here before the April 2026 TimeState consolidation refactor.
+    ///
+    /// Cheap guard chain — bails out fast in the common steady-state cases so it's safe to
+    /// call from every evaluateApp tick.
+    private func maybeShowNoPlanPill(currentApp: NSRunningApplication) {
+        // User-controllable feature toggle. Default true; if the key is missing
+        // (fresh install) UserDefaults returns false, so we treat that as enabled too via the
+        // register call in AppDelegate.
+        guard UserDefaults.standard.bool(forKey: "planFirstPromptEnabled") else { return }
+
+        // Re-entrancy: overlay already showing — don't re-trigger.
+        if overlayController?.isShowing == true { return }
+        // Pill in noPlan mode is also a valid "already prompting" state.
+        if deepWorkTimerController?.viewModel?.mode == .noPlan { return }
+
+        // Don't pop the prompt while the user is INSIDE Intentional itself —
+        // they're already engaging with the planning surface.
+        let bid = currentApp.bundleIdentifier
+        if bid == "com.arayan.intentional" || bid == Bundle.main.bundleIdentifier { return }
+
+        // Don't pop during other overlay-driven flows.
+        if interventionController?.isShowing == true { return }
+        if awaitingRitual { return }
+
+        // Snooze respected — user asked for 30 min of quiet.
+        if let until = noPlanSnoozeUntil, Date() < until { return }
+
+        // Safety net — caller already gated on focusModeController.isOn != true, but defend
+        // against a future caller forgetting that contract.
+        if focusModeController?.isOn == true { return }
+
+        // The whole point of the prompt is "you don't have a block scheduled right now."
+        guard let manager = scheduleManager, manager.currentBlock == nil else { return }
+
+        // Compose a reason string for the overlay header. Mirror the CardState
+        // logic the deleted trigger used so the overlay can show context-aware copy:
+        //   no schedule today           → "No plan for today yet"
+        //   all blocks done + 9pm+      → "Day complete"
+        //   gap (mid-day, between)      → "No block scheduled right now"
+        let hasScheduleToday = (manager.todaySchedule?.blocks.isEmpty == false)
+        let remaining = manager.remainingBlocks()
+        let allDone = hasScheduleToday && remaining.isEmpty
+        let hour = Calendar.current.component(.hour, from: Date())
+        let reason: String
+        if !hasScheduleToday {
+            reason = "No plan for today yet"
+        } else if allDone && hour >= 21 {
+            reason = "Day complete"
+        } else {
+            reason = "No block scheduled right now"
+        }
+
+        appDelegate?.postLog("📋 Plan-first prompt: showing full-screen noPlan overlay (reason: \(reason))")
+        // Wire the overlay handlers — these mirror the existing button callbacks
+        // already used by the pill flow so the dashboard still gets opened, quick
+        // blocks still get created, snooze still respects the 30-min cap, etc.
+        overlayController?.onPlanDay = { [weak self] in self?.handlePlanDay() }
+        overlayController?.onStartQuickBlock = { [weak self] (title, duration, isFree) in
+            self?.handleStartQuickBlock(title: title, durationMinutes: duration, isFree: isFree)
+        }
+        overlayController?.onSnooze = { [weak self] in self?.handleNoPlanSnooze() }
+        overlayController?.onBackToWork = { [weak self] in self?.handleOpenIntentional() }
+
+        // Call into FocusMonitor.showOverlay so existing trace logging /
+        // logAssessment book-keeping continues to fire.
+        showOverlay(
+            intention: "",
+            reason: reason,
+            focusDurationMinutes: 0,
+            isNoPlan: true,
+            displayName: nil
+        )
     }
 
     /// Approve the currently-overlaid content for the current block (wires to RelevanceScorer).

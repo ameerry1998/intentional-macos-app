@@ -5552,6 +5552,24 @@ body.theme-effects-warm::after {
         <div id="strict-checklist" style="padding:4px 16px 14px; display:flex; flex-direction:column; gap:4px;"></div>
       </div>
 
+      <!-- Plan-first prompt — fires the floating noPlan pill whenever you're not in a scheduled block -->
+      <div class="settings-card" style="margin-top:14px;">
+        <div class="settings-card-title">Planning prompt</div>
+        <div class="setting-desc" style="padding:2px 16px 12px; font-size:12px;">
+          Pops the floating "what are you doing?" card whenever you're not in a focus session and have no block scheduled for the current moment. Snoozable for 30 min at a time.
+        </div>
+        <div class="setting-row" style="padding:4px 16px 14px;">
+          <div style="flex:1;">
+            <div class="setting-label">Show plan-first prompt</div>
+            <div class="setting-desc">Off = no prompt, ever. On = floating card whenever you're unplanned.</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="plan-first-prompt-toggle" onchange="onPlanFirstPromptToggle(this.checked)">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+
       <!-- Enforcement mechanisms — the 7 things that fire when you're off-task -->
       <div class="settings-card" style="margin-top:14px;">
         <div class="settings-card-title">What happens when you're off-task</div>
@@ -6587,6 +6605,17 @@ function onStrictLockItemToggle(key, on) {
 }
 window.onStrictLockItemToggle = onStrictLockItemToggle;
 
+// Plan-first prompt feature toggle. Fires when the user flips the checkbox on
+// the Strict Mode page. Persists via SAVE_PLAN_FIRST_PROMPT → UserDefault
+// `planFirstPromptEnabled` → read by FocusMonitor.maybeShowNoPlanPill().
+function onPlanFirstPromptToggle(enabled) {
+  sendMessage({ type: 'SAVE_PLAN_FIRST_PROMPT', enabled: !!enabled });
+  if (typeof showToast === 'function') {
+    showToast(enabled ? 'Plan-first prompt: ON' : 'Plan-first prompt: OFF');
+  }
+}
+window.onPlanFirstPromptToggle = onPlanFirstPromptToggle;
+
 function onStrictModeToggle(checked) {
   var s = window._strictModeState;
   if (checked) {
@@ -6684,6 +6713,11 @@ window._strictModeResult = function(res) {
       // Capture enforcement settings for the inline mechanism toggles.
       if (data.enforcementSettings) {
         window._enforcementSettings = data.enforcementSettings;
+      }
+      // Plan-first prompt toggle state — pushed in from Swift via GET_SETTINGS.
+      var planToggle = document.getElementById('plan-first-prompt-toggle');
+      if (planToggle && typeof data.planFirstPromptEnabled === 'boolean') {
+        planToggle.checked = data.planFirstPromptEnabled;
       }
       _updateStrictModeUI();
       if (typeof renderEnforcementMechanisms === 'function') renderEnforcementMechanisms();

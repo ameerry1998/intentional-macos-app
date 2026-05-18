@@ -398,6 +398,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Register defaults for newly-added settings keys. UserDefaults.bool returns
+        // false for missing keys, which would make a default-true feature appear
+        // disabled until the user toggles it once. register(defaults:) fixes that.
+        UserDefaults.standard.register(defaults: [
+            "planFirstPromptEnabled": true,
+        ])
+
         // DIAGNOSTIC: Log every launch attempt to persistent file
         let diagnosticLogPath = NSTemporaryDirectory() + "intentional-launches.log"
         let launchTime = Date()
