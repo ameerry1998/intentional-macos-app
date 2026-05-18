@@ -1385,6 +1385,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Focus Session Toggle
         menu.addItem(NSMenuItem(title: "Toggle Focus (\u{2318}\u{21E7}P)", action: #selector(menuToggleFocus), keyEquivalent: ""))
 
+        #if DEBUG
+        menu.addItem(NSMenuItem.separator())
+        // Manual sweep trigger — bypasses FocusModeController state gate so we
+        // can test the close-the-noise sweep even when the controller is stuck
+        // (e.g. backend session refusing .schedule deactivation).
+        menu.addItem(NSMenuItem(title: "Run Sweep Now (debug)", action: #selector(debugRunSweepNow), keyEquivalent: ""))
+        #endif
+
         menu.addItem(NSMenuItem.separator())
 
         // Quit
@@ -2078,6 +2086,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // bulk restore later, it needs to route through the Chrome extension
     // (chrome.tabs.create({ discarded: true })) — AppleScript has no
     // primitive for inactive/discarded tabs.
+
+    #if DEBUG
+    /// Debug-only manual trigger for the sweep. Bypasses the FocusModeController
+    /// state gate. Bound to the menubar "Run Sweep Now (debug)" item.
+    @objc func debugRunSweepNow() {
+        postLog("🧹 [DEBUG] Manual sweep trigger via menubar")
+        let sessionId = focusModeController?.currentPeriod?.id.uuidString ?? "debug-\(UUID().uuidString)"
+        let voiceIntent = focusModeController?.currentPeriod?.intention ?? "Manual debug sweep"
+        let intentionId = focusModeController?.currentPeriod?.intentionId
+        Task { @MainActor in
+            await self.runCloseTheNoiseSweep(sessionId: sessionId,
+                                            voiceIntent: voiceIntent,
+                                            intentionId: intentionId)
+        }
+    }
+    #endif
 
     func checkForActiveFocusSession() {
         guard let token = backendClient?.getAccessToken() else { return }
