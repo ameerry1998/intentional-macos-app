@@ -1894,10 +1894,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         //    at launch (Launch Services → LSCopyAllHandlersForURLScheme).
         //    No hardcoded list — Chromium-based browsers (Comet, Brave, Edge,
         //    Vivaldi, etc.) are picked up automatically.
-        let discoveredBrowsers = self.browserMonitor?.getAllBrowsers() ?? [:]
-        // Same list serves as the never-hide set in the native-app sweep —
-        // browsers are containers; their tabs are what the sweep acts on.
-        let neverHideBrowsers: Set<String> = Set(discoveredBrowsers.keys)
+        let allDiscoveredBrowsers = self.browserMonitor?.getAllBrowsers() ?? [:]
+        // Filter to ONLY browsers that are currently running. Avoids macOS
+        // popping a "Where is X?" dialog when AppleScript tries to address a
+        // browser that's installed but not open — and an extra-nasty case
+        // where Launch Services exposes nested sub-bundles (e.g. ChatGPT
+        // Atlas's `com.openai.atlas.web` inside `/Applications/ChatGPT
+        // Atlas.app/Contents/Support/...`) that AppleScript can't resolve by
+        // name without prompting the user.
+        let runningBundles: Set<String> = Set(
+            NSWorkspace.shared.runningApplications.compactMap { $0.bundleIdentifier }
+        )
+        let discoveredBrowsers = allDiscoveredBrowsers.filter { runningBundles.contains($0.key) }
+        let skippedNotRunning = allDiscoveredBrowsers.keys.filter { !runningBundles.contains($0) }
+        if !skippedNotRunning.isEmpty {
+            let joined = skippedNotRunning.sorted().joined(separator: ", ")
+            postLog("🧹 Browsers discovered but not running (skipped): \(joined)")
+        }
+        // Never-hide set still uses the full discovered list so an off-scope
+        // running browser doesn't get Cmd+H'd just because the sweep skipped
+        // its tabs.
+        let neverHideBrowsers: Set<String> = Set(allDiscoveredBrowsers.keys)
         var stashedTabs: [StashedTab] = []
         var bookmarksFolderName: String? = nil
         let stampedName = "Intentional / Stash \(SessionStashStore.timestampString())"
