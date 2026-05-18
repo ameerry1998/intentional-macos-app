@@ -1404,37 +1404,37 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         if bundleId.hasPrefix("org.mozilla.") { return 0 }
         let urlProp = "URL"
 
-        // Build a single AppleScript that walks tabs in reverse so indexes stay
-        // valid. Counts each close so we can verify in the log that AppleScript
-        // actually acted (not just compiled and returned silently).
-        var lines = ["tell application \"\(appName)\""]
-        lines.append("    if it is not running then return 0")
-        lines.append("    set closedCount to 0")
-        lines.append("    repeat with w in windows")
-        lines.append("        set tabCount to count of tabs of w")
-        lines.append("        repeat with i from tabCount to 1 by -1")
-        lines.append("            try")
-        lines.append("                set tabRef to tab i of w")
-        lines.append("                set u to \(urlProp) of tabRef")
-        lines.append("                if (")
-        var first = true
-        for u in urls {
-            let safe = u.replacingOccurrences(of: "\"", with: "\\\"")
-            let op = first ? "" : "or "
-            lines.append("                    \(op)u is \"\(safe)\"")
-            first = false
-        }
-        lines.append("                ) then")
-        lines.append("                    close tabRef")
-        lines.append("                    set closedCount to closedCount + 1")
-        lines.append("                end if")
-        lines.append("            end try")
-        lines.append("        end repeat")
-        lines.append("    end repeat")
-        lines.append("    return closedCount")
-        lines.append("end tell")
+        // Build the target URL list as an AppleScript literal. AppleScript
+        // doesn't allow multi-line `if (a or b or c)` without continuation
+        // markers — using `is in targetURLs` instead keeps the script tractable
+        // for arbitrary URL counts.
+        let urlListLiteral = urls
+            .map { "\"\($0.replacingOccurrences(of: "\"", with: "\\\""))\"" }
+            .joined(separator: ", ")
 
-        let raw = await runAppleScript(lines.joined(separator: "\n"), label: "closeTabsByURL(\(appName))")
+        let script = """
+        tell application "\(appName)"
+            if it is not running then return 0
+            set closedCount to 0
+            set targetURLs to {\(urlListLiteral)}
+            repeat with w in windows
+                set tabCount to count of tabs of w
+                repeat with i from tabCount to 1 by -1
+                    try
+                        set tabRef to tab i of w
+                        set u to \(urlProp) of tabRef
+                        if targetURLs contains u then
+                            close tabRef
+                            set closedCount to closedCount + 1
+                        end if
+                    end try
+                end repeat
+            end repeat
+            return closedCount
+        end tell
+        """
+
+        let raw = await runAppleScript(script, label: "closeTabsByURL(\(appName))")
         let closed = Int(raw.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
         appDelegate?.postLog("📝 closeTabsByURL(\(appName)): script returned \(raw.isEmpty ? "(empty)" : raw) → \(closed) tabs closed")
         return closed
