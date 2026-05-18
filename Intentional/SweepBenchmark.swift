@@ -38,6 +38,7 @@ enum SweepBenchmarkMode: String {
 struct SweepBenchmarkResult {
     let caseName: String
     let mode: SweepBenchmarkMode
+    let modelId: String
     let totalTabs: Int
     let truePositive: Int     // expected stash, AI said stash
     let trueNegative: Int     // expected keep,  AI said keep
@@ -63,9 +64,10 @@ struct SweepBenchmarkResult {
         let pct = { (d: Double) in String(format: "%.0f%%", d * 100) }
         let secs = String(format: "%.2fs", elapsedSeconds)
         let perTab = totalTabs > 0 ? String(format: "%.2fs", elapsedSeconds / Double(totalTabs)) : "n/a"
+        let modelLabel = modelId.isEmpty ? "" : "  model: \(modelId.split(separator: "/").last ?? "?")"
         var lines = [
             "════════════════════════════════════════════════",
-            "📊 Benchmark: \(caseName)  [mode: \(mode.rawValue)]",
+            "📊 Benchmark: \(caseName)  [mode: \(mode.rawValue)\(modelLabel)]",
             "════════════════════════════════════════════════",
             "  Total tabs:        \(totalTabs)",
             "  ⏱️  Elapsed:        \(secs)   (\(perTab) per tab)",
@@ -119,6 +121,13 @@ final class SweepBenchmark {
     }
 
     func runAll(mode: SweepBenchmarkMode = .batch) async {
+        await runAll(mode: mode, modelIds: [scorer?.currentModelId ?? "(current)"])
+    }
+
+    /// Run every test case against each modelId in turn. Hot-swaps the model
+    /// in place via RelevanceScorer.reloadModel so we can directly compare
+    /// e.g. Qwen3-4B vs Qwen3-8B on the same case without restarting the app.
+    func runAll(mode: SweepBenchmarkMode, modelIds: [String]) async {
         guard let dir = testCasesDirectoryURL() else {
             appDelegate?.postLog("📊 SweepBenchmark: no test-cases dir found")
             return
@@ -127,7 +136,6 @@ final class SweepBenchmark {
             appDelegate?.postLog("📊 SweepBenchmark: RelevanceScorer not ready")
             return
         }
-
         let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil))?
             .filter { $0.pathExtension == "json" } ?? []
         if files.isEmpty {
@@ -135,21 +143,26 @@ final class SweepBenchmark {
             return
         }
 
-        appDelegate?.postLog("📊 SweepBenchmark: running \(files.count) case(s) in mode=\(mode.rawValue)")
-        for url in files {
-            guard let data = try? Data(contentsOf: url),
-                  let testCase = try? JSONDecoder().decode(SweepTestCase.self, from: data) else {
-                appDelegate?.postLog("📊 SweepBenchmark: failed to load \(url.lastPathComponent)")
-                continue
+        for modelId in modelIds {
+            appDelegate?.postLog("📊 SweepBenchmark: swapping to model \(modelId)...")
+            await scorer.reloadModel(id: modelId)
+            appDelegate?.postLog("📊 SweepBenchmark: running \(files.count) case(s) on \(modelId) [mode=\(mode.rawValue)]")
+            for url in files {
+                guard let data = try? Data(contentsOf: url),
+                      let testCase = try? JSONDecoder().decode(SweepTestCase.self, from: data) else {
+                    appDelegate?.postLog("📊 SweepBenchmark: failed to load \(url.lastPathComponent)")
+                    continue
+                }
+                let result = await runCase(testCase, mode: mode, scorer: scorer, modelId: modelId)
+                appDelegate?.postLog(result.report())
             }
-            let result = await runCase(testCase, mode: mode, scorer: scorer)
-            appDelegate?.postLog(result.report())
         }
     }
 
     private func runCase(_ tc: SweepTestCase,
                          mode: SweepBenchmarkMode,
-                         scorer: RelevanceScorer) async -> SweepBenchmarkResult {
+                         scorer: RelevanceScorer,
+                         modelId: String = "") async -> SweepBenchmarkResult {
         // Map test tabs → batch input with labels matching scoreTabBatch signature.
         let tabInputs: [(title: String, url: String)] = tc.tabs.map { (title: $0.title, url: $0.url) }
         let verdicts: [RelevanceScorer.TabVerdict]
@@ -217,6 +230,7 @@ final class SweepBenchmark {
         return SweepBenchmarkResult(
             caseName: tc.name,
             mode: mode,
+            modelId: modelId,
             totalTabs: tc.tabs.count,
             truePositive: tp,
             trueNegative: tn,

@@ -1393,6 +1393,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: "Run Sweep Now (debug)", action: #selector(debugRunSweepNow), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Run Sweep Benchmark — batch (debug)", action: #selector(debugRunSweepBenchmarkBatch), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Run Sweep Benchmark — single (debug)", action: #selector(debugRunSweepBenchmarkSingle), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Run Sweep Benchmark — 4B vs 8B compare (debug)", action: #selector(debugRunSweepBenchmarkCompare), keyEquivalent: ""))
         #endif
 
         menu.addItem(NSMenuItem.separator())
@@ -2151,6 +2152,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Task { @MainActor in
             let bench = SweepBenchmark(appDelegate: self)
             await bench.runAll(mode: .single)
+        }
+    }
+
+    /// Run BATCH mode on both Qwen3-4B AND Qwen3-8B back-to-back. Hot-swaps
+    /// the loaded MLX model between the two. ~30s model-load overhead per
+    /// swap, then the actual benchmarks. Final reports print side-by-side
+    /// in the log so we can compare apples-to-apples on the same test case.
+    @objc func debugRunSweepBenchmarkCompare() {
+        postLog("📊 [DEBUG] Sweep benchmark — 4B vs 8B compare (batch mode)")
+        Task { @MainActor in
+            let bench = SweepBenchmark(appDelegate: self)
+            await bench.runAll(mode: .batch, modelIds: [
+                "mlx-community/Qwen3-4B-Instruct-2507-4bit",
+                "mlx-community/Qwen3-8B-4bit"
+            ])
+            self.postLog("📊 [DEBUG] Sweep benchmark — compare complete")
         }
     }
     #endif

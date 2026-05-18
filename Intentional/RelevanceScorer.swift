@@ -1017,32 +1017,47 @@ class RelevanceScorer {
     }
     #endif
 
-    // MARK: - MLX (Qwen3-8B)
+    // MARK: - MLX (Qwen)
 
-    /// Lazily load the MLX Qwen3-8B model on first use.
-    /// Swap from 4B → 8B on 2026-05-18 to test whether bigger model fixes
-    /// the false-stash problem on the close-the-noise sweep benchmark.
-    /// Temperature kept at 0.2 (matches 4B baseline) for apples-to-apples.
+    /// Default model. The benchmark can override via reloadModel(id:).
+    /// 2026-05-18: bumped 4B → 8B after benchmark showed 4B's documented
+    /// classification-flip bug. See SweepBenchmark for accuracy numbers.
+    var currentModelId: String = "mlx-community/Qwen3-8B-4bit"
+
+    /// Lazily load the currently-configured MLX model on first use.
     func loadMLXModelIfNeeded() async {
         guard !mlxModelLoaded && !mlxModelLoading else { return }
+        await loadModelFresh(id: currentModelId)
+    }
+
+    /// Force-load a specific model, unloading any current one first.
+    /// Used by the benchmark to A/B between models (4B vs 8B vs others)
+    /// without restarting the app.
+    func reloadModel(id newId: String) async {
+        currentModelId = newId
+        mlxModelLoaded = false
+        mlxSession = nil
+        mlxContext = nil
+        // Drop GPU cache so the new weights don't fight the old ones for RAM.
+        MLX.GPU.clearCache()
+        await loadModelFresh(id: newId)
+    }
+
+    private func loadModelFresh(id: String) async {
         mlxModelLoading = true
         do {
             MLX.GPU.set(cacheLimit: 20 * 1024 * 1024)
-            let model = try await loadModel(
-                id: "mlx-community/Qwen3-8B-4bit"
-            )
+            let model = try await loadModel(id: id)
             mlxContext = model
             let session = ChatSession(model)
-            // Greedy decoding (temp=0) for classification. Trades token
-            // diversity for determinism — same prompt + same model always
-            // produces same verdict, so benchmark numbers are stable across
-            // runs and we can isolate the impact of one knob at a time.
+            // Greedy decoding (temp=0) for classification — deterministic
+            // verdicts across runs, so benchmark numbers don't drift.
             session.generateParameters.temperature = 0.0
             mlxSession = session
             mlxModelLoaded = true
-            appDelegate?.postLog("🧠 MLX Qwen3-8B (4-bit) loaded successfully (temp=0.0)")
+            appDelegate?.postLog("🧠 MLX loaded successfully: \(id) (temp=0.0)")
         } catch {
-            appDelegate?.postLog("⚠️ MLX model load failed: \(error)")
+            appDelegate?.postLog("⚠️ MLX model load failed (\(id)): \(error)")
         }
         mlxModelLoading = false
     }
@@ -1188,6 +1203,12 @@ class RelevanceScorer {
     /// (vs returning a single giant array that's brittle on truncation).
     /// Unparseable / missing entries default to `relevant: false, confidence: 0` —
     /// matches the spec's "default-stash for unsure" rule (stash is recoverable).
+    ///
+    /// 2026-05-18: rewrote prompt with single-mode-style scaffolding (system
+    /// message defining the task, few-shot examples, explicit confidence
+    /// calibration). Bare prompt was producing "relevant=true confidence=10"
+    /// on obvious distractors (ZipRecruiter, ADHD competitors) — Qwen had no
+    /// frame for what 'on-task' meant.
     func scoreTabBatch(intent: String,
                        tabs: [(title: String, url: String)]) async -> [TabVerdict] {
         guard !tabs.isEmpty else { return [] }
@@ -1200,21 +1221,58 @@ class RelevanceScorer {
         }
 
         let prompt = """
-        The user's session intent is:
+        You are a tab-classification assistant for a focus app. Your job is
+        to decide which browser tabs are ON-TASK for the user's current
+        focus session and which are distractions that should be closed.
+
+        ─── User's session intent ───
         \(intent)
 
-        For each numbered tab below, decide whether keeping it open would
-        be on-task. Output ONE JSON object per line, in the same order:
-        {"i": <number>, "relevant": true|false, "confidence": 0-100}
+        ─── Rules ───
+        ON-TASK = the tab is directly useful for the stated intent.
+          * Same project name / same domain owned by the user.
+          * A tool the user explicitly named (IDE, terminal, Claude, etc.).
+          * A topic the user said they're working on.
+          * A site whose category the user said is allowed (e.g. "domains",
+            "email setup", "software dev").
 
-        Examples of off-task: news, social media, recreational video, job
-        boards (unless the intent is job search), shopping (unless the
-        intent is shopping), forums unrelated to the intent.
+        OFF-TASK = the tab is unrelated to the stated intent.
+          * Personal email / inbox (unless intent specifically names it).
+          * Job boards / job listings (unless intent says job search).
+          * News, social media, recreational video, shopping.
+          * Competitor research, unrelated reading, old searches.
+          * Generic newtab / chrome://newtab pages.
 
-        Tabs:
+        ─── Confidence calibration ───
+          * 90-100: obvious match or obvious mismatch.
+          * 60-89: probable, with some uncertainty.
+          * 30-59: weak signal — could go either way.
+          * 0-29: no signal at all. Default these to relevant=false.
+        When you genuinely cannot tell from the title + URL, say
+        relevant=false with confidence=30. Don't default to relevant=true.
+
+        ─── Examples ───
+        Intent: "Working on website setup for thebeseen.app — domains, email, Claude, IDE"
+          1. [DNS records | thebeseen.app | Cloudflare] https://dash.cloudflare.com/.../thebeseen.app/dns
+             → {"i": 1, "relevant": true, "confidence": 95}
+          2. [Inbox - Gmail] https://mail.google.com/mail/u/0/#inbox
+             → {"i": 2, "relevant": false, "confidence": 75}
+          3. [5 TOOL PERFORMANCE Jobs - ZipRecruiter] https://ziprecruiter.com/co/...
+             → {"i": 3, "relevant": false, "confidence": 95}
+          4. [Claude.ai conversation - wellness brand] https://claude.ai/chat/...
+             → {"i": 4, "relevant": true, "confidence": 70}
+          5. [Saner.AI ADHD assistant] https://saner.ai/
+             → {"i": 5, "relevant": false, "confidence": 90}
+          6. [Reddit /r/programming] https://reddit.com/r/programming
+             → {"i": 6, "relevant": false, "confidence": 80}
+          7. [Supabase API Keys | beseen-prod] https://supabase.com/dashboard/project/.../settings/api-keys
+             → {"i": 7, "relevant": true, "confidence": 90}
+
+        ─── Tabs to classify ───
         \(lines.joined(separator: "\n"))
 
-        Output (one JSON per line, no other text):
+        ─── Output ───
+        One JSON object per line, in the same numbered order. No other text.
 
         /no_think
         """
