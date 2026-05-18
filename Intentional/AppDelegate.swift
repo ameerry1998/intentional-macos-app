@@ -1391,6 +1391,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // can test the close-the-noise sweep even when the controller is stuck
         // (e.g. backend session refusing .schedule deactivation).
         menu.addItem(NSMenuItem(title: "Run Sweep Now (debug)", action: #selector(debugRunSweepNow), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Run Sweep Benchmark — batch (debug)", action: #selector(debugRunSweepBenchmarkBatch), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Run Sweep Benchmark — single (debug)", action: #selector(debugRunSweepBenchmarkSingle), keyEquivalent: ""))
         #endif
 
         menu.addItem(NSMenuItem.separator())
@@ -2117,6 +2119,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             await self.runCloseTheNoiseSweep(sessionId: sessionId,
                                             voiceIntent: voiceIntent,
                                             intentionId: intentionId)
+        }
+    }
+
+    /// Run the AI-scoring accuracy benchmark in BATCH mode (production path).
+    @objc func debugRunSweepBenchmarkBatch() {
+        postLog("📊 [DEBUG] Sweep benchmark — batch")
+        Task { @MainActor in
+            let bench = SweepBenchmark(appDelegate: self)
+            await bench.runAll(mode: .batch)
+        }
+    }
+
+    /// Run the same case in SINGLE mode — one prompt per tab. Slower but tests
+    /// whether batching is what's hurting accuracy.
+    @objc func debugRunSweepBenchmarkSingle() {
+        postLog("📊 [DEBUG] Sweep benchmark — single-tab")
+        Task { @MainActor in
+            let bench = SweepBenchmark(appDelegate: self)
+            await bench.runAll(mode: .single)
         }
     }
     #endif
