@@ -1029,7 +1029,7 @@ class RelevanceScorer {
         do {
             MLX.GPU.set(cacheLimit: 20 * 1024 * 1024)
             let model = try await loadModel(
-                id: "mlx-community/Qwen3-8B-Instruct-2507-4bit"
+                id: "mlx-community/Qwen3-8B-4bit"
             )
             mlxContext = model
             let session = ChatSession(model)
