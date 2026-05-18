@@ -121,6 +121,26 @@ This project uses a **two-layer documentation system**. Use the right format for
 
 ---
 
+## Product Vision — Deep Work as a Service (MANDATORY READ)
+
+**The brain is sequential. The computer makes task-switching almost free. Friction is backwards.**
+
+Intentional is not a "site blocker." It is the structural enforcement of the Deep Work protocol the cognitive-psych literature (Cal Newport, Sophie Leroy on "attention residue", Nicholas Carr's *The Shallows*, Nir Eyal's *Indistractable*) already recommends but that ADHD impulse-scrollers cannot self-administer.
+
+Every feature should ladder up to one of five stages of a focus session. If a feature you're about to build doesn't, it probably doesn't belong:
+
+1. **Enter** — forced declaration of intent (voice transcript, 100–300 words, "what + what done looks like + what's NOT allowed").
+2. **Prepare** — "close the noise." One-click sweep of tabs/apps not relevant to declared intent. *(Missing today — biggest current gap.)*
+3. **Engage** — session runs. AI scoring against the transcript. Pill, red tint, in-pill nudges.
+4. **Defend** — three tiers of friction when the user drifts: notify → soft-close in 5s → hard-block (Strict Mode).
+5. **Exit** — review every tab/app opened during the session: keep / close all / mark for tomorrow. *Inbox-zero for attention.* *(Missing today.)*
+
+**Canonical spec:** [`docs/superpowers/specs/2026-05-18-deep-work-protocol.md`](docs/superpowers/specs/2026-05-18-deep-work-protocol.md). Read it before changing enforcement logic, session lifecycle, or AI scoring. It contains the philosophical grounding, the five-stage breakdown, the open questions, and the naming clarity ("TimeBlock" = scheduled session, "StandingRule" = always-on rule — two different concepts that were overloading "block").
+
+Default copy for the unscheduled-time overlay (when the user is in free time with no session declared): *"You're not in a focus session. Pick something to work on so you don't end up with 30 tabs open and three half-finished tasks."* Naming the mechanism (multitasking → tab pile-up) is more motivating than naming the abstraction ("plan your day").
+
+---
+
 ## Product Overview
 
 Intentional is a macOS focus enforcement app that works with a companion Chrome extension. The Puck physical device provides a simple on/off toggle for blocking mode. Setting an intention upgrades blocking from dumb (block all distracting sites) to smart (AI scores relevance). See [docs/PUCK_SPEC.md](docs/PUCK_SPEC.md) for full product vision, blocking modes, and Puck branch changes.

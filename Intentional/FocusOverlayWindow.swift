@@ -341,18 +341,18 @@ struct FocusOverlayView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.bottom, 16)
 
-        Text("Plan your day to stay focused")
+        Text("You're not in a focus session")
             .font(.system(size: 24, weight: .bold))
             .foregroundColor(lightTextPrimary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .lineLimit(2)
             .padding(.bottom, 6)
 
-        Text("Set up your schedule so Intentional can help you stay on track.")
+        Text("Pick something to work on so you don't end up with 30 tabs open and three half-finished tasks.")
             .font(.system(size: 15))
             .foregroundColor(lightTextSecondary)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .lineLimit(2)
+            .lineLimit(3)
             .padding(.bottom, 4)
 
         if let nextTitle = viewModel.nextBlockTitle, let nextTime = viewModel.nextBlockTime {
