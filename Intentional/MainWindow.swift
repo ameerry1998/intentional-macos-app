@@ -634,11 +634,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 appDelegate?.showStashInspector(sessionId: sid)
             }
 
-        case "RESTORE_FROM_STASH_ALL":
-            if let sid = body["sessionId"] as? String {
-                appDelegate?.restoreAllFromStash(sessionId: sid)
-            }
-
         case "SAVE_INTENTIONAL_MODE":
             handleSaveIntentionalMode(body)
 

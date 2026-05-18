@@ -6937,15 +6937,11 @@ window._sweepToast = function(data) {
     '<div style="font-weight:600; margin-bottom:6px;">Stashed ' + stashed + ' tab' +
       (stashed === 1 ? '' : 's') + ' · hid ' + hidden + ' app' + (hidden === 1 ? '' : 's') + '</div>' +
     '<div style="font-size:12px; color:rgba(255,255,255,0.7); margin-bottom:10px;">' +
-      'Off-scope stuff is stashed in your Bookmarks. Recoverable for 3 days.</div>' +
-    '<div style="display:flex; gap:6px;">' +
-      '<button id="sweep-toast-view" style="flex:1; padding:6px 10px; font-size:12px; background:rgba(255,255,255,0.08); color:#fff; border:0.5px solid rgba(255,255,255,0.18); border-radius:6px; cursor:pointer;">View stash</button>' +
-      '<button id="sweep-toast-restore" style="flex:1; padding:6px 10px; font-size:12px; background:#fa6464; color:#fff; border:0; border-radius:6px; cursor:pointer;">Restore everything</button>' +
-    '</div>';
+      'Stashed tabs are saved as bookmarks. Click below to pick what you actually want back.</div>' +
+    '<button id="sweep-toast-view" style="width:100%; padding:7px 10px; font-size:12px; background:#fa6464; color:#fff; border:0; border-radius:6px; cursor:pointer;">View stashed tabs</button>';
 
   document.body.appendChild(el);
   document.getElementById('sweep-toast-view').addEventListener('click', function() { viewStash(safeSession); });
-  document.getElementById('sweep-toast-restore').addEventListener('click', function() { restoreAllFromStash(safeSession); });
 
   setTimeout(function() { if (el.parentNode) el.remove(); }, 30000);
 };
@@ -6954,15 +6950,7 @@ function viewStash(sessionId) {
   sendMessage({ type: 'OPEN_STASH_INSPECTOR', sessionId: sessionId });
 }
 
-function restoreAllFromStash(sessionId) {
-  sendMessage({ type: 'RESTORE_FROM_STASH_ALL', sessionId: sessionId });
-  var el = document.getElementById('sweep-toast');
-  if (el) el.remove();
-  if (typeof showToast === 'function') showToast('Everything restored');
-}
-
 window.viewStash = viewStash;
-window.restoreAllFromStash = restoreAllFromStash;
 
 // ===== Distraction Budget config (Slice 3/6 of 2026-05-05 redesign) =====
 

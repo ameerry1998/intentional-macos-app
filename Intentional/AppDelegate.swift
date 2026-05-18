@@ -2070,21 +2070,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         postLog("↩️ Restored app: \(bundleId)")
     }
 
-    /// Restore everything from a session's stash — used by the toast's
-    /// [Restore everything] button.
-    func restoreAllFromStash(sessionId: String) {
-        guard let stash = sessionStashStore?.load(sessionId: sessionId) else {
-            postLog("⚠️ restoreAllFromStash: no stash found for session \(sessionId)")
-            return
-        }
-        for tab in stash.stashedTabs {
-            restoreSingleTab(tab, fromSession: sessionId)
-        }
-        for bid in stash.hiddenBundleIds {
-            restoreSingleApp(bundleId: bid, fromSession: sessionId)
-        }
-        postLog("↩️ Restored all from stash \(sessionId): \(stash.stashedTabs.count) tabs, \(stash.hiddenBundleIds.count) apps")
-    }
+    // Bulk-restore intentionally NOT implemented. Per the 2026-05-18 design
+    // pivot, the OneTab-style pattern wins: stashed tabs live as a clickable
+    // list (the StashInspectorWindow), and the user reopens individual items
+    // they actually want. Mass-`open location` would auto-play every stashed
+    // YouTube video / autoplay site at once and burn RAM. If we want lazy
+    // bulk restore later, it needs to route through the Chrome extension
+    // (chrome.tabs.create({ discarded: true })) — AppleScript has no
+    // primitive for inactive/discarded tabs.
 
     func checkForActiveFocusSession() {
         guard let token = backendClient?.getAccessToken() else { return }
