@@ -186,8 +186,11 @@ final class SweepBenchmark {
             verdicts = out
         }
 
-        // Threshold matches the live sweep orchestrator (relevant && confidence >= 50 → keep).
-        let keepThreshold = 50
+        // Mirror the live sweep orchestrator's asymmetric rule:
+        // STASH only when the model is HIGH-confidence off-task.
+        // (NOT relevant AND confidence >= 65 → stash; everything else → keep.)
+        // False-stashes burn user trust ~5x harder than false-keeps.
+        let stashConfidenceFloor = 65
         var tp = 0, tn = 0, fp = 0, fn = 0
         var errors: [(tab: SweepTestTab, aiVerdict: String, aiConfidence: Int)] = []
 
@@ -195,8 +198,8 @@ final class SweepBenchmark {
             let v = i < verdicts.count ? verdicts[i] : RelevanceScorer.TabVerdict(
                 title: tab.title, url: tab.url, relevant: false, confidence: 0
             )
-            let aiKeep = v.relevant && v.confidence >= keepThreshold
-            let aiVerdict = aiKeep ? "keep" : "stash"
+            let highConfidenceStash = !v.relevant && v.confidence >= stashConfidenceFloor
+            let aiVerdict = highConfidenceStash ? "stash" : "keep"
             switch (tab.expected, aiVerdict) {
             case ("stash", "stash"): tp += 1
             case ("keep",  "keep"):  tn += 1

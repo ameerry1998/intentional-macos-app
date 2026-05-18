@@ -1949,6 +1949,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             postLog("🧹   [\(browserInfo.name)] decisions: keep=\(keepURLs.count) stashOnRule=\(stashCandidates.count) needsAI=\(needsAI.count)")
 
             // AI batch for the borderline tabs.
+            //
+            // Decision rule (asymmetric, per 2026-05-18 model research):
+            //   STASH only when the model is HIGH-confidence that the tab is
+            //   off-task: NOT relevant AND confidence >= 65.
+            //   Everything else → KEEP.
+            //
+            // Rationale: false-stashes burn user trust ~5x harder than
+            // false-keeps (closing a relevant tab disrupts work; leaving a
+            // noise tab around is recoverable in 1 click). Asymmetric threshold
+            // directly encodes that penalty. Earlier symmetric threshold (keep
+            // iff relevant && confidence >= 50) stashed too aggressively on
+            // tabs the model was lukewarm about.
             if !needsAI.isEmpty, let scorer = relevanceScorer {
                 let intentForAI = scope.voiceIntent.isEmpty ? "Focused work session" : scope.voiceIntent
                 let verdicts = await scorer.scoreTabBatch(
@@ -1958,15 +1970,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 var aiKept = 0
                 var aiStashed = 0
                 for (i, v) in verdicts.enumerated() {
-                    if v.relevant && v.confidence >= 50 {
-                        keepURLs.insert(needsAI[i].url)
-                        aiKept += 1
-                    } else {
+                    let highConfidenceStash = !v.relevant && v.confidence >= 65
+                    if highConfidenceStash {
                         stashCandidates.append(needsAI[i])
                         aiStashed += 1
+                    } else {
+                        keepURLs.insert(needsAI[i].url)
+                        aiKept += 1
                     }
                 }
-                postLog("🧹   [\(browserInfo.name)] AI batch: \(aiKept) kept, \(aiStashed) stashed (\(verdicts.count) verdicts)")
+                postLog("🧹   [\(browserInfo.name)] AI batch: \(aiKept) kept, \(aiStashed) stashed (\(verdicts.count) verdicts; stash-threshold conf>=65)")
             }
 
             if stashCandidates.isEmpty {
