@@ -629,6 +629,16 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 appDelegate?.postLog("✅ SAVE_ALWAYS_ALLOWED: \(bids.count) apps, \(domains.count) sites")
             }
 
+        case "OPEN_STASH_INSPECTOR":
+            if let sid = body["sessionId"] as? String {
+                appDelegate?.showStashInspector(sessionId: sid)
+            }
+
+        case "RESTORE_FROM_STASH_ALL":
+            if let sid = body["sessionId"] as? String {
+                appDelegate?.restoreAllFromStash(sessionId: sid)
+            }
+
         case "SAVE_INTENTIONAL_MODE":
             handleSaveIntentionalMode(body)
 

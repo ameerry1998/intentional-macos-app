@@ -76,6 +76,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // when the .off → .focus transition lands.
     var alwaysAllowedStore: AlwaysAllowedStore?
     var sessionStashStore: SessionStashStore?
+    var stashInspectorController: StashInspectorWindowController?
 
     var projectStore: ProjectStore?
 
@@ -428,6 +429,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.sessionStashStore = SessionStashStore(storageDir: intentionalDir + "/session_stashes")
         let purgedCount = self.sessionStashStore?.purgeOlderThan(maxAgeSeconds: 3 * 24 * 3600) ?? 0
         if purgedCount > 0 { self.postLog("🧹 Purged \(purgedCount) old session stash(es)") }
+
+        // Stash inspector window controller (opens on [View stash] toast action).
+        self.stashInspectorController = StashInspectorWindowController(appDelegate: self)
 
         // DIAGNOSTIC: Log every launch attempt to persistent file
         let diagnosticLogPath = NSTemporaryDirectory() + "intentional-launches.log"
@@ -1949,6 +1953,68 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mainWindowController?.pushSweepToast(stashedTabs: stashedTabs.count,
                                              hiddenApps: hiddenBundleIds.count,
                                              sessionId: sessionId)
+    }
+
+    /// Open the SwiftUI stash inspector for a given sessionId. No-op if the
+    /// stash doesn't exist (e.g. already purged).
+    func showStashInspector(sessionId: String) {
+        guard let stash = sessionStashStore?.load(sessionId: sessionId) else {
+            postLog("⚠️ showStashInspector: no stash found for session \(sessionId)")
+            return
+        }
+        stashInspectorController?.show(stash: stash)
+    }
+
+    /// Reopen a single stashed tab in its original browser via AppleScript.
+    func restoreSingleTab(_ tab: StashedTab, fromSession sessionId: String) {
+        let script: String
+        switch tab.browserBundleId {
+        case "com.google.Chrome":
+            script = "tell application \"Google Chrome\" to open location \"\(tab.url)\""
+        case "company.thebrowser.Browser":
+            script = "tell application \"Arc\" to open location \"\(tab.url)\""
+        case "com.apple.Safari":
+            script = "tell application \"Safari\" to open location \"\(tab.url)\""
+        default:
+            postLog("⚠️ restoreSingleTab: unknown browser \(tab.browserBundleId)")
+            return
+        }
+        var err: NSDictionary?
+        _ = NSAppleScript(source: script)?.executeAndReturnError(&err)
+        if err == nil {
+            postLog("↩️ Restored tab: \(tab.url)")
+        } else if let err = err {
+            let msg = err["NSAppleScriptErrorMessage"] as? String ?? "unknown"
+            postLog("⚠️ restoreSingleTab AppleScript error: \(msg)")
+        }
+    }
+
+    /// Reopen / unhide a previously-hidden app via NSWorkspace.
+    func restoreSingleApp(bundleId: String, fromSession sessionId: String) {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
+            postLog("⚠️ restoreSingleApp: no URL for bundle \(bundleId)")
+            return
+        }
+        let cfg = NSWorkspace.OpenConfiguration()
+        cfg.activates = false  // Don't steal focus from the active session
+        NSWorkspace.shared.openApplication(at: url, configuration: cfg, completionHandler: nil)
+        postLog("↩️ Restored app: \(bundleId)")
+    }
+
+    /// Restore everything from a session's stash — used by the toast's
+    /// [Restore everything] button.
+    func restoreAllFromStash(sessionId: String) {
+        guard let stash = sessionStashStore?.load(sessionId: sessionId) else {
+            postLog("⚠️ restoreAllFromStash: no stash found for session \(sessionId)")
+            return
+        }
+        for tab in stash.stashedTabs {
+            restoreSingleTab(tab, fromSession: sessionId)
+        }
+        for bid in stash.hiddenBundleIds {
+            restoreSingleApp(bundleId: bid, fromSession: sessionId)
+        }
+        postLog("↩️ Restored all from stash \(sessionId): \(stash.stashedTabs.count) tabs, \(stash.hiddenBundleIds.count) apps")
     }
 
     func checkForActiveFocusSession() {
