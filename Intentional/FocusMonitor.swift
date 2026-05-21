@@ -770,7 +770,6 @@ class FocusMonitor {
         grayscaleController?.dismiss()
         deepWorkTimerController?.dismiss()
         endRitualController?.dismiss()
-        appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
         appDelegate?.postLog("👁️ FocusMonitor stopped")
     }
 
@@ -920,7 +919,6 @@ class FocusMonitor {
         stopNeutralTickTimer()
         nudgeController?.dismiss()
         overlayController?.dismiss()
-        appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
         isCurrentlyIrrelevant = false
         isOnBreak = false
         currentTarget = ""
@@ -1463,10 +1461,11 @@ class FocusMonitor {
         // checkForegroundApp will restart on next timer tick (called by ScheduleManager every 10s)
     }
 
-    // MARK: - Browser Tab Scoring (called by NativeMessagingHost)
+    // MARK: - Browser Tab Scoring
 
-    /// Called by NativeMessagingHost after scoring a browser tab via SCORE_RELEVANCE.
-    /// Acts as a supplementary signal — AppleScript polling is the primary path.
+    /// Supplementary entry-point for reporting browser-tab scoring results.
+    /// AppleScript polling is the primary path; this method has no current callers post-extension-removal
+    /// but is retained for potential future scoring integrations.
     func reportBrowserTabScored(
         relevant: Bool,
         confidence: Int,
@@ -1704,7 +1703,6 @@ class FocusMonitor {
             stopLingerTimer()
             isCurrentlyIrrelevant = false
             nudgeController?.dismiss()
-            appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
             stopBrowserPolling()
             stopWorkTickTimer()
             startNeutralTickTimer(appName: "Intentional")
@@ -2581,12 +2579,6 @@ class FocusMonitor {
                 let decay = Self.browserPollInterval * Self.distractionDecayRatio
                 self.cumulativeDistractionSeconds = max(0, self.cumulativeDistractionSeconds - decay)
             }
-            // Re-mute distracting browser tabs periodically (user may unmute)
-            if self.isEnforcementEnabled(.backgroundAudioDetection),
-               let bid = self.currentAppBundleId,
-               !Self.browserBundleIds.contains(bid) {
-                self.appDelegate?.socketRelayServer?.broadcastMuteBackgroundTab(platform: "all")
-            }
         }
     }
 
@@ -2803,7 +2795,6 @@ class FocusMonitor {
         nudgeController?.dismiss()
         deepWorkTimerController?.dismissDistractionCard()
         overlayController?.dismiss()
-        appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
 
         // Restore grayscale whenever user is on relevant content (any app, any tab)
         reconcileGrayscale()
@@ -2868,36 +2859,7 @@ class FocusMonitor {
         // otherwise reconcileGrayscale() tears down the vignette on the next poll.
         isCurrentlyIrrelevant = true
 
-        // Check if extension handles nudge/redirect enforcement for this site
-        let extensionHandled: Bool = {
-            guard isBrowser, isSocialMedia(targetKey), let bundleId = currentAppBundleId else { return false }
-            let connectedBrowsers = appDelegate?.socketRelayServer?.getConnectedBrowserBundleIds() ?? []
-            return connectedBrowsers.contains(bundleId)
-        }()
-
-        appDelegate?.postLog("👁️ Distraction: \(Int(cumulativeDistractionSeconds))s [\(blockType.rawValue)]\(extensionHandled ? " (ext handles nudges)" : "")")
-
-        // Extension-handled social media: grayscale applies regardless, but nudge handling depends on block type
-        if isBrowser && extensionHandled {
-            // Grayscale: instant if already triggered this block, otherwise at threshold
-            let shouldGrayscale = grayscaleTriggeredThisBlock
-                || cumulativeDistractionSeconds >= Self.focusGrayscaleThreshold
-            if shouldGrayscale && !(grayscaleController?.isActive ?? false) && isEnforcementEnabled(.screenRedShift) {
-                grayscaleController?.startDesaturation(fromIntensity: vignetteRetriggerIntensity())
-                grayscaleTriggeredThisBlock = true
-                appDelegate?.postLog("🌫️ Grayscale started at \(Int(cumulativeDistractionSeconds))s distraction (extension-handled site)")
-                logAssessment(title: currentTarget, appName: currentAppName, intention: scheduleManager?.currentBlock?.title ?? "",
-                             relevant: false, confidence: 0, reason: "Grayscale at \(Int(cumulativeDistractionSeconds))s distraction (extension-handled)",
-                             action: "grayscale_on", isEvent: true)
-            }
-            // Deep Work: extension handles social media blocking — app defers entirely
-            if blockType == .deepWork {
-                deepWorkTimerController?.update(isDistracted: true)
-                pushFocusStatsToTimer()
-                return // Extension blocks social media during Deep Work
-            }
-            // Focus Hours: fall through to macOS app enforcement (nudges, escalation)
-        }
+        appDelegate?.postLog("👁️ Distraction: \(Int(cumulativeDistractionSeconds))s [\(blockType.rawValue)]")
 
         let intention = scheduleManager?.currentBlock?.title ?? ""
 
@@ -3938,7 +3900,7 @@ class FocusMonitor {
         appDelegate?.postLog("👁️ Linger expired — blocked \(currentTarget)")
     }
 
-    // MARK: - Overlay User Actions (called by NativeMessagingHost or native overlay)
+    // MARK: - Overlay User Actions (called by native overlay)
 
     /// Handle user action from the blocking overlay (browser or native).
     func handleOverlayAction(action: String, reason: String?) {
@@ -3954,7 +3916,6 @@ class FocusMonitor {
         // Dismiss all overlays
         overlayController?.dismiss()
         nudgeController?.dismiss()
-        appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
 
         // Navigate browser to last relevant URL or google.com
         if let bundleId = currentAppBundleId, Self.browserBundleIds.contains(bundleId) {
@@ -4011,7 +3972,6 @@ class FocusMonitor {
 
     /// Mute all background distracting audio sources (browser tabs + apps).
     private func muteBackgroundDistractingAudio() {
-        appDelegate?.socketRelayServer?.broadcastMuteBackgroundTab(platform: "all")
         pauseDistractingApps()
         debugLog("🔇 Background audio: muted distracting sources")
     }
