@@ -14,9 +14,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     private var webView: WKWebView!
     weak var appDelegate: AppDelegate?
 
-    /// Debug monitor window (legacy SwiftUI views)
-    private var debugMonitorWindow: LegacyMonitorWindow?
-
     /// Cache browser icons so we don't re-extract every poll cycle
     private var iconCache: [String: String] = [:]
     private let iconCacheLock = NSLock()
@@ -308,17 +305,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 self.appDelegate?.postLog("⚠️ openScheduleWithNewBlock error: \(error)")
             }
         }
-    }
-
-    // MARK: - Debug Monitor
-
-    func showDebugMonitor() {
-        print("🚨 ACTIVATE: MainWindow.showDebugMonitor")
-        if debugMonitorWindow == nil {
-            debugMonitorWindow = LegacyMonitorWindow()
-        }
-        debugMonitorWindow?.showWindow(nil)
-        NSApp.activate(ignoringOtherApps: true)
     }
 
     // MARK: - WKUIDelegate (JS alert/confirm dialogs)

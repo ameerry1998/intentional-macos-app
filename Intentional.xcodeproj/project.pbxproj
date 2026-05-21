@@ -32,7 +32,6 @@
 		A1000035000000000000010 /* TimeTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000034000000000000010 /* TimeTracker.swift */; };
 		A1000042000000000000014 /* onboarding.html in Resources */ = {isa = PBXBuildFile; fileRef = A1000043000000000000014 /* onboarding.html */; };
 		A1000044000000000000015 /* dashboard.html in Resources */ = {isa = PBXBuildFile; fileRef = A1000045000000000000015 /* dashboard.html */; };
-		A1000046000000000000016 /* LegacyMonitorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000047000000000000016 /* LegacyMonitorView.swift */; };
 		A1000048000000000000017 /* ScheduleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000049000000000000017 /* ScheduleManager.swift */; };
 		A1000050000000000000018 /* RelevanceScorer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000051000000000000018 /* RelevanceScorer.swift */; };
 		A1000052000000000000019 /* FocusMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000053000000000000019 /* FocusMonitor.swift */; };
@@ -171,7 +170,6 @@
 		A1000034000000000000010 /* TimeTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeTracker.swift; sourceTree = "<group>"; };
 		A1000043000000000000014 /* onboarding.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = onboarding.html; sourceTree = "<group>"; };
 		A1000045000000000000015 /* dashboard.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = dashboard.html; sourceTree = "<group>"; };
-		A1000047000000000000016 /* LegacyMonitorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyMonitorView.swift; sourceTree = "<group>"; };
 		A1000049000000000000017 /* ScheduleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleManager.swift; sourceTree = "<group>"; };
 		A1000051000000000000018 /* RelevanceScorer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelevanceScorer.swift; sourceTree = "<group>"; };
 		A1000053000000000000019 /* FocusMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusMonitor.swift; sourceTree = "<group>"; };
@@ -364,7 +362,6 @@
 				A1000091000000000000038 /* LearnedOverrideStore.swift */,
 				A1000093000000000000039 /* ConfidenceGate.swift */,
 				A1000095000000000000040 /* ScoringPath.swift */,
-				A1000047000000000000016 /* LegacyMonitorView.swift */,
 				A1000018000000000000004 /* blocked.html */,
 				A100F0C1000000000000001 /* focus-blocked.html */,
 				A1000043000000000000014 /* onboarding.html */,
@@ -612,7 +609,6 @@
 				A1000090000000000000038 /* LearnedOverrideStore.swift in Sources */,
 				A1000092000000000000039 /* ConfidenceGate.swift in Sources */,
 				A1000094000000000000040 /* ScoringPath.swift in Sources */,
-				A1000046000000000000016 /* LegacyMonitorView.swift in Sources */,
 				FE000012000000000000001 /* FilterManager.swift in Sources */,
 				CA0C967615871B3E89B38023 /* EnforcementCache.swift in Sources */,
 				75AF45B090B2E42A4579F347 /* EnforcementDaemonClient.swift in Sources */,

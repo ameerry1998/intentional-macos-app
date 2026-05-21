@@ -1380,9 +1380,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Show window
         menu.addItem(NSMenuItem(title: "Show Window", action: #selector(showMainWindow), keyEquivalent: "w"))
 
-        // Debug Monitor
-        menu.addItem(NSMenuItem(title: "Debug Monitor", action: #selector(showDebugMonitor), keyEquivalent: "m"))
-
         // Dashboard
         menu.addItem(NSMenuItem(title: "Open Dashboard", action: #selector(openDashboard), keyEquivalent: "d"))
 
@@ -1467,10 +1464,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 showMainWindow()
             }
         }
-    }
-
-    @objc func showDebugMonitor() {
-        mainWindowController?.showDebugMonitor()
     }
 
     @objc func openDashboard() {
