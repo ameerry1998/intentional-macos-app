@@ -79,6 +79,14 @@ enum IntentKeywordExtractor {
 
         // 1. Domain-shaped tokens via regex: word(.word)+.tld
         //    Matches "thebeseen.app", "dash.cloudflare.com", "api.openai.com".
+        //    Stems intentionally NOT extracted — user feedback (2026-05-18):
+        //    common stems like "jobs" (from jobs.lever.co), "docs", "blog",
+        //    "developer", "status" are also common English words and would
+        //    cause false-positive auto-keeps. Full-domain matching only is
+        //    safer; the cost is that tabs whose title says "thebeseen.app"
+        //    auto-keep, but tabs that say only "beseen-prod" / "beseen-api"
+        //    don't. We accept that tradeoff — false-stashes burn user trust
+        //    harder than false-keeps.
         let domainPattern = #"\b([a-z0-9][a-z0-9\-]*(?:\.[a-z0-9][a-z0-9\-]*)+)\b"#
         if let re = try? NSRegularExpression(pattern: domainPattern, options: []) {
             let range = NSRange(lower.startIndex..<lower.endIndex, in: lower)
@@ -90,19 +98,17 @@ enum IntentKeywordExtractor {
                 guard parts.count >= 2 else { return }
                 let tld = String(parts.last!)
                 // Only treat as a domain if the suffix matches a known TLD —
-                // avoids false-positives like "v1.2" or "foo.bar" being mined.
+                // avoids false-positives like "v1.2" or "foo.bar".
                 if knownTLDs.contains(tld) {
                     out.insert(candidate)
-                    // Stem (label before TLD) so "thebeseen.app" also matches
-                    // tabs whose title contains the bare "thebeseen".
-                    let stem = String(parts[parts.count - 2])
-                    if stem.count >= 4 { out.insert(stem) }
                 }
             }
         }
 
         // 2. Tool allowlist — bare-word match against the intent.
         //    "claude" in intent → any tab title containing "claude" auto-keeps.
+        //    Allowlist is curated and short to minimize collisions with
+        //    English words. Won't match generic words like "code" or "build".
         for tool in toolAllowlist where lower.contains(tool) {
             out.insert(tool)
         }
