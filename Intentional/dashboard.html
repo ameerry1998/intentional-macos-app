@@ -1283,98 +1283,6 @@ body.theme-effects-warm::after {
   border-color: var(--accent-primary);
 }
 
-/* ===== Browser Status ===== */
-.browser-section { margin-bottom: 32px; }
-
-.browser-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  overflow: hidden;
-}
-
-.browser-row {
-  display: flex;
-  align-items: center;
-  padding: 14px 20px;
-  gap: 14px;
-}
-
-.browser-row + .browser-row {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.browser-icon { font-size: 20px; width: 28px; height: 28px; text-align: center; flex-shrink: 0; border-radius: 6px; overflow: hidden; }
-.browser-icon img { width: 100%; height: 100%; object-fit: contain; }
-.browser-name { width: 110px; flex-shrink: 0; font-size: 14px; font-weight: 500; }
-
-.browser-status {
-  font-size: 12px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.browser-status.connected { color: var(--color-success); }
-.browser-status.disconnected { color: rgba(255, 255, 255, 0.3); }
-
-.browser-status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
-.browser-status-dot.connected { background: var(--color-success); }
-.browser-status-dot.disconnected { background: rgba(255, 255, 255, 0.2); }
-
-.browser-row.browser-connected {
-  background: rgba(var(--color-success-rgb), 0.06);
-}
-
-.browser-ext-url {
-  flex: 1;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
-  font-family: "SF Mono", Menlo, monospace;
-  padding: 3px 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.browser-ext-url:hover {
-  color: rgba(255, 255, 255, 0.6);
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.browser-ext-url.copied {
-  color: var(--color-success);
-}
-
-.browser-install-btn {
-  padding: 5px 14px;
-  font-size: 12px;
-  font-weight: 600;
-  border: none;
-  border-radius: 8px;
-  background: var(--accent-primary);
-  color: white;
-  cursor: pointer;
-  transition: all 0.2s;
-  flex-shrink: 0;
-  font-family: inherit;
-}
-
-.browser-install-btn:hover {
-  box-shadow: 0 4px 12px rgba(var(--accent-primary-rgb), 0.3);
-  transform: translateY(-1px);
-}
-
 /* ===== Empty State ===== */
 .empty-state {
   text-align: center;
@@ -3091,10 +2999,8 @@ body.theme-effects-warm::after {
 /* ===== Theme Effect Overrides: All themes use Deep Lush coral→gold ===== */
 .theme-effects-iridescent .save-btn,
 .theme-effects-iridescent .btn-primary,
-.theme-effects-iridescent .browser-install-btn,
 .theme-effects-warm .save-btn,
-.theme-effects-warm .btn-primary,
-.theme-effects-warm .browser-install-btn {
+.theme-effects-warm .btn-primary {
   background: var(--accent-gradient);
 }
 .theme-effects-iridescent .save-btn.saved,
@@ -3224,9 +3130,6 @@ body.theme-effects-warm::after {
   background: rgba(0, 0, 0, 0.25);
 }
 [data-theme="light"] .save-btn {
-  color: #ffffff;
-}
-[data-theme="light"] .browser-install-btn {
   color: #ffffff;
 }
 [data-theme="light"] .btn-primary {
@@ -5196,10 +5099,7 @@ body.theme-effects-warm::after {
 
   <!-- Header -->
   <div class="header">
-    <div class="header-right">
-      <span class="status-dot" id="monitoring-dot"></span>
-      <span class="status-text" id="monitoring-text">Monitoring active</span>
-    </div>
+    <div class="header-right"></div>
   </div>
 
   <!-- Page: Usage -->
@@ -5649,11 +5549,6 @@ body.theme-effects-warm::after {
           <div class="settings-menu-info"><div class="settings-menu-title">Focus Mode</div><div class="settings-menu-sub" id="settings-focusgate-sub">Interventions &amp; screen lock</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
-        <div class="settings-menu-row" onclick="showSettingsDetail('browsers')">
-          <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1);color:var(--accent-primary);">⊞</div>
-          <div class="settings-menu-info"><div class="settings-menu-title">Browsers</div><div class="settings-menu-sub">Extension status</div></div>
-          <span class="settings-menu-chevron">›</span>
-        </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('reset')">
           <div class="settings-menu-icon" style="background:rgba(212,80,80,0.1);color:#d45050;">⊖</div>
           <div class="settings-menu-info"><div class="settings-menu-title">Reset & Delete</div></div>
@@ -5723,24 +5618,6 @@ body.theme-effects-warm::after {
     </div>
 
     </div><!-- end detail-theme -->
-
-    <!-- Detail: Browsers -->
-    <div class="settings-detail" id="settings-detail-browsers">
-      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
-      <div class="settings-detail-title">Browsers</div>
-    <div class="settings-card" style="padding: 0; overflow: hidden;">
-      <div class="settings-card-title" style="padding: 16px 20px 12px; cursor: pointer; display: flex; align-items: center; justify-content: space-between;" onclick="toggleBrowserCard()">
-        <span id="browser-card-title">Browsers</span>
-        <span id="browser-card-chevron" style="font-size: 11px; color: var(--text-tertiary); transition: transform 0.2s;">▶</span>
-      </div>
-      <div class="browser-card" id="browser-card" style="border: none; border-radius: 0; display: none;">
-        <div class="empty-state" id="browser-empty" style="padding: 20px;">
-          <div class="empty-state-text" style="font-size: 13px;">Loading browser status...</div>
-        </div>
-      </div>
-    </div>
-
-    </div><!-- end detail-browsers -->
 
     <!-- Detail: AI Scoring -->
     <div class="settings-detail" id="settings-detail-ai">
@@ -7059,11 +6936,10 @@ function navigateTo(pageId) {
     renderStrictModePage();
   }
 
-  // Load account + browser status when viewing settings page
+  // Load account data when viewing settings page
   if (pageId === 'settings') {
     hideSettingsDetail(); // Reset drill-down to menu
     loadAccountPage();
-    sendMessage({ type: 'GET_EXTENSION_STATUS' });
     sendMessage({ type: 'GET_SCHEDULE_STATE' });
     sendMessage({ type: 'GET_SETTINGS' });
   }
@@ -7139,7 +7015,6 @@ function toggleCollapsible(id) {
 // ===== Refresh Data =====
 function refresh() {
   sendMessage({ type: 'GET_DASHBOARD_DATA' });
-  sendMessage({ type: 'GET_EXTENSION_STATUS' });
   // Load journal if on Today page
   var todayPage = document.getElementById('page-today');
   if (todayPage && todayPage.classList.contains('active')) {
@@ -9120,31 +8995,6 @@ window._uninstallResult = function(result) {
   }
 };
 
-function copyStoreUrl(el, url) {
-  navigator.clipboard.writeText(url).then(function() {
-    var original = el.textContent;
-    el.textContent = 'Copied!';
-    el.classList.add('copied');
-    setTimeout(function() {
-      el.textContent = original;
-      el.classList.remove('copied');
-    }, 1500);
-  });
-}
-
-function installExtension(browserName, bundleId) {
-  var name = decodeURIComponent(browserName).toLowerCase();
-  var storeUrl;
-  if (name.indexOf('firefox') !== -1 || name.indexOf('waterfox') !== -1 || name.indexOf('librewolf') !== -1 || name.indexOf('zen') !== -1 || name.indexOf('floorp') !== -1) {
-    storeUrl = 'https://addons.mozilla.org/en-US/firefox/search/?q=intentional';
-  } else if (name.indexOf('safari') !== -1 || name.indexOf('orion') !== -1) {
-    storeUrl = 'https://apps.apple.com/search/intentional';
-  } else {
-    storeUrl = 'https://chromewebstore.google.com/search/intentional';
-  }
-  sendMessage({ type: 'OPEN_EXTENSIONS_PAGE', url: storeUrl, bundleId: bundleId || null });
-}
-
 // ===== Consent Polling =====
 var consentPollTimer = null;
 
@@ -9398,115 +9248,6 @@ window._dashboardDataResult = function(data) {
   if (data.earnedBrowse) {
     window._earnedStatusResult(data.earnedBrowse);
   }
-};
-
-// Browser card toggle
-var browserCardExpanded = false;
-function toggleBrowserCard() {
-  browserCardExpanded = !browserCardExpanded;
-  var card = document.getElementById('browser-card');
-  var chevron = document.getElementById('browser-card-chevron');
-  if (card) card.style.display = browserCardExpanded ? '' : 'none';
-  if (chevron) chevron.style.transform = browserCardExpanded ? 'rotate(90deg)' : '';
-}
-
-// Browser status
-window._extensionStatusResult = function(data) {
-  var card = document.getElementById('browser-card');
-  var empty = document.getElementById('browser-empty');
-
-  // Update monitoring indicator in header
-  var dot = document.getElementById('monitoring-dot');
-  var text = document.getElementById('monitoring-text');
-  var titleEl = document.getElementById('browser-card-title');
-  if (data.browsers && data.browsers.length > 0) {
-    var connectedBrowsers = data.browsers.filter(function(b) { return b.hasExtension && b.isEnabled; });
-    if (connectedBrowsers.length > 0) {
-      if (dot) dot.className = 'status-dot active';
-      if (text) {
-        var names = connectedBrowsers.map(function(b) { return b.name; });
-        text.textContent = names.length === 1 ? names[0] + ' connected' : names.length + ' browsers connected';
-      }
-      if (titleEl) titleEl.textContent = 'Browsers (' + connectedBrowsers.length + ' connected)';
-    } else {
-      if (dot) dot.className = 'status-dot inactive';
-      if (text) text.textContent = 'No extension connected';
-      if (titleEl) titleEl.textContent = 'Browsers (0 connected)';
-    }
-  } else {
-    if (dot) dot.className = 'status-dot inactive';
-    if (text) text.textContent = 'No browsers detected';
-    if (titleEl) titleEl.textContent = 'Browsers';
-  }
-
-  if (!data.browsers || data.browsers.length === 0) {
-    if (empty) {
-      empty.innerHTML =
-        '<div class="empty-state-icon">🌐</div>' +
-        '<div class="empty-state-text">No browsers detected</div>';
-    }
-    return;
-  }
-
-  if (empty) empty.remove();
-
-  // Sort: connected first, then alphabetical
-  data.browsers.sort(function(a, b) {
-    var aConn = (a.hasExtension && a.isEnabled) ? 0 : 1;
-    var bConn = (b.hasExtension && b.isEnabled) ? 0 : 1;
-    if (aConn !== bConn) return aConn - bConn;
-    return a.name.localeCompare(b.name);
-  });
-
-  function getBrowserIcon(b) {
-    if (b.iconDataUrl) {
-      return '<span class="browser-icon"><img src="' + b.iconDataUrl + '" alt="' + escapeHtml(b.name) + '"></span>';
-    }
-    return '<span class="browser-icon" style="border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;background:#6B7280;">' + b.name.charAt(0).toUpperCase() + '</span>';
-  }
-
-  function getStoreUrl(name) {
-    var n = name.toLowerCase();
-    if (n.indexOf('firefox') !== -1 || n.indexOf('waterfox') !== -1 || n.indexOf('librewolf') !== -1 || n.indexOf('zen') !== -1 || n.indexOf('floorp') !== -1)
-      return 'addons.mozilla.org';
-    if (n.indexOf('safari') !== -1 || n.indexOf('orion') !== -1)
-      return 'apps.apple.com';
-    return 'chromewebstore.google.com';
-  }
-
-  function getFullStoreUrl(name) {
-    var n = name.toLowerCase();
-    if (n.indexOf('firefox') !== -1 || n.indexOf('waterfox') !== -1 || n.indexOf('librewolf') !== -1 || n.indexOf('zen') !== -1 || n.indexOf('floorp') !== -1)
-      return 'https://addons.mozilla.org/en-US/firefox/search/?q=intentional';
-    if (n.indexOf('safari') !== -1 || n.indexOf('orion') !== -1)
-      return 'https://apps.apple.com/search/intentional';
-    return 'https://chromewebstore.google.com/search/intentional';
-  }
-
-  card.innerHTML = data.browsers.map(function(b) {
-    var icon = getBrowserIcon(b);
-    var isConnected = b.hasExtension && b.isEnabled;
-    var isDisabled = b.hasExtension && !b.isEnabled;
-    var rowClass = 'browser-row' + (isConnected ? ' browser-connected' : '');
-    var storeHint = getStoreUrl(b.name);
-    var fullUrl = getFullStoreUrl(b.name);
-
-    var statusHtml;
-    if (isConnected) {
-      statusHtml = '<span class="browser-status connected"><span class="browser-status-dot connected"></span>Connected</span>';
-    } else if (isDisabled) {
-      statusHtml = '<span class="browser-status" style="color: var(--color-warning);">Disabled</span>';
-    } else {
-      statusHtml = '<button class="browser-install-btn" onclick="installExtension(\'' + encodeURIComponent(b.name) + '\', \'' + (b.bundleId || '') + '\')">Install</button>';
-    }
-
-    return '<div class="' + rowClass + '">' +
-      icon +
-      '<span class="browser-name">' + escapeHtml(b.name) + '</span>' +
-      '<span class="browser-ext-url" onclick="copyStoreUrl(this, \'' + fullUrl + '\')" title="Click to copy store URL">' + storeHint + '</span>' +
-      statusHtml +
-    '</div>';
-  }).join('');
 };
 
 // ===== Account Auth =====
@@ -13651,9 +13392,6 @@ var _origRelevanceLogResult = window._relevanceLogResult;
   window._relevanceLogResult = _skipIfSame('relevance', _origRelevanceLogResult);
   if (typeof window._dashboardDataResult === 'function') {
     window._dashboardDataResult = _skipIfSame('dashboard', window._dashboardDataResult);
-  }
-  if (typeof window._extensionStatusResult === 'function') {
-    window._extensionStatusResult = _skipIfSame('extension', window._extensionStatusResult);
   }
   if (typeof window._journalResult === 'function') {
     window._journalResult = _skipIfSame('journal', window._journalResult);
