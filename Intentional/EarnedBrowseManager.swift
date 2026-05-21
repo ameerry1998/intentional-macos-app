@@ -152,7 +152,6 @@ class EarnedBrowseManager {
 
         save()
         appDelegate?.mainWindowController?.pushEarnedUpdate()
-        appDelegate?.socketRelayServer?.broadcastEarnedMinutesUpdate(self)
 
         // Slice 8 of 2026-05-05 redesign — also report to backend so
         // cross-device budget stays in sync. Local pool kept as cache.

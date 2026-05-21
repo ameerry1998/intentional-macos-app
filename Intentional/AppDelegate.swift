@@ -26,7 +26,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var permissionManager: PermissionManager?
 
     // Cross-browser time tracking (Phase 3)
-    var nativeMessagingHost: NativeMessagingHost?
     var timeTracker: TimeTracker?
 
     // Daily Focus Plan (V2)
@@ -193,11 +192,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Native app heartbeat timer (Phase 2: Tamper Detection)
     var heartbeatTimer: Timer?
 
-    // Socket relay server for Native Messaging
+    /// EXTENSION-REMOVAL-TODO: nil placeholder until FocusMonitor strip lands.
+    /// FocusMonitor still calls `appDelegate?.socketRelayServer?.broadcast…()`;
+    /// nilling here keeps those calls compiling but no-op at runtime. Delete
+    /// after the FocusMonitor + WebsiteBlocker shim cleanup dispatch.
     var socketRelayServer: SocketRelayServer?
 
-    // Extension re-scan timer
-    var extensionRescanTimer: Timer?
     private let heartbeatInterval: TimeInterval = 120.0  // 2 minutes
     private let appStartTime = Date()
 
@@ -590,13 +590,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         timeTracker?.backendClient = backendClient
         postLog("⏱️ TimeTracker initialized")
 
-        // Wire up cross-browser session sync: when a session changes in TimeTracker,
-        // broadcast SESSION_SYNC to all connected browsers via the socket relay server
-        timeTracker?.onSessionChanged = { [weak self] platform in
-            self?.postLog("🌐 Session changed for \(platform) — broadcasting to all browsers")
-            self?.socketRelayServer?.broadcastSessionSync()
-        }
-
         // Initialize Earn Your Browse budget system
         earnedBrowseManager = EarnedBrowseManager(appDelegate: self)
         earnedBrowseManager?.load()
@@ -655,7 +648,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let remaining = mgr.recordSocialMediaTime(
                 minutes: minutes, blockType: blockType, isFreeBrowse: isFreeBrowse
             )
-            self?.socketRelayServer?.broadcastEarnedMinutesUpdate(mgr)
             self?.mainWindowController?.pushEarnedUpdate()
             self?.postLog("💰 Social media time: -\(String(format: "%.1f", minutes))m, remaining: \(String(format: "%.1f", remaining))m")
         }
@@ -803,7 +795,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.earnedBrowseManager?.onBlockChanged(blockId: block?.id, blockTitle: block?.title)
 
             self.focusMonitor?.onBlockChanged()
-            self.socketRelayServer?.broadcastScheduleSync()
             self.mainWindowController?.pushScheduleUpdate()
 
             if new == .focus && old != .focus {
@@ -1209,51 +1200,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         postLog("🛡️ ContentSafetyMonitor initialized")
 
-        // All extension connections come through the socket relay server.
-        // Chrome-launched processes are thin relays (in main.swift) that forward
-        // stdin/stdout ↔ socket. The primary app never reads from stdin.
-        // nativeMessagingHost is kept as a template for SocketRelayServer's per-connection handlers.
-        nativeMessagingHost = NativeMessagingHost(appDelegate: self)
-        nativeMessagingHost?.timeTracker = timeTracker
-        nativeMessagingHost?.scheduleManager = scheduleManager
-        nativeMessagingHost?.relevanceScorer = relevanceScorer
-        nativeMessagingHost?.earnedBrowseManager = earnedBrowseManager
-        postLog("🔌 Primary app — all extension connections via socket relay")
-
-        // Start socket relay server for Native Messaging
-        socketRelayServer = SocketRelayServer(appDelegate: self)
-        if socketRelayServer?.start() == true {
-            postLog("🔌 Socket relay server started - extensions will relay through socket")
-        } else {
-            postLog("⚠️ Socket relay server failed to start")
-        }
-
-        // Auto-discover extensions and install manifests
-        let discovered = NativeMessagingSetup.shared.autoDiscoverExtensions()
-        if discovered > 0 {
-            postLog("🔍 Auto-discovered \(discovered) Intentional extension(s)")
-        }
-
-        NativeMessagingSetup.shared.installManifestsIfNeeded()
-
-        let totalIds = NativeMessagingSetup.shared.getAllExtensionIds()
-        if !totalIds.isEmpty {
-            postLog("📋 Native Messaging manifests installed for \(totalIds.count) extension(s)")
-        } else {
-            postLog("⚠️ No extensions found - install the Intentional extension in Chrome")
-        }
-
-        // CRITICAL: Re-check browser protection status after extension discovery
-        browserMonitor?.recheckBrowserProtection()
-
-        // Start periodic extension re-scanning (detects enable/disable changes)
-        extensionRescanTimer = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            NativeMessagingSetup.shared.autoDiscoverExtensions()
-            self.browserMonitor?.recheckBrowserProtection()
-        }
-        postLog("🔄 Extension re-scan timer started (every 60s)")
-
         postLog("✅ All monitors initialized")
     }
 
@@ -1317,8 +1263,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Stop timers
         stopHeartbeat()
-        extensionRescanTimer?.invalidate()
-        extensionRescanTimer = nil
 
         // Disconnect WebSocket
         focusWebSocketClient?.disconnect()
@@ -1329,10 +1273,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Stop focus monitor
         focusMonitor?.stop()
-
-        // Stop socket relay server and Native Messaging host
-        socketRelayServer?.stop()
-        nativeMessagingHost?.stop()
 
         // Force sync time tracking data
         timeTracker?.forceSync()
@@ -1529,12 +1469,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 focusMonitor?.alwaysRelevantHostnames = Set(sites.map { $0.lowercased() })
                 postLog("☁️ Settings restore: updated FocusMonitor with \(sites.count) always-relevant site(s)")
             }
-
-            // Broadcast restored settings to connected browser extensions
-            socketRelayServer?.broadcastToAll(
-                ["type": "SETTINGS_SYNC"].merging(backendSettings) { _, new in new }
-            )
-            postLog("☁️ Settings restore: broadcast to extensions complete")
         }
     }
 
