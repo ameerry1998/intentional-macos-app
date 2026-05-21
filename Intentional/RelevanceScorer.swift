@@ -545,6 +545,8 @@ class RelevanceScorer {
         pageTitle: String,
         intention: String,
         intentionDescription: String = "",
+        intentText: String = "",                  // FIX-11: ≤140-char per-goal intent string from Weekly Goal editor
+        aiScoringEnabled: Bool = true,            // FIX-11: per-goal toggle; when false, AI scoring is skipped entirely
         profile: String,
         dailyPlan: String,
         url: String = "",
@@ -564,6 +566,25 @@ class RelevanceScorer {
             appDelegate?.postLog(tracer.summary(label: traceLabel))
             return out
         }
+
+        // FIX-11: When the active Weekly Goal has AI scoring disabled, short-circuit
+        // before keyword/cache/LLM work and allow the page through. The user opted out
+        // of relevance enforcement for this goal — defer to the dumb blocklist only.
+        if !aiScoringEnabled {
+            tracer.record("ai_disabled", "ai_scoring_enabled=false → allow")
+            return finalize(Result(
+                relevant: true,
+                confidence: 100,
+                reason: "AI scoring disabled for this goal",
+                path: .metadataRelevant
+            ))
+        }
+
+        // FIX-11: Prefer the explicit per-goal `intentText` when present; fall back to
+        // legacy `intentionDescription` for callers that haven't been updated yet.
+        let effectiveDescription = intentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? intentionDescription
+            : intentText
 
         // Include URL in cache key so same-title pages on different URLs get scored separately.
         // Append a short hash of profile+dailyPlan so edits to either invalidate stale cache entries.
@@ -669,7 +690,7 @@ class RelevanceScorer {
                     metadataResult = try await scoreWithMLX(
                         pageTitle: pageTitle,
                         intention: intention,
-                        intentionDescription: intentionDescription,
+                        intentionDescription: effectiveDescription, // FIX-11
                         profile: profile,
                         dailyPlan: dailyPlan,
                         url: url,
@@ -689,7 +710,7 @@ class RelevanceScorer {
                 metadataResult = try await scoreWithFoundationModels(
                     pageTitle: pageTitle,
                     intention: intention,
-                    intentionDescription: intentionDescription,
+                    intentionDescription: effectiveDescription, // FIX-11
                     profile: profile,
                     dailyPlan: dailyPlan,
                     url: url,
@@ -735,7 +756,7 @@ class RelevanceScorer {
                     let verifiedResult = await rescoreWithOCR(
                         pageTitle: pageTitle,
                         intention: intention,
-                        intentionDescription: intentionDescription,
+                        intentionDescription: effectiveDescription, // FIX-11
                         profile: profile,
                         dailyPlan: dailyPlan,
                         url: url,
@@ -996,26 +1017,48 @@ class RelevanceScorer {
     }
     #endif
 
-    // MARK: - MLX (Qwen3-4B)
+    // MARK: - MLX (Qwen)
 
-    /// Lazily load the MLX Qwen3-4B model on first use.
+    /// Default model. The benchmark can override via reloadModel(id:).
+    /// 2026-05-18: bumped 4B → 8B after benchmark showed 4B's documented
+    /// classification-flip bug. See SweepBenchmark for accuracy numbers.
+    /// 2026-05-20: swapped back to 4B for speed testing; 8B was too slow at runtime.
+    var currentModelId: String = "mlx-community/Qwen3-4B-Instruct-2507-4bit"
+
+    /// Lazily load the currently-configured MLX model on first use.
     func loadMLXModelIfNeeded() async {
         guard !mlxModelLoaded && !mlxModelLoading else { return }
+        await loadModelFresh(id: currentModelId)
+    }
+
+    /// Force-load a specific model, unloading any current one first.
+    /// Used by the benchmark to A/B between models (4B vs 8B vs others)
+    /// without restarting the app.
+    func reloadModel(id newId: String) async {
+        currentModelId = newId
+        mlxModelLoaded = false
+        mlxSession = nil
+        mlxContext = nil
+        // Drop GPU cache so the new weights don't fight the old ones for RAM.
+        MLX.GPU.clearCache()
+        await loadModelFresh(id: newId)
+    }
+
+    private func loadModelFresh(id: String) async {
         mlxModelLoading = true
         do {
             MLX.GPU.set(cacheLimit: 20 * 1024 * 1024)
-            let model = try await loadModel(
-                id: "mlx-community/Qwen3-4B-Instruct-2507-4bit"
-            )
+            let model = try await loadModel(id: id)
             mlxContext = model
             let session = ChatSession(model)
-            // Use low temperature for deterministic classification
-            session.generateParameters.temperature = 0.2
+            // Greedy decoding (temp=0) for classification — deterministic
+            // verdicts across runs, so benchmark numbers don't drift.
+            session.generateParameters.temperature = 0.0
             mlxSession = session
             mlxModelLoaded = true
-            appDelegate?.postLog("🧠 MLX Qwen3-4B (4-bit) loaded successfully")
+            appDelegate?.postLog("🧠 MLX loaded successfully: \(id) (temp=0.0)")
         } catch {
-            appDelegate?.postLog("⚠️ MLX model load failed: \(error)")
+            appDelegate?.postLog("⚠️ MLX model load failed (\(id)): \(error)")
         }
         mlxModelLoading = false
     }
@@ -1142,6 +1185,175 @@ class RelevanceScorer {
 
         let confidence = json["confidence"] as? Int ?? 0
         return Result(relevant: relevant, confidence: confidence, reason: reason)
+    }
+
+    // MARK: - Batch Tab Scoring (close-the-noise sweep)
+
+    /// Verdict for a single tab in a batch scoring call.
+    struct TabVerdict: Equatable {
+        let title: String
+        let url: String
+        let relevant: Bool
+        let confidence: Int
+    }
+
+    /// Score N browser tabs against a single intent in one LLM call.
+    /// Used by the close-the-noise sweep to decide which tabs to stash.
+    ///
+    /// Prompt asks the model to emit one JSON line per tab so we can stream-parse
+    /// (vs returning a single giant array that's brittle on truncation).
+    /// Unparseable / missing entries default to `relevant: false, confidence: 0` —
+    /// matches the spec's "default-stash for unsure" rule (stash is recoverable).
+    ///
+    /// 2026-05-18: rewrote prompt with single-mode-style scaffolding (system
+    /// message defining the task, few-shot examples, explicit confidence
+    /// calibration). Bare prompt was producing "relevant=true confidence=10"
+    /// on obvious distractors (ZipRecruiter, ADHD competitors) — Qwen had no
+    /// frame for what 'on-task' meant.
+    func scoreTabBatch(intent: String,
+                       tabs: [(title: String, url: String)]) async -> [TabVerdict] {
+        guard !tabs.isEmpty else { return [] }
+
+        var lines = [String]()
+        for (i, t) in tabs.enumerated() {
+            let trimmedTitle = String(t.title.prefix(140))
+            let trimmedURL = String(t.url.prefix(200))
+            lines.append("\(i + 1). [\(trimmedTitle)] \(trimmedURL)")
+        }
+
+        let prompt = """
+        You are a tab-classification assistant for a focus app. Your job is
+        to decide which browser tabs are ON-TASK for the user's current
+        focus session and which are distractions that should be closed.
+
+        ─── User's session intent ───
+        \(intent)
+
+        ─── Rules ───
+        ON-TASK = the tab is directly useful for the stated intent.
+          * Same project name / same domain owned by the user.
+          * A tool the user explicitly named (IDE, terminal, Claude, etc.).
+          * A topic the user said they're working on.
+          * A site whose category the user said is allowed (e.g. "domains",
+            "email setup", "software dev").
+
+        OFF-TASK = the tab is unrelated to the stated intent.
+          * Personal email / inbox (unless intent specifically names it).
+          * Job boards / job listings (unless intent says job search).
+          * News, social media, recreational video, shopping.
+          * Competitor research, unrelated reading, old searches.
+          * Generic newtab / chrome://newtab pages.
+
+        ─── Confidence calibration ───
+        Use the FULL confidence range. Don't default to 30 for everything.
+
+          * 90-100: OBVIOUS off-task / on-task. The category is unmistakable.
+          * 70-89: clear signal but title is a bit ambiguous.
+          * 40-69: genuine uncertainty — weak signal, could go either way.
+          * 0-39: title gives literally no clue what the tab is.
+
+        IMPORTANT: when a tab is OBVIOUSLY OFF-TASK because of its CATEGORY
+        — a job board (ZipRecruiter, SmartRecruiters, LinkedIn jobs), a
+        news site, social media, recreational video, shopping, competitor
+        research, an unrelated app's marketing page — return confidence
+        80-95 with relevant=false. Do NOT use confidence=30 for these.
+        Confidence=30 is reserved for tabs whose category itself is unclear.
+
+        Same applies in reverse: an OBVIOUS on-task tab (the user's own
+        project domain, a tool they explicitly named) should return
+        confidence 80-95 with relevant=true.
+
+        ─── Examples ───
+        Intent: "Working on website setup for thebeseen.app — domains, email, Claude, IDE"
+          1. [DNS records | thebeseen.app | Cloudflare] https://dash.cloudflare.com/.../thebeseen.app/dns
+             → {"i": 1, "relevant": true, "confidence": 95}
+          2. [Inbox - Gmail] https://mail.google.com/mail/u/0/#inbox
+             → {"i": 2, "relevant": false, "confidence": 75}
+          3. [5 TOOL PERFORMANCE Jobs - ZipRecruiter] https://ziprecruiter.com/co/...
+             → {"i": 3, "relevant": false, "confidence": 95}
+          4. [Claude.ai conversation - wellness brand] https://claude.ai/chat/...
+             → {"i": 4, "relevant": true, "confidence": 70}
+          5. [Saner.AI ADHD assistant] https://saner.ai/
+             → {"i": 5, "relevant": false, "confidence": 90}
+          6. [Reddit /r/programming] https://reddit.com/r/programming
+             → {"i": 6, "relevant": false, "confidence": 80}
+          7. [Supabase API Keys | beseen-prod] https://supabase.com/dashboard/project/.../settings/api-keys
+             → {"i": 7, "relevant": true, "confidence": 90}
+
+        ─── Tabs to classify ───
+        \(lines.joined(separator: "\n"))
+
+        ─── Output ───
+        One JSON object per line, in the same numbered order. No other text.
+
+        /no_think
+        """
+
+        let raw = await runBatchPrompt(prompt: prompt)
+        return parseTabBatchOutput(raw: raw, tabs: tabs)
+    }
+
+    /// Routes the batch prompt to whichever model is loaded. Prefers Qwen
+    /// (the user's chosen model); falls back to Apple Foundation Models on
+    /// macOS 26+ if Qwen isn't loaded. Fail-closed: returns empty string on
+    /// any failure (caller will default-stash all tabs).
+    private func runBatchPrompt(prompt: String) async -> String {
+        // Ensure MLX model is loaded before the first scoring call. Without
+        // this await, scoreTabBatch races the lazy load and returns empty on
+        // first invocation (every tab default-stashes / default-keeps).
+        // scoreRelevance already has this guard — mirror it here.
+        await loadMLXModelIfNeeded()
+
+        // Prefer MLX Qwen if loaded.
+        if mlxModelLoaded, let session = mlxSession {
+            do {
+                return try await session.respond(to: prompt)
+            } catch {
+                appDelegate?.postLog("⚠️ scoreTabBatch MLX error: \(error)")
+            }
+        }
+
+        // Fallback: Apple Foundation Models (macOS 26+).
+        #if canImport(FoundationModels)
+        if #available(macOS 26.0, *) {
+            do {
+                let response = try await session.respond(to: prompt)
+                return response.content
+            } catch {
+                appDelegate?.postLog("⚠️ scoreTabBatch Apple FM error: \(error)")
+            }
+        }
+        #endif
+
+        // No model available — caller will default-stash everything.
+        appDelegate?.postLog("⚠️ scoreTabBatch: no LLM available; defaulting all tabs to stash")
+        return ""
+    }
+
+    private func parseTabBatchOutput(raw: String,
+                                     tabs: [(title: String, url: String)]) -> [TabVerdict] {
+        // Strip any <think>...</think> blocks that might appear despite /no_think.
+        var cleaned = raw
+        while let thinkStart = cleaned.range(of: "<think>"),
+              let thinkEnd = cleaned.range(of: "</think>") {
+            cleaned.removeSubrange(thinkStart.lowerBound...thinkEnd.upperBound)
+        }
+
+        var byIndex: [Int: (Bool, Int)] = [:]
+        for line in cleaned.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("{"),
+                  let data = trimmed.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let i = json["i"] as? Int,
+                  let rel = json["relevant"] as? Bool else { continue }
+            let conf = (json["confidence"] as? Int) ?? 0
+            byIndex[i] = (rel, conf)
+        }
+        return tabs.enumerated().map { i, t in
+            let (rel, conf) = byIndex[i + 1] ?? (false, 0)
+            return TabVerdict(title: t.title, url: t.url, relevant: rel, confidence: conf)
+        }
     }
 
     // MARK: - Justification Assessment

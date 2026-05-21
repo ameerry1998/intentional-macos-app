@@ -14,26 +14,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     private var webView: WKWebView!
     weak var appDelegate: AppDelegate?
 
-    /// Debug monitor window (legacy SwiftUI views)
-    private var debugMonitorWindow: LegacyMonitorWindow?
-
-    /// Cache browser icons so we don't re-extract every poll cycle
-    private var iconCache: [String: String] = [:]
-    private let iconCacheLock = NSLock()
-
-    /// Last JSON pushed for _extensionStatusResult. ~89 KB per push (icons as base64);
-    /// the 5s poll re-sends it continuously. Skip when identical to save bridge cost
-    /// (Swift→WebContent marshalling + JSC parse) that blocks scroll compositing.
-    private var lastExtensionStatusJSON: String?
-
-    /// Cheap fingerprint of the browser status payload (connectedCount + per-browser
-    /// bundleId/isEnabled/hasExtension). Used to short-circuit the 89 KB JSON
-    /// serialization when nothing material changed between 5s polls. Guarded by
-    /// `extensionStatusLock` so the background serializer can read it without
-    /// round-tripping to main.
-    private var lastExtensionStatusSignature: String?
-    private let extensionStatusLock = NSLock()
-
     #if DEBUG
     // UI Perf instrumentation — DEBUG only. Every 3s we dump counts of incoming messages
     // + outgoing callJS invocations. Tail: `tail -f $TMPDIR/intentional-debug.log | grep UIPERF`.
@@ -127,6 +107,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             forName: .intentionsDidChange, object: nil, queue: .main
         ) { [weak self] _ in
             self?.handleGetIntentions()
+        }
+
+        // May 2026 — re-push monthly goals list to dashboard whenever
+        // MonthlyGoalStore pulls fresh data or any push CRUD lands.
+        NotificationCenter.default.addObserver(
+            forName: .monthlyGoalsDidChange, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.handleGetMonthlyGoals()
         }
 
         // Load appropriate page
@@ -258,10 +246,30 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         guard let manager = appDelegate?.scheduleManager else { return }
         var state = manager.getScheduleSyncPayload()
         state.removeValue(forKey: "type")
+        // FIX-10: Surface the live intention id of the active session so the dashboard
+        // can grey out strictness controls for that goal while it's running. Prefer the
+        // explicit manual project session; fall back to the current scheduled block's
+        // bound intentionId if a scheduled block is active without a manual session.
+        if let sessionId = appDelegate?.activeProjectSession?.projectId {
+            state["active_intention_id"] = sessionId.uuidString
+        } else if let blockIntentionId = manager.currentBlock?.intentionId {
+            state["active_intention_id"] = blockIntentionId.uuidString
+        } else {
+            state["active_intention_id"] = NSNull()
+        }
         if let data = try? JSONSerialization.data(withJSONObject: state),
            let json = String(data: data, encoding: .utf8) {
             callJS("window._scheduleStateResult && window._scheduleStateResult(\(json))")
         }
+    }
+
+    /// Close-the-noise toast: dashboard renders 30s undo banner with
+    /// [View stash] + [Restore everything] buttons. Fires from
+    /// AppDelegate.runCloseTheNoiseSweep when the sweep finishes.
+    func pushSweepToast(stashedTabs: Int, hiddenApps: Int, sessionId: String) {
+        let safeSession = sessionId.replacingOccurrences(of: "'", with: "")
+        callJS("window._sweepToast && window._sweepToast({" +
+               "stashedTabs:\(stashedTabs), hiddenApps:\(hiddenApps), sessionId:'\(safeSession)'})")
     }
 
     /// Navigate the dashboard to a specific page (e.g., "today", "settings", "youtube").
@@ -280,17 +288,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 self.appDelegate?.postLog("⚠️ openScheduleWithNewBlock error: \(error)")
             }
         }
-    }
-
-    // MARK: - Debug Monitor
-
-    func showDebugMonitor() {
-        print("🚨 ACTIVATE: MainWindow.showDebugMonitor")
-        if debugMonitorWindow == nil {
-            debugMonitorWindow = LegacyMonitorWindow()
-        }
-        debugMonitorWindow?.showWindow(nil)
-        NSApp.activate(ignoringOtherApps: true)
     }
 
     // MARK: - WKUIDelegate (JS alert/confirm dialogs)
@@ -323,6 +320,13 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             return
         }
 
+        if type.contains("INTENTION") || type.contains("PROJECT") ||
+           type.contains("MONTHLY_GOAL") || type == "UPDATE_INTENTION_STRICTNESS" ||
+           type == "LINK_WEEKLY_TO_MONTHLY" || type == "START_GOAL_SESSION" ||
+           type == "CREATE_SCHEDULED_SESSION" {
+            appDelegate?.postLog("📥 BRIDGE rx: \(type)")
+        }
+
         #if DEBUG
         if type != "DIAGNOSTIC_LOG" {
             uiPerfRxCounts[type, default: 0] += 1
@@ -346,9 +350,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "SAVE_ONBOARDING":
             handleSaveOnboarding(body)
 
-        case "GET_EXTENSION_STATUS":
-            handleGetExtensionStatus()
-
         case "GET_DASHBOARD_DATA":
             handleGetDashboardData()
 
@@ -360,6 +361,37 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         case "TEST_CONTENT_SAFETY":
             appDelegate?.contentSafetyMonitor?.triggerTestDetection()
+
+        case "GET_NSFW_THRESHOLD":
+            let t = ContentSafetyMonitor.currentNSFWThreshold()
+            callJS("window._nsfwThresholdResult && window._nsfwThresholdResult({ threshold: \(t) })")
+
+        case "SET_NSFW_THRESHOLD":
+            if let body = message.body as? [String: Any],
+               let t = body["threshold"] as? Double {
+                ContentSafetyMonitor.setNSFWThreshold(Float(t))
+                let stored = ContentSafetyMonitor.currentNSFWThreshold()
+                callJS("window._nsfwThresholdResult && window._nsfwThresholdResult({ threshold: \(stored) })")
+                appDelegate?.postLog("🛡️ NSFW threshold set to \(stored)")
+            }
+
+        case "LOG_GOAL_TIME":
+            if let body = message.body as? [String: Any],
+               let goalIdStr = body["intention_id"] as? String,
+               let goalId = UUID(uuidString: goalIdStr),
+               let minutes = body["minutes"] as? Int,
+               minutes > 0 {
+                Task {
+                    guard let backend = self.appDelegate?.backendClient else { return }
+                    let result = await backend.logIntentionTime(id: goalId, minutes: minutes)
+                    await MainActor.run {
+                        if let hours = result {
+                            // Patch cache + refresh Plan
+                            self.callJS("window._intentionHoursDoneResult && window._intentionHoursDoneResult({ id: '\(goalIdStr)', hours_done: \(hours) })")
+                        }
+                    }
+                }
+            }
 
         case "OPEN_CONTENT_SAFETY_SETTINGS":
             if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
@@ -377,6 +409,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         case "GET_PARTNER_STATUS":
             handleGetPartnerStatus()
+
+        case "GET_CONTENT_SAFETY_STATE":
+            // FIX-15: status footer pull — emits _contentSafetyState
+            handleGetContentSafetyState()
+
+        case "GET_PUCK_STATUS":
+            // FIX-15: status footer pull — Mac has no Puck pairing yet, so
+            // this always emits connected:false. Stub for cross-device parity.
+            handleGetPuckStatus()
 
         case "RELOCK_SETTINGS":
             handleRelockSettings()
@@ -402,17 +443,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "VERIFY_UNINSTALL":
             let code = body["code"] as? String ?? ""
             handleVerifyUninstall(code: code)
-
-        case "OPEN_EXTENSIONS_PAGE":
-            if let urlStr = body["url"] as? String, let url = URL(string: urlStr) {
-                if let bundleId = body["bundleId"] as? String,
-                   let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
-                    let config = NSWorkspace.OpenConfiguration()
-                    NSWorkspace.shared.open([url], withApplicationAt: appURL, configuration: config)
-                } else {
-                    NSWorkspace.shared.open(url)
-                }
-            }
 
         case "NAVIGATE_TO_DASHBOARD":
             loadPage("dashboard")
@@ -510,9 +540,53 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "SAVE_STRICT_MODE":
             handleSaveStrictMode(body)
 
+        case "SAVE_STRICT_MODE_LOCKS":
+            // Per-item lock map for Strict Mode. Stored in settings JSON so the
+            // enforcement code (FocusMonitor, ContentSafetyMonitor, etc.) can
+            // consult which protections to actually freeze when strict is on.
+            if let locks = body["locks"] as? [String: Any] {
+                updateSettingsFile { settings in
+                    settings["strictModeLocks"] = locks
+                }
+                appDelegate?.postLog("🔒 SAVE_STRICT_MODE_LOCKS: \(locks)")
+            }
+
         case "SAVE_IF_THEN_PLAN":
             if let planIndex = body["planIndex"] as? Int {
                 UserDefaults.standard.set(planIndex, forKey: "defaultIfThenPlan")
+            }
+
+        case "SAVE_PLAN_FIRST_PROMPT":
+            // Toggle the plan-first prompt feature (FocusMonitor.maybeShowNoPlanPill
+            // reads this on every evaluateApp tick).
+            if let enabled = body["enabled"] as? Bool {
+                UserDefaults.standard.set(enabled, forKey: "planFirstPromptEnabled")
+                appDelegate?.postLog("📋 SAVE_PLAN_FIRST_PROMPT: enabled=\(enabled)")
+            }
+
+        case "GET_ALWAYS_ALLOWED":
+            if let store = appDelegate?.alwaysAllowedStore {
+                let dict: [String: Any] = [
+                    "bundleIds": Array(store.list.bundleIds).sorted(),
+                    "domains":   Array(store.list.domains).sorted()
+                ]
+                if let data = try? JSONSerialization.data(withJSONObject: dict),
+                   let json = String(data: data, encoding: .utf8) {
+                    callJS("window._alwaysAllowedResult && window._alwaysAllowedResult(\(json))")
+                }
+            }
+
+        case "SAVE_ALWAYS_ALLOWED":
+            if let store = appDelegate?.alwaysAllowedStore,
+               let bids = body["bundleIds"] as? [String],
+               let domains = body["domains"] as? [String] {
+                store.replace(AlwaysAllowedList(bundleIds: Set(bids), domains: Set(domains)))
+                appDelegate?.postLog("✅ SAVE_ALWAYS_ALLOWED: \(bids.count) apps, \(domains.count) sites")
+            }
+
+        case "OPEN_STASH_INSPECTOR":
+            if let sid = body["sessionId"] as? String {
+                appDelegate?.showStashInspector(sessionId: sid)
             }
 
         case "SAVE_INTENTIONAL_MODE":
@@ -526,24 +600,48 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 handleSaveBedtimeSettings(body)
             }
 
-        case "GET_BLOCKING_PROFILES":
+        case "GET_BLOCKING_PROFILES", "GET_BLOCK_RULES":
             handleGetBlockingProfiles()
 
-        case "CREATE_BLOCKING_PROFILE":
+        case "CREATE_BLOCKING_PROFILE", "CREATE_BLOCK_RULE":
             if let body = message.body as? [String: Any] {
                 handleCreateBlockingProfile(body)
             }
 
-        case "UPDATE_BLOCKING_PROFILE":
+        case "UPDATE_BLOCKING_PROFILE", "UPDATE_BLOCK_RULE":
             if let body = message.body as? [String: Any] {
                 handleUpdateBlockingProfile(body)
             }
 
-        case "DELETE_BLOCKING_PROFILE":
+        case "DELETE_BLOCKING_PROFILE", "DELETE_BLOCK_RULE":
             if let body = message.body as? [String: Any],
                let idStr = body["id"] as? String,
                let id = UUID(uuidString: idStr) {
                 handleDeleteBlockingProfile(id: id)
+            }
+
+        case "TOGGLE_BLOCK_RULE":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String,
+               let id = UUID(uuidString: idStr),
+               let enabled = body["enabled"] as? Bool {
+                handleToggleBlockRule(id: id, enabled: enabled)
+            }
+
+        case "SNOOZE_BLOCK_RULE":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String,
+               let id = UUID(uuidString: idStr) {
+                BlockRuleEnforcer.shared.snoozeForRemainderOfWindow(profileId: id)
+                handleGetBlockingProfiles()
+            }
+
+        case "UNSNOOZE_BLOCK_RULE":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String,
+               let id = UUID(uuidString: idStr) {
+                BlockRuleEnforcer.shared.clearSnooze(profileId: id)
+                handleGetBlockingProfiles()
             }
 
         case "START_PROJECT_SESSION":
@@ -583,9 +681,44 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 handlePromoteLearnedSite(body)
             }
 
+        // Slice 5 of 2026-05-05 redesign — App taxonomy (Distractions + Always-Blocked)
+        case "GET_DISTRACTIONS":
+            handleGetAppList(kind: "distractions")
+        case "ADD_DISTRACTION":
+            if let body = message.body as? [String: Any], let id = body["app_identifier"] as? String {
+                handleAddAppList(kind: "distractions", appIdentifier: id)
+            }
+        case "REMOVE_DISTRACTION":
+            if let body = message.body as? [String: Any], let id = body["app_identifier"] as? String {
+                handleRemoveAppList(kind: "distractions", appIdentifier: id)
+            }
+        case "GET_ALWAYS_BLOCKED":
+            handleGetAppList(kind: "always_blocked")
+        case "ADD_ALWAYS_BLOCKED":
+            if let body = message.body as? [String: Any], let id = body["app_identifier"] as? String {
+                handleAddAppList(kind: "always_blocked", appIdentifier: id)
+            }
+        case "REMOVE_ALWAYS_BLOCKED":
+            if let body = message.body as? [String: Any], let id = body["app_identifier"] as? String {
+                handleRemoveAppList(kind: "always_blocked", appIdentifier: id)
+            }
+        case "GET_BUDGET_STATE":
+            handleGetBudgetState()
+        case "SET_BUDGET_CONFIG":
+            if let body = message.body as? [String: Any] {
+                handleSetBudgetConfig(body)
+            }
+
         // Spec 1 — Intentions (new handlers; project handlers above kept as deprecated aliases)
         case "GET_INTENTIONS":
             handleGetIntentions()
+
+        case "GET_INTENTIONS_FOR_WEEK":
+            // FIX-7: On-demand fetch for past weeks selected from Plan history dropdown.
+            if let body = message.body as? [String: Any],
+               let week = body["week"] as? String {
+                handleGetIntentionsForWeek(week: week)
+            }
 
         case "GET_INTENTION":
             if let body = message.body as? [String: Any],
@@ -640,12 +773,64 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 )
             }
 
+        case "OPEN_PARTNER_UNLOCK_SHEET":
+            // Generic partner-unlock sheet (BedtimeUnlockRequestView in .bedtime mode).
+            // Used by Strict Mode disable flow. Reuses the bedtime unlock plumbing
+            // since the underlying contract (request code → partner emails → user
+            // enters code → verify) is identical.
+            appDelegate?.openBedtimeUnlockRequestSheet()
+
         case "OPEN_INTENTION_EDITOR":
             // Deep-link from the block editor's "Coding · Standard" caption tap →
             // navigate the dashboard to the Intentions tab and open this intention.
             if let body = message.body as? [String: Any],
                let idStr = body["id"] as? String {
                 callJS("window._navigateToIntentionEditor && window._navigateToIntentionEditor('\(idStr)')")
+            }
+
+        // May 2026 — Monthly Goals
+        case "GET_MONTHLY_GOALS":
+            handleGetMonthlyGoals()
+
+        case "GET_MONTHLY_GOAL":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) {
+                handleGetMonthlyGoal(id: id)
+            }
+
+        case "CREATE_MONTHLY_GOAL":
+            if let body = message.body as? [String: Any] {
+                handleCreateMonthlyGoal(body)
+            }
+
+        case "UPDATE_MONTHLY_GOAL":
+            if let body = message.body as? [String: Any] {
+                handleUpdateMonthlyGoal(body)
+            }
+
+        case "DELETE_MONTHLY_GOAL":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) {
+                handleDeleteMonthlyGoal(id: id)
+            }
+
+        case "LINK_WEEKLY_TO_MONTHLY":
+            if let body = message.body as? [String: Any] {
+                handleLinkWeeklyToMonthly(body)
+            }
+
+        case "START_GOAL_SESSION":
+            // Legacy alias for START_INTENTION_SESSION; monthly_goal_id ignored for now (analytics only).
+            // New drag-to-schedule flow uses CREATE_SCHEDULED_SESSION instead.
+            if let body = message.body as? [String: Any] {
+                handleStartIntentionSession(body)
+            }
+
+        case "CREATE_SCHEDULED_SESSION":
+            // FIX-2: Drag a weekly-goal card onto the calendar — creates a real
+            // local FocusBlock so the session shows up on Today + pushes to backend.
+            if let body = message.body as? [String: Any] {
+                handleCreateScheduledSession(body)
             }
 
         case "FOCUS_MODE_TOGGLE":
@@ -717,111 +902,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 }
             }
 
-            // 6. Broadcast ONBOARDING_SYNC to all connected extensions
-            await MainActor.run {
-                self.broadcastOnboardingToExtensions(
-                    platforms: platforms,
-                    partnerEmail: partnerEmail,
-                    partnerName: partnerName,
-                    lockMode: lockMode
-                )
-            }
-
-            // 7. Respond to JS with success
+            // 6. Respond to JS with success
             await MainActor.run {
                 self.callJS("window._onboardingSaveResult && window._onboardingSaveResult({ success: true })")
-            }
-        }
-    }
-
-    // MARK: - Extension Status
-
-    private func handleGetExtensionStatus() {
-        // Run heavy filesystem/icon work off the main thread
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-
-            let statuses = NativeMessagingSetup.shared.getBrowserStatus()
-            let connectedCount = self.appDelegate?.socketRelayServer?.connectionCount ?? 0
-
-            // Signature check: skip icon rasterization + 89 KB JSON serialization when
-            // nothing material changed. Must match on every field the webview renders
-            // differently on.
-            let signature = "\(connectedCount)|" + statuses
-                .map { "\($0.bundleId):\($0.isEnabled ? 1 : 0):\($0.hasExtension ? 1 : 0):\($0.extensionId ?? "")" }
-                .joined(separator: "|")
-            self.extensionStatusLock.lock()
-            let signatureMatches = (self.lastExtensionStatusSignature == signature)
-            self.extensionStatusLock.unlock()
-            if signatureMatches { return }
-
-            var browsersArray: [[String: Any]] = []
-            for browser in statuses {
-                var entry: [String: Any] = [
-                    "name": browser.name,
-                    "bundleId": browser.bundleId,
-                    "hasExtension": browser.hasExtension,
-                    "isEnabled": browser.isEnabled,
-                    "extensionPageUrl": browser.extensionPageUrl
-                ]
-                if let extId = browser.extensionId {
-                    entry["extensionId"] = extId
-                }
-                // Use cached icon or extract once
-                self.iconCacheLock.lock()
-                let cached = self.iconCache[browser.bundleId]
-                self.iconCacheLock.unlock()
-                if let cached = cached {
-                    entry["iconDataUrl"] = cached
-                } else if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: browser.bundleId) {
-                    let icon = NSWorkspace.shared.icon(forFile: appURL.path)
-                    // Rasterize into a 64x64 (2x retina) bitmap. NSImage.size is just a hint —
-                    // tiffRepresentation would otherwise serialize the 1024x1024 master rep,
-                    // producing ~2MB base64 strings per icon and freezing the WebView.
-                    if let bitmap = NSBitmapImageRep(
-                        bitmapDataPlanes: nil,
-                        pixelsWide: 64, pixelsHigh: 64,
-                        bitsPerSample: 8, samplesPerPixel: 4,
-                        hasAlpha: true, isPlanar: false,
-                        colorSpaceName: .deviceRGB,
-                        bytesPerRow: 0, bitsPerPixel: 32
-                    ) {
-                        bitmap.size = NSSize(width: 32, height: 32)
-                        NSGraphicsContext.saveGraphicsState()
-                        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
-                        icon.draw(in: NSRect(x: 0, y: 0, width: 32, height: 32),
-                                  from: .zero, operation: .copy, fraction: 1.0)
-                        NSGraphicsContext.restoreGraphicsState()
-                        if let pngData = bitmap.representation(using: .png, properties: [:]) {
-                            let dataUrl = "data:image/png;base64,\(pngData.base64EncodedString())"
-                            self.iconCacheLock.lock()
-                            self.iconCache[browser.bundleId] = dataUrl
-                            self.iconCacheLock.unlock()
-                            entry["iconDataUrl"] = dataUrl
-                        }
-                    }
-                }
-                browsersArray.append(entry)
-            }
-
-            let result: [String: Any] = [
-                "browsers": browsersArray,
-                "connectedCount": connectedCount
-            ]
-
-            // .sortedKeys is required for dedup — Swift [String: Any] has non-deterministic
-            // iteration order, so unsorted serialization produces different byte strings
-            // for semantically-identical payloads and the dedup check never matches.
-            if let data = try? JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]),
-               let json = String(data: data, encoding: .utf8) {
-                self.extensionStatusLock.lock()
-                self.lastExtensionStatusSignature = signature
-                self.extensionStatusLock.unlock()
-                DispatchQueue.main.async {
-                    if self.lastExtensionStatusJSON == json { return }
-                    self.lastExtensionStatusJSON = json
-                    self.callJS("window._extensionStatusResult && window._extensionStatusResult(\(json))")
-                }
             }
         }
     }
@@ -887,67 +970,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
            let json = String(data: data, encoding: .utf8) {
             callJS("window._dashboardDataResult && window._dashboardDataResult(\(json))")
         }
-    }
-
-    // MARK: - Extension Sync
-
-    private func broadcastOnboardingToExtensions(
-        platforms: [String: Any],
-        partnerEmail: String?,
-        partnerName: String?,
-        lockMode: String
-    ) {
-        let ytSettings = platforms["youtube"] as? [String: Any] ?? [:]
-        let igSettings = platforms["instagram"] as? [String: Any] ?? [:]
-        let fbSettings = platforms["facebook"] as? [String: Any] ?? [:]
-
-        // Build per-platform sub-dicts separately to help Swift type-checker
-        let ytSync: [String: Any] = [
-            "onboardingComplete": true,
-            "enabled": ytSettings["enabled"] ?? true,
-            "blockShorts": ytSettings["blockShorts"] ?? true,
-            "blockMode": ytSettings["blockMode"] ?? "hide"
-        ]
-        let igSync: [String: Any] = [
-            "onboardingComplete": true,
-            "enabled": igSettings["enabled"] ?? true,
-            "blockReels": igSettings["blockReels"] ?? true,
-            "blockExplore": igSettings["blockExplore"] ?? true,
-            "nsfwFilter": igSettings["nsfwFilter"] ?? true
-        ]
-        let fbSync: [String: Any] = [
-            "onboardingComplete": true,
-            "enabled": fbSettings["enabled"] ?? true,
-            "blockWatch": fbSettings["blockWatch"] ?? true,
-            "blockReels": fbSettings["blockReels"] ?? true,
-            "blockMarketplace": fbSettings["blockMarketplace"] ?? false,
-            "blockGaming": fbSettings["blockGaming"] ?? true,
-            "blockStories": fbSettings["blockStories"] ?? false,
-            "blockSponsored": fbSettings["blockSponsored"] ?? true,
-            "blockSuggested": fbSettings["blockSuggested"] ?? true,
-            "scrollLimit": fbSettings["scrollLimit"] ?? 50,
-            "friendsOnly": fbSettings["friendsOnly"] ?? false
-        ]
-        let mpp: [String: Any] = (ytSettings["maxPerPeriod"] as? [String: Any]) ?? [
-            "enabled": false, "minutes": 20, "periodHours": 1
-        ]
-
-        let message: [String: Any] = [
-            "type": "ONBOARDING_SYNC",
-            "platforms": platforms,
-            "maxPerPeriod": mpp,
-            "blockedCategories": (ytSettings["categories"] as? [String]) ?? [String](),
-            "partnerEmail": partnerEmail ?? NSNull(),
-            "partnerName": partnerName ?? NSNull(),
-            "lockMode": lockMode,
-            "settingsLocked": lockMode != "none",
-            "youtube": ytSync,
-            "instagram": igSync,
-            "facebook": fbSync
-        ]
-
-        appDelegate?.socketRelayServer?.broadcastToAll(message)
-        appDelegate?.postLog("🌐 ONBOARDING_SYNC broadcast to \(appDelegate?.socketRelayServer?.connectionCount ?? 0) extension(s)")
     }
 
     // MARK: - Settings Persistence
@@ -1115,6 +1137,19 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         result["soundTone"] = (savedSettings["soundTone"] as? String) ?? "Glass"
         result["theme"] = (savedSettings["theme"] as? String) ?? "iridescent"
         result["strictModeEnabled"] = UserDefaults.standard.bool(forKey: "strictModeEnabled")
+        result["planFirstPromptEnabled"] = UserDefaults.standard.bool(forKey: "planFirstPromptEnabled")
+        if let store = appDelegate?.alwaysAllowedStore {
+            result["alwaysAllowed"] = [
+                "bundleIds": Array(store.list.bundleIds).sorted(),
+                "domains":   Array(store.list.domains).sorted()
+            ]
+        }
+        // Per-item lock map. Defaults: every protection locked (true) when strict
+        // mode is on. JS hydrates checkbox state from this. strict_mode_self is
+        // always true (enforced JS-side; user can't uncheck the master lock).
+        if let locks = savedSettings["strictModeLocks"] as? [String: Any] {
+            result["strictModeLocks"] = locks
+        }
 
         // Intentional Mode settings — read directly from UserDefaults (controller deleted in Task 9)
         let defaults = UserDefaults.standard
@@ -1330,6 +1365,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         if let cs = contentSafety {
             let csEnabled = cs["enabled"] as? Bool ?? false
             appDelegate?.contentSafetyMonitor?.onSettingsChanged(enabled: csEnabled)
+            // FIX-15: keep the sidebar status footer in sync immediately.
+            callJS("window._contentSafetyState && window._contentSafetyState({ enabled: \(csEnabled ? "true" : "false") })")
         }
 
         // Update FocusMonitor with always-relevant sites whitelist
@@ -1338,9 +1375,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             appDelegate?.postLog("👁️ Updated always-relevant sites: \(sites)")
         }
 
-        broadcastSettingsToExtensions(settings)
         callJS("window._saveSettingsResult && window._saveSettingsResult({ success: true })")
-        appDelegate?.postLog("💾 SAVE_SETTINGS: Settings saved and broadcast")
+        appDelegate?.postLog("💾 SAVE_SETTINGS: Settings saved")
 
         // Sync settings to backend (fire-and-forget, don't block UI)
         let syncPayload: [String: Any] = {
@@ -1411,18 +1447,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             if let cs = contentSafety { settings["contentSafety"] = cs }
             settings["lastModified"] = ISO8601DateFormatter().string(from: Date())
         }
-    }
-
-    // MARK: - Broadcast Settings to Extensions
-
-    private func broadcastSettingsToExtensions(_ settings: [String: Any]) {
-        var message: [String: Any] = ["type": "SETTINGS_SYNC"]
-        // Forward all settings fields to extensions
-        for (key, value) in settings {
-            message[key] = value
-        }
-        appDelegate?.socketRelayServer?.broadcastToAll(message)
-        appDelegate?.postLog("🌐 SETTINGS_SYNC broadcast to \(appDelegate?.socketRelayServer?.connectionCount ?? 0) extension(s)")
     }
 
     // MARK: - Get Installed Apps
@@ -1619,15 +1643,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 let escapedName = partnerName.replacingOccurrences(of: "'", with: "\\'")
                 self.callJS("window._lockSettingsResult && window._lockSettingsResult({ success: \(resultSuccess), lockMode: '\(actualLockMode)', message: '\(escapedMessage)', consentStatus: '\(consentStatus)', partnerEmail: '\(escapedEmail)', partnerName: '\(escapedName)' })")
 
-                // 6. Broadcast actual lock state to extensions
-                let lockSync: [String: Any] = [
-                    "type": "SETTINGS_SYNC",
-                    "lockMode": actualLockMode,
-                    "settingsLocked": actualLockMode != "none",
-                    "partnerEmail": partnerEmail,
-                    "partnerName": partnerName
-                ]
-                self.appDelegate?.socketRelayServer?.broadcastToAll(lockSync)
                 self.appDelegate?.postLog("🔒 SAVE_LOCK_SETTINGS: requested=\(lockMode), actual=\(actualLockMode), consent=\(consentStatus)")
             }
         }
@@ -1667,15 +1682,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 let success = removed ? "true" : "false"
                 self.callJS("window._removePartnerResult && window._removePartnerResult({ success: \(success) })")
 
-                // 5. Broadcast to extensions
-                let lockSync: [String: Any] = [
-                    "type": "SETTINGS_SYNC",
-                    "lockMode": "none",
-                    "settingsLocked": false,
-                    "partnerEmail": "",
-                    "partnerName": ""
-                ]
-                self.appDelegate?.socketRelayServer?.broadcastToAll(lockSync)
                 self.appDelegate?.postLog("🔒 REMOVE_PARTNER: done, removed=\(removed)")
             }
         }
@@ -1877,6 +1883,22 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         }
     }
 
+    // MARK: - Status Footer (FIX-15)
+
+    /// Emits the current ContentSafetyMonitor.isEnabled to the dashboard.
+    /// Used by the sidebar status footer.
+    private func handleGetContentSafetyState() {
+        let enabled = appDelegate?.contentSafetyMonitor?.isEnabled ?? false
+        callJS("window._contentSafetyState && window._contentSafetyState({ enabled: \(enabled ? "true" : "false") })")
+    }
+
+    /// Mac currently has no Puck pairing path (Puck pairs to the iPhone via
+    /// the puck-ios app). Stub the bridge so the footer can render the
+    /// "not paired" state without inventing a new symbol later.
+    private func handleGetPuckStatus() {
+        callJS("window._puckStatus && window._puckStatus({ connected: false })")
+    }
+
     // MARK: - Resend Partner Invite
 
     private func handleResendPartnerInvite() {
@@ -1935,15 +1957,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             await appDelegate?.backendClient?.setLockMode(mode: "none")
             appDelegate?.postLog("🗑️ Backend lock mode cleared")
         }
-
-        // 5. Broadcast reset to connected extensions
-        let resetMessage: [String: Any] = [
-            "type": "SETTINGS_RESET",
-            "lockMode": "none",
-            "settingsLocked": false
-        ]
-        appDelegate?.socketRelayServer?.broadcastToAll(resetMessage)
-        appDelegate?.postLog("🗑️ Reset broadcast to \(appDelegate?.socketRelayServer?.connectionCount ?? 0) extension(s)")
 
         appDelegate?.postLog("🗑️ Full reset complete")
         loadCurrentPage()
@@ -2181,6 +2194,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         // Use getScheduleSyncPayload() to include the full blocks array for the calendar view
         var state = manager.getScheduleSyncPayload()
         state.removeValue(forKey: "type") // Don't send the "SCHEDULE_SYNC" type to dashboard
+        // FIX-10: Surface the live intention id of the active session for strictness greying.
+        // Prefer the manual project session; fall back to the active block's intentionId.
+        if let sessionId = appDelegate?.activeProjectSession?.projectId {
+            state["active_intention_id"] = sessionId.uuidString
+        } else if let blockIntentionId = manager.currentBlock?.intentionId {
+            state["active_intention_id"] = blockIntentionId.uuidString
+        } else {
+            state["active_intention_id"] = NSNull()
+        }
         if let data = try? JSONSerialization.data(withJSONObject: state),
            let json = String(data: data, encoding: .utf8) {
             callJS("window._scheduleStateResult && window._scheduleStateResult(\(json))")
@@ -2190,7 +2212,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     private func handleSetFocusEnabled(_ body: [String: Any]) {
         guard let enabled = body["enabled"] as? Bool else { return }
         appDelegate?.scheduleManager?.setEnabled(enabled)
-        appDelegate?.socketRelayServer?.broadcastScheduleSync()
         callJS("window._focusEnabledResult && window._focusEnabledResult({ success: true, enabled: \(enabled) })")
     }
 
@@ -2240,7 +2261,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         }
 
         appDelegate?.scheduleManager?.setTodaySchedule(goals: goals, dailyPlan: dailyPlan, blocks: blocks)
-        appDelegate?.socketRelayServer?.broadcastScheduleSync()
         callJS("window._scheduleResult && window._scheduleResult({ success: true })")
     }
 
@@ -2362,33 +2382,126 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
     // MARK: - Blocking Profile Handlers
 
+    /// Snake-case dict representation of a profile/block-rule for the new
+    /// Today→Blocks UI. Ships alongside the legacy struct-shaped payload so
+    /// existing receivers (ProjectsController, profile detail view) keep working.
+    @MainActor
+    static func blockingProfileToDict(_ p: BlockingProfile) -> [String: Any] {
+        let snoozed = BlockRuleEnforcer.shared.currentlySnoozedIds().contains(p.id)
+        var d: [String: Any] = [
+            "id": p.id.uuidString,
+            "name": p.name,
+            "websites": p.blockedDomains,
+            "bundle_ids": p.blockedAppBundleIds,
+            "is_default": p.isDefault,
+            "always_active": p.alwaysActive,
+            "enabled": p.enabled,
+            "active_days": p.activeDays,
+            // Effective active: in-window AND enabled AND NOT snoozed
+            "is_currently_active": snoozed ? false : p.isCurrentlyActive,
+            // Raw "in-window-and-enabled" so UI can tell snooze apart from out-of-window
+            "is_in_window": p.isCurrentlyActive,
+            "is_snoozed": snoozed
+        ]
+        if let sh = p.startHour { d["start_hour"] = sh }
+        if let sm = p.startMinute { d["start_minute"] = sm }
+        if let eh = p.endHour { d["end_hour"] = eh }
+        if let em = p.endMinute { d["end_minute"] = em }
+        if snoozed,
+           let until = BlockRuleEnforcer.shared.snoozeReleaseDate(profileId: p.id) {
+            let fmt = ISO8601DateFormatter()
+            d["snoozed_until"] = fmt.string(from: until)
+        }
+        return d
+    }
+
     private func handleGetBlockingProfiles() {
         let profiles = appDelegate?.blockingProfileManager?.profiles ?? []
+        // Legacy receiver — keeps the existing profile-detail / ProjectsController flows alive.
         if let data = try? JSONEncoder().encode(profiles),
            let jsonStr = String(data: data, encoding: .utf8) {
             callJS("window.onBlockingProfiles && window.onBlockingProfiles(\(jsonStr))")
         }
+        // New receiver — snake_case payload with schedule + enabled for Today→Blocks UI.
+        let dicts = profiles.map { Self.blockingProfileToDict($0) }
+        if let data = try? JSONSerialization.data(withJSONObject: dicts),
+           let jsonStr = String(data: data, encoding: .utf8) {
+            callJS("window._blockingProfilesList && window._blockingProfilesList(\(jsonStr))")
+        }
     }
 
+    /// Accepts both legacy keys (`domains`, `appBundleIds`) and new snake_case keys
+    /// (`websites`, `bundle_ids`, `start_hour`, etc).
     private func handleCreateBlockingProfile(_ body: [String: Any]) {
         let name = body["name"] as? String ?? "New Profile"
-        let domains = body["domains"] as? [String] ?? []
-        let apps = body["appBundleIds"] as? [String] ?? []
-        appDelegate?.blockingProfileManager?.createProfile(name: name, domains: domains, appBundleIds: apps)
+        let domains = (body["websites"] as? [String]) ?? (body["domains"] as? [String]) ?? []
+        let apps = (body["bundle_ids"] as? [String]) ?? (body["appBundleIds"] as? [String]) ?? []
+        guard let manager = appDelegate?.blockingProfileManager else { return }
+        let created = manager.createProfile(name: name, domains: domains, appBundleIds: apps)
+        // Apply optional schedule + enabled in one update so we don't double-write the file.
+        let enabled = body["enabled"] as? Bool
+        let startHour = body["start_hour"] as? Int
+        let startMinute = body["start_minute"] as? Int
+        let endHour = body["end_hour"] as? Int
+        let endMinute = body["end_minute"] as? Int
+        let activeDays = body["active_days"] as? [Int]
+        if enabled != nil || startHour != nil || startMinute != nil
+            || endHour != nil || endMinute != nil || activeDays != nil {
+            manager.updateProfile(
+                id: created.id,
+                enabled: enabled,
+                startHour: .some(startHour),
+                startMinute: .some(startMinute),
+                endHour: .some(endHour),
+                endMinute: .some(endMinute),
+                activeDays: activeDays
+            )
+        }
+        appDelegate?.applyAlwaysActiveProfiles()
+        // Engage BlockRuleEnforcer immediately on the newly-created rule
+        // (otherwise the user waits up to 30s for the next tick).
+        BlockRuleEnforcer.shared.reevaluateNow()
         handleGetBlockingProfiles()
     }
 
     private func handleUpdateBlockingProfile(_ body: [String: Any]) {
         guard let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) else { return }
+        let domains = (body["websites"] as? [String]) ?? (body["domains"] as? [String])
+        let apps = (body["bundle_ids"] as? [String]) ?? (body["appBundleIds"] as? [String])
+        // For schedule fields, treat key-present-and-NSNull as "clear to nil",
+        // key-present-and-Int as "set", key-absent as "leave alone".
+        let scheduleArgs: (Int??, Int??, Int??, Int??) = (
+            body.keys.contains("start_hour") ? .some(body["start_hour"] as? Int) : nil,
+            body.keys.contains("start_minute") ? .some(body["start_minute"] as? Int) : nil,
+            body.keys.contains("end_hour") ? .some(body["end_hour"] as? Int) : nil,
+            body.keys.contains("end_minute") ? .some(body["end_minute"] as? Int) : nil
+        )
         appDelegate?.blockingProfileManager?.updateProfile(
             id: id,
             name: body["name"] as? String,
-            domains: body["domains"] as? [String],
-            appBundleIds: body["appBundleIds"] as? [String],
-            alwaysActive: body["alwaysActive"] as? Bool
+            domains: domains,
+            appBundleIds: apps,
+            alwaysActive: body["alwaysActive"] as? Bool ?? body["always_active"] as? Bool,
+            enabled: body["enabled"] as? Bool,
+            startHour: scheduleArgs.0,
+            startMinute: scheduleArgs.1,
+            endHour: scheduleArgs.2,
+            endMinute: scheduleArgs.3,
+            activeDays: body["active_days"] as? [Int]
         )
         // Re-apply always-active enforcement after profile change
         appDelegate?.applyAlwaysActiveProfiles()
+        // Engage BlockRuleEnforcer immediately on schedule/enabled/list edits.
+        BlockRuleEnforcer.shared.reevaluateNow()
+        handleGetBlockingProfiles()
+    }
+
+    private func handleToggleBlockRule(id: UUID, enabled: Bool) {
+        appDelegate?.blockingProfileManager?.setEnabled(id: id, enabled: enabled)
+        appDelegate?.applyAlwaysActiveProfiles()
+        // Toggle is the single most common user action on a rule — must engage
+        // immediately, not on the next 30s tick.
+        BlockRuleEnforcer.shared.reevaluateNow()
         handleGetBlockingProfiles()
     }
 
@@ -2408,6 +2521,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             }
             await MainActor.run {
                 _ = self.appDelegate?.blockingProfileManager?.deleteProfile(id: id)
+                // Engage BlockRuleEnforcer immediately so the deleted rule's
+                // blocklist is removed from the standalone enforcement layer.
+                BlockRuleEnforcer.shared.reevaluateNow()
                 self.handleGetBlockingProfiles()
             }
         }
@@ -2453,6 +2569,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let intention = body["intention"] as? String ?? ""
         let allowSearchEngines = body["allowSearchEngines"] as? Bool ?? true
         let allowed = Self.decodeHostItems(body["allowed"] as? [[String: Any]] ?? [])
+        let blocked = Self.decodeHostItems(body["blocked"] as? [[String: Any]] ?? [])
         let blocklistIds = (body["blocklistIds"] as? [String] ?? []).compactMap(UUID.init(uuidString:))
 
         Task {
@@ -2461,6 +2578,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 name: name,
                 intention: intention,
                 allowed: allowed,
+                blocked: blocked,
                 blocklistIds: blocklistIds,
                 allowSearchEngines: allowSearchEngines
             )
@@ -2471,6 +2589,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     }
 
     private func handleUpdateProject(_ body: [String: Any]) {
+        appDelegate?.postLog("🎯 UPDATE_PROJECT handler fired: id=\(body["id"] ?? "nil") patch_keys=\(((body["patch"] as? [String: Any]) ?? [:]).keys)")
         guard let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) else { return }
         let patchDict = body["patch"] as? [String: Any] ?? [:]
 
@@ -2481,6 +2600,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         patch.allowSearchEnginesForThisProject = patchDict["allowSearchEngines"] as? Bool
         if let allowedRaw = patchDict["allowed"] as? [[String: Any]] {
             patch.allowed = Self.decodeHostItems(allowedRaw)
+        }
+        if let blockedRaw = patchDict["blocked"] as? [[String: Any]] {
+            patch.blocked = Self.decodeHostItems(blockedRaw)
         }
         if let idsRaw = patchDict["blocklistIds"] as? [String] {
             patch.blocklistIds = idsRaw.compactMap(UUID.init(uuidString:))
@@ -2496,6 +2618,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             }
             await MainActor.run {
                 self.emitProjectDetail(project)
+                if self.appDelegate?.activeProjectId == id {
+                    self.appDelegate?.refreshActiveProjectEnforcement()
+                }
             }
         }
     }
@@ -3038,7 +3163,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                         "verifiedToday": result.verifiedToday,
                         "remainingToday": result.remainingToday
                     ])
-                    self.appDelegate?.socketRelayServer?.broadcastEarnedMinutesUpdate(mgr)
                 } else {
                     self.callJSCallback("_extraTimeVerifyResult", data: [
                         "success": false,
@@ -3129,8 +3253,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
     func callJS(_ script: String) {
         #if DEBUG
-        uiPerfCallJSCount += 1
-        uiPerfCallJSBytes += script.count
         let scriptSize = script.count
         let fnName: String = {
             if let r = script.range(of: #"window\.(_[A-Za-z0-9]+)"#, options: .regularExpression) {
@@ -3139,10 +3261,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             let head = script.prefix(40)
             return String(head).components(separatedBy: "(").first ?? String(head)
         }()
-        uiPerfMaybeFlush()
         #endif
         DispatchQueue.main.async {
             #if DEBUG
+            // Counter mutations must run on main — uiPerfRxCounts / uiPerfCallJSCount
+            // are also touched by didReceive (main thread). Background callers racing
+            // on the dictionary corrupted heap and crashed in removeAll(keepingCapacity:).
+            self.uiPerfCallJSCount += 1
+            self.uiPerfCallJSBytes += scriptSize
+            self.uiPerfMaybeFlush()
             let t0 = CFAbsoluteTimeGetCurrent()
             #endif
             self.webView.evaluateJavaScript(script) { _, error in
@@ -3170,16 +3297,114 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         callJS("window.\(callbackName) && window.\(callbackName)(\(jsonStr))")
     }
 
+    // MARK: - App Taxonomy (Slice 5 of 2026-05-05 redesign)
+
+    private func handleGetAppList(kind: String) {
+        guard let backend = appDelegate?.backendClient else { return }
+        Task {
+            let apps = (kind == "distractions")
+                ? await backend.getDistractions()
+                : await backend.getAlwaysBlocked()
+            await MainActor.run {
+                let payload: [String: Any] = ["kind": kind, "apps": apps]
+                if let data = try? JSONSerialization.data(withJSONObject: payload),
+                   let json = String(data: data, encoding: .utf8) {
+                    self.callJS("window._appListResult && window._appListResult(\(json))")
+                }
+            }
+        }
+    }
+
+    private func handleAddAppList(kind: String, appIdentifier: String) {
+        guard let backend = appDelegate?.backendClient else { return }
+        Task {
+            let ok = (kind == "distractions")
+                ? await backend.addDistraction(appIdentifier: appIdentifier)
+                : await backend.addAlwaysBlocked(appIdentifier: appIdentifier)
+            if ok {
+                self.handleGetAppList(kind: kind)
+            }
+        }
+    }
+
+    private func handleRemoveAppList(kind: String, appIdentifier: String) {
+        guard let backend = appDelegate?.backendClient else { return }
+        Task {
+            let ok = (kind == "distractions")
+                ? await backend.removeDistraction(appIdentifier: appIdentifier)
+                : await backend.removeAlwaysBlocked(appIdentifier: appIdentifier)
+            if ok {
+                self.handleGetAppList(kind: kind)
+            }
+        }
+    }
+
+    private func handleGetBudgetState() {
+        guard let backend = appDelegate?.backendClient else { return }
+        Task {
+            let state = await backend.getBudgetState()
+            await MainActor.run {
+                if let s = state {
+                    let payload: [String: Any] = [
+                        "day": s.day,
+                        "baseline_minutes": s.baselineMinutes,
+                        "earned_minutes": s.earnedMinutes,
+                        "consumed_minutes": s.consumedMinutes,
+                        "available_minutes": s.availableMinutes,
+                        "is_locked": s.isLocked,
+                    ]
+                    if let data = try? JSONSerialization.data(withJSONObject: payload),
+                       let json = String(data: data, encoding: .utf8) {
+                        self.callJS("window._budgetState && window._budgetState(\(json))")
+                    }
+                }
+            }
+        }
+    }
+
+    private func handleSetBudgetConfig(_ body: [String: Any]) {
+        guard let backend = appDelegate?.backendClient else { return }
+        let baseline = body["baseline_minutes"] as? Int ?? 60
+        let isLocked = body["is_locked"] as? Bool ?? false
+        let partnerCode = body["partner_code"] as? String
+        Task {
+            _ = await backend.putBudgetConfig(baselineMinutes: baseline, isLocked: isLocked, partnerCode: partnerCode)
+            self.handleGetBudgetState()
+        }
+    }
+
     // MARK: - Intentions (Spec 1)
 
     private func handleGetIntentions() {
         Task {
             let intentions = await IntentionStore.shared.active()
-            let items = intentions.map { i -> [String: Any] in
+            // First emit the list immediately so cards render fast without waiting
+            // for the per-goal hours_done aggregation.
+            let baseItems = intentions.map { i -> [String: Any] in
                 return Self.intentionToDict(i)
             }
             await MainActor.run {
-                self.emitIntentionsList(items)
+                self.emitIntentionsList(baseItems)
+            }
+
+            // Then fan out a hours_done request per goal that has a week_of.
+            // Fire-and-forget — each result patches the cache via _intentionUpdated.
+            guard let backend = appDelegate?.backendClient else { return }
+            await withTaskGroup(of: (UUID, Double?).self) { group in
+                for i in intentions {
+                    guard i.weekOf != nil else { continue }
+                    group.addTask {
+                        let h = await backend.getIntentionHoursDone(id: i.id, week: i.weekOf)
+                        return (i.id, h)
+                    }
+                }
+                for await (id, hours) in group {
+                    guard let h = hours else { continue }
+                    await MainActor.run {
+                        // Surface the live total via a small JS patch so cards re-render.
+                        self.callJS("window._intentionHoursDoneResult && window._intentionHoursDoneResult({ id: '\(id.uuidString)', hours_done: \(h) })")
+                    }
+                }
             }
         }
     }
@@ -3193,6 +3418,27 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 } else {
                     self.emitIntentionDetail(["error": "Focus mode not found"])
                 }
+            }
+        }
+    }
+
+    /// FIX-7: Fetch goals for an arbitrary past week (ISO Monday date)
+    /// and push them into the dashboard's cache via `window._intentionsForWeek`.
+    /// The dashboard merges these into `_intentionsCache` so the Plan history view
+    /// can render past weeks even after the active set has rotated.
+    private func handleGetIntentionsForWeek(week: String) {
+        guard let backend = appDelegate?.backendClient else { return }
+        Task {
+            guard let intentions = await backend.getIntentions(includeDeleted: false, week: week) else {
+                await MainActor.run {
+                    self.callJS("window._intentionsForWeek && window._intentionsForWeek([])")
+                }
+                return
+            }
+            let items = intentions.map { Self.intentionToDict($0) }
+            await MainActor.run {
+                let json = self.jsonString(items)
+                self.callJS("window._intentionsForWeek && window._intentionsForWeek(\(json))")
             }
         }
     }
@@ -3222,12 +3468,44 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 "takes_effect_at": ISO8601DateFormatter().string(from: pc.takesEffectAt)
             ] as [String: Any]
         }
+        // May 2026 prototype → production (weekly-goal vocab):
+        dict["outcome"] = i.outcome ?? ""
+        dict["status"] = i.status.rawValue
+        dict["weekly_target_hours"] = i.weeklyTargetHours as Any? ?? NSNull()
+        dict["intent_text"] = i.intentText ?? ""
+        dict["ai_scoring_enabled"] = i.aiScoringEnabled
+        dict["allow_websites"] = i.allowWebsites
+        dict["allow_bundle_ids"] = i.allowBundleIds
+        dict["monthly_goal_id"] = i.monthlyGoalId?.uuidString as Any? ?? NSNull()
+        dict["week_of"] = i.weekOf as Any? ?? NSNull()
         return dict
+    }
+
+    /// May 2026 prototype → production: dashboard-facing dict for a MonthlyGoal.
+    static func monthlyGoalToDict(_ g: MonthlyGoal) -> [String: Any] {
+        let iso = ISO8601DateFormatter()
+        var d: [String: Any] = [
+            "id": g.id.uuidString,
+            "title": g.title,
+            "outcome": g.outcome ?? "",
+            "color_hex": g.colorHex ?? "",
+            "month_of": g.monthOf,
+            "status": g.status.rawValue,
+            "version": g.version,
+            "created_at": iso.string(from: g.createdAt),
+            "updated_at": iso.string(from: g.updatedAt),
+        ]
+        if let d2 = g.deletedAt {
+            d["deleted_at"] = iso.string(from: d2)
+        }
+        return d
     }
 
     private func handleCreateIntention(_ body: [String: Any]) {
         Task {
-            let payload = IntentionCreatePayload(
+            let statusRaw = body["status"] as? String ?? "planned"
+            let monthlyGoalId: UUID? = (body["monthly_goal_id"] as? String).flatMap(UUID.init)
+            var payload = IntentionCreatePayload(
                 name: body["name"] as? String ?? "Untitled",
                 description: body["description"] as? String,
                 colorHex: body["color_hex"] as? String,
@@ -3237,6 +3515,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 iosAppTokensB64: nil,
                 iosCategoryTokensB64: nil
             )
+            payload.outcome = body["outcome"] as? String
+            payload.status = GoalStatus(rawValue: statusRaw) ?? .planned
+            payload.weeklyTargetHours = body["weekly_target_hours"] as? Double
+            payload.intentText = body["intent_text"] as? String
+            if let ai = body["ai_scoring_enabled"] as? Bool { payload.aiScoringEnabled = ai }
+            payload.allowWebsites = body["allow_websites"] as? [String] ?? []
+            payload.allowBundleIds = body["allow_bundle_ids"] as? [String] ?? []
+            payload.monthlyGoalId = monthlyGoalId
+            payload.weekOf = body["week_of"] as? String
             do {
                 let created = try await IntentionStore.shared.create(payload)
                 await MainActor.run {
@@ -3270,7 +3557,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 }
                 return
             }
-            let payload = IntentionUpdatePayload(
+            var payload = IntentionUpdatePayload(
                 name: body["name"] as? String ?? existing.name,
                 description: body["description"] as? String ?? existing.description,
                 colorHex: body["color_hex"] as? String ?? existing.colorHex,
@@ -3281,8 +3568,60 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 iosCategoryTokensB64: existing.iosCategoryTokensB64,
                 version: version
             )
+            // Forward weekly-goal fields (May 2026 vocab). Treat missing keys as
+            // "no change" (fall back to existing), explicit nulls as "clear".
+            payload.outcome = body.keys.contains("outcome")
+                ? body["outcome"] as? String
+                : existing.outcome
+            if let statusRaw = body["status"] as? String,
+               let s = GoalStatus(rawValue: statusRaw) {
+                payload.status = s
+            } else {
+                payload.status = existing.status
+            }
+            payload.weeklyTargetHours = body.keys.contains("weekly_target_hours")
+                ? body["weekly_target_hours"] as? Double
+                : existing.weeklyTargetHours
+            payload.intentText = body.keys.contains("intent_text")
+                ? body["intent_text"] as? String
+                : existing.intentText
+            if let ai = body["ai_scoring_enabled"] as? Bool {
+                payload.aiScoringEnabled = ai
+            } else {
+                payload.aiScoringEnabled = existing.aiScoringEnabled
+            }
+            payload.allowWebsites = body["allow_websites"] as? [String]
+                ?? existing.allowWebsites
+            payload.allowBundleIds = body["allow_bundle_ids"] as? [String]
+                ?? existing.allowBundleIds
+            payload.monthlyGoalId = body.keys.contains("monthly_goal_id")
+                ? (body["monthly_goal_id"] as? String).flatMap(UUID.init)
+                : existing.monthlyGoalId
+            payload.weekOf = body.keys.contains("week_of")
+                ? body["week_of"] as? String
+                : existing.weekOf
             do {
-                let updated = try await IntentionStore.shared.update(id: id, payload: payload)
+                var updated = try await IntentionStore.shared.update(id: id, payload: payload)
+
+                // Slice 9 followup of 2026-05-05 redesign: strictness goes through
+                // a dedicated endpoint (PUT /intentions/{id}/strictness). Detect a
+                // change from the patch and call the dedicated endpoint after the
+                // base update lands. Tightening applies instantly; softening queues
+                // a pending change with 24h cool-down or partner unlock.
+                if let newStrictnessRaw = body["strictness_preset"] as? String,
+                   let newPreset = StrictnessPreset(rawValue: newStrictnessRaw),
+                   newPreset != existing.strictnessPreset {
+                    do {
+                        updated = try await IntentionStore.shared.updateStrictness(
+                            id: id, toPreset: newPreset
+                        )
+                    } catch {
+                        // Don't fail the whole save if strictness change errors —
+                        // user already saw "Saved". Log and surface a soft warning.
+                        print("strictness update failed: \(error)")
+                    }
+                }
+
                 await MainActor.run {
                     self.emitIntentionMutationResult([
                         "status": "updated", "id": updated.id.uuidString,
@@ -3320,7 +3659,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
     private func handleStartIntentionSession(_ body: [String: Any]) {
         guard let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) else {
-            emitSessionResult(["status": "refused", "reason": "Missing intention id"])
+            emitSessionResult(["status": "refused", "reason": "Missing weekly goal id"])
             return
         }
         Task {
@@ -3367,10 +3706,131 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         }
     }
 
+    // FIX-2 (May 2026): Drag-to-schedule creates a real calendar block.
+    // The dashboard fires this when the user drags a weekly-goal card onto an hour
+    // in the Today / Plan timeline. We build a single-day FocusBlock bound to the
+    // goal (Intention) and add it via ScheduleManager.addBlock — which handles
+    // local persistence, backend push, and recalculateState in one call.
+    private func handleCreateScheduledSession(_ body: [String: Any]) {
+        // FIX-13: intention_id is now optional. When null, the session is
+        // standalone (no weekly-goal binding) and uses title_override + outcome.
+        // We also accept title_override, outcome, ai_scoring_enabled, and
+        // auto_activate_block_rules from the New Session modal.
+        let intentionIdStr = body["intention_id"] as? String
+        let intentionIdOpt: UUID? = intentionIdStr.flatMap { UUID(uuidString: $0) }
+        let titleOverride = (body["title_override"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let outcome = (body["outcome"] as? String) ?? ""
+        // ai_scoring_enabled and auto_activate_block_rules are accepted but
+        // not yet wired into FocusBlock — ScheduleManager.FocusBlock doesn't
+        // model per-session AI override or auto-activate rule sets. Logged
+        // so future plumbing can pick them up.
+        let aiScoringEnabled = body["ai_scoring_enabled"] as? Bool
+        let autoActivateRules = body["auto_activate_block_rules"] as? [String] ?? []
+
+        let startHour = body["start_hour"] as? Int ?? 9
+        let startMinute = body["start_minute"] as? Int ?? 0
+        var endHour = body["end_hour"] as? Int ?? (startHour + 1)
+        var endMinute = body["end_minute"] as? Int ?? startMinute
+        // Guard: end must be after start. If caller didn't pass an end (or passed
+        // a degenerate range), default to a 1-hour duration anchored at start.
+        if (endHour * 60 + endMinute) <= (startHour * 60 + startMinute) {
+            endHour = min(23, startHour + 1)
+            endMinute = startMinute
+        }
+        // Clamp end-of-day so we don't spill past 23:59.
+        if endHour > 23 { endHour = 23; endMinute = 59 }
+
+        let isoDF = DateFormatter()
+        isoDF.dateFormat = "yyyy-MM-dd"
+        isoDF.timeZone = TimeZone.current
+        let todayStr = isoDF.string(from: Date())
+        let startDateStr = (body["start_date"] as? String) ?? todayStr
+
+        Task { [weak self] in
+            guard let self = self else { return }
+
+            // Resolve intention (if any). For standalone sessions we need a title.
+            var resolvedIntention: Intention? = nil
+            if let iid = intentionIdOpt {
+                guard let intention = await IntentionStore.shared.intention(id: iid),
+                      intention.deletedAt == nil else {
+                    await MainActor.run {
+                        self.callJS("window._scheduledSessionCreated && window._scheduledSessionCreated({status:'error', reason:'Weekly goal not found'})")
+                    }
+                    return
+                }
+                resolvedIntention = intention
+            } else if (titleOverride ?? "").isEmpty {
+                // Standalone session without a title — reject.
+                await MainActor.run {
+                    self.callJS("window._scheduledSessionCreated && window._scheduledSessionCreated({status:'error', reason:'Title required for standalone session'})")
+                }
+                return
+            }
+
+            // Map intention strictness → block intensity.
+            // Strict goal → deep_work (hard block). Standard/Soft → focus_hours.
+            // Standalone session (no intention) defaults to focusHours.
+            let blockType: ScheduleManager.BlockType =
+                resolvedIntention?.strictnessPreset == .strict ? .deepWork : .focusHours
+
+            // Choose final block title: explicit override wins, else fall back
+            // to the intention name. For standalone we've already required a
+            // title above.
+            let finalTitle: String = {
+                if let t = titleOverride, !t.isEmpty { return t }
+                return resolvedIntention?.name ?? "Session"
+            }()
+            let finalDescription: String = {
+                if !outcome.isEmpty { return outcome }
+                return resolvedIntention?.description ?? ""
+            }()
+
+            await MainActor.run {
+                guard let sm = self.appDelegate?.scheduleManager else {
+                    self.callJS("window._scheduledSessionCreated && window._scheduledSessionCreated({status:'error', reason:'Schedule manager unavailable'})")
+                    return
+                }
+                let newId = UUID().uuidString
+                let newBlock = ScheduleManager.FocusBlock(
+                    id: newId,
+                    title: finalTitle,
+                    description: finalDescription,
+                    startHour: startHour,
+                    startMinute: startMinute,
+                    endHour: endHour,
+                    endMinute: endMinute,
+                    blockType: blockType,
+                    ignoreProfile: false,
+                    intentionId: intentionIdOpt,
+                    intensity: blockType
+                )
+                sm.addBlock(newBlock)
+                self.pushScheduleUpdate()
+                let aiLog = aiScoringEnabled.map { $0 ? "ai=on" : "ai=off" } ?? "ai=default"
+                let rulesLog = autoActivateRules.isEmpty ? "" : " rules=\(autoActivateRules.count)"
+                self.appDelegate?.postLog("📋 CREATE_SCHEDULED_SESSION: \(finalTitle) \(startHour):\(String(format: "%02d", startMinute))–\(endHour):\(String(format: "%02d", endMinute)) date=\(startDateStr) goal=\(intentionIdOpt?.uuidString ?? "nil") \(aiLog)\(rulesLog)")
+                var payload: [String: Any] = [
+                    "status": "ok",
+                    "block_id": newId
+                ]
+                if let iid = intentionIdOpt {
+                    payload["intention_id"] = iid.uuidString
+                }
+                if let data = try? JSONSerialization.data(withJSONObject: payload),
+                   let json = String(data: data, encoding: .utf8) {
+                    self.callJS("window._scheduledSessionCreated && window._scheduledSessionCreated(\(json))")
+                }
+            }
+        }
+    }
+
     // MARK: - Intentions (Spec 3 — strictness control)
 
     private func handleUpdateIntentionStrictness(_ body: [String: Any]) {
+        appDelegate?.postLog("🎯 STRICTNESS handler: body=\(body)")
         guard let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) else {
+            appDelegate?.postLog("🎯 STRICTNESS handler: missing/invalid id, bailing")
             emitIntentionMutationResult(["status": "error", "error": "Missing id"])
             return
         }
@@ -3385,6 +3845,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 let updated = try await IntentionStore.shared.updateStrictness(
                     id: id, toPreset: to, partnerUnlockCode: partnerCode
                 )
+                appDelegate?.postLog("🎯 STRICTNESS backend OK: id=\(updated.id) preset=\(updated.strictnessPreset.rawValue) pending=\(updated.pendingStrictnessChange?.toPreset.rawValue ?? "nil")")
                 await MainActor.run {
                     var payload: [String: Any] = [
                         "status": "updated",
@@ -3464,6 +3925,163 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         guard let data = try? JSONSerialization.data(withJSONObject: dict),
               let json = String(data: data, encoding: .utf8) else { return }
         callJS("window._intentionMutationResult && window._intentionMutationResult(\(json))")
+    }
+
+    // MARK: - Monthly Goals (May 2026)
+
+    private func handleGetMonthlyGoals() {
+        guard let store = appDelegate?.monthlyGoalStore else {
+            emitMonthlyGoalsList([])
+            return
+        }
+        Task {
+            let goals = await store.active()
+            let items = goals.map { Self.monthlyGoalToDict($0) }
+            await MainActor.run { self.emitMonthlyGoalsList(items) }
+        }
+    }
+
+    private func handleGetMonthlyGoal(id: UUID) {
+        guard let store = appDelegate?.monthlyGoalStore else { return }
+        Task {
+            if let g = await store.goal(id: id) {
+                let dict = Self.monthlyGoalToDict(g)
+                await MainActor.run { self.emitMonthlyGoalDetail(dict) }
+            } else {
+                await MainActor.run { self.emitMonthlyGoalDetail(["error": "Not found"]) }
+            }
+        }
+    }
+
+    private func handleCreateMonthlyGoal(_ body: [String: Any]) {
+        guard let store = appDelegate?.monthlyGoalStore else { return }
+        let title = (body["title"] as? String) ?? "Untitled"
+        let monthOf = (body["month_of"] as? String) ?? ""
+        let statusRaw = (body["status"] as? String) ?? "planned"
+        let payload = MonthlyGoalCreatePayload(
+            title: title,
+            outcome: body["outcome"] as? String,
+            colorHex: body["color_hex"] as? String,
+            monthOf: monthOf,
+            status: GoalStatus(rawValue: statusRaw) ?? .planned
+        )
+        Task {
+            do {
+                let created = try await store.create(payload)
+                let dict = Self.monthlyGoalToDict(created)
+                await MainActor.run { self.emitMonthlyGoalCreated(dict) }
+            } catch {
+                await MainActor.run {
+                    self.emitMonthlyGoalCreated(["error": "\(error)"])
+                }
+            }
+        }
+    }
+
+    private func handleUpdateMonthlyGoal(_ body: [String: Any]) {
+        guard let store = appDelegate?.monthlyGoalStore,
+              let idStr = body["id"] as? String,
+              let id = UUID(uuidString: idStr),
+              let version = body["version"] as? Int else { return }
+        let payload = MonthlyGoalUpdatePayload(
+            title: (body["title"] as? String) ?? "Untitled",
+            outcome: body["outcome"] as? String,
+            colorHex: body["color_hex"] as? String,
+            monthOf: (body["month_of"] as? String) ?? "",
+            status: GoalStatus(rawValue: (body["status"] as? String) ?? "planned") ?? .planned,
+            version: version
+        )
+        Task {
+            do {
+                let updated = try await store.update(id: id, payload: payload)
+                let dict = Self.monthlyGoalToDict(updated)
+                await MainActor.run { self.emitMonthlyGoalUpdated(dict) }
+            } catch {
+                await MainActor.run { self.emitMonthlyGoalUpdated(["error": "\(error)"]) }
+            }
+        }
+    }
+
+    private func handleDeleteMonthlyGoal(id: UUID) {
+        guard let store = appDelegate?.monthlyGoalStore else { return }
+        Task {
+            let ok = await store.delete(id: id)
+            await MainActor.run {
+                self.callJS("window._monthlyGoalDeleted && window._monthlyGoalDeleted({id: '\(id.uuidString)', ok: \(ok)})")
+            }
+        }
+    }
+
+    private func handleLinkWeeklyToMonthly(_ body: [String: Any]) {
+        guard let store = appDelegate?.intentionStore,
+              let intentionIdStr = body["intention_id"] as? String,
+              let intentionId = UUID(uuidString: intentionIdStr) else { return }
+        let monthlyGoalId: UUID? = (body["monthly_goal_id"] as? String).flatMap { UUID(uuidString: $0) }
+        Task {
+            guard let i = await store.intention(id: intentionId) else { return }
+            // Round-trip all fields, just patch monthly_goal_id
+            let payload = IntentionUpdatePayload(
+                name: i.name,
+                description: i.description,
+                colorHex: i.colorHex,
+                icon: i.icon,
+                macWebsites: i.macWebsites,
+                macBundleIds: i.macBundleIds,
+                iosAppTokensB64: i.iosAppTokensB64,
+                iosCategoryTokensB64: i.iosCategoryTokensB64,
+                version: i.version,
+                outcome: i.outcome,
+                status: i.status,
+                weeklyTargetHours: i.weeklyTargetHours,
+                intentText: i.intentText,
+                aiScoringEnabled: i.aiScoringEnabled,
+                allowWebsites: i.allowWebsites,
+                allowBundleIds: i.allowBundleIds,
+                monthlyGoalId: monthlyGoalId,
+                weekOf: i.weekOf
+            )
+            do {
+                let updated = try await store.update(id: intentionId, payload: payload)
+                let dict = Self.intentionToDict(updated)
+                await MainActor.run {
+                    let json = self.jsonString(dict)
+                    self.callJS("window._intentionUpdated && window._intentionUpdated(\(json))")
+                }
+            } catch {
+                await MainActor.run {
+                    self.callJS("window._intentionUpdated && window._intentionUpdated({error: 'link failed'})")
+                }
+            }
+        }
+    }
+
+    // MARK: - Monthly Goals emit helpers
+
+    private func emitMonthlyGoalsList(_ items: [[String: Any]]) {
+        let json = jsonString(items)
+        callJS("window._monthlyGoalsList && window._monthlyGoalsList(\(json))")
+    }
+
+    private func emitMonthlyGoalDetail(_ dict: [String: Any]) {
+        let json = jsonString(dict)
+        callJS("window._monthlyGoalDetail && window._monthlyGoalDetail(\(json))")
+    }
+
+    private func emitMonthlyGoalCreated(_ dict: [String: Any]) {
+        let json = jsonString(dict)
+        callJS("window._monthlyGoalCreated && window._monthlyGoalCreated(\(json))")
+    }
+
+    private func emitMonthlyGoalUpdated(_ dict: [String: Any]) {
+        let json = jsonString(dict)
+        callJS("window._monthlyGoalUpdated && window._monthlyGoalUpdated(\(json))")
+    }
+
+    /// JSON-encode dict/array as String. Falls back to "null" on failure.
+    private func jsonString(_ obj: Any) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: obj),
+              let s = String(data: data, encoding: .utf8) else { return "null" }
+        return s
     }
 
 }

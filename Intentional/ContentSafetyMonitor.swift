@@ -109,8 +109,26 @@ class ContentSafetyMonitor {
     private let temporalWindowSize = 5
     private let temporalThreshold = 3
 
-    /// NSFW score threshold — only trigger above this (0.90 = very high confidence)
-    private let nsfwScoreThreshold: Float = 0.90
+    /// NSFW score threshold — only trigger above this. User-tunable in Settings
+    /// → Sensitive Content (range 0.85–0.99, default 0.95). Stored in
+    /// UserDefaults under `cs_nsfw_threshold`. Capped at 0.99 max so it can
+    /// never be effectively disabled (which would defeat the partner lock).
+    private static let nsfwDefaultsKey = "cs_nsfw_threshold"
+    private var nsfwScoreThreshold: Float {
+        let raw = UserDefaults.standard.object(forKey: Self.nsfwDefaultsKey) as? Double
+        let val = Float(raw ?? 0.95)
+        // Clamp defensively
+        return min(max(val, 0.85), 0.99)
+    }
+    /// Persist a new threshold (called from MainWindow bridge handler).
+    static func setNSFWThreshold(_ value: Float) {
+        let clamped = min(max(value, 0.85), 0.99)
+        UserDefaults.standard.set(Double(clamped), forKey: nsfwDefaultsKey)
+    }
+    static func currentNSFWThreshold() -> Float {
+        let raw = UserDefaults.standard.object(forKey: nsfwDefaultsKey) as? Double
+        return Float(raw ?? 0.95)
+    }
 
     /// Debug: save flagged screenshots so we can review what triggered detection
     private let debugSaveScreenshots = true
@@ -202,6 +220,12 @@ class ContentSafetyMonitor {
             isEnabled = false
             stop()
         }
+        // Update the signed last-known-intended-state so the next startup's
+        // divergence check sees this legitimate toggle as the new baseline.
+        // Always run, even when no transition happened, in case the on-disk
+        // signed file is stale.
+        let deviceId = UserDefaults.standard.string(forKey: "deviceId") ?? ""
+        ContentSafetyStateGuard.write(enabled: enabled, deviceId: deviceId)
     }
 
     /// Trigger a test detection — captures screen, blurs it, shows overlay.

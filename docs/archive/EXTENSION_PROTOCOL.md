@@ -1,5 +1,12 @@
 # Extension Communication Protocol
 
+> **Archived 2026-05-21.** The Chrome extension integration was removed
+> from intentional-macos-app on this date. This document describes the
+> protocol as it existed at archive time, preserved for git-history and
+> future-reference purposes. Do not use this for new development.
+> The Mac app's browser surface is now AppleScript-only via WebsiteBlocker.
+> See `docs/cross-repo-extension-removal-2026-05-21.md` for the deletion summary.
+
 ## Socket Architecture
 Path: `/tmp/intentional-native-messaging-{UID}.sock`
 

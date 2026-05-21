@@ -1,0 +1,809 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Intentional — Today (interactive)</title>
+<style>
+  :root {
+    --bg: #0a0c0a; --bg-2: #111414;
+    --card: rgba(255,255,255,0.04); --card-hover: rgba(255,255,255,0.07);
+    --card-2: rgba(255,255,255,0.06);
+    --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.14);
+    --text: #f7f8f8; --muted: rgba(255,255,255,0.55); --dim: rgba(255,255,255,0.36);
+    --coral: #E87461; --gold: #F0B060; --green: #6FB58E; --blue: #6E8FE0;
+    --violet: #B287D9; --amber: #E5A063; --red: #D45050; --indigo: #8B5CF6; --teal: #5CA39B;
+    --grad: linear-gradient(135deg, var(--coral), var(--gold));
+    --grad-mint: linear-gradient(135deg, #8FE5C1, #6FB58E);
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif;
+    --mono: "SF Mono", Menlo, Monaco, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; line-height: 1.55; height: 100%; }
+  body { background: radial-gradient(ellipse at top, rgba(232,116,97,0.06), transparent 60%), var(--bg); background-attachment: fixed; overflow-x: hidden; }
+
+  /* APP FRAME */
+  .app { display: flex; height: 100vh; }
+  .sidebar { width: 220px; background: rgba(0,0,0,0.30); border-right: 1px solid var(--border); padding: 22px 14px; display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+  .brand { font-size: 15px; font-weight: 700; color: var(--coral); margin-bottom: 24px; padding: 0 10px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; color: var(--muted); font-size: 14px; font-weight: 500; cursor: pointer; user-select: none; }
+  .nav-item .ndot { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); }
+  .nav-item.active { background: rgba(232,116,97,0.10); color: var(--coral); }
+  .nav-item.active .ndot { background: var(--coral); box-shadow: 0 0 8px var(--coral); }
+  .sidebar-foot { margin-top: auto; padding: 12px 10px 0; font-size: 11px; color: var(--dim); font-family: var(--mono); line-height: 1.6; }
+  .content { flex: 1; padding: 28px 36px 28px; overflow-y: auto; max-width: 980px; margin: 0 auto; }
+
+  /* TOP ROW */
+  .top-row { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 18px; }
+  .top-left .date { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; margin: 0; }
+  .top-left .stat { font-size: 13px; color: var(--dim); margin-top: 2px; }
+  .mode-toggle { display: flex; gap: 2px; padding: 3px; background: rgba(0,0,0,0.4); border-radius: 9px; user-select: none; }
+  .mode-toggle .opt { padding: 8px 18px; font-size: 13px; font-weight: 500; color: var(--muted); border-radius: 6px; cursor: pointer; transition: all 0.12s; }
+  .mode-toggle .opt.active { background: rgba(232,116,97,0.16); color: var(--coral); font-weight: 600; }
+  .mode-toggle .opt:hover:not(.active) { color: var(--text); }
+
+  /* NOW CARD */
+  .now-card { background: var(--card); border: 1px solid var(--border-strong); border-radius: 14px; overflow: hidden; margin-bottom: 18px; transition: all 0.2s; }
+  .nc-blocks-bar { padding: 10px 18px; background: rgba(110,143,224,0.06); border-bottom: 1px solid rgba(110,143,224,0.14); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .nc-blocks-bar.empty { background: rgba(255,255,255,0.02); border-bottom-color: var(--border); }
+  .nc-blocks-bar.bedtime { background: rgba(110,143,224,0.18); border-bottom-color: rgba(110,143,224,0.30); }
+  .nc-blocks-bar .shield { color: var(--blue); font-size: 14px; flex-shrink: 0; }
+  .nc-blocks-bar.empty .shield { color: var(--dim); }
+  .nc-blocks-bar .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--blue); font-weight: 600; flex-shrink: 0; }
+  .nc-blocks-bar.empty .label { color: var(--dim); }
+  .block-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; background: rgba(110,143,224,0.14); color: var(--blue); border: 1px solid rgba(110,143,224,0.28); border-radius: 999px; font-size: 11px; font-weight: 600; cursor: pointer; user-select: none; }
+  .block-pill .b-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 6px var(--blue); }
+  .block-pill.amber { color: var(--amber); background: rgba(229,160,99,0.14); border-color: rgba(229,160,99,0.28); }
+  .block-pill.amber .b-dot { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+  .block-pill.green { color: var(--green); background: rgba(111,181,142,0.14); border-color: rgba(111,181,142,0.28); }
+  .block-pill.green .b-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .block-pill.violet { color: var(--violet); background: rgba(178,135,217,0.14); border-color: rgba(178,135,217,0.28); }
+  .block-pill.violet .b-dot { background: var(--violet); box-shadow: 0 0 6px var(--violet); }
+  .block-pill.red { color: var(--red); background: rgba(212,80,80,0.14); border-color: rgba(212,80,80,0.28); }
+  .block-pill.red .b-dot { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .nc-blocks-bar .more-link { color: var(--dim); font-size: 11px; margin-left: auto; cursor: pointer; }
+  .nc-blocks-bar .more-link:hover { color: var(--coral); }
+  .nc-blocks-bar .more-link.add { color: var(--coral); }
+
+  .nc-body { padding: 16px 22px; }
+  .nc-body.idle .nc-task-title { color: var(--muted); }
+  .nc-task-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--coral); font-weight: 700; margin-bottom: 4px; }
+  .nc-body.idle .nc-task-label { color: var(--dim); }
+  .nc-task-title { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; margin: 0 0 4px; }
+  .nc-task-sub { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+  .nc-task-sub strong { color: var(--text); font-weight: 600; }
+  .nc-progress { height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; margin-bottom: 12px; overflow: hidden; }
+  .nc-progress .bar { height: 100%; background: var(--coral); border-radius: 2px; transition: width 0.3s; }
+  .nc-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* BUTTONS */
+  .btn-primary { background: var(--grad); color: #1a0f0a; border: 0; padding: 9px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; font-family: var(--font); }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-secondary { background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--border-strong); padding: 9px 14px; border-radius: 8px; font-weight: 500; font-size: 13px; cursor: pointer; font-family: var(--font); }
+  .btn-secondary:hover { background: rgba(255,255,255,0.10); }
+  .btn-quiet { background: transparent; color: var(--muted); border: 0; padding: 9px 4px; font-size: 12px; cursor: pointer; }
+  .btn-quiet:hover { color: var(--text); }
+  .btn-danger { background: transparent; color: var(--red); border: 1px solid rgba(212,80,80,0.36); padding: 9px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .btn-tiny { background: rgba(232,116,97,0.10); color: var(--coral); border: 0; padding: 6px 12px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .btn-tiny.green { background: rgba(111,181,142,0.10); color: var(--green); }
+  .btn-tiny:hover { filter: brightness(1.1); }
+
+  /* SCHEDULE CALENDAR (clean) */
+  .sched-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .sched-stats { display: flex; gap: 16px; font-size: 11px; color: var(--muted); margin-bottom: 8px; padding: 0 4px; }
+  .sched-stats .stat-num { color: var(--text); font-weight: 600; font-family: var(--mono); }
+  .calendar { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 0; max-height: 480px; overflow-y: auto; margin-bottom: 14px; }
+  .hour-row { display: flex; min-height: 42px; border-top: 1px dashed rgba(255,255,255,0.04); position: relative; }
+  .hour-row:first-child { border-top: none; }
+  .hour-row .lbl { font-family: var(--mono); font-size: 10px; color: var(--dim); width: 56px; padding: 5px 0 0 14px; flex-shrink: 0; }
+  .hour-row .lane { flex: 1; position: relative; padding: 2px 14px 2px 0; }
+  .session-block { padding: 8px 14px; margin: 3px 0; border-radius: 7px; font-size: 12px; color: var(--text); display: flex; align-items: center; gap: 10px; cursor: pointer; transition: filter 0.1s; }
+  .session-block:hover { filter: brightness(1.15); }
+  .sb-coral { background: rgba(232,116,97,0.18); border-left: 3px solid var(--coral); }
+  .sb-gold { background: rgba(240,176,96,0.18); border-left: 3px solid var(--gold); }
+  .sb-violet { background: rgba(178,135,217,0.18); border-left: 3px solid var(--violet); }
+  .session-block.active { box-shadow: 0 0 0 1px rgba(232,116,97,0.5), 0 0 18px rgba(232,116,97,0.20); }
+  .session-block.done { opacity: 0.55; text-decoration: line-through; text-decoration-color: rgba(255,255,255,0.3); }
+  .session-block .when { font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .session-block .label { flex: 1; }
+  .session-block .badge-r { font-size: 9px; padding: 2px 7px; border-radius: 999px; background: rgba(255,255,255,0.08); color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .session-block .badge-r.red { background: rgba(212,80,80,0.18); color: var(--red); }
+  .session-block .badge-r.green { background: rgba(111,181,142,0.18); color: var(--green); }
+  .now-line { position: absolute; left: 0; right: 0; height: 2px; background: var(--coral); top: 50%; box-shadow: 0 0 12px var(--coral); z-index: 5; }
+  .now-line::before { content: 'NOW'; position: absolute; left: 70px; top: -7px; font-size: 9px; font-weight: 700; color: var(--coral); background: var(--bg-2); padding: 0 5px; letter-spacing: 1px; }
+
+  /* BLOCKS MODE */
+  .section-h { font-size: 13px; color: var(--muted); font-weight: 600; margin: 22px 0 12px; display: flex; align-items: center; justify-content: space-between; }
+  .section-h .count { color: var(--dim); font-weight: 400; font-size: 12px; }
+  .ideas-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 22px; }
+  .idea-btn { padding: 14px 16px; background: var(--card-2); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: background 0.1s; }
+  .idea-btn:hover { background: var(--card-hover); }
+  .idea-icon { width: 28px; height: 28px; border-radius: 7px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .idea-btn .idea-label { font-size: 13px; font-weight: 600; }
+  .idea-btn.primary { background: linear-gradient(135deg, rgba(232,116,97,0.12), rgba(240,176,96,0.05)); border-color: rgba(232,116,97,0.32); }
+  .idea-btn.primary .idea-icon { background: var(--coral); color: white; }
+
+  .block-row { display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 6px; cursor: pointer; transition: all 0.15s; }
+  .block-row:hover { background: var(--card-hover); }
+  .block-row.active { border-color: rgba(110,143,224,0.40); background: linear-gradient(180deg, rgba(110,143,224,0.06), transparent); }
+  .block-row .b-icon { width: 44px; height: 44px; border-radius: 10px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; position: relative; }
+  .block-row.active .b-icon::after { content: ''; position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; border-radius: 50%; background: var(--blue); border: 2px solid var(--bg-2); box-shadow: 0 0 8px var(--blue); animation: pulse 1.4s infinite ease-in-out; }
+  @keyframes pulse { 50% { opacity: 0.4; transform: scale(0.7); } }
+  .block-row .b-body { flex: 1; min-width: 0; }
+  .block-row .b-name { font-size: 15px; font-weight: 600; margin: 0 0 2px; display: flex; align-items: center; gap: 8px; }
+  .block-row .b-when { font-size: 12px; color: var(--muted); }
+  .block-row .b-apps { font-size: 11px; color: var(--dim); margin-top: 2px; }
+  .b-control { display: flex; align-items: center; gap: 6px; }
+  .toggle-switch { width: 38px; height: 22px; border-radius: 999px; background: rgba(255,255,255,0.10); position: relative; flex-shrink: 0; cursor: pointer; transition: background 0.15s; }
+  .toggle-switch.on { background: var(--blue); }
+  .toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: white; transition: left 0.15s; }
+  .toggle-switch.on::after { left: 18px; }
+  .b-status { font-size: 10px; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; }
+  .b-status.active { background: rgba(110,143,224,0.18); color: var(--blue); }
+  .b-status.upcoming { background: rgba(255,255,255,0.06); color: var(--dim); }
+  .b-status.always { background: rgba(229,160,99,0.14); color: var(--amber); }
+  .b-status.ondemand { background: rgba(255,255,255,0.04); color: var(--dim); }
+
+  /* STATUS FOOTER */
+  .status-footer { display: flex; gap: 16px; flex-wrap: wrap; padding: 12px 16px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 10px; font-size: 12px; color: var(--muted); margin-top: 14px; }
+  .status-footer .item { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .status-footer .item .sf-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+  .status-footer .item.off .sf-dot { background: var(--dim); }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+  .modal-overlay[hidden] { display: none; }
+  .modal { background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: 14px; padding: 24px; max-width: 540px; width: 100%; box-shadow: 0 24px 60px rgba(0,0,0,0.5); max-height: 90vh; overflow-y: auto; }
+  .modal-title { font-size: 18px; font-weight: 700; margin: 0 0 16px; letter-spacing: -0.2px; }
+  .modal-title.highlight { padding: 5px 10px; background: linear-gradient(135deg, rgba(232,116,97,0.40), rgba(240,176,96,0.20)); color: white; border-radius: 8px; display: inline-block; margin: 0 0 18px; }
+  .modal-field { margin-bottom: 14px; }
+  .modal-field label { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; display: block; margin-bottom: 6px; }
+  .modal-input { padding: 9px 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 7px; font-size: 14px; width: 100%; font-family: var(--font); color: var(--text); }
+  .modal-input.textarea { min-height: 60px; resize: vertical; }
+  .modal-row { display: flex; gap: 12px; }
+  .modal-row > * { flex: 1; }
+  .modal-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 22px; }
+  .modal-actions .right { display: flex; gap: 8px; }
+  .day-pills { display: flex; gap: 8px; }
+  .day-pill { flex: 1; padding: 10px 0; background: rgba(255,255,255,0.95); color: #1a0f0a; font-size: 13px; font-weight: 700; border-radius: 999px; text-align: center; cursor: pointer; user-select: none; transition: all 0.1s; }
+  .day-pill.off { background: rgba(255,255,255,0.06); color: var(--dim); }
+  .strict-pills { display: flex; gap: 6px; }
+  .strict-pill { padding: 7px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--muted); cursor: pointer; }
+  .strict-pill.active { background: rgba(212,80,80,0.18); color: var(--red); border-color: var(--red); }
+  .strict-pill.standard.active { background: rgba(232,116,97,0.18); color: var(--coral); border-color: var(--coral); }
+  .auto-blocks-section { padding: 12px 14px; background: rgba(110,143,224,0.06); border: 1px solid rgba(110,143,224,0.20); border-radius: 8px; }
+  .auto-blocks-section .ab-label { font-size: 11px; color: var(--blue); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; display: block; margin-bottom: 8px; }
+  .auto-blocks-list { display: flex; gap: 6px; flex-wrap: wrap; }
+  .ab-pill { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; background: rgba(110,143,224,0.14); color: var(--blue); border: 1px solid rgba(110,143,224,0.28); border-radius: 999px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .ab-pill.unselected { background: rgba(255,255,255,0.04); color: var(--muted); border-color: var(--border); }
+  .ab-hint { font-size: 11px; color: var(--muted); margin-top: 8px; }
+
+  /* POPOVER */
+  .popover { position: fixed; background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: 12px; padding: 14px; box-shadow: 0 16px 40px rgba(0,0,0,0.5); min-width: 240px; z-index: 90; }
+  .popover h4 { font-size: 13px; margin: 0 0 6px; color: var(--text); font-weight: 600; }
+  .popover p { font-size: 12px; color: var(--muted); margin: 0 0 10px; line-height: 1.5; }
+  .popover .pop-row { display: flex; gap: 6px; }
+  .popover-backdrop { position: fixed; inset: 0; z-index: 89; }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: 10px; padding: 12px 18px; font-size: 13px; box-shadow: 0 12px 32px rgba(0,0,0,0.5); z-index: 200; animation: toastIn 0.2s; }
+  @keyframes toastIn { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+
+  /* DEMO PANEL */
+  .demo-panel { position: fixed; right: 16px; bottom: 16px; background: var(--bg-2); border: 1px solid rgba(232,116,97,0.32); border-radius: 12px; padding: 12px 14px; z-index: 80; box-shadow: 0 12px 32px rgba(0,0,0,0.5); max-width: 280px; }
+  .demo-panel .dp-title { font-size: 10px; color: var(--coral); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin-bottom: 8px; }
+  .demo-panel .dp-row { display: flex; flex-direction: column; gap: 4px; }
+  .demo-panel button { background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; text-align: left; font-family: var(--font); }
+  .demo-panel button:hover { background: rgba(255,255,255,0.08); }
+  .demo-panel button.active { background: rgba(232,116,97,0.10); color: var(--coral); border-color: rgba(232,116,97,0.32); }
+  .demo-panel .dp-hint { font-size: 10px; color: var(--dim); margin-top: 8px; line-height: 1.4; }
+
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">Intentional</div>
+    <div class="nav-item active"><span class="ndot"></span>Today</div>
+    <div class="nav-item"><span class="ndot"></span>Plan</div>
+    <div class="nav-item"><span class="ndot"></span>Settings</div>
+    <div class="sidebar-foot" id="sidebar-foot">2:24 PM<br>Caity ✓ · Content ON</div>
+  </aside>
+
+  <main class="content">
+
+    <!-- TOP ROW -->
+    <div class="top-row">
+      <div class="top-left">
+        <h3 class="date">Tuesday, May 13</h3>
+        <div class="stat" id="page-sub">3 tasks · 1 done · 2 to go · in session</div>
+      </div>
+      <div class="mode-toggle" id="mode-toggle">
+        <span class="opt active" data-mode="schedule">Schedule</span>
+        <span class="opt" data-mode="blocks">Blocks</span>
+      </div>
+    </div>
+
+    <!-- NOW CARD (dynamic) -->
+    <div id="now-card-mount"></div>
+
+    <!-- SCHEDULE VIEW -->
+    <div id="view-schedule">
+      <div class="sched-header">
+        <div style="font-size:13px; color:var(--muted); font-weight:600;">Today's schedule</div>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <button class="btn-tiny" onclick="openNewTaskModal()">+ Task</button>
+          <button class="btn-tiny green" onclick="openFreeTimeModal()">+ Free Time</button>
+        </div>
+      </div>
+      <div class="sched-stats"><span><span class="stat-num">2h 53m</span> focused</span><span><span class="stat-num">2m</span> off-task</span><span><span class="stat-num">0m</span> free</span></div>
+      <div class="calendar" id="calendar-mount"></div>
+    </div>
+
+    <!-- BLOCKS VIEW -->
+    <div id="view-blocks" hidden>
+      <div class="section-h">Quick actions</div>
+      <div class="ideas-row">
+        <div class="idea-btn primary" onclick="openBlockNowModal()"><div class="idea-icon">▶</div><div class="idea-label">Block Now</div></div>
+        <div class="idea-btn" onclick="showToast('Plan Day → opens Plan tab')"><div class="idea-icon">📓</div><div class="idea-label">Plan Day</div></div>
+        <div class="idea-btn" onclick="startPomodoro()"><div class="idea-icon">🍅</div><div class="idea-label">Pomodoro 25</div></div>
+        <div class="idea-btn" onclick="showToast('Set Limits → opens Settings → Distraction Budget')"><div class="idea-icon">⏱</div><div class="idea-label">Set Limits</div></div>
+      </div>
+      <div class="section-h"><span>Your blocks</span><span class="count" id="blocks-count">· 3 active · 8 total</span></div>
+      <div id="blocks-list-mount"></div>
+    </div>
+
+    <!-- STATUS FOOTER -->
+    <div class="status-footer">
+      <span class="item" onclick="openPopover(event, 'partner')"><span class="sf-dot"></span>Caity · partner active</span>
+      <span class="item" onclick="openPopover(event, 'content')"><span class="sf-dot"></span>Content protection · ON</span>
+      <span class="item off" onclick="openPopover(event, 'puck')"><span class="sf-dot"></span>Puck · not paired</span>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL OVERLAY -->
+<div class="modal-overlay" id="modal-overlay" hidden onclick="if(event.target===this)closeModal()">
+  <div id="modal-content"></div>
+</div>
+
+<!-- POPOVER MOUNT -->
+<div id="popover-mount"></div>
+
+<!-- TOAST MOUNT -->
+<div id="toast-mount"></div>
+
+<!-- DEMO PANEL -->
+<div class="demo-panel">
+  <div class="dp-title">Demo state · click to preview</div>
+  <div class="dp-row">
+    <button data-variant="task-blocks" class="active" onclick="setVariant('task-blocks')">A · Task + 3 Blocks running</button>
+    <button data-variant="blocks-only" onclick="setVariant('blocks-only')">B · Blocks only (Workout, no task)</button>
+    <button data-variant="task-only" onclick="setVariant('task-only')">C · Task only (Pomodoro, no blocks)</button>
+    <button data-variant="bedtime" onclick="setVariant('bedtime')">D · Bedtime active</button>
+    <button data-variant="idle" onclick="setVariant('idle')">E · Nothing running</button>
+  </div>
+  <div class="dp-hint">Switch Schedule/Blocks tab at top. Toggle blocks on/off in Blocks mode. Click any task block or block row to edit. Quick actions open modals. Status pills open popovers.</div>
+</div>
+
+<script>
+// ────────────────────────────────────────
+// STATE
+// ────────────────────────────────────────
+const BLOCKS = [
+  { id: 'social',    name: 'Block social media',     icon: '📱', schedule: 'Weekdays · 9:00 AM — 5:00 PM',                       apps: 'Instagram, X, TikTok, Reddit, Facebook',  color: 'blue',   recurring: true,  default: true,  always: false },
+  { id: 'video',     name: 'Block video',            icon: '📺', schedule: 'Weekdays 9–5 & daily 7 PM — 11 PM',                  apps: 'YouTube, Netflix, Twitch, Vimeo',         color: 'blue',   recurring: true,  default: true,  always: false },
+  { id: 'news',      name: 'Block news',             icon: '📰', schedule: 'Triggered by task',                                  apps: 'NYT, BBC, Hacker News, Wired',            color: 'blue',   recurring: false, default: true,  always: false },
+  { id: 'workout',   name: 'Workout mode',           icon: '🏃', schedule: 'M / W / F · 5:00 — 7:00 PM',                         apps: 'Everything except Music + Phone',         color: 'green',  recurring: true,  default: false, always: false },
+  { id: 'bedtime',   name: 'Bedtime',                icon: '🌙', schedule: 'Every day · 11:00 PM — 6:30 AM · highest priority',  apps: 'Everything except Emergency calls',       color: 'amber',  recurring: true,  default: false, always: true },
+  { id: 'dinner',    name: 'Dinner with family',     icon: '🍽', schedule: 'Every day · 7:00 — 8:00 PM',                         apps: 'All phone (Mac unaffected)',              color: 'violet', recurring: true,  default: false, always: false },
+  { id: 'nuclear',   name: 'Block everything',       icon: '🚫', schedule: 'On demand · manual trigger only',                    apps: 'Allowlist only (Editor, Notes, Phone)',   color: 'red',    recurring: false, default: false, always: false },
+  { id: 'study',     name: 'Study mode',             icon: '📚', schedule: 'On demand · manual trigger only',                    apps: 'Social, video, news, games',              color: 'amber',  recurring: false, default: false, always: false },
+];
+
+const VARIANTS = {
+  'task-blocks': {
+    activeBlocks: ['social', 'video', 'news'],
+    task: { title: 'Outline blog post #3', sub: 'Toward "Write 4 blog posts in May" · <strong>Strict</strong> · 6h of 16h done', endsIn: '1h 37m', progress: 31, color: 'coral' },
+    pageSub: '3 tasks · 1 done · 2 to go · in session',
+    time: '2:24 PM',
+  },
+  'blocks-only': {
+    activeBlocks: ['workout', 'social'],
+    task: null,
+    taskAlt: { title: 'Workout window — go move', sub: 'Phone is locked except music + calls. Workout mode ends at 7:00 PM.', endsIn: null, color: 'green' },
+    pageSub: '3 tasks · 2 done · in routine block',
+    time: '5:14 PM',
+  },
+  'task-only': {
+    activeBlocks: [],
+    task: { title: 'Quick draft: design review notes', sub: 'Pomodoro 25 · ad-hoc · no goal linked', endsIn: '18m', progress: 28, color: 'coral' },
+    pageSub: 'Ad-hoc focus session',
+    time: '11:42 AM',
+  },
+  'bedtime': {
+    activeBlocks: ['bedtime', 'social'],
+    task: null,
+    taskAlt: { title: '🔒 Mac will lock again in 8 sec', sub: 'Bedtime is the only Block that can override partner unlock at this hour.', endsIn: 'until 6:30 AM', color: 'blue' },
+    pageSub: 'Bedtime active · locked',
+    time: '11:08 PM',
+  },
+  'idle': {
+    activeBlocks: [],
+    task: null,
+    taskAlt: { title: "You're freelancing", sub: 'Next: <strong>Block social</strong> at 9:00 AM tomorrow · <strong>Outline blog post #3</strong> at 1:00 PM today', endsIn: null, color: 'neutral' },
+    pageSub: 'Nothing running',
+    time: '12:45 PM',
+  },
+};
+
+let state = {
+  mode: 'schedule',
+  variant: 'task-blocks',
+  blocks: BLOCKS.map(b => ({ ...b })), // copy
+};
+
+// Initial active blocks come from variant
+state.blocks.forEach(b => { b.active = VARIANTS[state.variant].activeBlocks.includes(b.id); });
+
+// ────────────────────────────────────────
+// RENDER
+// ────────────────────────────────────────
+function renderAll() {
+  renderNowCard();
+  renderCalendar();
+  renderBlocksList();
+  renderPageMeta();
+  renderViewToggle();
+}
+
+function renderViewToggle() {
+  document.querySelectorAll('#mode-toggle .opt').forEach(el => {
+    el.classList.toggle('active', el.dataset.mode === state.mode);
+  });
+  document.getElementById('view-schedule').hidden = state.mode !== 'schedule';
+  document.getElementById('view-blocks').hidden = state.mode !== 'blocks';
+}
+
+function renderPageMeta() {
+  const v = VARIANTS[state.variant];
+  document.getElementById('page-sub').textContent = v.pageSub;
+  document.getElementById('sidebar-foot').innerHTML = v.time + '<br>Caity ✓ · Content ON';
+  const activeCount = state.blocks.filter(b => b.active).length;
+  document.getElementById('blocks-count').textContent = `· ${activeCount} active · ${state.blocks.length} total`;
+}
+
+function renderNowCard() {
+  const v = VARIANTS[state.variant];
+  const activeBlocks = state.blocks.filter(b => b.active);
+  const isBedtimeOn = activeBlocks.some(b => b.id === 'bedtime');
+  const hasTask = v.task !== null;
+
+  let blocksBarClass = '';
+  if (activeBlocks.length === 0) blocksBarClass = 'empty';
+  if (isBedtimeOn) blocksBarClass = 'bedtime';
+
+  // Blocks bar content
+  let blocksHTML = '';
+  if (activeBlocks.length === 0) {
+    blocksHTML = `<span class="shield">🛡</span><span class="label">Nothing blocking right now</span><span class="more-link add" onclick="openBlockNowModal()">+ Add a block now</span>`;
+  } else {
+    const pills = activeBlocks.map(b => {
+      const colorClass = isBedtimeOn && b.id === 'bedtime' ? '' : b.color;
+      const customStyle = isBedtimeOn && b.id === 'bedtime' ? 'background: rgba(110,143,224,0.30); color: white; border-color: var(--blue);' : '';
+      return `<span class="block-pill ${colorClass}" style="${customStyle}" onclick="openBlockEditModal('${b.id}')"><span class="b-dot"></span>${b.icon} ${b.name}</span>`;
+    }).join('');
+    blocksHTML = `<span class="shield">🛡</span><span class="label">Blocking now</span>${pills}<span class="more-link" onclick="state.mode='blocks';renderAll();">Manage blocks →</span>`;
+  }
+
+  // Body content
+  let bodyHTML = '';
+  if (hasTask) {
+    bodyHTML = `
+      <div class="nc-task-label">Working on · ends in ${v.task.endsIn}</div>
+      <div class="nc-task-title">${v.task.title}</div>
+      <div class="nc-task-sub">${v.task.sub}</div>
+      <div class="nc-progress"><div class="bar" style="width:${v.task.progress}%"></div></div>
+      <div class="nc-actions">
+        <button class="btn-secondary" onclick="showToast('5-min break started')">5-min break</button>
+        <button class="btn-secondary" onclick="showToast('Snoozed 5 min')">Snooze 5m</button>
+        <button class="btn-quiet" onclick="confirmEndEarly()">End early</button>
+      </div>
+    `;
+  } else if (v.taskAlt) {
+    // Routine running without task (B/D/E)
+    const a = v.taskAlt;
+    const endsLabel = a.endsIn ? `Ends ${a.endsIn}` : '';
+    let bodyActions = '';
+    if (state.variant === 'blocks-only') {
+      bodyActions = `<button class="btn-primary" onclick="openModePicker()">Start a task</button><button class="btn-secondary" onclick="startPomodoro()">Pomodoro 25</button><button class="btn-quiet">Just let it run</button>`;
+    } else if (state.variant === 'bedtime') {
+      bodyActions = `<button class="btn-primary" onclick="openUnlockModal()">Ask partner to unlock</button><button class="btn-quiet" onclick="showToast('Bedtime is your defense. Caity can release it. Tomorrow at 6:30 AM it lifts.')">Why?</button>`;
+    } else {
+      bodyActions = `<button class="btn-primary" onclick="openModePicker()">Start a task</button><button class="btn-secondary" onclick="openBlockNowModal()">Block now</button><button class="btn-secondary" onclick="startPomodoro()">Pomodoro 25</button>`;
+    }
+    bodyHTML = `
+      <div class="nc-task-label" style="${a.color === 'blue' ? 'color: var(--blue);' : ''}">${a.color === 'blue' ? 'Bedtime · locked until 6:30 AM' : (endsLabel || 'No task running')}</div>
+      <div class="nc-task-title">${a.title}</div>
+      <div class="nc-task-sub">${a.sub}</div>
+      <div class="nc-actions">${bodyActions}</div>
+    `;
+  } else {
+    bodyHTML = `<div class="nc-task-label">No task running</div><div class="nc-task-title">Nothing running</div><div class="nc-actions"><button class="btn-primary" onclick="openModePicker()">Start a task</button></div>`;
+  }
+
+  const bodyClass = (hasTask) ? '' : 'idle';
+
+  document.getElementById('now-card-mount').innerHTML = `
+    <div class="now-card">
+      <div class="nc-blocks-bar ${blocksBarClass}">${blocksHTML}</div>
+      <div class="nc-body ${bodyClass}">${bodyHTML}</div>
+    </div>
+  `;
+}
+
+function renderCalendar() {
+  const hours = [
+    { lbl: '8 AM', tasks: [] },
+    { lbl: '9',    tasks: [{type:'sb-coral', when:'9:00–10:30', label:'Morning planning ritual', badge:'✓ 91%', badgeClass:'green', done:true}] },
+    { lbl: '10',   tasks: [] },
+    { lbl: '11',   tasks: [] },
+    { lbl: '12 PM',tasks: [] },
+    { lbl: '1',    tasks: [{type:'sb-gold', when:'1:00–3:00', label:'Outline blog post #3', badge:'strict', badgeClass:'red', active: state.variant==='task-blocks'}] },
+    { lbl: '2',    tasks: [], showNow: state.variant === 'task-blocks' },
+    { lbl: '3',    tasks: [{type:'sb-violet', when:'3:30–5:00', label:'Code review backlog', badge:'standard', badgeClass:''}] },
+    { lbl: '4',    tasks: [] },
+    { lbl: '5',    tasks: [] },
+    { lbl: '6',    tasks: [] },
+    { lbl: '7',    tasks: [] },
+    { lbl: '8',    tasks: [] },
+    { lbl: '9 PM', tasks: [] },
+  ];
+
+  document.getElementById('calendar-mount').innerHTML = hours.map(h => {
+    const tasks = h.tasks.map(t => {
+      const cls = `session-block ${t.type}${t.done?' done':''}${t.active?' active':''}`;
+      return `<div class="${cls}" onclick="event.stopPropagation();openTaskEditModal('${t.label}','${t.badge}','${t.when}')"><span class="when">${t.when}</span><span class="label">${t.label}</span><span class="badge-r ${t.badgeClass}">${t.badge}</span></div>`;
+    }).join('');
+    const nowLine = h.showNow ? '<div class="now-line"></div>' : '';
+    return `<div class="hour-row"><span class="lbl">${h.lbl}</span><span class="lane">${nowLine}${tasks}</span></div>`;
+  }).join('');
+}
+
+function renderBlocksList() {
+  document.getElementById('blocks-list-mount').innerHTML = state.blocks.map(b => {
+    const activeClass = b.active ? 'active' : '';
+    let status = '';
+    if (b.active) status = `<span class="b-status active">Active</span>`;
+    else if (b.always) status = `<span class="b-status always">Always scheduled</span>`;
+    else if (b.recurring) status = `<span class="b-status upcoming">Upcoming</span>`;
+    else status = `<span class="b-status ondemand">On demand</span>`;
+    return `
+      <div class="block-row ${activeClass}" onclick="openBlockEditModal('${b.id}')">
+        <div class="b-icon" style="background: rgba(${b.color==='blue'?'110,143,224':b.color==='green'?'111,181,142':b.color==='amber'?'229,160,99':b.color==='violet'?'178,135,217':b.color==='red'?'212,80,80':'255,255,255'},0.14);">${b.icon}</div>
+        <div class="b-body">
+          <div class="b-name">${b.name} ${status}</div>
+          <div class="b-when">${b.schedule}</div>
+          <div class="b-apps">Blocking: ${b.apps}</div>
+        </div>
+        <div class="b-control" onclick="event.stopPropagation();toggleBlock('${b.id}')">
+          <div class="toggle-switch ${b.active?'on':''}"></div>
+        </div>
+      </div>
+    `;
+  }).join('') + `
+    <div class="block-row" style="border-style: dashed; background: transparent;" onclick="openNewBlockModal()">
+      <div class="b-icon" style="background: transparent; border: 1px dashed var(--border-strong);">+</div>
+      <div class="b-body">
+        <div class="b-name" style="color: var(--muted);">New block</div>
+        <div class="b-when">Set up a new blocking rule</div>
+      </div>
+    </div>
+  `;
+}
+
+// ────────────────────────────────────────
+// EVENT HANDLERS
+// ────────────────────────────────────────
+document.querySelectorAll('#mode-toggle .opt').forEach(el => {
+  el.addEventListener('click', () => {
+    state.mode = el.dataset.mode;
+    renderAll();
+  });
+});
+
+function toggleBlock(id) {
+  const b = state.blocks.find(x => x.id === id);
+  b.active = !b.active;
+  renderAll();
+  showToast(b.active ? `${b.name} turned ON` : `${b.name} turned OFF`);
+}
+
+function setVariant(v) {
+  state.variant = v;
+  // Update which blocks are active based on the variant
+  const variantActive = VARIANTS[v].activeBlocks;
+  state.blocks.forEach(b => { b.active = variantActive.includes(b.id); });
+  // Update demo panel active button
+  document.querySelectorAll('.demo-panel button').forEach(el => {
+    el.classList.toggle('active', el.dataset.variant === v);
+  });
+  renderAll();
+}
+
+// ────────────────────────────────────────
+// MODALS
+// ────────────────────────────────────────
+function openModal(html) {
+  document.getElementById('modal-content').innerHTML = html;
+  document.getElementById('modal-overlay').hidden = false;
+}
+function closeModal() {
+  document.getElementById('modal-overlay').hidden = true;
+  document.getElementById('modal-content').innerHTML = '';
+}
+
+function openBlockEditModal(id) {
+  const b = state.blocks.find(x => x.id === id);
+  if (!b) return;
+  openModal(`
+    <div class="modal">
+      <div class="modal-title highlight">${b.icon} ${b.name}</div>
+      <div class="modal-field"><label>Name</label><input type="text" class="modal-input" value="${b.name}"></div>
+      <div class="modal-field"><label>Apps blocked</label><div class="modal-input">${b.apps} <span style="float:right; color:var(--coral); cursor:pointer;">Edit →</span></div></div>
+      <div class="modal-field"><label>Difficulty</label><div class="strict-pills"><span class="strict-pill standard active">Standard</span><span class="strict-pill">Strict</span></div></div>
+      <div class="modal-row">
+        <div class="modal-field"><label>Start</label><input type="text" class="modal-input" value="${b.schedule.includes(' — ') ? b.schedule.split(' — ')[0].split('·').pop().trim() : 'On demand'}"></div>
+        <div class="modal-field"><label>End</label><input type="text" class="modal-input" value="${b.schedule.includes(' — ') ? b.schedule.split(' — ')[1].split('·')[0].trim() : 'On demand'}"></div>
+      </div>
+      <div class="modal-field">
+        <label>Days of Week Active</label>
+        <div class="day-pills">
+          ${['M','T','W','T','F','S','S'].map((d,i) => `<div class="day-pill${i>=5?' off':''}">${d}</div>`).join('')}
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-danger" onclick="deleteBlock('${b.id}')">Delete</button>
+        <div class="right"><button class="btn-quiet" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="closeModal();showToast('Block saved')">Save</button></div>
+      </div>
+    </div>
+  `);
+  // Day pill toggle
+  document.querySelectorAll('.day-pill').forEach(p => p.onclick = () => p.classList.toggle('off'));
+  document.querySelectorAll('.strict-pill').forEach(p => p.onclick = () => {
+    document.querySelectorAll('.strict-pill').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+  });
+}
+
+function deleteBlock(id) {
+  if (!confirm('Delete this block?')) return;
+  state.blocks = state.blocks.filter(b => b.id !== id);
+  closeModal();
+  renderAll();
+  showToast('Block deleted');
+}
+
+function openNewBlockModal() {
+  openModal(`
+    <div class="modal">
+      <div class="modal-title">New Block</div>
+      <div class="modal-field"><label>Name</label><input type="text" class="modal-input" placeholder="e.g. Block social media"></div>
+      <div class="modal-field"><label>What does it block?</label><input type="text" class="modal-input" placeholder="Apps + sites"></div>
+      <div class="modal-field"><label>Difficulty</label><div class="strict-pills"><span class="strict-pill standard active">Standard</span><span class="strict-pill">Strict</span></div></div>
+      <div class="modal-row">
+        <div class="modal-field"><label>Start</label><input type="text" class="modal-input" placeholder="9:00 AM"></div>
+        <div class="modal-field"><label>End</label><input type="text" class="modal-input" placeholder="5:00 PM"></div>
+      </div>
+      <div class="modal-field"><label>Active days</label><div class="day-pills">${['M','T','W','T','F','S','S'].map((d,i) => `<div class="day-pill${i>=5?' off':''}">${d}</div>`).join('')}</div></div>
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-quiet" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="closeModal();showToast('New block created')">Create</button></div></div>
+    </div>
+  `);
+  document.querySelectorAll('.day-pill').forEach(p => p.onclick = () => p.classList.toggle('off'));
+  document.querySelectorAll('.strict-pill').forEach(p => p.onclick = () => {
+    document.querySelectorAll('.strict-pill').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+  });
+}
+
+function openNewTaskModal() {
+  openModal(taskModalHTML('New Task', '', '', '', 'standard', []));
+  attachTaskModalHandlers();
+}
+
+function openTaskEditModal(title, strictness, when) {
+  const isStrict = strictness === 'strict';
+  // Determine auto-active blocks based on task
+  const autoBlocks = title.includes('blog') ? ['social','video','news'] : ['social'];
+  openModal(taskModalHTML(`Edit Task: ${title}`, title, 'Outline + 500 words by Wed EOD', when, isStrict ? 'strict' : 'standard', autoBlocks));
+  attachTaskModalHandlers();
+}
+
+function taskModalHTML(modalTitle, title, doneLooks, when, strictness, autoBlocks) {
+  return `
+    <div class="modal">
+      <div class="modal-title">${modalTitle}</div>
+      <div class="modal-field"><label>Title</label><input type="text" class="modal-input" value="${title}" placeholder="e.g. Outline blog post #3"></div>
+      <div class="modal-field"><label>Done looks like</label><textarea class="modal-input textarea" placeholder="What does done look like?">${doneLooks}</textarea></div>
+      <div class="modal-row">
+        <div class="modal-field"><label>Time</label><input type="text" class="modal-input" value="${when}" placeholder="1:00 PM"></div>
+        <div class="modal-field"><label>Strictness</label><div class="strict-pills"><span class="strict-pill standard ${strictness==='standard'?'active':''}">Standard</span><span class="strict-pill ${strictness==='strict'?'active':''}">Strict</span></div></div>
+      </div>
+      <div class="auto-blocks-section">
+        <span class="ab-label">🛡 Auto-activate blocks when this task starts</span>
+        <div class="auto-blocks-list">
+          ${state.blocks.map(b => {
+            const selected = autoBlocks.includes(b.id);
+            return `<span class="ab-pill ${selected?'':'unselected'}" data-block-id="${b.id}">${b.icon} ${b.name}${selected?' ✓':''}</span>`;
+          }).join('')}
+        </div>
+        <div class="ab-hint">When this task starts, the ✓ blocks turn on. They turn off when the task ends.</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-danger" onclick="closeModal();showToast('Task deleted')">Delete</button>
+        <div class="right"><button class="btn-quiet" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="closeModal();showToast('Task saved')">Save</button></div>
+      </div>
+    </div>
+  `;
+}
+
+function attachTaskModalHandlers() {
+  document.querySelectorAll('.strict-pill').forEach(p => p.onclick = () => {
+    document.querySelectorAll('.strict-pill').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+  });
+  document.querySelectorAll('.ab-pill').forEach(p => p.onclick = () => {
+    p.classList.toggle('unselected');
+    const isSelected = !p.classList.contains('unselected');
+    p.innerHTML = p.innerHTML.replace(' ✓','');
+    if (isSelected) p.innerHTML += ' ✓';
+  });
+}
+
+function openBlockNowModal() {
+  openModal(`
+    <div class="modal" style="max-width:440px;">
+      <div class="modal-title">Block now (ad-hoc)</div>
+      <p style="font-size:13px; color:var(--muted); margin:0 0 14px;">Start an ad-hoc focus session with no task attached.</p>
+      <div class="modal-field"><label>Duration</label><div class="strict-pills"><span class="strict-pill">15m</span><span class="strict-pill standard active">30m</span><span class="strict-pill">60m</span><span class="strict-pill">2h</span></div></div>
+      <div class="modal-field"><label>Strictness</label><div class="strict-pills"><span class="strict-pill standard active">Standard</span><span class="strict-pill">Strict</span></div></div>
+      <div class="modal-field"><label>Which blocks to turn on</label><div class="auto-blocks-list">${state.blocks.slice(0,3).map(b => `<span class="ab-pill" data-block-id="${b.id}">${b.icon} ${b.name} ✓</span>`).join('')}</div></div>
+      <div class="modal-actions"><button class="btn-quiet" onclick="closeModal()">Cancel</button><div class="right"><button class="btn-primary" onclick="closeModal();showToast('Block session started')">Start</button></div></div>
+    </div>
+  `);
+  document.querySelectorAll('.strict-pill').forEach(p => p.onclick = () => {
+    const group = p.parentElement;
+    group.querySelectorAll('.strict-pill').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+  });
+}
+
+function openFreeTimeModal() {
+  openModal(`
+    <div class="modal" style="max-width:400px;">
+      <div class="modal-title">+ Free Time</div>
+      <p style="font-size:13px; color:var(--muted); margin:0 0 14px;">Add a Free Time block (lunch, walk, etc.) — marks the time as intentionally non-focus.</p>
+      <div class="modal-row">
+        <div class="modal-field"><label>Start</label><input type="text" class="modal-input" value="12:00 PM"></div>
+        <div class="modal-field"><label>End</label><input type="text" class="modal-input" value="1:00 PM"></div>
+      </div>
+      <div class="modal-field"><label>Label</label><input type="text" class="modal-input" placeholder="Lunch"></div>
+      <div class="modal-actions"><button class="btn-quiet" onclick="closeModal()">Cancel</button><div class="right"><button class="btn-primary" onclick="closeModal();showToast('Free Time added')">Add</button></div></div>
+    </div>
+  `);
+}
+
+function openModePicker() {
+  openModal(`
+    <div class="modal">
+      <div class="modal-title">Start a task</div>
+      <p style="font-size:13px; color:var(--muted); margin:0 0 14px;">Pick from today's planned tasks.</p>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <div class="block-row" style="margin:0; cursor:pointer;" onclick="closeModal();showToast('Started: Outline blog post #3')">
+          <div class="b-icon" style="background:rgba(232,116,97,0.14);">🟠</div>
+          <div class="b-body">
+            <div class="b-name">Outline blog post #3</div>
+            <div class="b-when">Toward "Write 4 blog posts" · Strict</div>
+          </div>
+        </div>
+        <div class="block-row" style="margin:0; cursor:pointer;" onclick="closeModal();showToast('Started: Code review backlog')">
+          <div class="b-icon" style="background:rgba(178,135,217,0.14);">🟣</div>
+          <div class="b-body">
+            <div class="b-name">Code review backlog</div>
+            <div class="b-when">Toward "Ship Mac app" · Standard</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-quiet" onclick="closeModal()">Cancel</button></div></div>
+    </div>
+  `);
+}
+
+function openUnlockModal() {
+  openModal(`
+    <div class="modal" style="max-width:440px;">
+      <div class="modal-title">Ask Caity to release bedtime</div>
+      <p style="font-size:13px; color:var(--muted); margin:0 0 14px;">Caity gets a notification. Approve gives you screen access for the duration below.</p>
+      <div class="modal-field"><label>How long?</label><div class="strict-pills"><span class="strict-pill standard active">15 min</span><span class="strict-pill">30 min</span><span class="strict-pill">60 min</span><span class="strict-pill">Until wake</span></div></div>
+      <div class="modal-field"><label>Why (optional)</label><textarea class="modal-input textarea" placeholder="Need to grab a flight booking…"></textarea></div>
+      <div style="background:rgba(229,160,99,0.10); border:1px solid rgba(229,160,99,0.32); border-radius:8px; padding:10px 12px; font-size:12px; color:var(--amber); margin-bottom:14px;">⚠ Once per night cap.</div>
+      <div class="modal-actions"><button class="btn-quiet" onclick="closeModal()">Cancel</button><div class="right"><button class="btn-primary" onclick="closeModal();showToast('Unlock request sent to Caity')">Send request</button></div></div>
+    </div>
+  `);
+  document.querySelectorAll('.strict-pill').forEach(p => p.onclick = () => {
+    document.querySelectorAll('.strict-pill').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+  });
+}
+
+function confirmEndEarly() {
+  const v = VARIANTS[state.variant];
+  const isStrict = v.task && v.task.sub.includes('Strict');
+  if (isStrict) {
+    openModal(`
+      <div class="modal" style="max-width:440px;">
+        <div class="modal-title">End "${v.task.title}" early?</div>
+        <p style="font-size:13px; color:var(--muted); margin:0 0 14px;">You're in <strong>Strict</strong>. To end early, ask Caity to approve.</p>
+        <div class="modal-actions"><div></div><div class="right"><button class="btn-quiet" onclick="closeModal()">Cancel</button><button class="btn-danger" onclick="closeModal();showToast('Unlock request sent to Caity')">Ask partner</button></div></div>
+      </div>
+    `);
+  } else {
+    openModal(`
+      <div class="modal" style="max-width:400px;">
+        <div class="modal-title">End early?</div>
+        <p style="font-size:13px; color:var(--muted); margin:0 0 14px;">You're 12 min in. This counts as Slipped on your weekly review.</p>
+        <div class="modal-actions"><div></div><div class="right"><button class="btn-quiet" onclick="closeModal()">Cancel</button><button class="btn-danger" onclick="closeModal();showToast('Session ended')">End now</button></div></div>
+      </div>
+    `);
+  }
+}
+
+function startPomodoro() {
+  showToast('Pomodoro 25 started');
+}
+
+// ────────────────────────────────────────
+// POPOVERS
+// ────────────────────────────────────────
+function openPopover(e, kind) {
+  e.stopPropagation();
+  const rect = e.target.closest('.item').getBoundingClientRect();
+  let html = '';
+  if (kind === 'partner') {
+    html = `<h4>Partner: Caity Enroth</h4><p>caity.enroth@gmail.com<br>Ready to lock · online 5m ago</p><div class="pop-row"><button class="btn-secondary" style="font-size:12px; padding:6px 10px;">Request unlock</button><button class="btn-quiet" style="font-size:12px;">Manage →</button></div>`;
+  } else if (kind === 'content') {
+    html = `<h4 style="color:var(--green);">Content protection · ON</h4><p>Last detection 2 days ago<br>OpenNSFW on-device · Caity notified on detection</p><div class="pop-row"><button class="btn-secondary" style="font-size:12px; padding:6px 10px;">Test</button><button class="btn-quiet" style="font-size:12px;">Settings →</button></div>`;
+  } else if (kind === 'puck') {
+    html = `<h4 style="color:var(--dim);">Puck · not paired</h4><p>Pair to enable NFC tap-to-wake + tap-to-end-session</p><div class="pop-row"><button class="btn-primary" style="font-size:12px; padding:6px 10px;">Pair</button><button class="btn-quiet" style="font-size:12px;">Settings →</button></div>`;
+  }
+  const pop = document.createElement('div');
+  pop.className = 'popover';
+  pop.style.left = rect.left + 'px';
+  pop.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
+  pop.innerHTML = html;
+  const backdrop = document.createElement('div');
+  backdrop.className = 'popover-backdrop';
+  backdrop.onclick = () => { pop.remove(); backdrop.remove(); };
+  document.getElementById('popover-mount').appendChild(backdrop);
+  document.getElementById('popover-mount').appendChild(pop);
+}
+
+// ────────────────────────────────────────
+// TOAST
+// ────────────────────────────────────────
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.getElementById('toast-mount').appendChild(t);
+  setTimeout(() => t.remove(), 2400);
+}
+
+// ────────────────────────────────────────
+// INIT
+// ────────────────────────────────────────
+renderAll();
+</script>
+</body>
+</html>

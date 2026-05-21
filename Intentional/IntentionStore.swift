@@ -15,6 +15,11 @@
 import Foundation
 import AppKit
 
+// Slice 2 of 2026-05-05 redesign: Focus Mode is the canonical user-facing name.
+// FocusModeStore is the alias for IntentionStore. Internal Swift type retains
+// Intention naming until slice 13 deletes the aliases.
+typealias FocusModeStore = IntentionStore
+
 actor IntentionStore {
     static let shared = IntentionStore()
 

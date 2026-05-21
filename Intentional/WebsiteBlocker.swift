@@ -25,6 +25,24 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     // Blocked domains (fully user-configured via dashboard Distracting Websites list)
     private var blockedDomains: [String]
 
+    // Standalone domains driven by BlockRuleEnforcer (BlockingProfile schedules
+    // active OUTSIDE of a focus session). Unioned with `blockedDomains` at
+    // match-time so rule schedules engage even when no session is running.
+    // Lowercased. See BlockRuleEnforcer for the producer.
+    private var standaloneDomains: Set<String> = []
+
+    /// Returns the union of session-driven `blockedDomains` and BlockRuleEnforcer
+    /// `standaloneDomains`. All matching helpers below iterate over this — keeps
+    /// "session enforcement" and "rule enforcement" composing as a union.
+    private var effectiveBlockedDomains: [String] {
+        if standaloneDomains.isEmpty { return blockedDomains }
+        var seen = Set<String>()
+        var out: [String] = []
+        for d in blockedDomains where seen.insert(d).inserted { out.append(d) }
+        for d in standaloneDomains where seen.insert(d).inserted { out.append(d) }
+        return out
+    }
+
     // Custom blocking page URL (will be in app bundle)
     private var blockPageURL: String {
         if let bundlePath = Bundle.main.resourcePath {
@@ -101,12 +119,37 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         appDelegate?.postLog("🌐🔍 WebsiteBlocker: full domain list: \(allDomains)")
     }
 
+    /// Update the BlockRuleEnforcer-driven standalone blocklist (BlockingProfile
+    /// schedules active outside a focus session). Unioned with `blockedDomains`
+    /// at match-time. Lowercased.
+    /// Pure setter — periodic 0.5s sweep picks it up on next tick. If the new
+    /// set differs from the old, the recently-blocked cache is cleared so newly
+    /// added domains take effect on the very next sweep instead of waiting for
+    /// the 1s cache TTL.
+    func setStandaloneBlocklist(domains: [String]) {
+        let normalized = Set(domains.map { $0.lowercased() })
+        let changed = normalized != standaloneDomains
+        standaloneDomains = normalized
+        if changed {
+            recentlyBlockedDomains.removeAll()
+            appDelegate?.postLog("🌐🛡 WebsiteBlocker: standaloneDomains updated (\(normalized.count) domains): \(Array(normalized).sorted())")
+            // Ensure the 0.5s sweep is running if there's anything to block.
+            // (When no focus session is active, isBlocking may be false even
+            // though there ARE rule-driven domains to enforce.)
+            if !normalized.isEmpty && !isBlocking {
+                startBlocking()
+            }
+        }
+    }
+
     /// Log current blocking state (for debugging)
     func logBlockingState() {
         appDelegate?.postLog("🌐🔍 === WebsiteBlocker STATE ===")
         appDelegate?.postLog("🌐🔍   isBlocking: \(isBlocking)")
         appDelegate?.postLog("🌐🔍   blockedDomains count: \(blockedDomains.count)")
         appDelegate?.postLog("🌐🔍   blockedDomains: \(blockedDomains)")
+        appDelegate?.postLog("🌐🔍   standaloneDomains count: \(standaloneDomains.count)")
+        appDelegate?.postLog("🌐🔍   standaloneDomains: \(Array(standaloneDomains).sorted())")
         appDelegate?.postLog("🌐🔍   activeBrowsers: \(activeBrowsers)")
         appDelegate?.postLog("🌐🔍 === END STATE ===")
     }
@@ -286,8 +329,10 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
             return nil
         }
 
-        // For our blocked domains, find which one this host matches
-        for domain in blockedDomains {
+        // For our blocked domains, find which one this host matches.
+        // Uses effectiveBlockedDomains so BlockRuleEnforcer-driven entries are
+        // included (union of session-driven + rule-driven blocklists).
+        for domain in effectiveBlockedDomains {
             if host == domain || host.hasSuffix("." + domain) {
                 // Return the base domain (e.g., "youtube.com" not "m.youtube.com")
                 // This ensures m.youtube.com and www.youtube.com share the same cache entry
@@ -318,14 +363,16 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
                lowercased.hasPrefix("file://")
     }
 
-    // Check if URL matches any blocked domain (regardless of cache)
+    // Check if URL matches any blocked domain (regardless of cache).
+    // Uses effectiveBlockedDomains so BlockRuleEnforcer-driven entries are
+    // included.
     private func matchesBlockedDomain(url: String) -> Bool {
         guard let urlObj = URL(string: url),
               let host = urlObj.host?.lowercased() else {
             return false
         }
 
-        return blockedDomains.contains { domain in
+        return effectiveBlockedDomains.contains { domain in
             host == domain || host.hasSuffix("." + domain)
         }
     }
@@ -527,9 +574,11 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         let protectedBrowsers = getProtectedBrowsersList()
         let encodedBrowser = "Chrome".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Chrome"
 
-        // Build domain checks for the active tab
+        // Build domain checks for the active tab.
+        // Uses effectiveBlockedDomains so BlockRuleEnforcer-driven entries are
+        // included.
         var domainChecks = ""
-        for domain in blockedDomains {
+        for domain in effectiveBlockedDomains {
             let encodedDomain = domain.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? domain
             let blockURL = "\(blockPageURL)?blocked=\(encodedDomain)&browser=\(encodedBrowser)&protected=\(protectedBrowsers)"
             domainChecks += """
@@ -578,7 +627,9 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         let encodedBrowser = "Chrome".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Chrome"
 
         var domainChecks = ""
-        for domain in blockedDomains {
+        // Uses effectiveBlockedDomains so BlockRuleEnforcer-driven entries are
+        // included.
+        for domain in effectiveBlockedDomains {
             let encodedDomain = domain.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? domain
             let blockURL = "\(blockPageURL)?blocked=\(encodedDomain)&browser=\(encodedBrowser)&protected=\(protectedBrowsers)"
             domainChecks += """
@@ -981,13 +1032,13 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     // MARK: - Helper Methods
 
     private func getProtectedBrowsersList() -> String {
-        let setup = NativeMessagingSetup.shared
-        let extensionIds = setup.getAllExtensionIds()
-        guard !extensionIds.isEmpty else { return "" }
-
-        let statuses = setup.getBrowserStatus()
-        let protectedBrowsers = statuses.filter { $0.isEnabled }.map { $0.name }
-        return protectedBrowsers.joined(separator: ",")
+        // EXTENSION-REMOVAL-NOTE: previous behavior queried NativeMessagingSetup
+        // to discriminate protected (extension-enabled) vs unprotected browsers
+        // and pass the list as a `protected=foo,bar` query param to blocked.html.
+        // Post-extension-removal, blocking is AppleScript-only — there is no
+        // "protected" vs "unprotected" distinction — so this always returns
+        // an empty string. Kept as a no-op for caller compatibility.
+        return ""
     }
 
     private func shouldBlock(url: String) -> Bool {
@@ -1000,35 +1051,39 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
             return false
         }
 
-        // If no blocked domains configured, never block
-        if blockedDomains.isEmpty {
-            appDelegate?.postLog("🌐🔍 shouldBlock(\(url)): NO — blockedDomains is EMPTY")
+        // If no blocked domains configured (neither session-driven nor rule-driven),
+        // never block.
+        let effective = effectiveBlockedDomains
+        if effective.isEmpty {
+            appDelegate?.postLog("🌐🔍 shouldBlock(\(url)): NO — effectiveBlockedDomains is EMPTY")
             return false
         }
 
         guard let urlObj = URL(string: url),
               let host = urlObj.host?.lowercased() else {
             let urlWithoutQuery = url.components(separatedBy: "?").first ?? url
-            let result = blockedDomains.contains { domain in
+            let result = effective.contains { domain in
                 urlWithoutQuery.lowercased().contains(domain)
             }
-            appDelegate?.postLog("🌐🔍 shouldBlock(\(url)): \(result ? "YES" : "NO") (fallback parse, host=nil, \(blockedDomains.count) domains)")
+            appDelegate?.postLog("🌐🔍 shouldBlock(\(url)): \(result ? "YES" : "NO") (fallback parse, host=nil, \(effective.count) effective domains)")
             return result
         }
 
-        let result = blockedDomains.contains { domain in
+        let result = effective.contains { domain in
             host == domain || host.hasSuffix("." + domain)
         }
         if result {
-            appDelegate?.postLog("🌐🔍 shouldBlock(\(url)): YES — host '\(host)' matched in \(blockedDomains.count) domains")
+            appDelegate?.postLog("🌐🔍 shouldBlock(\(url)): YES — host '\(host)' matched in \(effective.count) effective domains")
         }
         return result
     }
 
     private func getSafeDomain(from url: String) -> String {
-        // Extract main domain for matching (e.g., "youtube.com" from full URL)
+        // Extract main domain for matching (e.g., "youtube.com" from full URL).
+        // Uses effectiveBlockedDomains so BlockRuleEnforcer-driven entries are
+        // included.
         let lowercasedURL = url.lowercased()
-        for domain in blockedDomains {
+        for domain in effectiveBlockedDomains {
             if lowercasedURL.contains(domain) {
                 return domain
             }
@@ -1212,6 +1267,199 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    // MARK: - Close-the-noise sweep helpers (multi-tab read + bookmarks + close-by-URL)
+    //
+    // These run on appleScriptQueue (CLAUDE.md rule: never sync AppleScript on main).
+    // Sweep is once-per-session, so single-shot async is fine — no checkInFlight gating.
+
+    struct AllTabsInfo {
+        let windowIndex: Int
+        let tabIndex: Int
+        let title: String
+        let url: String
+        let isPinned: Bool
+    }
+
+    /// Read every tab across every window of the given browser. Used by the
+    /// close-the-noise sweep. Returns empty on AppleScript failure (logged).
+    ///
+    /// `appName` is the AppleScript application name (e.g. "Google Chrome",
+    /// "Comet"). It's sourced from BrowserMonitor's runtime discovery so this
+    /// works with every Chromium-based browser without hardcoding.
+    func readAllTabsAcrossWindows(forBundleId bundleId: String, appName: String) async -> [AllTabsInfo] {
+        let isSafari = (bundleId == "com.apple.Safari")
+        let isFirefoxFamily = bundleId.hasPrefix("org.mozilla.")  // No AppleScript dictionary.
+        if isFirefoxFamily { return [] }
+
+        let titleProp = isSafari ? "name" : "title"
+        let urlProp = "URL"
+        // Per-property try blocks — a missing property on one tab must NOT
+        // drop the whole tab. Browsers like Comet may not expose `pinned`.
+        let pinnedBlock = isSafari ? "" : """
+                try
+                    set tPinned to (get pinned of tabRef) as text
+                end try
+        """
+
+        let script = """
+        tell application "\(appName)"
+            if it is not running then return ""
+            set output to ""
+            set winIdx to 0
+            repeat with w in windows
+                set winIdx to winIdx + 1
+                set tabIdx to 0
+                repeat with tabRef in tabs of w
+                    set tabIdx to tabIdx + 1
+                    set tTitle to ""
+                    set tURL to ""
+                    set tPinned to "false"
+                    try
+                        set tURL to \(urlProp) of tabRef
+                    end try
+                    try
+                        set tTitle to \(titleProp) of tabRef
+                    end try
+        \(pinnedBlock)
+                    if tURL is not "" then
+                        set output to output & winIdx & "\\t" & tabIdx & "\\t" & tPinned & "\\t" & tURL & "\\t" & tTitle & "\\n"
+                    end if
+                end repeat
+            end repeat
+            return output
+        end tell
+        """
+
+        let raw = await runAppleScript(script, label: "readAllTabs(\(appName))")
+        // Diagnostic: log raw output (first 300 chars, with tab/newline visualised)
+        // so we can see WHY a browser returns zero tabs when it shouldn't.
+        let preview = String(raw.prefix(300))
+            .replacingOccurrences(of: "\n", with: "↵")
+            .replacingOccurrences(of: "\t", with: "→")
+        appDelegate?.postLog("📝 readAllTabs(\(appName)) raw=\(raw.count) chars: '\(preview)'")
+        guard !raw.isEmpty else { return [] }
+
+        var out = [AllTabsInfo]()
+        for line in raw.components(separatedBy: "\n") {
+            let parts = line.components(separatedBy: "\t")
+            guard parts.count >= 5,
+                  let wi = Int(parts[0]),
+                  let ti = Int(parts[1]) else { continue }
+            let isPinned = (parts[2] == "true")
+            let url = parts[3]
+            let title = parts[4]
+            if url.isEmpty { continue }
+            out.append(AllTabsInfo(windowIndex: wi, tabIndex: ti, title: title, url: url, isPinned: isPinned))
+        }
+        return out
+    }
+
+    /// Create a bookmark folder. Works for any Chromium-based browser (Chrome,
+    /// Arc, Comet, Brave, Edge, etc.) — they all share the same AppleScript
+    /// bookmark dictionary. Safari is unsupported in modern macOS; Firefox
+    /// family has no AppleScript dictionary at all. `appName` is the
+    /// AppleScript application name from BrowserMonitor's runtime discovery.
+    func createBookmarkFolder(forBundleId bundleId: String, appName: String, name: String) async -> String? {
+        if bundleId == "com.apple.Safari" {
+            appDelegate?.postLog("⚠️ Safari bookmark folder creation not supported — tabs close without stash")
+            return nil
+        }
+        if bundleId.hasPrefix("org.mozilla.") { return nil }
+        let safeName = name.replacingOccurrences(of: "\"", with: "\\\"")
+        let scriptSource = """
+        tell application "\(appName)"
+            make new bookmark folder at end of bookmark folder "Bookmarks Bar" of bookmarks bar with properties {title:"\(safeName)"}
+        end tell
+        return "\(safeName)"
+        """
+        let raw = await runAppleScript(scriptSource, label: "createBookmarkFolder(\(appName))")
+        return raw.isEmpty ? nil : raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Add a single bookmark to the named folder. Best-effort; no return value.
+    func addBookmark(forBundleId bundleId: String, appName: String, folderName: String, title: String, url: String) async {
+        if bundleId == "com.apple.Safari" { return }
+        if bundleId.hasPrefix("org.mozilla.") { return }
+        let safeTitle = title.replacingOccurrences(of: "\"", with: "\\\"")
+        let safeURL = url.replacingOccurrences(of: "\"", with: "\\\"")
+        let safeFolder = folderName.replacingOccurrences(of: "\"", with: "\\\"")
+        let script = """
+        tell application "\(appName)"
+            make new bookmark item at end of bookmark folder "\(safeFolder)" of bookmark folder "Bookmarks Bar" of bookmarks bar with properties {title:"\(safeTitle)", URL:"\(safeURL)"}
+        end tell
+        """
+        _ = await runAppleScript(script, label: "addBookmark(\(appName))")
+    }
+
+    /// Close every tab whose URL is in `urls` across every window of the given
+    /// browser. Returns the count of tabs actually closed (which can exceed
+    /// `urls.count` when duplicate-URL tabs are spread across windows).
+    @discardableResult
+    func closeTabsByURL(_ urls: Set<String>, forBundleId bundleId: String, appName: String) async -> Int {
+        guard !urls.isEmpty else { return 0 }
+        if bundleId.hasPrefix("org.mozilla.") { return 0 }
+        let urlProp = "URL"
+
+        // Build the target URL list as an AppleScript literal. AppleScript
+        // doesn't allow multi-line `if (a or b or c)` without continuation
+        // markers — using `is in targetURLs` instead keeps the script tractable
+        // for arbitrary URL counts.
+        let urlListLiteral = urls
+            .map { "\"\($0.replacingOccurrences(of: "\"", with: "\\\""))\"" }
+            .joined(separator: ", ")
+
+        let script = """
+        tell application "\(appName)"
+            if it is not running then return 0
+            set closedCount to 0
+            set targetURLs to {\(urlListLiteral)}
+            repeat with w in windows
+                set tabCount to count of tabs of w
+                repeat with i from tabCount to 1 by -1
+                    try
+                        set tabRef to tab i of w
+                        set u to \(urlProp) of tabRef
+                        if targetURLs contains u then
+                            close tabRef
+                            set closedCount to closedCount + 1
+                        end if
+                    end try
+                end repeat
+            end repeat
+            return closedCount
+        end tell
+        """
+
+        let raw = await runAppleScript(script, label: "closeTabsByURL(\(appName))")
+        let closed = Int(raw.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+        appDelegate?.postLog("📝 closeTabsByURL(\(appName)): script returned \(raw.isEmpty ? "(empty)" : raw) → \(closed) tabs closed")
+        return closed
+    }
+
+    /// One-shot AppleScript runner for the sweep helpers. Dispatches to the
+    /// existing background `appleScriptQueue` to keep main free (CLAUDE.md bug #9).
+    /// Returns the script's string output (or "" on failure / no result).
+    private func runAppleScript(_ source: String, label: String) async -> String {
+        await withCheckedContinuation { (continuation: CheckedContinuation<String, Never>) in
+            appleScriptQueue.async { [weak self] in
+                guard let script = NSAppleScript(source: source) else {
+                    DispatchQueue.main.async { self?.appDelegate?.postLog("⚠️ \(label) failed to compile") }
+                    continuation.resume(returning: "")
+                    return
+                }
+                var err: NSDictionary?
+                let output = script.executeAndReturnError(&err)
+                if let err = err {
+                    let msg = err["NSAppleScriptErrorMessage"] as? String ?? "unknown"
+                    DispatchQueue.main.async { self?.appDelegate?.postLog("⚠️ \(label) failed: \(msg)") }
+                    continuation.resume(returning: "")
+                    return
+                }
+                continuation.resume(returning: output.stringValue ?? "")
             }
         }
     }

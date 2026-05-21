@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Intentional — Settings (all sections + modals)</title>
+<style>
+  :root {
+    --bg: #0a0c0a; --bg-2: #111414;
+    --card: rgba(255,255,255,0.04); --card-hover: rgba(255,255,255,0.07);
+    --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.14);
+    --text: #f7f8f8; --muted: rgba(255,255,255,0.55); --dim: rgba(255,255,255,0.36);
+    --coral: #E87461; --gold: #F0B060; --green: #6FB58E; --blue: #6E8FE0;
+    --violet: #B287D9; --amber: #E5A063; --red: #D45050;
+    --grad: linear-gradient(135deg, var(--coral), var(--gold));
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif;
+    --mono: "SF Mono", Menlo, Monaco, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; line-height: 1.55; }
+  body { background: radial-gradient(ellipse at top, rgba(232,116,97,0.06), transparent 60%), var(--bg); background-attachment: fixed; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 56px 32px 96px; }
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--coral); margin-bottom: 10px; }
+  h1 { font-size: 38px; line-height: 1.15; letter-spacing: -0.8px; font-weight: 700; margin: 0 0 14px; }
+  .lede { font-size: 17px; color: var(--muted); max-width: 760px; margin-bottom: 16px; }
+  h2 { font-size: 22px; letter-spacing: -0.4px; font-weight: 600; margin: 56px 0 6px; }
+  h2 .meta { font-size: 13px; font-weight: 400; color: var(--dim); margin-left: 12px; }
+  .state-note { font-size: 13px; color: var(--muted); margin: 6px 0 16px; max-width: 760px; }
+  .app-frame { display: flex; border: 1px solid var(--border-strong); border-radius: 16px; overflow: hidden; background: var(--bg-2); box-shadow: 0 20px 60px rgba(0,0,0,0.4); min-height: 700px; }
+  .sidebar { width: 200px; background: rgba(0,0,0,0.30); border-right: 1px solid var(--border); padding: 24px 14px; display: flex; flex-direction: column; gap: 4px; }
+  .brand { font-size: 15px; font-weight: 700; color: var(--coral); margin-bottom: 28px; padding: 0 10px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; color: var(--muted); font-size: 14px; font-weight: 500; }
+  .nav-item .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); }
+  .nav-item.active { background: rgba(232,116,97,0.10); color: var(--coral); }
+  .nav-item.active .dot { background: var(--coral); box-shadow: 0 0 8px var(--coral); }
+  .sidebar-foot { margin-top: auto; padding: 12px 10px 0; font-size: 11px; color: var(--dim); font-family: var(--mono); line-height: 1.6; }
+  .content { flex: 1; padding: 28px 36px; overflow-y: auto; }
+  .page-title { font-size: 22px; font-weight: 700; margin: 0 0 2px; letter-spacing: -0.3px; }
+  .page-sub { font-size: 13px; color: var(--dim); margin-bottom: 22px; }
+  .section-h3 { font-size: 13px; color: var(--dim); margin: 18px 0 10px; letter-spacing: 0.6px; text-transform: uppercase; font-weight: 600; }
+  .btn-primary { background: var(--grad); color: #1a0f0a; border: none; padding: 9px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; font-family: var(--font); }
+  .btn-secondary { background: transparent; color: var(--muted); border: 1px solid var(--border-strong); padding: 9px 14px; border-radius: 8px; font-weight: 500; font-size: 13px; cursor: pointer; font-family: var(--font); }
+  .btn-danger { background: transparent; color: var(--red); border: 1px solid rgba(212,80,80,0.36); padding: 9px 14px; border-radius: 8px; font-weight: 500; font-size: 13px; cursor: pointer; }
+  .btn-quiet { background: transparent; color: var(--muted); border: 0; padding: 9px 6px; font-size: 12px; cursor: pointer; }
+
+  .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px; }
+  .setting-row .body { flex: 1; padding-right: 16px; }
+  .setting-row .title { font-size: 14px; font-weight: 600; margin-bottom: 3px; display: flex; align-items: center; gap: 8px; }
+  .setting-row .desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .setting-row .control { font-size: 13px; }
+  .manage { color: var(--coral); font-weight: 500; cursor: pointer; font-size: 12px; }
+  .toggle { width: 36px; height: 20px; border-radius: 999px; background: rgba(255,255,255,0.10); position: relative; flex-shrink: 0; }
+  .toggle.on { background: var(--green); }
+  .toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: white; transition: left 0.15s; }
+  .toggle.on::after { left: 18px; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; font-size: 10px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap; }
+  .pill.green { background: rgba(111,181,142,0.12); color: var(--green); border: 1px solid rgba(111,181,142,0.28); }
+  .pill.amber { background: rgba(229,160,99,0.12); color: var(--amber); border: 1px solid rgba(229,160,99,0.28); }
+  .pill.coral { background: rgba(232,116,97,0.12); color: var(--coral); border: 1px solid rgba(232,116,97,0.28); }
+  .pill.red { background: rgba(212,80,80,0.12); color: var(--red); border: 1px solid rgba(212,80,80,0.28); }
+  .pill.blue { background: rgba(110,143,224,0.12); color: var(--blue); border: 1px solid rgba(110,143,224,0.28); }
+  .pill.dim { background: rgba(255,255,255,0.04); color: var(--dim); border: 1px solid var(--border); }
+
+  .modal { background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: 14px; padding: 24px; max-width: 480px; margin: 0 auto; box-shadow: 0 24px 60px rgba(0,0,0,0.5); }
+  .modal h3 { font-size: 16px; margin: 0 0 14px; font-weight: 700; }
+  .modal h3.danger { color: var(--red); }
+  .modal .field { margin-bottom: 14px; }
+  .modal .field label { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; display: block; margin-bottom: 6px; }
+  .modal .input { padding: 10px 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; font-size: 14px; color: var(--text); }
+  .modal .input.textarea { min-height: 80px; }
+  .modal .actions { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; }
+  .modal .right { display: flex; gap: 8px; }
+
+  .annot { margin: 14px 0 0; padding: 14px 18px; background: var(--card); border-left: 3px solid var(--coral); border-radius: 0 10px 10px 0; font-size: 13px; line-height: 1.6; color: var(--muted); }
+  .annot strong { color: var(--text); }
+  .annot ul { margin: 6px 0 0; padding-left: 20px; }
+  .annot code { background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 4px; font-size: 12px; font-family: var(--mono); }
+
+  .theme-tile { padding: 10px; border-radius: 10px; border: 1px solid var(--border); cursor: pointer; text-align: center; font-size: 12px; }
+  .theme-tile.active { border-color: var(--coral); box-shadow: 0 0 0 1px var(--coral); }
+  .theme-preview { height: 60px; border-radius: 6px; margin-bottom: 6px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+
+  .enforce-grid { background: var(--card); border:1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .enforce-grid table { width: 100%; border-collapse: collapse; }
+  .enforce-grid th, .enforce-grid td { padding: 8px 6px; font-size: 12px; color: var(--muted); text-align: center; }
+  .enforce-grid th { color: var(--dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; font-size: 10px; }
+  .enforce-grid td:first-child { text-align: left; color: var(--text); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Settings · all sections + modals · 2026-05-13</div>
+  <h1>Settings — defenses + app + account</h1>
+  <p class="lede">40 states. The main index lists every defense, AI/coaching control, app preference, and account control as a row with a state pill. Every modal that opens from those rows is sketched below.</p>
+</header>
+
+<!-- STATE 1: Index view -->
+<h2>State 1 — Index view (all sections visible) <span class="meta">primary Settings page</span></h2>
+<p class="state-note">Sections grouped by purpose. Defenses first (it's the rule-set users tweak most), then AI & Coaching, then Schedule (legacy distractions), then App, then Account.</p>
+<div class="app-frame">
+  <aside class="sidebar"><div class="brand">Intentional</div><div class="nav-item"><span class="dot"></span>Today</div><div class="nav-item"><span class="dot"></span>Plan</div><div class="nav-item active"><span class="dot"></span>Settings</div><div class="sidebar-foot">Caity ✓ · Content ON</div></aside>
+  <main class="content">
+    <h3 class="page-title">Settings</h3>
+    <div class="page-sub">Defenses · AI &amp; coaching · App · Account</div>
+
+    <div class="section-h3">Defenses</div>
+    <div class="setting-row"><div class="body"><div class="title">Content protection <span class="pill green">ON</span></div><div class="desc">Scans your screen every 2s for explicit content. Blocks the screen and notifies Caity on detection.</div></div><div class="control"><div class="toggle on"></div></div></div>
+    <div class="setting-row"><div class="body"><div class="title">Accountability partner <span class="pill coral">CAITY</span></div><div class="desc">caity.enroth@gmail.com · ready to lock. She must approve to disable any defense or end strict sessions early.</div></div><div class="control"><span class="manage">Manage →</span></div></div>
+    <div class="setting-row"><div class="body"><div class="title">Strict mode <span class="pill amber">ACTIVE</span></div><div class="desc">App cannot be quit or uninstalled without Caity's approval. Watchdog daemon running.</div></div><div class="control"><div class="toggle on"></div></div></div>
+    <div class="setting-row"><div class="body"><div class="title">Bedtime <span class="pill blue">11:00 PM – 6:30 AM</span></div><div class="desc">Wind-down notifications at T-30/15/10/5/1 · OS lock-loop every 10s during bedtime · partner unlock available.</div></div><div class="control"><span class="manage">Configure →</span></div></div>
+    <div class="setting-row"><div class="body"><div class="title">Puck (NFC tap target) <span class="pill dim">NOT PAIRED</span></div><div class="desc">Tap your phone on Puck to dismiss alarms, end sessions, trigger the morning planning ritual.</div></div><div class="control"><span class="manage">Pair →</span></div></div>
+    <div class="setting-row"><div class="body"><div class="title">Distraction budget <span class="pill green">30m/day</span></div><div class="desc">Earn social media minutes via focused work. Cross-device share toggle below.</div></div><div class="control"><span class="manage">Configure →</span></div></div>
+
+    <div class="section-h3">AI &amp; coaching</div>
+    <div class="setting-row"><div class="body"><div class="title">AI model <span class="pill coral">QWEN3-4B</span></div><div class="desc">On-device relevance scoring. Apple Foundation Models as alternative.</div></div><div class="control"><span class="manage">Change →</span></div></div>
+    <div class="setting-row"><div class="body"><div class="title">Enforcement mode</div><div class="desc">Nudge (gentle redirects) or Block (hard overlays on off-mission activity).</div></div><div class="control"><span class="pill coral">NUDGE</span></div></div>
+    <div class="setting-row"><div class="body"><div class="title">Coach Context</div><div class="desc">"I'm a software engineer. I spend more of my day coding and watching videos." Used by the AI to score relevance.</div></div><div class="control"><span class="manage">Edit →</span></div></div>
+    <div class="setting-row"><div class="body"><div class="title">Per-block enforcement</div><div class="desc">6 mechanisms × 2 block types = 12 toggles. Nudge / red shift / auto-redirect / overlay / intervention / audio / context-switch.</div></div><div class="control"><span class="manage">Edit grid →</span></div></div>
+    <div class="setting-row"><div class="body"><div class="title">Interventions</div><div class="desc">Scrambled Words · Reflect &amp; Commit · 60/90/120s wait. Fires after 5 min cumulative drift.</div></div><div class="control"><span class="manage">Edit →</span></div></div>
+    <div class="setting-row"><div class="body"><div class="title">AI assessments log</div><div class="desc">Last N coach verdicts with timestamps. Useful for debugging false positives.</div></div><div class="control"><span class="manage">View →</span></div></div>
+
+    <div class="section-h3">App</div>
+    <div class="setting-row"><div class="body"><div class="title">Theme <span class="pill coral">DEEP LUSH</span></div><div class="desc">Visual style. Affects backgrounds, accents, blocking overlays.</div></div><div class="control"><span class="manage">Change →</span></div></div>
+    <div class="setting-row"><div class="body"><div class="title">Open on login</div><div class="desc">Required for blocking to work after restart. Login-item enabled.</div></div><div class="control"><div class="toggle on"></div></div></div>
+    <div class="setting-row"><div class="body"><div class="title">Notifications</div><div class="desc">Session start · drift redirects · end-of-block summaries · wind-down · permission changes.</div></div><div class="control"><span class="manage">Configure →</span></div></div>
+    <div class="setting-row"><div class="body"><div class="title">Sound effects</div><div class="desc">Pop / Glass / Tink on transitions. Mutable per-event.</div></div><div class="control"><span class="manage">Configure →</span></div></div>
+    <div class="setting-row"><div class="body"><div class="title">Pill position</div><div class="desc">Top-right by default. Drag pill to move; click here to reset.</div></div><div class="control"><span class="manage">Reset →</span></div></div>
+    <div class="setting-row"><div class="body"><div class="title">Block ritual variant <span class="pill dim">DESIGN 3</span></div><div class="desc">Choose between 8 visual designs for the start-of-session ritual.</div></div><div class="control"><span class="manage">Change →</span></div></div>
+    <div class="setting-row"><div class="body"><div class="title">Browsers</div><div class="desc">Chrome ✓ Arc ✓ Safari ✓ Firefox ✗ (install extension).</div></div><div class="control"><span class="manage">Manage →</span></div></div>
+
+    <div class="section-h3">Account</div>
+    <div class="setting-row"><div class="body"><div class="title">Account info</div><div class="desc">ameer.rayan@gmail.com · member since Apr 2026 · 2 devices.</div></div><div class="control"><span class="manage">→</span></div></div>
+    <div class="setting-row"><div class="body"><div class="title">Subscription <span class="pill green">PRO</span></div><div class="desc">Annual · renews Nov 23, 2026 · $59/yr.</div></div><div class="control"><span class="manage">Manage →</span></div></div>
+    <div class="setting-row"><div class="body"><div class="title">Usage history</div><div class="desc">7-day default · per-app breakdown · focus score trends.</div></div><div class="control"><span class="manage">View →</span></div></div>
+    <div class="setting-row"><div class="body"><div class="title">Sessions journal</div><div class="desc">Every session this month with focus scores.</div></div><div class="control"><span class="manage">View →</span></div></div>
+    <div class="setting-row" style="border-color: rgba(212,80,80,0.24);"><div class="body"><div class="title" style="color: var(--red);">Danger zone</div><div class="desc">Sign out · Reset all settings · Uninstall · Delete account.</div></div><div class="control"><span class="manage" style="color: var(--red);">Open →</span></div></div>
+  </main>
+</div>
+<div class="annot"><strong>Every row is rich enough to audit in one glance.</strong> State pills (ON / CAITY / ACTIVE / NOT PAIRED) tell the user what's running without digging.</div>
+
+<!-- States 2–5: section drilldowns are conceptually the same as State 1 collapsed. We jump to the modals next. -->
+
+<!-- STATE 6 -->
+<h2>State 6 — Theme picker modal</h2>
+<p class="state-note">Grid of theme tiles with mini previews. Click tile to apply immediately (with brief confirmation).</p>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal" style="max-width:560px;">
+    <h3>Theme</h3>
+    <div class="grid-3">
+      <div class="theme-tile active"><div class="theme-preview" style="background: linear-gradient(135deg, #1a0a08, #3a1a14);"></div>Deep Lush</div>
+      <div class="theme-tile"><div class="theme-preview" style="background: linear-gradient(135deg, #0a1020, #2a3358);"></div>Iridescent</div>
+      <div class="theme-tile"><div class="theme-preview" style="background: linear-gradient(135deg, #2a1a08, #4a3018);"></div>Warm</div>
+      <div class="theme-tile"><div class="theme-preview" style="background: linear-gradient(135deg, #f0e8de, #e0d0b8);"></div>Light</div>
+      <div class="theme-tile"><div class="theme-preview" style="background: linear-gradient(135deg, #0a1a14, #1a3a2a);"></div>Forest</div>
+      <div class="theme-tile"><div class="theme-preview" style="background: linear-gradient(135deg, #181016, #3a1828);"></div>Plum</div>
+    </div>
+    <div class="actions" style="justify-content:flex-end;"><button class="btn-primary">Done</button></div>
+  </div>
+</div>
+
+<!-- STATE 7 -->
+<h2>State 7 — AI model selector</h2>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal">
+    <h3>AI relevance model</h3>
+    <div style="border:1px solid var(--coral); background: rgba(232,116,97,0.06); padding:14px 16px; border-radius:10px; margin-bottom:10px;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;"><span style="width:14px; height:14px; border-radius:50%; background:var(--coral);"></span><strong>Qwen3-4B (local)</strong></div>
+      <div style="font-size:12px; color:var(--muted); padding-left:24px;">Higher accuracy on coding + writing tasks. ~4 GB model. Recommended.</div>
+    </div>
+    <div style="border:1px solid var(--border); padding:14px 16px; border-radius:10px;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;"><span style="width:14px; height:14px; border-radius:50%; border:2px solid var(--muted);"></span><strong>Apple Foundation Models</strong></div>
+      <div style="font-size:12px; color:var(--muted); padding-left:24px;">Built into macOS 15.4+. Smaller, faster, less accurate on technical content.</div>
+    </div>
+    <div class="actions" style="justify-content:flex-end; gap:8px;"><button class="btn-quiet">Cancel</button><button class="btn-primary">Save</button></div>
+  </div>
+</div>
+
+<!-- STATE 8 -->
+<h2>State 8 — Coach Context editor</h2>
+<p class="state-note">Two textareas: who you are + what today looks like. AI scoring uses these as context.</p>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal" style="max-width:560px;">
+    <h3>Coach Context</h3>
+    <div class="field"><label>About you</label><div class="input textarea">I'm a software engineer. I spend more of my day coding and watching educational videos. I'm building a focus app called Intentional.</div></div>
+    <div class="field"><label>Today's plan (optional)</label><div class="input textarea">Outline blog post #3 in the morning, then code review in afternoon.</div></div>
+    <div class="actions"><div></div><div class="right"><button class="btn-quiet">Cancel</button><button class="btn-primary">Save</button></div></div>
+  </div>
+</div>
+<div class="annot">AI Assessments improve with more specific context. Today's plan is optional — auto-derived from Plan tab when missions exist.</div>
+
+<!-- STATE 9 -->
+<h2>State 9 — Per-block enforcement grid</h2>
+<p class="state-note">6 mechanisms × 2 block types. Each cell is a toggle. Recommended defaults pre-set.</p>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal" style="max-width:600px;">
+    <h3>Per-block enforcement</h3>
+    <div class="enforce-grid">
+      <table>
+        <tr><th></th><th>Deep work</th><th>Focus hours</th></tr>
+        <tr><td>Nudge notifications</td><td><div class="toggle on" style="margin:0 auto;"></div></td><td><div class="toggle on" style="margin:0 auto;"></div></td></tr>
+        <tr><td>Screen red shift</td><td><div class="toggle on" style="margin:0 auto;"></div></td><td><div class="toggle" style="margin:0 auto;"></div></td></tr>
+        <tr><td>Auto-redirect</td><td><div class="toggle on" style="margin:0 auto;"></div></td><td><div class="toggle on" style="margin:0 auto;"></div></td></tr>
+        <tr><td>Blocking overlay</td><td><div class="toggle on" style="margin:0 auto;"></div></td><td><div class="toggle on" style="margin:0 auto;"></div></td></tr>
+        <tr><td>Intervention exercises</td><td><div class="toggle on" style="margin:0 auto;"></div></td><td><div class="toggle" style="margin:0 auto;"></div></td></tr>
+        <tr><td>Background audio block</td><td><div class="toggle" style="margin:0 auto;"></div></td><td><div class="toggle" style="margin:0 auto;"></div></td></tr>
+        <tr><td>Context-switch countdown</td><td><div class="toggle on" style="margin:0 auto;"></div></td><td><div class="toggle on" style="margin:0 auto;"></div></td></tr>
+      </table>
+    </div>
+    <div class="actions" style="justify-content:flex-end;"><button class="btn-primary">Done</button></div>
+  </div>
+</div>
+
+<!-- STATE 10 -->
+<h2>State 10 — Intervention toggles</h2>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal">
+    <h3>Interventions</h3>
+    <div class="setting-row" style="margin-bottom:6px;"><div class="body"><div class="title">Scrambled Words</div><div class="desc">Unscramble 3 words to dismiss. 60s mandatory wait.</div></div><div class="toggle on"></div></div>
+    <div class="setting-row" style="margin-bottom:6px;"><div class="body"><div class="title">Reflect &amp; Commit</div><div class="desc">Type 1 sentence about why you're back to work. 90s wait.</div></div><div class="toggle on"></div></div>
+    <div class="setting-row" style="margin-bottom:6px;"><div class="body"><div class="title">Push-up challenge</div><div class="desc">Phone camera detects 5 push-ups. 120s alternative.</div></div><div class="toggle"></div></div>
+    <div class="actions" style="justify-content:flex-end;"><button class="btn-primary">Done</button></div>
+  </div>
+</div>
+
+<!-- STATE 15: Manage Partner -->
+<h2>State 15 — Manage Partner modal</h2>
+<p class="state-note">Opens from Settings → Defenses → Accountability partner row.</p>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal">
+    <h3>Accountability partner</h3>
+    <div class="setting-row" style="margin-bottom:14px;"><div class="body"><div class="title">Caity Enroth <span class="pill green">ACTIVE</span></div><div class="desc">caity.enroth@gmail.com · ready to lock · last seen online 5 min ago</div></div></div>
+    <div class="field"><label>Lock mode</label>
+      <div style="display:flex; gap:6px;"><span class="pill coral" style="font-size:12px; padding:6px 14px; background:rgba(232,116,97,0.20); border-color:var(--coral);">● Partner</span><span class="pill dim" style="font-size:12px; padding:6px 14px;">○ None</span></div>
+    </div>
+    <div style="display:flex; gap:10px; margin-top:14px;">
+      <button class="btn-secondary">Resend invite</button>
+      <button class="btn-danger">Remove partner</button>
+    </div>
+    <div class="actions" style="justify-content:flex-end;"><button class="btn-primary">Done</button></div>
+  </div>
+</div>
+<div class="annot">Resend → State 16 success toast. Remove → State 17 confirmation. Switching to None → State 18 confirmation.</div>
+
+<!-- STATE 17 -->
+<h2>State 17 — Remove partner confirmation</h2>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal" style="max-width:440px;">
+    <h3 class="danger">Remove Caity as your partner?</h3>
+    <p style="font-size:13px; color:var(--muted);">She'll lose access to your defenses. Strict Mode will require <strong>a different partner</strong> or will become editable by you alone. Removing the partner doesn't disable Strict Mode automatically — but it stops being partner-gated.</p>
+    <div class="actions" style="justify-content:flex-end; gap:8px;"><button class="btn-quiet">Cancel</button><button class="btn-danger">Remove</button></div>
+  </div>
+</div>
+
+<!-- STATE 18 -->
+<h2>State 18 — Lock-Mode change confirmation</h2>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal" style="max-width:440px;">
+    <h3>Switch to Lock Mode: None?</h3>
+    <p style="font-size:13px; color:var(--muted);">Defenses will no longer require partner approval to disable. You'll be the only check on yourself.</p>
+    <div class="actions" style="justify-content:flex-end; gap:8px;"><button class="btn-quiet">Cancel</button><button class="btn-primary">Switch to None</button></div>
+  </div>
+</div>
+
+<!-- STATE 19 -->
+<h2>State 19 — Strict Mode enable confirmation</h2>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal" style="max-width:440px;">
+    <h3>Turn on Strict Mode?</h3>
+    <p style="font-size:13px; color:var(--muted);">You won't be able to quit, uninstall, or disable Intentional without <strong>Caity's approval</strong>. The watchdog daemon will respawn the app if killed.</p>
+    <p style="font-size:13px; color:var(--amber);">⚠ Caity will be notified when you enable this.</p>
+    <div class="actions" style="justify-content:flex-end; gap:8px;"><button class="btn-quiet">Cancel</button><button class="btn-primary">Turn on Strict Mode</button></div>
+  </div>
+</div>
+
+<!-- STATE 20 -->
+<h2>State 20 — Strict Mode disable (partner unlock flow)</h2>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal" style="max-width:440px;">
+    <h3>Ask Caity to disable Strict Mode</h3>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">She'll get an email with a 6-digit code. Enter the code below to disable.</p>
+    <div class="field"><label>Code</label>
+      <div style="display:flex; gap:6px;"><div class="input" style="width:42px; height:48px; text-align:center; font-size:18px;"> </div><div class="input" style="width:42px; height:48px; text-align:center; font-size:18px;"> </div><div class="input" style="width:42px; height:48px; text-align:center; font-size:18px;"> </div><div class="input" style="width:42px; height:48px; text-align:center; font-size:18px;"> </div><div class="input" style="width:42px; height:48px; text-align:center; font-size:18px;"> </div><div class="input" style="width:42px; height:48px; text-align:center; font-size:18px;"> </div></div>
+    </div>
+    <div style="font-size:12px; color:var(--muted);">Didn't get an email? <span class="manage">Resend code</span></div>
+    <div class="actions"><button class="btn-quiet">Cancel</button><div class="right"><button class="btn-primary">Verify</button></div></div>
+  </div>
+</div>
+
+<!-- STATE 21 -->
+<h2>State 21 — Bedtime time + days picker</h2>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal" style="max-width:520px;">
+    <h3>Bedtime</h3>
+    <div class="field" style="display:flex; gap:16px;">
+      <div style="flex:1;"><label>Bedtime start</label><div class="input" style="font-family:var(--mono); font-size:18px; text-align:center;">11:00 PM</div></div>
+      <div style="flex:1;"><label>Wake</label><div class="input" style="font-family:var(--mono); font-size:18px; text-align:center;">6:30 AM</div></div>
+    </div>
+    <div class="field"><label>Active days</label>
+      <div style="display:flex; gap:6px;">
+        <span class="pill coral" style="background:rgba(232,116,97,0.20); border-color:var(--coral); padding:8px 14px; font-size:12px;">M</span>
+        <span class="pill coral" style="background:rgba(232,116,97,0.20); border-color:var(--coral); padding:8px 14px; font-size:12px;">T</span>
+        <span class="pill coral" style="background:rgba(232,116,97,0.20); border-color:var(--coral); padding:8px 14px; font-size:12px;">W</span>
+        <span class="pill coral" style="background:rgba(232,116,97,0.20); border-color:var(--coral); padding:8px 14px; font-size:12px;">T</span>
+        <span class="pill coral" style="background:rgba(232,116,97,0.20); border-color:var(--coral); padding:8px 14px; font-size:12px;">F</span>
+        <span class="pill dim" style="padding:8px 14px; font-size:12px;">S</span>
+        <span class="pill dim" style="padding:8px 14px; font-size:12px;">S</span>
+      </div>
+    </div>
+    <div class="field"><label>Wind-down notifications</label>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <span class="pill coral" style="background:rgba(232,116,97,0.20); border-color:var(--coral); padding:6px 12px;">T-30</span>
+        <span class="pill coral" style="background:rgba(232,116,97,0.20); border-color:var(--coral); padding:6px 12px;">T-15</span>
+        <span class="pill coral" style="background:rgba(232,116,97,0.20); border-color:var(--coral); padding:6px 12px;">T-10</span>
+        <span class="pill coral" style="background:rgba(232,116,97,0.20); border-color:var(--coral); padding:6px 12px;">T-5</span>
+        <span class="pill coral" style="background:rgba(232,116,97,0.20); border-color:var(--coral); padding:6px 12px;">T-1</span>
+      </div>
+    </div>
+    <div class="actions" style="justify-content:flex-end;"><button class="btn-quiet">Cancel</button><button class="btn-primary">Save</button></div>
+  </div>
+</div>
+
+<!-- STATE 24: Puck pair -->
+<h2>State 24 — Puck pair modal</h2>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal">
+    <h3>Pair Puck</h3>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">Hold your iPhone near the Puck and tap. The Mac and Puck pair via the iOS app.</p>
+    <div style="background: var(--card); border:1px dashed var(--border-strong); border-radius:12px; padding:30px; text-align:center;">
+      <div style="font-size:48px; opacity:0.5;">📱→⬜</div>
+      <div style="font-size:13px; color:var(--muted); margin-top:14px;">Waiting for tap…</div>
+    </div>
+    <div class="actions" style="justify-content:flex-end;"><button class="btn-quiet">Cancel</button></div>
+  </div>
+</div>
+
+<!-- STATE 26: Distraction budget -->
+<h2>State 26 — Distraction budget config</h2>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal" style="max-width:520px;">
+    <h3>Distraction budget</h3>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">Earn social-media minutes by working focused. Default: 1 min earned per 3 min of focused work.</p>
+    <div class="field"><label>Earning rate</label><div style="display:flex; align-items:center; gap:10px;"><span style="font-size:13px; color:var(--muted);">1 min earned per</span><div class="input" style="width:60px; text-align:center;">3</div><span style="font-size:13px; color:var(--muted);">min of focused work</span></div></div>
+    <div class="field"><label>Daily cap</label><div style="display:flex; align-items:center; gap:10px;"><div class="input" style="width:80px; text-align:center;">30</div><span style="font-size:13px; color:var(--muted);">minutes per day</span></div></div>
+    <div class="field"><label>Reset time</label><div class="input" style="font-family:var(--mono);">5:00 AM</div></div>
+    <div class="setting-row" style="margin-top:14px;"><div class="body"><div class="title">Sync across devices <span class="pill amber">SOON</span></div><div class="desc">30 min total across iPhone + Mac, not 30 per device. (Backend table not yet built.)</div></div><div class="toggle"></div></div>
+    <div class="actions" style="justify-content:flex-end;"><button class="btn-quiet">Cancel</button><button class="btn-primary">Save</button></div>
+  </div>
+</div>
+
+<!-- STATE 32 -->
+<h2>State 32 — AI Assessments log viewer</h2>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal" style="max-width:620px;">
+    <h3>AI Assessments</h3>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">Last 50 verdicts from the relevance scorer. Useful for debugging false positives.</p>
+    <div style="max-height: 240px; overflow-y: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-family: var(--mono); font-size: 11px; padding: 8px 12px;">
+      <div style="padding: 4px 0; color: var(--muted);"><span style="color: var(--green);">RELEVANT</span> &nbsp; 2:31pm &nbsp; vscode.app &nbsp; "BlockEndRitualController.swift" &nbsp; mission: outline blog #3</div>
+      <div style="padding: 4px 0; color: var(--muted);"><span style="color: var(--red);">OFF-MISSION</span> &nbsp; 2:24pm &nbsp; safari &nbsp; "twitter.com" &nbsp; mission: outline blog #3</div>
+      <div style="padding: 4px 0; color: var(--muted);"><span style="color: var(--green);">RELEVANT</span> &nbsp; 2:18pm &nbsp; arc &nbsp; "reddit.com/r/writing" &nbsp; mission: outline blog #3</div>
+      <div style="padding: 4px 0; color: var(--muted);"><span style="color: var(--amber);">UNCERTAIN</span> &nbsp; 2:12pm &nbsp; notes.app &nbsp; "Untitled" &nbsp; mission: outline blog #3</div>
+      <div style="padding: 4px 0; color: var(--muted);">…</div>
+    </div>
+    <div class="actions"><button class="btn-secondary">Export</button><div class="right"><button class="btn-primary">Done</button></div></div>
+  </div>
+</div>
+
+<!-- STATE 33 -->
+<h2>State 33 — Subscription detail</h2>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal" style="max-width:440px;">
+    <h3>Subscription</h3>
+    <div style="background: var(--card); border:1px solid var(--border); border-radius:10px; padding:14px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;"><strong>Pro · annual</strong><span class="pill green">ACTIVE</span></div>
+      <div style="font-size:12px; color:var(--muted);">Renews Nov 23, 2026 · $59/yr · paid with •••• 4242</div>
+    </div>
+    <div style="margin-top:14px;"><span class="manage">Manage on Stripe →</span></div>
+    <div class="actions" style="justify-content:flex-end;"><button class="btn-primary">Done</button></div>
+  </div>
+</div>
+
+<!-- STATE 35 -->
+<h2>State 35 — Delete account (multi-step)</h2>
+<p class="state-note">Two confirmations, each warning more strongly. Final action is irreversible.</p>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal" style="max-width:480px;">
+    <h3 class="danger">Delete your account?</h3>
+    <p style="font-size:13px; color:var(--muted);">This permanently deletes:</p>
+    <ul style="font-size:13px; color:var(--muted); margin: 8px 0 14px; padding-left:20px;">
+      <li>All your goals, missions, and sessions</li>
+      <li>Your partner relationship with Caity</li>
+      <li>All AI assessments and usage history</li>
+      <li>Your Stripe subscription (no refund)</li>
+    </ul>
+    <p style="font-size:13px; color:var(--amber);">You'll be signed out everywhere immediately.</p>
+    <div class="field" style="margin-top:14px;"><label>Type DELETE to confirm</label><div class="input">_</div></div>
+    <div class="actions" style="justify-content:flex-end; gap:8px;"><button class="btn-quiet">Cancel</button><button class="btn-danger">Delete account permanently</button></div>
+  </div>
+</div>
+
+<!-- STATE 37 -->
+<h2>State 37 — Uninstall flow (partner-gated)</h2>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal" style="max-width:480px;">
+    <h3 class="danger">Uninstall Intentional?</h3>
+    <p style="font-size:13px; color:var(--muted);">Strict Mode is on. Caity must approve uninstalling.</p>
+    <p style="font-size:12px; color:var(--muted); margin-top:10px;">She'll get an email with a 6-digit code. Enter the code below to uninstall. This removes the app, watchdog daemon, and all local data.</p>
+    <div class="field" style="margin-top:14px;"><label>Code</label>
+      <div style="display:flex; gap:6px;"><div class="input" style="width:42px; height:48px; text-align:center; font-size:18px;"> </div><div class="input" style="width:42px; height:48px; text-align:center; font-size:18px;"> </div><div class="input" style="width:42px; height:48px; text-align:center; font-size:18px;"> </div><div class="input" style="width:42px; height:48px; text-align:center; font-size:18px;"> </div><div class="input" style="width:42px; height:48px; text-align:center; font-size:18px;"> </div><div class="input" style="width:42px; height:48px; text-align:center; font-size:18px;"> </div></div>
+    </div>
+    <div class="actions"><button class="btn-quiet">Cancel</button><div class="right"><button class="btn-danger">Verify &amp; uninstall</button></div></div>
+  </div>
+</div>
+
+<!-- STATE 38 -->
+<h2>State 38 — Usage history viewer</h2>
+<div style="padding: 30px; background: var(--card); border-radius:14px;">
+  <div class="modal" style="max-width:640px;">
+    <h3>Usage history</h3>
+    <div style="display:flex; gap:8px; margin-bottom:14px; align-items:center;"><span style="font-size:12px; color:var(--muted);">Range:</span><div style="display:flex; gap:2px; background:rgba(255,255,255,0.04); border-radius:6px; padding:2px;"><span style="padding:4px 10px; font-size:12px; color:var(--text); background:rgba(255,255,255,0.10); border-radius:4px;">7d</span><span style="padding:4px 10px; font-size:12px; color:var(--muted);">30d</span><span style="padding:4px 10px; font-size:12px; color:var(--muted);">90d</span></div></div>
+    <div style="height: 140px; background: var(--card); border-radius:8px; padding:10px; display:flex; align-items:flex-end; gap:8px;">
+      <div style="flex:1; background:var(--coral); height:50%; border-radius:3px 3px 0 0;" title="Mon"></div>
+      <div style="flex:1; background:var(--coral); height:72%; border-radius:3px 3px 0 0;"></div>
+      <div style="flex:1; background:var(--coral); height:84%; border-radius:3px 3px 0 0;"></div>
+      <div style="flex:1; background:var(--coral); height:31%; border-radius:3px 3px 0 0;"></div>
+      <div style="flex:1; background:var(--coral); height:91%; border-radius:3px 3px 0 0;"></div>
+      <div style="flex:1; background:rgba(255,255,255,0.10); height:20%; border-radius:3px 3px 0 0;"></div>
+      <div style="flex:1; background:rgba(255,255,255,0.10); height:10%; border-radius:3px 3px 0 0;"></div>
+    </div>
+    <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:10px; color:var(--dim); font-family:var(--mono);"><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>SUN</span></div>
+    <div style="margin-top:18px;"><span class="manage">Export CSV →</span></div>
+    <div class="actions" style="justify-content:flex-end;"><button class="btn-primary">Done</button></div>
+  </div>
+</div>
+
+<h2>Settings button → follow-on map</h2>
+<div class="annot" style="border-left-color: var(--gold);">
+  <ul>
+    <li>Content protection toggle → ON/OFF, immediately syncs to backend. If turning OFF: partner-unlock required (Strict mode).</li>
+    <li>Content protection "Test" → triggers fake detection through pipeline</li>
+    <li>Content protection "Permission needed" → opens TCC pane in macOS Settings</li>
+    <li>Accountability "Manage →" → State 15</li>
+    <li>Accountability "Resend invite" → State 16 toast</li>
+    <li>Accountability "Remove" → State 17 confirm</li>
+    <li>Lock-Mode picker → State 18 confirm</li>
+    <li>Strict Mode toggle ON → State 19 confirm</li>
+    <li>Strict Mode toggle OFF → State 20 partner unlock flow</li>
+    <li>Bedtime "Configure →" → State 21</li>
+    <li>Puck "Pair →" → State 24</li>
+    <li>Puck "Test alarm" → State 25 (fires alarm, user taps Puck)</li>
+    <li>Distraction budget "Configure →" → State 26</li>
+    <li>AI model "Change →" → State 7</li>
+    <li>Coach Context "Edit →" → State 8</li>
+    <li>Per-block enforcement "Edit grid →" → State 9</li>
+    <li>Interventions "Edit →" → State 10</li>
+    <li>AI assessments "View →" → State 32</li>
+    <li>Theme "Change →" → State 6</li>
+    <li>Open on login → toggle directly</li>
+    <li>Notifications "Configure →" → State 30 (per-event toggles)</li>
+    <li>Sound effects "Configure →" → State 31 (per-event sound picker)</li>
+    <li>Pill position "Reset →" → State 27 confirm</li>
+    <li>Block ritual variant "Change →" → State 28 gallery</li>
+    <li>Browsers "Manage →" → State 14 (browser list)</li>
+    <li>Account info "→" → expands inline detail</li>
+    <li>Subscription "Manage →" → State 33</li>
+    <li>Usage history "View →" → State 38</li>
+    <li>Sessions journal "View →" → State 39</li>
+    <li>Danger zone "Open →" → expands inline: Sign out / Reset all / Uninstall / Delete</li>
+    <li>Sign out → State 34 confirm</li>
+    <li>Reset all settings → State 36 confirm</li>
+    <li>Uninstall → State 37</li>
+    <li>Delete account → State 35</li>
+  </ul>
+</div>
+
+</div>
+</body>
+</html>

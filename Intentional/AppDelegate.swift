@@ -26,7 +26,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var permissionManager: PermissionManager?
 
     // Cross-browser time tracking (Phase 3)
-    var nativeMessagingHost: NativeMessagingHost?
     var timeTracker: TimeTracker?
 
     // Daily Focus Plan (V2)
@@ -71,10 +70,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Blocking Profiles & Focus Sessions (Puck integration)
     var blockingProfileManager: BlockingProfileManager?
 
+    // Close-the-noise (Stage 2 of Deep Work Protocol): global Always-Allowed list +
+    // per-session stash store. Sweep orchestrator fires from focusModeController.onStateChanged
+    // when the .off → .focus transition lands.
+    var alwaysAllowedStore: AlwaysAllowedStore?
+    var sessionStashStore: SessionStashStore?
+    var stashInspectorController: StashInspectorWindowController?
+    var stageOneIntentController: StageOneIntentWindowController?
+    var sweepReviewController: SweepReviewWindowController?
+
     var projectStore: ProjectStore?
 
     // Spec 1: cross-device account-scoped focus presets (replaces local-only Project)
     var intentionStore: IntentionStore?
+
+    // May 2026 prototype → production: cross-device monthly goals
+    var monthlyGoalStore: MonthlyGoalStore?
+
+    // Slice 1 (Subscription Entitlements): polls /me/entitlements on launch +
+    // foreground + every 60s. Caches to entitlement_cache.json for offline
+    // resilience. Drives subscription gating across the app (lapsed banner,
+    // feature locks). Backend is canonical; local cache is best-effort.
+    private(set) var entitlementClient: EntitlementClient!
+
+    // Bridges entitlement state changes to the dashboard's lapsed-subscriber
+    // banner via window._entitlementState. Wired after mainWindowController exists.
+    private var lapsedBanner: LapsedSubscriberBanner?
 
     // Transient: which project's session is currently active (replaces
     // FocusBlock.projectId; cleared on block end in onBlockChanged).
@@ -171,11 +192,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Native app heartbeat timer (Phase 2: Tamper Detection)
     var heartbeatTimer: Timer?
 
-    // Socket relay server for Native Messaging
-    var socketRelayServer: SocketRelayServer?
-
-    // Extension re-scan timer
-    var extensionRescanTimer: Timer?
     private let heartbeatInterval: TimeInterval = 120.0  // 2 minutes
     private let appStartTime = Date()
 
@@ -385,6 +401,43 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Register defaults for newly-added settings keys. UserDefaults.bool returns
+        // false for missing keys, which would make a default-true feature appear
+        // disabled until the user toggles it once. register(defaults:) fixes that.
+        UserDefaults.standard.register(defaults: [
+            "planFirstPromptEnabled": true,
+        ])
+
+        // Always-Allowed store (used by close-the-noise sweep + Settings UI).
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let intentionalDir = appSupport.appendingPathComponent("Intentional").path
+        try? FileManager.default.createDirectory(atPath: intentionalDir, withIntermediateDirectories: true)
+        self.alwaysAllowedStore = AlwaysAllowedStore(storageDir: intentionalDir)
+
+        // One-shot migration: per-Intention allowlists → global.
+        MigrationAlwaysAllowed.runIfNeeded(
+            intentionsCachePath: intentionalDir + "/intentions.json",
+            store: self.alwaysAllowedStore!,
+            receiptPath: intentionalDir + "/migration_always_allowed_v1.json"
+        )
+
+        // Session-stash store + 3-day auto-purge (close-the-noise sweep).
+        self.sessionStashStore = SessionStashStore(storageDir: intentionalDir + "/session_stashes")
+        let purgedCount = self.sessionStashStore?.purgeOlderThan(maxAgeSeconds: 3 * 24 * 3600) ?? 0
+        if purgedCount > 0 { self.postLog("🧹 Purged \(purgedCount) old session stash(es)") }
+
+        // Stash inspector window controller (opens on [View stash] toast action).
+        self.stashInspectorController = StashInspectorWindowController(appDelegate: self)
+
+        // Stage 1 of the Deep Work Protocol — forced declaration of intent
+        // before the close-the-noise sweep runs at session start.
+        self.stageOneIntentController = StageOneIntentWindowController(appDelegate: self)
+
+        // Review-and-confirm modal for the close-the-noise sweep. Replaces
+        // the auto-stash flow per CLAUDE.md "Hard-Won Lessons" #1: for the
+        // ADHD ICP, agency > automation. AI pre-classifies; user confirms.
+        self.sweepReviewController = SweepReviewWindowController(appDelegate: self)
+
         // DIAGNOSTIC: Log every launch attempt to persistent file
         let diagnosticLogPath = NSTemporaryDirectory() + "intentional-launches.log"
         let launchTime = Date()
@@ -436,9 +489,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         backendClient = BackendClient(baseURL: "https://api.intentional.social")
         postLog("🔗 Backend URL: https://api.intentional.social")
 
+        // Init step 1.5: EntitlementClient (drives subscription gating across the app).
+        // Polls /me/entitlements on launch + foreground + every 60s. Cache survives
+        // offline / launch-before-network-ready.
+        entitlementClient = EntitlementClient(backendClient: backendClient!)
+        entitlementClient.start()
+        postLog("✅ EntitlementClient started")
+
         // Create main window (WKWebView-based: shows onboarding or dashboard)
         mainWindowController = MainWindow(appDelegate: self)
         postLog("🪟 Main window created")
+
+        // Wire entitlement state to dashboard banner (T12).
+        // Must be after mainWindowController exists so the bridge has somewhere
+        // to send JS calls.
+        if let mw = mainWindowController {
+            lapsedBanner = LapsedSubscriberBanner(mainWindow: mw, entitlementClient: entitlementClient)
+            postLog("✅ LapsedSubscriberBanner wired")
+        }
 
         // Bring window to front
         postLog("🚨 ACTIVATE: AppDelegate.applicationDidFinishLaunching — initial launch")
@@ -516,13 +584,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         timeTracker?.backendClient = backendClient
         postLog("⏱️ TimeTracker initialized")
 
-        // Wire up cross-browser session sync: when a session changes in TimeTracker,
-        // broadcast SESSION_SYNC to all connected browsers via the socket relay server
-        timeTracker?.onSessionChanged = { [weak self] platform in
-            self?.postLog("🌐 Session changed for \(platform) — broadcasting to all browsers")
-            self?.socketRelayServer?.broadcastSessionSync()
-        }
-
         // Initialize Earn Your Browse budget system
         earnedBrowseManager = EarnedBrowseManager(appDelegate: self)
         earnedBrowseManager?.load()
@@ -552,9 +613,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             await migration.run(log: { msg in
                 Task { @MainActor in self.postLog(msg) }
             })
+
+            // May 2026 prototype → production: one-shot migration —
+            // copy Intention.description → intentText for goals that don't have it.
+            if let store = self.intentionStore {
+                await IntentTextMigration.runIfNeeded(intentionStore: store) { msg in
+                    Task { @MainActor in self.postLog(msg) }
+                }
+            }
         }
         intentionStore?.startSyncTimer()
         postLog("🎯 IntentionStore wired and pulling")
+
+        // May 2026 prototype → production — MonthlyGoalStore (cross-device monthly goals)
+        monthlyGoalStore = MonthlyGoalStore()
+        Task {
+            await monthlyGoalStore?.wire(backend: backendClient!, appDelegate: self)
+            await monthlyGoalStore?.pull()
+        }
+        monthlyGoalStore?.startSyncTimer()
+        postLog("📅 MonthlyGoalStore wired and pulling")
 
         // Wire TimeTracker callback: deduct social media time from earned pool
         timeTracker?.onSocialMediaTimeRecorded = { [weak self] platform, minutes, isFreeBrowse in
@@ -564,7 +642,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let remaining = mgr.recordSocialMediaTime(
                 minutes: minutes, blockType: blockType, isFreeBrowse: isFreeBrowse
             )
-            self?.socketRelayServer?.broadcastEarnedMinutesUpdate(mgr)
             self?.mainWindowController?.pushEarnedUpdate()
             self?.postLog("💰 Social media time: -\(String(format: "%.1f", minutes))m, remaining: \(String(format: "%.1f", remaining))m")
         }
@@ -680,6 +757,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             self.relevanceScorer?.clearCache()
 
+            // Before the fanout: if transitioning to .focus and no schedule
+            // block backs the activation (cross-device, puck, or manual
+            // FOCUS_MODE_TOGGLE), inject a synthetic block so the AI scoring +
+            // enforcement paths (which all `guard let block = manager.currentBlock`)
+            // have context to work with. MUST run before earnedBrowseManager /
+            // focusMonitor fanout below so they see the injected block on this
+            // very first transition. Schedule-driven activations already have
+            // currentBlock set; this is a no-op for them.
+            if new == .focus && old != .focus && self.scheduleManager?.currentBlock == nil {
+                let now = Date()
+                let cal = Calendar.current
+                let synthetic = ScheduleManager.FocusBlock(
+                    id: UUID().uuidString,
+                    title: period?.intention ?? "Focus",
+                    description: "",
+                    startHour: cal.component(.hour, from: now),
+                    startMinute: cal.component(.minute, from: now),
+                    endHour: 23, endMinute: 59,
+                    blockType: .focusHours,
+                    intentionId: period?.intentionId
+                )
+                self.scheduleManager?.injectFocusSessionBlock(synthetic)
+                self.postLog("🎯 Injected synthetic block for sessionless .focus activation: \"\(synthetic.title)\"")
+            }
+
             // earnedBrowseManager.onBlockChanged MUST run before focusMonitor.onBlockChanged
             // — recordWorkTick reads activeBlockId. (CLAUDE.md Known Bug Fixes #2.)
             // Read currentBlock from the schedule because Period doesn't carry blockId.
@@ -687,7 +789,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.earnedBrowseManager?.onBlockChanged(blockId: block?.id, blockTitle: block?.title)
 
             self.focusMonitor?.onBlockChanged()
-            self.socketRelayServer?.broadcastScheduleSync()
             self.mainWindowController?.pushScheduleUpdate()
 
             if new == .focus && old != .focus {
@@ -699,9 +800,43 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 // and overrides with its explicit profileIds.
                 self.applyDefaultBlockingProfile()
             }
+
+            if new == .focus {
+                // Close-the-noise sweep: fires whenever a focus session starts —
+                // entering focus from .off OR switching intention while already in
+                // focus (Schedule swap, Cmd+Shift+P switch, etc.). FocusModeController
+                // only notifies on .focus → .focus when intention/intentionId actually
+                // changed, so this branch is naturally guarded against same-session
+                // noise. Each intention swap is a NEW session and deserves a fresh
+                // sweep (the spec describes Stage 2 as "before the session timer
+                // starts" — every session, not just the day's first).
+                //
+                // Fire-and-forget Task; sweep does its own logging + toast.
+                let sweepSessionId = period?.id.uuidString ?? UUID().uuidString
+                let voiceIntent = period?.intention ?? ""
+                let intentionId = period?.intentionId
+                Task { @MainActor in
+                    await self.runCloseTheNoiseSweep(sessionId: sweepSessionId,
+                                                    voiceIntent: voiceIntent,
+                                                    intentionId: intentionId)
+                }
+            }
             if new == .off {
                 self.switchCoordinator?.reset()
                 self.applyAlwaysActiveProfiles()
+                // Clear any synthetic block we injected so the next activation
+                // doesn't re-engage stale context.
+                self.scheduleManager?.clearInjectedFocusSessionBlock()
+                // Dismiss the pill if it's stuck in `.blockComplete` — this is
+                // the "session ended but celebration was skipped" state (happens
+                // when prevStats.totalTicks == 0, i.e. user was distracted the
+                // whole block). Without this, the pill sits showing "Block
+                // complete" indefinitely, making users think a session is still
+                // active when it isn't. Celebration mode self-dismisses via its
+                // own carousel, so we leave that alone.
+                if self.focusMonitor?.deepWorkTimerController?.viewModel?.mode == .blockComplete {
+                    self.focusMonitor?.deepWorkTimerController?.dismiss()
+                }
             }
             self.mainWindowController?.pushFocusModeUpdate(state: new)
         }
@@ -776,6 +911,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         postLog("🎯 BlockingProfileManager initialized")
 
+        // BlockRuleEnforcer (Opal-style Blocks): every 30s, evaluates each
+        // BlockingProfile for `enabled && isCurrentlyActive`, then unions
+        // their blockedDomains + blockedAppBundleIds and pushes the union into
+        // WebsiteBlocker + FocusMonitor. Engages enforcement OUTSIDE of a focus
+        // session and composes with session enforcement via union (both apply).
+        if let bpm = blockingProfileManager {
+            BlockRuleEnforcer.shared.wire(
+                profileManager: bpm,
+                websiteBlocker: websiteBlocker,
+                focusMonitor: focusMonitor
+            )
+            BlockRuleEnforcer.shared.start()
+            postLog("🛡 BlockRuleEnforcer started")
+        }
+
         // WebSocket focus signal client (receives start/stop from Puck via backend)
         focusWebSocketClient = FocusWebSocketClient()
         focusWebSocketClient?.onFocusSignal = { [weak self] action, sessionId, triggeredBy in
@@ -783,20 +933,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 guard let self = self else { return }
                 if action == "start" {
                     self.postLog("🔌 Focus signal: START (session: \(sessionId), triggeredBy: \(triggeredBy))")
+                    // Per product scope (May 2026): puck = morning alarm only for now.
+                    // Ignore puck-triggered focus start signals — the Mac does not
+                    // engage local enforcement for them.
+                    if triggeredBy == "puck" {
+                        self.postLog("🔌 Focus signal: ignoring puck-triggered start (puck = alarm only for now)")
+                        return
+                    }
                     self.focusWebSocketClient?.startHeartbeat(sessionId: sessionId)
                     // Cross-device start: the user is on the originating device
-                    // (iPhone, Puck), not at the Mac. Auto-engage so enforcement
+                    // (iPhone), not at the Mac. Auto-engage so enforcement
                     // fires immediately — don't wait for a click on the local
                     // intention picker. If a stale picker is already on screen
                     // from a prior signal or local Cmd+Shift+P, dismiss it first
                     // so it doesn't compete with the auto-started session.
                     self.dismissFocusStartOverlay()
 
-                    let intention = triggeredBy == "puck"
-                        ? "Focus session (started on phone)"
-                        : "Focus session"
-                    let source: FocusModeController.ActivationSource = triggeredBy == "puck" ? .puck : .crossDevice
-                    self.focusModeController?.activate(intention: intention, source: source)
+                    let intention = "Focus session"
+                    self.focusModeController?.activate(intention: intention, source: .crossDevice)
                 } else if action == "stop" {
                     self.postLog("🔌 Focus signal: STOP (session: \(sessionId))")
                     self.focusWebSocketClient?.stopHeartbeat()
@@ -854,6 +1008,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 focusModeController: controller
             )
             focusStatePoller?.start()
+
+            // Wire poller's known-active state into the controller's deactivation
+            // gate. ScheduleManager.onBlockChanged fires .schedule-sourced
+            // deactivations on every 60s pull, but Spec 1 sessions don't live
+            // in /time_blocks — only in /focus/active. So a 0-blocks pull
+            // shouldn't kill an active session. The closure stays loosely
+            // coupled (no direct ref) so either side can be replaced.
+            controller.isBackendSessionActive = { [weak self] in
+                self?.focusStatePoller?.lastKnownActive ?? false
+            }
         }
 
         // Wire schedule block changes: the schedule is a trigger source for
@@ -1019,61 +1183,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Content Safety Monitor — on-device screen monitoring for explicit content
         contentSafetyMonitor = ContentSafetyMonitor(appDelegate: self)
-        // Load enabled state from persisted settings
-        let csSettingsURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("Intentional/onboarding_settings.json")
-        if let csData = try? Data(contentsOf: csSettingsURL),
-           let csJSON = try? JSONSerialization.jsonObject(with: csData) as? [String: Any],
-           let csSettings = csJSON["contentSafety"] as? [String: Any],
-           let csEnabled = csSettings["enabled"] as? Bool, csEnabled {
+
+        // Tamper-detection: compare onboarding_settings.json against the signed
+        // cs-state.json before loading the enabled flag. Detects users who edit
+        // the JSON between sessions to disable Content Safety silently. See
+        // docs/CONTENT_SAFETY_MONITOR.md → "Startup divergence check".
+        let csDeviceId = UserDefaults.standard.string(forKey: "deviceId") ?? ""
+        let csCheck = ContentSafetyStateGuard.performStartupDivergenceCheck(deviceId: csDeviceId)
+        postLog(csCheck.logMessage)
+        if let reason = csCheck.tamperReason {
+            Task { [weak self] in
+                await self?.backendClient?.reportContentSafetyTamper(
+                    eventType: reason,
+                    detail: csCheck.didForceEnable ? "force_enabled" : "logged_only"
+                )
+            }
+        }
+        // Apply the corrected effective state. After performStartupDivergenceCheck
+        // any necessary force-enable has already been written back to onboarding_settings.json.
+        if csCheck.effectiveEnabled {
             contentSafetyMonitor?.onSettingsChanged(enabled: true)
         }
         postLog("🛡️ ContentSafetyMonitor initialized")
-
-        // All extension connections come through the socket relay server.
-        // Chrome-launched processes are thin relays (in main.swift) that forward
-        // stdin/stdout ↔ socket. The primary app never reads from stdin.
-        // nativeMessagingHost is kept as a template for SocketRelayServer's per-connection handlers.
-        nativeMessagingHost = NativeMessagingHost(appDelegate: self)
-        nativeMessagingHost?.timeTracker = timeTracker
-        nativeMessagingHost?.scheduleManager = scheduleManager
-        nativeMessagingHost?.relevanceScorer = relevanceScorer
-        nativeMessagingHost?.earnedBrowseManager = earnedBrowseManager
-        postLog("🔌 Primary app — all extension connections via socket relay")
-
-        // Start socket relay server for Native Messaging
-        socketRelayServer = SocketRelayServer(appDelegate: self)
-        if socketRelayServer?.start() == true {
-            postLog("🔌 Socket relay server started - extensions will relay through socket")
-        } else {
-            postLog("⚠️ Socket relay server failed to start")
-        }
-
-        // Auto-discover extensions and install manifests
-        let discovered = NativeMessagingSetup.shared.autoDiscoverExtensions()
-        if discovered > 0 {
-            postLog("🔍 Auto-discovered \(discovered) Intentional extension(s)")
-        }
-
-        NativeMessagingSetup.shared.installManifestsIfNeeded()
-
-        let totalIds = NativeMessagingSetup.shared.getAllExtensionIds()
-        if !totalIds.isEmpty {
-            postLog("📋 Native Messaging manifests installed for \(totalIds.count) extension(s)")
-        } else {
-            postLog("⚠️ No extensions found - install the Intentional extension in Chrome")
-        }
-
-        // CRITICAL: Re-check browser protection status after extension discovery
-        browserMonitor?.recheckBrowserProtection()
-
-        // Start periodic extension re-scanning (detects enable/disable changes)
-        extensionRescanTimer = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            NativeMessagingSetup.shared.autoDiscoverExtensions()
-            self.browserMonitor?.recheckBrowserProtection()
-        }
-        postLog("🔄 Extension re-scan timer started (every 60s)")
 
         postLog("✅ All monitors initialized")
     }
@@ -1138,22 +1269,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Stop timers
         stopHeartbeat()
-        extensionRescanTimer?.invalidate()
-        extensionRescanTimer = nil
 
         // Disconnect WebSocket
         focusWebSocketClient?.disconnect()
         focusStatePoller?.stop()
+
+        // Persist a signed snapshot of the current Content Safety enabled state.
+        // Read fresh from the on-disk settings so we always re-baseline against
+        // what the rest of the app considers truth at shutdown time.
+        let csShutdownDeviceId = UserDefaults.standard.string(forKey: "deviceId") ?? ""
+        let csShutdownEnabled = ContentSafetyStateGuard.readOnboardingEnabled() ?? (contentSafetyMonitor?.isEnabled ?? false)
+        ContentSafetyStateGuard.write(enabled: csShutdownEnabled, deviceId: csShutdownDeviceId)
+        postLog("🛡️ CS state guard: snapshot written on shutdown (enabled=\(csShutdownEnabled))")
 
         // Stop content safety monitor
         contentSafetyMonitor?.stop()
 
         // Stop focus monitor
         focusMonitor?.stop()
-
-        // Stop socket relay server and Native Messaging host
-        socketRelayServer?.stop()
-        nativeMessagingHost?.stop()
 
         // Force sync time tracking data
         timeTracker?.forceSync()
@@ -1201,9 +1334,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Show window
         menu.addItem(NSMenuItem(title: "Show Window", action: #selector(showMainWindow), keyEquivalent: "w"))
 
-        // Debug Monitor
-        menu.addItem(NSMenuItem(title: "Debug Monitor", action: #selector(showDebugMonitor), keyEquivalent: "m"))
-
         // Dashboard
         menu.addItem(NSMenuItem(title: "Open Dashboard", action: #selector(openDashboard), keyEquivalent: "d"))
 
@@ -1211,6 +1341,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Focus Session Toggle
         menu.addItem(NSMenuItem(title: "Toggle Focus (\u{2318}\u{21E7}P)", action: #selector(menuToggleFocus), keyEquivalent: ""))
+
+        #if DEBUG
+        menu.addItem(NSMenuItem.separator())
+        // Manual sweep trigger — bypasses FocusModeController state gate so we
+        // can test the close-the-noise sweep even when the controller is stuck
+        // (e.g. backend session refusing .schedule deactivation).
+        menu.addItem(NSMenuItem(title: "Run Sweep Now (debug)", action: #selector(debugRunSweepNow), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Run Sweep Benchmark — batch (debug)", action: #selector(debugRunSweepBenchmarkBatch), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Run Sweep Benchmark — single (debug)", action: #selector(debugRunSweepBenchmarkSingle), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Run Sweep Benchmark — 4B vs 8B compare (debug)", action: #selector(debugRunSweepBenchmarkCompare), keyEquivalent: ""))
+        #endif
 
         menu.addItem(NSMenuItem.separator())
 
@@ -1279,10 +1420,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc func showDebugMonitor() {
-        mainWindowController?.showDebugMonitor()
-    }
-
     @objc func openDashboard() {
         // Open web dashboard
         if let url = URL(string: "https://intentional.social/dashboard") {
@@ -1346,12 +1483,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 focusMonitor?.alwaysRelevantHostnames = Set(sites.map { $0.lowercased() })
                 postLog("☁️ Settings restore: updated FocusMonitor with \(sites.count) always-relevant site(s)")
             }
-
-            // Broadcast restored settings to connected browser extensions
-            socketRelayServer?.broadcastToAll(
-                ["type": "SETTINGS_SYNC"].merging(backendSettings) { _, new in new }
-            )
-            postLog("☁️ Settings restore: broadcast to extensions complete")
         }
     }
 
@@ -1657,6 +1788,462 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         postLog("🎯 Default profile '\(defaultProfile.name)' applied: \(merged.domains.count) domains, \(merged.appBundleIds.count) apps")
     }
 
+    /// Close-the-noise sweep at session start.
+    ///
+    /// Pipeline: resolve scope → read all browser tabs → three-tier decide →
+    /// AI-batch the borderline tabs → stash (bookmarks folder + close tabs) →
+    /// hide off-scope native apps via Cmd+H → persist SessionStash + push
+    /// dashboard toast.
+    ///
+    /// Fire-and-forget from FocusModeController.onStateChanged on the
+    /// .off → .focus transition. The `voiceIntent` + `intentionId` come from
+    /// the new Period so we don't re-read state mid-flight.
+    @MainActor
+    func runCloseTheNoiseSweep(sessionId: String,
+                               voiceIntent: String,
+                               intentionId: UUID?) async {
+        guard let alwaysAllowed = alwaysAllowedStore?.list,
+              let stashStore = sessionStashStore,
+              let blocker = websiteBlocker else {
+            postLog("⚠️ Sweep skipped — stores not ready")
+            return
+        }
+
+        // 0. Stage 1 prompt — forced declaration of intent before the sweep
+        //    runs. Text-only v1. User can Skip to fall back to Intention's
+        //    saved intentText.
+        var intentionSavedText = ""
+        var intentionOutcome = ""
+        if let intentionId = intentionId,
+           let intention = await IntentionStore.shared.intention(id: intentionId) {
+            intentionSavedText = intention.intentText ?? ""
+            intentionOutcome = intention.outcome ?? ""
+        }
+        let suggestedIntent = [voiceIntent, intentionSavedText].filter { !$0.isEmpty }.joined(separator: " — ")
+        let stageOneAnswer = await stageOneIntentController?.prompt(suggestedIntent: suggestedIntent) ?? .skipped
+
+        // 1. Resolve scope. Stage 1 user-typed answer (if any) takes priority;
+        //    falls back to Intention's saved intentText + outcome + the
+        //    schedule-derived intention title.
+        var scope = ResolvedScope(domains: [], bundleIds: [], voiceIntent: "")
+        if let stageOne = stageOneAnswer.combinedIntent {
+            scope.voiceIntent = stageOne
+            postLog("🧹 Stage 1: user answered (\(stageOne.count) chars)")
+        } else {
+            let parts = [voiceIntent, intentionSavedText, intentionOutcome].filter { !$0.isEmpty }
+            scope.voiceIntent = parts.joined(separator: ". ")
+            postLog("🧹 Stage 1: skipped — using Intention's intentText + outcome (\(scope.voiceIntent.count) chars)")
+        }
+
+        // 1b. Extract intent keywords (project domains, stems, named tools) so
+        //     tabs that name those tokens get auto-kept without consulting the
+        //     model. Solves the "model can't connect 'thebeseen.app' in intent
+        //     with 'Resend - thebeseen.app · Domains' in title" plateau.
+        scope.intentKeywords = IntentKeywordExtractor.extract(from: scope.voiceIntent)
+        if !scope.intentKeywords.isEmpty {
+            let kws = scope.intentKeywords.sorted().joined(separator: ", ")
+            postLog("🧹   Intent keywords (auto-keep): \(kws)")
+        }
+
+        // 2. Active block-rule hosts + bundleIds (enabled + inside scheduled
+        //    window if any).
+        let activeRuleHosts: Set<String> = Set(blockingProfileManager?.activeBlockedDomains() ?? [])
+        let activeRuleBundleIds: Set<String> = Set(blockingProfileManager?.activeBlockedBundleIds() ?? [])
+
+        // 3. Sweep browser tabs across every browser BrowserMonitor discovered
+        //    at launch (Launch Services → LSCopyAllHandlersForURLScheme).
+        //    No hardcoded list — Chromium-based browsers (Comet, Brave, Edge,
+        //    Vivaldi, etc.) are picked up automatically.
+        let allDiscoveredBrowsers = self.browserMonitor?.getAllBrowsers() ?? [:]
+        // Filter to ONLY browsers that are currently running. Avoids macOS
+        // popping a "Where is X?" dialog when AppleScript tries to address a
+        // browser that's installed but not open — and an extra-nasty case
+        // where Launch Services exposes nested sub-bundles (e.g. ChatGPT
+        // Atlas's `com.openai.atlas.web` inside `/Applications/ChatGPT
+        // Atlas.app/Contents/Support/...`) that AppleScript can't resolve by
+        // name without prompting the user.
+        let runningBundles: Set<String> = Set(
+            NSWorkspace.shared.runningApplications.compactMap { $0.bundleIdentifier }
+        )
+        let discoveredBrowsers = allDiscoveredBrowsers.filter { runningBundles.contains($0.key) }
+        let skippedNotRunning = allDiscoveredBrowsers.keys.filter { !runningBundles.contains($0) }
+        if !skippedNotRunning.isEmpty {
+            let joined = skippedNotRunning.sorted().joined(separator: ", ")
+            postLog("🧹 Browsers discovered but not running (skipped): \(joined)")
+        }
+        // Never-hide set still uses the full discovered list so an off-scope
+        // running browser doesn't get Cmd+H'd just because the sweep skipped
+        // its tabs.
+        let neverHideBrowsers: Set<String> = Set(allDiscoveredBrowsers.keys)
+        postLog("🧹 Sweep starting. Scope: domains=\(scope.domains.count) bundleIds=\(scope.bundleIds.count) intent=\"\(scope.voiceIntent.prefix(120))\"")
+        postLog("🧹   Always-allowed: \(alwaysAllowed.bundleIds.count) apps, \(alwaysAllowed.domains.count) domains")
+        postLog("🧹   Active block rules: \(activeRuleHosts.count) hosts, \(activeRuleBundleIds.count) bundleIds")
+
+        // ─── PHASE 1: COLLECT CANDIDATES ──────────────────────────────
+        // Classify every running browser tab + every running native app
+        // into review buckets (probablyKeep / borderline / probablyClose).
+        // Do NOT act yet — we build the review-modal payload first.
+
+        // Tab metadata we need for the eventual close/bookmark action,
+        // keyed by URL (the modal speaks in URLs).
+        struct TabAction {
+            let info: WebsiteBlocker.AllTabsInfo
+            let browserBid: String
+            let appName: String
+        }
+        var tabActionByURL: [String: TabAction] = [:]
+        var candidateItems: [SweepReviewItem] = []
+
+        for (browserBid, browserInfo) in discoveredBrowsers {
+            let appName = browserInfo.scriptName
+            let allTabs = await blocker.readAllTabsAcrossWindows(forBundleId: browserBid, appName: appName)
+            postLog("🧹   [\(browserInfo.name)] read \(allTabs.count) tab(s)")
+            if allTabs.isEmpty { continue }
+
+            // Pre-classify via the existing decideTab + intent-keyword gate.
+            // Tabs that don't need the AI go straight into probably-keep or
+            // probably-close. Tabs that DO need AI get scored next.
+            var aiInput: [WebsiteBlocker.AllTabsInfo] = []
+            var prebucket: [(WebsiteBlocker.AllTabsInfo, SweepReviewBucket)] = []
+            var intentKeywordMatches = 0
+            for t in allTabs {
+                let host = URL(string: t.url)?.host ?? ""
+                if host.isEmpty {
+                    prebucket.append((t, .probablyKeep))  // empty host → keep
+                    continue
+                }
+                let v = Sweeper.decideTab(host: host, isPinned: t.isPinned,
+                                          blockedHosts: activeRuleHosts,
+                                          scope: scope, alwaysAllowed: alwaysAllowed)
+                switch v {
+                case .keep:    prebucket.append((t, .probablyKeep))
+                case .stash:   prebucket.append((t, .probablyClose))
+                case .needsAI:
+                    if scope.matchesIntentKeyword(host: host, url: t.url, title: t.title) {
+                        prebucket.append((t, .probablyKeep))
+                        intentKeywordMatches += 1
+                    } else {
+                        aiInput.append(t)
+                    }
+                }
+            }
+            postLog("🧹   [\(browserInfo.name)] pre-classified: probablyKeep=\(prebucket.filter { $0.1 == .probablyKeep }.count) (incl. \(intentKeywordMatches) intent-keyword) probablyClose=\(prebucket.filter { $0.1 == .probablyClose }.count) needsAI=\(aiInput.count)")
+
+            // AI batch for the unclassified ones. We DO NOT act on the
+            // verdict — we use it only to pre-fill the modal bucket.
+            var aiVerdictByURL: [String: RelevanceScorer.TabVerdict] = [:]
+            if !aiInput.isEmpty, let scorer = relevanceScorer {
+                let intentForAI = scope.voiceIntent.isEmpty ? "Focused work session" : scope.voiceIntent
+                let verdicts = await scorer.scoreTabBatch(
+                    intent: intentForAI,
+                    tabs: aiInput.map { ($0.title, $0.url) }
+                )
+                for (i, v) in verdicts.enumerated() where i < aiInput.count {
+                    aiVerdictByURL[aiInput[i].url] = v
+                }
+                postLog("🧹   [\(browserInfo.name)] AI batch returned \(verdicts.count) verdict(s)")
+            }
+
+            // Build SweepReviewItems for every tab.
+            for (t, prebkt) in prebucket {
+                tabActionByURL[t.url] = TabAction(info: t, browserBid: browserBid, appName: appName)
+                candidateItems.append(SweepReviewItem(
+                    id: t.url,
+                    title: t.title,
+                    subtitle: t.url,
+                    kind: .browserTab(originalURL: t.url,
+                                      originalWindow: t.windowIndex,
+                                      originalIndex: t.tabIndex,
+                                      browserBundleId: browserBid),
+                    bucket: prebkt,
+                    aiConfidence: 100
+                ))
+            }
+            for t in aiInput {
+                tabActionByURL[t.url] = TabAction(info: t, browserBid: browserBid, appName: appName)
+                let v = aiVerdictByURL[t.url]
+                let bkt: SweepReviewBucket
+                if let v = v {
+                    if v.relevant && v.confidence >= 65 { bkt = .probablyKeep }
+                    else if !v.relevant && v.confidence >= 65 { bkt = .probablyClose }
+                    else { bkt = .borderline }
+                } else {
+                    bkt = .borderline
+                }
+                candidateItems.append(SweepReviewItem(
+                    id: t.url,
+                    title: t.title,
+                    subtitle: t.url,
+                    kind: .browserTab(originalURL: t.url,
+                                      originalWindow: t.windowIndex,
+                                      originalIndex: t.tabIndex,
+                                      browserBundleId: browserBid),
+                    bucket: bkt,
+                    aiConfidence: v?.confidence ?? 0
+                ))
+            }
+        }
+
+        // Native apps — same pattern: classify, append to candidate list,
+        // don't hide yet. Browsers are skipped entirely (containers).
+        let ownBundleId = Bundle.main.bundleIdentifier ?? ""
+        var appByBundleId: [String: NSRunningApplication] = [:]
+        var skippedAsBrowser: [String] = []
+        for app in NSWorkspace.shared.runningApplications {
+            guard let bid = app.bundleIdentifier,
+                  app.activationPolicy == .regular,
+                  bid != ownBundleId else { continue }
+            if neverHideBrowsers.contains(bid) {
+                skippedAsBrowser.append(bid)
+                continue
+            }
+            let v = Sweeper.decideApp(bundleId: bid,
+                                      blockedBundleIds: activeRuleBundleIds,
+                                      scope: scope, alwaysAllowed: alwaysAllowed)
+            if v == .hide {
+                appByBundleId[bid] = app
+                candidateItems.append(SweepReviewItem(
+                    id: "app:\(bid)",
+                    title: app.localizedName ?? bid,
+                    subtitle: bid,
+                    kind: .nativeApp(bundleId: bid),
+                    bucket: .probablyClose,
+                    aiConfidence: 100
+                ))
+            }
+        }
+        if !skippedAsBrowser.isEmpty {
+            postLog("🧹   Browsers spared from hide candidates: \(skippedAsBrowser.joined(separator: ", "))")
+        }
+
+        if candidateItems.isEmpty {
+            postLog("🧹 Sweep: no candidates after classification — nothing to review")
+            return
+        }
+
+        // ─── PHASE 2: REVIEW MODAL (unless user opted out) ────────────
+        // Per CLAUDE.md "Hard-Won Lessons" #1, user confirms every
+        // destructive action by default. The opt-out toggle is for
+        // power users who have calibrated trust.
+        let autoCloseWithoutReview = UserDefaults.standard.bool(forKey: "sweepAutoCloseWithoutReview")
+        let result: SweepReviewResult
+        if autoCloseWithoutReview {
+            postLog("🧹 Skipping review modal — user opted in to auto-close")
+            // Close every probably-close + borderline + app (mirrors the
+            // modal's default checkbox state if user clicks straight through).
+            let toClose = candidateItems.filter { item in
+                if case .nativeApp = item.kind { return true }
+                return item.bucket == .probablyClose || item.bucket == .borderline
+            }
+            result = SweepReviewResult(
+                confirmedCloseTabs: toClose.filter {
+                    if case .browserTab = $0.kind { return true } else { return false }
+                },
+                confirmedHideApps: toClose.filter {
+                    if case .nativeApp = $0.kind { return true } else { return false }
+                },
+                cancelled: false,
+                autoCloseNextTime: true
+            )
+        } else {
+            postLog("🧹 Awaiting review modal — \(candidateItems.count) candidate(s)")
+            result = await sweepReviewController?.present(
+                items: candidateItems,
+                intent: scope.voiceIntent
+            ) ?? SweepReviewResult(
+                confirmedCloseTabs: [], confirmedHideApps: [],
+                cancelled: true, autoCloseNextTime: false
+            )
+        }
+
+        // Persist the "skip next time" preference if user toggled it.
+        if result.autoCloseNextTime != autoCloseWithoutReview {
+            UserDefaults.standard.set(result.autoCloseNextTime, forKey: "sweepAutoCloseWithoutReview")
+            postLog("🧹 sweepAutoCloseWithoutReview = \(result.autoCloseNextTime)")
+        }
+
+        if result.cancelled {
+            postLog("🧹 Sweep cancelled by user — nothing closed")
+            return
+        }
+
+        // ─── PHASE 3: ACT on user's confirmed selections ──────────────
+        // Group tabs by browser so we batch one close-script per browser.
+        var stashedTabs: [StashedTab] = []
+        var bookmarksFolderName: String? = nil
+        let stampedName = "Intentional / Stash \(SessionStashStore.timestampString())"
+        var tabsByBrowser: [String: (appName: String, infos: [WebsiteBlocker.AllTabsInfo])] = [:]
+        for item in result.confirmedCloseTabs {
+            guard let action = tabActionByURL[item.id] else { continue }
+            tabsByBrowser[action.browserBid, default: (action.appName, [])].infos.append(action.info)
+        }
+
+        for (browserBid, group) in tabsByBrowser {
+            let appName = group.appName
+            let infos = group.infos
+            // Create the bookmarks folder once (first browser that needs it).
+            if bookmarksFolderName == nil {
+                bookmarksFolderName = await blocker.createBookmarkFolder(forBundleId: browserBid,
+                                                                         appName: appName,
+                                                                         name: stampedName)
+            }
+            if let folder = bookmarksFolderName {
+                for info in infos {
+                    await blocker.addBookmark(forBundleId: browserBid, appName: appName, folderName: folder,
+                                              title: info.title, url: info.url)
+                    stashedTabs.append(StashedTab(title: info.title,
+                                                  url: info.url,
+                                                  browserBundleId: browserBid,
+                                                  originalWindow: info.windowIndex,
+                                                  originalIndex: info.tabIndex))
+                }
+            } else {
+                // Bookmarks unsupported (Safari) — still record for restore.
+                for info in infos {
+                    stashedTabs.append(StashedTab(title: info.title,
+                                                  url: info.url,
+                                                  browserBundleId: browserBid,
+                                                  originalWindow: info.windowIndex,
+                                                  originalIndex: info.tabIndex))
+                }
+            }
+            let urls = Set(infos.map { $0.url })
+            postLog("🧹   [\(browserBid)] closing \(urls.count) URL(s) per user confirmation")
+            let actuallyClosed = await blocker.closeTabsByURL(urls, forBundleId: browserBid, appName: appName)
+            postLog("🧹   [\(browserBid)] AppleScript closed \(actuallyClosed) tab(s)")
+        }
+
+        // Hide confirmed apps.
+        var hiddenBundleIds: [String] = []
+        for item in result.confirmedHideApps {
+            if case .nativeApp(let bid) = item.kind, let app = appByBundleId[bid] {
+                app.hide()
+                hiddenBundleIds.append(bid)
+            }
+        }
+        if !hiddenBundleIds.isEmpty {
+            postLog("🧹   Hidden: \(hiddenBundleIds.joined(separator: ", "))")
+        }
+
+        // Persist + toast.
+        let stash = SessionStash(sessionId: sessionId,
+                                 createdAt: Date(),
+                                 bookmarksFolderId: bookmarksFolderName,
+                                 hiddenBundleIds: hiddenBundleIds,
+                                 stashedTabs: stashedTabs)
+        stashStore.save(stash)
+        postLog("🧹 Sweep complete: closed \(stashedTabs.count) tab(s), hid \(hiddenBundleIds.count) app(s) — by user confirmation")
+        mainWindowController?.pushSweepToast(stashedTabs: stashedTabs.count,
+                                             hiddenApps: hiddenBundleIds.count,
+                                             sessionId: sessionId)
+    }
+
+    /// Open the SwiftUI stash inspector for a given sessionId. No-op if the
+    /// stash doesn't exist (e.g. already purged).
+    func showStashInspector(sessionId: String) {
+        guard let stash = sessionStashStore?.load(sessionId: sessionId) else {
+            postLog("⚠️ showStashInspector: no stash found for session \(sessionId)")
+            return
+        }
+        stashInspectorController?.show(stash: stash)
+    }
+
+    /// Reopen a single stashed tab in its original browser via AppleScript.
+    func restoreSingleTab(_ tab: StashedTab, fromSession sessionId: String) {
+        let script: String
+        switch tab.browserBundleId {
+        case "com.google.Chrome":
+            script = "tell application \"Google Chrome\" to open location \"\(tab.url)\""
+        case "company.thebrowser.Browser":
+            script = "tell application \"Arc\" to open location \"\(tab.url)\""
+        case "com.apple.Safari":
+            script = "tell application \"Safari\" to open location \"\(tab.url)\""
+        default:
+            postLog("⚠️ restoreSingleTab: unknown browser \(tab.browserBundleId)")
+            return
+        }
+        var err: NSDictionary?
+        _ = NSAppleScript(source: script)?.executeAndReturnError(&err)
+        if err == nil {
+            postLog("↩️ Restored tab: \(tab.url)")
+        } else if let err = err {
+            let msg = err["NSAppleScriptErrorMessage"] as? String ?? "unknown"
+            postLog("⚠️ restoreSingleTab AppleScript error: \(msg)")
+        }
+    }
+
+    /// Reopen / unhide a previously-hidden app via NSWorkspace.
+    func restoreSingleApp(bundleId: String, fromSession sessionId: String) {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
+            postLog("⚠️ restoreSingleApp: no URL for bundle \(bundleId)")
+            return
+        }
+        let cfg = NSWorkspace.OpenConfiguration()
+        cfg.activates = false  // Don't steal focus from the active session
+        NSWorkspace.shared.openApplication(at: url, configuration: cfg, completionHandler: nil)
+        postLog("↩️ Restored app: \(bundleId)")
+    }
+
+    // Bulk-restore intentionally NOT implemented. Per the 2026-05-18 design
+    // pivot, the OneTab-style pattern wins: stashed tabs live as a clickable
+    // list (the StashInspectorWindow), and the user reopens individual items
+    // they actually want. Mass-`open location` would auto-play every stashed
+    // YouTube video / autoplay site at once and burn RAM. If we want lazy
+    // bulk restore later, it needs to route through the Chrome extension
+    // (chrome.tabs.create({ discarded: true })) — AppleScript has no
+    // primitive for inactive/discarded tabs.
+
+    #if DEBUG
+    /// Debug-only manual trigger for the sweep. Bypasses the FocusModeController
+    /// state gate. Bound to the menubar "Run Sweep Now (debug)" item.
+    @objc func debugRunSweepNow() {
+        postLog("🧹 [DEBUG] Manual sweep trigger via menubar")
+        let sessionId = focusModeController?.currentPeriod?.id.uuidString ?? "debug-\(UUID().uuidString)"
+        let voiceIntent = focusModeController?.currentPeriod?.intention ?? "Manual debug sweep"
+        let intentionId = focusModeController?.currentPeriod?.intentionId
+        Task { @MainActor in
+            await self.runCloseTheNoiseSweep(sessionId: sessionId,
+                                            voiceIntent: voiceIntent,
+                                            intentionId: intentionId)
+        }
+    }
+
+    /// Run the AI-scoring accuracy benchmark in BATCH mode (production path).
+    @objc func debugRunSweepBenchmarkBatch() {
+        postLog("📊 [DEBUG] Sweep benchmark — batch")
+        Task { @MainActor in
+            let bench = SweepBenchmark(appDelegate: self)
+            await bench.runAll(mode: .batch)
+        }
+    }
+
+    /// Run the same case in SINGLE mode — one prompt per tab. Slower but tests
+    /// whether batching is what's hurting accuracy.
+    @objc func debugRunSweepBenchmarkSingle() {
+        postLog("📊 [DEBUG] Sweep benchmark — single-tab")
+        Task { @MainActor in
+            let bench = SweepBenchmark(appDelegate: self)
+            await bench.runAll(mode: .single)
+        }
+    }
+
+    /// Run BATCH mode on both Qwen3-4B AND Qwen3-8B back-to-back. Hot-swaps
+    /// the loaded MLX model between the two. ~30s model-load overhead per
+    /// swap, then the actual benchmarks. Final reports print side-by-side
+    /// in the log so we can compare apples-to-apples on the same test case.
+    @objc func debugRunSweepBenchmarkCompare() {
+        postLog("📊 [DEBUG] Sweep benchmark — 4B vs 8B compare (batch mode)")
+        Task { @MainActor in
+            let bench = SweepBenchmark(appDelegate: self)
+            await bench.runAll(mode: .batch, modelIds: [
+                "mlx-community/Qwen3-4B-Instruct-2507-4bit",
+                "mlx-community/Qwen3-8B-4bit"
+            ])
+            self.postLog("📊 [DEBUG] Sweep benchmark — compare complete")
+        }
+    }
+    #endif
+
     func checkForActiveFocusSession() {
         guard let token = backendClient?.getAccessToken() else { return }
         guard focusModeController?.isOn != true else { return } // Already in a session
@@ -1678,7 +2265,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
-                self.postLog("🔌 Found active Puck focus session on reconnect — engaging enforcement (session=\(sessionId), triggeredBy=\(triggeredBy))")
+                // Per product scope (May 2026): puck = morning alarm only.
+                // Ignore puck-triggered sessions found on WS reconnect.
+                if triggeredBy == "puck" {
+                    self.postLog("🔌 Found puck-triggered session on reconnect — ignoring (puck = alarm only for now)")
+                    return
+                }
+                self.postLog("🔌 Found active focus session on reconnect — engaging enforcement (session=\(sessionId), triggeredBy=\(triggeredBy))")
 
                 // Auto-engage with default profile + placeholder intention,
                 // matching the WS-signal handler. Don't show the interactive
@@ -1688,14 +2281,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 let defaultProfileIds = self.blockingProfileManager?.profiles
                     .filter { $0.isDefault }
                     .map { $0.id } ?? []
-                let intention = triggeredBy == "puck"
-                    ? "Focus session (recovered from phone)"
-                    : "Focus session (recovered)"
+                let intention = "Focus session (recovered)"
                 self.startFocusSession(
                     profileIds: defaultProfileIds,
                     intention: intention,
                     aiEnabled: false,
-                    triggeredByPuck: triggeredBy == "puck"
+                    triggeredByPuck: false
                 )
                 if !sessionId.isEmpty {
                     self.focusWebSocketClient?.startHeartbeat(sessionId: sessionId)

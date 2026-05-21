@@ -152,7 +152,14 @@ class EarnedBrowseManager {
 
         save()
         appDelegate?.mainWindowController?.pushEarnedUpdate()
-        appDelegate?.socketRelayServer?.broadcastEarnedMinutesUpdate(self)
+
+        // Slice 8 of 2026-05-05 redesign — also report to backend so
+        // cross-device budget stays in sync. Local pool kept as cache.
+        if earned > 0, let backend = appDelegate?.backendClient {
+            Task {
+                _ = await backend.postBudgetEarn(minutes: earned)
+            }
+        }
     }
 
     // MARK: - Social Media Time (called by TimeTracker callback)
@@ -176,8 +183,16 @@ class EarnedBrowseManager {
         } else {
             multiplier = freeTimeCost  // Spec 2: no block = free time
         }
-        usedMinutes += minutes * multiplier
+        let consumed = minutes * multiplier
+        usedMinutes += consumed
         save()
+
+        // Slice 8 of 2026-05-05 redesign — also report consumption to backend.
+        if consumed > 0, let backend = appDelegate?.backendClient {
+            Task {
+                _ = await backend.postBudgetConsume(minutes: consumed)
+            }
+        }
         return availableMinutes
     }
 

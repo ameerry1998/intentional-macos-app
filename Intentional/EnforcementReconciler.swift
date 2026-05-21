@@ -178,6 +178,10 @@ final class EnforcementReconciler {
         "platforms.facebook.block_sponsored":  "platforms.facebook.blockSponsored",
         "platforms.facebook.block_suggested":  "platforms.facebook.blockSuggested",
         "distracting_sites":                "distractingSites",
+        // Slice 7 of 2026-05-05 redesign — Strict Mode coverage expansion.
+        "bedtime.enabled":                  "bedtime.enabled",
+        "ai_scoring.enabled":               "aiScoring.enabled",
+        "always_blocked_apps":              "alwaysBlockedApps",
     ]
 
     private static func settingsPath(for enforcementKey: String) -> String {

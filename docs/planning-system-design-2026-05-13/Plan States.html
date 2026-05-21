@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Intentional · Plan States (phase 1)</title>
+<style>
+  /* ─────────────────────────────────────────────────────────────
+     SHARED TOKENS — these will spread to every new screen
+     ─────────────────────────────────────────────────────────────
+     Restraint rules:
+       • borders: 0.5px, --line / --line-2
+       • status: lowercase word in semantic color, no chip
+       • accent: text-primary (high-contrast) used only for primary
+         CTA + active selection. Monthly hues are semantic dots only.
+       • section labels: 11px uppercase 0.5px tracking, no subtitles
+  */
+  :root {
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+    --r-sm: 6px; --r-md: 10px; --r-lg: 14px;
+  }
+  body[data-theme="light"] {
+    --bg:        #F1ECDD;
+    --bg-app:    #F7F3EA;
+    --bg-side:   #EDE5D2;
+    --surface:   #FFFFFF;
+    --surface-2: #F4EEDE;
+    --line:      rgba(26,20,16,0.09);
+    --line-2:    rgba(26,20,16,0.18);
+    --line-3:    rgba(26,20,16,0.28);
+    --text-1:    #1A1410;
+    --text-2:    rgba(26,20,16,0.62);
+    --text-3:    rgba(26,20,16,0.42);
+    --text-4:    rgba(26,20,16,0.22);
+    --primary-bg:   #1A1410;
+    --primary-fg:   #F7F3EA;
+    --primary-bg-h: #2c241d;
+    --info-bg:   rgba(53,90,180,0.08);
+    --info-line: rgba(53,90,180,0.22);
+    --info-fg:   #355AB4;
+    --success:   #1D9E75;
+    --warning:   #B97316;
+  }
+  body[data-theme="dark"] {
+    --bg:        #14161A;
+    --bg-app:    #0F1114;
+    --bg-side:   #14161A;
+    --surface:   #1A1D22;
+    --surface-2: #22262C;
+    --line:      rgba(255,255,255,0.08);
+    --line-2:    rgba(255,255,255,0.16);
+    --line-3:    rgba(255,255,255,0.26);
+    --text-1:    #F4F5F6;
+    --text-2:    rgba(255,255,255,0.62);
+    --text-3:    rgba(255,255,255,0.42);
+    --text-4:    rgba(255,255,255,0.22);
+    --primary-bg: #F2EFE5;
+    --primary-fg: #1A1410;
+    --primary-bg-h: #FFFCF2;
+    --info-bg:   rgba(108,144,224,0.10);
+    --info-line: rgba(108,144,224,0.28);
+    --info-fg:   #9CB7EE;
+    --success:   #4EBE92;
+    --warning:   #D9A04A;
+  }
+  /* Monthly hues are semantic constants regardless of theme */
+  :root {
+    --hue-1: #D85A30;
+    --hue-2: #1D9E75;
+    --hue-3: #D4537E;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:#0B0C0E; color:var(--text-1);
+    font: 13px/1.5 var(--font); -webkit-font-smoothing: antialiased; }
+
+  /* Canvas-level theme toggle (top-left of the canvas) */
+  .theme-tog { position: fixed; left: 14px; bottom: 14px; z-index: 200;
+    display: inline-flex; padding: 3px; background: rgba(255,255,255,0.04);
+    border: 0.5px solid rgba(255,255,255,0.16); border-radius: 999px;
+    backdrop-filter: blur(8px); }
+  .theme-tog button { background: transparent; border: 0; color: rgba(255,255,255,0.6);
+    padding: 5px 11px; border-radius: 999px;
+    font: 500 11.5px var(--font); cursor: pointer;
+    transition: all 120ms ease; }
+  .theme-tog button.on { background: rgba(255,255,255,0.12); color: #fff; }
+
+  /* Artboard root sets its own page bg */
+  .artboard-page { background: var(--bg-app); color: var(--text-1);
+    width: 100%; height: 100%; overflow: hidden; }
+
+  /* ─── Window chrome (used by full-page artboards) ─── */
+  .win { width: 100%; height: 100%; display: grid;
+    grid-template-columns: 200px 1fr; background: var(--bg-app); }
+  .sidebar { background: var(--bg-side); padding: 22px 12px; }
+  .brand { color: var(--text-1); font: 600 13.5px var(--font);
+    margin: 4px 6px 22px; letter-spacing: -0.005em; }
+  .nav { display: flex; flex-direction: column; gap: 1px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px;
+    border-radius: 8px; color: var(--text-2); font: 500 12.5px var(--font);
+    text-decoration: none; cursor: pointer; }
+  .nav a:hover { color: var(--text-1); background: rgba(0,0,0,0.04); }
+  body[data-theme="dark"] .nav a:hover { background: rgba(255,255,255,0.04); }
+  .nav a.active { color: var(--text-1); background: rgba(0,0,0,0.06); font-weight: 600; }
+  body[data-theme="dark"] .nav a.active { background: rgba(255,255,255,0.06); }
+  .nav a svg { width: 13px; height: 13px; opacity: 0.7; }
+
+  .page { padding: 32px 36px 40px; display: flex; flex-direction: column; gap: 24px;
+    overflow: hidden; }
+  .pg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .pg-head h1 { font: 600 22px/1.15 var(--font); letter-spacing: -0.01em;
+    margin: 0; color: var(--text-1); }
+  .pg-head .eyebrow-row { font: 500 11px var(--font); letter-spacing: 0.05em;
+    text-transform: uppercase; color: var(--text-3); margin-bottom: 4px; }
+  .head-actions { display: flex; gap: 6px; align-items: center; }
+  .btn-ghost { background: transparent; border: 0.5px solid var(--line-2);
+    color: var(--text-1); padding: 6px 11px; border-radius: var(--r-sm);
+    font: 500 12.5px var(--font); cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; }
+  .btn-ghost:hover { border-color: var(--line-3); }
+  .btn-ghost svg { width: 12px; height: 12px; opacity: 0.7; }
+  .btn-primary { background: var(--primary-bg); color: var(--primary-fg);
+    border: 0.5px solid var(--primary-bg);
+    padding: 7px 13px; border-radius: var(--r-sm);
+    font: 600 12.5px var(--font); cursor: pointer; }
+  .btn-primary:hover { background: var(--primary-bg-h); border-color: var(--primary-bg-h); }
+  .btn-text { background: transparent; border: 0; color: var(--text-3);
+    padding: 6px 4px; font: 500 12.5px var(--font); cursor: pointer; }
+  .btn-text:hover { color: var(--text-1); }
+
+  /* Section label — short, uppercase, no subtitle */
+  .eyebrow { font: 500 11px var(--font); letter-spacing: 0.05em;
+    text-transform: uppercase; color: var(--text-3); margin-bottom: 12px; }
+
+  /* Row of 3 (used for monthly + weekly slots) */
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+  /* ─── Prompt card (sets up the ritual) ─── */
+  .prompt { background: var(--surface); border: 0.5px solid var(--line);
+    border-radius: var(--r-lg); padding: 22px 24px;
+    display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+  .prompt h2 { font: 600 16px/1.3 var(--font); margin: 0 0 4px;
+    letter-spacing: -0.005em; color: var(--text-1); }
+  .prompt p { margin: 0; color: var(--text-2); font: 13px/1.5 var(--font);
+    max-width: 460px; }
+
+  /* ─── Empty placeholder cards ─── */
+  .empty-card { background: transparent;
+    border: 0.5px dashed var(--line-2); border-radius: var(--r-md);
+    padding: 24px 16px; min-height: 94px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    color: var(--text-3); font: 500 13px var(--font); cursor: pointer;
+    transition: border-color 150ms ease, color 150ms ease; }
+  .empty-card:hover { border-color: var(--line-3); color: var(--text-1); }
+  .empty-card svg { width: 13px; height: 13px; }
+
+  /* Quiet "set monthly first" placeholder where weekly grid would be */
+  .quiet { color: var(--text-3); font: 13px var(--font);
+    padding: 22px 0 0; border-top: 0.5px solid var(--line);
+    text-align: left; }
+
+  /* ─── Modal artboard (for edit modal) ─── */
+  .ig-modal-stage { width: 100%; height: 100%;
+    background: var(--bg); padding: 36px;
+    display: flex; align-items: flex-start; justify-content: center; }
+  .ig-modal { width: 480px; background: var(--surface);
+    border: 0.5px solid var(--line); border-radius: var(--r-lg);
+    padding: 24px 26px; box-shadow: 0 24px 60px rgba(0,0,0,0.18); }
+  body[data-theme="dark"] .ig-modal { box-shadow: 0 24px 60px rgba(0,0,0,0.55); }
+  .ig-modal-head { display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 22px; }
+  .ig-modal-kind { font: 500 11px var(--font); letter-spacing: 0.05em;
+    text-transform: uppercase; color: var(--text-3); white-space: nowrap; }
+  .ig-modal-close { background: transparent; border: 0.5px solid var(--line-2);
+    color: var(--text-2); padding: 4px 10px; border-radius: var(--r-sm);
+    font: 500 12px var(--font); cursor: pointer; }
+  .ig-modal-close:hover { color: var(--text-1); border-color: var(--line-3); }
+
+  .fld { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+  .fld label { font: 500 11px var(--font); letter-spacing: 0.05em;
+    text-transform: uppercase; color: var(--text-3); }
+  .fld label .opt { text-transform: none; color: var(--text-4);
+    font-weight: 400; letter-spacing: 0; margin-left: 2px; }
+  .fld input[type="text"] { background: var(--bg-app);
+    border: 0.5px solid var(--line-2); border-radius: var(--r-md);
+    padding: 10px 12px; font: 14px var(--font); color: var(--text-1);
+    width: 100%; }
+  body[data-theme="dark"] .fld input[type="text"] { background: var(--bg-app); }
+  .fld input[type="text"]:focus { outline: none; border-color: var(--line-3);
+    background: var(--surface); }
+
+  /* Link pill picker */
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .pill { display: inline-flex; align-items: center; gap: 7px;
+    padding: 6px 12px; border-radius: 999px; white-space: nowrap;
+    font: 500 12px var(--font); cursor: pointer;
+    border: 0.5px solid var(--line-2); background: transparent;
+    color: var(--text-2); }
+  .pill:hover { border-color: var(--line-3); color: var(--text-1); }
+  .pill.on { background: var(--surface-2); color: var(--text-1);
+    border-color: var(--line-3); font-weight: 600; }
+  .pill .dot { width: 7px; height: 7px; border-radius: 999px;
+    background: var(--hue, var(--text-3)); flex-shrink: 0; }
+
+  /* Hours stepper */
+  .stepper { display: inline-flex; align-items: center; gap: 8px;
+    margin-top: 4px; align-self: flex-start; }
+  .stepper button { background: var(--surface-2); border: 0.5px solid var(--line-2);
+    color: var(--text-1); width: 30px; height: 28px; border-radius: var(--r-md);
+    cursor: pointer; font: 500 14px var(--font); }
+  .stepper button:hover { border-color: var(--line-3); }
+  .stepper .val { font: 600 14px var(--font); min-width: 52px; text-align: center;
+    font-variant-numeric: tabular-nums; }
+
+  /* Modal footer */
+  .ig-modal-foot { display: flex; align-items: center; justify-content: space-between;
+    margin-top: 24px; padding-top: 18px; border-top: 0.5px solid var(--line); }
+  .ig-modal-foot .right { display: flex; gap: 6px; }
+
+  /* ─── Goal dots — semantic indicators ─── */
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 999px;
+    background: var(--hue, var(--text-3)); flex-shrink: 0;
+    margin-right: 7px; vertical-align: middle; transform: translateY(-1px); }
+</style>
+</head>
+<body data-theme="light">
+<div id="canvas-root"></div>
+
+<div class="theme-tog">
+  <button id="t-light" class="on" onclick="setTheme('light')">☀ Light</button>
+  <button id="t-dark" onclick="setTheme('dark')">☾ Dark</button>
+</div>
+<script>
+  function setTheme(t) {
+    document.body.dataset.theme = t;
+    document.getElementById('t-light').classList.toggle('on', t==='light');
+    document.getElementById('t-dark').classList.toggle('on', t==='dark');
+  }
+</script>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="plan-states.jsx"></script>
+</body>
+</html>

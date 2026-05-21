@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Intentional — Rituals (full-screen overlays)</title>
+<style>
+  :root {
+    --bg: #0a0c0a; --bg-2: #111414;
+    --card: rgba(255,255,255,0.04);
+    --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.14);
+    --text: #f7f8f8; --muted: rgba(255,255,255,0.55); --dim: rgba(255,255,255,0.36);
+    --coral: #E87461; --gold: #F0B060; --green: #6FB58E; --blue: #6E8FE0;
+    --violet: #B287D9; --amber: #E5A063; --red: #D45050;
+    --grad: linear-gradient(135deg, var(--coral), var(--gold));
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif;
+    --mono: "SF Mono", Menlo, Monaco, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; line-height: 1.55; }
+  body { background: radial-gradient(ellipse at top, rgba(232,116,97,0.06), transparent 60%), var(--bg); background-attachment: fixed; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 56px 32px 96px; }
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--coral); margin-bottom: 10px; }
+  h1 { font-size: 38px; line-height: 1.15; letter-spacing: -0.8px; font-weight: 700; margin: 0 0 14px; }
+  .lede { font-size: 17px; color: var(--muted); max-width: 760px; margin-bottom: 16px; }
+  h2 { font-size: 20px; letter-spacing: -0.3px; font-weight: 600; margin: 56px 0 6px; }
+  h2 .meta { font-size: 13px; font-weight: 400; color: var(--dim); margin-left: 12px; }
+  .state-note { font-size: 13px; color: var(--muted); margin: 6px 0 14px; max-width: 760px; }
+  .btn-primary { background: var(--grad); color: #1a0f0a; border: none; padding: 12px 22px; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; font-family: var(--font); }
+  .btn-secondary { background: transparent; color: var(--muted); border: 1px solid var(--border-strong); padding: 12px 18px; border-radius: 10px; font-weight: 500; font-size: 14px; cursor: pointer; font-family: var(--font); }
+  .btn-danger { background: transparent; color: var(--red); border: 1px solid rgba(212,80,80,0.36); padding: 12px 18px; border-radius: 10px; font-weight: 500; font-size: 14px; cursor: pointer; }
+  .btn-quiet { background: transparent; color: var(--muted); border: 0; padding: 10px; font-size: 13px; cursor: pointer; }
+  .annot { margin: 14px 0 0; padding: 14px 18px; background: var(--card); border-left: 3px solid var(--coral); border-radius: 0 10px 10px 0; font-size: 13px; line-height: 1.6; color: var(--muted); }
+  .annot strong { color: var(--text); }
+
+  .fullscreen { position: relative; border-radius: 16px; overflow: hidden; min-height: 540px; border: 1px solid var(--border-strong); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 40px; text-align: center; }
+  .fullscreen .corner { position:absolute; top:14px; left:14px; font-size:11px; color: var(--dim); font-family: var(--mono); }
+  .fullscreen .alarm-tag { color: var(--coral); font-size: 14px; letter-spacing: 1px; text-transform: uppercase; font-weight: 600; margin-bottom: 12px; }
+  .fullscreen h2.h { font-size: 42px; letter-spacing: -0.8px; margin: 14px 0 12px; font-weight: 300; }
+  .fullscreen .sub { color: var(--muted); font-size: 17px; }
+  .fullscreen .pulse { display: inline-block; width: 12px; height: 12px; background: var(--coral); border-radius: 50%; box-shadow: 0 0 16px var(--coral); margin-right: 10px; animation: pulse 1s infinite ease-in-out; }
+  @keyframes pulse { 50% { opacity: 0.35; transform: scale(0.7); } }
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+  .pill.coral { background: rgba(232,116,97,0.12); color: var(--coral); border: 1px solid rgba(232,116,97,0.28); }
+  .pill.red { background: rgba(212,80,80,0.12); color: var(--red); border: 1px solid rgba(212,80,80,0.28); }
+  .pill.green { background: rgba(111,181,142,0.12); color: var(--green); border: 1px solid rgba(111,181,142,0.28); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Rituals · full-screen overlays · 2026-05-13</div>
+  <h1>Rituals — every full-screen overlay</h1>
+  <p class="lede">18 full-screen states. Wake-up + morning ritual (new), focus blocking, intervention exercises, context-switching countdown, tamper, content safety detection, focus start, deep-work vignette. Each is a per-screen NSWindow at .screenSaver level.</p>
+</header>
+
+<!-- 1 -->
+<h2>1 — Wake-up: alarm fired <span class="meta">replaces all surfaces until Puck tap</span></h2>
+<div class="fullscreen" style="background: radial-gradient(ellipse at center, rgba(232,116,97,0.10), transparent 70%), #050605;">
+  <div class="corner">Alarm · 7:30 AM Tuesday May 13</div>
+  <div class="alarm-tag"><span class="pulse"></span>Alarm</div>
+  <h2 class="h">Good morning, Ameer.</h2>
+  <div class="sub">Tap your phone on the Puck to wake.</div>
+  <div style="margin-top:60px; font-size:14px; color: var(--dim);">The Puck is in your bathroom.<br>After tap, you'll set today's missions before unlocking the phone.</div>
+</div>
+<div class="annot"><strong>Anti-bypass:</strong> No "Snooze" button. No "Dismiss." Phone power-off triggers fallback: Mac retains wake state until phone reconnects. Caity is notified if power-off is detected. iOS AlarmKit pending Cat 4 Perplexity research.</div>
+
+<!-- 2 -->
+<h2>2 — Wake-up: bypass attempt detected <span class="meta">phone power-off or DND attempt</span></h2>
+<div class="fullscreen" style="background: radial-gradient(ellipse at center, rgba(212,80,80,0.10), transparent 70%), #050605;">
+  <div class="corner">Alarm · 7:31 AM · bypass detected</div>
+  <div class="alarm-tag" style="color: var(--red);">⚠ Bypass attempt</div>
+  <h2 class="h" style="color: var(--red);">Phone power-off detected.</h2>
+  <div class="sub">The Puck still works. Tap to wake.</div>
+  <div style="margin-top:60px; font-size:13px; color: var(--muted);">Caity has been notified.</div>
+</div>
+
+<!-- 3 -->
+<h2>3 — Wake-up: after Puck tap (transition) <span class="meta">~600ms transition</span></h2>
+<div class="fullscreen" style="background: linear-gradient(135deg, rgba(232,116,97,0.08), rgba(240,176,96,0.04)), #050605;">
+  <div class="alarm-tag" style="color: var(--green);">✓ Awake</div>
+  <h2 class="h">Welcome back.</h2>
+  <div class="sub">Setting up your morning ritual…</div>
+  <div style="margin-top:30px;"><div style="width:200px; height:3px; background: rgba(255,255,255,0.08); border-radius:2px; overflow:hidden; margin: 0 auto;"><div style="height:100%; width:60%; background: var(--coral); border-radius:2px;"></div></div></div>
+</div>
+
+<!-- 4-6: Morning ritual = Help me plan steps -->
+<h2>4 — Morning ritual = Step 1 (What 1–3 things…)</h2>
+<div class="fullscreen" style="background: linear-gradient(180deg, rgba(232,116,97,0.04), transparent), var(--bg-2);">
+  <div class="alarm-tag">Morning ritual · Step 1 of 3</div>
+  <h2 class="h" style="font-size:30px; max-width:600px;">What 1–3 things would make this week feel meaningfully better?</h2>
+  <div style="width:540px; max-width:100%; background: var(--card); border: 1px solid var(--border-strong); border-radius: 12px; padding: 16px 18px; min-height: 140px; text-align: left; color: var(--muted); font-size: 14px;">Type or speak…&nbsp;<span style="color:var(--coral);">🎙</span></div>
+  <div style="margin-top:20px; display:flex; gap:10px;"><button class="btn-secondary">Skip ritual</button><button class="btn-primary">Next →</button></div>
+</div>
+
+<h2>5 — Morning ritual = Step 2 (Which monthly goal each connects to)</h2>
+<div class="fullscreen" style="background: linear-gradient(180deg, rgba(232,116,97,0.04), transparent), var(--bg-2);">
+  <div class="alarm-tag">Morning ritual · Step 2 of 3</div>
+  <h2 class="h" style="font-size:26px; max-width:600px;">Which monthly goal does each connect to?</h2>
+  <div style="font-size:14px; color:var(--muted); margin-top:-6px;">Optional — one can be standalone.</div>
+  <div style="width:540px; margin-top:20px; text-align:left;">
+    <div style="margin-bottom:12px;"><div style="font-size:13px; color:var(--muted); margin-bottom:6px;">Mission 1: Outline blog #3</div><div style="display:flex; gap:6px; flex-wrap:wrap;"><span class="pill coral" style="background:rgba(232,116,97,0.20); border-color:var(--coral);">● Write 4 blog posts</span><span class="pill" style="background:rgba(255,255,255,0.04);color:var(--muted);border:1px solid var(--border);">Ship Mac app</span><span class="pill" style="background:rgba(255,255,255,0.04);color:var(--muted);border:1px solid var(--border);">Train for 5k</span><span class="pill" style="background:rgba(255,255,255,0.04);color:var(--dim);border:1px solid var(--border);">No link</span></div></div>
+  </div>
+  <div style="margin-top:30px; display:flex; gap:10px;"><button class="btn-secondary">← Back</button><button class="btn-primary">Next →</button></div>
+</div>
+
+<h2>6 — Morning ritual = Step 3 (What does "done" look like)</h2>
+<div class="fullscreen" style="background: linear-gradient(180deg, rgba(232,116,97,0.04), transparent), var(--bg-2);">
+  <div class="alarm-tag">Morning ritual · Step 3 of 3</div>
+  <h2 class="h" style="font-size:30px; max-width:600px;">What would "done" look like for each by Sunday?</h2>
+  <div style="width:540px; margin-top:20px;">
+    <div style="background: var(--card); border: 1px solid var(--border-strong); border-radius: 12px; padding: 14px; margin-bottom:10px; text-align:left; min-height:60px; color:var(--muted); font-size:14px;">Mission 1: Outline + 500 words by Wed EOD</div>
+    <div style="background: var(--card); border: 1px solid var(--border-strong); border-radius: 12px; padding: 14px; text-align:left; min-height:60px; color:var(--muted); font-size:14px;">Mission 2: PR merged by Fri</div>
+  </div>
+  <div style="margin-top:20px; display:flex; gap:10px;"><button class="btn-secondary">← Back</button><button class="btn-primary">Review my plan →</button></div>
+</div>
+
+<!-- 7 -->
+<h2>7 — Block start ritual (legacy full-screen variant) <span class="meta">BlockRitualController.show — class still exists, less used since pill .startRitual</span></h2>
+<div class="fullscreen" style="background: linear-gradient(180deg, rgba(232,116,97,0.06), transparent), var(--bg-2);">
+  <div class="alarm-tag" style="color: var(--green);">UP NEXT · DEEP WORK · 2h</div>
+  <h2 class="h" style="font-size:30px; max-width:600px;">Outline blog post #3</h2>
+  <div class="sub" style="max-width: 560px;">Toward "Write 4 blog posts in May" · 6h of 16h done</div>
+  <div style="margin-top:30px; width: 560px;">
+    <div style="text-align:left; font-size:13px; color:var(--muted); margin-bottom:8px;">If I get distracted, I'll…</div>
+    <div style="background: var(--card); border: 1px solid var(--border-strong); border-radius: 10px; padding: 12px 14px; text-align:left; font-size:13px;">…close the tab and breathe before reopening anything else.</div>
+  </div>
+  <div style="margin-top:24px; display:flex; gap:10px;"><button class="btn-secondary">Edit</button><button class="btn-quiet">Push back 5 min</button><button class="btn-primary">Start →</button></div>
+</div>
+
+<!-- 8 -->
+<h2>8 — Block end ritual / celebration full-screen <span class="meta">3-card carousel</span></h2>
+<div class="fullscreen" style="background: linear-gradient(180deg, rgba(111,181,142,0.06), transparent), var(--bg-2);">
+  <div class="alarm-tag" style="color: var(--green);">SESSION COMPLETE</div>
+  <h2 class="h" style="font-size:30px;">2h focused · 91% focus</h2>
+  <div style="display:flex; gap:14px; margin-top:30px;">
+    <div style="background: var(--card); border:1px solid var(--border-strong); border-radius:12px; padding:18px; width:200px; text-align:center;"><div style="font-size:11px; color:var(--green); text-transform:uppercase; letter-spacing:1px; font-weight:700; margin-bottom:6px;">Reflection</div><div style="font-size:13px; color:var(--muted);">What worked?</div></div>
+    <div style="background: var(--card); border:1px solid var(--border-strong); border-radius:12px; padding:18px; width:200px; text-align:center;"><div style="font-size:11px; color:var(--coral); text-transform:uppercase; letter-spacing:1px; font-weight:700; margin-bottom:6px;">Self-assess</div><div style="font-size:13px; color:var(--muted);">How focused did you feel?</div></div>
+    <div style="background: var(--card); border:1px solid var(--border-strong); border-radius:12px; padding:18px; width:200px; text-align:center;"><div style="font-size:11px; color:var(--gold); text-transform:uppercase; letter-spacing:1px; font-weight:700; margin-bottom:6px;">AI verdict</div><div style="font-size:13px; color:var(--muted);">Match your gut?</div></div>
+  </div>
+  <div style="margin-top:24px;"><button class="btn-quiet" style="color:var(--coral);">Skip</button></div>
+</div>
+
+<!-- 9 -->
+<h2>9 — Context-switching countdown overlay <span class="meta">cross-app switch during focus block</span></h2>
+<div class="fullscreen" style="background: radial-gradient(ellipse at center, rgba(232,116,97,0.10), transparent 70%), #050605;">
+  <div class="alarm-tag" style="color: var(--coral);">CONTEXT SWITCH DETECTED</div>
+  <div style="font-size: 72px; font-weight: 800; letter-spacing: -2px; margin: 14px 0;">5</div>
+  <h2 class="h" style="font-size:24px;">Back to outlining the blog post?</h2>
+  <div class="sub" style="margin-bottom:20px;">You switched from VSCode to Twitter.</div>
+  <div style="display:flex; gap:10px;"><button class="btn-primary">Back to work</button><button class="btn-secondary">Continue anyway</button></div>
+  <div style="margin-top:18px; font-size:11px; color: var(--dim); font-family: var(--mono);">Press Esc to return to VSCode</div>
+</div>
+
+<!-- 10 -->
+<h2>10 — Focus blocking overlay <span class="meta">hard block on persistent off-mission activity</span></h2>
+<div class="fullscreen" style="background: radial-gradient(ellipse at top, rgba(212,80,80,0.12), transparent 70%), #050605;">
+  <div class="alarm-tag" style="color: var(--red);">BLOCKED</div>
+  <h2 class="h" style="font-size:30px;">Not now.</h2>
+  <div class="sub">Your mission: <strong style="color: var(--text);">Outline blog post #3</strong></div>
+  <div style="margin-top:20px; font-size:13px; color: var(--muted); max-width: 560px;">Reddit isn't related. You've drifted 4 times this session.</div>
+  <div style="margin-top:30px; display:flex; gap:10px;"><button class="btn-primary">Back to work</button><button class="btn-secondary">Approve for this block</button></div>
+  <div style="margin-top:14px; display:flex; gap:14px; font-size:12px; color: var(--dim);"><span style="cursor:pointer;">Why? ↓</span><span style="cursor:pointer;">This was wrong</span></div>
+</div>
+
+<!-- 11 -->
+<h2>11 — Intervention: Scrambled Words <span class="meta">5-min cumulative drift trigger</span></h2>
+<div class="fullscreen" style="background: linear-gradient(180deg, rgba(229,160,99,0.06), transparent), var(--bg-2);">
+  <div class="alarm-tag" style="color: var(--amber);">RECENTRING · 60s WAIT</div>
+  <h2 class="h" style="font-size:28px;">Unscramble these to continue.</h2>
+  <div style="margin-top:30px; display:flex; flex-direction:column; gap:14px; width:380px;">
+    <div style="background:var(--card); border:1px solid var(--border-strong); border-radius:8px; padding:14px;"><div style="font-family:var(--mono); font-size:18px; color:var(--coral); letter-spacing:6px;">OUCSF</div><div style="margin-top:6px; font-size:13px; color:var(--muted);">→ ____</div></div>
+    <div style="background:var(--card); border:1px solid var(--border-strong); border-radius:8px; padding:14px;"><div style="font-family:var(--mono); font-size:18px; color:var(--coral); letter-spacing:6px;">CIDISIPLEN</div><div style="margin-top:6px; font-size:13px; color:var(--muted);">→ __________</div></div>
+    <div style="background:var(--card); border:1px solid var(--border-strong); border-radius:8px; padding:14px;"><div style="font-family:var(--mono); font-size:18px; color:var(--coral); letter-spacing:6px;">ITINOENTIAN</div><div style="margin-top:6px; font-size:13px; color:var(--muted);">→ ___________</div></div>
+  </div>
+  <div style="margin-top:24px; font-family:var(--mono); font-size:12px; color: var(--dim);">Wait: 42 / 60s</div>
+</div>
+
+<!-- 12 -->
+<h2>12 — Intervention: Reflect &amp; Commit</h2>
+<div class="fullscreen" style="background: linear-gradient(180deg, rgba(178,135,217,0.06), transparent), var(--bg-2);">
+  <div class="alarm-tag" style="color: var(--violet);">REFLECT &amp; COMMIT · 90s WAIT</div>
+  <h2 class="h" style="font-size:24px; max-width: 600px;">Why are you back to work right now?</h2>
+  <div style="background: var(--card); border:1px solid var(--border-strong); border-radius:12px; padding:14px 16px; width: 540px; min-height: 120px; text-align: left; color: var(--muted); font-size: 14px;">Type one sentence about why this mission matters today…</div>
+  <div style="margin-top:18px; font-family:var(--mono); font-size:12px; color: var(--dim);">Wait: 28 / 90s</div>
+</div>
+
+<!-- 13 -->
+<h2>13 — Tamper overlay <span class="meta">settings changed outside dashboard, EnforcementReconciler corrected</span></h2>
+<div class="fullscreen" style="background: linear-gradient(180deg, rgba(212,80,80,0.06), transparent), var(--bg-2);">
+  <div class="alarm-tag" style="color: var(--red);">TAMPER DETECTED</div>
+  <h2 class="h" style="font-size:26px;">We caught a settings change.</h2>
+  <div style="max-width: 540px; margin: 18px 0; text-align: left;">
+    <ul style="color: var(--muted); padding-left: 20px; font-size: 14px; line-height: 1.7;">
+      <li>Content Safety was disabled via the System Settings Network panel</li>
+      <li>Strict Mode is on, so this isn't allowed</li>
+      <li>Caity has been notified</li>
+      <li>We've restored Content Safety to ON</li>
+    </ul>
+  </div>
+  <button class="btn-primary">OK</button>
+</div>
+
+<!-- 14 -->
+<h2>14 — Content Safety detection overlay <span class="meta">per-screen blur on NSFW detection</span></h2>
+<div class="fullscreen" style="background: linear-gradient(180deg, rgba(110,143,224,0.08), transparent), var(--bg-2);">
+  <div class="alarm-tag" style="color: var(--blue);">TAKE A BREATH</div>
+  <h2 class="h" style="font-size:30px;">Want this?</h2>
+  <div class="sub" style="max-width: 500px;">Caity has been notified. The screen will clear in 5s.</div>
+  <div style="margin-top: 40px; font-family: var(--mono); font-size: 13px; color: var(--dim);">5 4 3 2 1</div>
+</div>
+
+<!-- 15 -->
+<h2>15 — Content Safety permission overlay</h2>
+<div class="fullscreen" style="background: linear-gradient(180deg, rgba(229,160,99,0.08), transparent), var(--bg-2);">
+  <div class="alarm-tag" style="color: var(--amber);">PERMISSION NEEDED</div>
+  <h2 class="h" style="font-size:26px;">Re-grant Screen Recording</h2>
+  <div class="sub" style="max-width: 540px;">Content Safety can't run without it. Click below to open System Settings → Privacy &amp; Security → Screen Recording.</div>
+  <div style="margin-top:30px;"><button class="btn-primary">Open System Settings</button></div>
+  <div style="margin-top: 18px; font-size: 12px; color: var(--dim);">Caity has been notified that this is missing.</div>
+</div>
+
+<!-- 16 -->
+<h2>16 — Focus Start overlay <span class="meta">Cmd+Shift+P / Puck / WS signal</span></h2>
+<div class="fullscreen" style="background: linear-gradient(180deg, rgba(232,116,97,0.06), transparent), var(--bg-2);">
+  <div class="alarm-tag">STARTING A SESSION</div>
+  <h2 class="h" style="font-size:28px;">What are you working on?</h2>
+  <div style="margin-top: 20px; display:flex; gap:6px; flex-wrap:wrap; justify-content:center; max-width:600px;">
+    <span class="pill coral" style="background:rgba(232,116,97,0.20); border-color:var(--coral); padding:8px 14px; font-size:12px;">● Outline blog #3</span>
+    <span class="pill" style="background:rgba(255,255,255,0.04);color:var(--muted);border:1px solid var(--border-strong); padding:8px 14px; font-size:12px;">○ Ship Stripe</span>
+    <span class="pill" style="background:rgba(255,255,255,0.04);color:var(--muted);border:1px solid var(--border-strong); padding:8px 14px; font-size:12px;">○ Run 3x</span>
+    <span class="pill" style="background:rgba(255,255,255,0.04);color:var(--dim);border:1px dashed var(--border-strong); padding:8px 14px; font-size:12px;">+ Custom</span>
+  </div>
+  <div style="margin-top: 20px; width: 480px; background: var(--card); border: 1px solid var(--border-strong); border-radius: 10px; padding: 12px 14px; color: var(--muted); font-size: 13px;">Optional: describe what specifically…</div>
+  <div style="margin-top: 18px; display: flex; gap: 14px; align-items: center; font-size: 13px; color: var(--muted);"><label style="cursor:pointer;"><input type="checkbox" checked> AI scoring on</label></div>
+  <div style="margin-top: 22px; display: flex; gap: 10px;"><button class="btn-secondary">Cancel</button><button class="btn-primary">Start</button></div>
+</div>
+
+<!-- 17 -->
+<h2>17 — Grayscale / vignette overlay <span class="meta">deep-work passive overlay, click-through</span></h2>
+<div class="fullscreen" style="background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.65) 80%), linear-gradient(90deg, transparent, rgba(232,116,97,0.04), transparent), var(--bg-2);">
+  <div style="font-size:13px; color: var(--dim); font-family: var(--mono);">Deep Work · grayscale vignette · click-through (no UI)</div>
+</div>
+<div class="annot">Click-through: clicks pass to the app underneath. Visual cue only — peripheral vision is desaturated so motion-detection brain stops triggering on side animations.</div>
+
+<!-- 18 -->
+<h2>18 — Bedtime OS lock screen <span class="meta">macOS native lock loop, every 10s</span></h2>
+<div class="fullscreen" style="background: #000; border:1px solid var(--border-strong);">
+  <div style="font-size:13px; color: var(--dim); font-family: var(--mono); text-align:center;">OS lock screen — not our UI<br>Fired by <code>SACLockScreenImmediate()</code> every 10s while bedtime is .locked</div>
+</div>
+
+</div>
+</body>
+</html>

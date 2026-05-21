@@ -312,7 +312,7 @@ class ScheduleManager {
 
     // MARK: - Callbacks
 
-    /// Called when the active block changes. SocketRelayServer uses this to broadcast SCHEDULE_SYNC.
+    /// Called when the active block changes. Drives FocusModeController + dashboard push updates.
     var onBlockChanged: ((_ block: FocusBlock?, _ state: TimeState) -> Void)?
 
     // MARK: - Persistence
@@ -402,8 +402,14 @@ class ScheduleManager {
     }
 
     /// Check if a specific enforcement mechanism is enabled for the current block type.
+    /// If no scheduled block is currently active (e.g. manual focus session, or
+    /// during free time but a non-block enforcer is asking), fall back to the
+    /// user's Focus Hours (Strict) intensity preference rather than defaulting
+    /// to `true`. The old `return true` fallback meant the saved toggle was
+    /// silently ignored anywhere outside a scheduled block — bug surfaced when
+    /// users tried to disable context-switch countdown.
     func isEnforcementEnabled(_ mechanism: EnforcementMechanism) -> Bool {
-        guard let blockType = currentBlock?.blockType else { return true }
+        let blockType = currentBlock?.blockType ?? .focusHours
         let settings = enforcementSettings.settings(for: blockType)
         switch mechanism {
         case .nudge: return settings.nudgeNotifications
@@ -525,7 +531,7 @@ class ScheduleManager {
 
     /// Set today's plan (dayItems + dayNotes text + time blocks).
     /// Public API parameter names retain `goals` / `dailyPlan` for backwards compat with callers
-    /// (MainWindow bridge handlers, NativeMessagingHost). Internally they map to dayItems / dayNotes.
+    /// (MainWindow bridge handlers). Internally they map to dayItems / dayNotes.
     func setTodaySchedule(goals: [String], dailyPlan: String, blocks: [FocusBlock]) {
         let today = Self.todayString()
         todaySchedule = DailySchedule(
@@ -949,7 +955,7 @@ class ScheduleManager {
     var todayBlockCount: Int { todaySchedule?.blocks.count ?? 0 }
 
     private func blockToDict(_ block: FocusBlock) -> [String: Any] {
-        return [
+        var d: [String: Any] = [
             "id": block.id,
             "title": block.title,
             "description": block.description,
@@ -961,6 +967,10 @@ class ScheduleManager {
             "isFree": block.isFree,  // backwards compat for extension
             "ignoreProfile": block.ignoreProfile
         ]
+        if let intentionId = block.intentionId {
+            d["intentionId"] = intentionId.uuidString
+        }
+        return d
     }
 
     static func todayString() -> String {

@@ -1,0 +1,162 @@
+{
+  "name": "setting-up-website",
+  "capturedAt": "2026-05-18",
+  "notes": "Real user test case. 22 tabs from a sweep run on 2026-05-18 15:24. User reported 5 clear false positives (Cloudflare DNS, Resend, Supabase, Railway, Claude Code article). Used to baseline Qwen-4B accuracy and measure deltas as we change threshold / batch size / prompt / model.",
+  "intent": "Doing: Going to be working on setting up a website so any site related to buying domains, setting up email, software development in general. terminal … any IDE claude…. Scope: what's not allowed is any distraction website",
+  "tabs": [
+    {
+      "title": "the problem with the ICP is they have kind of ADHD and they …",
+      "url": "https://www.perplexity.ai/search/dfebaf0b-211e-461c-8af0-7e2a9847d104",
+      "expected": "stash",
+      "borderline": false,
+      "rationale": "ADHD/ICP research, not website setup"
+    },
+    {
+      "title": "Saner.AI - AI Personal Assistant for ADHD | Your Jarvis is here",
+      "url": "https://www.saner.ai/",
+      "expected": "stash",
+      "borderline": false,
+      "rationale": "Competitor / unrelated to website setup"
+    },
+    {
+      "title": "neurolist: AI Planner for ADHD App - App Store",
+      "url": "https://apps.apple.com/gb/app/neurolist-ai-planner-for-adhd/id6468689182",
+      "expected": "stash",
+      "borderline": false,
+      "rationale": "App Store / ADHD app, not website setup"
+    },
+    {
+      "title": "Rosebud | AI Journaling App For Personal Growth",
+      "url": "https://www.rosebud.app/",
+      "expected": "stash",
+      "borderline": false,
+      "rationale": "Journaling app, unrelated"
+    },
+    {
+      "title": "tax return",
+      "url": "https://www.perplexity.ai/search/5d77a69a-6158-429a-8a82-36fdcaa70c61",
+      "expected": "stash",
+      "borderline": false,
+      "rationale": "Tax research, unrelated to website setup"
+    },
+    {
+      "title": "top vlm models to run on mac for telling what's happening on screen",
+      "url": "chrome://newtab/",
+      "expected": "stash",
+      "borderline": false,
+      "rationale": "Newtab, no content"
+    },
+    {
+      "title": "Inbox (90,796) - ameer.rayan@gmail.com - Gmail",
+      "url": "https://mail.google.com/mail/u/0/#inbox",
+      "expected": "stash",
+      "borderline": true,
+      "rationale": "Gmail inbox. 'Setting up email' was in scope but user means domain email, not personal inbox. Lean stash."
+    },
+    {
+      "title": "Software Engineer (Part-Time) Athlete Management System job",
+      "url": "https://www.ziprecruiter.com/jobs/v2/eyJsaXN0aW5nX2tleSI6Ik4xam9HU3BfOS1FSVBSN2R3WXlzWXciL",
+      "expected": "stash",
+      "borderline": false,
+      "rationale": "Job listing, unrelated"
+    },
+    {
+      "title": "5 TOOL PERFORMANCE Jobs (Now Hiring) Near Me - ZipRecruiter",
+      "url": "https://www.ziprecruiter.com/co/5-Tool-Performance/Jobs?radius=100",
+      "expected": "stash",
+      "borderline": false,
+      "rationale": "Job board, unrelated"
+    },
+    {
+      "title": "5 TOOL PERFORMANCE Jobs (Now Hiring) Near Me - ZipRecruiter",
+      "url": "https://www.ziprecruiter.com/co/5-Tool-Performance/Jobs?radius=100&duplicate=2",
+      "expected": "stash",
+      "borderline": false,
+      "rationale": "Duplicate job board"
+    },
+    {
+      "title": "top vlm models to run on mac for telling what's happening on screen",
+      "url": "https://www.perplexity.ai/search/31a287d9-d331-4396-b2d7-fae466351810",
+      "expected": "stash",
+      "borderline": false,
+      "rationale": "VLM research, not website setup"
+    },
+    {
+      "title": "Suggested Jobs | ZipRecruiter",
+      "url": "https://www.ziprecruiter.com/jobseeker/home",
+      "expected": "stash",
+      "borderline": false,
+      "rationale": "Job board, unrelated"
+    },
+    {
+      "title": "ReversingLabs Technical Support Engineer/ Working knowledge",
+      "url": "https://jobs.smartrecruiters.com/ReversingLabs/743999692889399-technical-support-engineer-",
+      "expected": "stash",
+      "borderline": false,
+      "rationale": "Job listing, unrelated"
+    },
+    {
+      "title": "Chapter 1: Hermes Agent: Cost & Token-Usage Accounting (Claude Code vs. Hermes Agent)",
+      "url": "https://kenhuangus.substack.com/p/chapter-1-cost-and-token-usage-accounting",
+      "expected": "keep",
+      "borderline": false,
+      "rationale": "Claude Code article — Claude is explicitly in scope ('any IDE claude'). Software dev content."
+    },
+    {
+      "title": "Reading comprehension quiz apps with corrections - Claude",
+      "url": "https://claude.ai/chat/a8d56541-6c88-4157-83a2-486597e443f7",
+      "expected": "keep",
+      "borderline": true,
+      "rationale": "Claude conversation — Claude allowed by intent. Topic (reading comprehension apps) is unrelated to website setup but Claude is the platform."
+    },
+    {
+      "title": "API Keys | Settings | beseen-prod | ameer@engineeredfocus.com",
+      "url": "https://supabase.com/dashboard/project/hjxbeaspjxaheniuavur/settings/api-keys",
+      "expected": "keep",
+      "borderline": false,
+      "rationale": "Supabase project settings — backend / software dev for the user's project"
+    },
+    {
+      "title": "Inbox (90,796) - ameer.rayan@gmail.com - Gmail",
+      "url": "https://mail.google.com/mail/u/0/#inbox",
+      "expected": "stash",
+      "borderline": true,
+      "rationale": "Gmail again (Chrome). Same call as tab 7."
+    },
+    {
+      "title": "thebeseen.app · Domains · Resend",
+      "url": "https://resend.com/emails",
+      "expected": "keep",
+      "borderline": false,
+      "rationale": "Resend is an email-sending service. 'thebeseen.app domains' = setting up domain email — literally what user said is allowed."
+    },
+    {
+      "title": "Naming a multi-faith wellness brand - Claude",
+      "url": "https://claude.ai/chat/86dea4e1-5c86-4cd1-98c8-1d393a15ab69",
+      "expected": "keep",
+      "borderline": true,
+      "rationale": "Claude conversation — Claude allowed by intent. Topic unrelated to website but Claude is the platform."
+    },
+    {
+      "title": "virgiliojr94/book-to-skill: Turn any technical book PDF into a skill",
+      "url": "https://github.com/virgiliojr94/book-to-skill",
+      "expected": "keep",
+      "borderline": true,
+      "rationale": "GitHub repo — 'software development in general' was in scope. Topic isn't tied to website setup specifically."
+    },
+    {
+      "title": "DNS | Records | thebeseen.app | Ameer.rayan@gmail.com's Account",
+      "url": "https://dash.cloudflare.com/21813adc2203e00b327147ae101191b0/thebeseen.app/dns/records",
+      "expected": "keep",
+      "borderline": false,
+      "rationale": "Cloudflare DNS records for thebeseen.app — literally domain setup, in scope"
+    },
+    {
+      "title": "beseen-api",
+      "url": "https://railway.com/project/89b857e9-e298-4c29-a426-b484cfed95bf/service/c569e529-ae77",
+      "expected": "keep",
+      "borderline": false,
+      "rationale": "Railway is a deployment platform. The user's API for their website. Software dev / backend."
+    }
+  ]
+}

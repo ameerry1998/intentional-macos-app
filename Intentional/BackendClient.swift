@@ -1499,10 +1499,18 @@ class BackendClient {
 
     /// GET /intentions — returns nil on network failure, [] when truly empty.
     /// `includeDeleted` true returns tombstones (used for session-history rendering).
-    func getIntentions(includeDeleted: Bool = false) async -> [Intention]? {
+    /// `week` filter (ISO Monday date `YYYY-MM-DD`) scopes results to weekly-goal context.
+    func getIntentions(includeDeleted: Bool = false, week: String? = nil) async -> [Intention]? {
         var components = URLComponents(string: "\(baseURL)/intentions")
+        var items: [URLQueryItem] = []
         if includeDeleted {
-            components?.queryItems = [URLQueryItem(name: "include_deleted", value: "true")]
+            items.append(URLQueryItem(name: "include_deleted", value: "true"))
+        }
+        if let week {
+            items.append(URLQueryItem(name: "week", value: week))
+        }
+        if !items.isEmpty {
+            components?.queryItems = items
         }
         guard let url = components?.url else { return nil }
         var req = URLRequest(url: url)
@@ -1532,6 +1540,56 @@ class BackendClient {
                 return nil
             }
             return try intentionsJSONDecoder().decode(Intention.self, from: data)
+        } catch {
+            return nil
+        }
+    }
+
+    /// POST /intentions/{id}/log_time — manually log minutes spent on the goal.
+    /// Backend writes a focus_sessions row + returns fresh hours_done. nil on error.
+    func logIntentionTime(id: UUID, minutes: Int) async -> Double? {
+        guard let url = URL(string: "\(baseURL)/intentions/\(id.uuidString)/log_time") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: ["minutes": minutes])
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                return nil
+            }
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let hours = json["hours_done"] as? Double {
+                return hours
+            }
+            return nil
+        } catch {
+            return nil
+        }
+    }
+
+    /// GET /intentions/{id}/hours_done?week=YYYY-MM-DD — sums focus_sessions for
+    /// the week (defaults to current week). Returns nil on any error.
+    func getIntentionHoursDone(id: UUID, week: String? = nil) async -> Double? {
+        var components = URLComponents(string: "\(baseURL)/intentions/\(id.uuidString)/hours_done")
+        if let week = week {
+            components?.queryItems = [URLQueryItem(name: "week", value: week)]
+        }
+        guard let url = components?.url else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                return nil
+            }
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let hours = json["hours_done"] as? Double {
+                return hours
+            }
+            return nil
         } catch {
             return nil
         }
@@ -1585,6 +1643,98 @@ class BackendClient {
     @discardableResult
     func deleteIntention(id: UUID) async -> Bool {
         guard let url = URL(string: "\(baseURL)/intentions/\(id.uuidString)") else { return false }
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (_, response) = try await URLSession.shared.data(for: req)
+            return ((response as? HTTPURLResponse)?.statusCode ?? -1) == 204
+        } catch {
+            return false
+        }
+    }
+
+    // MARK: - Monthly Goals (May 2026)
+
+    /// GET /monthly_goals — returns nil on network failure, [] when empty.
+    func getMonthlyGoals(month: String? = nil, includeDeleted: Bool = false) async -> [MonthlyGoal]? {
+        var components = URLComponents(string: "\(baseURL)/monthly_goals")
+        var items: [URLQueryItem] = []
+        if let m = month { items.append(URLQueryItem(name: "month", value: m)) }
+        if includeDeleted { items.append(URLQueryItem(name: "include_deleted", value: "true")) }
+        if !items.isEmpty { components?.queryItems = items }
+        guard let url = components?.url else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            let resp = try intentionsJSONDecoder().decode(MonthlyGoalListResponse.self, from: data)
+            return resp.monthlyGoals
+        } catch {
+            return nil
+        }
+    }
+
+    /// GET /monthly_goals/{id}.
+    func getMonthlyGoal(id: UUID) async -> MonthlyGoal? {
+        guard let url = URL(string: "\(baseURL)/monthly_goals/\(id.uuidString)") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            return try intentionsJSONDecoder().decode(MonthlyGoal.self, from: data)
+        } catch {
+            return nil
+        }
+    }
+
+    /// POST /monthly_goals.
+    func createMonthlyGoal(_ payload: MonthlyGoalCreatePayload) async throws -> MonthlyGoal {
+        guard let url = URL(string: "\(baseURL)/monthly_goals") else {
+            throw IntentionError.network("Bad URL")
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        req.httpBody = try intentionsJSONEncoder().encode(payload)
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+        guard code == 200 else { throw IntentionError.network("HTTP \(code)") }
+        return try intentionsJSONDecoder().decode(MonthlyGoal.self, from: data)
+    }
+
+    /// PUT /monthly_goals/{id}. Throws .versionConflict on 409.
+    func updateMonthlyGoal(id: UUID, payload: MonthlyGoalUpdatePayload) async throws -> MonthlyGoal {
+        guard let url = URL(string: "\(baseURL)/monthly_goals/\(id.uuidString)") else {
+            throw IntentionError.network("Bad URL")
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "PUT"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        req.httpBody = try intentionsJSONEncoder().encode(payload)
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+        if code == 409 {
+            let current = await getMonthlyGoal(id: id)
+            throw IntentionError.versionConflict(currentServerVersion: current?.version)
+        }
+        if code == 404 || code == 410 {
+            throw IntentionError.notFound
+        }
+        guard code == 200 else { throw IntentionError.network("HTTP \(code)") }
+        return try intentionsJSONDecoder().decode(MonthlyGoal.self, from: data)
+    }
+
+    /// DELETE /monthly_goals/{id} — soft delete. Returns true on 204.
+    @discardableResult
+    func deleteMonthlyGoal(id: UUID) async -> Bool {
+        guard let url = URL(string: "\(baseURL)/monthly_goals/\(id.uuidString)") else { return false }
         var req = URLRequest(url: url)
         req.httpMethod = "DELETE"
         req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
@@ -1857,6 +2007,249 @@ class BackendClient {
             return try JSONDecoder().decode(TimeBlocksResponse.self, from: data).blocks
         } catch {
             return nil
+        }
+    }
+
+    // MARK: - Entitlements (Slice 1)
+
+    /// Wire-format entitlement (no cachedAt; we stamp client-side after decode).
+    private struct BackendEntitlement: Codable {
+        let tier: Entitlement.Tier
+        let plan: Entitlement.Plan?
+        let trialEndsAt: Date?
+        let currentPeriodEndsAt: Date?
+        let shipPuck: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case tier
+            case plan
+            case trialEndsAt = "trial_ends_at"
+            case currentPeriodEndsAt = "current_period_ends_at"
+            case shipPuck = "ship_puck"
+        }
+    }
+
+    /// Fetches the current user's subscription entitlement state.
+    ///
+    /// Auth: prefers X-Device-ID (matches /focus/active polling pattern).
+    /// Falls back to Bearer JWT if a token is cached.
+    ///
+    /// - Returns: Entitlement on success; nil on network failure / 401 / parse error.
+    func getEntitlements() async -> Entitlement? {
+        guard let url = URL(string: "\(baseURL)/me/entitlements") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        if let token = await loadJWT() {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                return nil
+            }
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let wire = try decoder.decode(BackendEntitlement.self, from: data)
+            return Entitlement(
+                tier: wire.tier,
+                plan: wire.plan,
+                trialEndsAt: wire.trialEndsAt,
+                currentPeriodEndsAt: wire.currentPeriodEndsAt,
+                shipPuck: wire.shipPuck,
+                cachedAt: Date()
+            )
+        } catch {
+            print("getEntitlements error: \(error)")
+            return nil
+        }
+    }
+
+    // MARK: - Distraction Budget (Slice 3 of 2026-05-05 redesign)
+
+    struct DistractionBudgetState: Codable, Equatable {
+        let day: String
+        let baselineMinutes: Int
+        let earnedMinutes: Double
+        let consumedMinutes: Double
+        let availableMinutes: Double
+        let isLocked: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case day
+            case baselineMinutes = "baseline_minutes"
+            case earnedMinutes = "earned_minutes"
+            case consumedMinutes = "consumed_minutes"
+            case availableMinutes = "available_minutes"
+            case isLocked = "is_locked"
+        }
+
+        var isEmpty: Bool { availableMinutes <= 0 }
+    }
+
+    func getBudgetState() async -> BackendClient.DistractionBudgetState? {
+        guard let url = URL(string: "\(baseURL)/budget_state") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        if let token = await loadJWT() {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            return try JSONDecoder().decode(BackendClient.DistractionBudgetState.self, from: data)
+        } catch {
+            print("getBudgetState error: \(error)")
+            return nil
+        }
+    }
+
+    func postBudgetConsume(minutes: Double) async -> BackendClient.DistractionBudgetState? {
+        return await postBudgetMutation(path: "/budget_state/consume", minutes: minutes)
+    }
+
+    func postBudgetEarn(minutes: Double) async -> BackendClient.DistractionBudgetState? {
+        return await postBudgetMutation(path: "/budget_state/earn", minutes: minutes)
+    }
+
+    private func postBudgetMutation(path: String, minutes: Double) async -> BackendClient.DistractionBudgetState? {
+        guard let url = URL(string: "\(baseURL)\(path)") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        if let token = await loadJWT() {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        let body: [String: Any] = ["minutes": minutes]
+        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            return try JSONDecoder().decode(BackendClient.DistractionBudgetState.self, from: data)
+        } catch {
+            print("postBudget\(path) error: \(error)")
+            return nil
+        }
+    }
+
+    func putBudgetConfig(baselineMinutes: Int, isLocked: Bool, partnerCode: String? = nil) async -> Bool {
+        guard let url = URL(string: "\(baseURL)/budget_config") else { return false }
+        var req = URLRequest(url: url)
+        req.httpMethod = "PUT"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        if let token = await loadJWT() {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        var body: [String: Any] = [
+            "baseline_minutes": baselineMinutes,
+            "is_locked": isLocked,
+        ]
+        if let code = partnerCode {
+            body["partner_code"] = code
+        }
+        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        do {
+            let (_, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse else { return false }
+            return http.statusCode == 200
+        } catch {
+            print("putBudgetConfig error: \(error)")
+            return false
+        }
+    }
+
+    // MARK: - App Taxonomy (Slice 5 of 2026-05-05 redesign)
+    // Distractions list + Always-Blocked list + per-Focus-Mode rules.
+    // See migration 024_app_taxonomy.sql.
+
+    /// Returns list of app identifiers user has marked as Distractions.
+    func getDistractions() async -> [String] {
+        return await getAppList(path: "/distractions")
+    }
+
+    /// Returns list of app identifiers user has marked as Always-Blocked.
+    func getAlwaysBlocked() async -> [String] {
+        return await getAppList(path: "/always_blocked")
+    }
+
+    private func getAppList(path: String) async -> [String] {
+        guard let url = URL(string: "\(baseURL)\(path)") else { return [] }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        if let token = await loadJWT() {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return [] }
+            struct Response: Codable { let apps: [Entry]
+                struct Entry: Codable { let app_identifier: String }
+            }
+            let decoded = try JSONDecoder().decode(Response.self, from: data)
+            return decoded.apps.map { $0.app_identifier }
+        } catch {
+            print("getAppList \(path) error: \(error)")
+            return []
+        }
+    }
+
+    @discardableResult func addDistraction(appIdentifier: String) async -> Bool {
+        return await addToAppList(path: "/distractions", appIdentifier: appIdentifier)
+    }
+
+    @discardableResult func addAlwaysBlocked(appIdentifier: String) async -> Bool {
+        return await addToAppList(path: "/always_blocked", appIdentifier: appIdentifier)
+    }
+
+    @discardableResult func removeDistraction(appIdentifier: String) async -> Bool {
+        return await removeFromAppList(path: "/distractions", appIdentifier: appIdentifier)
+    }
+
+    @discardableResult func removeAlwaysBlocked(appIdentifier: String) async -> Bool {
+        return await removeFromAppList(path: "/always_blocked", appIdentifier: appIdentifier)
+    }
+
+    private func addToAppList(path: String, appIdentifier: String) async -> Bool {
+        guard let url = URL(string: "\(baseURL)\(path)") else { return false }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        if let token = await loadJWT() {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        let body: [String: Any] = ["app_identifier": appIdentifier]
+        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        do {
+            let (_, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse else { return false }
+            return http.statusCode == 200
+        } catch {
+            print("addToAppList \(path) error: \(error)")
+            return false
+        }
+    }
+
+    private func removeFromAppList(path: String, appIdentifier: String) async -> Bool {
+        let encoded = appIdentifier.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? appIdentifier
+        guard let url = URL(string: "\(baseURL)\(path)/\(encoded)") else { return false }
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        if let token = await loadJWT() {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        do {
+            let (_, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse else { return false }
+            return http.statusCode == 204
+        } catch {
+            print("removeFromAppList \(path) error: \(error)")
+            return false
         }
     }
 }

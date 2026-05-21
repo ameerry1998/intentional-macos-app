@@ -29,15 +29,9 @@
 		A1000020000000000000005 /* PermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000021000000000000005 /* PermissionManager.swift */; };
 		A1000022000000000000006 /* zen-nature.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = A1000023000000000000006 /* zen-nature.mp4 */; };
 		A1000024000000000000007 /* 13136082_3840_2160_60fps.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = A1000025000000000000007 /* 13136082_3840_2160_60fps.mp4 */; };
-		A1000031000000000000008 /* NativeMessagingHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000030000000000000008 /* NativeMessagingHost.swift */; };
-		A1000033000000000000009 /* NativeMessagingSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000032000000000000009 /* NativeMessagingSetup.swift */; };
 		A1000035000000000000010 /* TimeTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000034000000000000010 /* TimeTracker.swift */; };
-		A1000036000000000000011 /* BrowserDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000037000000000000011 /* BrowserDatabase.swift */; };
-		A1000038000000000000012 /* BrowserDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000039000000000000012 /* BrowserDiscovery.swift */; };
-		A1000040000000000000013 /* SocketRelayServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000041000000000000013 /* SocketRelayServer.swift */; };
 		A1000042000000000000014 /* onboarding.html in Resources */ = {isa = PBXBuildFile; fileRef = A1000043000000000000014 /* onboarding.html */; };
 		A1000044000000000000015 /* dashboard.html in Resources */ = {isa = PBXBuildFile; fileRef = A1000045000000000000015 /* dashboard.html */; };
-		A1000046000000000000016 /* LegacyMonitorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000047000000000000016 /* LegacyMonitorView.swift */; };
 		A1000048000000000000017 /* ScheduleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000049000000000000017 /* ScheduleManager.swift */; };
 		A1000050000000000000018 /* RelevanceScorer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000051000000000000018 /* RelevanceScorer.swift */; };
 		A1000052000000000000019 /* FocusMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000053000000000000019 /* FocusMonitor.swift */; };
@@ -53,6 +47,14 @@
 		A1000076000000000000031 /* ContentSafetyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000077000000000000031 /* ContentSafetyMonitor.swift */; };
 		A1000081000000000000033 /* OpenNSFW.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = A1000080000000000000033 /* OpenNSFW.mlmodel */; };
 		A1000082000000000000034 /* NudeNetDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000083000000000000034 /* NudeNetDetector.swift */; };
+		A100010A000000000000048 /* SweepReviewWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100010B000000000000048 /* SweepReviewWindow.swift */; };
+		A1000108000000000000047 /* SweepBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000109000000000000047 /* SweepBenchmark.swift */; };
+		A1000106000000000000046 /* StageOneIntentWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000107000000000000046 /* StageOneIntentWindow.swift */; };
+		A1000096000000000000041 /* AlwaysAllowedList.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000097000000000000041 /* AlwaysAllowedList.swift */; };
+		A1000098000000000000042 /* MigrationAlwaysAllowed.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000099000000000000042 /* MigrationAlwaysAllowed.swift */; };
+		A1000100000000000000043 /* SessionStash.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000101000000000000043 /* SessionStash.swift */; };
+		A1000102000000000000044 /* Sweeper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000103000000000000044 /* Sweeper.swift */; };
+		A1000104000000000000045 /* StashInspectorWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000105000000000000045 /* StashInspectorWindow.swift */; };
 		A1000084000000000000035 /* NudeNetV3.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = A1000085000000000000035 /* NudeNetV3.mlpackage */; };
 		A1000086000000000000036 /* ScreenCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000087000000000000036 /* ScreenCapture.swift */; };
 		A1000088000000000000037 /* OCREngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000089000000000000037 /* OCREngine.swift */; };
@@ -64,14 +66,22 @@
 		A2000002000000000000001 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = A2000004000000000000001 /* MLXLMCommon */; };
 		A200000400000000000001 /* DaemonXPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000300000000000001 /* DaemonXPCProtocol.swift */; };
 		A300000100000000000001 /* QuitPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000200000000000001 /* QuitPolicy.swift */; };
+		A301000100000000000001 /* ContentSafetyStateGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A301000200000000000001 /* ContentSafetyStateGuard.swift */; };
 		A400000100000000000001 /* TrustedClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = A400000200000000000001 /* TrustedClock.swift */; };
 		A500000100000000000001 /* BedtimeEnforcer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500000200000000000001 /* BedtimeEnforcer.swift */; };
 		B500000100000000000001 /* BedtimeLockLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = B500000200000000000001 /* BedtimeLockLoop.swift */; };
 		BC00000100000000000001 /* BedtimeConfigSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC00000200000000000001 /* BedtimeConfigSync.swift */; };
 		BD00000100000000000001 /* Intention.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000200000000000001 /* Intention.swift */; };
+		BD0000F100000000000001 /* MonthlyGoal.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0000F200000000000001 /* MonthlyGoal.swift */; };
+		BD0000F300000000000001 /* MonthlyGoalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0000F400000000000001 /* MonthlyGoalStore.swift */; };
 		BD00000300000000000001 /* IntentionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000400000000000001 /* IntentionStore.swift */; };
 		BD00000500000000000001 /* IntentionMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000600000000000001 /* IntentionMigration.swift */; };
+		BD0000F500000000000001 /* IntentTextMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0000F600000000000001 /* IntentTextMigration.swift */; };
+		BD00010100000000000001 /* BlockRuleEnforcer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00010200000000000001 /* BlockRuleEnforcer.swift */; };
 		BD00000700000000000001 /* BlockingProfilesToIntentionsMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000800000000000001 /* BlockingProfilesToIntentionsMigration.swift */; };
+		BD00000900000000000001 /* Entitlement.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000A00000000000001 /* Entitlement.swift */; };
+		BD00000B00000000000001 /* EntitlementClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000C00000000000001 /* EntitlementClient.swift */; };
+		BD00000D00000000000001 /* LapsedSubscriberBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000E00000000000001 /* LapsedSubscriberBanner.swift */; };
 		B600000100000000000001 /* BedtimeWindDownController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B600000200000000000001 /* BedtimeWindDownController.swift */; };
 		B700000100000000000001 /* BedtimeUnlockRequestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B700000200000000000001 /* BedtimeUnlockRequestView.swift */; };
 		A700000100000000000001 /* BlockingProfileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A700000200000000000001 /* BlockingProfileManager.swift */; };
@@ -157,15 +167,9 @@
 		A1000021000000000000005 /* PermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManager.swift; sourceTree = "<group>"; };
 		A1000023000000000000006 /* zen-nature.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "zen-nature.mp4"; sourceTree = "<group>"; };
 		A1000025000000000000007 /* 13136082_3840_2160_60fps.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = 13136082_3840_2160_60fps.mp4; sourceTree = "<group>"; };
-		A1000030000000000000008 /* NativeMessagingHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMessagingHost.swift; sourceTree = "<group>"; };
-		A1000032000000000000009 /* NativeMessagingSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMessagingSetup.swift; sourceTree = "<group>"; };
 		A1000034000000000000010 /* TimeTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeTracker.swift; sourceTree = "<group>"; };
-		A1000037000000000000011 /* BrowserDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserDatabase.swift; sourceTree = "<group>"; };
-		A1000039000000000000012 /* BrowserDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserDiscovery.swift; sourceTree = "<group>"; };
-		A1000041000000000000013 /* SocketRelayServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketRelayServer.swift; sourceTree = "<group>"; };
 		A1000043000000000000014 /* onboarding.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = onboarding.html; sourceTree = "<group>"; };
 		A1000045000000000000015 /* dashboard.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = dashboard.html; sourceTree = "<group>"; };
-		A1000047000000000000016 /* LegacyMonitorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyMonitorView.swift; sourceTree = "<group>"; };
 		A1000049000000000000017 /* ScheduleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleManager.swift; sourceTree = "<group>"; };
 		A1000051000000000000018 /* RelevanceScorer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelevanceScorer.swift; sourceTree = "<group>"; };
 		A1000053000000000000019 /* FocusMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusMonitor.swift; sourceTree = "<group>"; };
@@ -181,6 +185,14 @@
 		A1000077000000000000031 /* ContentSafetyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentSafetyMonitor.swift; sourceTree = "<group>"; };
 		A1000080000000000000033 /* OpenNSFW.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = OpenNSFW.mlmodel; sourceTree = "<group>"; };
 		A1000083000000000000034 /* NudeNetDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NudeNetDetector.swift; sourceTree = "<group>"; };
+		A100010B000000000000048 /* SweepReviewWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SweepReviewWindow.swift; sourceTree = "<group>"; };
+		A1000109000000000000047 /* SweepBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SweepBenchmark.swift; sourceTree = "<group>"; };
+		A1000107000000000000046 /* StageOneIntentWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StageOneIntentWindow.swift; sourceTree = "<group>"; };
+		A1000097000000000000041 /* AlwaysAllowedList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlwaysAllowedList.swift; sourceTree = "<group>"; };
+		A1000099000000000000042 /* MigrationAlwaysAllowed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationAlwaysAllowed.swift; sourceTree = "<group>"; };
+		A1000101000000000000043 /* SessionStash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStash.swift; sourceTree = "<group>"; };
+		A1000103000000000000044 /* Sweeper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sweeper.swift; sourceTree = "<group>"; };
+		A1000105000000000000045 /* StashInspectorWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StashInspectorWindow.swift; sourceTree = "<group>"; };
 		A1000085000000000000035 /* NudeNetV3.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = NudeNetV3.mlpackage; sourceTree = "<group>"; };
 		A1000087000000000000036 /* ScreenCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCapture.swift; sourceTree = "<group>"; };
 		A1000089000000000000037 /* OCREngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCREngine.swift; sourceTree = "<group>"; };
@@ -190,14 +202,22 @@
 		A100F0C1000000000000001 /* focus-blocked.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "focus-blocked.html"; sourceTree = "<group>"; };
 		A200000300000000000001 /* DaemonXPCProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DaemonXPCProtocol.swift; path = Shared/DaemonXPCProtocol.swift; sourceTree = SOURCE_ROOT; };
 		A300000200000000000001 /* QuitPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuitPolicy.swift; sourceTree = "<group>"; };
+		A301000200000000000001 /* ContentSafetyStateGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentSafetyStateGuard.swift; sourceTree = "<group>"; };
 		A400000200000000000001 /* TrustedClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustedClock.swift; sourceTree = "<group>"; };
 		A500000200000000000001 /* BedtimeEnforcer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeEnforcer.swift; sourceTree = "<group>"; };
 		B500000200000000000001 /* BedtimeLockLoop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeLockLoop.swift; sourceTree = "<group>"; };
 		BC00000200000000000001 /* BedtimeConfigSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeConfigSync.swift; sourceTree = "<group>"; };
 		BD00000200000000000001 /* Intention.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Intention.swift; sourceTree = "<group>"; };
+		BD0000F200000000000001 /* MonthlyGoal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthlyGoal.swift; sourceTree = "<group>"; };
+		BD0000F400000000000001 /* MonthlyGoalStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthlyGoalStore.swift; sourceTree = "<group>"; };
 		BD00000400000000000001 /* IntentionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentionStore.swift; sourceTree = "<group>"; };
 		BD00000600000000000001 /* IntentionMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentionMigration.swift; sourceTree = "<group>"; };
+		BD0000F600000000000001 /* IntentTextMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentTextMigration.swift; sourceTree = "<group>"; };
+		BD00010200000000000001 /* BlockRuleEnforcer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockRuleEnforcer.swift; sourceTree = "<group>"; };
 		BD00000800000000000001 /* BlockingProfilesToIntentionsMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockingProfilesToIntentionsMigration.swift; sourceTree = "<group>"; };
+		BD00000A00000000000001 /* Entitlement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Entitlement.swift; sourceTree = "<group>"; };
+		BD00000C00000000000001 /* EntitlementClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntitlementClient.swift; sourceTree = "<group>"; };
+		BD00000E00000000000001 /* LapsedSubscriberBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LapsedSubscriberBanner.swift; sourceTree = "<group>"; };
 		B600000200000000000001 /* BedtimeWindDownController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeWindDownController.swift; sourceTree = "<group>"; };
 		B700000200000000000001 /* BedtimeUnlockRequestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BedtimeUnlockRequestView.swift; sourceTree = "<group>"; };
 		A700000200000000000001 /* BlockingProfileManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockingProfileManager.swift; sourceTree = "<group>"; };
@@ -277,6 +297,7 @@
 				A1000012000000000000002 /* main.swift */,
 				A1000002000000000000001 /* AppDelegate.swift */,
 				A300000200000000000001 /* QuitPolicy.swift */,
+				A301000200000000000001 /* ContentSafetyStateGuard.swift */,
 				A700000200000000000001 /* BlockingProfileManager.swift */,
 				AB00000200000000000001 /* ProjectStore.swift */,
 				A900000200000000000001 /* FocusStartOverlay.swift */,
@@ -291,9 +312,16 @@
 				B500000200000000000001 /* BedtimeLockLoop.swift */,
 				BC00000200000000000001 /* BedtimeConfigSync.swift */,
 				BD00000200000000000001 /* Intention.swift */,
+				BD0000F200000000000001 /* MonthlyGoal.swift */,
+				BD0000F400000000000001 /* MonthlyGoalStore.swift */,
 				BD00000400000000000001 /* IntentionStore.swift */,
 				BD00000600000000000001 /* IntentionMigration.swift */,
+				BD0000F600000000000001 /* IntentTextMigration.swift */,
+				BD00010200000000000001 /* BlockRuleEnforcer.swift */,
 				BD00000800000000000001 /* BlockingProfilesToIntentionsMigration.swift */,
+				BD00000A00000000000001 /* Entitlement.swift */,
+				BD00000C00000000000001 /* EntitlementClient.swift */,
+				BD00000E00000000000001 /* LapsedSubscriberBanner.swift */,
 				B600000200000000000001 /* BedtimeWindDownController.swift */,
 				B700000200000000000001 /* BedtimeUnlockRequestView.swift */,
 				34BADA5E2F8088BA009A82C6 /* DaemonXPCClient.swift */,
@@ -301,16 +329,11 @@
 				A1000004000000000000001 /* SleepWakeMonitor.swift */,
 				A1000006000000000000001 /* ProcessMonitor.swift */,
 				A1000015000000000000002 /* BrowserMonitor.swift */,
-				A1000037000000000000011 /* BrowserDatabase.swift */,
-				A1000039000000000000012 /* BrowserDiscovery.swift */,
 				A1000017000000000000003 /* WebsiteBlocker.swift */,
 				A1000021000000000000005 /* PermissionManager.swift */,
 				A1000008000000000000001 /* BackendClient.swift */,
-				A1000030000000000000008 /* NativeMessagingHost.swift */,
-				A1000032000000000000009 /* NativeMessagingSetup.swift */,
 				A1000034000000000000010 /* TimeTracker.swift */,
 				343A70F22F4AA13800030ED8 /* EarnedBrowseManager.swift */,
-				A1000041000000000000013 /* SocketRelayServer.swift */,
 				A1000049000000000000017 /* ScheduleManager.swift */,
 				A1000051000000000000018 /* RelevanceScorer.swift */,
 				A1000053000000000000019 /* FocusMonitor.swift */,
@@ -325,13 +348,20 @@
 				A200000300000000000001 /* DaemonXPCProtocol.swift */,
 				A1000080000000000000033 /* OpenNSFW.mlmodel */,
 				A1000083000000000000034 /* NudeNetDetector.swift */,
+				A100010B000000000000048 /* SweepReviewWindow.swift */,
+				A1000109000000000000047 /* SweepBenchmark.swift */,
+				A1000107000000000000046 /* StageOneIntentWindow.swift */,
+				A1000097000000000000041 /* AlwaysAllowedList.swift */,
+				A1000099000000000000042 /* MigrationAlwaysAllowed.swift */,
+				A1000101000000000000043 /* SessionStash.swift */,
+				A1000103000000000000044 /* Sweeper.swift */,
+				A1000105000000000000045 /* StashInspectorWindow.swift */,
 				A1000085000000000000035 /* NudeNetV3.mlpackage */,
 				A1000087000000000000036 /* ScreenCapture.swift */,
 				A1000089000000000000037 /* OCREngine.swift */,
 				A1000091000000000000038 /* LearnedOverrideStore.swift */,
 				A1000093000000000000039 /* ConfidenceGate.swift */,
 				A1000095000000000000040 /* ScoringPath.swift */,
-				A1000047000000000000016 /* LegacyMonitorView.swift */,
 				A1000018000000000000004 /* blocked.html */,
 				A100F0C1000000000000001 /* focus-blocked.html */,
 				A1000043000000000000014 /* onboarding.html */,
@@ -517,17 +547,12 @@
 				A1000003000000000000001 /* SleepWakeMonitor.swift in Sources */,
 				A1000005000000000000001 /* ProcessMonitor.swift in Sources */,
 				A1000014000000000000002 /* BrowserMonitor.swift in Sources */,
-				A1000036000000000000011 /* BrowserDatabase.swift in Sources */,
-				A1000038000000000000012 /* BrowserDiscovery.swift in Sources */,
 				A1000016000000000000003 /* WebsiteBlocker.swift in Sources */,
 				A1000020000000000000005 /* PermissionManager.swift in Sources */,
 				343A70F32F4AA13800030ED8 /* EarnedBrowseManager.swift in Sources */,
 				A1000007000000000000001 /* BackendClient.swift in Sources */,
-				A1000031000000000000008 /* NativeMessagingHost.swift in Sources */,
 				34BADA5F2F8088BA009A82C6 /* DaemonXPCClient.swift in Sources */,
-				A1000033000000000000009 /* NativeMessagingSetup.swift in Sources */,
 				A1000035000000000000010 /* TimeTracker.swift in Sources */,
-				A1000040000000000000013 /* SocketRelayServer.swift in Sources */,
 				A1000048000000000000017 /* ScheduleManager.swift in Sources */,
 				A1000050000000000000018 /* RelevanceScorer.swift in Sources */,
 				A1000052000000000000019 /* FocusMonitor.swift in Sources */,
@@ -541,14 +566,22 @@
 				A1000076000000000000031 /* ContentSafetyMonitor.swift in Sources */,
 				A200000400000000000001 /* DaemonXPCProtocol.swift in Sources */,
 				A300000100000000000001 /* QuitPolicy.swift in Sources */,
+				A301000100000000000001 /* ContentSafetyStateGuard.swift in Sources */,
 				A400000100000000000001 /* TrustedClock.swift in Sources */,
 				A500000100000000000001 /* BedtimeEnforcer.swift in Sources */,
 				B500000100000000000001 /* BedtimeLockLoop.swift in Sources */,
 				BC00000100000000000001 /* BedtimeConfigSync.swift in Sources */,
 				BD00000100000000000001 /* Intention.swift in Sources */,
+				BD0000F100000000000001 /* MonthlyGoal.swift in Sources */,
+				BD0000F300000000000001 /* MonthlyGoalStore.swift in Sources */,
 				BD00000300000000000001 /* IntentionStore.swift in Sources */,
 				BD00000500000000000001 /* IntentionMigration.swift in Sources */,
+				BD0000F500000000000001 /* IntentTextMigration.swift in Sources */,
+				BD00010100000000000001 /* BlockRuleEnforcer.swift in Sources */,
 				BD00000700000000000001 /* BlockingProfilesToIntentionsMigration.swift in Sources */,
+				BD00000900000000000001 /* Entitlement.swift in Sources */,
+				BD00000B00000000000001 /* EntitlementClient.swift in Sources */,
+				BD00000D00000000000001 /* LapsedSubscriberBanner.swift in Sources */,
 				B600000100000000000001 /* BedtimeWindDownController.swift in Sources */,
 				B700000100000000000001 /* BedtimeUnlockRequestView.swift in Sources */,
 				A700000100000000000001 /* BlockingProfileManager.swift in Sources */,
@@ -562,13 +595,20 @@
 				AD00000100000000000001 /* ConstraintEvaluator.swift in Sources */,
 				A1000081000000000000033 /* OpenNSFW.mlmodel in Sources */,
 				A1000082000000000000034 /* NudeNetDetector.swift in Sources */,
+				A100010A000000000000048 /* SweepReviewWindow.swift in Sources */,
+				A1000108000000000000047 /* SweepBenchmark.swift in Sources */,
+				A1000106000000000000046 /* StageOneIntentWindow.swift in Sources */,
+				A1000096000000000000041 /* AlwaysAllowedList.swift in Sources */,
+				A1000098000000000000042 /* MigrationAlwaysAllowed.swift in Sources */,
+				A1000100000000000000043 /* SessionStash.swift in Sources */,
+				A1000102000000000000044 /* Sweeper.swift in Sources */,
+				A1000104000000000000045 /* StashInspectorWindow.swift in Sources */,
 				A1000084000000000000035 /* NudeNetV3.mlpackage in Sources */,
 				A1000086000000000000036 /* ScreenCapture.swift in Sources */,
 				A1000088000000000000037 /* OCREngine.swift in Sources */,
 				A1000090000000000000038 /* LearnedOverrideStore.swift in Sources */,
 				A1000092000000000000039 /* ConfidenceGate.swift in Sources */,
 				A1000094000000000000040 /* ScoringPath.swift in Sources */,
-				A1000046000000000000016 /* LegacyMonitorView.swift in Sources */,
 				FE000012000000000000001 /* FilterManager.swift in Sources */,
 				CA0C967615871B3E89B38023 /* EnforcementCache.swift in Sources */,
 				75AF45B090B2E42A4579F347 /* EnforcementDaemonClient.swift in Sources */,

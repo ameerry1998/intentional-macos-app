@@ -27,7 +27,7 @@ Each Focus Mode has:
 - **Apps additionally blocked when active** (e.g., Coding additionally blocks Slack even though Slack is "Allowed" globally)
 - **Apps explicitly allowed when active** (e.g., Coding allows YouTube even though YouTube is on the global Distractions list — for tutorial videos)
 - **Weekly hour target** (e.g., "20h coding/week")
-- **Strictness preset**: Strict / Standard / Soft. Affects override behavior (see §6.4).
+- **Strictness preset**: Strict / Standard. Affects override behavior (see §6.4). _(Updated 2026-05-07: Soft option dropped during slice 10 testing — three-way decision was creating fatigue, and Standard is permissive enough as the casual setting.)_
 - **Default duration** when started ad-hoc (e.g., 60 min)
 
 Free Time is just a Focus Mode with no blocking rules and no AI scoring. Distractions are usable during Free Time, drawing from the budget normally.
@@ -74,6 +74,14 @@ Strict Mode is the "harden everything in one switch" toggle. Reuses the existing
 ---
 
 ## 4. App-level taxonomy (not the same as Focus-Mode-level)
+
+> **Updated 2026-05-07 during slice 10 testing:** the user pushed back on the editor showing "Blocklists" (legacy BlockingProfile pulldown) alongside the per-Focus-Mode block/allow rules — felt like duplicate functionality. The conceptual distinction is now clarified in the UI:
+>
+> - **Distraction Budget = the daily tax (lateral, always running).** One global Distractions list, one budget number. Drains as you use Distractions list apps. At zero → all Distractions blocked rest of day. Lockable behind partner.
+> - **Focus Mode rules = per-block overrides (narrow, only during a block of that mode).** Strictness preset + "Block during this Focus Mode" (extra restrictions) + "Allow during this Focus Mode" (whitelist that overrides Distractions for the duration).
+>
+> They layer: Always-Blocked > Focus Mode allow > Focus Mode extra-block > Distraction Budget > Allowed (default). Editor copy now states this explicitly so users understand the model. The legacy Blocklists pulldown is removed from the editor (kept on disk in `BlockingProfileManager` until slice 13 deletes the underlying class).
+
 
 Every app/website on the user's devices is in **one of three states** (user-configured in Settings):
 
@@ -264,14 +272,19 @@ Already redesigned (`docs/pricing-strategy-2026-05-05.md`). Subscription model, 
 
 Modes (post-redesign): timer (in-block), startRitual (60s grace pre-block), celebration (block-end card), noPlan (Focus Lock OFF + no scheduled block + Free Time gap).
 
-### 8.2 Sidebar (4 tabs, down from 8)
+### 8.2 Sidebar (5 tabs, down from 8)
 
-1. **Today** — current Focus Mode + countdown, distraction budget meter, today's blocks (timeline), Focus Lock toggle.
-2. **Week** — calendar view + per-Focus-Mode weekly hour bars showing target progress.
-3. **Focus Modes** — list of Focus Modes with their rules. Add/edit/delete here.
-4. **Settings** — account, partner pairing, distractions list, always-blocked list, content safety, strict mode, bedtime config, accessibility/permissions.
+> **Updated 2026-05-06 during slice 10 implementation:** earlier draft folded Sensitive Content + Accountability into Settings. User feedback: those are *features* not configuration; burying them makes them hard to find. Restored as top-level items. Today/Week became a view-toggle on the Today page rather than two sidebar items.
 
-**Removed sidebar items**: Intentions, Profiles, Distractions (now sub-section of Settings), Sensitive Content (now sub-section of Settings), Weekly Planning (now part of Week), Accountability (now sub-section of Settings).
+1. **Today** — current Focus Mode + countdown, distraction budget meter, today's blocks (timeline), Focus Lock toggle. Top-of-page **Today / Week** toggle switches the visible content (Today = current state; Week = calendar + weekly Focus Mode hour bars).
+2. **Focus Modes** — list of Focus Modes with their rules. Add/edit/delete here.
+3. **Sensitive Content** — NSFW monitor: real-time activity, history of detections, partner-notification state. Top-level because it's an active feature, not a setting.
+4. **Accountability** — partner pairing, breach log, unlock requests, override history. Top-level for the same reason.
+5. **Settings** — account, distractions list management, always-blocked list management, strict mode, bedtime config, accessibility/permissions, app preferences.
+
+**Removed sidebar items**: Intentions / Profiles (folded into Focus Modes). Distractions list-management folded into Settings (the budget meter for active distraction state lives on Today). Weekly Planning killed (placeholder, no real UI; future budgets work folds into Today's Week toggle when it ships).
+
+**Distinction:** "Settings" is configuration only. Anything the user actively *uses* during the day (modes, sensitive content monitor, partner system) is a top-level sidebar item.
 
 ### 8.3 Overlays (kept, unchanged structure)
 

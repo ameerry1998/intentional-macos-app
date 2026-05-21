@@ -20,7 +20,11 @@ final class FocusStatePoller {
     private var timer: Timer?
     private let interval: TimeInterval = 2.0
 
-    private var lastKnownActive: Bool = false
+    /// Public for FocusModeController to gate `.schedule`-sourced deactivations.
+    /// Spec-1 sessions live in /focus/active but not /time_blocks, so a schedule
+    /// pull legitimately returns 0 blocks while a session is active. Without the
+    /// gate, the schedule's "off" wins and stops the session.
+    private(set) var lastKnownActive: Bool = false
     private var lastKnownSessionId: String?
 
     init(appDelegate: AppDelegate, focusModeController: FocusModeController) {
@@ -114,6 +118,15 @@ final class FocusStatePoller {
 
         lastKnownActive = active
         lastKnownSessionId = sessionId
+
+        // Per product scope (May 2026): puck's only role for now is morning alarm
+        // dismissal. Puck-triggered focus sessions on the backend are ignored by
+        // the Mac client — we do not engage local enforcement for them. The
+        // backend session record stays as-is; we just don't react.
+        if triggeredBy == "puck" {
+            appDelegate?.postLog("🔄 FocusStatePoller: ignoring puck-triggered session (puck = alarm only for now)")
+            return
+        }
 
         if active && !prevActive {
             appDelegate?.postLog("🔄 FocusStatePoller: detected START (session: \(sessionId ?? "-"), triggeredBy: \(triggeredBy), intentionId: \(intentionId?.uuidString ?? "-"))")

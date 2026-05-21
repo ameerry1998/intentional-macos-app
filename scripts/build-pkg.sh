@@ -295,10 +295,21 @@ else
   echo "⏭️  Step 7/7: Skipping notarization"
 fi
 
+# Mirror the final PKG to a stable home-dir path scoped for the post-demotion
+# sudoers rule. /tmp gets wiped on reboot and is world-writable (sketchy for a
+# NOPASSWD installer rule); a fixed home-dir path is the safe sudoers target.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+STABLE_PKG_DIR="$REPO_ROOT/build"
+mkdir -p "$STABLE_PKG_DIR"
+STABLE_PKG_PATH="$STABLE_PKG_DIR/Intentional-${VERSION}.pkg"
+cp -f "$PKG_PATH" "$STABLE_PKG_PATH"
+
 echo ""
 echo "=== Done! ==="
-echo "PKG: $PKG_PATH"
-echo "Size: $(du -h "$PKG_PATH" | cut -f1)"
+echo "PKG:        $PKG_PATH"
+echo "Stable PKG: $STABLE_PKG_PATH"
+echo "Size:       $(du -h "$PKG_PATH" | cut -f1)"
 echo ""
 echo "To install: double-click the .pkg file"
-echo "To test: sudo installer -pkg '$PKG_PATH' -target /"
+echo "To test:    sudo installer -pkg '$STABLE_PKG_PATH' -target /"

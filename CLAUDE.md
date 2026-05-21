@@ -8,7 +8,7 @@ When a task spans multiple repos (e.g. Puck integration touches `intentional-bac
 - That file is the authoritative hand-off: what was completed, what was blocked, what's in which PR, what the user needs to do tomorrow morning.
 - Before starting a multi-repo or overnight task, check `docs/` for an existing log to append to.
 - When handing off to a subagent for multi-repo work, explicitly point them at this convention.
-- Sibling repos live at `/Users/arayan/Documents/GitHub/intentional-backend`, `/Users/arayan/Documents/GitHub/puck-ios`, `/Users/arayan/Documents/GitHub/puck-partner-dashboard`, `/Users/arayan/Documents/GitHub/intentional-extension`.
+- Sibling repos live at `/Users/arayan/Documents/GitHub/intentional-backend`, `/Users/arayan/Documents/GitHub/puck-ios`, `/Users/arayan/Documents/GitHub/puck-partner-dashboard`.
 
 ---
 
@@ -28,14 +28,34 @@ Violating the letter of this process violates the spirit of the development appr
 ## Documentation Maintenance (MANDATORY)
 
 After completing any code changes, assess whether this CLAUDE.md or the relevant `docs/` file needs updating. Update if any of the following changed:
-- New or modified message types (NativeMessagingHost ↔ extension)
 - Changes to EarnedBrowseManager, TimeTracker, or ScheduleManager state/APIs
 - New features or significant behavior changes
 - Changes to focus enforcement, blocking, or overlay logic
 - New Swift files or significant restructuring
-- Dashboard UI changes that affect extension ↔ app interaction
+- Dashboard UI changes that affect user-visible behavior
 
 Keep updates minimal and precise — just add/modify the relevant sections. Do not rewrite sections that haven't changed.
+
+---
+
+## Don't stop. Keep going. (MANDATORY)
+
+When the user is in execution mode (asked you to ship N slices, or "keep going," or any equivalent), **do not stop to check in.** Per `superpowers:subagent-driven-development`: "Continuous execution: Do not pause to check in with your human partner between tasks. Execute all tasks from the plan without stopping."
+
+Specifically:
+- Do NOT say "should I continue?" or "want me to keep going?" between slices
+- Do NOT ship a "status update" and then wait for permission
+- Do NOT recommend stopping just because the work is hard or the context is large
+- Do NOT estimate work in "days" or "weeks" if the user has explicitly said "today" — push as far as actually-possible-today and only stop when genuinely blocked
+- Do NOT claim a task will produce "mediocre quality" as a reason to stop — ship it, the user will tell you if quality is bad
+
+The ONLY valid reasons to stop:
+1. BLOCKED — you literally cannot proceed without info from the user
+2. Ambiguity in the spec that genuinely prevents progress on the current task
+3. All tasks in the explicit plan are complete
+4. The user explicitly said stop in the most recent message
+
+Status updates are FINE if they're terse. Asking permission is NOT FINE. The user trusts you to ship. Ship.
 
 ---
 
@@ -100,11 +120,78 @@ This project uses a **two-layer documentation system**. Use the right format for
 
 ---
 
+## Product Vision — Deep Work as a Service (MANDATORY READ)
+
+**The brain is sequential. The computer makes task-switching almost free. Friction is backwards.**
+
+Intentional is not a "site blocker." It is the structural enforcement of the Deep Work protocol the cognitive-psych literature (Cal Newport, Sophie Leroy on "attention residue", Nicholas Carr's *The Shallows*, Nir Eyal's *Indistractable*) already recommends but that ADHD impulse-scrollers cannot self-administer.
+
+Every feature should ladder up to one of five stages of a focus session. If a feature you're about to build doesn't, it probably doesn't belong:
+
+1. **Enter** — forced declaration of intent (voice transcript, 100–300 words, "what + what done looks like + what's NOT allowed").
+2. **Prepare** — "close the noise." One-click sweep of tabs/apps not relevant to declared intent. *(Missing today — biggest current gap.)*
+3. **Engage** — session runs. AI scoring against the transcript. Pill, red tint, in-pill nudges.
+4. **Defend** — three tiers of friction when the user drifts: notify → soft-close in 5s → hard-block (Strict Mode).
+5. **Exit** — review every tab/app opened during the session: keep / close all / mark for tomorrow. *Inbox-zero for attention.* *(Missing today.)*
+
+**Canonical spec:** [`docs/superpowers/specs/2026-05-18-deep-work-protocol.md`](docs/superpowers/specs/2026-05-18-deep-work-protocol.md). Read it before changing enforcement logic, session lifecycle, or AI scoring. It contains the philosophical grounding, the five-stage breakdown, the open questions, and the naming clarity ("TimeBlock" = scheduled session, "StandingRule" = always-on rule — two different concepts that were overloading "block").
+
+Default copy for the unscheduled-time overlay (when the user is in free time with no session declared): *"You're not in a focus session. Pick something to work on so you don't end up with 30 tabs open and three half-finished tasks."* Naming the mechanism (multitasking → tab pile-up) is more motivating than naming the abstraction ("plan your day").
+
+---
+
+## Hard-Won Lessons (banked 2026-05-18)
+
+These principles emerged from grinding on the Close-the-Noise sweep. Apply them to every future feature.
+
+### 1. Agency > automation for the ADHD ICP. Default to user-confirms-first for any destructive action.
+
+The ICP is paying us to be their **external executive function**, not a replacement that decides for them. Auto-closing tabs / auto-quitting apps / auto-deleting data / auto-sending messages without a confirmation step violates the product framing — even when the AI gets it 95% right. The 5% feels catastrophic and burns trust permanently.
+
+**Default pattern for any destructive feature:** AI suggests → user reviews → user confirms → app acts. The user clicks the button that closes the thing, not the app. Reserve auto-actions for cases the user has explicitly opted into per-action (e.g., "always close YouTube during work blocks" via a Standing Rule the user wrote).
+
+**Counter-example we lived through:** the v1 close-the-noise sweep auto-stashed 22 tabs and closed 5 of the user's real work tabs (Cloudflare DNS, Resend, Supabase, Railway, Claude Code article). Spent 6 hours iterating on AI accuracy from 73% → 86% with diminishing returns before the user pointed out the right move was to pivot to review-and-confirm. **When you find yourself grinding accuracy past 85%, the question is no longer "can we be smarter" but "should this be auto at all".**
+
+### 2. Build a benchmark with ground-truth labels BEFORE iterating on AI/scoring/classification.
+
+Variance is real. The same prompt + same model + same temperature can give different verdicts run-to-run (the user's "5 false-stashes" live run vs the benchmark's 2 false-stashes on identical inputs). Without a benchmark you're chasing noise, can't tell what changes helped, and rely on the user's anecdotes.
+
+Build the eval harness FIRST. Test cases live in `IntentionalTests/sweep-test-cases/*.json` and include ground-truth labels per item. `SweepBenchmark.swift` is the template — Codable test cases, a runner that reports accuracy + false-positive + false-negative + per-error details, model-swap support for A/B comparisons. Mirror this pattern for any future scoring feature (Stage 3 AI scoring of active tabs, Stage 4 defend-tier classification, content-safety thresholding).
+
+**Set `temperature=0` for classification tasks.** Non-determinism is pure noise when the right answer is unambiguous.
+
+### 3. Encode asymmetric error costs in the decision rule, not just the metric.
+
+For the close-the-noise sweep, **false-stash (closed a relevant tab) burns user trust ~5x harder than false-keep (left noise around).** The rule must reflect that:
+
+```swift
+// asymmetric stash gate — stash ONLY when high-confidence off-task
+let highConfidenceStash = !v.relevant && v.confidence >= 65
+```
+
+Not `keep iff (relevant && conf >= 50)` (symmetric — wrong). Same pattern applies whenever you're designing a classification gate: figure out which error costs more, then make the rule favor the cheaper error explicitly.
+
+### 4. Intent-capture modals need worked examples, not just labels.
+
+Users restate the question back at you instead of answering it. When we asked "What's allowed in this session — and what's not?" the user wrote "what's not allowed is any distraction website" — a non-answer that gave Qwen zero positive signal. Any modal asking the user to articulate intent needs:
+- Strong placeholder text showing a useful answer
+- One or two inline examples ("e.g. 'coding Intentional in Cursor + GitHub + Stack Overflow; not allowed: Twitter, YouTube'")
+- Maybe a "show me an example" affordance for first-time users
+
+### 5. Specific technical gotchas from this build
+
+- **MLX model IDs:** Qwen3-4B uses `mlx-community/Qwen3-4B-Instruct-2507-4bit`, Qwen3-8B uses plain `mlx-community/Qwen3-8B-4bit` (no "Instruct-2507" suffix). Don't assume parallel naming. Cache lives flat at `~/Library/Caches/models/mlx-community/<name>/`. Pre-download via `huggingface_hub.snapshot_download(local_dir=...)` to that path so first-run latency doesn't include the download.
+- **AppleScript multi-line `if (a or b or c) then`** doesn't parse without explicit `¬` continuation markers. Use `if targetList contains x then` instead — build the list as a literal, check membership.
+- **MLX-Swift batch inference** doesn't auto-await the lazy model load. Mirror `scoreRelevance`'s pattern — `await loadMLXModelIfNeeded()` at the top of any new scoring entry point or your first call returns empty.
+- **String matching against user intent** is a footgun. Domain stems like `jobs` (from `jobs.lever.co`), `docs`, `developer`, `status`, `support` are also common English words and will auto-keep huge categories of unrelated tabs. Either drop stem matching entirely (use full-domain matches only) or maintain an explicit stoplist of common-word collisions. Curated tool allowlists are safer than open-ended stem extraction.
+
+---
+
 ## Product Overview
 
-Intentional is a macOS focus enforcement app that works with a companion Chrome extension. The Puck physical device provides a simple on/off toggle for blocking mode. Setting an intention upgrades blocking from dumb (block all distracting sites) to smart (AI scores relevance). See [docs/PUCK_SPEC.md](docs/PUCK_SPEC.md) for full product vision, blocking modes, and Puck branch changes.
+Intentional is a macOS focus enforcement app. The Puck physical device provides a simple on/off toggle for blocking mode. Setting an intention upgrades blocking from dumb (block all distracting sites) to smart (AI scores relevance). See [docs/PUCK_SPEC.md](docs/PUCK_SPEC.md) for full product vision and blocking modes.
 
-**Architecture Principle: Logic Lives Here.** All enforcement logic, overlays, timers, and behavioral features belong in this macOS app — NOT in the Chrome extension. The extension is a sensing layer for AI content scoring. The app has OS-level capabilities (AppleScript, NSWindow overlays, process monitoring) that the extension cannot replicate, and centralizing logic here avoids duplication and ensures cross-browser consistency.
+**Architecture Principle: Logic + Sensing both live in the Mac app.** All enforcement logic, overlays, timers, behavioral features AND browser-tab sensing run in this macOS app. AppleScript is the sole interface to browsers (Chrome, Arc, Safari, Comet, Brave, Edge, Vivaldi). The Chrome extension integration was removed 2026-05-21 — Firefox / Tor are not supported. See `docs/archive/EXTENSION_PROTOCOL.md` for historical reference and `docs/cross-repo-extension-removal-2026-05-21.md` for the deletion summary.
 
 **Architecture Principle: Backend is Source of Truth for Cross-Device State.** Focus session state (`is the user focused right now`) lives canonically in `focus_sessions` on the backend. Each client (Mac, iPhone) treats its local representation as a cache. Mac polls `/focus/active` every 2s via `X-Device-ID` auth (no JWT TTL pain). iPhone reconciles on foreground/boot. Backend rows have `expires_at` TTL safety net so sessions where no client ever sent stop self-expire after 12h. See `docs/cross-repo-focus-sync-2026-04-28.md` for the full architecture, why it changed, and what's still follow-up.
 
@@ -128,6 +215,41 @@ Cross-repo log: `docs/overnight-run-2026-05-03.md`
 
 ---
 
+## Weekly + Monthly Goals (May 14, 2026) — ACTIVE
+
+Intentions are surfaced to users as "Weekly Goals." The underlying Swift type (`Intention`) and DB table (`intentions`, which is a SQL view over `focus_modes` post-migration 022) keep their names. Each Intention/Weekly Goal carries new fields the prototype editor exposes:
+
+- `outcome` (done-looks-like text)
+- `status` enum (planned | in_progress | done | slipped | dropped)
+- `weeklyTargetHours`
+- `intentText` (≤140 chars; drives AI scoring when `aiScoringEnabled`)
+- `aiScoringEnabled` (bool, default true)
+- `allowWebsites` + `allowBundleIds` (per-goal Allow list — but **globally-active Time Blocks override these** per §17b.7 of requirements doc)
+- `monthlyGoalId` (FK → MonthlyGoal; nullable for "unlinked" goals)
+- `weekOf` (ISO Monday date; nullable = unscheduled)
+
+New top-level type `MonthlyGoal` (`Intentional/MonthlyGoal.swift`) + actor `MonthlyGoalStore`. Cache at `~/Library/Application Support/Intentional/monthly_goals.json`. Sync pattern mirrors `IntentionStore` (pull on launch + foreground + 60s timer).
+
+**One-shot migration:** `IntentTextMigration.runIfNeeded` copies `Intention.description` → `intentText` for goals that don't have it yet. Idempotent via receipt at `migration_intent_text_v1.json`. Runs after first IntentionStore pull on launch.
+
+**New bridge messages (dashboard ↔ Mac):**
+- `GET_MONTHLY_GOALS`, `GET_MONTHLY_GOAL`, `CREATE_MONTHLY_GOAL`, `UPDATE_MONTHLY_GOAL`, `DELETE_MONTHLY_GOAL`
+- `LINK_WEEKLY_TO_MONTHLY` (set/clear `monthly_goal_id` on an Intention)
+- `START_GOAL_SESSION` (alias of `START_INTENTION_SESSION`; carries optional `monthly_goal_id` for future analytics — currently ignored)
+- `intentionToDict` extended with the 9 new fields → `_intentionsList` receiver
+- `monthlyGoalToDict` → `_monthlyGoalsList` / `_monthlyGoalDetail` / `_monthlyGoalCreated` / `_monthlyGoalUpdated` / `_monthlyGoalDeleted` receivers
+
+**Backend:** migration 026 (`intentional-backend`) adds 9 columns to `focus_modes` (refreshes the `intentions` view), creates `monthly_goals` table + indexes + RLS + triggers. CRUD endpoints at `/monthly_goals`. Extended `/intentions` POST + PUT round-trips the new fields. `GET /intentions?week=YYYY-MM-DD` filters by week.
+
+**Theme toggle: OUT OF SCOPE** for this ship (§10 + §17b.12 of requirements doc). Dark-only.
+
+Brief: `docs/prototype-to-production-2026-05-14.md`
+Requirements: `docs/requirements-2026-05-14.md` (§17b authoritative for resolved Q&A)
+Plans: `docs/superpowers/plans/2026-05-14-prototype-to-production-plan-{a,b,c}.md`
+Cross-repo log: `docs/overnight-run-2026-05-14.md`
+
+---
+
 ## Parallel Development (Worktree Workflow)
 
 This repo uses git worktrees for parallel feature development. Multiple Claude Code agents may be working on different features simultaneously in separate worktrees.
@@ -141,9 +263,8 @@ This repo uses git worktrees for parallel feature development. Multiple Claude C
 **If you are in a worktree:**
 - Run `git log --oneline main..HEAD` to see what other branches have been merged since you branched
 - Before finishing, rebase onto main: `git fetch && git rebase main`
-- Your worktree only has the macOS app. The companion Chrome extension may also have a parallel worktree — coordinate changes at the message boundary (NativeMessagingHost.swift ↔ background.js)
 
-**Cross-repo coordination:** Features often span both the macOS app and extension. When adding/changing messages between them, document the message format in your commit message so the other agent (working on the other repo's worktree) can match it.
+**Cross-repo coordination:** Features often span the Mac app + backend (and sometimes the Puck iOS app). When changing API contracts, document the wire format in your commit message so the other agent (working on the other repo's worktree) can match it.
 
 **Active worktrees:** Run `git worktree list` to see all active worktrees and their branches.
 
@@ -177,12 +298,9 @@ Order matters. Components have dependencies that must be wired in sequence.
 15e. SwitchInterventionCoordinator + SwitchOverlayController → Gate now reads FocusModeController.isOn
 16. Wire ScheduleManager.onBlockChanged → FocusModeController.activate / .deactivate / .activateBedtime
 17. Manual activeBlockId sync + initial Focus Mode activation if a block is currently active
-18. NativeMessagingHost (template)
-19. SocketRelayServer       → Start accepting extension connections
-20. NativeMessagingSetup    → Auto-discover extensions, install manifests
-21. Heartbeat timer (2 min interval)
-22. FocusStatePoller       → Polls /focus/active every 2s with X-Device-ID auth. On state transition, drives FocusModeController.activate/.deactivate. Backend-as-master cross-device sync; no JWT-expiry pain.
-23. (boot reconcile)       → If FocusModeController.state == .focus from disk restore, applyDefaultBlockingProfile() + focusMonitor?.onBlockChanged() to re-engage enforcement.
+18. Heartbeat timer (2 min interval)
+19. FocusStatePoller       → Polls /focus/active every 2s with X-Device-ID auth. On state transition, drives FocusModeController.activate/.deactivate. Backend-as-master cross-device sync; no JWT-expiry pain.
+20. (boot reconcile)       → If FocusModeController.state == .focus from disk restore, applyDefaultBlockingProfile() + focusMonitor?.onBlockChanged() to re-engage enforcement.
 ```
 
 ### Critical Callback Wiring
@@ -203,7 +321,6 @@ focusModeController.onStateChanged = { old, new, period in
     relevanceScorer.clearCache()
     earnedBrowseManager.onBlockChanged(blockId:blockTitle:)  // before focusMonitor — preserves activeBlockId-before-recordWorkTick invariant
     focusMonitor.onBlockChanged()
-    socketRelayServer.broadcastScheduleSync()
     mainWindow.pushScheduleUpdate()
     mainWindow.pushFocusModeUpdate(state: new)
     if new == .off { switchCoordinator.reset() }
@@ -212,13 +329,7 @@ focusModeController.onStateChanged = { old, new, period in
 // TimeTracker.onSocialMediaTimeRecorded → deduct from earned pool
 timeTracker.onSocialMediaTimeRecorded = { platform, minutes, isFreeBrowse in
     earnedBrowseManager.recordSocialMediaTime(minutes:isWorkBlock:isJustified:)
-    socketRelayServer.broadcastEarnedMinutesUpdate()
     mainWindow.pushEarnedUpdate()
-}
-
-// TimeTracker.onSessionChanged → broadcast to all browsers
-timeTracker.onSessionChanged = { platform in
-    socketRelayServer.broadcastSessionSync()
 }
 ```
 
@@ -234,9 +345,9 @@ timeTracker.onSessionChanged = { platform in
 
 3. **MLX parse error fail-open**: Changed from fail-open (relevant=true on error) to fail-closed (relevant=false, confidence=0). Prevents broken AI from silently allowing all content.
 
-4. **Chrome blocked by WebsiteBlocker with extension active**: `BrowserMonitor` now cross-checks socket connection status (definitive) with file-based detection, instead of immediately marking browser as unprotected on socket disconnect.
+4. **Chrome blocked by WebsiteBlocker with extension active**: `BrowserMonitor` now cross-checks socket connection status (definitive) with file-based detection, instead of immediately marking browser as unprotected on socket disconnect. *Resolved 2026-05-21 by removing the extension entirely — `BrowserMonitor` now reports protection from AppleScript-only detection.*
 
-5. **Extension-launched process killing the app**: Chrome SIGTERMs then SIGKILLs native messaging hosts. Fixed by relay architecture: extension-launched processes are always thin relays, primary app is launched independently via `NSWorkspace`.
+5. **Extension-launched process killing the app**: Chrome SIGTERMs then SIGKILLs native messaging hosts. Fixed by relay architecture: extension-launched processes are always thin relays, primary app is launched independently via `NSWorkspace`. *Resolved 2026-05-21 by removing the extension entirely — the app is no longer launched as a native-messaging child of any browser process.*
 
 6. **Settings 800ms debounce losing changes**: `onSettingChange()` in dashboard.html uses an 800ms debounce before calling `saveAllSettings()`. If the user quits the app within 800ms of toggling, settings are lost. Fixed for Content Safety toggle (now saves immediately). Consider fixing for all toggles.
 
@@ -276,6 +387,78 @@ timeTracker.onSessionChanged = { platform in
 ### Development (Xcode)
 Standard `xcodebuild` or Xcode IDE. Debug builds run directly from DerivedData. Uses Apple Development signing with automatic provisioning.
 
+### Running a fresh build on the user's locked-down Mac (MANDATORY READ)
+
+**Use the script:** `./scripts/dev-launch.sh` (or `./scripts/dev-launch.sh --no-build` to skip rebuild). It handles all of the below automatically and auto-diagnoses the failure mode if the new instance dies. The rest of this section explains *why* it works so you can debug if it ever breaks.
+
+**Critical fact: the user is `arayan`, NOT an admin. Caity is the admin. The user has NO sudo access.** That means anything starting with `sudo`, `! sudo`, `pkill -9` against `/Applications/Intentional.app`, etc. **will fail with "operation not permitted"** — the production binary runs as user `caity` (not `arayan`), so even non-sudo `pkill` can't signal it. Do not suggest sudo workflows to the user; the answer is always "use `dev-launch.sh`, the dev instance runs alongside the production one."
+
+**Two-user split-brain consequence (important):**
+- Production `/Applications/Intentional.app` runs as user `caity` (via the system LaunchDaemon). It owns its own menubar / pill in caity's GUI session.
+- Dev build from DerivedData runs as user `arayan`. It owns the menubar / pill in arayan's GUI session.
+- Both processes coexist after `dev-launch.sh`. The takeover code (`main.swift:159 → kill(existingPID, SIGTERM)`) **silently fails** when the existing PID belongs to caity — `arayan` cannot signal caity's processes. The new arayan-owned dev instance launches anyway; the production caity-owned one keeps running.
+- The user is logged in as arayan, so they only see arayan's menubar — clicking it lands on the dev build. That's the intended path; you don't need to kill the caity-owned process.
+
+**Sweep / state caveat:** `FocusModeController` persists state to disk on every transition. If a session is already active when the dev build launches, the new instance rehydrates `state=focus` and re-engages enforcement via the "boot reconcile" branch — **without going through `onStateChanged`**, so anything wired to the `.off → .focus` *transition* (the close-the-noise sweep, for example) **does not fire on app restart mid-session**. To exercise transition-driven code paths during dev, end the active session from the dashboard / menubar before testing, then start a fresh one. Puck-triggered sessions are also ignored by `FocusStatePoller` on Mac per current spec (`puck = alarm only`), so use the **Mac dashboard manual toggle** to drive a `.off → .focus` transition.
+
+The user's Mac has Strict Mode + tamper-protection daemon installed. `open <bundle>` does not work. `sudo installer ... .pkg` works but the user does not have sudo, so this is moot. This is the procedure that actually runs a fresh build against the daemon-managed install — **follow it exactly**, none of the obvious alternatives work:
+
+**Why the obvious paths fail:**
+- ❌ `open /tmp/intentional-pkg-build/Intentional.app` → LaunchServices ignores your path and starts the registered `/Applications/Intentional.app` (the OLD one).
+- ❌ Exec the PKG-built binary at `/tmp/intentional-pkg-build/Intentional.app/Contents/MacOS/Intentional` directly → AMFI SIGKILLs it silently. PKG output is Developer ID signed; cannot run standalone outside the installer. Log shows splash lines then nothing — exit code 137, no crash report.
+- ❌ Exec the DerivedData Debug binary plainly (`nohup .../Intentional &`) → main.swift's single-instance check sees the daemon-launched process, takes the "duplicate launch — exit silently" branch (line ~169 of `Intentional/main.swift`), your new instance disappears within 1s.
+- ❌ Reading `docs/dev-build-and-launch.md` and pasting its DerivedData hash → that hash drifts. The doc's `Intentional-cjpaicwfawcwqgepfrsxstqebhev` is stale. Always discover the current hash at runtime.
+
+**The procedure that works:**
+
+```bash
+# 1. Build Debug (NOT a PKG — PKG-signed binaries get AMFI-killed standalone).
+#    Run from the worktree root (or main repo root if not in a worktree).
+xcodebuild -project Intentional.xcodeproj -scheme Intentional -configuration Debug build 2>&1 | tail -5
+
+# 2. Discover the current DerivedData hash dynamically. There are typically
+#    multiple Intentional-* folders; pick the one with the newest Debug binary.
+DERIVED_DIR=$(ls -dt /Users/arayan/Library/Developer/Xcode/DerivedData/Intentional-*/Build/Products/Debug 2>/dev/null | head -1)
+DERIVED_BINARY="$DERIVED_DIR/Intentional.app/Contents/MacOS/Intentional"
+ls -la "$DERIVED_BINARY"  # sanity check + mtime confirms fresh build
+
+# 3. CRITICAL: set __XCODE_BUILT_PRODUCTS_DIR_PATHS before exec'ing the binary.
+#    This is the env var Xcode sets when running from the Run button. main.swift
+#    keys off this to take the "Xcode launch — kill the existing PID, take over,
+#    bootout the LaunchAgent + Login Item so the daemon won't immediately
+#    relaunch the OLD version" branch (see main.swift:106 and 113-168).
+#    Without it, your launch silently exits as a "duplicate" — no error, no log.
+nohup env __XCODE_BUILT_PRODUCTS_DIR_PATHS="$DERIVED_DIR" "$DERIVED_BINARY" \
+  &> /tmp/intentional-fresh.log &
+NEW_PID=$!
+echo "Launched PID $NEW_PID"
+sleep 5
+
+# 4. Verify the new instance survived. If pgrep returns DerivedData paths, the
+#    takeover worked. If it returns only /Applications paths, the takeover
+#    failed — check /tmp/intentional-fresh.log for the reason.
+pgrep -lf "DerivedData.*Intentional.app/Contents/MacOS" | head -3
+tail -15 /tmp/intentional-fresh.log
+```
+
+**Expected log signature when takeover works:**
+```
+🚀🚀🚀 MAIN.SWIFT EXECUTING - PID: <new>
+... <env vars, launch time> ...
+🏗️ Creating NSApplication and AppDelegate...
+✅ AppDelegate assigned, calling NSApplicationMain...
+=== applicationDidFinishLaunching CALLED ===
+[DaemonXPC] Connection established to com.intentional.daemon.xpc
+```
+
+If the log stops after the PID line with no `🏗️ Creating NSApplication` — AMFI killed it (you ran the PKG binary, not the Debug binary).
+If the log gets to `applicationDidFinishLaunching` but the process dies — single-instance check exited as duplicate (the env var wasn't set).
+
+**To roll back to the daemon-managed `/Applications` build:**
+Just quit the dev instance — the LaunchAgent + watchdog will respawn `/Applications/Intentional.app` within seconds (the takeover bootouts them but the system-level LaunchDaemon at `/Library/LaunchDaemons/com.intentional.watchdog.plist` survives a logout/login cycle and will reload them).
+
+**When this procedure isn't enough:** if you need the dock icon (the persistent click target) or the watchdog respawn to point at the new build, you do have to physically replace `/Applications/Intentional.app`. That requires sudo and is documented in `docs/dev-build-and-launch.md`.
+
 ### Production (PKG Installer)
 **Build command:** `./scripts/build-pkg.sh`
 **Skip notarization:** `NOTARIZE=0 ./scripts/build-pkg.sh`
@@ -296,20 +479,19 @@ Detailed docs for each subsystem live in `docs/`. Read the relevant doc when wor
 | Doc | What's in it |
 |-----|-------------|
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Project structure, architecture diagram, process model (relay/primary), state machine, persistence files, backend API |
-| [PUCK_SPEC.md](docs/PUCK_SPEC.md) | Product vision, Puck integration, blocking modes, new systems (April 2026), extension role changes |
+| [PUCK_SPEC.md](docs/PUCK_SPEC.md) | Product vision, Puck integration, blocking modes, new systems (April 2026) |
 | [FOCUS_ENFORCEMENT.md](docs/FOCUS_ENFORCEMENT.md) | FocusMonitor enforcement timelines (Deep Work vs Focus Hours), block start/end rituals, pill widget, overlays, distracting apps, always-allowed apps |
 | [EARNED_BROWSE_SYSTEM.md](docs/EARNED_BROWSE_SYSTEM.md) | Earning rates, cost multipliers, intent bonus, delay escalation, per-block tracking, pool state |
 | [AI_SCORING.md](docs/AI_SCORING.md) | Relevance scorer pipeline (keyword→cache→LLM), Qwen3-4B / Apple FM models, fail-closed policy |
 | [CONTENT_SAFETY_MONITOR.md](docs/CONTENT_SAFETY_MONITOR.md) | On-device NSFW detection, two-pass capture, OpenNSFW for Developer ID builds, partner notification |
 | [CS_TESTING_WINDOW_PLAYBOOK.md](docs/CS_TESTING_WINDOW_PLAYBOOK.md) | How to pause CS emails + enforcement constraint for a debugging window, and how to fully reverse it. Paired scripts in `intentional-backend/scripts/` (`pause_cs_constraint.py` / `resume_cs_constraint.py`) + env var `CS_EMAILS_PAUSED_UNTIL` |
 | [CONTEXT_SWITCHING_OVERLAY.md](docs/CONTEXT_SWITCHING_OVERLAY.md) | Non-skippable countdown on app/tab switches during a work block. Coordinator, overlay, tier math, grace periods |
-| [EXTENSION_PROTOCOL.md](docs/EXTENSION_PROTOCOL.md) | Socket architecture, native messaging protocol, all message types (app↔extension and dashboard↔Swift) |
 | [PROJECTS.md](docs/PROJECTS.md) | Projects (intention-driven sessions): data model, ProjectStore actor API, 7 bridge messages, start-session queue/immediate/refuse rules, blocklist delete guard |
 | [STRICT_MODE.md](docs/STRICT_MODE.md) | App persistence, partner-gated enable/disable, Cmd+Q behavior, watchdog, edge cases |
 | [PRIORITY_TODOS.md](docs/PRIORITY_TODOS.md) | Implementation backlog: Intentional Mode, permission monitoring, NE integration, anti-tamper hardening |
 | [PKG_BUILD_GUIDE.md](docs/PKG_BUILD_GUIDE.md) | PKG build pipeline, signing details, daemon relaunch strategy, testing checklist |
 | [ROADMAP.md](docs/ROADMAP.md) | Product roadmap, psychology research, feature priorities (P0-P3), coaching language overhaul |
-| [EARN_YOUR_BROWSE_IMPLEMENTATION.md](docs/EARN_YOUR_BROWSE_IMPLEMENTATION.md) | Full earned browse implementation spec with UI mockups, extension changes, message protocol |
+| [EARN_YOUR_BROWSE_IMPLEMENTATION.md](docs/EARN_YOUR_BROWSE_IMPLEMENTATION.md) | Full earned browse implementation spec with UI mockups |
 | [CALENDAR_BLOCK_RULES.md](docs/CALENDAR_BLOCK_RULES.md) | Block manipulation rules (past locked, active limited, future editable) |
 | [BLOCK_TYPE_ENFORCEMENT_SETTINGS.md](docs/BLOCK_TYPE_ENFORCEMENT_SETTINGS.md) | Per-block enforcement toggles (6 mechanisms per block type) |
 

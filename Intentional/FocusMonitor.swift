@@ -87,6 +87,24 @@ class FocusMonitor {
     /// (e.g. Gmail, Slack — ambiguous sites where AI can't determine relevance from title/URL alone)
     var alwaysRelevantHostnames: Set<String> = []
 
+    /// BlockRuleEnforcer-driven blocked apps. Engages enforcement even when no
+    /// focus session is active — that's the whole point of Blocks-with-schedule.
+    /// Composes with focus-session enforcement via union.
+    private var standaloneBlockedBundleIds: Set<String> = []
+
+    /// Public setter — called by BlockRuleEnforcer on every tick (30s) and on
+    /// every BlockingProfile mutation. Pure setter; the next `evaluateApp`
+    /// invocation (driven by polling / app switch) picks up the new set.
+    func setStandaloneBlockedBundleIds(_ bundles: [String]) {
+        let next = Set(bundles)
+        guard next != standaloneBlockedBundleIds else { return }
+        standaloneBlockedBundleIds = next
+        appDelegate?.postLog("👁️🛡 FocusMonitor: standaloneBlockedBundleIds updated (\(next.count) apps): \(Array(next).sorted())")
+        // Re-evaluate the current foreground app immediately so a newly engaged
+        // rule blocks on the next instant instead of waiting for an app switch.
+        if let app = currentApp { evaluateApp(app) }
+    }
+
     /// Per-project allow/block overlay, populated while a project session is active.
     /// Evaluated BEFORE the global distraction checks so project rules win.
     struct ProjectEnforcement {
@@ -161,6 +179,11 @@ class FocusMonitor {
         "org.mozilla.firefox",
         "com.operasoftware.Opera",
         "com.vivaldi.Vivaldi",
+        // AI-powered Chromium browsers — full browsers, support Chrome's
+        // AppleScript dialect, must be inspected per-tab during focus sessions.
+        "ai.perplexity.comet",
+        "com.openai.atlas",
+        "com.openai.atlas.web",
     ]
 
     /// Maps bundle ID → AppleScript application name for tab access.
@@ -174,6 +197,9 @@ class FocusMonitor {
         "org.mozilla.firefox": "Firefox",
         "com.operasoftware.Opera": "Opera",
         "com.vivaldi.Vivaldi": "Vivaldi",
+        "ai.perplexity.comet": "Comet",
+        "com.openai.atlas": "ChatGPT Atlas",
+        "com.openai.atlas.web": "ChatGPT Atlas Web",
     ]
 
     // MARK: - Always-Allowed Apps
@@ -744,7 +770,6 @@ class FocusMonitor {
         grayscaleController?.dismiss()
         deepWorkTimerController?.dismiss()
         endRitualController?.dismiss()
-        appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
         appDelegate?.postLog("👁️ FocusMonitor stopped")
     }
 
@@ -894,7 +919,6 @@ class FocusMonitor {
         stopNeutralTickTimer()
         nudgeController?.dismiss()
         overlayController?.dismiss()
-        appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
         isCurrentlyIrrelevant = false
         isOnBreak = false
         currentTarget = ""
@@ -1186,13 +1210,25 @@ class FocusMonitor {
     }
 
     /// Handle End Block button tapped on the floating pill.
+    /// Slice 9 of 2026-05-05 redesign: gate by Focus Mode strictness preset.
+    /// - Strict: refuse to end early (log + ignore)
+    /// - Standard: present 10s confirmation (TODO — for now: allow with log warning)
+    /// - Soft: allow immediately
     @objc private func handlePillEndBlock() {
+        // Look up active Focus Mode strictness, if any
+        let strictness = currentBlockStrictness()
+        if strictness == "strict" {
+            appDelegate?.postLog("🚫 End Block ignored — Focus Mode is Strict")
+            return
+        }
+        if strictness == "standard" {
+            // TODO(slice 9 followup): show 10s confirmation dialog before proceeding.
+            appDelegate?.postLog("⚠️ End Block on Standard mode — friction confirmation TBD; allowing for now")
+        }
         appDelegate?.postLog("👁️ End Block tapped on pill — triggering early block end")
-        // Move pill to blockComplete mode so onBlockChanged sees it
         if let vm = deepWorkTimerController?.viewModel, vm.mode == .timer {
             vm.mode = .blockComplete
         }
-        // End the current block early by advancing its end time to now
         if let block = scheduleManager?.currentBlock {
             let now = Date()
             let cal = Calendar.current
@@ -1201,6 +1237,28 @@ class FocusMonitor {
             updated.endMinute = cal.component(.minute, from: now)
             scheduleManager?.updateBlock(updated)
         }
+    }
+
+    /// Returns the strictness preset string ("strict" | "standard" | "soft")
+    /// of the active Focus Mode, or "standard" as fallback when none is set.
+    private func currentBlockStrictness() -> String {
+        // Spec 1 + slice 2: each block has an intention (Focus Mode) id.
+        // Look it up via IntentionStore (renamed-via-alias FocusModeStore in slice 2).
+        guard let uuid = scheduleManager?.currentBlock?.intentionId else {
+            return "standard"
+        }
+        // IntentionStore is an actor; we sync-fetch here via a quick blocking call.
+        // For now use a best-effort cached lookup pattern that's already common in the codebase.
+        var preset = "standard"
+        let semaphore = DispatchSemaphore(value: 0)
+        Task {
+            if let intention = await IntentionStore.shared.intention(id: uuid) {
+                preset = intention.strictnessPreset.rawValue
+            }
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 0.05)  // 50ms cap; default to standard if slow
+        return preset
     }
 
     @objc private func handlePillMinimize() {
@@ -1403,10 +1461,11 @@ class FocusMonitor {
         // checkForegroundApp will restart on next timer tick (called by ScheduleManager every 10s)
     }
 
-    // MARK: - Browser Tab Scoring (called by NativeMessagingHost)
+    // MARK: - Browser Tab Scoring
 
-    /// Called by NativeMessagingHost after scoring a browser tab via SCORE_RELEVANCE.
-    /// Acts as a supplementary signal — AppleScript polling is the primary path.
+    /// Supplementary entry-point for reporting browser-tab scoring results.
+    /// AppleScript polling is the primary path; this method has no current callers post-extension-removal
+    /// but is retained for potential future scoring integrations.
     func reportBrowserTabScored(
         relevant: Bool,
         confidence: Int,
@@ -1576,12 +1635,32 @@ class FocusMonitor {
         let state = manager.currentTimeState
         debugLog("👁️ State check: enabled=\(manager.isEnabled), state=\(state.rawValue), hasPlan=\(manager.todaySchedule != nil), blocks=\(manager.todaySchedule?.blocks.count ?? 0)")
 
+        // BlockRuleEnforcer (Opal-style Blocks): a BlockingProfile in its
+        // scheduled window blocks the listed apps EVEN WHEN no focus session
+        // is active. Must engage BEFORE the focusModeController gate below
+        // because that gate would otherwise return early.
+        // Composes with session enforcement via union: if Focus Mode IS on,
+        // we still hit the existing distractingAppBundleIds branch below (which
+        // gives the full session-style UX). Here we only handle the
+        // "no session, but a rule says block this app" case.
+        if let bidStandalone = app.bundleIdentifier,
+           standaloneBlockedBundleIds.contains(bidStandalone),
+           focusModeController?.isOn != true {
+            handleStandaloneBlockedApp(app: app, bundleId: bidStandalone)
+            return
+        }
+
         // Enforcement runs IFF Focus Mode is ON. Bedtime and Off both bypass.
         // (Replaces the earlier TimeState allowlist — disabled, freeTime, snoozed,
         // and unplanned all route through Focus Mode being off rather than this
         // gate. The unplanned-bypass behavior is preserved by definition: with
         // no schedule block and no active session, FocusModeController is .off.)
-        guard focusModeController?.isOn == true else {
+        if focusModeController?.isOn != true {
+            // Focus Mode off — if the user has the plan-first prompt enabled and
+            // currently has no block scheduled, show the noPlan pill. Restores
+            // the trigger that was wired before the April 2026 TimeState
+            // consolidation (see the long-standing TODO that used to live here).
+            maybeShowNoPlanPill(currentApp: app)
             debugLog("👁️ EXIT: focus mode not on (state=\(focusModeController?.state.rawValue ?? "nil")) — browsing allowed freely")
             handleRelevantContent()
             stopBrowserPolling()
@@ -1624,7 +1703,6 @@ class FocusMonitor {
             stopLingerTimer()
             isCurrentlyIrrelevant = false
             nudgeController?.dismiss()
-            appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
             stopBrowserPolling()
             stopWorkTickTimer()
             startNeutralTickTimer(appName: "Intentional")
@@ -1637,12 +1715,14 @@ class FocusMonitor {
         // TODO (Task 5): When FocusModeController.isOn replaces TimeState gates, restore
         // noPlan pill-card logic using scheduleManager.todaySchedule != nil as the discriminator.
 
-        // WORK STATE (deep work or focus hours): score content for relevance
-        guard state.isWork else {
-            handleRelevantContent()
-            stopBrowserPolling()
-            return
-        }
+        // Was: `guard state.isWork else { handleRelevantContent(); return }`.
+        // Removed because manual Focus Mode sessions (started via Start on a
+        // Focus Mode card, or via cross-device push) don't have a corresponding
+        // ScheduleManager block — they live only in /focus/active. So
+        // `state.isWork` is false for them, and the guard skipped AI scoring +
+        // work-tick recording entirely (focus score stuck at 0%). The earlier
+        // `focusModeController.isOn == true` guard (line ~1618) is the correct
+        // gate: if Focus Mode is on, we score. Schedule state is irrelevant.
 
         // Per-project overlay: allow/block decisions win over global defaults when a
         // project session is active. Allowed apps skip AI scoring; blocked apps enforce
@@ -1701,7 +1781,9 @@ class FocusMonitor {
         // User-configured distracting apps: always treat as irrelevant during work blocks
         // Checked BEFORE always-allowed — user intent overrides defaults
         // Skip grace period — user explicitly configured this app as distracting
-        if distractingAppBundleIds.contains(bid) {
+        // Union with BlockRuleEnforcer-driven standaloneBlockedBundleIds so a
+        // Block rule's app list ALSO blocks during an active focus session.
+        if distractingAppBundleIds.contains(bid) || standaloneBlockedBundleIds.contains(bid) {
             debugLog("👁️ \(appName) is user-configured distracting app — direct enforcement (no grace)")
             stopBrowserPolling()
             logAssessment(
@@ -1821,10 +1903,23 @@ class FocusMonitor {
             guard let scorer = self.relevanceScorer,
                   let block = manager.currentBlock else { return }
 
+            // FIX-11: Resolve the active Weekly Goal's intentText + aiScoringEnabled so the
+            // scorer can short-circuit when the user has disabled AI scoring for this goal
+            // and so prompts use the goal's own intent text rather than legacy block.description.
+            var intentText = ""
+            var aiEnabled = true
+            if let intentionId = block.intentionId,
+               let intention = await IntentionStore.shared.intention(id: intentionId) {
+                intentText = intention.intentText ?? ""
+                aiEnabled = intention.aiScoringEnabled
+            }
+
             let result = await scorer.scoreRelevance(
                 pageTitle: appName,
                 intention: block.title,
                 intentionDescription: block.description,
+                intentText: intentText,
+                aiScoringEnabled: aiEnabled,
                 profile: block.ignoreProfile ? "" : manager.profile,
                 dailyPlan: manager.todaySchedule?.dayNotes ?? "",
                 contentType: .application,
@@ -2131,10 +2226,21 @@ class FocusMonitor {
 
         // Score asynchronously
         Task {
+            // FIX-11: Resolve per-goal AI flag + intentText so the scorer honors them.
+            var intentText = ""
+            var aiEnabled = true
+            if let intentionId = block.intentionId,
+               let intention = await IntentionStore.shared.intention(id: intentionId) {
+                intentText = intention.intentText ?? ""
+                aiEnabled = intention.aiScoringEnabled
+            }
+
             let result = await scorer.scoreRelevance(
                 pageTitle: info.title,
                 intention: block.title,
                 intentionDescription: block.description,
+                intentText: intentText,
+                aiScoringEnabled: aiEnabled,
                 profile: block.ignoreProfile ? "" : manager.profile,
                 dailyPlan: manager.todaySchedule?.dayNotes ?? "",
                 url: info.url,
@@ -2473,12 +2579,6 @@ class FocusMonitor {
                 let decay = Self.browserPollInterval * Self.distractionDecayRatio
                 self.cumulativeDistractionSeconds = max(0, self.cumulativeDistractionSeconds - decay)
             }
-            // Re-mute distracting browser tabs periodically (user may unmute)
-            if self.isEnforcementEnabled(.backgroundAudioDetection),
-               let bid = self.currentAppBundleId,
-               !Self.browserBundleIds.contains(bid) {
-                self.appDelegate?.socketRelayServer?.broadcastMuteBackgroundTab(platform: "all")
-            }
         }
     }
 
@@ -2695,7 +2795,6 @@ class FocusMonitor {
         nudgeController?.dismiss()
         deepWorkTimerController?.dismissDistractionCard()
         overlayController?.dismiss()
-        appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
 
         // Restore grayscale whenever user is on relevant content (any app, any tab)
         reconcileGrayscale()
@@ -2760,36 +2859,7 @@ class FocusMonitor {
         // otherwise reconcileGrayscale() tears down the vignette on the next poll.
         isCurrentlyIrrelevant = true
 
-        // Check if extension handles nudge/redirect enforcement for this site
-        let extensionHandled: Bool = {
-            guard isBrowser, isSocialMedia(targetKey), let bundleId = currentAppBundleId else { return false }
-            let connectedBrowsers = appDelegate?.socketRelayServer?.getConnectedBrowserBundleIds() ?? []
-            return connectedBrowsers.contains(bundleId)
-        }()
-
-        appDelegate?.postLog("👁️ Distraction: \(Int(cumulativeDistractionSeconds))s [\(blockType.rawValue)]\(extensionHandled ? " (ext handles nudges)" : "")")
-
-        // Extension-handled social media: grayscale applies regardless, but nudge handling depends on block type
-        if isBrowser && extensionHandled {
-            // Grayscale: instant if already triggered this block, otherwise at threshold
-            let shouldGrayscale = grayscaleTriggeredThisBlock
-                || cumulativeDistractionSeconds >= Self.focusGrayscaleThreshold
-            if shouldGrayscale && !(grayscaleController?.isActive ?? false) && isEnforcementEnabled(.screenRedShift) {
-                grayscaleController?.startDesaturation(fromIntensity: vignetteRetriggerIntensity())
-                grayscaleTriggeredThisBlock = true
-                appDelegate?.postLog("🌫️ Grayscale started at \(Int(cumulativeDistractionSeconds))s distraction (extension-handled site)")
-                logAssessment(title: currentTarget, appName: currentAppName, intention: scheduleManager?.currentBlock?.title ?? "",
-                             relevant: false, confidence: 0, reason: "Grayscale at \(Int(cumulativeDistractionSeconds))s distraction (extension-handled)",
-                             action: "grayscale_on", isEvent: true)
-            }
-            // Deep Work: extension handles social media blocking — app defers entirely
-            if blockType == .deepWork {
-                deepWorkTimerController?.update(isDistracted: true)
-                pushFocusStatsToTimer()
-                return // Extension blocks social media during Deep Work
-            }
-            // Focus Hours: fall through to macOS app enforcement (nudges, escalation)
-        }
+        appDelegate?.postLog("👁️ Distraction: \(Int(cumulativeDistractionSeconds))s [\(blockType.rawValue)]")
 
         let intention = scheduleManager?.currentBlock?.title ?? ""
 
@@ -3094,6 +3164,45 @@ class FocusMonitor {
         return scheduleManager?.isEnforcementEnabled(mechanism) ?? true
     }
 
+    /// Enforce a BlockRuleEnforcer-driven block (rule active outside a focus
+    /// session). Shows the blocking overlay with a copy that names the rule
+    /// rather than the user's focus intention. Mirrors the distractingApp branch
+    /// for during-session enforcement but skips the parts that require an active
+    /// block (recordAssessment, grayscale that's coupled to focus minutes, etc).
+    private func handleStandaloneBlockedApp(app: NSRunningApplication, bundleId bid: String) {
+        let appName = app.localizedName ?? bid
+        debugLog("👁️🛡 \(appName) blocked by active BlockingProfile rule (no session) — direct enforcement")
+        stopBrowserPolling()
+        stopWorkTickTimer()
+        stopNeutralTickTimer()
+        logAssessment(
+            title: appName,
+            intention: "",
+            relevant: false,
+            confidence: 100,
+            reason: "Block rule (standalone)",
+            action: "overlay",
+            isEvent: true
+        )
+        // Update transient state minimally (no grace, no streak math — there's
+        // no focus session to score against).
+        cancelGracePeriod()
+        warnedTargets.insert(bid)
+        currentTarget = appName
+        currentTargetKey = bid
+        isCurrentlyIrrelevant = true
+        deepWorkTimerController?.update(isDistracted: true)
+        // Show blocking overlay. Rules are explicit user intent, so always
+        // show the overlay regardless of block-type enforcement settings.
+        showOverlay(
+            intention: "Active block rule",
+            reason: "App blocked by rule",
+            focusDurationMinutes: 0,
+            isNoPlan: false,
+            displayName: appName
+        )
+    }
+
     /// Show the full-screen intervention overlay with a random game.
     /// Duration escalates: 60s (1st), 90s (2nd), 120s (3rd+).
     private func showInterventionOverlay(intention: String, displayName: String, duration: Int = 60) {
@@ -3225,12 +3334,24 @@ class FocusMonitor {
         appDelegate?.postLog("💬 Justification submitted: \"\(text)\" for \"\(displayName)\"")
 
         Task {
-            // Re-run relevance check with justification as additional context
-            let enrichedDescription = "\(block.description)\nUser explains why this is relevant: \(text)"
+            // Re-run relevance check with justification as additional context.
+            // FIX-11: enrich whichever source is active (per-goal intentText preferred,
+            // legacy block.description as fallback) so the model sees consistent context.
+            var goalIntentText = ""
+            var aiEnabled = true
+            if let intentionId = block.intentionId,
+               let intention = await IntentionStore.shared.intention(id: intentionId) {
+                goalIntentText = intention.intentText ?? ""
+                aiEnabled = intention.aiScoringEnabled
+            }
+            let baseDescription = goalIntentText.isEmpty ? block.description : goalIntentText
+            let enrichedDescription = "\(baseDescription)\nUser explains why this is relevant: \(text)"
             let result = await scorer.scoreRelevance(
                 pageTitle: displayName,
                 intention: block.title,
                 intentionDescription: enrichedDescription,
+                intentText: "",                        // already merged into intentionDescription above
+                aiScoringEnabled: aiEnabled,
                 profile: block.ignoreProfile ? "" : manager.profile,
                 dailyPlan: manager.todaySchedule?.dayNotes ?? ""
             )
@@ -3404,6 +3525,84 @@ class FocusMonitor {
                 trace: triggerTrace
             )
         }
+    }
+
+    /// Plan-first prompt: when Focus Mode is off AND no block is current AND the user has
+    /// the planFirstPrompt setting enabled, show the full-screen noPlan overlay so the user
+    /// is FORCED to plan / start a block / snooze (this is the aggressive version the user
+    /// remembered — covers the screen, doesn't politely sit in the corner). Restores the
+    /// trigger that lived here before the April 2026 TimeState consolidation refactor.
+    ///
+    /// Cheap guard chain — bails out fast in the common steady-state cases so it's safe to
+    /// call from every evaluateApp tick.
+    private func maybeShowNoPlanPill(currentApp: NSRunningApplication) {
+        // User-controllable feature toggle. Default true; if the key is missing
+        // (fresh install) UserDefaults returns false, so we treat that as enabled too via the
+        // register call in AppDelegate.
+        guard UserDefaults.standard.bool(forKey: "planFirstPromptEnabled") else { return }
+
+        // Re-entrancy: overlay already showing — don't re-trigger.
+        if overlayController?.isShowing == true { return }
+        // Pill in noPlan mode is also a valid "already prompting" state.
+        if deepWorkTimerController?.viewModel?.mode == .noPlan { return }
+
+        // Don't pop the prompt while the user is INSIDE Intentional itself —
+        // they're already engaging with the planning surface.
+        let bid = currentApp.bundleIdentifier
+        if bid == "com.arayan.intentional" || bid == Bundle.main.bundleIdentifier { return }
+
+        // Don't pop during other overlay-driven flows.
+        if interventionController?.isShowing == true { return }
+        if awaitingRitual { return }
+
+        // Snooze respected — user asked for 30 min of quiet.
+        if let until = noPlanSnoozeUntil, Date() < until { return }
+
+        // Safety net — caller already gated on focusModeController.isOn != true, but defend
+        // against a future caller forgetting that contract.
+        if focusModeController?.isOn == true { return }
+
+        // The whole point of the prompt is "you don't have a block scheduled right now."
+        guard let manager = scheduleManager, manager.currentBlock == nil else { return }
+
+        // Compose a reason string for the overlay header. Mirror the CardState
+        // logic the deleted trigger used so the overlay can show context-aware copy:
+        //   no schedule today           → "No plan for today yet"
+        //   all blocks done + 9pm+      → "Day complete"
+        //   gap (mid-day, between)      → "No block scheduled right now"
+        let hasScheduleToday = (manager.todaySchedule?.blocks.isEmpty == false)
+        let remaining = manager.remainingBlocks()
+        let allDone = hasScheduleToday && remaining.isEmpty
+        let hour = Calendar.current.component(.hour, from: Date())
+        let reason: String
+        if !hasScheduleToday {
+            reason = "No plan for today yet"
+        } else if allDone && hour >= 21 {
+            reason = "Day complete"
+        } else {
+            reason = "No block scheduled right now"
+        }
+
+        appDelegate?.postLog("📋 Plan-first prompt: showing full-screen noPlan overlay (reason: \(reason))")
+        // Wire the overlay handlers — these mirror the existing button callbacks
+        // already used by the pill flow so the dashboard still gets opened, quick
+        // blocks still get created, snooze still respects the 30-min cap, etc.
+        overlayController?.onPlanDay = { [weak self] in self?.handlePlanDay() }
+        overlayController?.onStartQuickBlock = { [weak self] (title, duration, isFree) in
+            self?.handleStartQuickBlock(title: title, durationMinutes: duration, isFree: isFree)
+        }
+        overlayController?.onSnooze = { [weak self] in self?.handleNoPlanSnooze() }
+        overlayController?.onBackToWork = { [weak self] in self?.handleOpenIntentional() }
+
+        // Call into FocusMonitor.showOverlay so existing trace logging /
+        // logAssessment book-keeping continues to fire.
+        showOverlay(
+            intention: "",
+            reason: reason,
+            focusDurationMinutes: 0,
+            isNoPlan: true,
+            displayName: nil
+        )
     }
 
     /// Approve the currently-overlaid content for the current block (wires to RelevanceScorer).
@@ -3701,7 +3900,7 @@ class FocusMonitor {
         appDelegate?.postLog("👁️ Linger expired — blocked \(currentTarget)")
     }
 
-    // MARK: - Overlay User Actions (called by NativeMessagingHost or native overlay)
+    // MARK: - Overlay User Actions (called by native overlay)
 
     /// Handle user action from the blocking overlay (browser or native).
     func handleOverlayAction(action: String, reason: String?) {
@@ -3717,7 +3916,6 @@ class FocusMonitor {
         // Dismiss all overlays
         overlayController?.dismiss()
         nudgeController?.dismiss()
-        appDelegate?.socketRelayServer?.broadcastHideFocusOverlay()
 
         // Navigate browser to last relevant URL or google.com
         if let bundleId = currentAppBundleId, Self.browserBundleIds.contains(bundleId) {
@@ -3774,7 +3972,6 @@ class FocusMonitor {
 
     /// Mute all background distracting audio sources (browser tabs + apps).
     private func muteBackgroundDistractingAudio() {
-        appDelegate?.socketRelayServer?.broadcastMuteBackgroundTab(platform: "all")
         pauseDistractingApps()
         debugLog("🔇 Background audio: muted distracting sources")
     }
