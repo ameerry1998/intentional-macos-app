@@ -141,6 +141,53 @@ Default copy for the unscheduled-time overlay (when the user is in free time wit
 
 ---
 
+## Hard-Won Lessons (banked 2026-05-18)
+
+These principles emerged from grinding on the Close-the-Noise sweep. Apply them to every future feature.
+
+### 1. Agency > automation for the ADHD ICP. Default to user-confirms-first for any destructive action.
+
+The ICP is paying us to be their **external executive function**, not a replacement that decides for them. Auto-closing tabs / auto-quitting apps / auto-deleting data / auto-sending messages without a confirmation step violates the product framing — even when the AI gets it 95% right. The 5% feels catastrophic and burns trust permanently.
+
+**Default pattern for any destructive feature:** AI suggests → user reviews → user confirms → app acts. The user clicks the button that closes the thing, not the app. Reserve auto-actions for cases the user has explicitly opted into per-action (e.g., "always close YouTube during work blocks" via a Standing Rule the user wrote).
+
+**Counter-example we lived through:** the v1 close-the-noise sweep auto-stashed 22 tabs and closed 5 of the user's real work tabs (Cloudflare DNS, Resend, Supabase, Railway, Claude Code article). Spent 6 hours iterating on AI accuracy from 73% → 86% with diminishing returns before the user pointed out the right move was to pivot to review-and-confirm. **When you find yourself grinding accuracy past 85%, the question is no longer "can we be smarter" but "should this be auto at all".**
+
+### 2. Build a benchmark with ground-truth labels BEFORE iterating on AI/scoring/classification.
+
+Variance is real. The same prompt + same model + same temperature can give different verdicts run-to-run (the user's "5 false-stashes" live run vs the benchmark's 2 false-stashes on identical inputs). Without a benchmark you're chasing noise, can't tell what changes helped, and rely on the user's anecdotes.
+
+Build the eval harness FIRST. Test cases live in `IntentionalTests/sweep-test-cases/*.json` and include ground-truth labels per item. `SweepBenchmark.swift` is the template — Codable test cases, a runner that reports accuracy + false-positive + false-negative + per-error details, model-swap support for A/B comparisons. Mirror this pattern for any future scoring feature (Stage 3 AI scoring of active tabs, Stage 4 defend-tier classification, content-safety thresholding).
+
+**Set `temperature=0` for classification tasks.** Non-determinism is pure noise when the right answer is unambiguous.
+
+### 3. Encode asymmetric error costs in the decision rule, not just the metric.
+
+For the close-the-noise sweep, **false-stash (closed a relevant tab) burns user trust ~5x harder than false-keep (left noise around).** The rule must reflect that:
+
+```swift
+// asymmetric stash gate — stash ONLY when high-confidence off-task
+let highConfidenceStash = !v.relevant && v.confidence >= 65
+```
+
+Not `keep iff (relevant && conf >= 50)` (symmetric — wrong). Same pattern applies whenever you're designing a classification gate: figure out which error costs more, then make the rule favor the cheaper error explicitly.
+
+### 4. Intent-capture modals need worked examples, not just labels.
+
+Users restate the question back at you instead of answering it. When we asked "What's allowed in this session — and what's not?" the user wrote "what's not allowed is any distraction website" — a non-answer that gave Qwen zero positive signal. Any modal asking the user to articulate intent needs:
+- Strong placeholder text showing a useful answer
+- One or two inline examples ("e.g. 'coding Intentional in Cursor + GitHub + Stack Overflow; not allowed: Twitter, YouTube'")
+- Maybe a "show me an example" affordance for first-time users
+
+### 5. Specific technical gotchas from this build
+
+- **MLX model IDs:** Qwen3-4B uses `mlx-community/Qwen3-4B-Instruct-2507-4bit`, Qwen3-8B uses plain `mlx-community/Qwen3-8B-4bit` (no "Instruct-2507" suffix). Don't assume parallel naming. Cache lives flat at `~/Library/Caches/models/mlx-community/<name>/`. Pre-download via `huggingface_hub.snapshot_download(local_dir=...)` to that path so first-run latency doesn't include the download.
+- **AppleScript multi-line `if (a or b or c) then`** doesn't parse without explicit `¬` continuation markers. Use `if targetList contains x then` instead — build the list as a literal, check membership.
+- **MLX-Swift batch inference** doesn't auto-await the lazy model load. Mirror `scoreRelevance`'s pattern — `await loadMLXModelIfNeeded()` at the top of any new scoring entry point or your first call returns empty.
+- **String matching against user intent** is a footgun. Domain stems like `jobs` (from `jobs.lever.co`), `docs`, `developer`, `status`, `support` are also common English words and will auto-keep huge categories of unrelated tabs. Either drop stem matching entirely (use full-domain matches only) or maintain an explicit stoplist of common-word collisions. Curated tool allowlists are safer than open-ended stem extraction.
+
+---
+
 ## Product Overview
 
 Intentional is a macOS focus enforcement app that works with a companion Chrome extension. The Puck physical device provides a simple on/off toggle for blocking mode. Setting an intention upgrades blocking from dumb (block all distracting sites) to smart (AI scores relevance). See [docs/PUCK_SPEC.md](docs/PUCK_SPEC.md) for full product vision, blocking modes, and Puck branch changes.
