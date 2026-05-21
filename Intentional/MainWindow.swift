@@ -14,23 +14,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     private var webView: WKWebView!
     weak var appDelegate: AppDelegate?
 
-    /// Cache browser icons so we don't re-extract every poll cycle
-    private var iconCache: [String: String] = [:]
-    private let iconCacheLock = NSLock()
-
-    /// Last JSON pushed for _extensionStatusResult. ~89 KB per push (icons as base64);
-    /// the 5s poll re-sends it continuously. Skip when identical to save bridge cost
-    /// (Swift→WebContent marshalling + JSC parse) that blocks scroll compositing.
-    private var lastExtensionStatusJSON: String?
-
-    /// Cheap fingerprint of the browser status payload (connectedCount + per-browser
-    /// bundleId/isEnabled/hasExtension). Used to short-circuit the 89 KB JSON
-    /// serialization when nothing material changed between 5s polls. Guarded by
-    /// `extensionStatusLock` so the background serializer can read it without
-    /// round-tripping to main.
-    private var lastExtensionStatusSignature: String?
-    private let extensionStatusLock = NSLock()
-
     #if DEBUG
     // UI Perf instrumentation — DEBUG only. Every 3s we dump counts of incoming messages
     // + outgoing callJS invocations. Tail: `tail -f $TMPDIR/intentional-debug.log | grep UIPERF`.
@@ -367,9 +350,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "SAVE_ONBOARDING":
             handleSaveOnboarding(body)
 
-        case "GET_EXTENSION_STATUS":
-            handleGetExtensionStatus()
-
         case "GET_DASHBOARD_DATA":
             handleGetDashboardData()
 
@@ -463,17 +443,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "VERIFY_UNINSTALL":
             let code = body["code"] as? String ?? ""
             handleVerifyUninstall(code: code)
-
-        case "OPEN_EXTENSIONS_PAGE":
-            if let urlStr = body["url"] as? String, let url = URL(string: urlStr) {
-                if let bundleId = body["bundleId"] as? String,
-                   let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
-                    let config = NSWorkspace.OpenConfiguration()
-                    NSWorkspace.shared.open([url], withApplicationAt: appURL, configuration: config)
-                } else {
-                    NSWorkspace.shared.open(url)
-                }
-            }
 
         case "NAVIGATE_TO_DASHBOARD":
             loadPage("dashboard")
@@ -933,111 +902,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 }
             }
 
-            // 6. Broadcast ONBOARDING_SYNC to all connected extensions
-            await MainActor.run {
-                self.broadcastOnboardingToExtensions(
-                    platforms: platforms,
-                    partnerEmail: partnerEmail,
-                    partnerName: partnerName,
-                    lockMode: lockMode
-                )
-            }
-
-            // 7. Respond to JS with success
+            // 6. Respond to JS with success
             await MainActor.run {
                 self.callJS("window._onboardingSaveResult && window._onboardingSaveResult({ success: true })")
-            }
-        }
-    }
-
-    // MARK: - Extension Status
-
-    private func handleGetExtensionStatus() {
-        // Run heavy filesystem/icon work off the main thread
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-
-            let statuses = NativeMessagingSetup.shared.getBrowserStatus()
-            let connectedCount = self.appDelegate?.socketRelayServer?.connectionCount ?? 0
-
-            // Signature check: skip icon rasterization + 89 KB JSON serialization when
-            // nothing material changed. Must match on every field the webview renders
-            // differently on.
-            let signature = "\(connectedCount)|" + statuses
-                .map { "\($0.bundleId):\($0.isEnabled ? 1 : 0):\($0.hasExtension ? 1 : 0):\($0.extensionId ?? "")" }
-                .joined(separator: "|")
-            self.extensionStatusLock.lock()
-            let signatureMatches = (self.lastExtensionStatusSignature == signature)
-            self.extensionStatusLock.unlock()
-            if signatureMatches { return }
-
-            var browsersArray: [[String: Any]] = []
-            for browser in statuses {
-                var entry: [String: Any] = [
-                    "name": browser.name,
-                    "bundleId": browser.bundleId,
-                    "hasExtension": browser.hasExtension,
-                    "isEnabled": browser.isEnabled,
-                    "extensionPageUrl": browser.extensionPageUrl
-                ]
-                if let extId = browser.extensionId {
-                    entry["extensionId"] = extId
-                }
-                // Use cached icon or extract once
-                self.iconCacheLock.lock()
-                let cached = self.iconCache[browser.bundleId]
-                self.iconCacheLock.unlock()
-                if let cached = cached {
-                    entry["iconDataUrl"] = cached
-                } else if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: browser.bundleId) {
-                    let icon = NSWorkspace.shared.icon(forFile: appURL.path)
-                    // Rasterize into a 64x64 (2x retina) bitmap. NSImage.size is just a hint —
-                    // tiffRepresentation would otherwise serialize the 1024x1024 master rep,
-                    // producing ~2MB base64 strings per icon and freezing the WebView.
-                    if let bitmap = NSBitmapImageRep(
-                        bitmapDataPlanes: nil,
-                        pixelsWide: 64, pixelsHigh: 64,
-                        bitsPerSample: 8, samplesPerPixel: 4,
-                        hasAlpha: true, isPlanar: false,
-                        colorSpaceName: .deviceRGB,
-                        bytesPerRow: 0, bitsPerPixel: 32
-                    ) {
-                        bitmap.size = NSSize(width: 32, height: 32)
-                        NSGraphicsContext.saveGraphicsState()
-                        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
-                        icon.draw(in: NSRect(x: 0, y: 0, width: 32, height: 32),
-                                  from: .zero, operation: .copy, fraction: 1.0)
-                        NSGraphicsContext.restoreGraphicsState()
-                        if let pngData = bitmap.representation(using: .png, properties: [:]) {
-                            let dataUrl = "data:image/png;base64,\(pngData.base64EncodedString())"
-                            self.iconCacheLock.lock()
-                            self.iconCache[browser.bundleId] = dataUrl
-                            self.iconCacheLock.unlock()
-                            entry["iconDataUrl"] = dataUrl
-                        }
-                    }
-                }
-                browsersArray.append(entry)
-            }
-
-            let result: [String: Any] = [
-                "browsers": browsersArray,
-                "connectedCount": connectedCount
-            ]
-
-            // .sortedKeys is required for dedup — Swift [String: Any] has non-deterministic
-            // iteration order, so unsorted serialization produces different byte strings
-            // for semantically-identical payloads and the dedup check never matches.
-            if let data = try? JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]),
-               let json = String(data: data, encoding: .utf8) {
-                self.extensionStatusLock.lock()
-                self.lastExtensionStatusSignature = signature
-                self.extensionStatusLock.unlock()
-                DispatchQueue.main.async {
-                    if self.lastExtensionStatusJSON == json { return }
-                    self.lastExtensionStatusJSON = json
-                    self.callJS("window._extensionStatusResult && window._extensionStatusResult(\(json))")
-                }
             }
         }
     }
@@ -1103,67 +970,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
            let json = String(data: data, encoding: .utf8) {
             callJS("window._dashboardDataResult && window._dashboardDataResult(\(json))")
         }
-    }
-
-    // MARK: - Extension Sync
-
-    private func broadcastOnboardingToExtensions(
-        platforms: [String: Any],
-        partnerEmail: String?,
-        partnerName: String?,
-        lockMode: String
-    ) {
-        let ytSettings = platforms["youtube"] as? [String: Any] ?? [:]
-        let igSettings = platforms["instagram"] as? [String: Any] ?? [:]
-        let fbSettings = platforms["facebook"] as? [String: Any] ?? [:]
-
-        // Build per-platform sub-dicts separately to help Swift type-checker
-        let ytSync: [String: Any] = [
-            "onboardingComplete": true,
-            "enabled": ytSettings["enabled"] ?? true,
-            "blockShorts": ytSettings["blockShorts"] ?? true,
-            "blockMode": ytSettings["blockMode"] ?? "hide"
-        ]
-        let igSync: [String: Any] = [
-            "onboardingComplete": true,
-            "enabled": igSettings["enabled"] ?? true,
-            "blockReels": igSettings["blockReels"] ?? true,
-            "blockExplore": igSettings["blockExplore"] ?? true,
-            "nsfwFilter": igSettings["nsfwFilter"] ?? true
-        ]
-        let fbSync: [String: Any] = [
-            "onboardingComplete": true,
-            "enabled": fbSettings["enabled"] ?? true,
-            "blockWatch": fbSettings["blockWatch"] ?? true,
-            "blockReels": fbSettings["blockReels"] ?? true,
-            "blockMarketplace": fbSettings["blockMarketplace"] ?? false,
-            "blockGaming": fbSettings["blockGaming"] ?? true,
-            "blockStories": fbSettings["blockStories"] ?? false,
-            "blockSponsored": fbSettings["blockSponsored"] ?? true,
-            "blockSuggested": fbSettings["blockSuggested"] ?? true,
-            "scrollLimit": fbSettings["scrollLimit"] ?? 50,
-            "friendsOnly": fbSettings["friendsOnly"] ?? false
-        ]
-        let mpp: [String: Any] = (ytSettings["maxPerPeriod"] as? [String: Any]) ?? [
-            "enabled": false, "minutes": 20, "periodHours": 1
-        ]
-
-        let message: [String: Any] = [
-            "type": "ONBOARDING_SYNC",
-            "platforms": platforms,
-            "maxPerPeriod": mpp,
-            "blockedCategories": (ytSettings["categories"] as? [String]) ?? [String](),
-            "partnerEmail": partnerEmail ?? NSNull(),
-            "partnerName": partnerName ?? NSNull(),
-            "lockMode": lockMode,
-            "settingsLocked": lockMode != "none",
-            "youtube": ytSync,
-            "instagram": igSync,
-            "facebook": fbSync
-        ]
-
-        appDelegate?.socketRelayServer?.broadcastToAll(message)
-        appDelegate?.postLog("🌐 ONBOARDING_SYNC broadcast to \(appDelegate?.socketRelayServer?.connectionCount ?? 0) extension(s)")
     }
 
     // MARK: - Settings Persistence
@@ -1569,9 +1375,8 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             appDelegate?.postLog("👁️ Updated always-relevant sites: \(sites)")
         }
 
-        broadcastSettingsToExtensions(settings)
         callJS("window._saveSettingsResult && window._saveSettingsResult({ success: true })")
-        appDelegate?.postLog("💾 SAVE_SETTINGS: Settings saved and broadcast")
+        appDelegate?.postLog("💾 SAVE_SETTINGS: Settings saved")
 
         // Sync settings to backend (fire-and-forget, don't block UI)
         let syncPayload: [String: Any] = {
@@ -1642,18 +1447,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             if let cs = contentSafety { settings["contentSafety"] = cs }
             settings["lastModified"] = ISO8601DateFormatter().string(from: Date())
         }
-    }
-
-    // MARK: - Broadcast Settings to Extensions
-
-    private func broadcastSettingsToExtensions(_ settings: [String: Any]) {
-        var message: [String: Any] = ["type": "SETTINGS_SYNC"]
-        // Forward all settings fields to extensions
-        for (key, value) in settings {
-            message[key] = value
-        }
-        appDelegate?.socketRelayServer?.broadcastToAll(message)
-        appDelegate?.postLog("🌐 SETTINGS_SYNC broadcast to \(appDelegate?.socketRelayServer?.connectionCount ?? 0) extension(s)")
     }
 
     // MARK: - Get Installed Apps
@@ -1850,15 +1643,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 let escapedName = partnerName.replacingOccurrences(of: "'", with: "\\'")
                 self.callJS("window._lockSettingsResult && window._lockSettingsResult({ success: \(resultSuccess), lockMode: '\(actualLockMode)', message: '\(escapedMessage)', consentStatus: '\(consentStatus)', partnerEmail: '\(escapedEmail)', partnerName: '\(escapedName)' })")
 
-                // 6. Broadcast actual lock state to extensions
-                let lockSync: [String: Any] = [
-                    "type": "SETTINGS_SYNC",
-                    "lockMode": actualLockMode,
-                    "settingsLocked": actualLockMode != "none",
-                    "partnerEmail": partnerEmail,
-                    "partnerName": partnerName
-                ]
-                self.appDelegate?.socketRelayServer?.broadcastToAll(lockSync)
                 self.appDelegate?.postLog("🔒 SAVE_LOCK_SETTINGS: requested=\(lockMode), actual=\(actualLockMode), consent=\(consentStatus)")
             }
         }
@@ -1898,15 +1682,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 let success = removed ? "true" : "false"
                 self.callJS("window._removePartnerResult && window._removePartnerResult({ success: \(success) })")
 
-                // 5. Broadcast to extensions
-                let lockSync: [String: Any] = [
-                    "type": "SETTINGS_SYNC",
-                    "lockMode": "none",
-                    "settingsLocked": false,
-                    "partnerEmail": "",
-                    "partnerName": ""
-                ]
-                self.appDelegate?.socketRelayServer?.broadcastToAll(lockSync)
                 self.appDelegate?.postLog("🔒 REMOVE_PARTNER: done, removed=\(removed)")
             }
         }
@@ -2183,15 +1958,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             appDelegate?.postLog("🗑️ Backend lock mode cleared")
         }
 
-        // 5. Broadcast reset to connected extensions
-        let resetMessage: [String: Any] = [
-            "type": "SETTINGS_RESET",
-            "lockMode": "none",
-            "settingsLocked": false
-        ]
-        appDelegate?.socketRelayServer?.broadcastToAll(resetMessage)
-        appDelegate?.postLog("🗑️ Reset broadcast to \(appDelegate?.socketRelayServer?.connectionCount ?? 0) extension(s)")
-
         appDelegate?.postLog("🗑️ Full reset complete")
         loadCurrentPage()
     }
@@ -2446,7 +2212,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     private func handleSetFocusEnabled(_ body: [String: Any]) {
         guard let enabled = body["enabled"] as? Bool else { return }
         appDelegate?.scheduleManager?.setEnabled(enabled)
-        appDelegate?.socketRelayServer?.broadcastScheduleSync()
         callJS("window._focusEnabledResult && window._focusEnabledResult({ success: true, enabled: \(enabled) })")
     }
 
@@ -2496,7 +2261,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         }
 
         appDelegate?.scheduleManager?.setTodaySchedule(goals: goals, dailyPlan: dailyPlan, blocks: blocks)
-        appDelegate?.socketRelayServer?.broadcastScheduleSync()
         callJS("window._scheduleResult && window._scheduleResult({ success: true })")
     }
 
@@ -3391,7 +3155,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                         "verifiedToday": result.verifiedToday,
                         "remainingToday": result.remainingToday
                     ])
-                    self.appDelegate?.socketRelayServer?.broadcastEarnedMinutesUpdate(mgr)
                 } else {
                     self.callJSCallback("_extraTimeVerifyResult", data: [
                         "success": false,
