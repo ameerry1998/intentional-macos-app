@@ -1022,7 +1022,8 @@ class RelevanceScorer {
     /// Default model. The benchmark can override via reloadModel(id:).
     /// 2026-05-18: bumped 4B → 8B after benchmark showed 4B's documented
     /// classification-flip bug. See SweepBenchmark for accuracy numbers.
-    var currentModelId: String = "mlx-community/Qwen3-8B-4bit"
+    /// 2026-05-20: swapped back to 4B for speed testing; 8B was too slow at runtime.
+    var currentModelId: String = "mlx-community/Qwen3-4B-Instruct-2507-4bit"
 
     /// Lazily load the currently-configured MLX model on first use.
     func loadMLXModelIfNeeded() async {
