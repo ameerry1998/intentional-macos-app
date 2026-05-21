@@ -312,7 +312,7 @@ class ScheduleManager {
 
     // MARK: - Callbacks
 
-    /// Called when the active block changes. SocketRelayServer uses this to broadcast SCHEDULE_SYNC.
+    /// Called when the active block changes. Drives FocusModeController + dashboard push updates.
     var onBlockChanged: ((_ block: FocusBlock?, _ state: TimeState) -> Void)?
 
     // MARK: - Persistence
@@ -531,7 +531,7 @@ class ScheduleManager {
 
     /// Set today's plan (dayItems + dayNotes text + time blocks).
     /// Public API parameter names retain `goals` / `dailyPlan` for backwards compat with callers
-    /// (MainWindow bridge handlers, NativeMessagingHost). Internally they map to dayItems / dayNotes.
+    /// (MainWindow bridge handlers). Internally they map to dayItems / dayNotes.
     func setTodaySchedule(goals: [String], dailyPlan: String, blocks: [FocusBlock]) {
         let today = Self.todayString()
         todaySchedule = DailySchedule(

@@ -49,7 +49,6 @@
 		A1000082000000000000034 /* NudeNetDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000083000000000000034 /* NudeNetDetector.swift */; };
 		A100010A000000000000048 /* SweepReviewWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100010B000000000000048 /* SweepReviewWindow.swift */; };
 		A1000108000000000000047 /* SweepBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000109000000000000047 /* SweepBenchmark.swift */; };
-		A1000110000000000000048 /* ExtensionRemovalShim.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000111000000000000048 /* ExtensionRemovalShim.swift */; };
 		A1000106000000000000046 /* StageOneIntentWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000107000000000000046 /* StageOneIntentWindow.swift */; };
 		A1000096000000000000041 /* AlwaysAllowedList.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000097000000000000041 /* AlwaysAllowedList.swift */; };
 		A1000098000000000000042 /* MigrationAlwaysAllowed.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000099000000000000042 /* MigrationAlwaysAllowed.swift */; };
@@ -187,7 +186,6 @@
 		A1000083000000000000034 /* NudeNetDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NudeNetDetector.swift; sourceTree = "<group>"; };
 		A100010B000000000000048 /* SweepReviewWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SweepReviewWindow.swift; sourceTree = "<group>"; };
 		A1000109000000000000047 /* SweepBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SweepBenchmark.swift; sourceTree = "<group>"; };
-		A1000111000000000000048 /* ExtensionRemovalShim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionRemovalShim.swift; sourceTree = "<group>"; };
 		A1000107000000000000046 /* StageOneIntentWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StageOneIntentWindow.swift; sourceTree = "<group>"; };
 		A1000097000000000000041 /* AlwaysAllowedList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlwaysAllowedList.swift; sourceTree = "<group>"; };
 		A1000099000000000000042 /* MigrationAlwaysAllowed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationAlwaysAllowed.swift; sourceTree = "<group>"; };
@@ -349,7 +347,6 @@
 				A1000083000000000000034 /* NudeNetDetector.swift */,
 				A100010B000000000000048 /* SweepReviewWindow.swift */,
 				A1000109000000000000047 /* SweepBenchmark.swift */,
-				A1000111000000000000048 /* ExtensionRemovalShim.swift */,
 				A1000107000000000000046 /* StageOneIntentWindow.swift */,
 				A1000097000000000000041 /* AlwaysAllowedList.swift */,
 				A1000099000000000000042 /* MigrationAlwaysAllowed.swift */,
@@ -596,7 +593,6 @@
 				A1000082000000000000034 /* NudeNetDetector.swift in Sources */,
 				A100010A000000000000048 /* SweepReviewWindow.swift in Sources */,
 				A1000108000000000000047 /* SweepBenchmark.swift in Sources */,
-				A1000110000000000000048 /* ExtensionRemovalShim.swift in Sources */,
 				A1000106000000000000046 /* StageOneIntentWindow.swift in Sources */,
 				A1000096000000000000041 /* AlwaysAllowedList.swift in Sources */,
 				A1000098000000000000042 /* MigrationAlwaysAllowed.swift in Sources */,

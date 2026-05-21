@@ -19,7 +19,8 @@ class TimeTracker {
     // Canonical sessions per platform (shared across all browsers)
     private var platformSessions: [String: PlatformSession] = [:] // "youtube" -> PlatformSession
 
-    /// Called when session state changes. The NativeMessagingHost sets this to broadcast SESSION_SYNC.
+    /// Called when session state changes. Currently has no subscribers post-extension-removal;
+    /// retained for future cross-device session-sync wiring.
     var onSessionChanged: ((_ platform: String) -> Void)?
 
     /// Called when social media time is recorded. EarnedBrowseManager uses this to deduct from pool.
@@ -121,7 +122,7 @@ class TimeTracker {
 
     // MARK: - Public API
 
-    /// Record time spent on a platform (called by NativeMessagingHost)
+    /// Record time spent on a platform.
     func recordTime(platform: String, browser: String, seconds: Int, isVideoPlaying: Bool, url: String?) {
         let key = platform.lowercased()
 
@@ -328,7 +329,7 @@ class TimeTracker {
         return platformSessions[platform.lowercased()] ?? .inactive()
     }
 
-    /// Get all platform sessions (used by NativeMessagingHost for SESSION_SYNC)
+    /// Get all platform sessions.
     func getAllPlatformSessions() -> [String: PlatformSession] {
         return platformSessions
     }
@@ -366,8 +367,8 @@ class TimeTracker {
         onSessionChanged?(key)
     }
 
-    /// Build the SESSION_SYNC message payload for sending to extensions.
-    /// Used by both NativeMessagingHost (single connection) and SocketRelayServer (broadcast).
+    /// Build the SESSION_SYNC message payload.
+    /// Currently has no callers post-extension-removal; retained for future use.
     func getSessionSyncPayload() -> [String: Any] {
         var message: [String: Any] = ["type": "SESSION_SYNC"]
 

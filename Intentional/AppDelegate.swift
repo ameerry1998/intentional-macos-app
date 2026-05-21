@@ -192,12 +192,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Native app heartbeat timer (Phase 2: Tamper Detection)
     var heartbeatTimer: Timer?
 
-    /// EXTENSION-REMOVAL-TODO: nil placeholder until FocusMonitor strip lands.
-    /// FocusMonitor still calls `appDelegate?.socketRelayServer?.broadcast…()`;
-    /// nilling here keeps those calls compiling but no-op at runtime. Delete
-    /// after the FocusMonitor + WebsiteBlocker shim cleanup dispatch.
-    var socketRelayServer: SocketRelayServer?
-
     private let heartbeatInterval: TimeInterval = 120.0  // 2 minutes
     private let appStartTime = Date()
 
