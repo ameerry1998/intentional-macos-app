@@ -8,7 +8,7 @@ When a task spans multiple repos (e.g. Puck integration touches `intentional-bac
 - That file is the authoritative hand-off: what was completed, what was blocked, what's in which PR, what the user needs to do tomorrow morning.
 - Before starting a multi-repo or overnight task, check `docs/` for an existing log to append to.
 - When handing off to a subagent for multi-repo work, explicitly point them at this convention.
-- Sibling repos live at `/Users/arayan/Documents/GitHub/intentional-backend`, `/Users/arayan/Documents/GitHub/puck-ios`, `/Users/arayan/Documents/GitHub/puck-partner-dashboard`, `/Users/arayan/Documents/GitHub/intentional-extension`.
+- Sibling repos live at `/Users/arayan/Documents/GitHub/intentional-backend`, `/Users/arayan/Documents/GitHub/puck-ios`, `/Users/arayan/Documents/GitHub/puck-partner-dashboard`.
 
 ---
 
@@ -28,12 +28,11 @@ Violating the letter of this process violates the spirit of the development appr
 ## Documentation Maintenance (MANDATORY)
 
 After completing any code changes, assess whether this CLAUDE.md or the relevant `docs/` file needs updating. Update if any of the following changed:
-- New or modified message types (NativeMessagingHost ↔ extension)
 - Changes to EarnedBrowseManager, TimeTracker, or ScheduleManager state/APIs
 - New features or significant behavior changes
 - Changes to focus enforcement, blocking, or overlay logic
 - New Swift files or significant restructuring
-- Dashboard UI changes that affect extension ↔ app interaction
+- Dashboard UI changes that affect user-visible behavior
 
 Keep updates minimal and precise — just add/modify the relevant sections. Do not rewrite sections that haven't changed.
 
@@ -190,9 +189,9 @@ Users restate the question back at you instead of answering it. When we asked "W
 
 ## Product Overview
 
-Intentional is a macOS focus enforcement app that works with a companion Chrome extension. The Puck physical device provides a simple on/off toggle for blocking mode. Setting an intention upgrades blocking from dumb (block all distracting sites) to smart (AI scores relevance). See [docs/PUCK_SPEC.md](docs/PUCK_SPEC.md) for full product vision, blocking modes, and Puck branch changes.
+Intentional is a macOS focus enforcement app. The Puck physical device provides a simple on/off toggle for blocking mode. Setting an intention upgrades blocking from dumb (block all distracting sites) to smart (AI scores relevance). See [docs/PUCK_SPEC.md](docs/PUCK_SPEC.md) for full product vision and blocking modes.
 
-**Architecture Principle: Logic Lives Here.** All enforcement logic, overlays, timers, and behavioral features belong in this macOS app — NOT in the Chrome extension. The extension is a sensing layer for AI content scoring. The app has OS-level capabilities (AppleScript, NSWindow overlays, process monitoring) that the extension cannot replicate, and centralizing logic here avoids duplication and ensures cross-browser consistency.
+**Architecture Principle: Logic + Sensing both live in the Mac app.** All enforcement logic, overlays, timers, behavioral features AND browser-tab sensing run in this macOS app. AppleScript is the sole interface to browsers (Chrome, Arc, Safari, Comet, Brave, Edge, Vivaldi). The Chrome extension integration was removed 2026-05-21 — Firefox / Tor are not supported. See `docs/archive/EXTENSION_PROTOCOL.md` for historical reference and `docs/cross-repo-extension-removal-2026-05-21.md` for the deletion summary.
 
 **Architecture Principle: Backend is Source of Truth for Cross-Device State.** Focus session state (`is the user focused right now`) lives canonically in `focus_sessions` on the backend. Each client (Mac, iPhone) treats its local representation as a cache. Mac polls `/focus/active` every 2s via `X-Device-ID` auth (no JWT TTL pain). iPhone reconciles on foreground/boot. Backend rows have `expires_at` TTL safety net so sessions where no client ever sent stop self-expire after 12h. See `docs/cross-repo-focus-sync-2026-04-28.md` for the full architecture, why it changed, and what's still follow-up.
 
@@ -264,9 +263,8 @@ This repo uses git worktrees for parallel feature development. Multiple Claude C
 **If you are in a worktree:**
 - Run `git log --oneline main..HEAD` to see what other branches have been merged since you branched
 - Before finishing, rebase onto main: `git fetch && git rebase main`
-- Your worktree only has the macOS app. The companion Chrome extension may also have a parallel worktree — coordinate changes at the message boundary (NativeMessagingHost.swift ↔ background.js)
 
-**Cross-repo coordination:** Features often span both the macOS app and extension. When adding/changing messages between them, document the message format in your commit message so the other agent (working on the other repo's worktree) can match it.
+**Cross-repo coordination:** Features often span the Mac app + backend (and sometimes the Puck iOS app). When changing API contracts, document the wire format in your commit message so the other agent (working on the other repo's worktree) can match it.
 
 **Active worktrees:** Run `git worktree list` to see all active worktrees and their branches.
 
@@ -300,12 +298,9 @@ Order matters. Components have dependencies that must be wired in sequence.
 15e. SwitchInterventionCoordinator + SwitchOverlayController → Gate now reads FocusModeController.isOn
 16. Wire ScheduleManager.onBlockChanged → FocusModeController.activate / .deactivate / .activateBedtime
 17. Manual activeBlockId sync + initial Focus Mode activation if a block is currently active
-18. NativeMessagingHost (template)
-19. SocketRelayServer       → Start accepting extension connections
-20. NativeMessagingSetup    → Auto-discover extensions, install manifests
-21. Heartbeat timer (2 min interval)
-22. FocusStatePoller       → Polls /focus/active every 2s with X-Device-ID auth. On state transition, drives FocusModeController.activate/.deactivate. Backend-as-master cross-device sync; no JWT-expiry pain.
-23. (boot reconcile)       → If FocusModeController.state == .focus from disk restore, applyDefaultBlockingProfile() + focusMonitor?.onBlockChanged() to re-engage enforcement.
+18. Heartbeat timer (2 min interval)
+19. FocusStatePoller       → Polls /focus/active every 2s with X-Device-ID auth. On state transition, drives FocusModeController.activate/.deactivate. Backend-as-master cross-device sync; no JWT-expiry pain.
+20. (boot reconcile)       → If FocusModeController.state == .focus from disk restore, applyDefaultBlockingProfile() + focusMonitor?.onBlockChanged() to re-engage enforcement.
 ```
 
 ### Critical Callback Wiring
@@ -326,7 +321,6 @@ focusModeController.onStateChanged = { old, new, period in
     relevanceScorer.clearCache()
     earnedBrowseManager.onBlockChanged(blockId:blockTitle:)  // before focusMonitor — preserves activeBlockId-before-recordWorkTick invariant
     focusMonitor.onBlockChanged()
-    socketRelayServer.broadcastScheduleSync()
     mainWindow.pushScheduleUpdate()
     mainWindow.pushFocusModeUpdate(state: new)
     if new == .off { switchCoordinator.reset() }
@@ -335,13 +329,7 @@ focusModeController.onStateChanged = { old, new, period in
 // TimeTracker.onSocialMediaTimeRecorded → deduct from earned pool
 timeTracker.onSocialMediaTimeRecorded = { platform, minutes, isFreeBrowse in
     earnedBrowseManager.recordSocialMediaTime(minutes:isWorkBlock:isJustified:)
-    socketRelayServer.broadcastEarnedMinutesUpdate()
     mainWindow.pushEarnedUpdate()
-}
-
-// TimeTracker.onSessionChanged → broadcast to all browsers
-timeTracker.onSessionChanged = { platform in
-    socketRelayServer.broadcastSessionSync()
 }
 ```
 
@@ -357,9 +345,9 @@ timeTracker.onSessionChanged = { platform in
 
 3. **MLX parse error fail-open**: Changed from fail-open (relevant=true on error) to fail-closed (relevant=false, confidence=0). Prevents broken AI from silently allowing all content.
 
-4. **Chrome blocked by WebsiteBlocker with extension active**: `BrowserMonitor` now cross-checks socket connection status (definitive) with file-based detection, instead of immediately marking browser as unprotected on socket disconnect.
+4. **Chrome blocked by WebsiteBlocker with extension active**: `BrowserMonitor` now cross-checks socket connection status (definitive) with file-based detection, instead of immediately marking browser as unprotected on socket disconnect. *Resolved 2026-05-21 by removing the extension entirely — `BrowserMonitor` now reports protection from AppleScript-only detection.*
 
-5. **Extension-launched process killing the app**: Chrome SIGTERMs then SIGKILLs native messaging hosts. Fixed by relay architecture: extension-launched processes are always thin relays, primary app is launched independently via `NSWorkspace`.
+5. **Extension-launched process killing the app**: Chrome SIGTERMs then SIGKILLs native messaging hosts. Fixed by relay architecture: extension-launched processes are always thin relays, primary app is launched independently via `NSWorkspace`. *Resolved 2026-05-21 by removing the extension entirely — the app is no longer launched as a native-messaging child of any browser process.*
 
 6. **Settings 800ms debounce losing changes**: `onSettingChange()` in dashboard.html uses an 800ms debounce before calling `saveAllSettings()`. If the user quits the app within 800ms of toggling, settings are lost. Fixed for Content Safety toggle (now saves immediately). Consider fixing for all toggles.
 
@@ -491,20 +479,19 @@ Detailed docs for each subsystem live in `docs/`. Read the relevant doc when wor
 | Doc | What's in it |
 |-----|-------------|
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Project structure, architecture diagram, process model (relay/primary), state machine, persistence files, backend API |
-| [PUCK_SPEC.md](docs/PUCK_SPEC.md) | Product vision, Puck integration, blocking modes, new systems (April 2026), extension role changes |
+| [PUCK_SPEC.md](docs/PUCK_SPEC.md) | Product vision, Puck integration, blocking modes, new systems (April 2026) |
 | [FOCUS_ENFORCEMENT.md](docs/FOCUS_ENFORCEMENT.md) | FocusMonitor enforcement timelines (Deep Work vs Focus Hours), block start/end rituals, pill widget, overlays, distracting apps, always-allowed apps |
 | [EARNED_BROWSE_SYSTEM.md](docs/EARNED_BROWSE_SYSTEM.md) | Earning rates, cost multipliers, intent bonus, delay escalation, per-block tracking, pool state |
 | [AI_SCORING.md](docs/AI_SCORING.md) | Relevance scorer pipeline (keyword→cache→LLM), Qwen3-4B / Apple FM models, fail-closed policy |
 | [CONTENT_SAFETY_MONITOR.md](docs/CONTENT_SAFETY_MONITOR.md) | On-device NSFW detection, two-pass capture, OpenNSFW for Developer ID builds, partner notification |
 | [CS_TESTING_WINDOW_PLAYBOOK.md](docs/CS_TESTING_WINDOW_PLAYBOOK.md) | How to pause CS emails + enforcement constraint for a debugging window, and how to fully reverse it. Paired scripts in `intentional-backend/scripts/` (`pause_cs_constraint.py` / `resume_cs_constraint.py`) + env var `CS_EMAILS_PAUSED_UNTIL` |
 | [CONTEXT_SWITCHING_OVERLAY.md](docs/CONTEXT_SWITCHING_OVERLAY.md) | Non-skippable countdown on app/tab switches during a work block. Coordinator, overlay, tier math, grace periods |
-| [EXTENSION_PROTOCOL.md](docs/EXTENSION_PROTOCOL.md) | Socket architecture, native messaging protocol, all message types (app↔extension and dashboard↔Swift) |
 | [PROJECTS.md](docs/PROJECTS.md) | Projects (intention-driven sessions): data model, ProjectStore actor API, 7 bridge messages, start-session queue/immediate/refuse rules, blocklist delete guard |
 | [STRICT_MODE.md](docs/STRICT_MODE.md) | App persistence, partner-gated enable/disable, Cmd+Q behavior, watchdog, edge cases |
 | [PRIORITY_TODOS.md](docs/PRIORITY_TODOS.md) | Implementation backlog: Intentional Mode, permission monitoring, NE integration, anti-tamper hardening |
 | [PKG_BUILD_GUIDE.md](docs/PKG_BUILD_GUIDE.md) | PKG build pipeline, signing details, daemon relaunch strategy, testing checklist |
 | [ROADMAP.md](docs/ROADMAP.md) | Product roadmap, psychology research, feature priorities (P0-P3), coaching language overhaul |
-| [EARN_YOUR_BROWSE_IMPLEMENTATION.md](docs/EARN_YOUR_BROWSE_IMPLEMENTATION.md) | Full earned browse implementation spec with UI mockups, extension changes, message protocol |
+| [EARN_YOUR_BROWSE_IMPLEMENTATION.md](docs/EARN_YOUR_BROWSE_IMPLEMENTATION.md) | Full earned browse implementation spec with UI mockups |
 | [CALENDAR_BLOCK_RULES.md](docs/CALENDAR_BLOCK_RULES.md) | Block manipulation rules (past locked, active limited, future editable) |
 | [BLOCK_TYPE_ENFORCEMENT_SETTINGS.md](docs/BLOCK_TYPE_ENFORCEMENT_SETTINGS.md) | Per-block enforcement toggles (6 mechanisms per block type) |
 
