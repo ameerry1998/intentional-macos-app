@@ -29,12 +29,9 @@
 		A1000020000000000000005 /* PermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000021000000000000005 /* PermissionManager.swift */; };
 		A1000022000000000000006 /* zen-nature.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = A1000023000000000000006 /* zen-nature.mp4 */; };
 		A1000024000000000000007 /* 13136082_3840_2160_60fps.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = A1000025000000000000007 /* 13136082_3840_2160_60fps.mp4 */; };
-		A1000031000000000000008 /* NativeMessagingHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000030000000000000008 /* NativeMessagingHost.swift */; };
-		A1000033000000000000009 /* NativeMessagingSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000032000000000000009 /* NativeMessagingSetup.swift */; };
 		A1000035000000000000010 /* TimeTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000034000000000000010 /* TimeTracker.swift */; };
 		A1000036000000000000011 /* BrowserDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000037000000000000011 /* BrowserDatabase.swift */; };
 		A1000038000000000000012 /* BrowserDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000039000000000000012 /* BrowserDiscovery.swift */; };
-		A1000040000000000000013 /* SocketRelayServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000041000000000000013 /* SocketRelayServer.swift */; };
 		A1000042000000000000014 /* onboarding.html in Resources */ = {isa = PBXBuildFile; fileRef = A1000043000000000000014 /* onboarding.html */; };
 		A1000044000000000000015 /* dashboard.html in Resources */ = {isa = PBXBuildFile; fileRef = A1000045000000000000015 /* dashboard.html */; };
 		A1000046000000000000016 /* LegacyMonitorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000047000000000000016 /* LegacyMonitorView.swift */; };
@@ -172,12 +169,9 @@
 		A1000021000000000000005 /* PermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManager.swift; sourceTree = "<group>"; };
 		A1000023000000000000006 /* zen-nature.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "zen-nature.mp4"; sourceTree = "<group>"; };
 		A1000025000000000000007 /* 13136082_3840_2160_60fps.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = 13136082_3840_2160_60fps.mp4; sourceTree = "<group>"; };
-		A1000030000000000000008 /* NativeMessagingHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMessagingHost.swift; sourceTree = "<group>"; };
-		A1000032000000000000009 /* NativeMessagingSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMessagingSetup.swift; sourceTree = "<group>"; };
 		A1000034000000000000010 /* TimeTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeTracker.swift; sourceTree = "<group>"; };
 		A1000037000000000000011 /* BrowserDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserDatabase.swift; sourceTree = "<group>"; };
 		A1000039000000000000012 /* BrowserDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserDiscovery.swift; sourceTree = "<group>"; };
-		A1000041000000000000013 /* SocketRelayServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketRelayServer.swift; sourceTree = "<group>"; };
 		A1000043000000000000014 /* onboarding.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = onboarding.html; sourceTree = "<group>"; };
 		A1000045000000000000015 /* dashboard.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = dashboard.html; sourceTree = "<group>"; };
 		A1000047000000000000016 /* LegacyMonitorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyMonitorView.swift; sourceTree = "<group>"; };
@@ -343,11 +337,8 @@
 				A1000017000000000000003 /* WebsiteBlocker.swift */,
 				A1000021000000000000005 /* PermissionManager.swift */,
 				A1000008000000000000001 /* BackendClient.swift */,
-				A1000030000000000000008 /* NativeMessagingHost.swift */,
-				A1000032000000000000009 /* NativeMessagingSetup.swift */,
 				A1000034000000000000010 /* TimeTracker.swift */,
 				343A70F22F4AA13800030ED8 /* EarnedBrowseManager.swift */,
-				A1000041000000000000013 /* SocketRelayServer.swift */,
 				A1000049000000000000017 /* ScheduleManager.swift */,
 				A1000051000000000000018 /* RelevanceScorer.swift */,
 				A1000053000000000000019 /* FocusMonitor.swift */,
@@ -568,11 +559,8 @@
 				A1000020000000000000005 /* PermissionManager.swift in Sources */,
 				343A70F32F4AA13800030ED8 /* EarnedBrowseManager.swift in Sources */,
 				A1000007000000000000001 /* BackendClient.swift in Sources */,
-				A1000031000000000000008 /* NativeMessagingHost.swift in Sources */,
 				34BADA5F2F8088BA009A82C6 /* DaemonXPCClient.swift in Sources */,
-				A1000033000000000000009 /* NativeMessagingSetup.swift in Sources */,
 				A1000035000000000000010 /* TimeTracker.swift in Sources */,
-				A1000040000000000000013 /* SocketRelayServer.swift in Sources */,
 				A1000048000000000000017 /* ScheduleManager.swift in Sources */,
 				A1000050000000000000018 /* RelevanceScorer.swift in Sources */,
 				A1000052000000000000019 /* FocusMonitor.swift in Sources */,
