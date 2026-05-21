@@ -663,164 +663,6 @@ body {
   min-height: 20px;
 }
 
-/* ===== Browser List (Screen 2) ===== */
-.browser-list {
-  margin: 16px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 300px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.browser-row {
-  display: flex;
-  align-items: center;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 10px;
-  gap: 12px;
-  transition: all 0.2s;
-}
-
-.browser-row:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.browser-row.connected {
-  background: rgba(var(--color-success-rgb), 0.12);
-  border: 1px solid rgba(var(--color-success-rgb), 0.25);
-}
-
-.browser-row.connected:hover {
-  background: rgba(var(--color-success-rgb), 0.18);
-}
-
-.browser-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-.browser-icon img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-/* Letter fallback when no app icon available */
-.browser-icon.bi-letter {
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
-  color: white;
-  background: #6B7280;
-}
-
-.browser-name {
-  width: 110px;
-  flex-shrink: 0;
-  font-size: 14px;
-  font-weight: 500;
-  color: #ffffff;
-  text-align: left;
-}
-
-.browser-ext-url {
-  flex: 1;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
-  font-family: monospace;
-  padding: 3px 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  position: relative;
-}
-
-.browser-ext-url:hover {
-  color: rgba(255, 255, 255, 0.6);
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.browser-ext-url.copied {
-  color: var(--color-success);
-}
-
-.browser-status {
-  font-size: 12px;
-  font-weight: 600;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-.browser-status.connected {
-  color: var(--color-success);
-  animation: check-pop 0.3s ease-out;
-}
-
-@keyframes check-pop {
-  0% { transform: scale(0.5); opacity: 0; }
-  70% { transform: scale(1.2); }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-.browser-install-btn {
-  padding: 5px 14px;
-  font-size: 11px;
-  font-weight: 600;
-  border: none;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899);
-  background-size: 200% 200%;
-  animation: gradient-shift 4s ease infinite;
-  color: white;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: inherit;
-  flex-shrink: 0;
-}
-
-.browser-install-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(var(--accent-primary-rgb), 0.4);
-}
-
-.browser-summary {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
-  margin-top: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.browser-summary.all-connected {
-  color: var(--color-success);
-}
-
-.poll-spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  border-top-color: rgba(255, 255, 255, 0.5);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  flex-shrink: 0;
-}
-
 /* ===== Platform Cards (Screen 3) ===== */
 .platform-cards {
   display: flex;
@@ -1294,29 +1136,8 @@ body {
     </div>
   </div>
 
-  <!-- Screen 3: Install Extension -->
+  <!-- Screen 3: Choose Your Platforms -->
   <div class="screen" data-screen="3">
-    <h1 class="title">Install the Extension</h1>
-    <p class="subtitle">Get protection in every browser you use.</p>
-    <p class="description">Intentional needs a browser extension to filter and manage content in your browsers.</p>
-
-    <div class="browser-list" id="browser-list">
-      <div class="browser-row">
-        <span class="browser-icon">🌐</span>
-        <span class="browser-name">Scanning browsers...</span>
-      </div>
-    </div>
-
-    <p class="browser-summary" id="browser-summary"><span class="poll-spinner"></span> Scanning for extensions...</p>
-
-    <div class="footer">
-      <button class="btn btn-secondary" data-action="back">Back</button>
-      <button class="btn btn-primary" data-action="next">Next</button>
-    </div>
-  </div>
-
-  <!-- Screen 4: Choose Your Platforms -->
-  <div class="screen" data-screen="4">
 
     <!-- Platform List View -->
     <div id="platform-list-view">
@@ -1483,8 +1304,8 @@ body {
 
   </div>
 
-  <!-- Screen 5: Accountability Partner -->
-  <div class="screen" data-screen="5">
+  <!-- Screen 4: Accountability Partner -->
+  <div class="screen" data-screen="4">
     <h1 class="title">Accountability Partner</h1>
     <p class="subtitle">Choose someone who can help keep you accountable.</p>
 
@@ -1520,8 +1341,8 @@ body {
     </div>
   </div>
 
-  <!-- Screen 6: Lock Settings -->
-  <div class="screen" data-screen="6">
+  <!-- Screen 5: Lock Settings -->
+  <div class="screen" data-screen="5">
     <h1 class="title">Lock Your Settings?</h1>
     <p class="subtitle">Prevents you from changing limits on impulse.</p>
 
@@ -1550,14 +1371,13 @@ body {
     </div>
   </div>
 
-  <!-- Progress Dots (6 screens) -->
+  <!-- Progress Dots (5 screens) -->
   <div class="progress-dots" id="progress-dots">
     <span class="dot active" data-screen="1"></span>
     <span class="dot" data-screen="2"></span>
     <span class="dot" data-screen="3"></span>
     <span class="dot" data-screen="4"></span>
     <span class="dot" data-screen="5"></span>
-    <span class="dot" data-screen="6"></span>
   </div>
 
 </div>
@@ -1571,10 +1391,9 @@ body {
 <script>
 // ===== State =====
 let currentScreen = 1;
-const totalScreens = 6;
+const totalScreens = 5;
 let selectedLockMode = 'none';
 let selectedTheme = 'iridescent';
-let extensionPollTimer = null;
 let activeConfigPanel = null;
 let configSteps = { youtube: 1, instagram: 1 };
 const maxConfigSteps = { youtube: 2, instagram: 1 };
@@ -1665,11 +1484,8 @@ function goToScreen(target) {
     updateDots();
 
     // Screen-specific init
-    if (target === 3) startExtensionPolling();
-    else stopExtensionPolling();
-
-    if (target === 4) updatePlatformSummaries();
-    if (target === 6) updateLockOptions();
+    if (target === 3) updatePlatformSummaries();
+    if (target === 5) updateLockOptions();
   }, 200);
 }
 
@@ -1678,142 +1494,6 @@ function updateDots() {
     const screen = parseInt(dot.dataset.screen);
     dot.classList.toggle('active', screen === currentScreen);
   });
-}
-
-// ===== Screen 2: Extension Status =====
-function startExtensionPolling() {
-  pollExtensionStatus();
-  extensionPollTimer = setInterval(pollExtensionStatus, 5000);
-}
-
-function stopExtensionPolling() {
-  if (extensionPollTimer) {
-    clearInterval(extensionPollTimer);
-    extensionPollTimer = null;
-  }
-}
-
-function pollExtensionStatus() {
-  sendMessage({ type: 'GET_EXTENSION_STATUS' });
-}
-
-// Callback from Swift
-window._extensionStatusResult = function(data) {
-  const list = document.getElementById('browser-list');
-  const summary = document.getElementById('browser-summary');
-
-  if (!data.browsers || data.browsers.length === 0) {
-    list.innerHTML = `
-      <div class="browser-row">
-        <span class="browser-icon">?</span>
-        <span class="browser-name" style="color: rgba(255,255,255,0.5)">No browsers detected</span>
-      </div>
-    `;
-    summary.innerHTML = '<span class="poll-spinner"></span> Looking for browsers...';
-    summary.className = 'browser-summary';
-    return;
-  }
-
-  function getBrowserBadge(b) {
-    if (b.iconDataUrl) {
-      return `<span class="browser-icon"><img src="${b.iconDataUrl}" alt="${b.name}"></span>`;
-    }
-    return `<span class="browser-icon bi-letter">${b.name.charAt(0).toUpperCase()}</span>`;
-  }
-
-  // Sort: connected first, then alphabetical
-  data.browsers.sort((a, b) => {
-    const aConn = a.hasExtension && a.isEnabled ? 0 : 1;
-    const bConn = b.hasExtension && b.isEnabled ? 0 : 1;
-    if (aConn !== bConn) return aConn - bConn;
-    return a.name.localeCompare(b.name);
-  });
-
-  function getStoreUrl(name) {
-    const n = name.toLowerCase();
-    if (n.includes('firefox') || n.includes('waterfox') || n.includes('librewolf') || n.includes('zen') || n.includes('floorp'))
-      return 'addons.mozilla.org';
-    if (n.includes('safari') || n.includes('orion'))
-      return 'apps.apple.com';
-    return 'chromewebstore.google.com';
-  }
-
-  function getFullStoreUrl(name) {
-    const n = name.toLowerCase();
-    if (n.includes('firefox') || n.includes('waterfox') || n.includes('librewolf') || n.includes('zen') || n.includes('floorp'))
-      return 'https://addons.mozilla.org/en-US/firefox/search/?q=intentional';
-    if (n.includes('safari') || n.includes('orion'))
-      return 'https://apps.apple.com/search/intentional';
-    return 'https://chromewebstore.google.com/search/intentional';
-  }
-
-  list.innerHTML = data.browsers.map(b => {
-    const badge = getBrowserBadge(b);
-    const storeHint = getStoreUrl(b.name);
-    const fullUrl = getFullStoreUrl(b.name);
-    const isConnected = b.hasExtension && b.isEnabled;
-    const isDisabled = b.hasExtension && !b.isEnabled;
-    const rowClass = isConnected ? 'browser-row connected' : 'browser-row';
-
-    let statusHtml;
-    if (isConnected) {
-      statusHtml = '<span class="browser-status connected">&#10003;</span>';
-    } else if (isDisabled) {
-      statusHtml = `<span class="browser-status" style="color: var(--color-warning);">Disabled</span>`;
-    } else {
-      statusHtml = `<button class="browser-install-btn" onclick="installExtension('${encodeURIComponent(b.name)}', '${b.bundleId || ''}')">Install</button>`;
-    }
-
-    return `
-      <div class="${rowClass}">
-        ${badge}
-        <span class="browser-name">${b.name}</span>
-        <span class="browser-ext-url" onclick="copyUrl(this, '${fullUrl}')" title="Click to copy">${storeHint}</span>
-        ${statusHtml}
-      </div>
-    `;
-  }).join('');
-
-  const connectedCount = data.browsers.filter(b => b.hasExtension && b.isEnabled).length;
-  const totalCount = data.browsers.length;
-
-  if (connectedCount === totalCount) {
-    summary.innerHTML = `&#10003; All ${totalCount} browsers connected!`;
-    summary.className = 'browser-summary all-connected';
-  } else if (connectedCount > 0) {
-    summary.innerHTML = `<span class="poll-spinner"></span> ${connectedCount} of ${totalCount} connected &mdash; scanning...`;
-    summary.className = 'browser-summary';
-  } else {
-    summary.innerHTML = `<span class="poll-spinner"></span> No extensions found yet &mdash; scanning...`;
-    summary.className = 'browser-summary';
-  }
-};
-
-function copyUrl(el, url) {
-  navigator.clipboard.writeText(url).then(() => {
-    const original = el.textContent;
-    el.textContent = 'Copied!';
-    el.classList.add('copied');
-    setTimeout(() => {
-      el.textContent = original;
-      el.classList.remove('copied');
-    }, 1500);
-  });
-}
-
-function installExtension(browserName, bundleId) {
-  const name = decodeURIComponent(browserName).toLowerCase();
-
-  let storeUrl;
-  if (name.includes('firefox') || name.includes('waterfox') || name.includes('librewolf') || name.includes('zen') || name.includes('floorp')) {
-    storeUrl = 'https://addons.mozilla.org/en-US/firefox/search/?q=intentional';
-  } else if (name.includes('safari') || name.includes('orion')) {
-    storeUrl = 'https://apps.apple.com/search/intentional';
-  } else {
-    storeUrl = 'https://chromewebstore.google.com/search/intentional';
-  }
-
-  sendMessage({ type: 'OPEN_EXTENSIONS_PAGE', url: storeUrl, bundleId: bundleId || null });
 }
 
 // ===== Screen 3: Platform Configuration =====
