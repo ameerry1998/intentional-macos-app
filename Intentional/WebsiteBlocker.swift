@@ -1032,13 +1032,13 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     // MARK: - Helper Methods
 
     private func getProtectedBrowsersList() -> String {
-        let setup = NativeMessagingSetup.shared
-        let extensionIds = setup.getAllExtensionIds()
-        guard !extensionIds.isEmpty else { return "" }
-
-        let statuses = setup.getBrowserStatus()
-        let protectedBrowsers = statuses.filter { $0.isEnabled }.map { $0.name }
-        return protectedBrowsers.joined(separator: ",")
+        // EXTENSION-REMOVAL-NOTE: previous behavior queried NativeMessagingSetup
+        // to discriminate protected (extension-enabled) vs unprotected browsers
+        // and pass the list as a `protected=foo,bar` query param to blocked.html.
+        // Post-extension-removal, blocking is AppleScript-only — there is no
+        // "protected" vs "unprotected" distinction — so this always returns
+        // an empty string. Kept as a no-op for caller compatibility.
+        return ""
     }
 
     private func shouldBlock(url: String) -> Bool {
