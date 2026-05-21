@@ -1,5 +1,17 @@
 # Intentional macOS App - Development Guide
 
+## Docs discipline (MANDATORY)
+
+When you change a feature's behavior, file references, or architecture: update its doc at `docs/features/<slug>.md` in the SAME commit OR mark `status: wip` in the frontmatter. PRs that change feature code without doc updates require explicit waiver in the PR description.
+
+- Every feature has one doc at `docs/features/<slug>.md`
+- Doc frontmatter MUST include `last_verified` (ISO date) and `files:` (array of relative paths that implement the feature, resolvable from repo root)
+- `scripts/check-docs.sh` lints all docs — run it before any feature PR; errors on missing files
+- The site renders via `/Users/arayan/Library/Python/3.9/bin/mkdocs serve` (local) or `mkdocs build` (production); `docs_dir` is `docs/features/`
+- New feature? Copy `docs/features/_TEMPLATE.md` and fill it in. Set `status: design` while implementing, `status: wip` during active changes, `status: shipping` once live.
+
+---
+
 ## Cross-repo / Overnight Work — Single Source of Truth (MANDATORY)
 
 When a task spans multiple repos (e.g. Puck integration touches `intentional-backend` + `puck-ios` + this repo) OR is an overnight autonomous run:
