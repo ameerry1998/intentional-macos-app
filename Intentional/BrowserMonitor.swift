@@ -2,8 +2,13 @@
 //  BrowserMonitor.swift
 //  Intentional
 //
-//  Monitors ALL browsers dynamically discovered via Launch Services
-//  Detects if user switches to unprotected browser
+//  Monitors ALL browsers dynamically discovered via Launch Services.
+//
+//  Post-extension-removal scope (May 2026): this file no longer tracks
+//  per-browser "protection" status — there is no extension to be present or
+//  absent. Browsers are simply discovered, their lifecycle is tracked, and the
+//  full list is dispatched to `WebsiteBlocker` so AppleScript tab inspection
+//  can run against every running browser.
 //
 
 import Foundation
@@ -23,11 +28,9 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
     // Track last known state of each browser
     private var browserStates: [String: Bool] = [:]
 
-    // Track last unprotected set for change-only logging
-    private var lastUnprotectedBrowsers: Set<String> = []
-
-    // Per-browser protection decision tracking (for change-only logging)
-    private var lastProtectionDecisions: [String: String] = [:]
+    // Track which set of browsers was last dispatched to WebsiteBlocker so we
+    // only log on change.
+    private var lastDispatchedBrowsers: Set<String> = []
 
     // Track when we last notified user (avoid spam)
     private var lastNotificationTime: [String: Date] = [:]
@@ -35,8 +38,6 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
 
     // Safety: limit notifications per check to prevent notification bombs
     private let maxNotificationsPerCheck = 2
-    // No grace period after socket disconnect. Socket = truth.
-    // If the socket drops, the browser is immediately UNPROTECTED.
 
     // Known browser bundle IDs → (friendly name, AppleScript app name)
     // This helps us display friendly names and use correct AppleScript commands
@@ -274,7 +275,7 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
     // MARK: - Monitoring
 
     func startMonitoring() {
-        // Check every 3 seconds for fast reaction after socket drops
+        // Check every 3 seconds to keep browser lifecycle reasonably fresh.
         monitorTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
             self?.checkAllBrowsers()
         }
@@ -290,72 +291,17 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
         monitorTimer = nil
     }
 
-    /// Force recheck of all browser protection status
-    /// Call this after extension discovery completes to update protection status
+    /// Force recheck of all browsers. Retained as a no-cost passthrough so the
+    /// existing AppDelegate callsites (which will be cleaned up in the next
+    /// dispatch) keep compiling.
     func recheckBrowserProtection() {
         checkAllBrowsers()
     }
 
-    // Post-scan grace period for socket connections to establish.
-    // Native messaging relay processes take 1-3s to connect after app launch.
-    // Only applies once (at startup); after any socket has connected, blocking proceeds normally.
-    private let socketEstablishmentGrace: TimeInterval = 1.5
-    private var hasReceivedFirstSocket = false
-    private var scheduledPostGraceRecheck = false
-
     private func checkAllBrowsers() {
-        // Phase 1: Wait for NativeMessagingSetup to complete its first extension scan.
-        // Without scan data, every browser would be falsely marked as unprotected.
-        if !NativeMessagingSetup.shared.hasCompletedInitialScan {
-            let runningApps = NSWorkspace.shared.runningApplications
-            var currentStates: [String: Bool] = [:]
-            for (bundleId, _) in browsers {
-                let isRunning = runningApps.contains { app in
-                    app.bundleIdentifier == bundleId
-                }
-                currentStates[bundleId] = isRunning
-            }
-            browserStates = currentStates
-            return
-        }
-
-        // Phase 2: Brief post-scan grace for socket connections to establish.
-        // For unpacked extensions that file scan can't detect, the socket connection
-        // is the only signal. Skip this grace once any socket has connected (meaning
-        // the relay infrastructure is working) or once the grace period expires.
-        if !hasReceivedFirstSocket {
-            let connectedBundleIds = appDelegate?.socketRelayServer?.getConnectedBrowserBundleIds() ?? []
-            if !connectedBundleIds.isEmpty {
-                hasReceivedFirstSocket = true
-            } else if let scanTime = NativeMessagingSetup.shared.initialScanCompletedAt,
-                      Date().timeIntervalSince(scanTime) < socketEstablishmentGrace {
-                // Still within grace period and no socket yet — populate states but skip decisions
-                let runningApps = NSWorkspace.shared.runningApplications
-                var currentStates: [String: Bool] = [:]
-                for (bundleId, _) in browsers {
-                    let isRunning = runningApps.contains { app in
-                        app.bundleIdentifier == bundleId
-                    }
-                    currentStates[bundleId] = isRunning
-                }
-                browserStates = currentStates
-                // Schedule a recheck right when the grace expires so we don't wait
-                // for the next 10-second timer tick
-                if !scheduledPostGraceRecheck {
-                    scheduledPostGraceRecheck = true
-                    let remaining = socketEstablishmentGrace - Date().timeIntervalSince(scanTime)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + remaining + 0.1) { [weak self] in
-                        self?.checkAllBrowsers()
-                    }
-                }
-                return
-            }
-            // Grace expired with no socket — proceed (extension probably isn't installed)
-        }
-
         let runningApps = NSWorkspace.shared.runningApplications
         var currentStates: [String: Bool] = [:]
-        var runningBrowsers: [String] = []
+        var runningBrowserNames: [String] = []
 
         // Check which browsers are running
         for (bundleId, browserInfo) in browsers {
@@ -365,7 +311,7 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
             currentStates[bundleId] = isRunning
 
             if isRunning {
-                runningBrowsers.append(browserInfo.name)
+                runningBrowserNames.append(browserInfo.name)
             }
 
             // Detect state changes
@@ -376,8 +322,9 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
 
         browserStates = currentStates
 
-        // Alert if unprotected browsers running
-        checkForUnprotectedBrowsers(runningBrowsers: runningBrowsers)
+        // WebsiteBlocker handles every running browser — there's no extension
+        // sensing layer to exempt anything.
+        dispatchRunningBrowsers(runningBrowserNames: runningBrowserNames)
     }
 
     private func handleBrowserStateChange(bundleId: String, browserName: String, isRunning: Bool) {
@@ -387,8 +334,7 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
             Task {
                 await backendClient.sendEvent(type: "browser_started", details: [
                     "browser": browserName,
-                    "bundle_id": bundleId,
-                    "has_extension": hasExtension(bundleId: bundleId)
+                    "bundle_id": bundleId
                 ])
             }
         } else {
@@ -403,144 +349,31 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    // MARK: - Protection State Machine
-
-    /// Protection status for a single browser
-    private enum ProtectionStatus {
-        case protected(reason: String)
-        case unprotected(reason: String)
-    }
-
-    /// Determine if a browser has the Intentional extension installed.
-    /// Uses same priority as protectionDecision but returns a simple boolean.
-    private func hasExtension(bundleId: String) -> Bool {
-        // Active socket = definitive proof
-        let connectedBundleIds = appDelegate?.socketRelayServer?.getConnectedBrowserBundleIds() ?? []
-        if connectedBundleIds.contains(bundleId) {
-            return true
-        }
-
-        // No socket → fall back to file scan
-        let browserStatuses = NativeMessagingSetup.shared.getBrowserStatus()
-        if let status = browserStatuses.first(where: { $0.bundleId == bundleId }) {
-            return status.hasExtension && status.isEnabled
-        }
-
-        return false
-    }
-
-    /// Determine protection status for a single browser.
-    /// Simple rule: Socket connected = PROTECTED. Otherwise consult file scan.
-    /// No grace periods — socket is truth.
-    ///
-    /// 1. Socket CONNECTED → PROTECTED (definitive proof extension is running)
-    /// 2. Socket NOT connected → consult file scan
-    /// 3. No signal at all → UNPROTECTED
-    private func protectionDecision(
-        bundleId: String,
-        connectedBundleIds: Set<String>,
-        browserStatuses: [BrowserExtensionStatus]
-    ) -> ProtectionStatus {
-
-        // Priority 1: Active socket connection is definitive
-        if connectedBundleIds.contains(bundleId) {
-            return .protected(reason: "active socket connection")
-        }
-
-        // Priority 2: No socket — consult file scan
-        if let status = browserStatuses.first(where: { $0.bundleId == bundleId }) {
-            if status.hasExtension && status.isEnabled {
-                return .protected(reason: "file scan says enabled")
-            } else if status.hasExtension && !status.isEnabled {
-                return .unprotected(reason: "file scan says DISABLED")
+    /// Hand the full set of currently-running browsers to WebsiteBlocker so it
+    /// can apply AppleScript-based tab enforcement against every one of them.
+    /// Logs only on change to keep the log readable.
+    private func dispatchRunningBrowsers(runningBrowserNames: [String]) {
+        let current = Set(runningBrowserNames)
+        if current != lastDispatchedBrowsers {
+            if current.isEmpty {
+                appDelegate?.postLog("ℹ️ No browsers running")
             } else {
-                return .unprotected(reason: "no extension found by file scan")
+                appDelegate?.postLog("🛡️ Tracking running browsers: \(runningBrowserNames.joined(separator: ", "))")
             }
+            lastDispatchedBrowsers = current
         }
 
-        // Priority 3: No signal at all
-        return .unprotected(reason: "no extension data, no socket history")
-    }
+        websiteBlocker?.updateBlockedBrowsers(browsers: runningBrowserNames)
 
-    private func checkForUnprotectedBrowsers(runningBrowsers: [String]) {
-        // PUCK BRANCH: WebsiteBlocker blocks ALL browsers — extension is optional sensing layer.
-        // Don't exempt browsers just because they have the extension installed.
-        var unprotectedBrowserNames: [String] = []
-
-        for (bundleId, browserInfo) in browsers {
-            guard browserStates[bundleId] == true else { continue }
-            unprotectedBrowserNames.append(browserInfo.name)
-        }
-
-        /* PUCK BRANCH: Original protection logic stripped — was exempting extension-installed browsers
-        let connectedBundleIds = appDelegate?.socketRelayServer?.getConnectedBrowserBundleIds() ?? []
-        let browserStatuses = NativeMessagingSetup.shared.getBrowserStatus()
-
-        for (bundleId, browserInfo) in browsers {
-            guard browserStates[bundleId] == true else { continue }
-
-            let status = protectionDecision(
-                bundleId: bundleId,
-                connectedBundleIds: connectedBundleIds,
-                browserStatuses: browserStatuses
-            )
-
-            let decisionKey: String
-            switch status {
-            case .protected(let reason):
-                decisionKey = "protected:\(reason)"
-            case .unprotected(let reason):
-                decisionKey = "unprotected:\(reason)"
-                unprotectedBrowserNames.append(browserInfo.name)
-            }
-
-            if lastProtectionDecisions[bundleId] != decisionKey {
-                switch status {
-                case .protected(let reason):
-                    appDelegate?.postLog("🛡️ \(browserInfo.name): PROTECTED — \(reason)")
-                case .unprotected(let reason):
-                    appDelegate?.postLog("⚠️ \(browserInfo.name): UNPROTECTED — \(reason)")
-                }
-            }
-            lastProtectionDecisions[bundleId] = decisionKey
-        }
-        PUCK: stripped */
-
-        // Clean up decisions for browsers no longer running
-        for bundleId in lastProtectionDecisions.keys {
-            if browserStates[bundleId] != true {
-                lastProtectionDecisions.removeValue(forKey: bundleId)
-            }
-        }
-
-        // Log aggregate change
-        let currentUnprotected = Set(unprotectedBrowserNames)
-        if currentUnprotected != lastUnprotectedBrowsers {
-            if currentUnprotected.isEmpty && !lastUnprotectedBrowsers.isEmpty {
-                appDelegate?.postLog("✅ All running browsers now protected")
-            }
-            lastUnprotectedBrowsers = currentUnprotected
-        }
-
-        // Update WebsiteBlocker
-        if !unprotectedBrowserNames.isEmpty {
-            websiteBlocker?.updateBlockedBrowsers(browsers: unprotectedBrowserNames)
-
+        if !runningBrowserNames.isEmpty {
             Task {
-                await backendClient.sendEvent(type: "unprotected_browsing", details: [
-                    "browsers": unprotectedBrowserNames,
-                    "count": unprotectedBrowserNames.count
+                await backendClient.sendEvent(type: "browsers_running", details: [
+                    "browsers": runningBrowserNames,
+                    "count": runningBrowserNames.count
                 ])
             }
-        } else {
-            websiteBlocker?.updateBlockedBrowsers(browsers: [])
         }
     }
-
-    // REMOVED: showExtensionMissingNotification
-    // No longer showing notifications for missing extensions
-    // Users can check extension status in Settings, and the blocking page
-    // will show install prompts when they visit blocked sites
 
     // MARK: - UNUserNotificationCenterDelegate
 
@@ -558,10 +391,8 @@ class BrowserMonitor: NSObject, UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        // User tapped notification - could open extension installation URL
         if let browserName = response.notification.request.content.userInfo["browser"] as? String {
             appDelegate?.postLog("📬 User tapped notification for \(browserName)")
-            // TODO: Open extension store URL for the browser
         }
         completionHandler()
     }
