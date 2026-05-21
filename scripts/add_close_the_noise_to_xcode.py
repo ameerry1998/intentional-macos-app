@@ -33,6 +33,7 @@ FILES = [
     ("StashInspectorWindow.swift",  "A1000104000000000000045", "A1000105000000000000045"),
     ("StageOneIntentWindow.swift",  "A1000106000000000000046", "A1000107000000000000046"),
     ("SweepBenchmark.swift",        "A1000108000000000000047", "A1000109000000000000047"),
+    ("SweepReviewWindow.swift",     "A100010A000000000000048", "A100010B000000000000048"),
 ]
 
 # Anchor: NudeNetDetector.swift is the most recent Swift add. Insert AFTER it.

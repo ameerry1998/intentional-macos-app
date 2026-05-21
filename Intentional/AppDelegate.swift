@@ -78,6 +78,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var sessionStashStore: SessionStashStore?
     var stashInspectorController: StashInspectorWindowController?
     var stageOneIntentController: StageOneIntentWindowController?
+    var sweepReviewController: SweepReviewWindowController?
 
     var projectStore: ProjectStore?
 
@@ -437,6 +438,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Stage 1 of the Deep Work Protocol — forced declaration of intent
         // before the close-the-noise sweep runs at session start.
         self.stageOneIntentController = StageOneIntentWindowController(appDelegate: self)
+
+        // Review-and-confirm modal for the close-the-noise sweep. Replaces
+        // the auto-stash flow per CLAUDE.md "Hard-Won Lessons" #1: for the
+        // ADHD ICP, agency > automation. AI pre-classifies; user confirms.
+        self.sweepReviewController = SweepReviewWindowController(appDelegate: self)
 
         // DIAGNOSTIC: Log every launch attempt to persistent file
         let diagnosticLogPath = NSTemporaryDirectory() + "intentional-launches.log"
@@ -1928,13 +1934,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // running browser doesn't get Cmd+H'd just because the sweep skipped
         // its tabs.
         let neverHideBrowsers: Set<String> = Set(allDiscoveredBrowsers.keys)
-        var stashedTabs: [StashedTab] = []
-        var bookmarksFolderName: String? = nil
-        let stampedName = "Intentional / Stash \(SessionStashStore.timestampString())"
-
         postLog("🧹 Sweep starting. Scope: domains=\(scope.domains.count) bundleIds=\(scope.bundleIds.count) intent=\"\(scope.voiceIntent.prefix(120))\"")
         postLog("🧹   Always-allowed: \(alwaysAllowed.bundleIds.count) apps, \(alwaysAllowed.domains.count) domains")
         postLog("🧹   Active block rules: \(activeRuleHosts.count) hosts, \(activeRuleBundleIds.count) bundleIds")
+
+        // ─── PHASE 1: COLLECT CANDIDATES ──────────────────────────────
+        // Classify every running browser tab + every running native app
+        // into review buckets (probablyKeep / borderline / probablyClose).
+        // Do NOT act yet — we build the review-modal payload first.
+
+        // Tab metadata we need for the eventual close/bookmark action,
+        // keyed by URL (the modal speaks in URLs).
+        struct TabAction {
+            let info: WebsiteBlocker.AllTabsInfo
+            let browserBid: String
+            let appName: String
+        }
+        var tabActionByURL: [String: TabAction] = [:]
+        var candidateItems: [SweepReviewItem] = []
 
         for (browserBid, browserInfo) in discoveredBrowsers {
             let appName = browserInfo.scriptName
@@ -1942,114 +1959,95 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             postLog("🧹   [\(browserInfo.name)] read \(allTabs.count) tab(s)")
             if allTabs.isEmpty { continue }
 
-            var keepURLs = Set<String>()
-            var stashCandidates: [WebsiteBlocker.AllTabsInfo] = []
-            var needsAI: [WebsiteBlocker.AllTabsInfo] = []
+            // Pre-classify via the existing decideTab + intent-keyword gate.
+            // Tabs that don't need the AI go straight into probably-keep or
+            // probably-close. Tabs that DO need AI get scored next.
+            var aiInput: [WebsiteBlocker.AllTabsInfo] = []
+            var prebucket: [(WebsiteBlocker.AllTabsInfo, SweepReviewBucket)] = []
             var intentKeywordMatches = 0
             for t in allTabs {
                 let host = URL(string: t.url)?.host ?? ""
-                if host.isEmpty { keepURLs.insert(t.url); continue }
+                if host.isEmpty {
+                    prebucket.append((t, .probablyKeep))  // empty host → keep
+                    continue
+                }
                 let v = Sweeper.decideTab(host: host, isPinned: t.isPinned,
                                           blockedHosts: activeRuleHosts,
                                           scope: scope, alwaysAllowed: alwaysAllowed)
                 switch v {
-                case .keep:    keepURLs.insert(t.url)
-                case .stash:   stashCandidates.append(t)
+                case .keep:    prebucket.append((t, .probablyKeep))
+                case .stash:   prebucket.append((t, .probablyClose))
                 case .needsAI:
-                    // Intent-keyword auto-keep gate: if the tab's host/URL/title
-                    // contains a domain or tool name we extracted from the intent,
-                    // skip the AI and keep. Catches "thebeseen.app" mentions in
-                    // Resend / Cloudflare / Railway titles that the model can't
-                    // reliably link to the intent.
                     if scope.matchesIntentKeyword(host: host, url: t.url, title: t.title) {
-                        keepURLs.insert(t.url)
+                        prebucket.append((t, .probablyKeep))
                         intentKeywordMatches += 1
                     } else {
-                        needsAI.append(t)
+                        aiInput.append(t)
                     }
                 }
             }
-            postLog("🧹   [\(browserInfo.name)] decisions: keep=\(keepURLs.count) (incl. \(intentKeywordMatches) by intent-keyword) stashOnRule=\(stashCandidates.count) needsAI=\(needsAI.count)")
+            postLog("🧹   [\(browserInfo.name)] pre-classified: probablyKeep=\(prebucket.filter { $0.1 == .probablyKeep }.count) (incl. \(intentKeywordMatches) intent-keyword) probablyClose=\(prebucket.filter { $0.1 == .probablyClose }.count) needsAI=\(aiInput.count)")
 
-            // AI batch for the borderline tabs.
-            //
-            // Decision rule (asymmetric, per 2026-05-18 model research):
-            //   STASH only when the model is HIGH-confidence that the tab is
-            //   off-task: NOT relevant AND confidence >= 65.
-            //   Everything else → KEEP.
-            //
-            // Rationale: false-stashes burn user trust ~5x harder than
-            // false-keeps (closing a relevant tab disrupts work; leaving a
-            // noise tab around is recoverable in 1 click). Asymmetric threshold
-            // directly encodes that penalty. Earlier symmetric threshold (keep
-            // iff relevant && confidence >= 50) stashed too aggressively on
-            // tabs the model was lukewarm about.
-            if !needsAI.isEmpty, let scorer = relevanceScorer {
+            // AI batch for the unclassified ones. We DO NOT act on the
+            // verdict — we use it only to pre-fill the modal bucket.
+            var aiVerdictByURL: [String: RelevanceScorer.TabVerdict] = [:]
+            if !aiInput.isEmpty, let scorer = relevanceScorer {
                 let intentForAI = scope.voiceIntent.isEmpty ? "Focused work session" : scope.voiceIntent
                 let verdicts = await scorer.scoreTabBatch(
                     intent: intentForAI,
-                    tabs: needsAI.map { ($0.title, $0.url) }
+                    tabs: aiInput.map { ($0.title, $0.url) }
                 )
-                var aiKept = 0
-                var aiStashed = 0
-                for (i, v) in verdicts.enumerated() {
-                    let highConfidenceStash = !v.relevant && v.confidence >= 65
-                    if highConfidenceStash {
-                        stashCandidates.append(needsAI[i])
-                        aiStashed += 1
-                    } else {
-                        keepURLs.insert(needsAI[i].url)
-                        aiKept += 1
-                    }
+                for (i, v) in verdicts.enumerated() where i < aiInput.count {
+                    aiVerdictByURL[aiInput[i].url] = v
                 }
-                postLog("🧹   [\(browserInfo.name)] AI batch: \(aiKept) kept, \(aiStashed) stashed (\(verdicts.count) verdicts; stash-threshold conf>=65)")
+                postLog("🧹   [\(browserInfo.name)] AI batch returned \(verdicts.count) verdict(s)")
             }
 
-            if stashCandidates.isEmpty {
-                postLog("🧹   [\(browserInfo.name)] nothing to stash — skipping")
-                continue
+            // Build SweepReviewItems for every tab.
+            for (t, prebkt) in prebucket {
+                tabActionByURL[t.url] = TabAction(info: t, browserBid: browserBid, appName: appName)
+                candidateItems.append(SweepReviewItem(
+                    id: t.url,
+                    title: t.title,
+                    subtitle: t.url,
+                    kind: .browserTab(originalURL: t.url,
+                                      originalWindow: t.windowIndex,
+                                      originalIndex: t.tabIndex,
+                                      browserBundleId: browserBid),
+                    bucket: prebkt,
+                    aiConfidence: 100
+                ))
             }
-
-            // Stash: create bookmarks folder once across browsers (folder name
-            // is global), then add bookmarks + close tabs.
-            if bookmarksFolderName == nil {
-                bookmarksFolderName = await blocker.createBookmarkFolder(forBundleId: browserBid,
-                                                                         appName: appName,
-                                                                         name: stampedName)
-            }
-            if let folder = bookmarksFolderName {
-                for info in stashCandidates {
-                    await blocker.addBookmark(forBundleId: browserBid, appName: appName, folderName: folder,
-                                              title: info.title, url: info.url)
-                    stashedTabs.append(StashedTab(title: info.title,
-                                                  url: info.url,
-                                                  browserBundleId: browserBid,
-                                                  originalWindow: info.windowIndex,
-                                                  originalIndex: info.tabIndex))
+            for t in aiInput {
+                tabActionByURL[t.url] = TabAction(info: t, browserBid: browserBid, appName: appName)
+                let v = aiVerdictByURL[t.url]
+                let bkt: SweepReviewBucket
+                if let v = v {
+                    if v.relevant && v.confidence >= 65 { bkt = .probablyKeep }
+                    else if !v.relevant && v.confidence >= 65 { bkt = .probablyClose }
+                    else { bkt = .borderline }
+                } else {
+                    bkt = .borderline
                 }
-            } else {
-                // Bookmarks unsupported (Safari) — still record what we'll close
-                // so the inspector can offer restore via 'open location'.
-                for info in stashCandidates {
-                    stashedTabs.append(StashedTab(title: info.title,
-                                                  url: info.url,
-                                                  browserBundleId: browserBid,
-                                                  originalWindow: info.windowIndex,
-                                                  originalIndex: info.tabIndex))
-                }
+                candidateItems.append(SweepReviewItem(
+                    id: t.url,
+                    title: t.title,
+                    subtitle: t.url,
+                    kind: .browserTab(originalURL: t.url,
+                                      originalWindow: t.windowIndex,
+                                      originalIndex: t.tabIndex,
+                                      browserBundleId: browserBid),
+                    bucket: bkt,
+                    aiConfidence: v?.confidence ?? 0
+                ))
             }
-            let urlsToClose = Set(stashCandidates.map { $0.url })
-            postLog("🧹   [\(browserInfo.name)] closing \(urlsToClose.count) unique URL(s); bookmarked under \"\(bookmarksFolderName ?? "(none)")\"")
-            let actualClosed = await blocker.closeTabsByURL(urlsToClose, forBundleId: browserBid, appName: appName)
-            postLog("🧹   [\(browserInfo.name)] AppleScript closed \(actualClosed) tab(s) (URLs sent: \(urlsToClose.count))")
         }
 
-        // 4. Sweep native apps (Cmd+H, no quitting).
-        // NEVER hide browsers — they're containers, their tabs are what the
-        // sweep acts on. Hiding the browser itself nukes the session UX.
-        var hiddenBundleIds: [String] = []
-        var skippedAsBrowser: [String] = []
+        // Native apps — same pattern: classify, append to candidate list,
+        // don't hide yet. Browsers are skipped entirely (containers).
         let ownBundleId = Bundle.main.bundleIdentifier ?? ""
+        var appByBundleId: [String: NSRunningApplication] = [:]
+        var skippedAsBrowser: [String] = []
         for app in NSWorkspace.shared.runningApplications {
             guard let bid = app.bundleIdentifier,
                   app.activationPolicy == .regular,
@@ -2062,27 +2060,138 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                                       blockedBundleIds: activeRuleBundleIds,
                                       scope: scope, alwaysAllowed: alwaysAllowed)
             if v == .hide {
+                appByBundleId[bid] = app
+                candidateItems.append(SweepReviewItem(
+                    id: "app:\(bid)",
+                    title: app.localizedName ?? bid,
+                    subtitle: bid,
+                    kind: .nativeApp(bundleId: bid),
+                    bucket: .probablyClose,
+                    aiConfidence: 100
+                ))
+            }
+        }
+        if !skippedAsBrowser.isEmpty {
+            postLog("🧹   Browsers spared from hide candidates: \(skippedAsBrowser.joined(separator: ", "))")
+        }
+
+        if candidateItems.isEmpty {
+            postLog("🧹 Sweep: no candidates after classification — nothing to review")
+            return
+        }
+
+        // ─── PHASE 2: REVIEW MODAL (unless user opted out) ────────────
+        // Per CLAUDE.md "Hard-Won Lessons" #1, user confirms every
+        // destructive action by default. The opt-out toggle is for
+        // power users who have calibrated trust.
+        let autoCloseWithoutReview = UserDefaults.standard.bool(forKey: "sweepAutoCloseWithoutReview")
+        let result: SweepReviewResult
+        if autoCloseWithoutReview {
+            postLog("🧹 Skipping review modal — user opted in to auto-close")
+            // Close every probably-close + borderline + app (mirrors the
+            // modal's default checkbox state if user clicks straight through).
+            let toClose = candidateItems.filter { item in
+                if case .nativeApp = item.kind { return true }
+                return item.bucket == .probablyClose || item.bucket == .borderline
+            }
+            result = SweepReviewResult(
+                confirmedCloseTabs: toClose.filter {
+                    if case .browserTab = $0.kind { return true } else { return false }
+                },
+                confirmedHideApps: toClose.filter {
+                    if case .nativeApp = $0.kind { return true } else { return false }
+                },
+                cancelled: false,
+                autoCloseNextTime: true
+            )
+        } else {
+            postLog("🧹 Awaiting review modal — \(candidateItems.count) candidate(s)")
+            result = await sweepReviewController?.present(
+                items: candidateItems,
+                intent: scope.voiceIntent
+            ) ?? SweepReviewResult(
+                confirmedCloseTabs: [], confirmedHideApps: [],
+                cancelled: true, autoCloseNextTime: false
+            )
+        }
+
+        // Persist the "skip next time" preference if user toggled it.
+        if result.autoCloseNextTime != autoCloseWithoutReview {
+            UserDefaults.standard.set(result.autoCloseNextTime, forKey: "sweepAutoCloseWithoutReview")
+            postLog("🧹 sweepAutoCloseWithoutReview = \(result.autoCloseNextTime)")
+        }
+
+        if result.cancelled {
+            postLog("🧹 Sweep cancelled by user — nothing closed")
+            return
+        }
+
+        // ─── PHASE 3: ACT on user's confirmed selections ──────────────
+        // Group tabs by browser so we batch one close-script per browser.
+        var stashedTabs: [StashedTab] = []
+        var bookmarksFolderName: String? = nil
+        let stampedName = "Intentional / Stash \(SessionStashStore.timestampString())"
+        var tabsByBrowser: [String: (appName: String, infos: [WebsiteBlocker.AllTabsInfo])] = [:]
+        for item in result.confirmedCloseTabs {
+            guard let action = tabActionByURL[item.id] else { continue }
+            tabsByBrowser[action.browserBid, default: (action.appName, [])].infos.append(action.info)
+        }
+
+        for (browserBid, group) in tabsByBrowser {
+            let appName = group.appName
+            let infos = group.infos
+            // Create the bookmarks folder once (first browser that needs it).
+            if bookmarksFolderName == nil {
+                bookmarksFolderName = await blocker.createBookmarkFolder(forBundleId: browserBid,
+                                                                         appName: appName,
+                                                                         name: stampedName)
+            }
+            if let folder = bookmarksFolderName {
+                for info in infos {
+                    await blocker.addBookmark(forBundleId: browserBid, appName: appName, folderName: folder,
+                                              title: info.title, url: info.url)
+                    stashedTabs.append(StashedTab(title: info.title,
+                                                  url: info.url,
+                                                  browserBundleId: browserBid,
+                                                  originalWindow: info.windowIndex,
+                                                  originalIndex: info.tabIndex))
+                }
+            } else {
+                // Bookmarks unsupported (Safari) — still record for restore.
+                for info in infos {
+                    stashedTabs.append(StashedTab(title: info.title,
+                                                  url: info.url,
+                                                  browserBundleId: browserBid,
+                                                  originalWindow: info.windowIndex,
+                                                  originalIndex: info.tabIndex))
+                }
+            }
+            let urls = Set(infos.map { $0.url })
+            postLog("🧹   [\(browserBid)] closing \(urls.count) URL(s) per user confirmation")
+            let actuallyClosed = await blocker.closeTabsByURL(urls, forBundleId: browserBid, appName: appName)
+            postLog("🧹   [\(browserBid)] AppleScript closed \(actuallyClosed) tab(s)")
+        }
+
+        // Hide confirmed apps.
+        var hiddenBundleIds: [String] = []
+        for item in result.confirmedHideApps {
+            if case .nativeApp(let bid) = item.kind, let app = appByBundleId[bid] {
                 app.hide()
                 hiddenBundleIds.append(bid)
             }
         }
-        if !skippedAsBrowser.isEmpty {
-            let joined = skippedAsBrowser.joined(separator: ", ")
-            postLog("🧹   Browsers spared from hide: \(joined)")
-        }
         if !hiddenBundleIds.isEmpty {
-            let joined = hiddenBundleIds.joined(separator: ", ")
-            postLog("🧹   Hidden: \(joined)")
+            postLog("🧹   Hidden: \(hiddenBundleIds.joined(separator: ", "))")
         }
 
-        // 5. Persist + toast.
+        // Persist + toast.
         let stash = SessionStash(sessionId: sessionId,
                                  createdAt: Date(),
                                  bookmarksFolderId: bookmarksFolderName,
                                  hiddenBundleIds: hiddenBundleIds,
                                  stashedTabs: stashedTabs)
         stashStore.save(stash)
-        postLog("🧹 Sweep complete: stashed \(stashedTabs.count) tab(s), hid \(hiddenBundleIds.count) app(s)")
+        postLog("🧹 Sweep complete: closed \(stashedTabs.count) tab(s), hid \(hiddenBundleIds.count) app(s) — by user confirmation")
         mainWindowController?.pushSweepToast(stashedTabs: stashedTabs.count,
                                              hiddenApps: hiddenBundleIds.count,
                                              sessionId: sessionId)
