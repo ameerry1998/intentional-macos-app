@@ -1,0 +1,75 @@
+site_name: Intentional
+site_description: Engineering documentation for the Intentional macOS focus enforcement platform
+docs_dir: docs/features
+
+theme:
+  name: material
+  palette:
+    # Dark mode first (default)
+    - scheme: slate
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    # Light mode toggle
+    - scheme: default
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.annotate
+    - content.code.copy
+
+plugins:
+  - search
+  - mermaid2
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - toc:
+      permalink: true
+  - attr_list
+  - def_list
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:mermaid2.fence_mermaid_custom
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+
+nav:
+  - Home: index.md
+  - Mac:
+    - Focus Sessions: focus-sessions.md
+    - Schedule Manager: coming-soon.md
+    - Focus Monitor: coming-soon.md
+    - Earned Browse: coming-soon.md
+    - Blocking Profiles: coming-soon.md
+    - Block Rituals: coming-soon.md
+    - Context Switching Overlay: coming-soon.md
+    - Content Safety: coming-soon.md
+    - Strict Mode Watchdog: coming-soon.md
+    - Intentions: coming-soon.md
+    - Close the Noise: coming-soon.md
+    - Bedtime Enforcer: coming-soon.md
+    - AI Relevance Scoring: coming-soon.md
+    - Partner Sync: coming-soon.md
+    - Switch Intervention: coming-soon.md
+  - Backend:
+    - Focus Toggle API: coming-soon.md
+    - Intentions API: coming-soon.md
+    - Partner Endpoints: coming-soon.md
