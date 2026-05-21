@@ -5025,13 +5025,11 @@ body.theme-effects-warm::after {
     <span class="sidebar-title" style="background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Intentional</span>
   </div>
   <!-- Slice 10 of 2026-05-05 redesign: 5 sidebar items.
-       Today/Week toggle lives at the top of page-today (shared sidebar entry).
        Sensitive Content and Accountability remain top-level since they're
        active features (not configuration).
        Killed: Weekly Planning (placeholder, no real UI), Distractions
-       (list-management folded into Settings; budget meter lives on Today).
-       Old DOM pages (page-distractions, page-weekly) retained until slice 13
-       cleanup once their UI moves to its new home. -->
+       (list-management folded into Settings; budget meter lives on Today),
+       Schedule (calendar lives inline at top of Today). -->
   <div class="sidebar-item active" data-page="today" onclick="navigateTo('today')">
     <span class="sidebar-item-icon">◉</span> Today
   </div>
@@ -5149,13 +5147,6 @@ body.theme-effects-warm::after {
           <button id="calendar-nav-prev" onclick="navigateScheduleDate(-1)">&larr;</button>
           <span class="calendar-date-label" id="calendar-date-label">Today</span>
           <button id="calendar-nav-next" onclick="navigateScheduleDate(1)" style="visibility:hidden;">&rarr;</button>
-        </div>
-        <!-- Slice 10 follow-up: Today/Week segmented toggle. Today shows the
-             day calendar inline; Week jumps to the full schedule page in
-             week view. -->
-        <div class="segmented-control" style="margin-left:12px;display:inline-flex;background:rgba(255,255,255,0.04);border-radius:6px;padding:2px;">
-          <button class="segmented-btn selected" data-view="day" onclick="setTodayScheduleView('day')" style="border-radius:4px;padding:4px 10px;font-size:12px;background:rgba(255,255,255,0.08);color:var(--text-primary);border:none;cursor:pointer;">Today</button>
-          <button class="segmented-btn" data-view="week" onclick="setTodayScheduleView('week')" style="border-radius:4px;padding:4px 10px;font-size:12px;background:transparent;color:var(--text-secondary);border:none;cursor:pointer;">Week</button>
         </div>
       </div>
       <div class="focus-calendar-header-right" id="calendar-add-buttons">
@@ -5332,25 +5323,6 @@ body.theme-effects-warm::after {
     <div class="projects-setup-page" id="projects-view-setup" style="display:none"></div>
   </div>
 
-  <!-- Page: Schedule (D8) — full calendar lives here now -->
-  <div class="page" id="page-schedule">
-    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;padding:20px 28px 12px;">
-      <div class="page-title">Schedule</div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <!-- Reserved horizontal row above Day/Week toggle (D9 prep — collapses to 0 when no budgets) -->
-        <div id="schedule-budget-row" style="height:0;overflow:hidden;display:flex;gap:8px;align-items:center;"></div>
-        <div class="segmented" id="schedule-view-toggle">
-          <button class="segmented-btn selected" data-view="day" onclick="setScheduleView('day')">Day</button>
-          <button class="segmented-btn" data-view="week" onclick="setScheduleView('week')">Week</button>
-        </div>
-      </div>
-    </div>
-    <div id="schedule-day-host" style="padding:0 28px 32px;"></div>
-    <div id="schedule-week-host" style="display:none;padding:0 28px 32px;color:rgba(255,255,255,0.4);font-size:13px;">
-      Week view — coming soon. Day view shows today's blocks.
-    </div>
-  </div>
-
   <!-- Page: Sensitive Content (D8 — promoted from Settings) -->
   <div class="page" id="page-sensitive">
     <div class="page-header" style="padding:20px 28px 12px;">
@@ -5360,48 +5332,6 @@ body.theme-effects-warm::after {
       </div>
     </div>
     <div style="padding:0 28px 32px;" id="sensitive-content-host"></div>
-  </div>
-
-  <!-- Page: Weekly Planning (D8 — placeholder for D9 budgets) -->
-  <div class="page" id="page-weekly">
-    <div class="page-header" style="padding:20px 28px 12px;">
-      <div class="page-title">Weekly Planning</div>
-    </div>
-    <div style="padding:0 28px 64px;text-align:center;">
-      <div style="margin:48px auto 24px;width:88px;height:88px;border-radius:50%;background:rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;font-size:32px;color:rgba(255,255,255,0.3);">◐</div>
-      <div style="color:rgba(255,255,255,0.85);font-size:18px;margin-bottom:8px;">Plan your week</div>
-      <div style="color:rgba(255,255,255,0.5);font-size:14px;line-height:1.5;max-width:420px;margin:0 auto 24px;">
-        Coming soon. Set weekly targets on individual Intentions to enable. We'll auto-schedule them around your existing blocks.
-      </div>
-      <button class="btn-small" onclick="navigateTo('intentions')">Go to Focus Modes →</button>
-    </div>
-  </div>
-
-  <!-- Page: Distractions -->
-  <div class="page" id="page-distractions">
-    <div class="dist-container">
-      <!-- List View -->
-      <div class="dist-view" id="dist-list">
-        <div id="dist-lock-banner"></div>
-        <div class="section-title">Distractions</div>
-        <div class="setting-desc" style="padding: 0 20px 12px;">Manage what gets blocked during focus sessions</div>
-        <div class="settings-card">
-          <div class="settings-card-title">Blocking Profiles</div>
-          <div id="profile-list-rows"></div>
-          <div style="padding: 10px 20px 14px;">
-            <button type="button" class="create-profile-btn" onclick="createProfile()">+ Create New Profile</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Detail View -->
-      <div class="dist-view out-right" id="dist-detail">
-        <div class="detail-nav">
-          <button class="detail-back" onclick="hideProfile()">&#8249; Distractions</button>
-        </div>
-        <div class="detail-body" id="detail-body"></div>
-      </div>
-    </div>
   </div>
 
   <!-- Page: Accountability / Partner — three states: paired / pending / empty -->
@@ -6944,29 +6874,10 @@ function navigateTo(pageId) {
     sendMessage({ type: 'GET_SETTINGS' });
   }
 
-  // Load blocking profiles and installed apps when viewing distractions page
-  if (pageId === 'distractions') {
-    loadBlockingProfiles();
-    // Pre-fetch installed apps so names/icons render correctly
-    if (!installedAppsCache) {
-      sendMessage({ type: 'GET_INSTALLED_APPS' });
-    }
-  }
-
   if (pageId === 'projects' || pageId === 'intentions') {
     ProjectsController.onEnter();
   }
 
-  // Spec 3 (May 2026): Schedule sidebar page hosts the calendar
-  if (pageId === 'schedule') {
-    var scheduleHost = document.getElementById('schedule-day-host');
-    var calMove = document.getElementById('calendar-container');
-    if (scheduleHost && calMove && !scheduleHost.contains(calMove)) {
-      scheduleHost.appendChild(calMove);
-    }
-    if (typeof renderCalendar === 'function') renderCalendar();
-    sendMessage({ type: 'GET_SCHEDULE_STATE' });
-  }
   if (pageId === 'today') {
     var todayHost = document.getElementById('today-calendar-host');
     var calT = document.getElementById('calendar-container');
@@ -8662,7 +8573,7 @@ function enforceLockMode() {
   }
 
   // Add/remove locked banners on settings pages
-  ['page-distractions', 'page-settings'].forEach(function(pageId) {
+  ['page-settings'].forEach(function(pageId) {
     var page = document.getElementById(pageId);
     if (!page) return;
     var existingBanner = page.querySelector('.locked-banner');
@@ -10231,7 +10142,7 @@ if (typeof _origRenderCalendar === 'function') {
     var _origNavigateTo = window.navigateTo;
     window.navigateTo = function(pageId) {
       var r = _origNavigateTo.apply(this, arguments);
-      if (pageId === 'today' || pageId === 'schedule') {
+      if (pageId === 'today') {
         setTimeout(_wireGoalDropTargets, 50);
       }
       return r;
@@ -11126,54 +11037,6 @@ function navigateToScheduleSettings() {
     var card = document.getElementById('focus-plan-card');
     if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, 150);
-}
-
-// Slice 10 follow-up of 2026-05-05 redesign: Today/Week segmented control
-// at top of page-today. "Today" stays inline; "Week" jumps to the dedicated
-// schedule page (page-schedule still in DOM, no longer in sidebar) and
-// flips its day/week sub-toggle to week.
-function setTodayScheduleView(view) {
-  // Update visual state of buttons on the Today page
-  var todayBtns = document.querySelectorAll('#page-today .segmented-btn');
-  todayBtns.forEach(function(b) {
-    var selected = b.dataset.view === view;
-    b.classList.toggle('selected', selected);
-    b.style.background = selected ? 'rgba(255,255,255,0.08)' : 'transparent';
-    b.style.color = selected ? 'var(--text-primary)' : 'var(--text-secondary)';
-  });
-  if (view === 'week') {
-    navigateTo('schedule');
-    setTimeout(function() { setScheduleView('week'); }, 50);
-  }
-  // 'day' view is already what page-today renders — no-op.
-}
-
-// Spec 3 (May 2026): Day/Week toggle stub on Schedule sidebar page. Week view
-// is "coming soon" per the spec.
-//
-// Slice 10 follow-up of 2026-05-05 redesign: clicking "Day" on the schedule
-// page now navigates back to page-today (Schedule sidebar item was removed;
-// the Today page hosts the day calendar inline).
-function setScheduleView(view) {
-  if (view === 'day') {
-    // Pop back to the Today page; sync the Today/Week toggle to "Today".
-    navigateTo('today');
-    var todayBtns = document.querySelectorAll('#page-today .segmented-btn');
-    todayBtns.forEach(function(b) {
-      var sel = b.dataset.view === 'day';
-      b.classList.toggle('selected', sel);
-      b.style.background = sel ? 'rgba(255,255,255,0.08)' : 'transparent';
-      b.style.color = sel ? 'var(--text-primary)' : 'var(--text-secondary)';
-    });
-    return;
-  }
-  // 'week' view: stay on page-schedule, toggle internal hosts.
-  var btns = document.querySelectorAll('#schedule-view-toggle .segmented-btn');
-  btns.forEach(function(b) { b.classList.toggle('selected', b.dataset.view === view); });
-  var dayHost = document.getElementById('schedule-day-host');
-  var weekHost = document.getElementById('schedule-week-host');
-  if (dayHost) dayHost.style.display = view === 'day' ? '' : 'none';
-  if (weekHost) weekHost.style.display = view === 'week' ? '' : 'none';
 }
 
 window._profileResult = function(data) {
