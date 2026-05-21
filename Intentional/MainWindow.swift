@@ -2569,6 +2569,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let intention = body["intention"] as? String ?? ""
         let allowSearchEngines = body["allowSearchEngines"] as? Bool ?? true
         let allowed = Self.decodeHostItems(body["allowed"] as? [[String: Any]] ?? [])
+        let blocked = Self.decodeHostItems(body["blocked"] as? [[String: Any]] ?? [])
         let blocklistIds = (body["blocklistIds"] as? [String] ?? []).compactMap(UUID.init(uuidString:))
 
         Task {
@@ -2577,6 +2578,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 name: name,
                 intention: intention,
                 allowed: allowed,
+                blocked: blocked,
                 blocklistIds: blocklistIds,
                 allowSearchEngines: allowSearchEngines
             )
@@ -2599,6 +2601,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         if let allowedRaw = patchDict["allowed"] as? [[String: Any]] {
             patch.allowed = Self.decodeHostItems(allowedRaw)
         }
+        if let blockedRaw = patchDict["blocked"] as? [[String: Any]] {
+            patch.blocked = Self.decodeHostItems(blockedRaw)
+        }
         if let idsRaw = patchDict["blocklistIds"] as? [String] {
             patch.blocklistIds = idsRaw.compactMap(UUID.init(uuidString:))
         }
@@ -2613,6 +2618,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             }
             await MainActor.run {
                 self.emitProjectDetail(project)
+                if self.appDelegate?.activeProjectId == id {
+                    self.appDelegate?.refreshActiveProjectEnforcement()
+                }
             }
         }
     }
