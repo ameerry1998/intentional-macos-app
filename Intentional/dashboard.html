@@ -5373,13 +5373,18 @@ body.theme-effects-warm::after {
         <div id="strict-mode-error" style="display:none; padding:0 16px 12px; font-size:12px; color:#fa6464;"></div>
       </div>
 
-      <!-- Per-item lock checklist — each one user-configurable -->
+      <!-- What gets locked — collapsed to a static default set (Calm-Down D3).
+           The per-item checklist survives under Advanced; the "AI relevance
+           scoring" lock row is gone (scoring is always-on, nothing to lock). -->
       <div class="settings-card" style="margin-top:14px;">
-        <div class="settings-card-title">What to lock</div>
-        <div class="setting-desc" style="padding:2px 16px 12px; font-size:12px;">
-          When Strict Mode is on, the items you check below become partner-gated. Uncheck to keep them user-editable.
+        <div class="settings-card-title">What gets locked</div>
+        <div class="setting-desc" style="padding:2px 16px 8px; font-size:12px;">
+          When Strict Mode is on, these become partner-gated: <span style="color:var(--text-primary);">sensitive content protection, site &amp; app blocks, today's scheduled sessions, and Strict Mode itself</span>.
         </div>
-        <div id="strict-checklist" style="padding:4px 16px 14px; display:flex; flex-direction:column; gap:4px;"></div>
+        <button class="strictness-advanced-toggle" id="strict-locks-advanced-toggle" style="margin:0 12px 4px;" onclick="toggleStrictLocksAdvanced()">Advanced…</button>
+        <div id="strict-locks-advanced" style="display:none;">
+          <div id="strict-checklist" style="padding:4px 16px 14px; display:flex; flex-direction:column; gap:4px;"></div>
+        </div>
       </div>
 
       <!-- Plan-first prompt — fires the floating noPlan pill whenever you're not in a scheduled block -->
@@ -5400,13 +5405,16 @@ body.theme-effects-warm::after {
         </div>
       </div>
 
-      <!-- Enforcement mechanisms — the 7 things that fire when you're off-task -->
+      <!-- Strictness dial lives in Settings → Strictness (Calm-Down D2).
+           The old inline 7-toggle list was replaced by this link row. -->
       <div class="settings-card" style="margin-top:14px;">
-        <div class="settings-card-title">What happens when you're off-task</div>
-        <div class="setting-desc" style="padding:2px 16px 12px; font-size:12px;">
-          These are the actual interventions that fire during a focus session. Disable any you don't want — but remember, less friction means easier to bypass.
+        <div class="setting-row" style="cursor:pointer;" onclick="navigateToStrictnessSettings()">
+          <div style="flex:1;">
+            <div class="setting-label">Focus strictness</div>
+            <div class="setting-desc">How firmly the app steps in when you're off-task. Currently: <span id="strictness-acct-level" style="color:var(--text-primary);">Gentle</span></div>
+          </div>
+          <span class="settings-menu-chevron">›</span>
         </div>
-        <div id="strict-enforcement-list" style="padding:4px 16px 14px; display:flex; flex-direction:column; gap:4px;"></div>
       </div>
 
       <!-- Disable card (only when ON) -->
@@ -5444,10 +5452,14 @@ body.theme-effects-warm::after {
           <div class="settings-menu-info"><div class="settings-menu-title">AI Scoring</div><div class="settings-menu-sub">Relevance scoring</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
-        <!-- Focus intensity entry removed 2026-05-15 — the 7 enforcement
-             toggles are now inline on the Strict Mode page (Accountability tab)
-             so users find them next to "What to lock". The detail page
-             is still accessible via deep-link if needed. -->
+        <!-- Strictness dial (Calm-Down Pass D2, 2026-06-10) — one global
+             Gentle/Standard/Strict control replacing the 14 per-block-type
+             checkboxes; the old checkboxes survive under Advanced. -->
+        <div class="settings-menu-row" onclick="showSettingsDetail('enforcement')">
+          <div class="settings-menu-icon" style="background:rgba(167,139,250,0.12);color:#a78bfa;">◐</div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Strictness</div><div class="settings-menu-sub" id="settings-strictness-sub">Gentle</div></div>
+          <span class="settings-menu-chevron">›</span>
+        </div>
 
         <div class="settings-menu-row" onclick="showSettingsDetail('safety')">
           <div class="settings-menu-icon" style="background:rgba(92,192,154,0.1);color:#5cc09a;">◉</div>
@@ -5554,28 +5566,11 @@ body.theme-effects-warm::after {
       <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
       <div class="settings-detail-title">AI Scoring</div>
       <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">AI scores whether what you're looking at is relevant to your task</div>
+    <!-- Calm-Down Pass D3: AI scoring is always-on — the "Enable Daily Focus Plan"
+         and "Block irrelevant tabs" toggles were removed. Enforcement behavior is
+         owned by the Strictness dial (settings-detail-enforcement). -->
     <div class="settings-card" id="focus-plan-card">
-      <div class="settings-card-title">Focus Plan</div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Enable Daily Focus Plan</div>
-          <div class="setting-desc">Structure your day with time blocks and get nudges when you drift off-task</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="focus-enabled" onchange="onFocusEnabledChange()">
-          <span class="toggle-track"></span>
-        </label>
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Block irrelevant tabs</div>
-          <div class="setting-desc">Redirect off-task browser tabs during work blocks</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="focus-enforcement" checked onchange="onFocusEnforcementChange()">
-          <span class="toggle-track"></span>
-        </label>
-      </div>
+      <div class="settings-card-title">Relevance Scoring</div>
       <div class="setting-row">
         <div>
           <div class="setting-label">AI Model</div>
@@ -5597,13 +5592,86 @@ body.theme-effects-warm::after {
 
     </div><!-- end detail-ai -->
 
-    <!-- Detail: Enforcement -->
+    <!-- Detail: Enforcement → Strictness dial (Calm-Down Pass D2) -->
     <div class="settings-detail" id="settings-detail-enforcement">
       <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
-      <div class="settings-detail-title">Focus intensity</div>
-      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:16px;">How aggressively the app intervenes when you're off-task. Standard = lighter touch (nudges, red shift). Strict = full enforcement (overlays, intervention exercises).</div>
+      <div class="settings-detail-title">Strictness</div>
+      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:16px;">One dial for how firmly the app steps in when you drift off-task. Applies to every focus session.</div>
+
+      <style>
+        .strictness-seg {
+          display: flex;
+          gap: 6px;
+          padding: 4px;
+          border-radius: 12px;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid var(--border-subtle);
+        }
+        .strictness-seg button {
+          flex: 1;
+          padding: 9px 0;
+          border-radius: 9px;
+          font-size: 13px;
+          font-weight: 600;
+          font-family: inherit;
+          color: var(--text-secondary);
+          background: transparent;
+          border: 1px solid transparent;
+          cursor: pointer;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+        .strictness-seg button:hover { color: var(--text-primary); }
+        .strictness-seg button.active {
+          background: rgba(232,116,97,0.18);
+          color: var(--accent-primary);
+          border-color: var(--accent-primary);
+        }
+        .strictness-custom-badge {
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.8px;
+          text-transform: uppercase;
+          color: #a78bfa;
+          background: rgba(167,139,250,0.14);
+          border: 1px solid rgba(167,139,250,0.4);
+          border-radius: 999px;
+          padding: 3px 10px;
+        }
+        .strictness-advanced-toggle {
+          background: none;
+          border: none;
+          font-family: inherit;
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--text-secondary);
+          cursor: pointer;
+          padding: 8px 4px;
+          margin-top: 4px;
+        }
+        .strictness-advanced-toggle:hover { color: var(--text-primary); }
+      </style>
+
+      <div class="settings-card">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding-right:14px;">
+          <div class="settings-card-title">Strictness level</div>
+          <span class="strictness-custom-badge" id="strictness-custom-badge" style="display:none;">Custom</span>
+        </div>
+        <div style="padding:8px 14px 4px;">
+          <div class="strictness-seg" id="strictness-seg">
+            <button data-level="gentle" onclick="onStrictnessSegClick('gentle')">Gentle</button>
+            <button data-level="standard" onclick="onStrictnessSegClick('standard')">Standard</button>
+            <button data-level="strict" onclick="onStrictnessSegClick('strict')">Strict</button>
+          </div>
+        </div>
+        <div id="strictness-desc" style="padding:10px 14px 14px; font-size:12px; color:rgba(255,255,255,0.55);"></div>
+      </div>
+
+      <!-- Advanced: the original per-block-type checkboxes, kept fully working.
+           Editing any of them flips the dial to "Custom" (Swift derives the level). -->
+      <button class="strictness-advanced-toggle" id="strictness-advanced-toggle" onclick="toggleStrictnessAdvanced()">Advanced…</button>
+      <div id="strictness-advanced" style="display:none;">
     <div class="settings-card" id="enforcement-settings-card">
-      <div class="settings-card-title">Enforcement Settings</div>
+      <div class="settings-card-title">Per-mechanism overrides</div>
       <style>
         .enf-grid {
           display: grid;
@@ -5687,6 +5755,7 @@ body.theme-effects-warm::after {
         </div>
       </div>
     </div>
+      </div><!-- end strictness-advanced -->
 
     </div><!-- end detail-enforcement -->
 
@@ -6004,13 +6073,8 @@ body.theme-effects-warm::after {
       <div id="ns-block-checkboxes"><div style="color:rgba(255,255,255,0.4);font-size:12px;">No blocks configured yet.</div></div>
     </details>
 
-    <details class="ns-modal-section">
-      <summary>AI scoring</summary>
-      <label class="ns-modal-toggle-row">
-        <input type="checkbox" id="ns-ai-scoring" checked>
-        AI relevance scoring for this session
-      </label>
-    </details>
+    <!-- Calm-Down D3: per-session "AI scoring" toggle removed — scoring is the
+         engine, not a setting. ai_scoring_enabled is always sent true. -->
 
     <div class="ns-modal-footer">
       <button class="btn-secondary" onclick="closeNewSessionModal()">Cancel</button>
@@ -6267,6 +6331,14 @@ function showSettingsDetail(id) {
     sendMessage({ type: 'GET_ALWAYS_BLOCKED' });
   } else if (id === 'budget') {
     sendMessage({ type: 'GET_BUDGET_STATE' });
+  } else if (id === 'enforcement') {
+    // Strictness dial (Calm-Down D2): render from cache immediately, then
+    // refresh from Swift so the dial + Advanced grid reflect stored state.
+    if (typeof renderStrictnessDial === 'function') renderStrictnessDial();
+    if (window._enforcementSettings && typeof populateEnforcementSettingsUI === 'function') {
+      populateEnforcementSettingsUI(window._enforcementSettings);
+    }
+    sendMessage({ type: 'GET_SETTINGS' });
   }
 }
 // ===== Strict Mode page =====
@@ -6284,46 +6356,25 @@ window._strictModeState = window._strictModeState || {
 // Items shown in the "What to lock" checklist. Each one corresponds to a real
 // check in the codebase. Labels written for clarity — "Weekly goal tampering"
 // was jargon; users don't think in those terms.
+// Calm-Down D3: "AI relevance scoring" lock row deleted — scoring is always-on
+// now, there's nothing to lock. (The ai_scoring key is still sent as `true` in
+// the SAVE_STRICT_MODE_LOCKS wire map for backwards compatibility.)
 window._strictModeChecklist = [
   { key: 'sensitive_content', label: 'Sensitive content protection', desc: 'Stays on. Sensitivity can\'t be set lower than 95%.' },
   { key: 'block_rules',       label: 'Site & app blocks',            desc: 'Can\'t delete or disable a block (snooze for today still works).' },
-  { key: 'weekly_goals',      label: 'Editing weekly goals',         desc: 'Can\'t rename, change target hours, or disable AI scoring within the week.' },
-  { key: 'ai_scoring',        label: 'AI relevance scoring',         desc: 'Per-goal AI scoring stays on. You can\'t turn it off to game the system.' },
+  { key: 'weekly_goals',      label: 'Editing weekly goals',         desc: 'Can\'t rename or change target hours within the week.' },
   { key: 'today_schedule',    label: 'Today\'s scheduled sessions',  desc: 'Can\'t delete sessions scheduled for today (future days remain editable).' },
   { key: 'strict_mode_self',  label: 'Strict Mode itself',           desc: 'Only the partner-unlock code can disable this.' },
 ];
 
-// Enforcement mechanisms — the 7 actual things that happen when you go off-task.
-// These were buried in Settings → Focus intensity behind two confusing
-// "Standard / Strict" columns. Inlined here as a single column.
-// IMPORTANT: keys here MUST match Swift's BlockEnforcementSettings CodingKeys exactly,
-// otherwise SET_ENFORCEMENT_SETTINGS fails to decode and you get a "Parse error" toast.
-window._enforcementMechanisms = [
-  { key: 'nudgeNotifications',        label: 'Nudge notifications',     desc: 'A small toast when you open a distracting site/app.' },
-  { key: 'screenRedShift',            label: 'Screen tint',             desc: 'Tints the screen red when you\'re off-task. Visible signal.' },
-  { key: 'autoRedirect',              label: 'Auto-redirect',           desc: 'Closes the distracting tab and brings you back to your goal.' },
-  { key: 'blockingOverlay',           label: 'Blocking overlay',        desc: 'Full-screen overlay over the distracting app.' },
-  { key: 'interventionExercises',     label: 'Intervention exercises',  desc: '60–120s breathing exercise before you can continue.' },
-  { key: 'backgroundAudioDetection',  label: 'Block background audio',  desc: 'Kills YouTube/streaming audio playing in another tab.' },
-  { key: 'contextSwitchOverlay',      label: 'Context-switch countdown',desc: 'Brief countdown when you switch apps mid-session.' },
-];
-
-// Defaults used both for rendering before GET_SETTINGS lands AND for filling in
-// any missing keys before sending to Swift (decoder rejects partial dicts).
-window._enforcementMechanismDefaults = {
-  nudgeNotifications: true, screenRedShift: true, autoRedirect: true,
-  blockingOverlay: true, interventionExercises: true,
-  backgroundAudioDetection: true, contextSwitchOverlay: true,
-};
+// The inline 7-mechanism toggle list that used to live here moved behind the
+// global strictness dial (Settings → Strictness → Advanced) — Calm-Down D2.
 
 function renderStrictModePage() {
   // Fetch fresh state.
   sendMessage({ type: 'GET_SETTINGS' });
   sendMessage({ type: 'GET_PARTNER_STATUS' });
   _updateStrictModeUI();
-  // Render the mechanism toggles with defaults immediately so the section
-  // isn't empty while waiting for the settings push.
-  renderEnforcementMechanisms();
 }
 
 function _updateStrictModeUI() {
@@ -6379,65 +6430,45 @@ function _updateStrictModeUI() {
 }
 
 function _defaultStrictLocks() {
-  // Default: every protection locked when strict mode is on.
-  var d = {};
-  (window._strictModeChecklist || []).forEach(function(it) { d[it.key] = true; });
-  return d;
+  // Default lock set (Calm-Down D3): sensitive content, site & app blocks,
+  // today's sessions, and Strict Mode itself. weekly_goals is opt-in via the
+  // Advanced expander. ai_scoring is no longer user-facing (always on) but
+  // stays `true` in the wire map so the stored format remains
+  // backwards-compatible with anything that still reads it.
+  return {
+    sensitive_content: true,
+    block_rules: true,
+    weekly_goals: false,
+    today_schedule: true,
+    strict_mode_self: true,
+    ai_scoring: true,
+  };
 }
 
-// Render the 7 enforcement mechanism toggles inline on the Strict Mode page.
-// Source of truth is window._enforcementSettings (loaded via GET_SETTINGS →
-// _enforcementSettingsResult). We write both deepWork + focusHours intensity
-// to the same value (simplified single-column model — the dual-column split
-// confused users and wasn't earning its complexity).
-function renderEnforcementMechanisms() {
-  var mount = document.getElementById('strict-enforcement-list');
-  if (!mount) return;
-  // Default to all-on if settings haven't loaded yet — better than rendering
-  // nothing. The settings push will re-render with actual values when it arrives.
-  var settings = (window._enforcementSettings && (window._enforcementSettings.focusHours
-    || window._enforcementSettings.deepWork)) || window._enforcementMechanismDefaults;
-  mount.innerHTML = (window._enforcementMechanisms || []).map(function(m) {
-    var on = settings[m.key] !== false;
-    return '<div class="strict-lock-row">' +
-      '<label class="strict-lock-toggle">' +
-        '<input type="checkbox"' + (on ? ' checked' : '') +
-          ' onchange="onEnforcementMechanismToggle(\'' + m.key + '\', this.checked)">' +
-        '<span class="cbx"></span>' +
-      '</label>' +
-      '<div style="flex:1;">' +
-        '<div style="font-size:13px; color:var(--text-primary);">' + m.label + '</div>' +
-        '<div style="font-size:11.5px; color:rgba(255,255,255,0.45); margin-top:2px;">' + m.desc + '</div>' +
-      '</div></div>';
-  }).join('');
+function toggleStrictLocksAdvanced() {
+  var adv = document.getElementById('strict-locks-advanced');
+  var btn = document.getElementById('strict-locks-advanced-toggle');
+  if (!adv) return;
+  var open = adv.style.display !== 'none';
+  adv.style.display = open ? 'none' : '';
+  if (btn) btn.textContent = open ? 'Advanced…' : 'Hide advanced';
 }
+window.toggleStrictLocksAdvanced = toggleStrictLocksAdvanced;
 
-function onEnforcementMechanismToggle(key, on) {
-  // Patch this key in BOTH deepWork + focusHours buckets so the change applies
-  // regardless of which block-type intensity is current. Swift's decoder requires
-  // ALL 7 keys present in each bucket — merge defaults under any existing values
-  // so a first-toggle before GET_SETTINGS still produces a complete dict.
-  if (!window._enforcementSettings) window._enforcementSettings = {};
-  var defaults = window._enforcementMechanismDefaults;
-  ['deepWork', 'focusHours'].forEach(function(bucket) {
-    var existing = window._enforcementSettings[bucket] || {};
-    var merged = Object.assign({}, defaults, existing);
-    merged[key] = !!on;
-    window._enforcementSettings[bucket] = merged;
-  });
-  sendMessage({
-    type: 'SET_ENFORCEMENT_SETTINGS',
-    settings: window._enforcementSettings,
-  });
-  if (typeof showToast === 'function') {
-    showToast((on ? 'Enabled' : 'Disabled') + ': ' + key.replace(/([A-Z])/g, ' $1').toLowerCase().replace(/^./, function(c) { return c.toUpperCase(); }));
-  }
+// The strictness dial lives in Settings → Strictness; the Accountability page
+// links there (Calm-Down D2/D4).
+function navigateToStrictnessSettings() {
+  navigateTo('settings');
+  setTimeout(function() { showSettingsDetail('enforcement'); }, 100);
 }
-window.onEnforcementMechanismToggle = onEnforcementMechanismToggle;
+window.navigateToStrictnessSettings = navigateToStrictnessSettings;
 
 function onStrictLockItemToggle(key, on) {
   if (!window._strictModeLocks) window._strictModeLocks = _defaultStrictLocks();
   window._strictModeLocks[key] = !!on;
+  // ai_scoring is always-on (Calm-Down D3) — keep it pinned true in the wire
+  // map for backwards compatibility regardless of what's stored.
+  window._strictModeLocks.ai_scoring = true;
   // Persist via bridge so Swift can consult these flags during enforcement.
   sendMessage({
     type: 'SAVE_STRICT_MODE_LOCKS',
@@ -6549,11 +6580,18 @@ window._strictModeResult = function(res) {
       } else if (!window._strictModeLocks) {
         window._strictModeLocks = _defaultStrictLocks();
       }
-      // strict_mode_self is always locked (can't be unchecked).
+      // strict_mode_self is always locked (can't be unchecked); ai_scoring is
+      // always-on (Calm-Down D3) — pinned true for wire-format compat.
       window._strictModeLocks.strict_mode_self = true;
-      // Capture enforcement settings for the inline mechanism toggles.
+      window._strictModeLocks.ai_scoring = true;
+      // Capture enforcement settings for the Advanced checkbox grid.
       if (data.enforcementSettings) {
         window._enforcementSettings = data.enforcementSettings;
+      }
+      // Global strictness dial level (Calm-Down D2).
+      if (typeof data.strictnessLevel === 'string') {
+        window._strictnessLevel = data.strictnessLevel;
+        if (typeof renderStrictnessDial === 'function') renderStrictnessDial();
       }
       // Plan-first prompt toggle state — pushed in from Swift via GET_SETTINGS.
       var planToggle = document.getElementById('plan-first-prompt-toggle');
@@ -6561,7 +6599,6 @@ window._strictModeResult = function(res) {
         planToggle.checked = data.planFirstPromptEnabled;
       }
       _updateStrictModeUI();
-      if (typeof renderEnforcementMechanisms === 'function') renderEnforcementMechanisms();
       if (typeof refreshSidebarStrictPill === 'function') refreshSidebarStrictPill();
     }
   };
@@ -8517,7 +8554,6 @@ var LOCKED_INPUT_IDS = [
   'enf-dw-nudge', 'enf-dw-redshift', 'enf-dw-redirect', 'enf-dw-overlay', 'enf-dw-intervention', 'enf-dw-audio', 'enf-dw-contextswitch',
   'enf-fh-nudge', 'enf-fh-redshift', 'enf-fh-redirect', 'enf-fh-overlay', 'enf-fh-intervention', 'enf-fh-audio', 'enf-fh-contextswitch',
   // Core features
-  'focus-enabled', 'focus-enforcement',
   'content-safety-enabled',
   'intentional-mode-enabled', 'intentional-mode-schedule', 'intentional-mode-grace'
 ];
@@ -8525,9 +8561,7 @@ var LOCKED_INPUT_IDS = [
 // Descriptions for lock confirmation modal (when enabling a locked-off feature)
 var LOCK_CONFIRM_INFO = {
   'content-safety-enabled': { name: 'Content Safety', desc: 'Screen monitoring for explicit content will be enabled.' },
-  'intentional-mode-enabled': { name: 'Intentional Mode', desc: 'Screen will be locked until you set an intention.' },
-  'focus-enabled': { name: 'Daily Focus Plan', desc: 'Focus scheduling and enforcement will be enabled.' },
-  'focus-enforcement': { name: 'Focus Enforcement', desc: 'Off-task browser tabs will be redirected during work blocks.' }
+  'intentional-mode-enabled': { name: 'Intentional Mode', desc: 'Screen will be locked until you set an intention.' }
 };
 
 function isSettingsLocked() {
@@ -10192,7 +10226,6 @@ function renderGoalEdit(id) {
   var blockCount = ((g.mac_websites || []).length) + ((g.mac_bundle_ids || []).length);
   var allowCount = ((g.allow_websites || []).length) + ((g.allow_bundle_ids || []).length);
   var monthlyLabel = monthly ? monthly.title : 'No link · standalone';
-  var aiOn = g.ai_scoring_enabled !== false;
   var status = g.status || 'planned';
   var strict = g.strictness_preset || 'standard';
   // FIX-10: When a session of THIS goal is currently active, strictness changes
@@ -10212,14 +10245,10 @@ function renderGoalEdit(id) {
       </div>
 
       <div class="ge-main-card" style="--ge-hue: ${hue};">
-        <div class="gm-header" style="justify-content: space-between;">
+        <div class="gm-header">
           <div style="display:flex; align-items:center; gap:6px;">
             <h3>What are you working on?</h3>
             <span class="gm-info" title="Drives local AI relevance scoring for this goal.">ⓘ</span>
-          </div>
-          <div style="display:flex; align-items:center; gap:6px;">
-            <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-tertiary); font-weight:700;">AI scoring</span>
-            <div class="toggle-switch ${aiOn ? 'on' : ''}" id="ge-ai-toggle" onclick="this.classList.toggle('on')"></div>
           </div>
         </div>
         <textarea class="gm-textarea" id="ge-intent-text" maxlength="140"
@@ -10227,7 +10256,7 @@ function renderGoalEdit(id) {
           oninput="document.getElementById('ge-intent-counter').textContent = this.value.length + ' / 140'"
           >${_escapeHTML(g.intent_text || '')}</textarea>
         <div style="display:flex; align-items:center; justify-content:space-between; margin-top:6px;">
-          <div style="font-size:11px; color:var(--text-tertiary);">Only used if AI scoring is on.</div>
+          <div style="font-size:11px; color:var(--text-tertiary);">Used by AI relevance scoring during sessions.</div>
           <div class="gm-counter" id="ge-intent-counter">${intentLen} / 140</div>
         </div>
       </div>
@@ -10311,7 +10340,9 @@ function saveWeeklyGoal(id) {
   var strictness = strictEl ? strictEl.dataset.value : 'standard';
   var weeklyTarget = parseFloat(document.getElementById('ge-weekly-target').value);
   if (isNaN(weeklyTarget)) weeklyTarget = null;
-  var aiOn = document.getElementById('ge-ai-toggle').classList.contains('on');
+  // Calm-Down D3: AI scoring is always-on; the per-goal toggle left the UI.
+  // Preserve whatever the model already holds (wire format unchanged).
+  var aiOn = g.ai_scoring_enabled !== false;
   if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
     window.webkit.messageHandlers.intentional.postMessage({
       type: 'UPDATE_INTENTION',
@@ -10365,21 +10396,17 @@ function renderGoalEditCreate() {
         <div class="ge-rename-hint">Click to rename</div>
       </div>
       <div class="ge-main-card" style="--ge-hue: var(--accent-primary);">
-        <div class="gm-header" style="justify-content: space-between;">
+        <div class="gm-header">
           <div style="display:flex; align-items:center; gap:6px;">
             <h3>What are you working on?</h3>
             <span class="gm-info" title="Drives AI relevance scoring.">ⓘ</span>
-          </div>
-          <div style="display:flex; align-items:center; gap:6px;">
-            <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-tertiary); font-weight:700;">AI scoring</span>
-            <div class="toggle-switch on" id="ge-ai-toggle" onclick="this.classList.toggle('on')"></div>
           </div>
         </div>
         <textarea class="gm-textarea" id="ge-intent-text" maxlength="140"
           placeholder="Describe what you'll be doing — apps, sites, what success looks like."
           oninput="document.getElementById('ge-intent-counter').textContent = this.value.length + ' / 140'"></textarea>
         <div style="display:flex; align-items:center; justify-content:space-between; margin-top:6px;">
-          <div style="font-size:11px; color:var(--text-tertiary);">Only used if AI scoring is on.</div>
+          <div style="font-size:11px; color:var(--text-tertiary);">Used by AI relevance scoring during sessions.</div>
           <div class="gm-counter" id="ge-intent-counter">0 / 140</div>
         </div>
       </div>
@@ -10445,7 +10472,8 @@ function saveNewWeeklyGoal() {
   var strictness = strictEl ? strictEl.dataset.value : 'standard';
   var weeklyTarget = parseFloat(document.getElementById('ge-weekly-target').value);
   if (isNaN(weeklyTarget)) weeklyTarget = null;
-  var aiOn = document.getElementById('ge-ai-toggle').classList.contains('on');
+  // Calm-Down D3: AI scoring is always-on for new goals; no UI toggle.
+  var aiOn = true;
   var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional;
   if (!bridge) { _editingNewGoal = false; closeGoalEdit(); return; }
 
@@ -10896,7 +10924,6 @@ function loadFocusState() {
 window._scheduleStateResult = function(data) {
   focusState.enabled = data.enabled || false;
   focusState.hasPlan = data.hasPlan || false;
-  focusState.enforcement = data.focusEnforcement || 'block';
   if (data.profile !== undefined) focusState.profile = data.profile;
   if (data.goals) focusState.goals = data.goals;
   if (data.dailyPlan !== undefined) focusState.dailyPlan = data.dailyPlan;
@@ -10931,10 +10958,6 @@ window._scheduleStateResult = function(data) {
   loadFocusScore();
   loadEarnedStatus();
 
-  // Sync enforcement toggle in Settings
-  var enfToggle = document.getElementById('focus-enforcement');
-  if (enfToggle) enfToggle.checked = focusState.enforcement === 'block';
-
   // Sync AI model dropdown in Settings
   var modelSelect = document.getElementById('ai-model-select');
   if (modelSelect && data.aiModel) modelSelect.value = data.aiModel;
@@ -10944,19 +10967,6 @@ window._scheduleStateResult = function(data) {
     populateEnforcementSettingsUI(data.enforcementSettings);
   }
 };
-
-window._focusEnabledResult = function(data) {
-  if (data.success) showToast(data.enabled ? 'Focus plan enabled' : 'Focus plan disabled');
-};
-
-window._focusEnforcementResult = function(data) {
-  if (data.success) showToast(data.mode === 'block' ? 'Tab blocking enabled' : 'Nudge-only mode');
-};
-
-function onFocusEnforcementChange() {
-  var checked = document.getElementById('focus-enforcement').checked;
-  sendMessage({ type: 'SET_FOCUS_ENFORCEMENT', mode: checked ? 'block' : 'nudge' });
-}
 
 function onAIModelChange() {
   var model = document.getElementById('ai-model-select').value;
@@ -11025,9 +11035,82 @@ function saveEnforcementSettings() {
 
 window._enforcementSettingsResult = function(data) {
   if (data.success) {
+    // Swift derives the dial level from the saved settings — an Advanced
+    // checkbox edit usually lands on "custom" (Calm-Down D2).
+    if (data.strictnessLevel) {
+      window._strictnessLevel = data.strictnessLevel;
+      renderStrictnessDial();
+    }
     showToast('Enforcement settings saved');
   } else {
     showToast(data.error || 'Failed to save enforcement settings');
+  }
+};
+
+// ===== Strictness dial (Calm-Down Pass D2) =====
+// One global Gentle/Standard/Strict control. Swift owns the mapping
+// (ScheduleManager.StrictnessLevel) and rewrites BOTH block-type profiles on
+// SET_STRICTNESS_LEVEL. "custom" is derived Swift-side when an Advanced
+// checkbox is edited — never sent from here.
+var _strictnessDescs = {
+  gentle:   'Nudges only — a gentle heads-up when you drift. Nothing blocks you.',
+  standard: 'Nudges, plus a red screen tint and auto-redirect back to your work.',
+  strict:   'Everything on — blocking overlays, intervention exercises, background-audio blocking, and the context-switch countdown.',
+  custom:   'Custom mix — individual interventions are set under Advanced below.'
+};
+var _strictnessLabels = { gentle: 'Gentle', standard: 'Standard', strict: 'Strict', custom: 'Custom' };
+
+function renderStrictnessDial() {
+  var level = window._strictnessLevel || 'gentle';
+  var seg = document.getElementById('strictness-seg');
+  if (seg) {
+    // When level is "custom", no segment matches → none renders active.
+    seg.querySelectorAll('button').forEach(function(b) {
+      b.classList.toggle('active', b.getAttribute('data-level') === level);
+    });
+  }
+  var badge = document.getElementById('strictness-custom-badge');
+  if (badge) badge.style.display = (level === 'custom') ? '' : 'none';
+  var desc = document.getElementById('strictness-desc');
+  if (desc) desc.textContent = _strictnessDescs[level] || '';
+  var sub = document.getElementById('settings-strictness-sub');
+  if (sub) sub.textContent = _strictnessLabels[level] || 'Gentle';
+  var acct = document.getElementById('strictness-acct-level');
+  if (acct) acct.textContent = _strictnessLabels[level] || 'Gentle';
+}
+window.renderStrictnessDial = renderStrictnessDial;
+
+function onStrictnessSegClick(level) {
+  window._strictnessLevel = level; // optimistic — result callback confirms/reverts
+  renderStrictnessDial();
+  sendMessage({ type: 'SET_STRICTNESS_LEVEL', level: level });
+}
+window.onStrictnessSegClick = onStrictnessSegClick;
+
+function toggleStrictnessAdvanced() {
+  var adv = document.getElementById('strictness-advanced');
+  var btn = document.getElementById('strictness-advanced-toggle');
+  if (!adv) return;
+  var open = adv.style.display !== 'none';
+  adv.style.display = open ? 'none' : '';
+  if (btn) btn.textContent = open ? 'Advanced…' : 'Hide advanced';
+}
+window.toggleStrictnessAdvanced = toggleStrictnessAdvanced;
+
+window._strictnessLevelResult = function(res) {
+  if (!res) return;
+  if (res.success) {
+    if (res.level) window._strictnessLevel = res.level;
+    if (res.enforcementSettings) {
+      window._enforcementSettings = res.enforcementSettings;
+      populateEnforcementSettingsUI(res.enforcementSettings);
+    }
+    renderStrictnessDial();
+    showToast('Strictness: ' + (_strictnessLabels[res.level] || res.level));
+  } else {
+    showToast(res.error || 'Could not set strictness');
+    // Revert the optimistic UI to actual stored state.
+    sendMessage({ type: 'GET_SETTINGS' });
   }
 };
 
@@ -11051,12 +11134,6 @@ window._scheduleResult = function(data) {
     showToast('Failed to save schedule', 'error');
   }
 };
-
-function onFocusEnabledChange() {
-  var enabled = document.getElementById('focus-enabled').checked;
-  focusState.enabled = enabled;
-  sendMessage({ type: 'SET_FOCUS_ENABLED', enabled: enabled });
-}
 
 function saveProfileInline() {
   var profileText = (document.getElementById('focus-profile').value || '').trim();
@@ -11232,10 +11309,6 @@ function saveCoachField(which) {
 }
 
 function renderFocusPage() {
-  // Toggle in settings
-  var toggle = document.getElementById('focus-enabled');
-  if (toggle) toggle.checked = focusState.enabled;
-
   // Profile inline card
   var profileEl = document.getElementById('focus-profile-inline');
   var hasProfile = focusState.profile && focusState.profile.trim().length > 0;
@@ -12155,8 +12228,8 @@ function onCalendarHourClick(event, hour) {
   if (event.target.closest('.calendar-block')) return;
   // FIX-13: empty-hour click now opens the New Session modal instead of
   // dropping a draft block straight onto the calendar. Modal lets the user
-  // pick weekly goal, write outcome, choose blocks, and toggle AI scoring
-  // before the session lands on the calendar.
+  // pick weekly goal, write outcome, and choose blocks before the session
+  // lands on the calendar. (AI scoring is always-on — Calm-Down D3.)
   openNewSessionModal(hour);
 }
 
@@ -15908,8 +15981,9 @@ window.PlanApp = PlanApp;
 
   // ===== FIX-13: New Session modal =====
   // Opens when user clicks empty calendar hour. Lets user pick a weekly
-  // goal (or go standalone), write an outcome, select auto-activate blocks,
-  // and toggle AI scoring before the session lands on the calendar.
+  // goal (or go standalone), write an outcome, and select auto-activate
+  // blocks before the session lands on the calendar. (AI scoring is
+  // always-on — Calm-Down D3, no toggle.)
   var _newSessionStartHour = 9;
 
   function openNewSessionModal(hour) {
@@ -15951,10 +16025,8 @@ window.PlanApp = PlanApp;
     // Reset form
     var titleEl = document.getElementById('ns-title');
     var outcomeEl = document.getElementById('ns-outcome');
-    var aiEl = document.getElementById('ns-ai-scoring');
     if (titleEl) titleEl.value = '';
     if (outcomeEl) outcomeEl.value = '';
-    if (aiEl) aiEl.checked = true;
     // Show + focus
     var overlay = document.getElementById('new-session-overlay');
     if (overlay) overlay.hidden = false;
@@ -16057,7 +16129,6 @@ window.PlanApp = PlanApp;
     var titleEl = document.getElementById('ns-title');
     var outcomeEl = document.getElementById('ns-outcome');
     var goalSel = document.getElementById('ns-goal-link');
-    var aiEl = document.getElementById('ns-ai-scoring');
     var title = (titleEl && titleEl.value || '').trim();
     if (!title) {
       if (typeof showToast === 'function') showToast('Give this session a title.');
@@ -16067,7 +16138,7 @@ window.PlanApp = PlanApp;
     }
     var outcome = (outcomeEl && outcomeEl.value || '').trim();
     var intentionId = (goalSel && goalSel.value) || null;
-    var aiOn = !!(aiEl && aiEl.checked);
+    var aiOn = true; // Calm-Down D3: AI scoring is always-on, toggle removed
     var enabledRules = Array.prototype.slice.call(
       document.querySelectorAll('#ns-block-checkboxes input[type=checkbox]:checked')
     ).map(function (el) { return el.getAttribute('data-rule-id'); }).filter(Boolean);

@@ -526,6 +526,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "SET_ENFORCEMENT_SETTINGS":
             handleSetEnforcementSettings(body)
 
+        case "SET_STRICTNESS_LEVEL":
+            handleSetStrictnessLevel(body)
+
         case "GET_SCHEDULE_FOR_DATE":
             handleGetScheduleForDate(body)
 
@@ -1138,6 +1141,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         result["theme"] = (savedSettings["theme"] as? String) ?? "iridescent"
         result["strictModeEnabled"] = UserDefaults.standard.bool(forKey: "strictModeEnabled")
         result["planFirstPromptEnabled"] = UserDefaults.standard.bool(forKey: "planFirstPromptEnabled")
+        // Calm-Down D2: global strictness dial. ScheduleManager reconciles this
+        // on launch; "gentle" is the fresh-install default.
+        result["strictnessLevel"] = UserDefaults.standard.string(forKey: "strictnessLevel") ?? "gentle"
         if let store = appDelegate?.alwaysAllowedStore {
             result["alwaysAllowed"] = [
                 "bundleIds": Array(store.list.bundleIds).sorted(),
@@ -3034,9 +3040,59 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             let data = try JSONSerialization.data(withJSONObject: enfDict)
             let settings = try JSONDecoder().decode(ScheduleManager.EnforcementSettings.self, from: data)
             appDelegate?.scheduleManager?.setEnforcementSettings(settings)
-            callJS("window._enforcementSettingsResult && window._enforcementSettingsResult({ success: true })")
+            // Calm-Down D2: an individual checkbox edit flips the global dial to
+            // "custom" — unless the result happens to exactly match a preset.
+            let level = ScheduleManager.StrictnessLevel.matching(settings)?.rawValue ?? "custom"
+            UserDefaults.standard.set(level, forKey: "strictnessLevel")
+            callJS("window._enforcementSettingsResult && window._enforcementSettingsResult({ success: true, strictnessLevel: '\(level)' })")
         } catch {
             callJS("window._enforcementSettingsResult && window._enforcementSettingsResult({ success: false, error: 'Parse error' })")
+        }
+    }
+
+    // Calm-Down Pass D2: one global strictness dial (gentle|standard|strict).
+    // Rewrites BOTH per-block-type enforcement profiles per the spec mapping
+    // and persists the level in UserDefaults. "custom" is never set via this
+    // message — it's derived when an Advanced checkbox is edited
+    // (SET_ENFORCEMENT_SETTINGS path above).
+    private func handleSetStrictnessLevel(_ body: [String: Any]) {
+        guard let raw = body["level"] as? String,
+              let level = ScheduleManager.StrictnessLevel(rawValue: raw),
+              let mapped = level.mappedSettings else {
+            callJS("window._strictnessLevelResult && window._strictnessLevelResult({ success: false, error: 'Invalid level' })")
+            return
+        }
+
+        // Same lock gate as SET_ENFORCEMENT_SETTINGS — the dial IS enforcement config.
+        let currentLockMode = UserDefaults.standard.string(forKey: "lockMode") ?? "none"
+        if currentLockMode != "none" {
+            var isUnlocked = false
+            if let data = try? Data(contentsOf: settingsFileURL),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let unlockUntil = json["temporaryUnlockUntil"] as? String {
+                let formatter = ISO8601DateFormatter()
+                if let date = formatter.date(from: unlockUntil), date > Date() {
+                    isUnlocked = true
+                }
+            }
+            if !isUnlocked {
+                callJS("window._strictnessLevelResult && window._strictnessLevelResult({ success: false, error: 'Settings are locked' })")
+                return
+            }
+        }
+
+        appDelegate?.scheduleManager?.setEnforcementSettings(mapped)
+        UserDefaults.standard.set(level.rawValue, forKey: "strictnessLevel")
+        appDelegate?.postLog("📋 SET_STRICTNESS_LEVEL: \(level.rawValue)")
+
+        let payload: [String: Any] = [
+            "success": true,
+            "level": level.rawValue,
+            "enforcementSettings": mapped.toDict()
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: payload),
+           let json = String(data: data, encoding: .utf8) {
+            callJS("window._strictnessLevelResult && window._strictnessLevelResult(\(json))")
         }
     }
 

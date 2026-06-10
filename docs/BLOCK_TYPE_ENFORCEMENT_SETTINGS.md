@@ -1,5 +1,50 @@
 # Block Type Enforcement Settings
 
+> **⚠️ SUPERSEDED as the primary control surface (2026-06-10, Calm-Down Pass D2).**
+> The 14 per-block-type checkboxes below still exist and still work, but they now live
+> behind an "Advanced…" disclosure in **Settings → Strictness**. The primary control is a
+> single global strictness dial. See the spec:
+> `docs/superpowers/specs/2026-06-10-calm-down-pass-design.md`.
+
+## Global Strictness Dial (current model, June 2026)
+
+One global setting `strictnessLevel` (`gentle | standard | strict | custom`), persisted in
+UserDefaults and owned by `ScheduleManager.StrictnessLevel` (mapping) +
+`MainWindow` (`SET_STRICTNESS_LEVEL` bridge message, `GET_SETTINGS` round-trip).
+
+**Mapping** — picking a level rewrites BOTH `EnforcementSettings` profiles (deepWork +
+focusHours) with identical values:
+
+| Level | nudge | redShift | autoRedirect | blockingOverlay | exercises | bgAudio | switchCountdown |
+|---|---|---|---|---|---|---|---|
+| Gentle (fresh-install default) | ✓ | – | – | – | – | – | – |
+| Standard | ✓ | ✓ | ✓ | – | – | – | – |
+| Strict | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+**Custom mode:** editing any individual checkbox in the Advanced grid
+(`SET_ENFORCEMENT_SETTINGS` path) flips the stored level to `custom` — unless the result
+exactly matches a preset, in which case that preset is adopted. When `custom`, the dial
+renders with no segment selected plus a "Custom" badge.
+
+**Launch reconcile** (`ScheduleManager.reconcileStrictnessLevel()`, called from `init`):
+- Stored level present and ≠ `custom` → defensively re-assert the mapping over the profiles.
+- No stored level (first launch with the dial):
+  - profiles exactly match a preset → adopt that preset;
+  - profiles are the untouched legacy defaults (never edited / fresh install) → flip to
+    `gentle` (D1: minimal default posture);
+  - anything else (user-edited checkboxes) → `custom`, no behavior change.
+
+**Wire format:** the underlying `enforcementSettings` JSON in `focus_settings.json` and the
+`SET_ENFORCEMENT_SETTINGS` message are unchanged. `SET_STRICTNESS_LEVEL { level }` returns
+`_strictnessLevelResult { success, level, enforcementSettings }`;
+`_enforcementSettingsResult` now carries the derived `strictnessLevel`.
+
+---
+
+Everything below is the original per-block-type checkbox spec, retained for reference.
+The runtime gating in `FocusMonitor` (via `ScheduleManager.isEnforcementEnabled`) is
+unchanged — the dial is just a different way of writing the same settings.
+
 ## Task
 
 Implement per-block-type enforcement settings. Users should be able to toggle individual enforcement mechanisms on/off for Deep Work and Focus Hours block types. This involves changes to:

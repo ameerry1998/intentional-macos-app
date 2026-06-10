@@ -171,7 +171,7 @@ class ScheduleManager {
 
     // MARK: - Enforcement Settings
 
-    struct BlockEnforcementSettings: Codable {
+    struct BlockEnforcementSettings: Codable, Equatable {
         var nudgeNotifications: Bool
         var screenRedShift: Bool
         var autoRedirect: Bool
@@ -217,7 +217,7 @@ class ScheduleManager {
         }
     }
 
-    struct EnforcementSettings: Codable {
+    struct EnforcementSettings: Codable, Equatable {
         var deepWork: BlockEnforcementSettings
         var focusHours: BlockEnforcementSettings
 
@@ -243,6 +243,89 @@ class ScheduleManager {
                 "focusHours": focusHours.toDict()
             ]
         }
+    }
+
+    // MARK: - Strictness Dial (Calm-Down Pass D2, June 2026)
+
+    /// One global dial replacing the 14 per-block-type intervention checkboxes
+    /// as the primary control surface. The checkboxes survive under "Advanced"
+    /// — editing any of them flips the stored level to `custom`.
+    /// Persisted in UserDefaults under "strictnessLevel" (MainWindow owns the
+    /// round-trip; this enum owns the mapping).
+    enum StrictnessLevel: String, CaseIterable {
+        case gentle      // nudge only (fresh-install default, D1)
+        case standard    // nudge + screen red shift + auto-redirect
+        case strict      // all 7 mechanisms on
+        case custom      // direct checkbox control, no mapping
+
+        /// Mapped enforcement profile per the calm-down spec table. The SAME
+        /// values apply to BOTH block types (deepWork + focusHours) — the
+        /// per-block-type split confused users. `custom` returns nil.
+        var mappedSettings: EnforcementSettings? {
+            let block: BlockEnforcementSettings
+            switch self {
+            case .gentle:
+                block = BlockEnforcementSettings(
+                    nudgeNotifications: true, screenRedShift: false, autoRedirect: false,
+                    blockingOverlay: false, interventionExercises: false,
+                    backgroundAudioDetection: false, contextSwitchOverlay: false)
+            case .standard:
+                block = BlockEnforcementSettings(
+                    nudgeNotifications: true, screenRedShift: true, autoRedirect: true,
+                    blockingOverlay: false, interventionExercises: false,
+                    backgroundAudioDetection: false, contextSwitchOverlay: false)
+            case .strict:
+                block = BlockEnforcementSettings(
+                    nudgeNotifications: true, screenRedShift: true, autoRedirect: true,
+                    blockingOverlay: true, interventionExercises: true,
+                    backgroundAudioDetection: true, contextSwitchOverlay: true)
+            case .custom:
+                return nil
+            }
+            return EnforcementSettings(deepWork: block, focusHours: block)
+        }
+
+        /// Preset whose mapping exactly matches `settings`, if any.
+        static func matching(_ settings: EnforcementSettings) -> StrictnessLevel? {
+            for level in [StrictnessLevel.gentle, .standard, .strict]
+            where level.mappedSettings == settings {
+                return level
+            }
+            return nil
+        }
+    }
+
+    /// Calm-Down Pass D2: keep the stored `strictnessLevel` and the actual
+    /// enforcement profiles consistent on every launch.
+    /// - No stored level yet (first launch with the dial):
+    ///   · settings exactly match a preset → adopt that preset
+    ///   · settings are the untouched legacy defaults (never edited, or a
+    ///     fresh install) → flip to `gentle` (D1: minimal default posture)
+    ///   · anything else (user-edited checkboxes) → `custom`, no behavior change
+    /// - Stored level != custom → defensively re-assert the mapping.
+    private func reconcileStrictnessLevel() {
+        let defaults = UserDefaults.standard
+        if let raw = defaults.string(forKey: "strictnessLevel"),
+           let level = StrictnessLevel(rawValue: raw) {
+            if level != .custom, let mapped = level.mappedSettings, mapped != enforcementSettings {
+                enforcementSettings = mapped
+                saveSettings()
+                appDelegate?.postLog("📋 Strictness: re-asserted '\(level.rawValue)' mapping on launch")
+            }
+            return
+        }
+        let inferred: StrictnessLevel
+        if let match = StrictnessLevel.matching(enforcementSettings) {
+            inferred = match
+        } else if enforcementSettings == .defaults {
+            inferred = .gentle
+            enforcementSettings = StrictnessLevel.gentle.mappedSettings ?? enforcementSettings
+            saveSettings()
+        } else {
+            inferred = .custom
+        }
+        defaults.set(inferred.rawValue, forKey: "strictnessLevel")
+        appDelegate?.postLog("📋 Strictness: initialized level '\(inferred.rawValue)'")
     }
 
     enum EnforcementMechanism {
@@ -352,6 +435,7 @@ class ScheduleManager {
         historyFileURL = dir.appendingPathComponent("schedule_history.json")
 
         loadSettings()
+        reconcileStrictnessLevel()   // Calm-Down D2: level ↔ profiles consistency
         loadProfile()
         loadSchedule()
 
@@ -800,7 +884,10 @@ class ScheduleManager {
         do {
             let data = try Data(contentsOf: settingsFileURL)
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                isEnabled = json["enabled"] as? Bool ?? true
+                // Calm-Down Pass D3: the "Enable Daily Focus Plan" settings toggle was
+                // removed — scheduling + AI scoring are always-on. Ignore any persisted
+                // `false` (there is no UI left to flip it back). Field stays in the model.
+                isEnabled = true
                 focusEnforcement = json["focusEnforcement"] as? String ?? "block"
                 aiModel = json["aiModel"] as? String ?? "apple"
                 calendarZoom = json["calendarZoom"] as? Int ?? 42
