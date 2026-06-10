@@ -116,7 +116,11 @@ class ContentSafetyMonitor {
     private static let nsfwDefaultsKey = "cs_nsfw_threshold"
     private var nsfwScoreThreshold: Float {
         let raw = UserDefaults.standard.object(forKey: Self.nsfwDefaultsKey) as? Double
-        let val = Float(raw ?? 0.95)
+        // Default 0.99 (was 0.95): OpenNSFW scores skin-heavy-but-innocent frames
+        // 0.86-0.95 (verified false positives 2026-06-10 — clothed person in shorts),
+        // while genuinely explicit content scores ≥0.995 in our tests. 0.99 splits
+        // them cleanly. Tune against labeled captures in content_safety_debug/.
+        let val = Float(raw ?? 0.99)
         // Clamp defensively
         return min(max(val, 0.85), 0.99)
     }
