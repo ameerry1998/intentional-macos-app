@@ -53,7 +53,7 @@ class PermissionManager: NSObject {
         // The system dialog is disruptive and confusing on every launch.
         // If missing, we log it and show status in the UI. User can grant manually.
         if !AXIsProcessTrusted() {
-            appDelegate?.postLog("⚠️ Accessibility permission not granted — features like grayscale and AppleScript require it")
+            appDelegate?.postLog("⚠️ Accessibility permission not granted — features like the red-shift screen tint and AppleScript require it")
         }
 
         // Check every 30 seconds
@@ -108,7 +108,7 @@ class PermissionManager: NSObject {
             if trusted {
                 appDelegate?.postLog("✅ Accessibility permission granted")
             } else {
-                appDelegate?.postLog("⚠️ Accessibility permission missing — grayscale and AppleScript will not work")
+                appDelegate?.postLog("⚠️ Accessibility permission missing — red-shift screen tint and AppleScript will not work")
             }
         }
     }

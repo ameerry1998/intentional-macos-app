@@ -19,7 +19,6 @@
 		8EAFE56AB68FA6489A9C2237 /* FocusModeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7988BA29F121D4E16DFBE067 /* FocusModeController.swift */; };
 		A1000001000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000001 /* AppDelegate.swift */; };
 		A1000003000000000000001 /* SleepWakeMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000004000000000000001 /* SleepWakeMonitor.swift */; };
-		A1000005000000000000001 /* ProcessMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000006000000000000001 /* ProcessMonitor.swift */; };
 		A1000007000000000000001 /* BackendClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000008000000000000001 /* BackendClient.swift */; };
 		A1000010000000000000002 /* MainWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000011000000000000002 /* MainWindow.swift */; };
 		A1000013000000000000002 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000012000000000000002 /* main.swift */; };
@@ -38,9 +37,8 @@
 		A1000054000000000000020 /* NudgeWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000055000000000000020 /* NudgeWindowController.swift */; };
 		A1000056000000000000021 /* FocusOverlayWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000057000000000000021 /* FocusOverlayWindow.swift */; };
 		A1000058000000000000022 /* InterventionOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000059000000000000022 /* InterventionOverlayController.swift */; };
-		A1000060000000000000023 /* GrayscaleOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000061000000000000023 /* GrayscaleOverlayController.swift */; };
+		A1000060000000000000023 /* RedShiftController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000061000000000000023 /* RedShiftController.swift */; };
 		A1000062000000000000024 /* DeepWorkTimerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000063000000000000024 /* DeepWorkTimerController.swift */; };
-		A1000064000000000000025 /* BlockRitualController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000065000000000000025 /* BlockRitualController.swift */; };
 		A1000066000000000000026 /* BlockEndRitualController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000067000000000000026 /* BlockEndRitualController.swift */; };
 		A1000070000000000000028 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000071000000000000028 /* Assets.xcassets */; };
 		A1000072000000000000029 /* sidebar-fabric.png in Resources */ = {isa = PBXBuildFile; fileRef = A1000073000000000000029 /* sidebar-fabric.png */; };
@@ -156,7 +154,6 @@
 		A1000000000000000000001 /* Intentional.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Intentional.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000002000000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A1000004000000000000001 /* SleepWakeMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepWakeMonitor.swift; sourceTree = "<group>"; };
-		A1000006000000000000001 /* ProcessMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessMonitor.swift; sourceTree = "<group>"; };
 		A1000008000000000000001 /* BackendClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendClient.swift; sourceTree = "<group>"; };
 		A1000009000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1000011000000000000002 /* MainWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindow.swift; sourceTree = "<group>"; };
@@ -176,9 +173,8 @@
 		A1000055000000000000020 /* NudgeWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NudgeWindowController.swift; sourceTree = "<group>"; };
 		A1000057000000000000021 /* FocusOverlayWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusOverlayWindow.swift; sourceTree = "<group>"; };
 		A1000059000000000000022 /* InterventionOverlayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterventionOverlayController.swift; sourceTree = "<group>"; };
-		A1000061000000000000023 /* GrayscaleOverlayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrayscaleOverlayController.swift; sourceTree = "<group>"; };
+		A1000061000000000000023 /* RedShiftController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedShiftController.swift; sourceTree = "<group>"; };
 		A1000063000000000000024 /* DeepWorkTimerController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepWorkTimerController.swift; sourceTree = "<group>"; };
-		A1000065000000000000025 /* BlockRitualController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockRitualController.swift; sourceTree = "<group>"; };
 		A1000067000000000000026 /* BlockEndRitualController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockEndRitualController.swift; sourceTree = "<group>"; };
 		A1000071000000000000028 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A1000073000000000000029 /* sidebar-fabric.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "sidebar-fabric.png"; sourceTree = "<group>"; };
@@ -327,7 +323,6 @@
 				34BADA5E2F8088BA009A82C6 /* DaemonXPCClient.swift */,
 				A1000011000000000000002 /* MainWindow.swift */,
 				A1000004000000000000001 /* SleepWakeMonitor.swift */,
-				A1000006000000000000001 /* ProcessMonitor.swift */,
 				A1000015000000000000002 /* BrowserMonitor.swift */,
 				A1000017000000000000003 /* WebsiteBlocker.swift */,
 				A1000021000000000000005 /* PermissionManager.swift */,
@@ -340,9 +335,8 @@
 				A1000055000000000000020 /* NudgeWindowController.swift */,
 				A1000057000000000000021 /* FocusOverlayWindow.swift */,
 				A1000059000000000000022 /* InterventionOverlayController.swift */,
-				A1000061000000000000023 /* GrayscaleOverlayController.swift */,
+				A1000061000000000000023 /* RedShiftController.swift */,
 				A1000063000000000000024 /* DeepWorkTimerController.swift */,
-				A1000065000000000000025 /* BlockRitualController.swift */,
 				A1000067000000000000026 /* BlockEndRitualController.swift */,
 				A1000077000000000000031 /* ContentSafetyMonitor.swift */,
 				A200000300000000000001 /* DaemonXPCProtocol.swift */,
@@ -545,7 +539,6 @@
 				A1000001000000000000001 /* AppDelegate.swift in Sources */,
 				A1000010000000000000002 /* MainWindow.swift in Sources */,
 				A1000003000000000000001 /* SleepWakeMonitor.swift in Sources */,
-				A1000005000000000000001 /* ProcessMonitor.swift in Sources */,
 				A1000014000000000000002 /* BrowserMonitor.swift in Sources */,
 				A1000016000000000000003 /* WebsiteBlocker.swift in Sources */,
 				A1000020000000000000005 /* PermissionManager.swift in Sources */,
@@ -559,9 +552,8 @@
 				A1000054000000000000020 /* NudgeWindowController.swift in Sources */,
 				A1000056000000000000021 /* FocusOverlayWindow.swift in Sources */,
 				A1000058000000000000022 /* InterventionOverlayController.swift in Sources */,
-				A1000060000000000000023 /* GrayscaleOverlayController.swift in Sources */,
+				A1000060000000000000023 /* RedShiftController.swift in Sources */,
 				A1000062000000000000024 /* DeepWorkTimerController.swift in Sources */,
-				A1000064000000000000025 /* BlockRitualController.swift in Sources */,
 				A1000066000000000000026 /* BlockEndRitualController.swift in Sources */,
 				A1000076000000000000031 /* ContentSafetyMonitor.swift in Sources */,
 				A200000400000000000001 /* DaemonXPCProtocol.swift in Sources */,

@@ -78,8 +78,8 @@ sigtermSource.setEventHandler {
 
         // Always remove lock file so the relaunched instance can become primary
         try? FileManager.default.removeItem(atPath: lockFilePath)
-        // Restore grayscale before hard exit (cleanup won't run after _exit)
-        GrayscaleOverlayController.forceRestoreSaturation()
+        // Restore red shift before hard exit (cleanup won't run after _exit)
+        RedShiftController.forceRestoreColor()
         _exit(0)
     } else {
         // Relay process — just exit quietly

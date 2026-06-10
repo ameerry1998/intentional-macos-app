@@ -24,6 +24,12 @@ When a task spans multiple repos (e.g. Puck integration touches `intentional-bac
 
 ---
 
+## Live GUI Verification (MANDATORY)
+
+After implementing any user-visible change: drive the REAL running app and prove the behavior with screenshots before claiming done. Use the project skill `verifier-intentional-gui` (.claude/skills/) — it covers launching the dev build, live coordinate lookup (windows move!), real CGEvent clicks via `scripts/dev-tools/click.swift`, screenshot-verified steps, focus restore, and safety rules (the user shares this machine). Plan the manual test cases BEFORE implementing; for bug fixes capture before/after evidence. Background clicking the dashboard does not work (verified 2026-06-10) — foreground bursts with focus restore only.
+
+---
+
 ## Use Superpowers Skills at the Appropriate Times (MANDATORY)
 
 Every non-trivial task on this repo must route through the right skill — this is not optional:
@@ -304,7 +310,7 @@ Order matters. Components have dependencies that must be wired in sequence.
 14. RelevanceScorer         → AI model initialization
 15. FocusMonitor            → Desktop monitoring (refs: ScheduleManager, RelevanceScorer)
 15a. FocusModeController    → Single source of truth for is-app-enforcing (3 states: off/focus/bedtime). Replaces IntentionalModeController + FocusSessionManager. Persists state to disk on every notify(); rehydrates on init so app-restart doesn't briefly show "off" while a session is active.
-15b. BlockRitualController   → Wired to FocusMonitor.ritualController
+15b. (BlockRitualController deleted 2026-06-10 — start ritual lives in the pill, DeepWorkTimerController .startRitual)
 15c. BlockEndRitualController → Wired to FocusMonitor.endRitualController
 15d. ContentSafetyMonitor     → Load enabled from settings, start if enabled
 15e. SwitchInterventionCoordinator + SwitchOverlayController → Gate now reads FocusModeController.isOn

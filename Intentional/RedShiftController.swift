@@ -10,11 +10,11 @@ import QuartzCore
 /// overlay. Ultra-soft warm orange-red from edges, max opacity 0.20. Creates a subtle
 /// "warmth closing in" feel that complements the gamma red shift.
 ///
-/// Previous failed grayscale approaches (kept as comments, NEVER delete):
+/// Previous failed red shift approaches (kept as comments, NEVER delete):
 /// - CGDisplayForceToGray — NO-OP on macOS 15
 /// - CABackdropLayer + CAFilter("colorSaturate") — zero visual effect on macOS 15
 /// - CABackdropLayer + CIFilter — zero visual effect
-/// - Gamma tables for grayscale — GREEN or FOGGY (per-channel can't mix)
+/// - Gamma tables for red shift — GREEN or FOGGY (per-channel can't mix)
 /// - CGSNewCIFilterByName — error 1006 / crash
 /// - CIFilter backgroundFilters — no visual effect on macOS 15
 /// - UAGrayscaleSetEnabled — works but shows notification (kept as fallback)
@@ -22,7 +22,7 @@ import QuartzCore
 /// - Vignette A/B/C variants — tested Gentle Radial, Edge Bars, Corner Bloom; Atmospheric won
 ///
 /// NEVER delete ANY commented-out approach. They are preserved for reference.
-class GrayscaleOverlayController {
+class RedShiftController {
 
     // MARK: - Configuration
 
@@ -37,7 +37,7 @@ class GrayscaleOverlayController {
     // MARK: - Animation Config
 
     /// Duration to reach full red shift (seconds)
-    private let desaturationDuration: TimeInterval = 30.0
+    private let redShiftDuration: TimeInterval = 30.0
 
     /// Duration to restore normal (seconds)
     private let restoreDuration: TimeInterval = 2.0
@@ -45,7 +45,7 @@ class GrayscaleOverlayController {
     /// Animation tick interval (~60fps)
     private let animationInterval: TimeInterval = 1.0 / 60.0
 
-    // MARK: - UAGrayscale Fallback (kept available)
+    // MARK: - UAGrayscale Fallback (Apple private symbol — name must stay) (kept available)
 
     private static let uaHandle: UnsafeMutableRawPointer? = {
         let path = "/System/Library/PrivateFrameworks/UniversalAccess.framework/UniversalAccess"
@@ -66,7 +66,7 @@ class GrayscaleOverlayController {
     private var animationTimer: Timer?
 
     /// Whether the effect is active
-    private var grayscaleEnabled = false
+    private var redShiftEnabled = false
 
     /// Full-screen click-through windows for vignette overlay (one per screen)
     private var vignetteWindows: [NSWindow] = []
@@ -76,16 +76,16 @@ class GrayscaleOverlayController {
 
     // MARK: - Public Properties
 
-    var isActive: Bool { grayscaleEnabled }
+    var isActive: Bool { redShiftEnabled }
 
     init() {
-        NSLog("🌫️ [INIT] GrayscaleOverlayController created — red shift mode")
+        NSLog("🌫️ [INIT] RedShiftController created — red shift mode")
     }
 
     // MARK: - Static Cleanup
 
-    static func forceRestoreSaturation() {
-        NSLog("🌫️ [FORCE] forceRestoreSaturation called")
+    static func forceRestoreColor() {
+        NSLog("🌫️ [FORCE] forceRestoreColor called")
         uaSetEnabled?(false)
         CGDisplayRestoreColorSyncSettings()
         NSLog("🌫️ [FORCE] ✅ All restored")
@@ -99,15 +99,15 @@ class GrayscaleOverlayController {
     /// Begin red shift + atmospheric vignette.
     /// - Parameter fromIntensity: Target intensity to animate toward (0.0–1.0).
     ///   Always fades in from 0. Duration: 30s for fresh start, 10s for re-trigger.
-    func startDesaturation(fromIntensity: CGGammaValue = 0.0) {
-        NSLog("🌫️ [START] startDesaturation(from=\(String(format: "%.2f", fromIntensity))) — isActive=\(isActive), intensity=\(currentIntensity)")
+    func startRedShift(fromIntensity: CGGammaValue = 0.0) {
+        NSLog("🌫️ [START] startRedShift(from=\(String(format: "%.2f", fromIntensity))) — isActive=\(isActive), intensity=\(currentIntensity)")
 
-        guard !grayscaleEnabled else {
+        guard !redShiftEnabled else {
             NSLog("🌫️ [START] ⚠️ Already active, skipping")
             return
         }
 
-        grayscaleEnabled = true
+        redShiftEnabled = true
         setupVignetteWindow()
         setupVignette()
 
@@ -124,22 +124,22 @@ class GrayscaleOverlayController {
             NSLog("🌫️ [START] ✅ Re-trigger fade 0→1.0 over \(String(format: "%.1f", retriggerFadeDuration))s (target was \(String(format: "%.2f", clampedTarget)))")
         } else {
             // Fresh start: full 30s ramp from 0 → 1.0
-            animateIntensity(to: 1.0, duration: desaturationDuration)
-            NSLog("🌫️ [START] ✅ Fresh fade 0→1.0 over \(String(format: "%.1f", desaturationDuration))s")
+            animateIntensity(to: 1.0, duration: redShiftDuration)
+            NSLog("🌫️ [START] ✅ Fresh fade 0→1.0 over \(String(format: "%.1f", redShiftDuration))s")
         }
     }
 
     /// Restore normal over 3 seconds.
-    func restoreSaturation() {
-        NSLog("🌫️ [RESTORE] restoreSaturation() — isActive=\(isActive), intensity=\(currentIntensity)")
+    func restoreColor() {
+        NSLog("🌫️ [RESTORE] restoreColor() — isActive=\(isActive), intensity=\(currentIntensity)")
 
-        guard grayscaleEnabled else {
+        guard redShiftEnabled else {
             NSLog("🌫️ [RESTORE] ⚠️ Not active, nothing to restore")
             return
         }
 
         animateIntensity(to: 0.0, duration: restoreDuration) { [weak self] in
-            self?.grayscaleEnabled = false
+            self?.redShiftEnabled = false
             self?.teardownVignette()
             CGDisplayRestoreColorSyncSettings()
             NSLog("🌫️ [RESTORE] ✅ Fully restored")
@@ -148,7 +148,7 @@ class GrayscaleOverlayController {
 
     func dismiss() {
         NSLog("🌫️ [DISMISS] dismiss() — isActive=\(isActive)")
-        restoreSaturation()
+        restoreColor()
     }
 
     // MARK: - Vignette Window
@@ -228,7 +228,7 @@ class GrayscaleOverlayController {
 
     deinit {
         animationTimer?.invalidate()
-        if grayscaleEnabled {
+        if redShiftEnabled {
             teardownVignette()
             CGDisplayRestoreColorSyncSettings()
             NSLog("🌫️ [DEINIT] Force-restored")
@@ -340,16 +340,16 @@ class GrayscaleOverlayController {
 // Max opacity: 0.85, max encroachment: 0.3
 // ---- DAMAGE VIGNETTE IMPLEMENTATION END ----
 
-// MARK: - Fallback: UAGrayscaleSetEnabled (true grayscale, shows notification)
+// MARK: - Fallback: UAGrayscaleSetEnabled (true red shift, shows notification)
 //
-// The ONLY approach that produces true grayscale on macOS 15 Sequoia.
+// The ONLY approach that produces true red shift on macOS 15 Sequoia.
 // Triggers "Color Filter On/Off" notification — no way to suppress it.
-// Currently kept loaded for forceRestoreSaturation() cleanup.
+// Currently kept loaded for forceRestoreColor() cleanup.
 //
 // ---- UAGRAYSCALE IMPLEMENTATION START ----
 //
-// uaSetEnabled(true)  → true grayscale ON (notification)
-// uaSetEnabled(false) → grayscale OFF (notification)
+// uaSetEnabled(true)  → true red shift ON (notification)
+// uaSetEnabled(false) → red shift OFF (notification)
 //
 // ---- UAGRAYSCALE IMPLEMENTATION END ----
 
@@ -377,10 +377,10 @@ class GrayscaleOverlayController {
 // CIFilter("CIColorControls") on CABackdropLayer.filters — no visual change.
 // ---- CABACKDROPLAYER CIFILTER IMPLEMENTATION END ----
 
-// MARK: - Failed: Gamma tables for grayscale — GREEN or FOGGY
+// MARK: - Failed: Gamma tables for red shift — GREEN or FOGGY
 //
 // BT.709 weights: green screen. Identical ramps: foggy white.
-// Per-channel LUTs can't do cross-channel mixing for grayscale.
+// Per-channel LUTs can't do cross-channel mixing for red shift.
 // BUT they ARE used successfully here for the red shift component.
 //
 // ---- GAMMA GRAYSCALE IMPLEMENTATION START ----

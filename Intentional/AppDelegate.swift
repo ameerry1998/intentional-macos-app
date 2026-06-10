@@ -469,8 +469,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // One-time migration: clear legacy focus state from old controllers
         runFocusModeMigrationIfNeeded()
 
-        // Safety net: restore color in case previous instance was killed with grayscale active
-        GrayscaleOverlayController.forceRestoreSaturation()
+        // Safety net: restore color in case previous instance was killed with red shift active
+        RedShiftController.forceRestoreColor()
 
         // Re-enable auto-launch from extensions (user manually started the app)
         // This allows extension relays to launch the app via NSWorkspace
@@ -665,7 +665,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         focusMonitor?.overlayController = focusOverlayController
         let interventionController = InterventionOverlayController(appDelegate: self)
         focusMonitor?.interventionController = interventionController
-        // focusMonitor?.ritualController = BlockRitualController()  // Now pill-centric
         focusMonitor?.endRitualController = BlockEndRitualController()
         // Legacy distractingApps loading removed — app blocking is now driven by
         // BlockingProfileManager (always-active profiles + focus session profiles).

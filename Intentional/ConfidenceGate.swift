@@ -19,7 +19,7 @@ enum ConfidenceGate {
 
     /// Decide whether an off-task verdict should trigger enforcement.
     ///
-    /// - Returns: `true` if the verdict should be enforced (block/grayscale/overlay),
+    /// - Returns: `true` if the verdict should be enforced (block/red shift/overlay),
     ///            `false` if it should be logged and let through (no enforcement).
     static func shouldEnforceOffTask(relevant: Bool, confidence: Int, path: ScoringPath) -> Bool {
         guard !relevant else { return false }

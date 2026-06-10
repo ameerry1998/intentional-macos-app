@@ -1845,6 +1845,8 @@ class BackendClient {
 
     /// GET /intentions/{id}/strictness/pending → returns nil if none pending.
     /// Backend route confirmed in main.py (Plan A backend executor).
+    /// KEPT INTENTIONALLY (audit 2026-06-10): no live caller yet — wired up when the
+    /// partner-unlock strictness flow ships. Do not delete as dead code.
     func getPendingStrictnessChange(id: UUID) async -> PendingStrictnessChange? {
         guard let url = URL(string: "\(baseURL)/intentions/\(id.uuidString)/strictness/pending") else { return nil }
         var req = URLRequest(url: url)
@@ -1928,6 +1930,8 @@ class BackendClient {
     /// Verify the 6-digit code the partner emailed; on success the server flips strictness AND
     /// returns the updated Intention.
     /// NOT YET IMPLEMENTED ON BACKEND — see comment above.
+    /// KEPT INTENTIONALLY (audit 2026-06-10): backend endpoint pending deployment.
+    /// Do not delete as dead code.
     func verifyIntentionStrictnessUnlock(
         requestId: String,
         code: String

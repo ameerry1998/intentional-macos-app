@@ -13194,8 +13194,8 @@ window._relevanceLogResult = function(entries) {
     var actionHtml = '';
     if (e.action === 'nudge') actionHtml = '<div class="relevance-action nudged">nudged</div>';
     else if (e.action === 'blocked') actionHtml = '<div class="relevance-action blocked">blocked</div>';
-    else if (e.action === 'grayscale_on') actionHtml = '<div class="relevance-action blocked">grayscale on</div>';
-    else if (e.action === 'grayscale_off') actionHtml = '<div class="relevance-action">grayscale off</div>';
+    else if (e.action === 'grayscale_on') actionHtml = '<div class="relevance-action blocked">red shift on</div>';
+    else if (e.action === 'grayscale_off') actionHtml = '<div class="relevance-action">red shift off</div>';
     var confidence = (typeof e.confidence === 'number') ? e.confidence : parseInt(e.confidence || 0, 10);
     var confHtml = '<span class="relevance-confidence">' + confidence + '%</span>';
     var overrideHtml = (e.userOverride === true)
@@ -13268,7 +13268,7 @@ function copyAssessments() {
     var time = new Date(e.timestamp);
     var timeStr = time.getHours() + ':' + String(time.getMinutes()).padStart(2, '0') + ':' + String(time.getSeconds()).padStart(2, '0');
     var dot = e.relevant ? 'RELEVANT' : 'IRRELEVANT';
-    var action = e.action === 'blocked' ? ' [BLOCKED]' : (e.action === 'nudge' ? ' [NUDGED]' : (e.action === 'grayscale_on' ? ' [GRAYSCALE ON]' : (e.action === 'grayscale_off' ? ' [GRAYSCALE OFF]' : '')));
+    var action = e.action === 'blocked' ? ' [BLOCKED]' : (e.action === 'nudge' ? ' [NUDGED]' : (e.action === 'grayscale_on' ? ' [RED SHIFT ON]' : (e.action === 'grayscale_off' ? ' [RED SHIFT OFF]' : '')));
     return timeStr + '  ' + dot + '  ' + e.title + action + (e.reason ? '\n    ' + e.reason : '');
   });
   var text = lines.join('\n');

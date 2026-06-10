@@ -9,13 +9,13 @@ import Foundation
 ///
 /// **Deep Work** — strict enforcement:
 ///   - 10s cumulative: nudge + timer dot red
-///   - 20s cumulative: auto-redirect to last relevant URL + grayscale
+///   - 20s cumulative: auto-redirect to last relevant URL + red shift
 ///   - 20s+ (revisit): instant redirect if site already redirected this block
 ///   - 300s cumulative: intervention overlay (60s/90s/120s escalating)
 ///
 /// **Focus Hours** — gentle reminders:
 ///   - 10s: level 1 nudge (auto-dismiss 8s)
-///   - 30s: grayscale starts (30s fade)
+///   - 30s: red shift starts (30s fade)
 ///   - 70s/130s/190s: level 1 nudge repeats (+60s interval)
 ///   - 240s: red warning nudge ("intervention in 60s")
 ///   - 300s: intervention overlay (60s, escalating every +300s)
@@ -41,9 +41,8 @@ class FocusMonitor {
     var nudgeController: NudgeWindowController?
     var overlayController: FocusOverlayWindowController?
     var interventionController: InterventionOverlayController?
-    var grayscaleController: GrayscaleOverlayController?
+    var redShiftController: RedShiftController?
     var deepWorkTimerController: DeepWorkTimerController?
-    var ritualController: BlockRitualController?
     var endRitualController: BlockEndRitualController?
 
     /// Whether the block start ritual is showing (enforcement paused)
@@ -60,7 +59,7 @@ class FocusMonitor {
 
     private enum OnboardingTooltip: String {
         case nudge = "onboarding_tooltip_nudge"
-        case grayscale = "onboarding_tooltip_grayscale"
+        case redShift = "onboarding_tooltip_grayscale"  // raw value kept — persisted before the grayscale→red-shift rename
         case redirect = "onboarding_tooltip_redirect"
         case intervention = "onboarding_tooltip_intervention"
     }
@@ -370,8 +369,8 @@ class FocusMonitor {
     // ── Focus Hours thresholds ──
     /// First nudge threshold (seconds of cumulative distraction)
     static let focusNudgeThreshold: TimeInterval = 10.0
-    /// Grayscale start threshold
-    static let focusGrayscaleThreshold: TimeInterval = 30.0
+    /// Red shift start threshold
+    static let focusRedShiftThreshold: TimeInterval = 30.0
     /// Interval between repeating level 1 nudges (after first nudge)
     static let focusNudgeRepeatInterval: TimeInterval = 60.0
     /// Warning nudge threshold — red warning before intervention
@@ -382,7 +381,7 @@ class FocusMonitor {
     // ── Deep Work thresholds ──
     /// First nudge + timer dot red
     static let deepWorkNudgeThreshold: TimeInterval = 10.0
-    /// Auto-redirect to last relevant URL + grayscale starts
+    /// Auto-redirect to last relevant URL + red shift starts
     static let deepWorkRedirectThreshold: TimeInterval = 20.0
     /// Intervention overlay threshold
     static let deepWorkInterventionThreshold: TimeInterval = 300.0
@@ -406,7 +405,7 @@ class FocusMonitor {
         let ocrExcerpt: String?
         /// Stages the scorer walked through to reach this verdict (keyword → cache → metadata → OCR),
         /// each stamped with elapsed-ms-since-scoring-entry. Empty for non-scorer entries
-        /// (grayscale/intervention events, neutral-app logs, etc.).
+        /// (red shift/intervention events, neutral-app logs, etc.).
         let trace: [TraceStep]
     }
 
@@ -579,8 +578,8 @@ class FocusMonitor {
     private var lastInterventionAtDistraction: TimeInterval = 0
     /// Whether the Deep Work auto-redirect has fired for the current distraction run
     private var deepWorkRedirectFired = false
-    /// Whether grayscale has been triggered at least once this block (instant re-trigger on revisit)
-    private var grayscaleTriggeredThisBlock = false
+    /// Whether red shift has been triggered at least once this block (instant re-trigger on revisit)
+    private var redShiftTriggeredThisBlock = false
     /// When the user last transitioned from irrelevant to relevant (for graduated vignette decay)
     private var lastDistractionEndTime: Date?
     /// Number of distraction→focus recoveries during the current block
@@ -701,7 +700,7 @@ class FocusMonitor {
             object: nil
         )
 
-        grayscaleController = GrayscaleOverlayController()
+        redShiftController = RedShiftController()
         deepWorkTimerController = DeepWorkTimerController()
 
         // Listen for End Block button tapped on the floating pill
@@ -767,7 +766,7 @@ class FocusMonitor {
         stopNeutralTickTimer()
         nudgeController?.dismiss()
         overlayController?.dismiss()
-        grayscaleController?.dismiss()
+        redShiftController?.dismiss()
         deepWorkTimerController?.dismiss()
         endRitualController?.dismiss()
         appDelegate?.postLog("👁️ FocusMonitor stopped")
@@ -939,25 +938,25 @@ class FocusMonitor {
         interventionCount = 0
         lastInterventionAtDistraction = 0
         deepWorkRedirectFired = false
-        grayscaleTriggeredThisBlock = false
+        redShiftTriggeredThisBlock = false
         lastDistractionEndTime = nil
         blockRecoveryCount = 0
         interventionController?.dismiss()
         deepWorkRedirectedSites.removeAll()
         overrideActiveUntil = nil
         pendingOverrideRequestId = nil
-        reconcileGrayscale()
+        reconcileRedShift()
     }
 
-    // MARK: - Grayscale Helper (with one-time tooltip)
+    // MARK: - Red shift Helper (with one-time tooltip)
 
-    /// Start grayscale and show one-time onboarding tooltip if this is the user's first encounter.
-    private func triggerGrayscale() {
-        guard !(grayscaleController?.isActive ?? false), isEnforcementEnabled(.screenRedShift) else { return }
-        grayscaleController?.startDesaturation(fromIntensity: vignetteRetriggerIntensity())
-        grayscaleTriggeredThisBlock = true
-        if !hasSeenTooltip(.grayscale) {
-            markTooltipSeen(.grayscale)
+    /// Start red shift and show one-time onboarding tooltip if this is the user's first encounter.
+    private func triggerRedShift() {
+        guard !(redShiftController?.isActive ?? false), isEnforcementEnabled(.screenRedShift) else { return }
+        redShiftController?.startRedShift(fromIntensity: vignetteRetriggerIntensity())
+        redShiftTriggeredThisBlock = true
+        if !hasSeenTooltip(.redShift) {
+            markTooltipSeen(.redShift)
             // Show brief info nudge explaining the screen dimming
             deepWorkTimerController?.showDistractionCard(
                 explanation: "The screen dims when you're off-task. It clears when you return to your work."
@@ -1333,7 +1332,7 @@ class FocusMonitor {
         // Clear enforcement state
         cumulativeDistractionSeconds = 0
         isCurrentlyIrrelevant = false
-        grayscaleController?.restoreSaturation()
+        redShiftController?.restoreColor()
         nudgeController?.dismiss()
         deepWorkTimerController?.dismissDistractionCard()
         deepWorkTimerController?.update(isDistracted: false)
@@ -1438,8 +1437,8 @@ class FocusMonitor {
         stopBrowserPolling()
         stopWorkTickTimer()
 
-        // Restore grayscale if active
-        grayscaleController?.restoreSaturation()
+        // Restore red shift if active
+        redShiftController?.restoreColor()
 
         // Tell the pill to show break UI
         deepWorkTimerController?.startBreak()
@@ -1620,9 +1619,9 @@ class FocusMonitor {
         debugLog("👁️ evaluateApp: \(appName) (\(bundleId)), state=\(currentState), block=\(currentBlock)")
 
         // Skip reconciliation for browsers — handled below with proper state
-        // (prevents grayscale turning OFF briefly before async scoring re-enables it)
+        // (prevents red shift turning OFF briefly before async scoring re-enables it)
         if !Self.browserBundleIds.contains(bundleId) {
-            reconcileGrayscale()
+            reconcileRedShift()
         }
 
         guard let manager = scheduleManager else {
@@ -1674,7 +1673,7 @@ class FocusMonitor {
         }
 
         // Neutral apps: log as neutral (gray in popover) but don't earn or penalize
-        // Keep enforcement state frozen — neutral apps shouldn't clear grayscale/overlays
+        // Keep enforcement state frozen — neutral apps shouldn't clear red shift/overlays
         // (otherwise opening System Settings becomes an escape hatch)
         if isNeutralApp(bid) {
             debugLog("👁️ EXIT: neutral app \(appName) — no earning, no penalty")
@@ -1764,7 +1763,7 @@ class FocusMonitor {
                 currentTargetKey = bid
                 isCurrentlyIrrelevant = true
                 resetFocusStreak()
-                triggerGrayscale()
+                triggerRedShift()
                 deepWorkTimerController?.update(isDistracted: true)
                 if isEnforcementEnabled(.blockingOverlay) {
                     let intention = scheduleManager?.currentBlock?.title ?? ""
@@ -1806,9 +1805,9 @@ class FocusMonitor {
             currentTargetKey = bid
             isCurrentlyIrrelevant = true
             resetFocusStreak()
-            // Start gradual grayscale (same slow shift as distracting websites)
+            // Start gradual red shift (same slow shift as distracting websites)
             let blockType = scheduleManager?.currentBlock?.blockType ?? .focusHours
-            triggerGrayscale()
+            triggerRedShift()
             deepWorkTimerController?.update(isDistracted: true)
             // Show overlay (deep work) or nudge (focus hours)
             let intention = scheduleManager?.currentBlock?.title ?? ""
@@ -1866,15 +1865,15 @@ class FocusMonitor {
         if Self.browserBundleIds.contains(bid) {
             debugLog("👁️ Browser detected (\(bid)) — reading tab via AppleScript")
 
-            // If grayscale was triggered this block, maintain it when returning to browser.
+            // If red shift was triggered this block, maintain it when returning to browser.
             // Assume content is irrelevant until AI scoring proves otherwise (prevents flicker).
-            if grayscaleTriggeredThisBlock && scheduleManager?.currentTimeState.isWork == true && isEnforcementEnabled(.screenRedShift) {
+            if redShiftTriggeredThisBlock && scheduleManager?.currentTimeState.isWork == true && isEnforcementEnabled(.screenRedShift) {
                 isCurrentlyIrrelevant = true
-                if !(grayscaleController?.isActive ?? false) {
-                    grayscaleController?.startDesaturation(fromIntensity: vignetteRetriggerIntensity())
-                    appDelegate?.postLog("🌫️ Browser activated: grayscale maintained (pending AI score)")
-                    logAssessment(title: "Grayscale", appName: appName, intention: scheduleManager?.currentBlock?.title ?? "",
-                                 relevant: false, confidence: 0, reason: "Browser activated — maintaining grayscale pending AI score",
+                if !(redShiftController?.isActive ?? false) {
+                    redShiftController?.startRedShift(fromIntensity: vignetteRetriggerIntensity())
+                    appDelegate?.postLog("🌫️ Browser activated: red shift maintained (pending AI score)")
+                    logAssessment(title: "Red shift", appName: appName, intention: scheduleManager?.currentBlock?.title ?? "",
+                                 relevant: false, confidence: 0, reason: "Browser activated — maintaining red shift pending AI score",
                                  action: "grayscale_on", isEvent: true)
                 }
             }
@@ -2166,7 +2165,7 @@ class FocusMonitor {
                     appDelegate?.earnedBrowseManager?.recordAssessment(relevant: false)
                 }
                 // Project blocklist entries are explicit user rules — hard-block immediately
-                // regardless of block type (bypasses the Focus Hours soft grayscale+nudge path).
+                // regardless of block type (bypasses the Focus Hours soft red shift+nudge path).
                 // Still respects active AI overrides so the user can escape if they really need to.
                 if isOverrideActive { return }
                 appDelegate?.postLog("👁️ Project block (hard): \"\(info.title)\" (\(info.hostname)) — redirecting")
@@ -2617,7 +2616,7 @@ class FocusMonitor {
             return
         }
 
-        reconcileGrayscale()
+        reconcileRedShift()
         readAndScoreActiveTab(bundleId: bundleId)
     }
 
@@ -2703,12 +2702,12 @@ class FocusMonitor {
         }
     }
 
-    // MARK: - Grayscale Reconciliation
+    // MARK: - Red shift Reconciliation
 
     /// Compute vignette starting intensity based on recovery time since last distraction.
     /// < 60s focus → 1.0 (anti-gaming), 60-180s → linear decay, ≥ 180s → 0.0 (full reset)
     private func vignetteRetriggerIntensity() -> CGGammaValue {
-        guard grayscaleTriggeredThisBlock, let lastEnd = lastDistractionEndTime else {
+        guard redShiftTriggeredThisBlock, let lastEnd = lastDistractionEndTime else {
             return 0.0 // Never triggered or no timestamp → fresh start
         }
         let recovery = Date().timeIntervalSince(lastEnd)
@@ -2718,36 +2717,36 @@ class FocusMonitor {
         return CGGammaValue(1.0 - (recovery - Self.vignetteMinRecoverySeconds) / range)
     }
 
-    /// Reconciliation check: ensure grayscale matches current state.
+    /// Reconciliation check: ensure red shift matches current state.
     /// Called on every poll tick and on app-switch evaluation.
-    /// Grayscale should be ON only when ALL of these are true:
+    /// Red shift should be ON only when ALL of these are true:
     ///   1. We're in a work block (deep work or focus hours)
-    ///   2. grayscaleTriggeredThisBlock is true (we already decided to trigger it)
+    ///   2. redShiftTriggeredThisBlock is true (we already decided to trigger it)
     ///   3. The user is currently on irrelevant content (isCurrentlyIrrelevant)
-    /// If any condition is false and grayscale is active, restore color.
-    private func reconcileGrayscale() {
+    /// If any condition is false and red shift is active, restore color.
+    private func reconcileRedShift() {
         // Graduated decay: full reset after 180s of sustained focus
         // Only decay if user is NOT currently distracted — otherwise the timer
         // from a brief recovery would expire while still on distracting content
-        if grayscaleTriggeredThisBlock, !isCurrentlyIrrelevant,
+        if redShiftTriggeredThisBlock, !isCurrentlyIrrelevant,
            let lastEnd = lastDistractionEndTime,
            Date().timeIntervalSince(lastEnd) >= Self.vignetteFullRecoverySeconds {
-            grayscaleTriggeredThisBlock = false
+            redShiftTriggeredThisBlock = false
             lastDistractionEndTime = nil
             appDelegate?.postLog("🌫️ Vignette fully decayed — 180s focus recovery complete")
         }
 
-        guard grayscaleController?.isActive == true else { return }
+        guard redShiftController?.isActive == true else { return }
 
         let inWorkBlock = scheduleManager?.currentTimeState.isWork == true
-        let shouldBeGray = inWorkBlock && grayscaleTriggeredThisBlock && isCurrentlyIrrelevant
+        let shouldBeGray = inWorkBlock && redShiftTriggeredThisBlock && isCurrentlyIrrelevant
 
         if !shouldBeGray {
-            grayscaleController?.restoreSaturation()
-            appDelegate?.postLog("🌫️ Reconciler: grayscale OFF (work=\(inWorkBlock), triggered=\(grayscaleTriggeredThisBlock), irrelevant=\(isCurrentlyIrrelevant))")
+            redShiftController?.restoreColor()
+            appDelegate?.postLog("🌫️ Reconciler: red shift OFF (work=\(inWorkBlock), triggered=\(redShiftTriggeredThisBlock), irrelevant=\(isCurrentlyIrrelevant))")
             logAssessment(title: currentTarget.isEmpty ? currentAppName : currentTarget, appName: currentAppName,
                          intention: scheduleManager?.currentBlock?.title ?? "",
-                         relevant: true, confidence: 0, reason: "Content now relevant — grayscale removed",
+                         relevant: true, confidence: 0, reason: "Content now relevant — red shift removed",
                          action: "grayscale_off", isEvent: true)
         }
     }
@@ -2783,8 +2782,8 @@ class FocusMonitor {
             appDelegate?.earnedBrowseManager?.incrementRecoveryCount()
             appDelegate?.postLog("💚 Recovery #\(blockRecoveryCount) — focus restored")
 
-            // Track vignette decay timestamp (only when grayscale was triggered)
-            if grayscaleTriggeredThisBlock {
+            // Track vignette decay timestamp (only when red shift was triggered)
+            if redShiftTriggeredThisBlock {
                 lastDistractionEndTime = Date()
             }
         }
@@ -2796,8 +2795,8 @@ class FocusMonitor {
         deepWorkTimerController?.dismissDistractionCard()
         overlayController?.dismiss()
 
-        // Restore grayscale whenever user is on relevant content (any app, any tab)
-        reconcileGrayscale()
+        // Restore red shift whenever user is on relevant content (any app, any tab)
+        reconcileRedShift()
         deepWorkTimerController?.update(isDistracted: false)
         pushFocusStatsToTimer()
 
@@ -2854,9 +2853,9 @@ class FocusMonitor {
         // Reset consecutive focus streak on distraction
         resetFocusStreak()
 
-        // Mark as irrelevant so reconciler maintains grayscale/vignette across poll cycles.
+        // Mark as irrelevant so reconciler maintains red shift/vignette across poll cycles.
         // Must be set for ALL irrelevant content (not just extension-handled social media),
-        // otherwise reconcileGrayscale() tears down the vignette on the next poll.
+        // otherwise reconcileRedShift() tears down the vignette on the next poll.
         isCurrentlyIrrelevant = true
 
         appDelegate?.postLog("👁️ Distraction: \(Int(cumulativeDistractionSeconds))s [\(blockType.rawValue)]")
@@ -2900,7 +2899,7 @@ class FocusMonitor {
 
     /// Deep Work aggressive browser enforcement:
     /// - Immediate: blocking overlay on tab switch to new irrelevant content
-    /// - 20s cumulative: auto-redirect to last relevant URL + grayscale starts
+    /// - 20s cumulative: auto-redirect to last relevant URL + red shift starts
     /// - 20s+ (revisit): instant redirect if site already redirected this block
     /// - 300s cumulative: intervention overlay (escalating 60s/90s/120s)
     private func handleDeepWorkBrowserIrrelevance(targetKey: String, displayName: String,
@@ -2953,7 +2952,7 @@ class FocusMonitor {
             return
         }
 
-        // 20s: Auto-redirect + grayscale
+        // 20s: Auto-redirect + red shift
         if cumulativeDistractionSeconds >= Self.deepWorkRedirectThreshold && !deepWorkRedirectFired {
             deepWorkRedirectFired = true
             if isEnforcementEnabled(.autoRedirect) {
@@ -2971,7 +2970,7 @@ class FocusMonitor {
         }
     }
 
-    /// Deep Work: cumulative threshold reached → auto-redirect tab to last relevant URL + start grayscale.
+    /// Deep Work: cumulative threshold reached → auto-redirect tab to last relevant URL + start red shift.
     private func deepWorkAutoRedirect() {
         guard scheduleManager?.currentBlock?.blockType == .deepWork else { return }
 
@@ -2988,13 +2987,13 @@ class FocusMonitor {
         // Add to redirected set for instant redirect on revisit
         deepWorkRedirectedSites.insert(targetKey)
 
-        // Start grayscale at the second notification (the redirect)
-        if !(grayscaleController?.isActive ?? false) && isEnforcementEnabled(.screenRedShift) {
-            grayscaleController?.startDesaturation(fromIntensity: vignetteRetriggerIntensity())
-            grayscaleTriggeredThisBlock = true
-            appDelegate?.postLog("🌫️ Deep Work: grayscale started on redirect")
+        // Start red shift at the second notification (the redirect)
+        if !(redShiftController?.isActive ?? false) && isEnforcementEnabled(.screenRedShift) {
+            redShiftController?.startRedShift(fromIntensity: vignetteRetriggerIntensity())
+            redShiftTriggeredThisBlock = true
+            appDelegate?.postLog("🌫️ Deep Work: red shift started on redirect")
             logAssessment(title: currentTarget, appName: currentAppName, intention: scheduleManager?.currentBlock?.title ?? "",
-                         relevant: false, confidence: 0, reason: "Deep Work auto-redirect grayscale",
+                         relevant: false, confidence: 0, reason: "Deep Work auto-redirect red shift",
                          action: "grayscale_on", isEvent: true)
         }
 
@@ -3052,7 +3051,7 @@ class FocusMonitor {
 
     /// Focus Hours browser enforcement:
     /// - Immediate: blocking overlay on tab switch to new irrelevant content
-    /// - 30s: Grayscale starts (30s fade to dark)
+    /// - 30s: Red shift starts (30s fade to dark)
     /// - 10s+: Level 1 nudges (backup if overlay disabled)
     /// - 240s: Warning nudge (red, "intervention in 60s")
     /// - 300s: Intervention overlay (60s mandatory, escalating)
@@ -3086,15 +3085,15 @@ class FocusMonitor {
         deepWorkTimerController?.update(isDistracted: true)
         pushFocusStatsToTimer()
 
-        // ── Grayscale: instant if already triggered this block, otherwise at 30s ──
-        let shouldGrayscale = grayscaleTriggeredThisBlock
-            || cumulativeDistractionSeconds >= Self.focusGrayscaleThreshold
-        if shouldGrayscale && !(grayscaleController?.isActive ?? false) && isEnforcementEnabled(.screenRedShift) {
-            grayscaleController?.startDesaturation(fromIntensity: vignetteRetriggerIntensity())
-            grayscaleTriggeredThisBlock = true
-            appDelegate?.postLog("🌫️ Focus Hours: grayscale at \(Int(cumulativeDistractionSeconds))s\(grayscaleTriggeredThisBlock ? " (re-trigger)" : "")")
+        // ── Red shift: instant if already triggered this block, otherwise at 30s ──
+        let shouldRedShift = redShiftTriggeredThisBlock
+            || cumulativeDistractionSeconds >= Self.focusRedShiftThreshold
+        if shouldRedShift && !(redShiftController?.isActive ?? false) && isEnforcementEnabled(.screenRedShift) {
+            redShiftController?.startRedShift(fromIntensity: vignetteRetriggerIntensity())
+            redShiftTriggeredThisBlock = true
+            appDelegate?.postLog("🌫️ Focus Hours: red shift at \(Int(cumulativeDistractionSeconds))s\(redShiftTriggeredThisBlock ? " (re-trigger)" : "")")
             logAssessment(title: displayName, appName: currentAppName, intention: intention,
-                         relevant: false, confidence: 0, reason: "Focus Hours grayscale at \(Int(cumulativeDistractionSeconds))s",
+                         relevant: false, confidence: 0, reason: "Focus Hours red shift at \(Int(cumulativeDistractionSeconds))s",
                          action: "grayscale_on", isEvent: true)
         }
 
@@ -3168,7 +3167,7 @@ class FocusMonitor {
     /// session). Shows the blocking overlay with a copy that names the rule
     /// rather than the user's focus intention. Mirrors the distractingApp branch
     /// for during-session enforcement but skips the parts that require an active
-    /// block (recordAssessment, grayscale that's coupled to focus minutes, etc).
+    /// block (recordAssessment, red shift that's coupled to focus minutes, etc).
     private func handleStandaloneBlockedApp(app: NSRunningApplication, bundleId bid: String) {
         let appName = app.localizedName ?? bid
         debugLog("👁️🛡 \(appName) blocked by active BlockingProfile rule (no session) — direct enforcement")
@@ -3362,12 +3361,12 @@ class FocusMonitor {
                     if blockType == .deepWork {
                         // Deep Work: shorter 3-min suppression, NO permanent whitelist
                         self.suppressedUntil[targetKey] = Date().addingTimeInterval(Self.deepWorkSuppressionSeconds)
-                        // Pause grayscale during suppression
-                        self.grayscaleController?.restoreSaturation()
+                        // Pause red shift during suppression
+                        self.redShiftController?.restoreColor()
                         self.deepWorkTimerController?.update(isDistracted: false)
                         self.appDelegate?.postLog("💬 Deep Work justification ACCEPTED for \"\(displayName)\" — 3 min suppression (no whitelist)")
                         self.logAssessment(title: displayName, appName: self.currentAppName, intention: block.title,
-                                          relevant: true, confidence: 0, reason: "Justification accepted — grayscale paused",
+                                          relevant: true, confidence: 0, reason: "Justification accepted — red shift paused",
                                           action: "grayscale_off", isEvent: true)
                     } else {
                         // Focus Hours: scorer whitelist (page-title-specific, not hostname-wide)
@@ -3819,13 +3818,13 @@ class FocusMonitor {
             showOverlay(intention: pending.intention, reason: pending.reason,
                        focusDurationMinutes: pending.focusDurationMinutes, isNoPlan: true, displayName: pending.displayName)
         } else if blockType == .deepWork {
-            // Deep Work native app: show full blocking overlay + start grayscale
-            if !(grayscaleController?.isActive ?? false) && isEnforcementEnabled(.screenRedShift) {
-                grayscaleController?.startDesaturation(fromIntensity: vignetteRetriggerIntensity())
-                grayscaleTriggeredThisBlock = true
-                appDelegate?.postLog("🌫️ Deep Work: grayscale started on native app overlay")
+            // Deep Work native app: show full blocking overlay + start red shift
+            if !(redShiftController?.isActive ?? false) && isEnforcementEnabled(.screenRedShift) {
+                redShiftController?.startRedShift(fromIntensity: vignetteRetriggerIntensity())
+                redShiftTriggeredThisBlock = true
+                appDelegate?.postLog("🌫️ Deep Work: red shift started on native app overlay")
                 logAssessment(title: pending.displayName, appName: currentAppName, intention: pending.intention,
-                             relevant: false, confidence: 0, reason: "Deep Work native app overlay grayscale",
+                             relevant: false, confidence: 0, reason: "Deep Work native app overlay red shift",
                              action: "grayscale_on", isEvent: true)
             }
             if isEnforcementEnabled(.blockingOverlay) {

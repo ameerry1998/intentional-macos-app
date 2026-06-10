@@ -15,24 +15,17 @@ intentional-macos-app/
     FocusMonitor.swift          # Desktop app monitoring, browser tab polling, overlay triggers
     FocusOverlayWindow.swift    # Full-screen blocking overlay (native NSWindow)
     NudgeWindowController.swift # Nudge toast (translucent red, below pill)
-    GrayscaleOverlayController.swift  # Full-screen desaturation overlay (Deep Work)
+    RedShiftController.swift    # Screen red-shift tint on distraction (gamma shift + vignette)
     DeepWorkTimerController.swift     # Floating pill timer + celebration cards + start ritual + confetti
-    BlockRitualController.swift       # Block start ritual overlay (intent + if-then plan)
     BlockEndRitualController.swift    # Block end ritual overlay (reflection + self-assessment)
     ContentSafetyMonitor.swift  # On-device explicit content detection (SensitiveContentAnalysis)
     RelevanceScorer.swift       # AI scoring (Apple Foundation Models + MLX Qwen3-4B)
-    SocketRelayServer.swift     # Unix socket server for extension communication
-    NativeMessagingHost.swift   # Chrome native messaging protocol (4-byte length + JSON)
-    NativeMessagingSetup.swift  # Auto-discover extensions, install native messaging manifests
     TimeTracker.swift           # Cross-browser usage tracking, heartbeat deduplication
     BrowserMonitor.swift        # Browser protection status, unprotected browser alerts
-    WebsiteBlocker.swift        # AppleScript tab blocking for browsers without extension
+    WebsiteBlocker.swift        # AppleScript tab blocking (sole browser interface)
     BackendClient.swift         # API client: lock/unlock, partner, device registration
     PermissionManager.swift     # Accessibility permission monitoring
     SleepWakeMonitor.swift      # Sleep/wake event handling
-    ProcessMonitor.swift        # Process observation utilities
-    BrowserDatabase.swift       # Browser discovery via Launch Services
-    BrowserDiscovery.swift      # Dynamic browser detection
     LegacyMonitorView.swift     # Debug monitor window (SwiftUI)
     dashboard.html              # Dashboard UI (calendar, earned browse, focus score)
     onboarding.html             # First-run setup wizard

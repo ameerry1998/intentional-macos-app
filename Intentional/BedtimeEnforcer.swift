@@ -11,7 +11,7 @@
 //     bedtime_unlock_requests.released_until).
 //   - `forceSleep` (pmset) removed; the OS lock screen IS the enforcement.
 //   - Wind-down notification cascade is owned by BedtimeWindDownController.
-//   - GrayscaleOverlayController references for the windDown phases are
+//   - RedShiftController (formerly GrayscaleOverlayController) references for the windDown phases are
 //     removed; that controller still ships for FocusMonitor's distraction
 //     desaturation, but bedtime no longer drives it.
 

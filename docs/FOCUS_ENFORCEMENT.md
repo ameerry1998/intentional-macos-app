@@ -19,7 +19,9 @@ State + period are persisted to `~/Library/Application Support/Intentional/focus
 
 Default blocking profile is applied automatically when entering `.focus` from any path that doesn't go through the explicit profile picker (cross-device, schedule, manual toggle). The picker path's subsequent `applyFocusSession([picker profiles])` overrides if profiles are explicitly chosen.
 
-## Block Start Ritual (BlockRitualController)
+## Block Start Ritual (pill — `DeepWorkTimerController` `.startRitual` mode)
+
+> The legacy full-screen `BlockRitualController` was deleted 2026-06-10; the ritual renders inside the pill.
 When a block starts, a ritual card shows BEFORE the timer and enforcement activate. The user sets their intention and if-then plan, then clicks Start (or it auto-starts after 3 min for work / 30s for free time).
 
 - **Deep Work / Focus Hours**: Full ritual card — focus question, 3 if-then plan options, Start/Edit/+15 min buttons, Skip link
@@ -50,13 +52,13 @@ When a focus block ends, a reflection card shows celebrating what the user accom
 | Real Time | Cumulative | Event |
 |-----------|-----------|-------|
 | ~3-5s | 10s | AI scores tab → **Nudge** + timer dot turns red |
-| ~10s | 10s | **Auto-redirect** to last relevant URL + brief nudge + **grayscale starts** (30s fade) |
+| ~10s | 10s | **Auto-redirect** to last relevant URL + brief nudge + **red shift starts** (30s fade) |
 | revisit | — | **Instant redirect** (0s grace) |
 | ~295s | 300s | **Intervention overlay** (60s mandatory game, escalating 90s/120s) |
-| return | — | Grayscale snaps back over 2s, timer dot turns indigo |
+| return | — | Red shift snaps back over 2s, timer dot turns indigo |
 
-Native apps: 5s grace → blocking overlay + grayscale starts.
-Justification: "This is relevant" accepted → 3 min suppression only (no permanent whitelist), grayscale pauses.
+Native apps: 5s grace → blocking overlay + red shift starts.
+Justification: "This is relevant" accepted → 3 min suppression only (no permanent whitelist), red shift pauses.
 
 **Floating timer widget**: Pill-shaped widget in top-right corner during all focus schedule blocks (Deep Work, Focus Hours, Free Time). Shows `[dot] block title [MM:SS]`. Dot: indigo=focused, red=distracted. Draggable. Auto-dismisses when block ends.
 
@@ -76,12 +78,12 @@ Quick-block buttons create a block starting now with default duration (adjusted 
 | Real Time | Cumulative | Event |
 |-----------|-----------|-------|
 | ~3-5s | 10s | **Level 1 nudge #1** (auto-dismiss 8s) |
-| ~65s | 70s | **Level 1 nudge #2** + **grayscale starts** (30s fade) |
+| ~65s | 70s | **Level 1 nudge #2** + **red shift starts** (30s fade) |
 | ~125s | 130s | **Level 1 nudge #3** |
 | ~185s | 190s | **Level 1 nudge #4** |
 | ~235s | 240s | **Red warning nudge** ("intervention in 60s") |
 | ~295s | 300s | **Intervention overlay** (60s mandatory game, escalating 90s/120s) |
-| return | — | Grayscale snaps back over 2s |
+| return | — | Red shift snaps back over 2s |
 
 ## Irrelevance Threshold
 Cumulative: 300 seconds of cumulative distraction triggers escalation (both Deep Work and Focus Hours). Distraction counter decays when user returns to relevant content.
@@ -93,7 +95,7 @@ Social media sites (YouTube, Instagram, Facebook) are skipped by FocusMonitor �
 User-configured distracting apps (`distractingAppBundleIds` set, synced from `onboarding_settings.json`) skip AI scoring and grace periods — enforcement is immediate:
 - Checked BEFORE always-allowed list (user intent overrides defaults)
 - `isCurrentlyIrrelevant` set to `true` immediately (no grace period limbo)
-- Gradual grayscale starts immediately via `startDesaturation()` (same progressive shift as browser tabs)
+- Gradual red shift starts immediately via `startRedShift()` (same progressive shift as browser tabs)
 - Deep Work: blocking overlay shown; Focus Hours: nudge shown
 - Cumulative distraction counter incremented on each evaluation
 

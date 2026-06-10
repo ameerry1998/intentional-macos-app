@@ -2,14 +2,13 @@
 feature: FocusSessions
 status: shipping
 owner: Intentional Mac
-last_verified: 2026-05-21
+last_verified: 2026-06-10
 files:
   - Intentional/FocusModeController.swift
   - Intentional/FocusStatePoller.swift
   - Intentional/FocusMonitor.swift
   - Intentional/ScheduleManager.swift
   - Intentional/AppDelegate.swift
-  - Intentional/BlockRitualController.swift
   - Intentional/BlockEndRitualController.swift
 related:
   - intentions
@@ -26,9 +25,9 @@ related:
 ## User-visible behavior
 
 - **Starting a session (manual):** The user taps the dashboard toggle, presses Cmd+Shift+P, or selects an Intention from the focus picker overlay. The pill widget appears in the top-right corner showing the active Intention name and a countdown timer. Website and app blocking engage immediately.
-- **Starting a session (scheduled):** At the scheduled block start time, `ScheduleManager`'s 10s timer fires `onBlockChanged` → `.focus`. The start ritual overlay appears (full-screen) prompting the user to commit to a focus question and if-then plan. After dismissal, the pill timer begins.
+- **Starting a session (scheduled):** At the scheduled block start time, `ScheduleManager`'s 10s timer fires `onBlockChanged` → `.focus`. The start ritual appears inside the pill (`DeepWorkTimerController` `.startRitual` mode — "Up next" card with Start/Edit; auto-starts after 3 min for work blocks, 30s for free time). After Start, the pill timer begins. (The legacy full-screen `BlockRitualController` was deleted 2026-06-10.)
 - **Starting a session (cross-device):** The user starts a session on iPhone. The Mac's WebSocket client and `FocusStatePoller` both detect the transition (whichever fires first); the Mac auto-engages without requiring any user click.
-- **During a session:** The pill shows a red/green/indigo dot based on relevance of the current app or browser tab. Distracting sites are blocked by the Chrome extension's overlay. Distracting native apps trigger nudges, grayscale, auto-redirect, or a mandatory intervention overlay depending on cumulative distraction seconds and block intensity.
+- **During a session:** The pill shows a red/green/indigo dot based on relevance of the current app or browser tab. Distracting sites are blocked via AppleScript tab control (`WebsiteBlocker`). Distracting native apps trigger nudges, the red-shift screen tint (`RedShiftController`), auto-redirect, or a mandatory intervention overlay depending on cumulative distraction seconds and block intensity.
 - **Ending a session (manual):** The user clicks the dashboard toggle or the pill "Stop" button. The end-of-block ritual overlay appears (celebration carousel with focus score, app breakdown, and earned minutes). Blocking disengages.
 - **Ending a session (scheduled):** The block end time fires `onBlockChanged` → `.off`. Celebration auto-triggers.
 - **App restart mid-session:** `FocusModeController` reads disk state on `init()`. If the session was active when the app was killed, enforcement re-engages within ~50ms of launch (before the first poller tick). The poller reconciles against backend within 2s.
@@ -208,7 +207,6 @@ sequenceDiagram
 | `Intentional/FocusMonitor.swift` | ~4194 | Desktop enforcement: app/tab scoring, distraction counter, nudges, overlays, interventions, rituals, celebration. Reads `focusModeController.isOn`. |
 | `Intentional/ScheduleManager.swift` | ~800+ | Manages daily schedule (`daily_schedule.json`), 10s block-check timer, `onBlockChanged` callback routing into `FocusModeController` |
 | `Intentional/AppDelegate.swift` | ~2478 | Wires all components, hosts `focusModeController.onStateChanged` fanout callback (line 720), boot reconcile (line 893), initial block sync (line 1103) |
-| `Intentional/BlockRitualController.swift` | ~350 | Full-screen session start overlay (focus question, if-then plan, block edit). Called from `FocusMonitor.onBlockChanged` |
 | `Intentional/BlockEndRitualController.swift` | ~400 | Full-screen end-of-block celebration carousel (focus score, app breakdown, up-next block) |
 
 ---
