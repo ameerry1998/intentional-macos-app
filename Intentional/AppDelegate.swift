@@ -138,10 +138,41 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Per-goal enforcement from the Weekly Goal (Intention) itself — the canonical
+    /// source post-Spec-1. `macWebsites`/`macBundleIds` block; `allowWebsites`/
+    /// `allowBundleIds` allow. Stacks on top of the default blocking profile
+    /// (applied separately in onStateChanged); fail-safe is "default blocking only,"
+    /// never less than today.
+    func refreshIntentionEnforcement(for intentionId: UUID) async {
+        guard let intention = await IntentionStore.shared.intention(id: intentionId),
+              intention.deletedAt == nil else {
+            postLog("🎯 Goal enforcement: intention \(intentionId.uuidString.prefix(8)) not found — default blocking only")
+            return
+        }
+        let enforcement = FocusMonitor.ProjectEnforcement(
+            projectId: intentionId,
+            allowedBundleIds: Set(intention.allowBundleIds),
+            allowedDomains: Set(intention.allowWebsites.map { $0.lowercased() }),
+            blockedBundleIds: Set(intention.macBundleIds),
+            blockedDomains: Set(intention.macWebsites.map { $0.lowercased() })
+        )
+        await MainActor.run {
+            // Stale-guard: only apply if this goal is still the active session's goal.
+            let activeGoal = self.focusModeController?.currentPeriod?.intentionId
+            guard activeGoal == intentionId || self.activeProjectSession?.projectId == intentionId else { return }
+            self.focusMonitor?.projectEnforcement = enforcement
+            self.postLog("🎯 Goal enforcement active: \(intention.name) — block \(enforcement.blockedDomains.count)d/\(enforcement.blockedBundleIds.count)a, allow \(enforcement.allowedDomains.count)d/\(enforcement.allowedBundleIds.count)a")
+        }
+    }
+
     private func refreshProjectEnforcement(for projectId: UUID) async {
         guard let store = projectStore,
               let project = await store.get(id: projectId) else {
-            await MainActor.run { self.focusMonitor?.projectEnforcement = nil }
+            // No legacy Project with this id — post-migration goals live only in
+            // IntentionStore. Fall through to goal-based enforcement instead of
+            // clearing (clearing silently disabled per-goal lists for manual starts
+            // of goals created after the May 2026 migration).
+            await refreshIntentionEnforcement(for: projectId)
             return
         }
         let merged = blockingProfileManager?.mergedBlockList(profileIds: project.blocklistIds)
@@ -747,7 +778,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }()
                 if isLocallyOriginated {
                     if new == .focus {
-                        self.postFocusToggleToBackend(action: "start")
+                        self.postFocusToggleToBackend(action: "start", intentionId: period?.intentionId)
                     } else if new == .off && old == .focus {
                         self.postFocusToggleToBackend(action: "stop")
                     }
@@ -800,6 +831,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.applyDefaultBlockingProfile()
             }
 
+            if new == .focus, let goalId = period?.intentionId {
+                // Per-goal block/allow lists + stacks on the default profile above.
+                // Covers schedule starts (which never call setActiveProjectSession)
+                // and is idempotent with the manual path's refresh.
+                Task { await self.refreshIntentionEnforcement(for: goalId) }
+            }
+
             if new == .focus {
                 // Close-the-noise sweep: fires whenever a focus session starts —
                 // entering focus from .off OR switching intention while already in
@@ -823,6 +861,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if new == .off {
                 self.switchCoordinator?.reset()
                 self.applyAlwaysActiveProfiles()
+                // Session over — drop per-goal enforcement so free time isn't
+                // policed by the last goal's lists.
+                self.focusMonitor?.projectEnforcement = nil
                 // Clear any synthetic block we injected so the next activation
                 // doesn't re-engage stale context.
                 self.scheduleManager?.clearInjectedFocusSessionBlock()
@@ -892,6 +933,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if focusModeController?.state == .focus {
             postLog("🎯 Restored .focus from disk — re-engaging enforcement")
             applyDefaultBlockingProfile()
+            // Re-engage per-goal lists too — this path bypasses the onStateChanged
+            // fanout, so without this a mid-session restart silently drops the
+            // Weekly Goal's own block/allow enforcement.
+            if let goalId = focusModeController?.currentPeriod?.intentionId {
+                Task { await self.refreshIntentionEnforcement(for: goalId) }
+            }
             focusMonitor?.onBlockChanged()
         }
 
@@ -1041,7 +1088,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // broadcasts) runs via focusModeController.onStateChanged.
             switch state {
             case .focus:
-                self.focusModeController?.activate(intention: block?.title, source: .schedule)
+                self.focusModeController?.activate(intention: block?.title,
+                                                   intentionId: block?.intentionId,
+                                                   source: .schedule)
             case .bedtime:
                 self.focusModeController?.activateBedtime(source: .bedtimeSchedule)
                 // Bedtime is phone-and-Mac local for now — separate backend
@@ -1137,7 +1186,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let timeState = scheduleManager?.currentTimeState ?? .off
             switch timeState {
             case .focus:
-                focusModeController?.activate(intention: currentBlock.title, source: .schedule)
+                focusModeController?.activate(intention: currentBlock.title,
+                                              intentionId: currentBlock.intentionId,
+                                              source: .schedule)
             case .bedtime:
                 focusModeController?.activateBedtime(source: .bedtimeSchedule)
             case .off:
@@ -1749,14 +1800,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// feedback; this fires async to mirror the change to backend so other
     /// devices (iPhone, future) and the Mac's own poller see it. On failure
     /// the next poller tick reconciles (backend wins).
-    func postFocusToggleToBackend(action: String) {
+    func postFocusToggleToBackend(action: String, intentionId: UUID? = nil) {
         guard let deviceId = backendClient?.getDeviceId(),
               let url = URL(string: "https://api.intentional.social/focus/toggle") else { return }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try? JSONSerialization.data(withJSONObject: ["action": action])
+        // Without intention_id the backend falls back to binding the session to the
+        // account's earliest goal — hours_done then credits the wrong Weekly Goal.
+        // Without triggered_by the backend records "puck" for Mac-originated sessions.
+        var body: [String: Any] = ["action": action, "triggered_by": "mac"]
+        if let intentionId = intentionId { body["intention_id"] = intentionId.uuidString }
+        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
         req.timeoutInterval = 5
         URLSession.shared.dataTask(with: req) { [weak self] _, response, error in
             let status = (response as? HTTPURLResponse)?.statusCode ?? -1

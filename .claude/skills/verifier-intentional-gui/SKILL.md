@@ -58,7 +58,9 @@ osascript -e "tell application \"$PREV\" to activate"   # give focus back
 
 - Announce click bursts in your text BEFORE doing them; keep each burst under ~10s; always restore the user's frontmost app.
 - Navigation and read-only clicks are fair game. NEVER click without explicit user approval in the current task: Start/Stop session, sweep confirm/close-all, any Delete, Strict-mode/bedtime/Content-Safety toggles.
-- Never send keystrokes unless you just verified focus is in a field you put it in.
+- Never send keystrokes unless you just verified focus is in a field you put it in. **Verified means**: after the click, read the process's `attribute "AXFocusedUIElement"` (or the field's `focused` attribute) and confirm it matches the field you aimed at. A click that "succeeded" is NOT focus proof — a mis-aimed click focuses ANOTHER APP and your keystrokes go into the user's terminal/browser (happened 2026-06-10).
+- Query form elements ONE AT A TIME (`text field 1`, `text field 2`) — bulk `{position, size} of every text field` returns flattened lists that mis-parse into garbage coordinates (caused the 2026-06-10 stray-keystroke incident).
+- Sanity-bound every computed click: it must fall INSIDE the app window's rect (position+size you queried earlier). Outside → abort the burst, re-query.
 - Only open/close YOUR OWN browser tabs (`open -ga "Google Chrome" <url>`); never touch the user's tabs.
 - Focus-session tests engage real blocking — warn the user, keep sessions ≤3 min, end them when done.
 
