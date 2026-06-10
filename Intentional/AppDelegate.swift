@@ -436,7 +436,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // false for missing keys, which would make a default-true feature appear
         // disabled until the user toggles it once. register(defaults:) fixes that.
         UserDefaults.standard.register(defaults: [
-            "planFirstPromptEnabled": true,
+            // Calm-down pass (2026-06-10, D1/D6/D7): minimal opt-in posture.
+            // Free-time nag and the session-start intent prompt are OFF until
+            // the user deliberately enables them.
+            "planFirstPromptEnabled": false,
+            "sessionStartPromptEnabled": false,
         ])
 
         // Always-Allowed store (used by close-the-noise sweep + Settings UI).
@@ -1875,7 +1879,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             intentionOutcome = intention.outcome ?? ""
         }
         let suggestedIntent = [voiceIntent, intentionSavedText].filter { !$0.isEmpty }.joined(separator: " — ")
-        let stageOneAnswer = await stageOneIntentController?.prompt(suggestedIntent: suggestedIntent) ?? .skipped
+        // D7: the "Before you start" prompt is opt-in. Off → same path as Skip
+        // (Intention's saved intentText/outcome drive the sweep scope).
+        let stageOneAnswer: StageOneAnswer
+        if UserDefaults.standard.bool(forKey: "sessionStartPromptEnabled") {
+            stageOneAnswer = await stageOneIntentController?.prompt(suggestedIntent: suggestedIntent) ?? .skipped
+        } else {
+            stageOneAnswer = .skipped
+        }
 
         // 1. Resolve scope. Stage 1 user-typed answer (if any) takes priority;
         //    falls back to Intention's saved intentText + outcome + the

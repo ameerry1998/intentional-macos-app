@@ -5,6 +5,14 @@ import SwiftUI
 class KeyableWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    /// D5 (calm-down pass): every overlay must have an escape hatch. Esc fires
+    /// this regardless of which view has focus — guarantees the user can never
+    /// be trapped by an overlay whose buttons don't respond.
+    var onEscape: (() -> Void)?
+    override func cancelOperation(_ sender: Any?) {
+        if let onEscape { onEscape() } else { super.cancelOperation(sender) }
+    }
 }
 
 /// Manages a full-screen blocking overlay window (Deep Work only).
@@ -125,6 +133,13 @@ class FocusOverlayWindowController {
             window.isReleasedWhenClosed = false
             window.ignoresMouseEvents = false
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            // D5: Esc always dismisses. For the no-plan prompt it counts as a
+            // snooze (respects the 30-min quiet window); for blocking overlays
+            // it's a plain dismiss — enforcement will re-evaluate on next tick.
+            window.onEscape = { [weak self, weak viewModel] in
+                if viewModel?.isNoPlan == true { self?.onSnooze?() }
+                self?.dismiss()
+            }
 
             window.setFrame(screenFrame, display: true)
             appDelegate?.postLog("🚨 ACTIVATE: FocusOverlayWindow.showOverlay — makeKeyAndOrderFront (screen \(index))")
