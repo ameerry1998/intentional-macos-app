@@ -1746,6 +1746,174 @@ class BackendClient {
         }
     }
 
+    // MARK: - Rules + Leisure Pool (Rules Consolidation R2 — June 2026)
+    // Wire format: intentional-backend feat/rules-table commit 5603ab5
+    // (migration 028). Dual-auth via X-Device-ID like /intentions.
+
+    enum RuleError: Error, LocalizedError {
+        /// 409 — a rule for this (target_kind, target) already exists.
+        /// Clients should PUT the existing rule instead of stacking duplicates.
+        case duplicate
+        case notFound
+        case network(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .duplicate: return "A rule for this target already exists"
+            case .notFound:  return "Rule not found on server"
+            case .network(let s): return s
+            }
+        }
+    }
+
+    /// GET /rules — returns nil on network failure, [] when truly empty.
+    /// Decoding is lossy: one malformed rule is skipped, not the whole list.
+    func getRules() async -> [Rule]? {
+        guard let url = URL(string: "\(baseURL)/rules") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            let resp = try JSONDecoder().decode(RuleListResponse.self, from: data)
+            return resp.rules
+        } catch {
+            return nil
+        }
+    }
+
+    /// POST /rules — 201 with the created rule. Throws .duplicate on 409.
+    func createRule(_ payload: RuleCreatePayload) async throws -> Rule {
+        guard let url = URL(string: "\(baseURL)/rules") else {
+            throw RuleError.network("Bad URL")
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        req.httpBody = try JSONEncoder().encode(payload)
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+        if code == 409 { throw RuleError.duplicate }
+        guard code == 201 else { throw RuleError.network("HTTP \(code)") }
+        return try JSONDecoder().decode(Rule.self, from: data)
+    }
+
+    /// PUT /rules/{id} — partial update; omitted payload fields keep their
+    /// value (send clearSchedule=true to null a schedule — a bare
+    /// "schedule": null is treated as omitted by the backend).
+    /// Throws .notFound on 404, .duplicate on 409 (retarget collision).
+    func updateRule(id: UUID, payload: RuleUpdatePayload) async throws -> Rule {
+        guard let url = URL(string: "\(baseURL)/rules/\(id.uuidString.lowercased())") else {
+            throw RuleError.network("Bad URL")
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "PUT"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        req.httpBody = try JSONEncoder().encode(payload)
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+        if code == 404 { throw RuleError.notFound }
+        if code == 409 { throw RuleError.duplicate }
+        guard code == 200 else { throw RuleError.network("HTTP \(code)") }
+        return try JSONDecoder().decode(Rule.self, from: data)
+    }
+
+    /// DELETE /rules/{id} — hard delete. Returns true on 204.
+    @discardableResult
+    func deleteRule(id: UUID) async -> Bool {
+        guard let url = URL(string: "\(baseURL)/rules/\(id.uuidString.lowercased())") else { return false }
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (_, response) = try await URLSession.shared.data(for: req)
+            return ((response as? HTTPURLResponse)?.statusCode ?? -1) == 204
+        } catch {
+            return false
+        }
+    }
+
+    /// GET /leisure_pool/today — creates today's row server-side on first
+    /// call of the day (with bank rollover). nil on any failure.
+    func getLeisurePoolToday() async -> LeisurePool? {
+        guard let url = URL(string: "\(baseURL)/leisure_pool/today") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            return try JSONDecoder().decode(LeisurePool.self, from: data)
+        } catch {
+            return nil
+        }
+    }
+
+    /// POST /leisure_pool/earn — credit focused minutes at earn_rate:1
+    /// (server-side floor). sessionId makes replays idempotent (deduped).
+    func postPoolEarn(focusedMinutes: Int, sessionId: String? = nil) async -> LeisurePool? {
+        guard let url = URL(string: "\(baseURL)/leisure_pool/earn") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        var body: [String: Any] = ["focused_minutes": focusedMinutes]
+        if let sessionId { body["session_id"] = sessionId }
+        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            return try JSONDecoder().decode(LeisurePool.self, from: data)
+        } catch {
+            return nil
+        }
+    }
+
+    /// POST /leisure_pool/spend — record leisure spend (server clamps at
+    /// available; the response's spent_applied says how much stuck).
+    func postPoolSpend(minutes: Int) async -> LeisurePool? {
+        guard let url = URL(string: "\(baseURL)/leisure_pool/spend") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: ["minutes": minutes])
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            return try JSONDecoder().decode(LeisurePool.self, from: data)
+        } catch {
+            return nil
+        }
+    }
+
+    /// PUT /leisure_pool/config — base 0-240, rate 1-20, cap 0-240 (server
+    /// 422s outside ranges → nil). Applies to today's row; future days
+    /// inherit via rollover carry-forward.
+    func putPoolConfig(baseMinutes: Int? = nil, earnRate: Int? = nil,
+                       bankCap: Int? = nil) async -> LeisurePool? {
+        guard let url = URL(string: "\(baseURL)/leisure_pool/config") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "PUT"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        var body: [String: Any] = [:]
+        if let baseMinutes { body["base_minutes"] = baseMinutes }
+        if let earnRate { body["earn_rate"] = earnRate }
+        if let bankCap { body["bank_cap"] = bankCap }
+        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            return try JSONDecoder().decode(LeisurePool.self, from: data)
+        } catch {
+            return nil
+        }
+    }
+
     // MARK: - Focus Toggle (Spec 1 — extended with intention_id)
 
     enum FocusToggleAction: String { case start, stop }

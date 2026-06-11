@@ -888,6 +888,30 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 handleStartIntentionSession(body)
             }
 
+        // June 2026 — Rules Consolidation R2 (unified blocked/limited/allowed
+        // rules + shared leisure pool). Handlers only; Rules page UI is R3.
+        case "GET_RULES":
+            handleGetRules()
+
+        case "CREATE_RULE":
+            if let body = message.body as? [String: Any] {
+                handleCreateRule(body)
+            }
+
+        case "UPDATE_RULE":
+            if let body = message.body as? [String: Any] {
+                handleUpdateRule(body)
+            }
+
+        case "DELETE_RULE":
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) {
+                handleDeleteRule(id: id)
+            }
+
+        case "GET_LEISURE_POOL":
+            handleGetLeisurePool()
+
         case "CREATE_SCHEDULED_SESSION":
             // FIX-2: Drag a weekly-goal card onto the calendar — creates a real
             // local FocusBlock so the session shows up on Today + pushes to backend.
@@ -4196,6 +4220,197 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     private func emitMonthlyGoalUpdated(_ dict: [String: Any]) {
         let json = jsonString(dict)
         callJS("window._monthlyGoalUpdated && window._monthlyGoalUpdated(\(json))")
+    }
+
+    // MARK: - Rules + Leisure Pool (Rules Consolidation R2 — June 2026)
+
+    /// Wire-format dict for one rule, mirroring the backend's _rule_to_dict
+    /// (snake_case keys) so the dashboard JS sees the same shape either way.
+    static func ruleToDict(_ r: Rule) -> [String: Any] {
+        var d: [String: Any] = [
+            "id": r.id.uuidString.lowercased(),
+            "target_kind": r.targetKind.rawValue,
+            "target": r.target,
+            "treatment": r.treatment.rawValue,
+            "enabled": r.enabled,
+            "created_at": Rule.isoString(r.createdAt),
+            "updated_at": Rule.isoString(r.updatedAt),
+        ]
+        if let schedule = r.schedule {
+            d["schedule"] = schedule.mapValues { $0.value }
+        } else {
+            d["schedule"] = NSNull()
+        }
+        return d
+    }
+
+    static func leisurePoolToDict(_ p: LeisurePool) -> [String: Any] {
+        var d: [String: Any] = [
+            "pool_date": p.poolDate,
+            "base_minutes": p.baseMinutes,
+            "earned_minutes": p.earnedMinutes,
+            "spent_minutes": p.spentMinutes,
+            "bank_minutes": p.bankMinutes,
+            "earn_rate": p.earnRate,
+            "bank_cap": p.bankCap,
+            "available_minutes": p.availableMinutes,
+        ]
+        if let c = p.creditedMinutes { d["credited_minutes"] = c }
+        if let dd = p.deduped { d["deduped"] = dd }
+        if let s = p.spentApplied { d["spent_applied"] = s }
+        return d
+    }
+
+    private func handleGetRules() {
+        guard let store = appDelegate?.ruleStore else {
+            emitRulesList([])
+            return
+        }
+        Task {
+            // Serve the cache instantly (offline-friendly); a background pull
+            // will re-emit via .rulesDidChange once the Rules page (R3) wires
+            // a listener — for now the 60s sync rhythm keeps the cache fresh.
+            let rules = await store.all()
+            let items = rules.map { Self.ruleToDict($0) }
+            await MainActor.run { self.emitRulesList(items) }
+        }
+    }
+
+    private func handleCreateRule(_ body: [String: Any]) {
+        guard let store = appDelegate?.ruleStore else {
+            emitRuleCreated(["success": false, "reason": "store unavailable"])
+            return
+        }
+        guard let kindRaw = body["target_kind"] as? String,
+              let kind = RuleTargetKind(rawValue: kindRaw),
+              let target = body["target"] as? String, !target.isEmpty,
+              let treatmentRaw = body["treatment"] as? String,
+              let treatment = RuleTreatment(rawValue: treatmentRaw) else {
+            emitRuleCreated(["success": false, "reason": "invalid payload"])
+            return
+        }
+        let schedule = (body["schedule"] as? [String: Any]).map { $0.mapValues { AnyCodable($0) } }
+        let enabled = (body["enabled"] as? Bool) ?? true
+        let payload = RuleCreatePayload(
+            targetKind: kind, target: target, treatment: treatment,
+            schedule: schedule, enabled: enabled
+        )
+        Task {
+            do {
+                let created = try await store.create(payload)
+                var dict = Self.ruleToDict(created)
+                dict["success"] = true
+                await MainActor.run { self.emitRuleCreated(dict) }
+            } catch BackendClient.RuleError.duplicate {
+                await MainActor.run {
+                    self.emitRuleCreated(["success": false, "reason": "duplicate"])
+                }
+            } catch {
+                await MainActor.run {
+                    self.emitRuleCreated(["success": false, "reason": "\(error.localizedDescription)"])
+                }
+            }
+        }
+    }
+
+    private func handleUpdateRule(_ body: [String: Any]) {
+        guard let store = appDelegate?.ruleStore,
+              let idStr = body["id"] as? String,
+              let id = UUID(uuidString: idStr) else {
+            emitRuleUpdated(["success": false, "reason": "invalid payload"])
+            return
+        }
+        // Partial update: only keys present in the body are sent to the
+        // backend. Send clear_schedule=true to null a schedule (a bare
+        // schedule:null is treated as omitted, matching the backend contract).
+        let payload = RuleUpdatePayload(
+            targetKind: (body["target_kind"] as? String).flatMap { RuleTargetKind(rawValue: $0) },
+            target: body["target"] as? String,
+            treatment: (body["treatment"] as? String).flatMap { RuleTreatment(rawValue: $0) },
+            schedule: (body["schedule"] as? [String: Any]).map { $0.mapValues { AnyCodable($0) } },
+            clearSchedule: (body["clear_schedule"] as? Bool) == true ? true : nil,
+            enabled: body["enabled"] as? Bool
+        )
+        Task {
+            do {
+                let updated = try await store.update(id: id, payload: payload)
+                var dict = Self.ruleToDict(updated)
+                dict["success"] = true
+                await MainActor.run { self.emitRuleUpdated(dict) }
+            } catch BackendClient.RuleError.duplicate {
+                await MainActor.run {
+                    self.emitRuleUpdated(["success": false, "reason": "duplicate", "id": idStr])
+                }
+            } catch BackendClient.RuleError.notFound {
+                await MainActor.run {
+                    self.emitRuleUpdated(["success": false, "reason": "not found", "id": idStr])
+                }
+            } catch {
+                await MainActor.run {
+                    self.emitRuleUpdated(["success": false, "reason": "\(error.localizedDescription)", "id": idStr])
+                }
+            }
+        }
+    }
+
+    private func handleDeleteRule(id: UUID) {
+        guard let store = appDelegate?.ruleStore else {
+            emitRuleDeleted(["success": false, "reason": "store unavailable"])
+            return
+        }
+        Task {
+            let ok = await store.delete(id: id)
+            await MainActor.run {
+                self.emitRuleDeleted([
+                    "success": ok,
+                    "id": id.uuidString.lowercased(),
+                ])
+            }
+        }
+    }
+
+    private func handleGetLeisurePool() {
+        guard let store = appDelegate?.ruleStore else {
+            emitLeisurePool(["error": "store unavailable"])
+            return
+        }
+        Task {
+            // refreshPool() returns the fresh server pool, falling back to the
+            // stale local cache when offline; nil only if we've never synced.
+            if let pool = await store.refreshPool() {
+                let dict = Self.leisurePoolToDict(pool)
+                await MainActor.run { self.emitLeisurePool(dict) }
+            } else {
+                await MainActor.run { self.emitLeisurePool(["error": "unavailable"]) }
+            }
+        }
+    }
+
+    // MARK: - Rules emit helpers
+
+    private func emitRulesList(_ items: [[String: Any]]) {
+        let json = jsonString(items)
+        callJS("window._rulesList && window._rulesList(\(json))")
+    }
+
+    private func emitRuleCreated(_ dict: [String: Any]) {
+        let json = jsonString(dict)
+        callJS("window._ruleCreated && window._ruleCreated(\(json))")
+    }
+
+    private func emitRuleUpdated(_ dict: [String: Any]) {
+        let json = jsonString(dict)
+        callJS("window._ruleUpdated && window._ruleUpdated(\(json))")
+    }
+
+    private func emitRuleDeleted(_ dict: [String: Any]) {
+        let json = jsonString(dict)
+        callJS("window._ruleDeleted && window._ruleDeleted(\(json))")
+    }
+
+    private func emitLeisurePool(_ dict: [String: Any]) {
+        let json = jsonString(dict)
+        callJS("window._leisurePool && window._leisurePool(\(json))")
     }
 
     /// JSON-encode dict/array as String. Falls back to "null" on failure.
