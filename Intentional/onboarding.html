@@ -1,1453 +1,388 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Intentional — Setup</title>
+<meta charset="utf-8" />
+<title>Welcome to Intentional</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-/* ===== Iridescent Theme: CSS Custom Properties ===== */
-@property --angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-
-:root {
-  --bg-base: #0e0e12;
-  --bg-elevated: rgba(20, 20, 28, 0.9);
-  --bg-elevated-solid: #14141c;
-  --accent-primary: #8b5cf6;
-  --accent-primary-hover: #7c3aed;
-  --accent-primary-rgb: 139, 92, 246;
-  --gradient-iridescent: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899);
-  --block-focus: #8b5cf6;
-  --block-deep-work: #ef4444;
-  --block-free-time: #34d399;
-  --color-success: #34d399;
-  --color-success-rgb: 52, 211, 153;
-  --color-error: #ef4444;
-  --color-error-rgb: 239, 68, 68;
-  --color-warning: #f59e0b;
-  --color-warning-rgb: 245, 158, 11;
-  --text-primary: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.5);
-  --highlight-edge: linear-gradient(90deg, transparent, rgba(6,182,212,0.4), rgba(139,92,246,0.4), rgba(236,72,153,0.3), transparent);
-}
-
-@keyframes gradient-shift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-@keyframes border-rotate {
-  0% { --angle: 0deg; }
-  100% { --angle: 360deg; }
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
-}
-
-@keyframes aurora-drift {
-  0% { transform: translate(0, 0) scale(1); opacity: 0.3; }
-  33% { transform: translate(30px, -20px) scale(1.1); opacity: 0.4; }
-  66% { transform: translate(-20px, 15px) scale(0.95); opacity: 0.25; }
-  100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
-}
-
-/* ===== Reset & Base ===== */
-*, *::before, *::after {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, sans-serif;
-  background: var(--bg-base);
-  color: #ffffff;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  user-select: none;
-  -webkit-user-select: none;
-  position: relative;
-}
-
-/* ===== Glow Background (Aurora) ===== */
-.glow {
-  position: fixed;
-  width: 150%;
-  height: 150%;
-  top: -25%;
-  left: -25%;
-  background: radial-gradient(ellipse at center, rgba(var(--accent-primary-rgb), 0.1) 0%, transparent 50%);
-  animation: glow-pulse 4s ease-in-out infinite;
-  pointer-events: none;
-}
-.theme-effects-iridescent .glow::before {
-  content: '';
-  position: absolute;
-  top: 10%;
-  left: -5%;
-  width: 40%;
-  height: 40%;
-  background: radial-gradient(ellipse, rgba(6, 182, 212, 0.06), transparent 70%);
-  animation: aurora-drift 10s ease-in-out infinite;
-}
-.theme-effects-iridescent .glow::after {
-  content: '';
-  position: absolute;
-  bottom: 15%;
-  right: -5%;
-  width: 40%;
-  height: 40%;
-  background: radial-gradient(ellipse, rgba(236, 72, 153, 0.04), transparent 70%);
-  animation: aurora-drift 12s ease-in-out infinite reverse;
-}
-.theme-effects-warm .glow::before {
-  content: '';
-  position: absolute;
-  top: 10%;
-  left: -5%;
-  width: 40%;
-  height: 40%;
-  background: radial-gradient(ellipse, rgba(251, 191, 36, 0.05), transparent 70%);
-  animation: aurora-drift 10s ease-in-out infinite;
-}
-.theme-effects-warm .glow::after {
-  content: '';
-  position: absolute;
-  bottom: 15%;
-  right: -5%;
-  width: 40%;
-  height: 40%;
-  background: radial-gradient(ellipse, rgba(52, 211, 153, 0.04), transparent 70%);
-  animation: aurora-drift 12s ease-in-out infinite reverse;
-}
-
-@keyframes glow-pulse {
-  0%, 100% { transform: scale(1); opacity: 0.5; }
-  50% { transform: scale(1.1); opacity: 0.8; }
-}
-
-@keyframes icon-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-}
-
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@keyframes config-slide-in {
-  from { opacity: 0; transform: translateX(30px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-/* ===== Container ===== */
-.container {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  max-width: 520px;
-  padding: 20px;
-}
-
-/* ===== Screen Transitions ===== */
-.screen {
-  display: none;
-  opacity: 0;
-  transform: translateX(30px);
-  transition: all 0.4s ease-out;
-  text-align: center;
-}
-
-.screen.active {
-  display: block;
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.screen.exit-left {
-  opacity: 0;
-  transform: translateX(-30px);
-}
-
-/* ===== Typography ===== */
-.title {
-  font-size: 32px;
-  font-weight: 700;
-  color: #ffffff;
-  margin: 0 0 12px 0;
-  letter-spacing: -0.5px;
-}
-
-.subtitle {
-  font-size: 18px;
-  color: rgba(255, 255, 255, 0.7);
-  margin: 0 0 8px 0;
-  font-weight: 400;
-}
-
-.description {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.4);
-  margin: 0 0 20px 0;
-}
-
-/* ===== Welcome Screen ===== */
-.welcome-hero {
-  margin-bottom: 32px;
-}
-
-.welcome-icon {
-  font-size: 80px;
-  margin-bottom: 24px;
-  animation: icon-float 3s ease-in-out infinite;
-}
-
-.welcome-title {
-  font-size: 56px;
-  font-weight: 700;
-  color: #ffffff;
-  margin: 0;
-  letter-spacing: -1px;
-}
-
-.welcome-tagline {
-  font-size: 32px;
-  font-weight: 600;
-  color: #ffffff;
-  margin: 0 0 12px 0;
-}
-
-.welcome-subtext {
-  font-size: 18px;
-  color: rgba(255, 255, 255, 0.5);
-  margin: 0;
-}
-
-/* ===== Buttons ===== */
-.btn {
-  padding: 14px 28px;
-  font-size: 15px;
-  font-weight: 600;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-  outline: none;
-  font-family: inherit;
-}
-
-.btn-primary {
-  background: var(--accent-primary);
-  color: white;
-  flex: 1;
-  max-width: 200px;
-}
-.theme-effects-iridescent .btn-primary {
-  background: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899);
-  background-size: 200% 200%;
-  animation: gradient-shift 4s ease infinite;
-}
-.theme-effects-warm .btn-primary {
-  background: linear-gradient(135deg, #fbbf24, #34d399, #8b5cf6);
-  background-size: 200% 200%;
-  animation: gradient-shift 4s ease infinite;
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(var(--accent-primary-rgb), 0.4);
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-.btn-secondary {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.btn-text {
-  background: transparent;
-  color: rgba(255, 255, 255, 0.4);
-  padding: 14px 16px;
-}
-
-.btn-text:hover {
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.btn-large {
-  padding: 18px 48px;
-  font-size: 18px;
-  max-width: none;
-}
-
-/* ===== Footer ===== */
-.footer {
-  display: flex;
-  gap: 12px;
-  margin-top: 24px;
-  justify-content: center;
-}
-
-/* ===== Progress Dots ===== */
-.progress-dots {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 24px;
-}
-
-.dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
-  transition: all 0.3s;
-  cursor: pointer;
-}
-
-.dot.active {
-  background: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899);
-  background-size: 200% 200%;
-  animation: gradient-shift 4s ease infinite;
-  width: 24px;
-  border-radius: 5px;
-}
-
-.dot:hover:not(.active) {
-  background: rgba(255, 255, 255, 0.35);
-}
-
-/* ===== Period Limit ===== */
-.period-limit {
-  margin-top: 0;
-  padding: 0;
-  text-align: center;
-}
-
-.period-config {
-  display: none;
-  align-items: center;
-  gap: 10px;
-  margin-top: 14px;
-  padding: 14px 18px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
-  justify-content: center;
-  animation: fade-in 0.25s ease-out;
-}
-
-.period-config.visible {
-  display: flex;
-}
-
-.period-hint {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.3);
-  margin: 10px 0 0 0;
-  text-align: center;
-  transition: opacity 0.2s;
-}
-
-/* ===== Checkbox ===== */
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  gap: 12px;
-  justify-content: center;
-}
-
-.checkbox-label input {
-  display: none;
-}
-
-.checkbox-custom {
-  width: 24px;
-  height: 24px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-
-.checkbox-label input:checked + .checkbox-custom {
-  background: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899);
-  background-size: 200% 200%;
-  animation: gradient-shift 4s ease infinite;
-  border-color: transparent;
-}
-
-.checkbox-label input:checked + .checkbox-custom::after {
-  content: '\2713';
-  color: white;
-  font-size: 14px;
-}
-
-.checkbox-text {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-/* ===== Select Input ===== */
-.select-input {
-  padding: 8px 12px;
-  font-size: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  outline: none;
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.select-input:focus {
-  border-color: var(--accent-primary);
-}
-
-.select-input option {
-  background: var(--bg-elevated-solid);
-  color: #ffffff;
-}
-
-/* ===== Text Input ===== */
-.text-input {
-  width: 100%;
-  padding: 14px 16px;
-  font-size: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
-  outline: none;
-  background: rgba(255, 255, 255, 0.05);
-  color: #ffffff;
-  transition: border-color 0.2s;
-  box-sizing: border-box;
-  font-family: inherit;
-}
-
-.text-input:focus {
-  border-color: var(--accent-primary);
-}
-
-.text-input::placeholder {
-  color: rgba(255, 255, 255, 0.35);
-}
-
-/* ===== Danger Zones Grid ===== */
-.danger-zones-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  margin: 12px 0;
-}
-
-.danger-chip {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 12px 10px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 2px solid transparent;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-  gap: 4px;
-}
-
-.danger-chip:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.danger-chip.selected {
-  background: rgba(var(--accent-primary-rgb), 0.15);
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.2), 0 0 12px rgba(var(--accent-primary-rgb), 0.1);
-}
-
-.danger-chip-icon {
-  font-size: 20px;
-}
-
-.danger-chip-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-/* ===== Custom Category ===== */
-.custom-category {
-  margin-top: 12px;
-}
-
-.custom-category .text-input {
-  padding: 10px 14px;
-  font-size: 13px;
-}
-
-/* ===== Selected Categories Tags ===== */
-.selected-categories {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-  min-height: 24px;
-  justify-content: center;
-}
-
-.selected-tag {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  background: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899);
-  background-size: 200% 200%;
-  animation: gradient-shift 4s ease infinite;
-  color: white;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.selected-tag .remove-tag {
-  cursor: pointer;
-  opacity: 0.7;
-  transition: opacity 0.2s;
-  font-size: 13px;
-}
-
-.selected-tag .remove-tag:hover {
-  opacity: 1;
-}
-
-/* ===== Partner Form ===== */
-.partner-form {
-  margin: 24px 0;
-  text-align: left;
-}
-
-.input-group {
-  margin-bottom: 20px;
-}
-
-.input-label {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-/* ===== Partner Benefits ===== */
-.partner-benefits {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  padding: 16px;
-  margin-top: 24px;
-  text-align: left;
-}
-
-.benefit-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 0;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.benefit-icon {
-  color: var(--color-success);
-  font-weight: bold;
-  font-size: 14px;
-}
-
-/* ===== Lock Options ===== */
-.lock-options {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin: 24px 0;
-}
-
-.lock-option {
-  display: flex;
-  align-items: center;
-  padding: 18px 20px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 2px solid transparent;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: left;
-  gap: 16px;
-  font-family: inherit;
-}
-
-.lock-option:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.lock-option.selected {
-  background: rgba(var(--accent-primary-rgb), 0.15);
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.2), 0 0 12px rgba(var(--accent-primary-rgb), 0.1);
-}
-
-.lock-option.disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.lock-icon {
-  font-size: 28px;
-}
-
-.lock-info {
-  flex: 1;
-}
-
-.lock-title {
-  display: block;
-  font-size: 15px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.lock-desc {
-  display: block;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
-  margin-top: 2px;
-}
-
-.lock-note {
-  font-size: 13px;
-  color: var(--color-warning);
-  text-align: center;
-  margin-top: 16px;
-  min-height: 20px;
-}
-
-/* ===== Platform Cards (Screen 3) ===== */
-.platform-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin: 24px 0;
-}
-
-.platform-card {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  padding: 20px;
-  transition: all 0.3s;
-  text-align: left;
-}
-
-.platform-card:hover {
-  background: rgba(255, 255, 255, 0.07);
-}
-
-.platform-card.disabled {
-  opacity: 0.45;
-}
-
-.platform-card.disabled .platform-config-btn {
-  pointer-events: none;
-  opacity: 0.5;
-}
-
-.platform-card-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.platform-icon {
-  font-size: 28px;
-  flex-shrink: 0;
-}
-
-.platform-name {
-  font-size: 18px;
-  font-weight: 600;
-  flex: 1;
-  color: #ffffff;
-}
-
-.platform-summary {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.45);
-  margin: 12px 0;
-  line-height: 1.4;
-}
-
-.platform-config-btn {
-  width: 100%;
-  padding: 10px 16px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: inherit;
-  text-align: center;
-}
-
-.platform-config-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.15);
-}
-
-/* ===== Toggle Switch ===== */
-.toggle-switch {
-  position: relative;
-  display: inline-block;
-  flex-shrink: 0;
-}
-
-.toggle-input {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.toggle-track {
-  display: block;
-  width: 44px;
-  height: 24px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
-  position: relative;
-  transition: background 0.2s;
-  cursor: pointer;
-}
-
-.toggle-input:checked + .toggle-track {
-  background: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899);
-  background-size: 200% 200%;
-  animation: gradient-shift 4s ease infinite;
-}
-
-.toggle-thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
-  background: white;
-  border-radius: 50%;
-  transition: transform 0.2s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.toggle-input:checked + .toggle-track .toggle-thumb {
-  transform: translateX(20px);
-}
-
-/* ===== Toggle Row (config panel) ===== */
-.toggle-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 0;
-  cursor: pointer;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.toggle-row:last-child {
-  border-bottom: none;
-}
-
-.toggle-row-text {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.85);
-  font-weight: 500;
-}
-
-.toggle-hint {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.3);
-  margin: -4px 0 8px 0;
-}
-
-/* ===== Config Panel ===== */
-.config-panel {
-  display: none;
-  text-align: left;
-}
-
-.config-panel.active {
-  display: block;
-}
-
-/* Config steps within a panel */
-.config-step {
-  display: none;
-}
-
-.config-step.active {
-  display: block;
-  animation: config-slide-in 0.3s ease-out;
-}
-
-.config-back-btn {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 13px;
-  cursor: pointer;
-  padding: 4px 0;
-  margin-bottom: 12px;
-  font-family: inherit;
-  transition: color 0.2s;
-}
-
-.config-back-btn:hover {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.config-title {
-  font-size: 22px;
-  font-weight: 700;
-  margin-bottom: 24px;
-  color: #ffffff;
-}
-
-.config-section {
-  margin-bottom: 20px;
-}
-
-.config-section-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.4);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 10px;
-}
-
-/* ===== Block Mode Options ===== */
-.block-mode-options {
-  display: flex;
-  gap: 10px;
-}
-
-.block-mode-option {
-  flex: 1;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 2px solid transparent;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.6);
-  transition: all 0.2s;
-  font-family: inherit;
-  text-align: center;
-}
-
-.block-mode-option:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.block-mode-option.selected {
-  background: rgba(var(--accent-primary-rgb), 0.15);
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.2), 0 0 12px rgba(var(--accent-primary-rgb), 0.1);
-  color: white;
-}
-
-/* ===== Saving Overlay ===== */
-.saving-overlay {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(15, 15, 35, 0.9);
-  z-index: 100;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.saving-overlay.visible {
-  display: flex;
-}
-
-.saving-spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: var(--accent-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-.saving-text {
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-/* ===== Scrollbar ===== */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
-}
-
-/* ===== Theme: Classic ===== */
-[data-theme="classic"] {
-  --bg-base: #0a0a0a;
-  --bg-elevated: rgba(26, 26, 46, 0.9);
-  --bg-elevated-solid: #1a1a2e;
-  --accent-primary: #6366f1;
-  --accent-primary-hover: #4f46e5;
-  --accent-primary-rgb: 99, 102, 241;
-  --block-focus: #6366f1;
-  --highlight-edge: transparent;
-}
-
-/* ===== Theme: Emerald ===== */
-[data-theme="emerald"] {
-  --bg-base: #0a0a0a;
-  --bg-elevated: rgba(26, 26, 30, 0.9);
-  --bg-elevated-solid: #1a1a1e;
-  --accent-primary: #34d399;
-  --accent-primary-hover: #2bc48c;
-  --accent-primary-rgb: 52, 211, 153;
-  --block-focus: #34d399;
-  --highlight-edge: transparent;
-}
-
-/* ===== Theme: Warm Iridescent ===== */
-[data-theme="warm"] {
-  --bg-base: #111110;
-  --bg-elevated: rgba(26, 26, 24, 0.9);
-  --bg-elevated-solid: #1a1a18;
-  --accent-primary: #34d399;
-  --accent-primary-hover: #2bc48c;
-  --accent-primary-rgb: 52, 211, 153;
-  --block-focus: #8b5cf6;
-  --highlight-edge: linear-gradient(90deg, transparent, rgba(251,191,36,0.4), rgba(52,211,153,0.4), rgba(139,92,246,0.3), transparent);
-}
-
-/* ===== Theme: Light ===== */
-[data-theme="light"] {
-  --bg-base: #f5f5f7;
-  --bg-elevated: rgba(255, 255, 255, 0.92);
-  --bg-elevated-solid: #ffffff;
-  --accent-primary: #7c3aed;
-  --accent-primary-hover: #6d28d9;
-  --accent-primary-rgb: 124, 58, 237;
-  --block-focus: #7c3aed;
-  --text-primary: #1a1a2e;
-  --text-secondary: rgba(0, 0, 0, 0.55);
-  --highlight-edge: transparent;
-}
-[data-theme="light"] .title,
-[data-theme="light"] .welcome-title {
-  color: var(--text-primary);
-}
-[data-theme="light"] .subtitle {
-  color: rgba(0, 0, 0, 0.6);
-}
-[data-theme="light"] .description {
-  color: rgba(0, 0, 0, 0.4);
-}
-[data-theme="light"] .saving-text {
-  color: rgba(0, 0, 0, 0.6);
-}
-[data-theme="light"] ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
-}
-
-/* ===== Theme Onboarding Grid ===== */
-.theme-onboarding-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 12px;
-  margin: 24px 0 32px;
-}
-.theme-onboarding-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 8px;
-  border-radius: 12px;
-  border: 2px solid rgba(255,255,255,0.1);
-  cursor: pointer;
-  transition: all 0.2s;
-  background: transparent;
-}
-.theme-onboarding-card:hover {
-  border-color: rgba(var(--accent-primary-rgb), 0.4);
-}
-.theme-onboarding-card.selected {
-  border-color: var(--accent-primary);
-  background: rgba(var(--accent-primary-rgb), 0.1);
-}
-[data-theme="light"] .theme-onboarding-card {
-  border-color: rgba(0,0,0,0.1);
-}
-.theme-onboarding-preview {
-  width: 56px;
-  height: 38px;
-  border-radius: 6px;
-  border: 1px solid rgba(128, 128, 128, 0.2);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-}
-.theme-onboarding-preview .accent-bar {
-  height: 5px;
-}
-.theme-onboarding-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: rgba(255,255,255,0.6);
-}
-.theme-onboarding-card.selected .theme-onboarding-label {
-  color: var(--accent-primary);
-}
-[data-theme="light"] .theme-onboarding-label {
-  color: rgba(0,0,0,0.5);
-}
-[data-theme="light"] .theme-onboarding-card.selected .theme-onboarding-label {
-  color: var(--accent-primary);
-}
+  :root {
+    --bg:        #0a0c0a;
+    --cta-text:  #1a1110;
+    --warm-1:    #FF4D5E;
+    --warm-2:    #FF7A2E;
+    --warm-3:    #FFB347;
+    --grad-warm: linear-gradient(160deg, #FF4D5E 0%, #FF7A2E 55%, #FFB347 100%);
+    --text-1:    #f7f8f8;
+    --text-2:    rgba(255,255,255,0.62);
+    --text-3:    rgba(255,255,255,0.36);
+    --text-4:    rgba(255,255,255,0.20);
+    --b-1:       rgba(255,255,255,0.06);
+    --b-2:       rgba(255,255,255,0.10);
+    --error:     #FF6B6B;
+    --font:      "Nunito", -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif;
+  }
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text-1);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ===== Progress bar ===== */
+  .progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--b-1);
+    z-index: 10;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--grad-warm);
+    transition: width 0.35s ease-out;
+  }
+
+  /* ===== Container ===== */
+  .container {
+    position: relative;
+    width: 100%;
+    max-width: 520px;
+    padding: 24px;
+  }
+
+  /* ===== Screen transitions ===== */
+  .screen {
+    display: none;
+    opacity: 0;
+    transform: translateX(30px);
+    transition: all 0.4s ease-out;
+    text-align: center;
+  }
+  .screen.active {
+    display: block;
+    opacity: 1;
+    transform: translateX(0);
+  }
+  .screen.exit-left {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+
+  /* ===== Typography ===== */
+  h1 {
+    font-size: 34px;
+    font-weight: 800;
+    color: var(--text-1);
+    letter-spacing: -0.5px;
+    margin-bottom: 12px;
+    line-height: 1.2;
+  }
+  .sub {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-2);
+    margin-bottom: 32px;
+    line-height: 1.5;
+  }
+  .body-text {
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--text-2);
+    line-height: 1.6;
+    margin-bottom: 32px;
+  }
+
+  /* ===== Buttons ===== */
+  .btn-primary {
+    display: inline-block;
+    background: var(--grad-warm);
+    color: var(--cta-text);
+    border: none;
+    border-radius: 999px;
+    padding: 15px 40px;
+    font-size: 16px;
+    font-weight: 800;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+  }
+  .btn-primary:hover:not(:disabled) { transform: translateY(-1px); }
+  .btn-primary:active:not(:disabled) { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.4; cursor: default; }
+  .btn-primary.granted {
+    background: #34C759;
+    color: #0a0c0a;
+    opacity: 1;
+  }
+
+  .link-muted {
+    display: inline-block;
+    margin-top: 18px;
+    background: none;
+    border: none;
+    color: var(--text-3);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: var(--font);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .link-muted:hover { color: var(--text-2); }
+
+  /* ===== Option rows (quiz) ===== */
+  .options { display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px; }
+  .option {
+    border: 1px solid var(--b-2);
+    border-radius: 12px;
+    padding: 16px 20px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-1);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .option:hover { border-color: var(--text-4); background: rgba(255,255,255,0.03); }
+  .option.selected {
+    border-color: var(--warm-2);
+    background: rgba(255,122,46,0.08);
+  }
+
+  /* ===== Chips (name the enemy) ===== */
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+  .chip {
+    border: 1px solid var(--b-2);
+    border-radius: 12px;
+    padding: 11px 18px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-1);
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+    user-select: none;
+  }
+  .chip:hover { border-color: var(--text-4); }
+  .chip.selected {
+    border-color: var(--warm-2);
+    background: rgba(255,122,46,0.10);
+  }
+  .chip.add-chip { color: var(--text-3); border-style: dashed; }
+
+  .custom-domain-wrap { display: none; margin-bottom: 20px; }
+  .custom-domain-wrap.visible { display: block; }
+
+  /* ===== Inputs ===== */
+  .text-input {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--b-2);
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: var(--text-1);
+    font-size: 16px;
+    font-weight: 500;
+    font-family: var(--font);
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  .text-input::placeholder { color: var(--text-3); }
+  .text-input:focus { border-color: var(--warm-2); }
+  .input-stack { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+  .task-input-wrap { margin-bottom: 24px; }
+
+  /* ===== Inline errors (no alert() — WKWebView drops it) ===== */
+  .inline-error {
+    display: none;
+    color: var(--error);
+    font-size: 14px;
+    font-weight: 600;
+    margin-top: 10px;
+  }
+  .inline-error.visible { display: block; }
+
+  /* ===== Deal rows (screen 7) ===== */
+  .deal-rows { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+  .deal-row {
+    border: 1px solid var(--b-1);
+    border-radius: 12px;
+    padding: 15px 18px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-1);
+    text-align: left;
+    line-height: 1.4;
+  }
+
+  /* ===== Session badge (screen 11) ===== */
+  .session-badge {
+    display: inline-block;
+    color: #34C759;
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 20px;
+  }
 </style>
 </head>
 <body>
 
-<div class="glow"></div>
+<div class="progress"><div class="progress-fill" id="progress-fill"></div></div>
 
 <div class="container">
 
-  <!-- Screen 1: Welcome -->
+  <!-- Screen 1: Stat opener -->
   <div class="screen active" data-screen="1">
-    <div class="welcome-hero">
-      <div class="welcome-icon">🎯</div>
-      <h1 class="welcome-title">intentional</h1>
-    </div>
-    <p class="welcome-tagline">Take back your time.</p>
-    <p class="welcome-subtext">Watch what matters. Skip the rabbit holes.</p>
-    <div class="footer" style="margin-top: 48px;">
-      <button class="btn btn-primary btn-large" data-action="next">Set Up My Limits</button>
-    </div>
+    <h1>5 to 6 hours.</h1>
+    <p class="sub">That's the average time you'll spend on a screen today.</p>
+    <button class="btn-primary" data-action="next">See where it goes</button>
   </div>
 
-  <!-- Screen 2: Choose Your Look -->
+  <!-- Screen 2: Mirror question -->
   <div class="screen" data-screen="2">
-    <h1 class="title">Choose Your Look</h1>
-    <p class="subtitle">Pick a theme that feels right.</p>
-    <p class="description">You can always change this later in Settings.</p>
-
-    <div class="theme-onboarding-grid" id="onboarding-theme-picker">
-      <div class="theme-onboarding-card selected" data-theme-id="iridescent" onclick="selectOnboardingTheme('iridescent')">
-        <div class="theme-onboarding-preview" style="background: #0e0e12;">
-          <div class="accent-bar" style="background: linear-gradient(90deg, #06b6d4, #8b5cf6, #ec4899);"></div>
-        </div>
-        <div class="theme-onboarding-label">Iridescent</div>
-      </div>
-      <div class="theme-onboarding-card" data-theme-id="classic" onclick="selectOnboardingTheme('classic')">
-        <div class="theme-onboarding-preview" style="background: #0a0a0a;">
-          <div class="accent-bar" style="background: #6366f1;"></div>
-        </div>
-        <div class="theme-onboarding-label">Classic</div>
-      </div>
-      <div class="theme-onboarding-card" data-theme-id="emerald" onclick="selectOnboardingTheme('emerald')">
-        <div class="theme-onboarding-preview" style="background: #0a0a0a;">
-          <div class="accent-bar" style="background: #34d399;"></div>
-        </div>
-        <div class="theme-onboarding-label">Emerald</div>
-      </div>
-      <div class="theme-onboarding-card" data-theme-id="warm" onclick="selectOnboardingTheme('warm')">
-        <div class="theme-onboarding-preview" style="background: #111110;">
-          <div class="accent-bar" style="background: linear-gradient(90deg, #fbbf24, #34d399, #8b5cf6);"></div>
-        </div>
-        <div class="theme-onboarding-label">Warm</div>
-      </div>
-      <div class="theme-onboarding-card" data-theme-id="light" onclick="selectOnboardingTheme('light')">
-        <div class="theme-onboarding-preview" style="background: #f5f5f7; border-color: rgba(0,0,0,0.1);">
-          <div class="accent-bar" style="background: #7c3aed;"></div>
-        </div>
-        <div class="theme-onboarding-label">Light</div>
-      </div>
-    </div>
-
-    <div class="footer">
-      <button class="btn btn-secondary" data-action="back">Back</button>
-      <button class="btn btn-primary" data-action="next">Next</button>
+    <h1>Ever deleted an app to focus?</h1>
+    <p class="sub">And reinstalled it within the week?</p>
+    <div class="options">
+      <div class="option" data-quiz="reinstall" data-value="many">More times than I can count</div>
+      <div class="option" data-quiz="reinstall" data-value="once_or_twice">Once or twice</div>
+      <div class="option" data-quiz="reinstall" data-value="never">Never</div>
     </div>
   </div>
 
-  <!-- Screen 3: Choose Your Platforms -->
+  <!-- Screen 3: Insight card -->
   <div class="screen" data-screen="3">
-
-    <!-- Platform List View -->
-    <div id="platform-list-view">
-      <h1 class="title">Choose Your Platforms</h1>
-      <p class="subtitle">Select which platforms to manage and configure each one.</p>
-
-      <div class="platform-cards">
-
-        <!-- YouTube Card -->
-        <div class="platform-card" id="youtube-card">
-          <div class="platform-card-header">
-            <span class="platform-icon">&#9654;&#65039;</span>
-            <span class="platform-name">YouTube</span>
-            <label class="toggle-switch">
-              <input type="checkbox" checked id="youtube-toggle" class="toggle-input">
-              <span class="toggle-track"><span class="toggle-thumb"></span></span>
-            </label>
-          </div>
-          <p class="platform-summary" id="youtube-summary">30 min/day &middot; Shorts blocked</p>
-          <button class="platform-config-btn" id="youtube-config-btn" type="button">Configure &rsaquo;</button>
-        </div>
-
-        <!-- Instagram Card -->
-        <div class="platform-card" id="instagram-card">
-          <div class="platform-card-header">
-            <span class="platform-icon">📷</span>
-            <span class="platform-name">Instagram</span>
-            <label class="toggle-switch">
-              <input type="checkbox" checked id="instagram-toggle" class="toggle-input">
-              <span class="toggle-track"><span class="toggle-thumb"></span></span>
-            </label>
-          </div>
-          <p class="platform-summary" id="instagram-summary">30 min/day &middot; Reels blocked</p>
-          <button class="platform-config-btn" id="instagram-config-btn" type="button">Configure &rsaquo;</button>
-        </div>
-
-      </div>
-
-      <div class="footer">
-        <button class="btn btn-secondary" data-action="back">Back</button>
-        <button class="btn btn-primary" data-action="next">Next</button>
-      </div>
-    </div>
-
-    <!-- YouTube Config Panel -->
-    <div class="config-panel" id="youtube-config">
-
-      <!-- Step 1: Controls -->
-      <div class="config-step active" id="youtube-step-1">
-        <button class="config-back-btn" type="button" onclick="closeConfigPanel()">&lsaquo; Back to platforms</button>
-        <h2 class="config-title">&#9654;&#65039; YouTube</h2>
-
-        <div class="config-section">
-          <div class="config-section-label">Session Limit</div>
-          <div class="period-limit">
-            <label class="checkbox-label" style="justify-content:flex-start;">
-              <input type="checkbox" id="youtube-enable-period">
-              <span class="checkbox-custom"></span>
-              <span class="checkbox-text">Limit per session</span>
-            </label>
-            <div class="period-config" id="youtube-period-config">
-              <span>Max</span>
-              <select id="youtube-period-minutes" class="select-input">
-                <option value="10">10 min</option>
-                <option value="15">15 min</option>
-                <option value="20" selected>20 min</option>
-                <option value="30">30 min</option>
-              </select>
-              <span>per</span>
-              <select id="youtube-period-hours" class="select-input">
-                <option value="1" selected>hour</option>
-                <option value="2">2 hours</option>
-                <option value="3">3 hours</option>
-                <option value="4">4 hours</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div class="config-section">
-          <label class="toggle-row">
-            <span class="toggle-row-text">Block Shorts</span>
-            <input type="checkbox" checked id="youtube-block-shorts" class="toggle-input">
-            <span class="toggle-track"><span class="toggle-thumb"></span></span>
-          </label>
-        </div>
-
-        <div class="config-section">
-          <div class="config-section-label">Block Mode</div>
-          <div class="block-mode-options" id="youtube-block-mode">
-            <button class="block-mode-option selected" data-mode="hide" type="button">🚫 Hide</button>
-            <button class="block-mode-option" data-mode="blur" type="button">🌫 Blur</button>
-          </div>
-        </div>
-
-        <div class="footer">
-          <button class="btn btn-secondary" type="button" onclick="closeConfigPanel()">Cancel</button>
-          <button class="btn btn-primary" type="button" onclick="nextConfigStep('youtube')">Next</button>
-        </div>
-      </div>
-
-      <!-- Step 2: Danger Zones -->
-      <div class="config-step" id="youtube-step-2">
-        <button class="config-back-btn" type="button" onclick="prevConfigStep('youtube')">&lsaquo; Back</button>
-        <h2 class="config-title">&#9654;&#65039; Danger Zones</h2>
-        <p class="subtitle" style="text-align:left;margin-bottom:16px;">Which content pulls you into the rabbit hole?</p>
-
-        <div class="danger-zones-grid" id="youtube-danger-grid"></div>
-        <div class="custom-category">
-          <input type="text" id="youtube-custom-category" placeholder="+ Add custom category" class="text-input">
-        </div>
-        <div class="selected-categories" id="youtube-selected-categories"></div>
-
-        <div class="footer">
-          <button class="btn btn-secondary" type="button" onclick="prevConfigStep('youtube')">Back</button>
-          <button class="btn btn-primary" type="button" onclick="closeConfigPanel()">Done</button>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Instagram Config Panel -->
-    <div class="config-panel" id="instagram-config">
-
-      <!-- Single Step -->
-      <div class="config-step active" id="instagram-step-1">
-        <button class="config-back-btn" type="button" onclick="closeConfigPanel()">&lsaquo; Back to platforms</button>
-        <h2 class="config-title">📷 Instagram</h2>
-
-        <div class="config-section">
-          <label class="toggle-row">
-            <span class="toggle-row-text">Block Reels</span>
-            <input type="checkbox" checked id="instagram-block-reels" class="toggle-input">
-            <span class="toggle-track"><span class="toggle-thumb"></span></span>
-          </label>
-          <p class="toggle-hint">Removes video reels from your feed</p>
-        </div>
-
-        <div class="config-section">
-          <label class="toggle-row">
-            <span class="toggle-row-text">Block Explore</span>
-            <input type="checkbox" checked id="instagram-block-explore" class="toggle-input">
-            <span class="toggle-track"><span class="toggle-thumb"></span></span>
-          </label>
-          <p class="toggle-hint">Blocks the Explore page to reduce discovery rabbit holes</p>
-        </div>
-
-        <div class="config-section">
-          <label class="toggle-row">
-            <span class="toggle-row-text">NSFW Filter</span>
-            <input type="checkbox" checked id="instagram-nsfw-filter" class="toggle-input">
-            <span class="toggle-track"><span class="toggle-thumb"></span></span>
-          </label>
-          <p class="toggle-hint">Uses AI to detect and hide adult content</p>
-        </div>
-
-        <div class="footer">
-          <button class="btn btn-secondary" type="button" onclick="closeConfigPanel()">Cancel</button>
-          <button class="btn btn-primary" type="button" onclick="closeConfigPanel()">Done</button>
-        </div>
-      </div>
-
-    </div>
-
+    <h1>You're not alone.</h1>
+    <p class="body-text">Most people reinstall within 3 days. It's not a willpower problem. Those apps are built by teams whose job is to beat you.</p>
+    <button class="btn-primary" data-action="next">Continue</button>
   </div>
 
-  <!-- Screen 4: Accountability Partner -->
+  <!-- Screen 4: Hours question -->
   <div class="screen" data-screen="4">
-    <h1 class="title">Accountability Partner</h1>
-    <p class="subtitle">Choose someone who can help keep you accountable.</p>
-
-    <div class="partner-form">
-      <div class="input-group">
-        <label for="partner-name" class="input-label">Partner's name (optional)</label>
-        <input type="text" id="partner-name" placeholder="e.g., Mom, Alex, Coach" class="text-input">
-      </div>
-      <div class="input-group">
-        <label for="partner-email" class="input-label">Partner's email</label>
-        <input type="email" id="partner-email" placeholder="partner@email.com" class="text-input">
-      </div>
-    </div>
-
-    <div class="partner-benefits">
-      <div class="benefit-item">
-        <span class="benefit-icon">&#10003;</span>
-        <span>Prevents impulsive changes</span>
-      </div>
-      <div class="benefit-item">
-        <span class="benefit-icon">&#10003;</span>
-        <span>Creates social accountability</span>
-      </div>
-      <div class="benefit-item">
-        <span class="benefit-icon">&#10003;</span>
-        <span>They only get notified when needed</span>
-      </div>
-    </div>
-
-    <div class="footer">
-      <button class="btn btn-secondary" data-action="back">Back</button>
-      <button class="btn btn-primary" data-action="next">Next</button>
+    <h1>How many hours did you scroll yesterday?</h1>
+    <div class="options">
+      <div class="option" data-quiz="hoursPerDay" data-value="under_2">Under 2</div>
+      <div class="option" data-quiz="hoursPerDay" data-value="2_4">2 to 4</div>
+      <div class="option" data-quiz="hoursPerDay" data-value="4_6">4 to 6</div>
+      <div class="option" data-quiz="hoursPerDay" data-value="no_idea">Honestly, no idea</div>
     </div>
   </div>
 
-  <!-- Screen 5: Lock Settings -->
+  <!-- Screen 5: Name the enemy -->
   <div class="screen" data-screen="5">
-    <h1 class="title">Lock Your Settings?</h1>
-    <p class="subtitle">Prevents you from changing limits on impulse.</p>
-
-    <div class="lock-options">
-      <button class="lock-option" data-mode="partner" id="lock-partner">
-        <span class="lock-icon">🔐</span>
-        <div class="lock-info">
-          <span class="lock-title">Partner Lock</span>
-          <span class="lock-desc">Partner must share unlock code</span>
-        </div>
-      </button>
-      <button class="lock-option selected" data-mode="none" id="lock-none">
-        <span class="lock-icon">🔓</span>
-        <div class="lock-info">
-          <span class="lock-title">Keep Unlocked</span>
-          <span class="lock-desc">Change settings anytime</span>
-        </div>
-      </button>
+    <h1>Where does it go?</h1>
+    <p class="sub">Tap everything that pulls you in.</p>
+    <div class="chips" id="enemy-chips">
+      <div class="chip" data-label="TikTok" data-domain="tiktok.com">TikTok</div>
+      <div class="chip" data-label="Instagram" data-domain="instagram.com">Instagram</div>
+      <div class="chip" data-label="YouTube" data-domain="youtube.com">YouTube</div>
+      <div class="chip" data-label="Reddit" data-domain="reddit.com">Reddit</div>
+      <div class="chip" data-label="X" data-domain="x.com" data-domain2="twitter.com">X</div>
+      <div class="chip" data-label="Twitch" data-domain="twitch.tv">Twitch</div>
+      <div class="chip" data-label="Netflix" data-domain="netflix.com">Netflix</div>
+      <div class="chip" data-label="Amazon" data-domain="amazon.com">Amazon</div>
+      <div class="chip add-chip" id="add-chip">+ add your own</div>
     </div>
-
-    <p class="lock-note" id="lock-note"></p>
-
-    <div class="footer">
-      <button class="btn btn-secondary" data-action="back">Back</button>
-      <button class="btn btn-primary" data-action="finish">Save &amp; Start</button>
+    <div class="custom-domain-wrap" id="custom-domain-wrap">
+      <input type="text" class="text-input" id="custom-domain-input" placeholder="example.com" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      <div class="inline-error" id="custom-domain-error">Enter a site like example.com</div>
     </div>
+    <button class="btn-primary" id="enemy-next-btn" disabled>Next</button>
   </div>
 
-  <!-- Progress Dots (5 screens) -->
-  <div class="progress-dots" id="progress-dots">
-    <span class="dot active" data-screen="1"></span>
-    <span class="dot" data-screen="2"></span>
-    <span class="dot" data-screen="3"></span>
-    <span class="dot" data-screen="4"></span>
-    <span class="dot" data-screen="5"></span>
+  <!-- Screen 6: Shock math (computed from screen 4) -->
+  <div class="screen" data-screen="6">
+    <h1 id="shock-h1">4 hours a day. 61 days a year.</h1>
+    <p class="sub" id="shock-sub">That's the average. Two months, gone to the feed.</p>
+    <button class="btn-primary" data-action="next">Get it back</button>
   </div>
 
-</div>
+  <!-- Screen 7: The deal -->
+  <div class="screen" data-screen="7">
+    <h1>Here, scroll time is earned.</h1>
+    <p class="sub">Focus 25 minutes. Earn 5 minutes back.</p>
+    <div class="deal-rows">
+      <div class="deal-row" id="deal-blocked-row">🚫 TikTok, Instagram, YouTube: blocked while you work</div>
+      <div class="deal-row">✅ 15 free minutes a day, guilt-free</div>
+      <div class="deal-row">⏱ Every focused 25 earns 5 more</div>
+    </div>
+    <button class="btn-primary" data-action="next">Sounds fair</button>
+  </div>
 
-<!-- Saving Overlay -->
-<div class="saving-overlay" id="saving-overlay">
-  <div class="saving-spinner"></div>
-  <div class="saving-text">Saving your settings...</div>
+  <!-- Screen 8: Can't cheat -->
+  <div class="screen" data-screen="8">
+    <h1>This one you can't cheat.</h1>
+    <p class="sub">No off switch to find at 1am. Strict mode gives the key to someone you trust.</p>
+    <button class="btn-primary" data-action="next">Good. I need that.</button>
+  </div>
+
+  <!-- Screen 9: Screen permission (just-in-time) -->
+  <div class="screen" data-screen="9">
+    <h1>One thing first.</h1>
+    <p class="sub">Intentional reads your screen to spot drift. Nothing ever leaves your Mac.</p>
+    <button class="btn-primary" id="perm-btn">Allow screen access</button>
+    <br>
+    <button class="link-muted" data-action="next">Skip for now</button>
+  </div>
+
+  <!-- Screen 10: First session -->
+  <div class="screen" data-screen="10">
+    <h1>Pick one thing to finish today.</h1>
+    <p class="sub">25 minutes. We'll guard the door.</p>
+    <div class="task-input-wrap">
+      <input type="text" class="text-input" id="task-input" placeholder="e.g. Finish the deck for Thursday's pitch" autocomplete="off" />
+    </div>
+    <button class="btn-primary" id="session-btn" disabled>Start my first session</button>
+    <div class="inline-error" id="session-error">Couldn't start the session. Check your connection and try again.</div>
+  </div>
+
+  <!-- Screen 11: Partner, post-win -->
+  <div class="screen" data-screen="11">
+    <span class="session-badge">● Session running</span>
+    <h1>Want backup?</h1>
+    <p class="sub">Strict mode works best with someone you'd hate to disappoint.</p>
+    <div class="input-stack">
+      <input type="text" class="text-input" id="partner-name" placeholder="e.g., Mom, Alex, Coach" autocomplete="off" />
+      <input type="email" class="text-input" id="partner-email" placeholder="partner@email.com" autocomplete="off" autocapitalize="off" spellcheck="false" />
+    </div>
+    <button class="btn-primary" id="partner-btn">Add my person</button>
+    <div class="inline-error" id="partner-error">That email doesn't look right</div>
+    <br>
+    <button class="link-muted" id="maybe-later-btn">Maybe later</button>
+  </div>
+
 </div>
 
 <script>
 // ===== State =====
+const TOTAL_SCREENS = 11;
 let currentScreen = 1;
-const totalScreens = 5;
-let selectedLockMode = 'none';
-let selectedTheme = 'iridescent';
-let activeConfigPanel = null;
-let configSteps = { youtube: 1, instagram: 1 };
-const maxConfigSteps = { youtube: 2, instagram: 1 };
 
-const platformSettings = {
-  youtube: {
-    enabled: true,
-    maxPerPeriod: { enabled: false, minutes: 20, periodHours: 1 },
-    blockedCategories: [],
-    blockShorts: true,
-    blockMode: 'hide'
-  },
-  instagram: {
-    enabled: true,
-    blockReels: true,
-    blockExplore: true,
-    nsfwFilter: true
-  }
+const state = {
+  quiz: { reinstall: null, hoursPerDay: null },
+  picks: new Set(),       // domains actually seeded as Rules
+  pickLabels: [],         // ordered labels for the deal-screen interpolation
+  firstTask: null
 };
-
-const DANGER_ZONE_CATEGORIES = [
-  { id: 'gaming', icon: '🎮', label: 'Gaming' },
-  { id: 'shorts', icon: '📱', label: 'Shorts' },
-  { id: 'drama', icon: '🗣️', label: 'Drama & Gossip' },
-  { id: 'mukbang', icon: '🍜', label: 'Mukbang' },
-  { id: 'entertainment', icon: '🎬', label: 'Entertainment' },
-  { id: 'vlogs', icon: '📹', label: 'Vlogs' },
-  { id: 'sports', icon: '⚽', label: 'Sports' },
-  { id: 'politics', icon: '📢', label: 'Politics' }
-];
-
-// ===== Theme =====
-function applyTheme(themeId) {
-  if (!themeId) themeId = 'iridescent';
-  var html = document.documentElement;
-  var body = document.body;
-  if (themeId === 'iridescent') {
-    html.removeAttribute('data-theme');
-  } else {
-    html.setAttribute('data-theme', themeId);
-  }
-  body.classList.remove('theme-effects-iridescent', 'theme-effects-warm');
-  if (themeId === 'iridescent') body.classList.add('theme-effects-iridescent');
-  if (themeId === 'warm') body.classList.add('theme-effects-warm');
-}
-
-function selectOnboardingTheme(themeId) {
-  selectedTheme = themeId;
-  applyTheme(themeId);
-  var cards = document.querySelectorAll('.theme-onboarding-card');
-  cards.forEach(function(c) {
-    c.classList.toggle('selected', c.dataset.themeId === themeId);
-  });
-}
 
 // ===== Bridge =====
 function sendMessage(payload) {
@@ -1458,15 +393,17 @@ function sendMessage(payload) {
   }
 }
 
+// Fire-and-forget rule seeding acknowledgements (duplicates 409 → fine).
+window._ruleCreated = function(_res) {};
+
 // ===== Navigation =====
 function goToScreen(target) {
-  if (target < 1 || target > totalScreens) return;
+  if (target < 1 || target > TOTAL_SCREENS || target === currentScreen) return;
 
-  // Close any open config panel first
-  if (activeConfigPanel) closeConfigPanel();
+  const currentEl = document.querySelector('.screen[data-screen="' + currentScreen + '"]');
+  const targetEl = document.querySelector('.screen[data-screen="' + target + '"]');
 
-  const currentEl = document.querySelector(`.screen[data-screen="${currentScreen}"]`);
-  const targetEl = document.querySelector(`.screen[data-screen="${target}"]`);
+  onScreenExit(currentScreen);
 
   // Animate out
   currentEl.classList.add('exit-left');
@@ -1478,391 +415,301 @@ function goToScreen(target) {
 
     // Animate in
     targetEl.style.display = 'block';
+    void targetEl.offsetWidth; // reflow so the transition plays
     targetEl.classList.add('active');
 
     currentScreen = target;
-    updateDots();
-
-    // Screen-specific init
-    if (target === 3) updatePlatformSummaries();
-    if (target === 5) updateLockOptions();
+    updateProgress();
+    onScreenEnter(target);
   }, 200);
 }
 
-function updateDots() {
-  document.querySelectorAll('.dot').forEach(dot => {
-    const screen = parseInt(dot.dataset.screen);
-    dot.classList.toggle('active', screen === currentScreen);
-  });
+function updateProgress() {
+  document.getElementById('progress-fill').style.width = (currentScreen / TOTAL_SCREENS * 100) + '%';
 }
 
-// ===== Screen 3: Platform Configuration =====
-function openConfigPanel(platform) {
-  if (!platformSettings[platform].enabled) return;
+function onScreenEnter(n) {
+  if (n === 6) renderShockMath();
+  if (n === 7) renderDealRow();
+  if (n === 9) startPermissionWatch();
+  if (n === 10) document.getElementById('task-input').focus();
+}
 
-  // Reset to step 1
-  configSteps[platform] = 1;
-  for (let i = 1; i <= maxConfigSteps[platform]; i++) {
-    const step = document.getElementById(`${platform}-step-${i}`);
-    if (step) step.classList.toggle('active', i === 1);
+function onScreenExit(n) {
+  if (n === 9) stopPermissionWatch();
+}
+
+// data-action="next" buttons
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-action="next"]');
+  if (btn) goToScreen(currentScreen + 1);
+});
+
+// Enter key triggers the active screen's primary button (single-CTA screens)
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  if (e.target && e.target.id === 'custom-domain-input') {
+    e.preventDefault();
+    addCustomDomain();
+    return;
   }
+  const screenEl = document.querySelector('.screen[data-screen="' + currentScreen + '"]');
+  const primary = screenEl && screenEl.querySelector('.btn-primary');
+  if (primary && !primary.disabled) {
+    e.preventDefault();
+    primary.click();
+  }
+});
 
-  const listView = document.getElementById('platform-list-view');
-  const configPanel = document.getElementById(`${platform}-config`);
+// ===== Screens 2 + 4: quiz options (auto-advance ~250ms after tap) =====
+document.querySelectorAll('.option[data-quiz]').forEach((opt) => {
+  opt.addEventListener('click', () => {
+    const key = opt.dataset.quiz;
+    state.quiz[key] = opt.dataset.value;
+    opt.parentElement.querySelectorAll('.option').forEach((o) => o.classList.remove('selected'));
+    opt.classList.add('selected');
+    setTimeout(() => goToScreen(currentScreen + 1), 250);
+  });
+});
 
-  listView.style.display = 'none';
-  configPanel.classList.add('active');
-  activeConfigPanel = platform;
-}
+// ===== Screen 5: name the enemy =====
+function toggleChip(chip) {
+  const domains = [chip.dataset.domain];
+  if (chip.dataset.domain2) domains.push(chip.dataset.domain2);
+  const label = chip.dataset.label;
 
-function closeConfigPanel() {
-  if (!activeConfigPanel) return;
-
-  const configPanel = document.getElementById(`${activeConfigPanel}-config`);
-  const listView = document.getElementById('platform-list-view');
-
-  configPanel.classList.remove('active');
-  listView.style.display = 'block';
-  activeConfigPanel = null;
-
-  updatePlatformSummaries();
-}
-
-function nextConfigStep(platform) {
-  const current = configSteps[platform];
-  const next = current + 1;
-  if (next > maxConfigSteps[platform]) return;
-
-  document.getElementById(`${platform}-step-${current}`).classList.remove('active');
-  document.getElementById(`${platform}-step-${next}`).classList.add('active');
-  configSteps[platform] = next;
-}
-
-function prevConfigStep(platform) {
-  const current = configSteps[platform];
-  if (current <= 1) { closeConfigPanel(); return; }
-
-  document.getElementById(`${platform}-step-${current}`).classList.remove('active');
-  document.getElementById(`${platform}-step-${current - 1}`).classList.add('active');
-  configSteps[platform] = current - 1;
-}
-
-function updatePlatformSummaries() {
-  // YouTube
-  const yt = platformSettings.youtube;
-  const ytSummary = document.getElementById('youtube-summary');
-  if (!yt.enabled) {
-    ytSummary.textContent = 'Disabled';
+  if (chip.classList.contains('selected')) {
+    chip.classList.remove('selected');
+    domains.forEach((d) => state.picks.delete(d));
+    state.pickLabels = state.pickLabels.filter((l) => l !== label);
   } else {
-    const parts = [];
-    if (yt.blockShorts) parts.push('Shorts blocked');
-    if (yt.blockedCategories.length > 0) parts.push(`${yt.blockedCategories.length} danger zones`);
-    if (yt.blockMode === 'blur') parts.push('blur mode');
-    ytSummary.textContent = parts.length > 0 ? parts.join(' \u00b7 ') : 'Default settings';
+    chip.classList.add('selected');
+    domains.forEach((d) => state.picks.add(d));
+    if (!state.pickLabels.includes(label)) state.pickLabels.push(label);
   }
+  updateEnemyNext();
+}
 
-  // Instagram
-  const ig = platformSettings.instagram;
-  const igSummary = document.getElementById('instagram-summary');
-  if (!ig.enabled) {
-    igSummary.textContent = 'Disabled';
-  } else {
-    const parts = [];
-    if (ig.blockReels) parts.push('Reels blocked');
-    if (ig.blockExplore) parts.push('Explore blocked');
-    if (ig.nsfwFilter) parts.push('NSFW filter');
-    igSummary.textContent = parts.length > 0 ? parts.join(' \u00b7 ') : 'Default settings';
+function updateEnemyNext() {
+  document.getElementById('enemy-next-btn').disabled = state.picks.size === 0;
+}
+
+document.getElementById('enemy-chips').addEventListener('click', (e) => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  if (chip.id === 'add-chip') {
+    document.getElementById('custom-domain-wrap').classList.add('visible');
+    document.getElementById('custom-domain-input').focus();
+    return;
   }
+  toggleChip(chip);
+});
+
+function cleanDomain(raw) {
+  let d = (raw || '').trim().toLowerCase();
+  d = d.replace(/^https?:\/\//, '').replace(/^www\./, '');
+  d = d.split('/')[0];
+  if (!d || !d.includes('.') || /\s/.test(d) || d.startsWith('.') || d.endsWith('.')) return null;
+  return d;
 }
 
-// -- Platform Toggles --
-function initPlatformToggles() {
-  document.getElementById('youtube-toggle').addEventListener('change', (e) => {
-    platformSettings.youtube.enabled = e.target.checked;
-    document.getElementById('youtube-card').classList.toggle('disabled', !e.target.checked);
-    updatePlatformSummaries();
-  });
+function addCustomDomain() {
+  const input = document.getElementById('custom-domain-input');
+  const err = document.getElementById('custom-domain-error');
+  const domain = cleanDomain(input.value);
+  if (!domain) {
+    err.classList.add('visible');
+    return;
+  }
+  err.classList.remove('visible');
+  input.value = '';
+  if (state.picks.has(domain)) return;
 
-  document.getElementById('instagram-toggle').addEventListener('change', (e) => {
-    platformSettings.instagram.enabled = e.target.checked;
-    document.getElementById('instagram-card').classList.toggle('disabled', !e.target.checked);
-    updatePlatformSummaries();
-  });
-
-  // Configure button click handlers
-  document.getElementById('youtube-config-btn').addEventListener('click', () => openConfigPanel('youtube'));
-  document.getElementById('instagram-config-btn').addEventListener('click', () => openConfigPanel('instagram'));
+  const chip = document.createElement('div');
+  chip.className = 'chip selected';
+  chip.dataset.label = domain;
+  chip.dataset.domain = domain;
+  chip.textContent = domain;
+  document.getElementById('enemy-chips').insertBefore(chip, document.getElementById('add-chip'));
+  state.picks.add(domain);
+  state.pickLabels.push(domain);
+  updateEnemyNext();
 }
 
-// -- YouTube: Period Limit --
-function initYoutubePeriodLimit() {
-  const checkbox = document.getElementById('youtube-enable-period');
-  const config = document.getElementById('youtube-period-config');
-
-  checkbox.addEventListener('change', () => {
-    platformSettings.youtube.maxPerPeriod.enabled = checkbox.checked;
-    config.classList.toggle('visible', checkbox.checked);
-  });
-}
-
-// -- YouTube: Danger Zones --
-function initYoutubeDangerZones() {
-  const grid = document.getElementById('youtube-danger-grid');
-
-  grid.innerHTML = DANGER_ZONE_CATEGORIES.map(cat => `
-    <div class="danger-chip" data-id="${cat.id}">
-      <span class="danger-chip-icon">${cat.icon}</span>
-      <span class="danger-chip-label">${cat.label}</span>
-    </div>
-  `).join('');
-
-  grid.addEventListener('click', (e) => {
-    const chip = e.target.closest('.danger-chip');
-    if (!chip) return;
-
-    const id = chip.dataset.id;
-    const cat = DANGER_ZONE_CATEGORIES.find(c => c.id === id);
-    if (!cat) return;
-
-    const cats = platformSettings.youtube.blockedCategories;
-    if (chip.classList.contains('selected')) {
-      chip.classList.remove('selected');
-      platformSettings.youtube.blockedCategories = cats.filter(c => c !== cat.label);
-    } else {
-      chip.classList.add('selected');
-      if (!cats.includes(cat.label)) {
-        cats.push(cat.label);
-      }
-    }
-    renderYoutubeCategories();
-  });
-
-  // Custom category input
-  const input = document.getElementById('youtube-custom-category');
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && input.value.trim()) {
-      const val = input.value.trim();
-      const cats = platformSettings.youtube.blockedCategories;
-      if (!cats.includes(val)) {
-        cats.push(val);
-        renderYoutubeCategories();
-      }
-      input.value = '';
-    }
-  });
-}
-
-function renderYoutubeCategories() {
-  const container = document.getElementById('youtube-selected-categories');
-  const cats = platformSettings.youtube.blockedCategories;
-  container.innerHTML = cats.map(cat => `
-    <span class="selected-tag">
-      ${cat}
-      <span class="remove-tag" onclick="removeYoutubeCategory('${cat.replace(/'/g, "\\'")}')">&times;</span>
-    </span>
-  `).join('');
-}
-
-function removeYoutubeCategory(cat) {
-  platformSettings.youtube.blockedCategories = platformSettings.youtube.blockedCategories.filter(c => c !== cat);
-  document.querySelectorAll('#youtube-danger-grid .danger-chip').forEach(chip => {
-    const match = DANGER_ZONE_CATEGORIES.find(c => c.id === chip.dataset.id);
-    if (match && match.label === cat) {
-      chip.classList.remove('selected');
-    }
-  });
-  renderYoutubeCategories();
-}
-
-// -- YouTube: Block Shorts Toggle --
-function initYoutubeToggles() {
-  document.getElementById('youtube-block-shorts').addEventListener('change', (e) => {
-    platformSettings.youtube.blockShorts = e.target.checked;
-  });
-}
-
-// -- YouTube: Block Mode --
-function initYoutubeBlockMode() {
-  document.querySelectorAll('#youtube-block-mode .block-mode-option').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#youtube-block-mode .block-mode-option').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-      platformSettings.youtube.blockMode = btn.dataset.mode;
+// On advance: seed one real Rule per pick (fire-and-forget; duplicates no-op).
+document.getElementById('enemy-next-btn').addEventListener('click', () => {
+  if (state.picks.size === 0) return;
+  state.picks.forEach((domain) => {
+    sendMessage({
+      type: 'CREATE_RULE',
+      target_kind: 'site',
+      target: domain,
+      treatment: 'blocked',
+      enabled: true
     });
   });
+  goToScreen(6);
+});
+
+// ===== Screen 6: shock math (computed from the user's own answer) =====
+const SHOCK = {
+  under_2: { h1: '2 hours a day. 30 days a year.', sub: 'A month, gone to the feed.' },
+  '2_4':   { h1: '3 hours a day. 45 days a year.', sub: 'A month and a half, gone to the feed.' },
+  '4_6':   { h1: '5 hours a day. 76 days a year.', sub: 'Two and a half months, gone to the feed.' },
+  no_idea: { h1: '4 hours a day. 61 days a year.', sub: "That's the average. Two months, gone to the feed." }
+};
+
+function renderShockMath() {
+  const v = SHOCK[state.quiz.hoursPerDay] || SHOCK.no_idea;
+  document.getElementById('shock-h1').textContent = v.h1;
+  document.getElementById('shock-sub').textContent = v.sub;
 }
 
-// -- Instagram: Toggles --
-function initInstagramToggles() {
-  document.getElementById('instagram-block-reels').addEventListener('change', (e) => {
-    platformSettings.instagram.blockReels = e.target.checked;
-  });
-  document.getElementById('instagram-block-explore').addEventListener('change', (e) => {
-    platformSettings.instagram.blockExplore = e.target.checked;
-  });
-  document.getElementById('instagram-nsfw-filter').addEventListener('change', (e) => {
-    platformSettings.instagram.nsfwFilter = e.target.checked;
-  });
+// ===== Screen 7: the deal (first row interpolates up to 3 picks) =====
+function renderDealRow() {
+  const labels = state.pickLabels.slice(0, 3);
+  const names = labels.length ? labels.join(', ') : 'TikTok, Instagram, YouTube';
+  document.getElementById('deal-blocked-row').textContent = '🚫 ' + names + ': blocked while you work';
 }
 
-// ===== Screen 5: Lock Settings =====
-function initLockOptions() {
-  document.querySelectorAll('.lock-option').forEach(opt => {
-    opt.addEventListener('click', () => {
-      if (opt.classList.contains('disabled')) return;
+// ===== Screen 9: screen permission (just-in-time) =====
+let permPollInterval = null;
+let permGranted = false;
 
-      document.querySelectorAll('.lock-option').forEach(o => o.classList.remove('selected'));
-      opt.classList.add('selected');
-      selectedLockMode = opt.dataset.mode;
-      updateLockNote();
-    });
-  });
+function startPermissionWatch() {
+  sendMessage({ type: 'GET_SCREEN_PERMISSION' });
+  if (permPollInterval) clearInterval(permPollInterval);
+  permPollInterval = setInterval(() => {
+    sendMessage({ type: 'GET_SCREEN_PERMISSION' });
+  }, 2000);
 }
 
-function updateLockOptions() {
-  const partnerEmail = document.getElementById('partner-email').value.trim();
-  const partnerOpt = document.getElementById('lock-partner');
-
-  if (!partnerEmail) {
-    partnerOpt.classList.add('disabled');
-    if (selectedLockMode === 'partner') {
-      selectedLockMode = 'none';
-      document.querySelectorAll('.lock-option').forEach(o => o.classList.remove('selected'));
-      document.getElementById('lock-none').classList.add('selected');
-    }
-  } else {
-    partnerOpt.classList.remove('disabled');
-  }
-
-  updateLockNote();
-}
-
-function updateLockNote() {
-  const note = document.getElementById('lock-note');
-  switch (selectedLockMode) {
-    case 'partner':
-      note.textContent = 'Your partner will receive an email to confirm.';
-      break;
-    default:
-      note.textContent = '';
+function stopPermissionWatch() {
+  if (permPollInterval) {
+    clearInterval(permPollInterval);
+    permPollInterval = null;
   }
 }
 
-// ===== Save =====
-function saveOnboarding() {
-  const overlay = document.getElementById('saving-overlay');
-  overlay.classList.add('visible');
+document.getElementById('perm-btn').addEventListener('click', () => {
+  sendMessage({ type: 'REQUEST_SCREEN_PERMISSION' });
+});
 
-  // Sync period config dropdown values to state
-  platformSettings.youtube.maxPerPeriod.minutes = parseInt(document.getElementById('youtube-period-minutes').value);
-  platformSettings.youtube.maxPerPeriod.periodHours = parseInt(document.getElementById('youtube-period-hours').value);
-
-  const settings = {
-    platforms: {
-      youtube: {
-        enabled: platformSettings.youtube.enabled,
-        maxPerPeriod: { ...platformSettings.youtube.maxPerPeriod },
-        blockedCategories: [...platformSettings.youtube.blockedCategories],
-        blockShorts: platformSettings.youtube.blockShorts,
-        blockMode: platformSettings.youtube.blockMode
-      },
-      instagram: {
-        enabled: platformSettings.instagram.enabled,
-        blockReels: platformSettings.instagram.blockReels,
-        blockExplore: platformSettings.instagram.blockExplore,
-        nsfwFilter: platformSettings.instagram.nsfwFilter
-      }
-    },
-    maxPerPeriod: { ...platformSettings.youtube.maxPerPeriod },
-    blockedCategories: [...platformSettings.youtube.blockedCategories],
-    partnerEmail: document.getElementById('partner-email').value.trim() || null,
-    partnerName: document.getElementById('partner-name').value.trim() || null,
-    lockMode: selectedLockMode,
-    theme: selectedTheme
-  };
-
-  sendMessage({ type: 'SAVE_ONBOARDING', settings: settings });
-}
-
-// Callback from Swift
-window._onboardingSaveResult = function(result) {
-  const overlay = document.getElementById('saving-overlay');
-  overlay.classList.remove('visible');
-
-  if (result.success) {
-    sendMessage({ type: 'NAVIGATE_TO_DASHBOARD' });
-  } else {
-    alert('Failed to save settings. Please try again.');
+window._screenPermissionStatus = function(res) {
+  if (!res || !res.granted || permGranted) return;
+  permGranted = true;
+  const btn = document.getElementById('perm-btn');
+  btn.textContent = '✓ You\'re set';
+  btn.classList.add('granted');
+  btn.disabled = true;
+  stopPermissionWatch();
+  if (currentScreen === 9) {
+    setTimeout(() => { if (currentScreen === 9) goToScreen(10); }, 900);
   }
 };
 
-// ===== Event Handlers =====
-document.addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-action]');
-  if (!btn) return;
+// ===== Screen 10: first session =====
+function isoMonday() {
+  const d = new Date();
+  const day = (d.getDay() + 6) % 7;   // Mon=0
+  d.setDate(d.getDate() - day);
+  return d.toISOString().slice(0, 10);
+}
 
-  const action = btn.dataset.action;
-  switch (action) {
-    case 'next':
-      goToScreen(currentScreen + 1);
-      break;
-    case 'back':
-      goToScreen(currentScreen - 1);
-      break;
-    case 'finish':
-      saveOnboarding();
-      break;
-  }
+let sessionInFlight = false;
+const taskInput = document.getElementById('task-input');
+const sessionBtn = document.getElementById('session-btn');
+
+taskInput.addEventListener('input', () => {
+  if (!sessionInFlight) sessionBtn.disabled = taskInput.value.trim().length === 0;
 });
 
-// Dot navigation
-document.querySelectorAll('.dot').forEach(dot => {
-  dot.addEventListener('click', () => {
-    const target = parseInt(dot.dataset.screen);
-    if (target <= currentScreen) {
-      goToScreen(target);
-    }
+sessionBtn.addEventListener('click', () => {
+  const task = taskInput.value.trim();
+  if (!task || sessionInFlight) return;
+  sessionInFlight = true;
+  state.firstTask = task;
+  document.getElementById('session-error').classList.remove('visible');
+  sessionBtn.disabled = true;
+  sessionBtn.textContent = 'Starting…';
+  sendMessage({
+    type: 'CREATE_INTENTION',
+    name: task.slice(0, 60),
+    intent_text: task.slice(0, 140),
+    status: 'in_progress',
+    ai_scoring_enabled: true,
+    week_of: isoMonday()
   });
 });
 
-// ===== Pre-fill from existing settings =====
-window._settingsResult = function(data) {
-  if (data.youtube) {
-    var yt = data.youtube;
-    if (yt.blockShorts !== undefined) platformSettings.youtube.blockShorts = yt.blockShorts;
-    if (yt.blockMode) platformSettings.youtube.blockMode = yt.blockMode;
-    if (yt.enabled !== undefined) platformSettings.youtube.enabled = yt.enabled;
+window._intentionMutationResult = function(res) {
+  if (!sessionInFlight) return;
+  if (res && res.status === 'created' && res.id) {
+    sendMessage({ type: 'START_INTENTION_SESSION', id: res.id });
+  } else {
+    sessionFailed();
   }
-  if (data.instagram) {
-    var ig = data.instagram;
-    if (ig.blockReels !== undefined) platformSettings.instagram.blockReels = ig.blockReels;
-    if (ig.blockExplore !== undefined) platformSettings.instagram.blockExplore = ig.blockExplore;
-    if (ig.nsfwFilter !== undefined) platformSettings.instagram.nsfwFilter = ig.nsfwFilter;
-    if (ig.enabled !== undefined) platformSettings.instagram.enabled = ig.enabled;
+};
+
+window.onProjectSessionResult = function(res) {
+  if (!sessionInFlight) return;
+  if (res && res.status === 'started') {
+    sessionInFlight = false;
+    goToScreen(11);
+  } else {
+    sessionFailed();
   }
-  if (data.partnerEmail) {
-    document.getElementById('partner-email').value = data.partnerEmail;
+};
+
+function sessionFailed() {
+  sessionInFlight = false;
+  sessionBtn.disabled = taskInput.value.trim().length === 0;
+  sessionBtn.textContent = 'Start my first session';
+  document.getElementById('session-error').classList.add('visible');
+}
+
+// ===== Screen 11: partner, post-win =====
+function finish(withPartner) {
+  const errEl = document.getElementById('partner-error');
+  let email = null;
+  let name = null;
+
+  if (withPartner) {
+    email = document.getElementById('partner-email').value.trim();
+    name = document.getElementById('partner-name').value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errEl.textContent = "That email doesn't look right";
+      errEl.classList.add('visible');
+      return;
+    }
   }
-  if (data.partnerName) {
-    document.getElementById('partner-name').value = data.partnerName;
-  }
-  if (data.lockMode && data.lockMode !== 'none') {
-    selectedLockMode = data.lockMode;
-    document.querySelectorAll('.lock-option').forEach(function(o) { o.classList.remove('selected'); });
-    var lockOpt = document.getElementById('lock-' + data.lockMode);
-    if (lockOpt) lockOpt.classList.add('selected');
+  errEl.classList.remove('visible');
+
+  sendMessage({ type: 'SAVE_ONBOARDING', settings: {
+    quiz: state.quiz,                          // {reinstall, hoursPerDay}
+    enemyPicks: Array.from(state.picks),       // domain list actually seeded
+    firstTask: state.firstTask || null,
+    partnerEmail: withPartner ? email : null,
+    partnerName: withPartner ? (name || null) : null,
+    lockMode: 'none'
+  }});
+}
+
+document.getElementById('partner-btn').addEventListener('click', () => finish(true));
+document.getElementById('maybe-later-btn').addEventListener('click', () => finish(false));
+
+window._onboardingSaveResult = function(result) {
+  if (result && result.success) {
+    sendMessage({ type: 'NAVIGATE_TO_DASHBOARD' });
+  } else {
+    const errEl = document.getElementById('partner-error');
+    errEl.textContent = "Couldn't save. Check your connection and try again.";
+    errEl.classList.add('visible');
   }
 };
 
 // ===== Init =====
-sendMessage({ type: 'GET_SETTINGS' });
-initPlatformToggles();
-initYoutubePeriodLimit();
-initYoutubeDangerZones();
-initYoutubeToggles();
-initYoutubeBlockMode();
-initInstagramToggles();
-initLockOptions();
+updateProgress();
 </script>
 
 </body>
