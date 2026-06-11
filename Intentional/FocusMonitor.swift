@@ -430,7 +430,8 @@ class FocusMonitor {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let file = dir.appendingPathComponent("relevance_log.jsonl")
 
-        let aiModel = appDelegate?.scheduleManager?.aiModel ?? "apple"
+        // S2 (2026-06-10): model is hardcoded to Qwen3-4B (no user picker).
+        let aiModel = "qwen"
         var dict: [String: Any] = [
             "timestamp": ISO8601DateFormatter().string(from: entry.timestamp),
             "title": entry.title,

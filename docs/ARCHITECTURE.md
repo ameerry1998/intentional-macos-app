@@ -19,7 +19,7 @@ intentional-macos-app/
     DeepWorkTimerController.swift     # Floating pill timer + celebration cards + start ritual + confetti
     BlockEndRitualController.swift    # Block end ritual overlay (reflection + self-assessment)
     ContentSafetyMonitor.swift  # On-device explicit content detection (SensitiveContentAnalysis)
-    RelevanceScorer.swift       # AI scoring (Apple Foundation Models + MLX Qwen3-4B)
+    RelevanceScorer.swift       # AI scoring (MLX Qwen3-4B hardcoded; Apple FM automatic fallback)
     TimeTracker.swift           # Cross-browser usage tracking, heartbeat deduplication
     BrowserMonitor.swift        # Browser protection status, unprotected browser alerts
     WebsiteBlocker.swift        # AppleScript tab blocking (sole browser interface)

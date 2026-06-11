@@ -677,13 +677,14 @@ class RelevanceScorer {
             ? await MainActor.run { NSWorkspace.shared.frontmostApplication?.processIdentifier }
             : nil
 
-        // Check which AI model to use
-        let aiModel = appDelegate?.scheduleManager?.aiModel ?? "apple"
+        // S2 (2026-06-10): model selection is hardcoded — always Qwen3-4B via MLX.
+        // The user-facing model picker was removed; Apple Foundation Models below
+        // is an automatic fallback when MLX fails to load, not a selectable option.
 
         // --- Metadata scoring pass ---
         var metadataResult: Result? = nil
 
-        if aiModel == "qwen" {
+        do {
             await loadMLXModelIfNeeded()
             if mlxModelLoaded {
                 do {
@@ -832,9 +833,8 @@ class RelevanceScorer {
         bundleIdentifier: String,
         ocrText: String
     ) async -> Result {
-        let aiModel = appDelegate?.scheduleManager?.aiModel ?? "apple"
-
-        if aiModel == "qwen" && mlxModelLoaded {
+        // S2 (2026-06-10): always Qwen3-4B; Apple FM below is automatic fallback only.
+        if mlxModelLoaded {
             do {
                 return try await scoreWithMLX(
                     pageTitle: pageTitle,
@@ -1374,9 +1374,8 @@ class RelevanceScorer {
         /no_think
         """
 
-        // Try MLX model first if configured
-        let aiModel = appDelegate?.scheduleManager?.aiModel ?? "apple"
-        if aiModel == "qwen" && mlxModelLoaded, let session = mlxSession {
+        // Try MLX model first — Qwen3-4B is the hardcoded model (S2, 2026-06-10).
+        if mlxModelLoaded, let session = mlxSession {
             do {
                 let response = try await session.respond(to: userMessage)
                 if let jsonStart = response.firstIndex(of: "{"),

@@ -5024,11 +5024,12 @@ body.theme-effects-warm::after {
   <div class="sidebar-header">
     <span class="sidebar-title" style="background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Intentional</span>
   </div>
-  <!-- Slice 10 of 2026-05-05 redesign: 5 sidebar items.
-       Sensitive Content and Accountability remain top-level since they're
-       active features (not configuration).
-       Killed: Weekly Planning (placeholder, no real UI), Distractions
-       (list-management folded into Settings; budget meter lives on Today),
+  <!-- Settings Consolidation S3 (2026-06-10): 4 sidebar items —
+       Today / Plan / Accountability / Settings.
+       Sensitive Content demoted from top-level tab to a Settings detail
+       (Settings → Sensitive Content); navigateTo('sensitive') redirects there.
+       Earlier kills (Slice 10, 2026-05-05): Weekly Planning (placeholder),
+       Distractions (folded into Settings; budget meter lives on Today),
        Schedule (calendar lives inline at top of Today). -->
   <div class="sidebar-item active" data-page="today" onclick="navigateTo('today')">
     <span class="sidebar-item-icon">◉</span> Today
@@ -5037,9 +5038,6 @@ body.theme-effects-warm::after {
     <span class="sidebar-item-icon">📓</span> Plan
   </div>
   <!-- Focus Modes tab removed 2026-05-14 — replaced by full-page Weekly Goal editor reachable from Today/Plan cards -->
-  <div class="sidebar-item" data-page="sensitive" onclick="navigateTo('sensitive')">
-    <span class="sidebar-item-icon">◔</span> Sensitive Content
-  </div>
   <div class="sidebar-item" data-page="lock" onclick="navigateTo('lock')">
     <span class="sidebar-item-icon">◫</span> Accountability
   </div>
@@ -5323,16 +5321,9 @@ body.theme-effects-warm::after {
     <div class="projects-setup-page" id="projects-view-setup" style="display:none"></div>
   </div>
 
-  <!-- Page: Sensitive Content (D8 — promoted from Settings) -->
-  <div class="page" id="page-sensitive">
-    <div class="page-header" style="padding:20px 28px 12px;">
-      <div class="page-title">Sensitive Content</div>
-      <div style="color:rgba(255,255,255,0.5);font-size:13px;margin-top:6px;">
-        On-device NSFW detection. When enabled, an overlay covers the screen and your accountability partner is notified.
-      </div>
-    </div>
-    <div style="padding:0 28px 32px;" id="sensitive-content-host"></div>
-  </div>
+  <!-- Page: Sensitive Content — REMOVED (Settings Consolidation S3, 2026-06-10).
+       Demoted back into Settings → Sensitive Content (settings-detail-safety);
+       navigateTo('sensitive') redirects there for legacy callers. -->
 
   <!-- Page: Accountability / Partner — three states: paired / pending / empty -->
   <!-- See docs/design_handoff_partner. The full identity card (avatar + name + -->
@@ -5444,14 +5435,12 @@ body.theme-effects-warm::after {
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('account')">
           <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1);color:var(--accent-primary);">⊕</div>
-          <div class="settings-menu-info"><div class="settings-menu-title">Account</div><div class="settings-menu-sub" id="settings-account-sub">Loading...</div></div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Account</div><div class="settings-menu-sub" id="settings-account-sub">Email, devices, sign out</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
-        <div class="settings-menu-row" onclick="showSettingsDetail('ai')">
-          <div class="settings-menu-icon" style="background:rgba(240,176,96,0.1);color:var(--accent-primary-hover);">◎</div>
-          <div class="settings-menu-info"><div class="settings-menu-title">AI Scoring</div><div class="settings-menu-sub">Relevance scoring</div></div>
-          <span class="settings-menu-chevron">›</span>
-        </div>
+        <!-- AI Scoring row removed (Settings Consolidation S2, 2026-06-10):
+             model is hardcoded to Qwen3-4B; Focus Profile editing lives on the
+             Account page (About me / Focus Profile card). -->
         <!-- Strictness dial (Calm-Down Pass D2, 2026-06-10) — one global
              Gentle/Standard/Strict control replacing the 14 per-block-type
              checkboxes; the old checkboxes survive under Advanced. -->
@@ -5461,9 +5450,11 @@ body.theme-effects-warm::after {
           <span class="settings-menu-chevron">›</span>
         </div>
 
+        <!-- S3 (2026-06-10): renamed "Content Safety" → "Sensitive Content";
+             the standalone sidebar tab is gone, this detail is the one home. -->
         <div class="settings-menu-row" onclick="showSettingsDetail('safety')">
-          <div class="settings-menu-icon" style="background:rgba(92,192,154,0.1);color:#5cc09a;">◉</div>
-          <div class="settings-menu-info"><div class="settings-menu-title">Content Safety</div><div class="settings-menu-sub" id="settings-safety-sub">Screen monitoring</div></div>
+          <div class="settings-menu-icon" style="background:rgba(92,192,154,0.1);color:#5cc09a;">◔</div>
+          <div class="settings-menu-info"><div class="settings-menu-title">Sensitive Content</div><div class="settings-menu-sub" id="settings-safety-sub">Screen monitoring</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('distractions')">
@@ -5486,11 +5477,8 @@ body.theme-effects-warm::after {
           <div class="settings-menu-info"><div class="settings-menu-title">Bedtime</div><div class="settings-menu-sub" id="settings-bedtime-sub">Configure</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
-        <div class="settings-menu-row" onclick="showSettingsDetail('focusgate')">
-          <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1);color:var(--accent-primary);">◉</div>
-          <div class="settings-menu-info"><div class="settings-menu-title">Focus Mode</div><div class="settings-menu-sub" id="settings-focusgate-sub">Interventions &amp; screen lock</div></div>
-          <span class="settings-menu-chevron">›</span>
-        </div>
+        <!-- Focus Mode row removed (S4, 2026-06-10): Screen Lock moved to
+             Strictness → Advanced; the Interventions toggle list was dead UI. -->
         <div class="settings-menu-row" onclick="showSettingsDetail('reset')">
           <div class="settings-menu-icon" style="background:rgba(212,80,80,0.1);color:#d45050;">⊖</div>
           <div class="settings-menu-info"><div class="settings-menu-title">Reset & Delete</div></div>
@@ -5531,11 +5519,14 @@ body.theme-effects-warm::after {
       </div>
     </div>
 
-    <!-- About me — feeds the AI relevance scorer with background context -->
+    <!-- About me / Focus Profile — feeds the AI relevance scorer with background
+         context. S2 (2026-06-10): this is also where "Focus Profile" editing
+         lives now that the AI Scoring settings page is gone — both names refer
+         to the same focusState.profile field (SET_PROFILE bridge). -->
     <div class="settings-card" style="margin-top: 12px;">
-      <div class="settings-card-title">About me</div>
+      <div class="settings-card-title">About me · Focus Profile</div>
       <div class="setting-desc" style="padding: 2px 20px 8px;">
-        Helps the AI judge which tabs and apps are relevant to your work.
+        Describes your work so the AI can judge which tabs and apps are relevant.
       </div>
       <div style="padding: 4px 20px 16px;">
         <textarea id="account-about-me-input" class="focus-textarea" rows="3"
@@ -5561,36 +5552,10 @@ body.theme-effects-warm::after {
 
     </div><!-- end detail-theme -->
 
-    <!-- Detail: AI Scoring -->
-    <div class="settings-detail" id="settings-detail-ai">
-      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
-      <div class="settings-detail-title">AI Scoring</div>
-      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">AI scores whether what you're looking at is relevant to your task</div>
-    <!-- Calm-Down Pass D3: AI scoring is always-on — the "Enable Daily Focus Plan"
-         and "Block irrelevant tabs" toggles were removed. Enforcement behavior is
-         owned by the Strictness dial (settings-detail-enforcement). -->
-    <div class="settings-card" id="focus-plan-card">
-      <div class="settings-card-title">Relevance Scoring</div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">AI Model</div>
-          <div class="setting-desc">Model used for relevance scoring</div>
-        </div>
-        <select class="setting-select" id="ai-model-select" onchange="onAIModelChange()">
-          <option value="apple">Apple (3B, fast)</option>
-          <option value="qwen">Qwen3 4B (slower, smarter)</option>
-        </select>
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Focus Profile</div>
-          <div class="setting-desc">Describes your work so we can judge relevance</div>
-        </div>
-        <button class="btn-small" onclick="navigateTo('today')" style="white-space:nowrap;">Edit profile</button>
-      </div>
-    </div>
-
-    </div><!-- end detail-ai -->
+    <!-- Detail: AI Scoring — REMOVED (Settings Consolidation S2, 2026-06-10).
+         AI scoring is always-on with Qwen3-4B hardcoded (no model picker).
+         Focus Profile editing lives on the Account detail (About me card,
+         which edits the same focusState.profile field the scorer reads). -->
 
     <!-- Detail: Enforcement → Strictness dial (Calm-Down Pass D2) -->
     <div class="settings-detail" id="settings-detail-enforcement">
@@ -5755,55 +5720,13 @@ body.theme-effects-warm::after {
         </div>
       </div>
     </div>
-      </div><!-- end strictness-advanced -->
-
-    </div><!-- end detail-enforcement -->
-
-    <!-- Detail: Content Safety -->
-    <div class="settings-detail" id="settings-detail-safety">
-      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
-      <div class="settings-detail-title">Content Safety</div>
-      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">On-device screen monitoring for explicit content</div>
-    <div class="settings-card" id="content-safety-card">
-      <div class="settings-card-title">Content Safety</div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Screen monitoring</div>
-          <div class="setting-desc">Scans all screens for explicit content every 2 seconds. Blocks screens and notifies your accountability partner on detection.</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="content-safety-enabled" onchange="onContentSafetyToggle(this.checked)">
-          <span class="toggle-track"></span>
-        </label>
-      </div>
-      <div id="content-safety-status" style="display:none; padding: 0 14px 12px;">
-        <div id="content-safety-status-text" style="font-size: 12px; color: rgba(255,255,255,0.5);"></div>
-        <div id="content-safety-permission-banner" style="display:none; margin-top: 8px; padding: 10px 14px; border-radius: 8px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3);">
-          <div style="font-size: 13px; font-weight: 500; color: #f59e0b; margin-bottom: 6px;">Permissions Required</div>
-          <div id="content-safety-permission-list" style="font-size: 12px; color: rgba(255,255,255,0.6); line-height: 1.6;"></div>
-          <button onclick="openContentSafetySettings()" style="margin-top: 8px; padding: 6px 14px; border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-size: 12px; cursor: pointer;">Open System Settings</button>
-        </div>
-      </div>
-      <!-- Detection sensitivity slider removed 2026-06-10 (calm-down): threshold
-           is pinned at 0.99 in ContentSafetyMonitor — no user-facing optionality. -->
-      <div class="setting-row" id="content-safety-test-row" style="display:none;">
-        <div>
-          <div class="setting-label">Test detection</div>
-          <div class="setting-desc">Triggers a fake detection to test the overlay and blur pipeline.</div>
-        </div>
-        <button class="btn-danger" onclick="sendMessage({type:'TEST_CONTENT_SAFETY'})">Test</button>
-      </div>
-    </div>
-
-    </div><!-- end detail-safety -->
-
-    <!-- Detail: Focus Mode (formerly Focus Gate / Intentional Mode) -->
-    <div class="settings-detail" id="settings-detail-focusgate">
-      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
-      <div class="settings-detail-title">Focus Mode</div>
-      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">Enforcement bundle active while Focus Mode is on. Toggle individual interventions below.</div>
-    <div class="settings-card">
-      <div class="settings-card-title" style="display:none;">Focus Mode</div>
+    <!-- Screen Lock — migrated from the deleted Focus Mode settings page
+         (Settings Consolidation S4, 2026-06-10). Element ids + the
+         SAVE_INTENTIONAL_MODE bridge are unchanged so partner-lock
+         enforcement (LOCKED_INPUT_IDS) and loadIntentionalModeSettings()
+         keep working as before. -->
+    <div class="settings-card" style="margin-top:12px;">
+      <div class="settings-card-title">Screen Lock</div>
       <div class="setting-row">
         <div>
           <div class="setting-label">Screen Lock</div>
@@ -5855,15 +5778,55 @@ body.theme-effects-warm::after {
         </div>
       </div>
     </div>
+      </div><!-- end strictness-advanced -->
 
-    <!-- Interventions Section -->
-    <div class="settings-card" style="margin-top:12px;">
-      <div class="settings-card-title">Interventions</div>
-      <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:12px;">When Focus Mode is on, these enforce automatically. Toggle off any to soften the bundle.</div>
-      <div id="intervention-toggles"></div>
+    </div><!-- end detail-enforcement -->
+
+    <!-- Detail: Sensitive Content (S3, 2026-06-10 — formerly "Content Safety";
+         absorbed the standalone page-sensitive copy when that tab was removed) -->
+    <div class="settings-detail" id="settings-detail-safety">
+      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
+      <div class="settings-detail-title">Sensitive Content</div>
+      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">On-device NSFW detection. When enabled, an overlay covers the screen and your accountability partner is notified.</div>
+    <div class="settings-card" id="content-safety-card">
+      <div class="settings-card-title">Content Safety</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Screen monitoring</div>
+          <div class="setting-desc">Scans all screens for explicit content every 2 seconds. Blocks screens and notifies your accountability partner on detection.</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="content-safety-enabled" onchange="onContentSafetyToggle(this.checked)">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div id="content-safety-status" style="display:none; padding: 0 14px 12px;">
+        <div id="content-safety-status-text" style="font-size: 12px; color: rgba(255,255,255,0.5);"></div>
+        <div id="content-safety-permission-banner" style="display:none; margin-top: 8px; padding: 10px 14px; border-radius: 8px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3);">
+          <div style="font-size: 13px; font-weight: 500; color: #f59e0b; margin-bottom: 6px;">Permissions Required</div>
+          <div id="content-safety-permission-list" style="font-size: 12px; color: rgba(255,255,255,0.6); line-height: 1.6;"></div>
+          <button onclick="openContentSafetySettings()" style="margin-top: 8px; padding: 6px 14px; border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-size: 12px; cursor: pointer;">Open System Settings</button>
+        </div>
+      </div>
+      <!-- Detection sensitivity slider removed 2026-06-10 (calm-down): threshold
+           is pinned at 0.99 in ContentSafetyMonitor — no user-facing optionality. -->
+      <div class="setting-row" id="content-safety-test-row" style="display:none;">
+        <div>
+          <div class="setting-label">Test detection</div>
+          <div class="setting-desc">Triggers a fake detection to test the overlay and blur pipeline.</div>
+        </div>
+        <button class="btn-danger" onclick="sendMessage({type:'TEST_CONTENT_SAFETY'})">Test</button>
+      </div>
     </div>
 
-    </div><!-- end detail-focusgate -->
+    </div><!-- end detail-safety -->
+
+    <!-- Detail: Focus Mode — REMOVED (Settings Consolidation S4, 2026-06-10).
+         Its unique Screen Lock controls moved to Strictness → Advanced; the
+         "Interventions" toggle list was deleted outright (the toggles only
+         persisted UserDefaults nothing read — the live per-mechanism controls
+         are the Strictness Advanced grid). showSettingsDetail('focusgate')
+         aliases to 'enforcement'. -->
 
     <!-- Detail: Distractions list (Slice 5 of 2026-05-05 redesign) -->
     <div class="settings-detail" id="settings-detail-distractions">
@@ -6249,56 +6212,26 @@ function stopActiveSession() {
 window.stopActiveSession = stopActiveSession;
 
 // ===== Interventions =====
-var INTERVENTIONS = [
-  { key: "distractions_blocking", label: "Distractions blocking",      desc: "Hard block apps + sites in your distractions list.", defaultOn: true },
-  { key: "switch_overlay",        label: "Context-switch overlay",     desc: "10s countdown when switching to a non-relevant app.", defaultOn: true },
-  { key: "ai_relevance",          label: "AI relevance scoring",       desc: "Browser tabs scored against your weekly goal.",       defaultOn: true },
-  { key: "screen_red_shift",      label: "Screen red shift",           desc: "Gradual screen tint when off-task.",                  defaultOn: true },
-  { key: "off_task_nudge",        label: "Off-task nudge toast",       desc: "Small reminder before harder interventions.",         defaultOn: true },
-  { key: "block_start_ritual",    label: "Block start ritual",         desc: "Forces you to type your weekly goal before a scheduled block.", defaultOn: true },
-  { key: "block_end_ritual",      label: "Block end ritual",           desc: "3-sec stats card at end of block.",                   defaultOn: true },
-  { key: "pill_widget",           label: "Always-on pill widget",      desc: "Menu bar pill with state, weekly goal, timer.",       defaultOn: true },
-  { key: "force_quit_apps",       label: "Distracting app force-quit", desc: "HARD MODE: distracting apps minimized/quit on activation.", defaultOn: false },
-  { key: "earned_browse_mode",    label: "Earned browse mode",         desc: "Earn distraction-time credits during focus. (Currently disabled.)", defaultOn: false }
-];
-
-function renderInterventionToggles() {
-  var container = document.getElementById("intervention-toggles");
-  if (!container) return;
-  container.innerHTML = INTERVENTIONS.map(function(it) {
-    var stored = localStorage.getItem("intervention." + it.key);
-    var isOn = stored === null ? it.defaultOn : (stored === "true");
-    return '<div class="setting-row" style="border-bottom:1px solid rgba(255,255,255,0.06);">' +
-      '<div>' +
-        '<div class="setting-label">' + it.label + '</div>' +
-        '<div class="setting-desc">' + it.desc + '</div>' +
-      '</div>' +
-      '<label class="toggle">' +
-        '<input type="checkbox" ' + (isOn ? 'checked' : '') + ' onchange="onInterventionToggle(\'' + it.key + '\', this.checked)">' +
-        '<span class="toggle-track"></span>' +
-      '</label>' +
-    '</div>';
-  }).join("");
-}
-
-function onInterventionToggle(key, enabled) {
-  localStorage.setItem("intervention." + key, enabled ? "true" : "false");
-  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
-    window.webkit.messageHandlers.intentional.postMessage({
-      type: "INTERVENTION_TOGGLE_SET",
-      key: key,
-      enabled: enabled
-    });
-  }
-}
+// REMOVED (Settings Consolidation S4, 2026-06-10): the Focus Mode page's
+// 10-toggle "Interventions" list only wrote intervention.* UserDefaults that
+// no enforcement code ever read (the Swift handler comment said gating was
+// "follow-up work" that never landed). The live per-mechanism controls are
+// the Strictness → Advanced grid (EnforcementSettings). The Swift
+// INTERVENTION_TOGGLE_SET bridge handler survives as a legacy no-op for one
+// release cycle.
 
 // ===== Settings Drill-Down Navigation =====
 // FIX-12: alias map so external callers can use the requirements-doc IDs
-// ("focus-mode", "content-safety") in addition to the internal IDs that
-// have always been used here ("focusgate", "safety"). Both work.
+// in addition to the internal IDs. Settings Consolidation (2026-06-10):
+// 'focusgate' detail was merged into 'enforcement' (Strictness) and the
+// standalone Sensitive Content page folded into 'safety' — legacy ids keep
+// resolving so old callers can't dead-end.
 var _SETTINGS_SUB_ALIASES = {
-  'focus-mode': 'focusgate',
-  'content-safety': 'safety'
+  'focus-mode': 'enforcement',
+  'focusgate': 'enforcement',
+  'content-safety': 'safety',
+  'sensitive': 'safety',
+  'ai': 'account'   // AI Scoring page removed (S2); Focus Profile lives on Account
 };
 
 function showSettingsDetail(id) {
@@ -6860,6 +6793,13 @@ function showToast(msg, type) {
 
 // ===== Navigation =====
 function navigateTo(pageId) {
+  // S3 (2026-06-10): the standalone Sensitive Content page is gone — legacy
+  // callers land on Settings → Sensitive Content instead.
+  if (pageId === 'sensitive') {
+    navigateTo('settings');
+    showSettingsDetail('safety');
+    return;
+  }
   document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
   document.querySelectorAll('.sidebar-item').forEach(function(s) { s.classList.remove('active'); });
   var page = document.getElementById('page-' + pageId);
@@ -6907,14 +6847,8 @@ function navigateTo(pageId) {
       todayHost.appendChild(calT);
     }
   }
-  // Spec 3: Sensitive Content promoted from Settings to its own page
-  if (pageId === 'sensitive') {
-    var senseHostNav = document.getElementById('sensitive-content-host');
-    var csCardNav = document.getElementById('content-safety-card');
-    if (senseHostNav && csCardNav && !senseHostNav.contains(csCardNav)) {
-      senseHostNav.appendChild(csCardNav);
-    }
-  }
+  // S3 (2026-06-10): card-relocation branch for page-sensitive removed — the
+  // content-safety card lives permanently in settings-detail-safety now.
 
   // Load all data when viewing Today page
   if (pageId === 'today') {
@@ -7060,8 +6994,8 @@ document.addEventListener('DOMContentLoaded', function() {
   // Initialize extra time request flow
   initExtraTimeFlow();
 
-  // Render intervention toggles in Settings → Focus Mode
-  renderInterventionToggles();
+  // S4 (2026-06-10): renderInterventionToggles() call removed with the
+  // Focus Mode settings page.
 });
 
 // ===== Blocking Profiles Management =====
@@ -8925,6 +8859,12 @@ window._settingsResult = function(data) {
   if (data.deviceId !== undefined) settings.deviceId = data.deviceId;
   if (data.userEmail !== undefined) settings.userEmail = data.userEmail || '';
 
+  // S5 (2026-06-10): the Account menu row subtitle used to be stuck on
+  // "Loading..." — nothing ever wrote to it. GET_SETTINGS fires on app init
+  // and on every Settings page entry, so update it here.
+  var accountSub = document.getElementById('settings-account-sub');
+  if (accountSub) accountSub.textContent = settings.userEmail || 'Email, devices, sign out';
+
   try { populateSettingsUI(data); } catch(e) { console.error('populateSettingsUI error:', e); }
   try { loadIntentionalModeSettings(data); } catch(e) { console.error('loadIntentionalModeSettings error:', e); }
 
@@ -9265,6 +9205,13 @@ function saveAccountAboutMe() {
 window.saveAccountAboutMe = saveAccountAboutMe;
 
 window._authStateResult = function(data) {
+  // S5 (2026-06-10): keep the Account menu row subtitle in sync with the
+  // authoritative auth state (GET_AUTH_STATE hits the backend; _settingsResult
+  // covers the cached-email path).
+  var accountSubAuth = document.getElementById('settings-account-sub');
+  if (accountSubAuth) {
+    accountSubAuth.textContent = (data.loggedIn && data.email) ? data.email : 'Email, devices, sign out';
+  }
   if (data.loggedIn) {
     document.getElementById('account-email').textContent = data.email;
     document.getElementById('account-since').textContent = formatAccountDate(data.createdAt);
@@ -10914,23 +10861,13 @@ window._scheduleStateResult = function(data) {
   loadFocusScore();
   loadEarnedStatus();
 
-  // Sync AI model dropdown in Settings
-  var modelSelect = document.getElementById('ai-model-select');
-  if (modelSelect && data.aiModel) modelSelect.value = data.aiModel;
+  // S2 (2026-06-10): AI model dropdown removed — Qwen3-4B is hardcoded.
+  // (data.aiModel may still arrive from older builds; ignored.)
 
   // Sync enforcement settings toggles
   if (data.enforcementSettings) {
     populateEnforcementSettingsUI(data.enforcementSettings);
   }
-};
-
-function onAIModelChange() {
-  var model = document.getElementById('ai-model-select').value;
-  sendMessage({ type: 'SET_AI_MODEL', model: model });
-}
-
-window._aiModelResult = function(data) {
-  if (data.success) showToast(data.model === 'qwen' ? 'Using Qwen3 4B (MLX)' : 'Using Apple Foundation Models');
 };
 
 // ===== Enforcement Settings =====
@@ -13341,16 +13278,9 @@ sendMessage({ type: 'GET_FOCUS_MODE' });
 sendMessage({ type: 'GET_INTENTIONS' });  // Spec 3 — populate intentionsCache for picker
 sendMessage({ type: 'GET_DISTRACTIONS' });  // Slice 5 follow-up — populate distractionsCache for Focus Mode card hint
 
-// Spec 3 (May 2026): default the Sensitive Content card to live in
-// page-sensitive on first load (it'll relocate back if user navigates to
-// settings then sensitive, but never appears in settings now).
-(function() {
-  var senseHostInit = document.getElementById('sensitive-content-host');
-  var csCardInit = document.getElementById('content-safety-card');
-  if (senseHostInit && csCardInit && !senseHostInit.contains(csCardInit)) {
-    senseHostInit.appendChild(csCardInit);
-  }
-})();
+// S3 (2026-06-10): the first-load relocation of the content-safety card into
+// page-sensitive was removed along with that page — the card stays in
+// settings-detail-safety where it's authored.
 
 refresh();
 loadFocusState();

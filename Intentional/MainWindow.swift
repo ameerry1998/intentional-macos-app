@@ -38,6 +38,59 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             .joined(separator: " ")
         appDelegate?.postLog("[UIPERF] 3s: callJS=\(jsCount) (\(jsBytes) bytes)  rx={\(rxStr)}")
     }
+
+    // MARK: - UI Test Hook (Settings Consolidation S1, 2026-06-10) — DEBUG only.
+    //
+    // Watches /tmp/intentional-uitest-cmd.json for {"id": N, "js": "..."}.
+    // On a NEW id, evaluates the JS in the dashboard WKWebView and writes
+    // {"id": N, "result": ...} or {"id": N, "error": "..."} to
+    // /tmp/intentional-uitest-result.json. Enables instant selector-clicks and
+    // DOM-state reads during verification instead of synthesized mouse events.
+    //
+    // Implementation note: a 500ms DispatchSourceTimer poll (not a vnode
+    // watcher) — editors and `cat >` replace/truncate the file, which silently
+    // kills vnode sources on the old inode. The id check makes the poll
+    // idempotent (stale/already-processed ids are ignored), and 500ms is the
+    // debounce.
+    private var uiTestTimer: DispatchSourceTimer?
+    private var uiTestLastId: Int = .min
+    private static let uiTestCmdPath = "/tmp/intentional-uitest-cmd.json"
+    private static let uiTestResultPath = "/tmp/intentional-uitest-result.json"
+
+    private func startUITestHook() {
+        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .utility))
+        timer.schedule(deadline: .now() + 1.0, repeating: .milliseconds(500))
+        timer.setEventHandler { [weak self] in
+            guard let self = self,
+                  let data = FileManager.default.contents(atPath: MainWindow.uiTestCmdPath),
+                  let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                  let id = json["id"] as? Int,
+                  let js = json["js"] as? String,
+                  id != self.uiTestLastId else { return }
+            self.uiTestLastId = id
+            DispatchQueue.main.async {
+                self.webView.evaluateJavaScript(js) { value, error in
+                    var out: [String: Any] = ["id": id]
+                    if let error = error {
+                        out["error"] = error.localizedDescription
+                    } else if let value = value {
+                        // evaluateJavaScript returns Foundation-bridged values;
+                        // only embed directly if the wrapper is JSON-encodable.
+                        out["result"] = JSONSerialization.isValidJSONObject(["v": value])
+                            ? value : String(describing: value)
+                    } else {
+                        out["result"] = NSNull()
+                    }
+                    if let outData = try? JSONSerialization.data(withJSONObject: out, options: [.prettyPrinted]) {
+                        try? outData.write(to: URL(fileURLWithPath: MainWindow.uiTestResultPath), options: .atomic)
+                    }
+                }
+            }
+        }
+        timer.resume()
+        uiTestTimer = timer
+        appDelegate?.postLog("🧪 UI test hook armed — watching \(MainWindow.uiTestCmdPath)")
+    }
     #endif
 
     convenience init(appDelegate: AppDelegate) {
@@ -119,6 +172,12 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
         // Load appropriate page
         loadCurrentPage()
+
+        #if DEBUG
+        // S1 (2026-06-10): file-driven JS evaluation for GUI verification.
+        // Compiled out of Release builds entirely.
+        startUITestHook()
+        #endif
     }
 
     /// Listen for PartnerSyncService.pullAndApply() completions and forward
@@ -3005,11 +3064,12 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         callJS("window._focusEnforcementResult && window._focusEnforcementResult({ success: true, mode: '\(mode)' })")
     }
 
+    /// S2 (2026-06-10): legacy no-op — model is hardcoded to Qwen3-4B and the
+    /// picker UI was removed. Kept for one release cycle so an old cached
+    /// dashboard page can't crash the bridge. Remove after 2026-07.
     private func handleSetAIModel(_ body: [String: Any]) {
-        if let model = body["model"] as? String, ["apple", "qwen"].contains(model) {
-            appDelegate?.scheduleManager?.setAIModel(model)
-            callJS("window._aiModelResult && window._aiModelResult({ success: true, model: '\(model)' })")
-        }
+        appDelegate?.postLog("📋 SET_AI_MODEL ignored (deprecated — Qwen3-4B is hardcoded)")
+        callJS("window._aiModelResult && window._aiModelResult({ success: true, model: 'qwen' })")
     }
 
     private func handleSetEnforcementSettings(_ body: [String: Any]) {
@@ -3284,6 +3344,11 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         }
     }
 
+    /// LEGACY (Settings Consolidation S4, 2026-06-10): the Interventions toggle
+    /// UI was deleted with the Focus Mode settings page, so nothing sends this
+    /// anymore. Kept as a persist-only no-op for one release cycle (an old
+    /// cached dashboard could still post it). Remove after 2026-07.
+    ///
     /// Body: { "key": String, "enabled": Bool }
     /// Persists the user's preference for an individual intervention. Honoring the
     /// preference (i.e., gating the actual intervention logic on this flag) is

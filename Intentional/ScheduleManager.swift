@@ -384,8 +384,13 @@ class ScheduleManager {
     /// Enforcement mode: "nudge" (notify only) or "block" (nudge + redirect tab)
     private(set) var focusEnforcement: String = "block"
 
-    /// AI model for relevance scoring: "apple" (Foundation Models) or "qwen" (MLX Qwen3-4B)
-    private(set) var aiModel: String = "apple"
+    /// AI model for relevance scoring. Hardcoded to "qwen" (MLX Qwen3-4B,
+    /// mlx-community/Qwen3-4B-Instruct-2507-4bit) since Settings Consolidation
+    /// S2 (2026-06-10) — the model picker UI was removed. Apple Foundation
+    /// Models remains an automatic in-code fallback when MLX fails to load,
+    /// not a user-selectable option. Kept as a property (not deleted) so the
+    /// wire format of getScheduleState() stays stable for one release cycle.
+    let aiModel: String = "qwen"
 
     /// Snooze state
     private(set) var snoozeUntil: Date?
@@ -468,11 +473,8 @@ class ScheduleManager {
         appDelegate?.postLog("📋 Focus enforcement: \(mode)")
     }
 
-    func setAIModel(_ model: String) {
-        aiModel = model
-        saveSettings()
-        appDelegate?.postLog("📋 AI model: \(model)")
-    }
+    // setAIModel removed (S2, 2026-06-10): model is hardcoded to Qwen3-4B.
+    // The SET_AI_MODEL bridge message survives as a no-op for one release cycle.
 
     func setCalendarZoom(_ zoom: Int) {
         calendarZoom = max(42, min(140, zoom))
@@ -889,7 +891,7 @@ class ScheduleManager {
                 // `false` (there is no UI left to flip it back). Field stays in the model.
                 isEnabled = true
                 focusEnforcement = json["focusEnforcement"] as? String ?? "block"
-                aiModel = json["aiModel"] as? String ?? "apple"
+                // S2 (2026-06-10): persisted "aiModel" is ignored — Qwen3-4B is hardcoded.
                 calendarZoom = json["calendarZoom"] as? Int ?? 42
 
                 // Parse enforcement settings (graceful fallback to defaults)

@@ -4,7 +4,7 @@
 1. **Keyword overlap** — fast path, checks title words against block title/description (excludes stop words)
 2. **User-approved whitelist** — pages user explicitly approved (cleared on block change)
 3. **Cache lookup** — key: `"intention|pageTitle"`, cleared on block change
-4. **LLM metadata pass** — Apple Foundation Models (macOS 26+) or MLX Qwen3-4B fallback
+4. **LLM metadata pass** — MLX Qwen3-4B (hardcoded); Apple Foundation Models is the automatic fallback if MLX fails to load
 5. **OCR verification pass** — second-chance rescore for off-task verdicts on container apps (see below)
 
 ## Content Types
@@ -12,10 +12,12 @@
 - `.application` — scores desktop app name
 
 ## AI Models
-| Model | Availability | Notes |
-|-------|-------------|-------|
-| Apple Foundation Models | macOS 26+ (on-device ~3B) | Preferred, via `FoundationModels` framework |
-| MLX Qwen3-4B | Any macOS | Fallback, via `MLXLLM` + `MLXLMCommon`. User default — do not assume Apple FM. |
+**There is no user-facing model picker.** The AI Scoring settings page (and its Apple-vs-Qwen dropdown) was removed in the Settings Consolidation pass (2026-06-10); `SET_AI_MODEL` survives as a no-op bridge handler for one release cycle. The model is hardcoded:
+
+| Model | Role | Notes |
+|-------|------|-------|
+| MLX Qwen3-4B (`mlx-community/Qwen3-4B-Instruct-2507-4bit`) | THE model — always tried first | Via `MLXLLM` + `MLXLMCommon`. `RelevanceScorer.currentModelId`. |
+| Apple Foundation Models | Automatic in-code fallback only | macOS 26+, via `FoundationModels` framework. Used only when the MLX model fails to load/score — never user-selected. |
 
 ## Fail-Closed Policy
 On LLM parse error: `relevant = false`, `confidence = 0`. This ensures broken AI doesn't silently allow everything. Combined with the confidence gate (below), a parse-error verdict is let through as "no signal" rather than enforced.
