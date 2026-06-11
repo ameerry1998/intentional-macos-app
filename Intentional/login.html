@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Sign in to Puck</title>
+<title>Sign in to Intentional</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -356,7 +356,7 @@
 
     <!-- 01 At rest -->
     <div id="state-at-rest">
-      <div class="wm">puck</div>
+      <div class="wm">intentional</div>
       <div class="tagline">Choose what gets <em>your attention.</em></div>
       <div class="stack">
         <button id="btn-email" class="btn btn-email" type="button">Continue with email</button>
@@ -369,7 +369,7 @@
 
     <!-- 02 Email entry -->
     <div id="state-email-entry">
-      <div class="wm">puck</div>
+      <div class="wm">intentional</div>
       <div class="tagline">What's your <em>email?</em></div>
       <div class="stack">
         <div class="input-wrap">
@@ -385,7 +385,7 @@
     <!-- Email error reuses the email-entry visuals; we toggle classes on #input-email + #helper-email. -->
     <!-- For the spec's "every state container has its own DOM" contract, this container mirrors the email-entry markup. -->
     <div id="state-email-error">
-      <div class="wm">puck</div>
+      <div class="wm">intentional</div>
       <div class="tagline">What's your <em>email?</em></div>
       <div class="stack">
         <div class="input-wrap">
@@ -399,7 +399,7 @@
 
     <!-- 04 OTP / Verify -->
     <div id="state-otp-verify">
-      <div class="wm">puck</div>
+      <div class="wm">intentional</div>
       <div class="tagline">Check your <em>email.</em></div>
       <div class="helper otp-helper">We sent a 6-digit code to <b id="otp-verify-email" class="otp-email-display">you@email.com</b></div>
       <div class="stack">
@@ -418,7 +418,7 @@
 
     <!-- 05 OTP error -->
     <div id="state-otp-error">
-      <div class="wm">puck</div>
+      <div class="wm">intentional</div>
       <div class="tagline">Check your <em>email.</em></div>
       <div class="helper otp-helper">We sent a 6-digit code to <b class="otp-email-display">you@email.com</b></div>
       <div class="stack">
@@ -437,7 +437,7 @@
 
     <!-- 06 Loading -->
     <div id="state-loading">
-      <div class="wm">puck</div>
+      <div class="wm">intentional</div>
       <div class="tagline">Signing you <em>in…</em></div>
       <div class="stack stack-center">
         <div class="spinner" role="progressbar" aria-label="Signing in"></div>
@@ -447,7 +447,7 @@
     <!-- 08 Signed out -->
     <div id="state-signed-out">
       <div class="banner" aria-live="polite">You've been signed out.</div>
-      <div class="wm">puck</div>
+      <div class="wm">intentional</div>
       <div class="tagline">Choose what gets <em>your attention.</em></div>
       <div class="stack">
         <button class="btn btn-email" type="button" data-action="signed-out-email">Continue with email</button>
@@ -462,7 +462,7 @@
 
   <!-- Footer (visible across states; only useful for at-rest / signed-out per spec) -->
   <div id="footer-block" class="footer-block">
-    <div class="submgmt">Subscriptions managed on getpuck.com</div>
+    <div class="submgmt">Billing is handled at getpuck.com</div>
     <div class="legal">
       <span>Privacy Policy</span>
       <span class="dot"></span>

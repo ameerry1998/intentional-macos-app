@@ -283,8 +283,8 @@ struct FocusOverlayView: View {
     private let textPrimary = Color(white: 0.95)
     private let textSecondary = Color(white: 0.5)
     private let textTertiary = Color(white: 0.35)
-    private let accentStart = Color(red: 0.39, green: 0.4, blue: 0.95)   // indigo-500
-    private let accentEnd = Color(red: 0.55, green: 0.36, blue: 0.96)    // violet-500
+    private let accentStart = Color(red: 0.910, green: 0.455, blue: 0.380)  // #E87461 coral (was indigo, 2026-06-11)
+    private let accentEnd = Color(red: 0.941, green: 0.690, blue: 0.376)    // #F0B060 gold (was violet, 2026-06-11)
 
     // Green accent for noPlan card
     private let goGreen = Color(red: 0.25, green: 0.78, blue: 0.45)
@@ -350,13 +350,13 @@ struct FocusOverlayView: View {
 
     @ViewBuilder
     private var noPlanOverlay: some View {
-        Text("Unscheduled time")
+        Text("Free time")
             .font(.system(size: 13, weight: .medium))
             .foregroundColor(lightTextSecondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.bottom, 16)
 
-        Text("You're not in a focus session")
+        Text("You're not in a session")
             .font(.system(size: 24, weight: .bold))
             .foregroundColor(lightTextPrimary)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -586,9 +586,9 @@ struct FocusOverlayView: View {
 
     private func verdictPathLabel(_ path: ScoringPath) -> String {
         switch path {
-        case .metadataRelevant, .metadataOffTask: return "Metadata only"
-        case .metadataOffTaskLowConf: return "Metadata only (low confidence — not enforced)"
-        case .ocrVerifiedRelevant, .ocrVerifiedOffTask: return "OCR-verified"
+        case .metadataRelevant, .metadataOffTask: return "Page title only"
+        case .metadataOffTaskLowConf: return "Page title only (not sure enough to block)"
+        case .ocrVerifiedRelevant, .ocrVerifiedOffTask: return "Read what's on screen"
         }
     }
 
@@ -630,8 +630,9 @@ struct FocusOverlayView: View {
             }
             whyRow(label: "Confidence", value: "\(viewModel.confidence)%\(verifiedSuffix)")
             if let p = viewModel.path {
-                whyRow(label: "Verdict path", value: verdictPathLabel(p))
+                whyRow(label: "How we checked", value: verdictPathLabel(p))
             }
+            #if DEBUG
             if let excerpt = viewModel.ocrExcerpt, !excerpt.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("OCR excerpt")
@@ -677,6 +678,7 @@ struct FocusOverlayView: View {
                     .cornerRadius(4)
                 }
             }
+            #endif
 
             HStack(spacing: 10) {
                 Button(action: { viewModel.onApproveForBlock?() }) {

@@ -93,7 +93,7 @@ struct FocusStartOverlayView: View {
                 let profileIds = Array(viewModel.selectedProfileIds)
                 viewModel.onStartFocus?(profileIds, nil, false)
             }) {
-                Text("Just Block Distractions")
+                Text("Just block distractions")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundColor(.white)
                     .frame(width: 260)
@@ -129,11 +129,10 @@ struct FocusStartOverlayView: View {
                 .multilineTextAlignment(.center)
                 .padding(.bottom, 32)
 
-            // BLOCKING PROFILES section
+            // What gets blocked section
             VStack(alignment: .leading, spacing: 12) {
-                Text("BLOCKING PROFILES")
+                Text("What gets blocked")
                     .font(.system(size: 12, weight: .semibold))
-                    .tracking(1.2)
                     .foregroundColor(sectionLabelColor)
 
                 FlowLayout(spacing: 8) {
@@ -145,14 +144,13 @@ struct FocusStartOverlayView: View {
             .frame(maxWidth: 440, alignment: .leading)
             .padding(.bottom, 28)
 
-            // AI FOCUS section
+            // What are you working on section
             VStack(alignment: .leading, spacing: 12) {
-                Text("AI FOCUS (OPTIONAL)")
+                Text("What are you working on? (optional)")
                     .font(.system(size: 12, weight: .semibold))
-                    .tracking(1.2)
                     .foregroundColor(sectionLabelColor)
 
-                TextField("Describe your task for AI scoring...", text: $viewModel.intentionText)
+                TextField("e.g. writing my history essay in Google Docs", text: $viewModel.intentionText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 15))
                     .foregroundColor(fieldText)

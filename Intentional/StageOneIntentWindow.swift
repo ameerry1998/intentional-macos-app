@@ -117,7 +117,7 @@ struct StageOneIntentView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Before you start")
                     .font(.system(size: 17, weight: .semibold))
-                Text("Two questions. Specific answers help the AI scoring decide what to close.")
+                Text("Two questions. The more specific you are, the better we can guard your focus.")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
             }

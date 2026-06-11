@@ -603,7 +603,7 @@ struct ReflectAndCommitGame: View {
             if viewModel.charsNeeded > 0 {
                 return "Type your plan (\(viewModel.charsNeeded) more chars)"
             } else {
-                return "Use real words (need spaces)"
+                return "Write a short sentence"
             }
         } else {
             return "Get back to work"

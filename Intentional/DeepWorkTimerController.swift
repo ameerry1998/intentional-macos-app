@@ -684,9 +684,9 @@ class DeepWorkTimerViewModel: ObservableObject {
     var overridesAvailable: Bool { partnerApprovalRequired || overridesRemaining > 0 }
 
     var overrideLabel: String {
-        if partnerApprovalRequired { return "Override AI" }
-        if overridesRemaining > 0 { return "Override AI (\(overridesRemaining) left)" }
-        return "Override AI (none left)"
+        if partnerApprovalRequired { return "I need this" }
+        if overridesRemaining > 0 { return "I need this (\(overridesRemaining) left)" }
+        return "No passes left today"
     }
 
     // Mode
