@@ -24,7 +24,7 @@ Spec: `docs/superpowers/specs/2026-06-10-rules-consolidation-design.md` · Plan:
 - R1 backend (rules + leisure_pool tables, endpoints, 34 tests): done on `intentional-backend:feat/rules-table` — **NOT deployed; migration 028 pending in Supabase**
 - R2 Mac data layer (RuleStore actor, cache, bridge): done, committed
 - R3 Rules page UI (5-tab sidebar, pool card, sections, add-rule modal, asymmetric partner-gating): done — server round-trips verified graceful-fail until deploy
-- R4 enforcement unification: NOT STARTED — until then, rules are data + UI only; enforcement still runs on the legacy systems
+- R4 enforcement unification: done — EnforcementResolver (one precedence: per-goal allow > ✅ > 🚫/⏳gate > goal blocklist > default) feeds both FocusMonitor and WebsiteBlocker; allow-lists now protect SITES (verified live before/after); session-start + sweep honor rule enabled/snoozes; Strict Mode lock gates real-store mutations server-side-of-bridge (verified refusal with live lock). ⏳ outside sessions = TODO(R5). Follow-up holes filed: SAVE_STRICT_MODE_LOCKS itself ungated; legacy UPDATE_BLOCK_RULE ungated.
 - R5 earn engine: NOT STARTED (old EarnedBrowseManager remains feature-flagged off)
 - R6 migration + Settings cleanup: NOT STARTED — legacy Settings pages (Always Blocked/Allowed/Distractions) and Today Blocks sub-tab intentionally still live
 

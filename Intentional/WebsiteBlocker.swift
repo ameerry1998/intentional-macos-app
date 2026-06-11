@@ -31,16 +31,38 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     // Lowercased. See BlockRuleEnforcer for the producer.
     private var standaloneDomains: Set<String> = []
 
-    /// Returns the union of session-driven `blockedDomains` and BlockRuleEnforcer
-    /// `standaloneDomains`. All matching helpers below iterate over this — keeps
-    /// "session enforcement" and "rule enforcement" composing as a union.
+    // R4(a): per-goal Allow list (Intention.allowWebsites) for the active
+    // session's goal. Pushed by AppDelegate.refreshIntentionEnforcement /
+    // refreshProjectEnforcement; cleared on session end. Lowercased.
+    // Closes the "WebsiteBlocker consults NO allow source" gap (research §4.3):
+    // a goal-allowed domain must survive the tab sweep even when the default
+    // profile or a standalone rule lists it.
+    private var sessionAllowedDomains: Set<String> = []
+
+    /// Update the per-goal allow list. Pure setter; the 0.5s sweep and the
+    /// AppleScript builders read it through `effectiveBlockedDomains`.
+    func setSessionAllowedDomains(_ domains: [String]) {
+        let normalized = Set(domains.map { $0.lowercased() })
+        guard normalized != sessionAllowedDomains else { return }
+        sessionAllowedDomains = normalized
+        appDelegate?.postLog("🌐🛡 WebsiteBlocker: sessionAllowedDomains updated (\(normalized.count) domains): \(Array(normalized).sorted())")
+    }
+
+    /// R4(a)+(c): the enforced domain list = union of all block layers
+    /// (session-fed default profile, BlockRuleEnforcer standalone, 🚫 rule
+    /// sites, ⏳ rule sites while a session is on) MINUS the allow layers
+    /// (per-goal allow, ✅ rule sites) — one precedence, owned by
+    /// EnforcementResolver. All matching helpers below iterate over this.
     private var effectiveBlockedDomains: [String] {
-        if standaloneDomains.isEmpty { return blockedDomains }
-        var seen = Set<String>()
-        var out: [String] = []
-        for d in blockedDomains where seen.insert(d).inserted { out.append(d) }
-        for d in standaloneDomains where seen.insert(d).inserted { out.append(d) }
-        return out
+        var inputs = EnforcementResolver.Inputs()
+        inputs.inFocusSession = appDelegate?.focusModeController?.isOn == true
+        inputs.goalAllowedDomains = sessionAllowedDomains
+        inputs.rules = RuleEnforcementMirror.shared.activeSets()
+        return EnforcementResolver.effectiveSiteBlocklist(
+            sessionDomains: blockedDomains,
+            standaloneDomains: standaloneDomains,
+            inputs: inputs
+        )
     }
 
     // Custom blocking page URL (will be in app bundle)

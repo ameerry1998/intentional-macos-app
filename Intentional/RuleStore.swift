@@ -69,6 +69,10 @@ actor RuleStore {
            let pool = try? Self.decoder.decode(LeisurePool.self, from: data) {
             cachedPool = pool
         }
+        // R4: keep the synchronous enforcement mirror in lockstep with the
+        // cache from the very first load (WebsiteBlocker/FocusMonitor read it
+        // on hot paths where awaiting this actor isn't possible).
+        RuleEnforcementMirror.shared.publish(Array(byId.values))
     }
 
     private func persistToDisk() {
@@ -76,6 +80,9 @@ actor RuleStore {
         if let data = try? Self.encoder.encode(arr) {
             try? data.write(to: fileURL, options: .atomic)
         }
+        // R4: every persist corresponds to a byId mutation (pull/create/
+        // update/revert/delete) — republish so enforcement sees it instantly.
+        RuleEnforcementMirror.shared.publish(Array(byId.values))
     }
 
     private func persistPoolToDisk() {

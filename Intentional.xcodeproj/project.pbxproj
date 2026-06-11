@@ -74,6 +74,7 @@
 		BD0000F300000000000001 /* MonthlyGoalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0000F400000000000001 /* MonthlyGoalStore.swift */; };
 		BD00010300000000000001 /* Rule.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00010400000000000001 /* Rule.swift */; };
 		BD00010500000000000001 /* RuleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00010600000000000001 /* RuleStore.swift */; };
+		BD00010700000000000001 /* EnforcementResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00010800000000000001 /* EnforcementResolver.swift */; };
 		BD00000300000000000001 /* IntentionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000400000000000001 /* IntentionStore.swift */; };
 		BD00000500000000000001 /* IntentionMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000600000000000001 /* IntentionMigration.swift */; };
 		BD0000F500000000000001 /* IntentTextMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0000F600000000000001 /* IntentTextMigration.swift */; };
@@ -210,6 +211,7 @@
 		BD0000F400000000000001 /* MonthlyGoalStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthlyGoalStore.swift; sourceTree = "<group>"; };
 		BD00010400000000000001 /* Rule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Rule.swift; sourceTree = "<group>"; };
 		BD00010600000000000001 /* RuleStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuleStore.swift; sourceTree = "<group>"; };
+		BD00010800000000000001 /* EnforcementResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnforcementResolver.swift; sourceTree = "<group>"; };
 		BD00000400000000000001 /* IntentionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentionStore.swift; sourceTree = "<group>"; };
 		BD00000600000000000001 /* IntentionMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentionMigration.swift; sourceTree = "<group>"; };
 		BD0000F600000000000001 /* IntentTextMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentTextMigration.swift; sourceTree = "<group>"; };
@@ -317,6 +319,7 @@
 				BD00000400000000000001 /* IntentionStore.swift */,
 				BD00010400000000000001 /* Rule.swift */,
 				BD00010600000000000001 /* RuleStore.swift */,
+				BD00010800000000000001 /* EnforcementResolver.swift */,
 				BD00000600000000000001 /* IntentionMigration.swift */,
 				BD0000F600000000000001 /* IntentTextMigration.swift */,
 				BD00010200000000000001 /* BlockRuleEnforcer.swift */,
@@ -575,6 +578,7 @@
 				BD00000300000000000001 /* IntentionStore.swift in Sources */,
 				BD00010300000000000001 /* Rule.swift in Sources */,
 				BD00010500000000000001 /* RuleStore.swift in Sources */,
+				BD00010700000000000001 /* EnforcementResolver.swift in Sources */,
 				BD00000500000000000001 /* IntentionMigration.swift in Sources */,
 				BD0000F500000000000001 /* IntentTextMigration.swift in Sources */,
 				BD00010100000000000001 /* BlockRuleEnforcer.swift in Sources */,

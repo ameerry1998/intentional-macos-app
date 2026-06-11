@@ -1784,6 +1784,57 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         }
     }
 
+    // MARK: - R4(d): Strict Mode "Site & app blocks" lock (block_rules)
+    //
+    // The lock must gate the REAL stores server-side-of-the-bridge — research
+    // (blocks-consolidation-research-2026-06-10.md §7.2/§8.5) showed the
+    // advertised `block_rules` lock key was stored but never consulted by any
+    // handler, so the Strict Mode promise "can't delete or disable a block"
+    // was UI-only. Asymmetric per spec #5: tightening always passes;
+    // loosening (delete/disable a blocking rule, demote 🚫 → ⏳/✅) requires
+    // an active partner unlock window. "Snooze for today" stays allowed by
+    // design (the lock row's own copy).
+
+    /// True when loosening mutations of block rules must be refused:
+    /// Strict Mode is ON (daemon-authoritative, UserDefaults fallback), the
+    /// `block_rules` lock item is enabled (default ON when absent), and there
+    /// is no active partner-unlock window (`temporaryUnlockUntil` in the
+    /// settings file — same window SAVE_STRICT_MODE's disable path uses).
+    func blockRulesLockEngaged() -> Bool {
+        guard appDelegate?.daemonClient.isStrictModeEnabledSync() == true else { return false }
+        var json: [String: Any] = [:]
+        if let data = try? Data(contentsOf: settingsFileURL),
+           let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            json = j
+        }
+        if let locks = json["strictModeLocks"] as? [String: Any],
+           let v = locks["block_rules"] as? Bool, v == false {
+            return false   // user opted this item out of the lock set
+        }
+        if let unlockUntil = json["temporaryUnlockUntil"] as? String,
+           let date = ISO8601DateFormatter().date(from: unlockUntil), date > Date() {
+            return false   // active partner-unlock window — loosening allowed
+        }
+        return true
+    }
+
+    private func refuseLockedRuleMutation(_ what: String) {
+        appDelegate?.postLog("🔒 \(what) refused — Strict Mode locks Site & app blocks (no active unlock window)")
+        callJS("typeof showToast === 'function' && showToast('Strict Mode — loosening a block needs a partner code', 'error')")
+    }
+
+    /// Loosening test for the unified-rule store (mirrors dashboard.html's
+    /// isLooseningAction): disabling a 🚫 rule, or demoting treatment
+    /// (blocked → limited/allowed, limited → allowed).
+    static func isLooseningRuleUpdate(current: Rule, payload: RuleUpdatePayload) -> Bool {
+        if current.treatment == .blocked, payload.enabled == false { return true }
+        if let to = payload.treatment {
+            let rank: [RuleTreatment: Int] = [.blocked: 2, .limited: 1, .allowed: 0]
+            if (rank[to] ?? 0) < (rank[current.treatment] ?? 0) { return true }
+        }
+        return false
+    }
+
     // MARK: - Strict Mode Toggle
 
     private func handleSaveStrictMode(_ body: [String: Any]) {
@@ -2594,6 +2645,13 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     }
 
     private func handleToggleBlockRule(id: UUID, enabled: Bool) {
+        // R4(d): disabling a block rule is loosening — partner-gated under
+        // Strict Mode. Re-enabling (tightening) always passes.
+        if !enabled && blockRulesLockEngaged() {
+            refuseLockedRuleMutation("TOGGLE_BLOCK_RULE(off) for \(id)")
+            handleGetBlockingProfiles()   // re-render reverts the optimistic UI toggle
+            return
+        }
         appDelegate?.blockingProfileManager?.setEnabled(id: id, enabled: enabled)
         appDelegate?.applyAlwaysActiveProfiles()
         // Toggle is the single most common user action on a rule — must engage
@@ -2603,6 +2661,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
     }
 
     private func handleDeleteBlockingProfile(id: UUID) {
+        // R4(d): deleting a block rule is always loosening — partner-gated
+        // under Strict Mode.
+        if blockRulesLockEngaged() {
+            refuseLockedRuleMutation("DELETE_BLOCK_RULE for \(id)")
+            let payload = "{ id: '\(id.uuidString)', referencedBy: [], reason: 'strict_mode_locked' }"
+            callJS("window.onBlockingProfileDeleteRefused && window.onBlockingProfileDeleteRefused(\(payload))")
+            return
+        }
         Task {
             if let store = appDelegate?.projectStore {
                 let referencing = await store.projectsReferencing(blocklistId: id)
@@ -4340,6 +4406,17 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             enabled: body["enabled"] as? Bool
         )
         Task {
+            // R4(d): loosening a rule (disable a 🚫, demote treatment) is
+            // partner-gated under Strict Mode. Tightening passes untouched.
+            if let current = await store.rule(id: id),
+               Self.isLooseningRuleUpdate(current: current, payload: payload),
+               blockRulesLockEngaged() {
+                refuseLockedRuleMutation("UPDATE_RULE(loosening) for \(idStr)")
+                await MainActor.run {
+                    self.emitRuleUpdated(["success": false, "reason": "strict_mode_locked", "id": idStr])
+                }
+                return
+            }
             do {
                 let updated = try await store.update(id: id, payload: payload)
                 var dict = Self.ruleToDict(updated)
@@ -4367,6 +4444,22 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             return
         }
         Task {
+            // R4(d): deleting a 🚫 rule (even a disabled one — conservative,
+            // matching the JS gate) is loosening — partner-gated under Strict
+            // Mode. Deleting ⏳/✅ rules is tightening-or-neutral and passes.
+            if let current = await store.rule(id: id),
+               current.treatment == .blocked,
+               blockRulesLockEngaged() {
+                refuseLockedRuleMutation("DELETE_RULE(blocked) for \(id)")
+                await MainActor.run {
+                    self.emitRuleDeleted([
+                        "success": false,
+                        "reason": "strict_mode_locked",
+                        "id": id.uuidString.lowercased(),
+                    ])
+                }
+                return
+            }
             let ok = await store.delete(id: id)
             await MainActor.run {
                 self.emitRuleDeleted([

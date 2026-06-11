@@ -139,6 +139,26 @@ class FocusMonitor {
         }
     }
 
+    /// R4(c): inputs for the ONE precedence (EnforcementResolver) — per-goal
+    /// allow > ✅ rule > 🚫 rule/⏳ gate > goal blocklist > default lists.
+    /// `defaultBlockedDomains` stays empty on purpose: domain-level
+    /// default-profile blocking is owned by WebsiteBlocker's 0.5s sweep
+    /// (engine 1); duplicating it on the frontmost-tab path would change UX
+    /// beyond this slice.
+    private func enforcementInputs() -> EnforcementResolver.Inputs {
+        var inputs = EnforcementResolver.Inputs()
+        inputs.inFocusSession = focusModeController?.isOn == true
+        if let pe = projectEnforcement {
+            inputs.goalAllowedDomains = pe.allowedDomains
+            inputs.goalAllowedBundleIds = pe.allowedBundleIds
+            inputs.goalBlockedDomains = pe.blockedDomains
+            inputs.goalBlockedBundleIds = pe.blockedBundleIds
+        }
+        inputs.rules = RuleEnforcementMirror.shared.activeSets()
+        inputs.defaultBlockedBundleIds = distractingAppBundleIds.union(standaloneBlockedBundleIds)
+        return inputs
+    }
+
     // MARK: - Social Media Hostnames (extension handles enforcement)
 
     /// Social media hostnames where the Chrome extension handles enforcement
@@ -1724,74 +1744,77 @@ class FocusMonitor {
         // `focusModeController.isOn == true` guard (line ~1618) is the correct
         // gate: if Focus Mode is on, we score. Schedule state is irrelevant.
 
-        // Per-project overlay: allow/block decisions win over global defaults when a
-        // project session is active. Allowed apps skip AI scoring; blocked apps enforce
-        // the same direct-irrelevance path as distracting apps.
-        if let verdict = projectEnforcement?.verdict(bundleId: bid, hostname: nil) {
-            switch verdict {
-            case .allow:
-                debugLog("👁️ EXIT: \(appName) allowed by active project")
-                handleRelevantContent()
-                stopBrowserPolling()
-                logAssessment(
-                    title: appName,
-                    intention: scheduleManager?.currentBlock?.title ?? "",
-                    relevant: true, confidence: 100,
-                    reason: "Project allow list", action: "none"
-                )
-                appDelegate?.earnedBrowseManager?.updateLastActiveApp(name: appName, timestamp: Date())
-                startWorkTickTimer(appName: appName)
-                return
-            case .block:
-                debugLog("👁️ \(appName) blocked by active project — hard block")
-                stopBrowserPolling()
-                logAssessment(
-                    title: appName,
-                    intention: scheduleManager?.currentBlock?.title ?? "",
-                    relevant: false, confidence: 100,
-                    reason: "Project block list", action: "overlay", isEvent: true
-                )
-                if scheduleManager?.currentTimeState.isWork == true {
-                    appDelegate?.earnedBrowseManager?.recordAssessment(relevant: false)
-                }
-                // Project blocklist apps are explicit user rules — force the blocking
-                // overlay regardless of block type. Soft nudges are only for the AI's
-                // ambiguous verdicts, not for content the user has already ruled out.
-                if isOverrideActive { return }
-                cancelGracePeriod()
-                warnedTargets.insert(bid)
-                currentTarget = appName
-                currentTargetKey = bid
-                isCurrentlyIrrelevant = true
-                resetFocusStreak()
-                triggerRedShift()
-                deepWorkTimerController?.update(isDistracted: true)
-                if isEnforcementEnabled(.blockingOverlay) {
-                    let intention = scheduleManager?.currentBlock?.title ?? ""
-                    let focusDuration = computeFocusDurationMinutes()
-                    showOverlay(intention: intention, reason: "Project block list",
-                               focusDurationMinutes: focusDuration, isNoPlan: false, displayName: appName)
-                }
-                return
-            case .noDecision:
-                break
+        // R4(c): ONE precedence for apps, owned by EnforcementResolver —
+        // per-goal allow > ✅ rule > 🚫 rule/⏳ gate > goal blocklist >
+        // default lists (distracting ∪ standalone). The switch below maps
+        // verdict sources onto the two existing treatment paths: goal-block
+        // forces the overlay regardless of block type; rule/default blocks
+        // keep the block-type softness (overlay on deep work, nudge on focus
+        // hours). Allowed apps skip AI scoring and earn work ticks.
+        let appVerdict = EnforcementResolver.resolveApp(bundleId: bid, inputs: enforcementInputs())
+        switch appVerdict {
+        case .allow(let source):
+            let reason = (source == .goalAllow) ? "Project allow list" : "Allowed by rule"
+            debugLog("👁️ EXIT: \(appName) allowed (\(reason))")
+            handleRelevantContent()
+            stopBrowserPolling()
+            logAssessment(
+                title: appName,
+                intention: scheduleManager?.currentBlock?.title ?? "",
+                relevant: true, confidence: 100,
+                reason: reason, action: "none"
+            )
+            appDelegate?.earnedBrowseManager?.updateLastActiveApp(name: appName, timestamp: Date())
+            startWorkTickTimer(appName: appName)
+            return
+        case .block(.goalBlock):
+            debugLog("👁️ \(appName) blocked by active project — hard block")
+            stopBrowserPolling()
+            logAssessment(
+                title: appName,
+                intention: scheduleManager?.currentBlock?.title ?? "",
+                relevant: false, confidence: 100,
+                reason: "Project block list", action: "overlay", isEvent: true
+            )
+            if scheduleManager?.currentTimeState.isWork == true {
+                appDelegate?.earnedBrowseManager?.recordAssessment(relevant: false)
             }
-        }
-
-        // User-configured distracting apps: always treat as irrelevant during work blocks
-        // Checked BEFORE always-allowed — user intent overrides defaults
-        // Skip grace period — user explicitly configured this app as distracting
-        // Union with BlockRuleEnforcer-driven standaloneBlockedBundleIds so a
-        // Block rule's app list ALSO blocks during an active focus session.
-        if distractingAppBundleIds.contains(bid) || standaloneBlockedBundleIds.contains(bid) {
-            debugLog("👁️ \(appName) is user-configured distracting app — direct enforcement (no grace)")
+            // Project blocklist apps are explicit user rules — force the blocking
+            // overlay regardless of block type. Soft nudges are only for the AI's
+            // ambiguous verdicts, not for content the user has already ruled out.
+            if isOverrideActive { return }
+            cancelGracePeriod()
+            warnedTargets.insert(bid)
+            currentTarget = appName
+            currentTargetKey = bid
+            isCurrentlyIrrelevant = true
+            resetFocusStreak()
+            triggerRedShift()
+            deepWorkTimerController?.update(isDistracted: true)
+            if isEnforcementEnabled(.blockingOverlay) {
+                let intention = scheduleManager?.currentBlock?.title ?? ""
+                let focusDuration = computeFocusDurationMinutes()
+                showOverlay(intention: intention, reason: "Project block list",
+                           focusDurationMinutes: focusDuration, isNoPlan: false, displayName: appName)
+            }
+            return
+        case .block(let blockSource):
+            // 🚫 rule, ⏳ gate (in-session), or the default distracting/standalone
+            // union — the pre-R4 "user-configured distracting app" path.
+            let reason: String
+            switch blockSource {
+            case .blockRule: reason = "Blocked by rule"
+            case .limitGate: reason = "Limited app — focus session"
+            default:         reason = "User-configured distracting app"
+            }
+            debugLog("👁️ \(appName) blocked (\(reason)) — direct enforcement (no grace)")
             stopBrowserPolling()
             logAssessment(
                 title: appName,
                 intention: scheduleManager?.currentBlock?.title ?? "",
                 relevant: false,
                 confidence: 100,
-                reason: "User-configured distracting app",
+                reason: reason,
                 action: "none"
             )
             if scheduleManager?.currentTimeState.isWork == true {
@@ -1814,12 +1837,14 @@ class FocusMonitor {
             let intention = scheduleManager?.currentBlock?.title ?? ""
             let focusDuration = computeFocusDurationMinutes()
             if blockType == .deepWork && isEnforcementEnabled(.blockingOverlay) {
-                showOverlay(intention: intention, reason: "User-configured distracting app",
+                showOverlay(intention: intention, reason: reason,
                            focusDurationMinutes: focusDuration, isNoPlan: false, displayName: appName)
             } else if isEnforcementEnabled(.nudge) {
                 showNudgeForContent(intention: intention, displayName: appName, escalated: false)
             }
             return
+        case .noDecision:
+            break
         }
 
         // Apple system apps: auto-allow com.apple.* unless it's an entertainment app
@@ -2138,17 +2163,24 @@ class FocusMonitor {
             return
         }
 
-        // Per-project overlay (browser): allow/block decisions win over AI scoring.
-        if let verdict = projectEnforcement?.verdict(bundleId: nil, hostname: info.hostname) {
+        // R4(c): ONE precedence for browser tabs, owned by EnforcementResolver —
+        // per-goal allow > ✅ rule > 🚫 rule/⏳ gate > goal blocklist. (The
+        // default-profile domain layer stays with WebsiteBlocker's sweep —
+        // see enforcementInputs().) Allow verdicts skip AI scoring; block
+        // verdicts hard-redirect regardless of block type — explicit user
+        // rules, not AI ambiguity.
+        let tabVerdict = EnforcementResolver.resolveSite(host: info.hostname, inputs: enforcementInputs())
+        if tabVerdict != .noDecision {
             let browserName = Self.browserAppNames[bundleId] ?? "Browser"
-            switch verdict {
-            case .allow:
+            switch tabVerdict {
+            case .allow(let source):
+                let reason = (source == .goalAllow) ? "Project allow list" : "Allowed by rule"
                 lastScoreWasIrrelevant = false
                 logAssessment(
                     title: info.title, appName: browserName, hostname: info.hostname, intention: block.title,
-                    relevant: true, confidence: 100, reason: "Project allow list", action: "none"
+                    relevant: true, confidence: 100, reason: reason, action: "none"
                 )
-                appDelegate?.postLog("👁️ Project allow: \"\(info.title)\" (\(info.hostname)) — skipping AI")
+                appDelegate?.postLog("👁️ \(reason): \"\(info.title)\" (\(info.hostname)) — skipping AI")
                 handleRelevantContent()
                 if manager.currentTimeState.isWork {
                     appDelegate?.earnedBrowseManager?.recordAssessment(relevant: true)
@@ -2156,20 +2188,26 @@ class FocusMonitor {
                     startWorkTickTimer(appName: browserName)
                 }
                 return
-            case .block:
+            case .block(let source):
+                let reason: String
+                switch source {
+                case .blockRule: reason = "Blocked by rule"
+                case .limitGate: reason = "Limited site — focus session"
+                default:         reason = "Project block list"
+                }
                 lastScoreWasIrrelevant = true
                 logAssessment(
                     title: info.title, appName: browserName, hostname: info.hostname, intention: block.title,
-                    relevant: false, confidence: 100, reason: "Project block list", action: "blocked", isEvent: true
+                    relevant: false, confidence: 100, reason: reason, action: "blocked", isEvent: true
                 )
                 if manager.currentTimeState.isWork {
                     appDelegate?.earnedBrowseManager?.recordAssessment(relevant: false)
                 }
-                // Project blocklist entries are explicit user rules — hard-block immediately
+                // Blocklist entries are explicit user rules — hard-block immediately
                 // regardless of block type (bypasses the Focus Hours soft red shift+nudge path).
                 // Still respects active AI overrides so the user can escape if they really need to.
                 if isOverrideActive { return }
-                appDelegate?.postLog("👁️ Project block (hard): \"\(info.title)\" (\(info.hostname)) — redirecting")
+                appDelegate?.postLog("👁️ \(reason) (hard): \"\(info.title)\" (\(info.hostname)) — redirecting")
                 isCurrentlyIrrelevant = true
                 currentTarget = info.title
                 currentTargetKey = info.hostname

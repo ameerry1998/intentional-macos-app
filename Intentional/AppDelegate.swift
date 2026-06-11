@@ -113,6 +113,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func clearActiveProjectSession() {
         self.activeProjectSession = nil
         self.focusMonitor?.projectEnforcement = nil
+        // R4(a): drop the goal's allow list alongside its block/allow overlay.
+        self.websiteBlocker?.setSessionAllowedDomains([])
     }
 
     /// Call after an in-session project edit so the new allow/block lists take effect.
@@ -165,6 +167,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let activeGoal = self.focusModeController?.currentPeriod?.intentionId
             guard activeGoal == intentionId || self.activeProjectSession?.projectId == intentionId else { return }
             self.focusMonitor?.projectEnforcement = enforcement
+            // R4(a): the tab sweep must honor the goal's Allow list too —
+            // without this, a goal-allowed domain that's also in the default
+            // profile gets its tab closed (research §8.4 row 1).
+            self.websiteBlocker?.setSessionAllowedDomains(Array(enforcement.allowedDomains))
             self.postLog("🎯 Goal enforcement active: \(intention.name) — block \(enforcement.blockedDomains.count)d/\(enforcement.blockedBundleIds.count)a, allow \(enforcement.allowedDomains.count)d/\(enforcement.allowedBundleIds.count)a")
         }
     }
@@ -210,6 +216,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         await MainActor.run {
             guard self.activeProjectSession?.projectId == projectId else { return }
             self.focusMonitor?.projectEnforcement = enforcement
+            // R4(a): mirror the allow list into the tab sweep (legacy path).
+            self.websiteBlocker?.setSessionAllowedDomains(Array(enforcement.allowedDomains))
         }
     }
 
@@ -889,6 +897,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 // Session over — drop per-goal enforcement so free time isn't
                 // policed by the last goal's lists.
                 self.focusMonitor?.projectEnforcement = nil
+                // R4(a): and drop the goal's allow list from the tab sweep so
+                // standalone block rules aren't weakened outside the session.
+                self.websiteBlocker?.setSessionAllowedDomains([])
                 // Clear any synthetic block we injected so the next activation
                 // doesn't re-engage stale context.
                 self.scheduleManager?.clearInjectedFocusSessionBlock()
@@ -1862,6 +1873,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             applyAlwaysActiveProfiles()
             return
         }
+        // R4(b): page state == enforced state. Session start must honor the
+        // rule's enabled toggle AND any active snooze — previously this
+        // filtered on `isDefault` only, so a rule the user switched OFF in the
+        // Blocks tab was still applied as the session blocklist (research
+        // §8.5 trap #1).
+        if !defaultProfile.enabled {
+            postLog("🎯 Default profile '\(defaultProfile.name)' is disabled — not applying (falling back to always-active)")
+            applyAlwaysActiveProfiles()
+            return
+        }
+        // (BlockRuleEnforcer is @MainActor; every applyDefaultBlockingProfile
+        // call site runs on the main thread — onStateChanged fan-out, boot
+        // reconcile — so assumeIsolated is safe and crash-loud if that drifts.)
+        let snoozedIds = MainActor.assumeIsolated { BlockRuleEnforcer.shared.currentlySnoozedIds() }
+        if snoozedIds.contains(defaultProfile.id) {
+            postLog("🎯 Default profile '\(defaultProfile.name)' is snoozed — not applying (falling back to always-active)")
+            applyAlwaysActiveProfiles()
+            return
+        }
         let merged = manager.mergedBlockList(profileIds: [defaultProfile.id])
         websiteBlocker?.updateDistractingSites(merged.domains)
         focusMonitor?.distractingAppBundleIds = Set(merged.appBundleIds)
@@ -1933,9 +1963,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // 2. Active block-rule hosts + bundleIds (enabled + inside scheduled
-        //    window if any).
-        let activeRuleHosts: Set<String> = Set(blockingProfileManager?.activeBlockedDomains() ?? [])
-        let activeRuleBundleIds: Set<String> = Set(blockingProfileManager?.activeBlockedBundleIds() ?? [])
+        //    window if any). R4(b): also honor snoozes — the manager's
+        //    activeBlocked* helpers check isCurrentlyActive only, so a snoozed
+        //    rule used to stash tabs at session start (research §8.3).
+        let sweepProfiles = (blockingProfileManager?.profiles ?? [])
+            .filter { BlockRuleEnforcer.shared.isEffectivelyActive($0) }
+        let activeRuleHosts: Set<String> = Set(sweepProfiles.flatMap { $0.blockedDomains })
+        let activeRuleBundleIds: Set<String> = Set(sweepProfiles.flatMap { $0.blockedAppBundleIds })
 
         // 3. Sweep browser tabs across every browser BrowserMonitor discovered
         //    at launch (Launch Services → LSCopyAllHandlersForURLScheme).
