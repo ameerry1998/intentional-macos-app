@@ -25,6 +25,8 @@ related:
 
 One sidebar tab for everything block/limit/allow. A **rule** = target (site or app) + treatment (🚫 blocked / ⏳ limited / ✅ allowed) + optional schedule window. Limited targets spend a single shared daily **leisure pool** (renamed: **allowance**, 2026-06-11) (base minutes + minutes earned by focusing, 5:1 default, 60-min rollover cap); at zero they hard-block with an earn-path prompt. Rules are account-scoped on the backend (`rules` table, migration 028) and sync Mac ↔ iPhone.
 
+**Allowance card copy (polish wave, 2026-06-11):** the breakdown is now a plain-language sentence ("15 free min daily + 4 earned − 2 used · 0 min saved for tomorrow (max 60) · every 5 focused min earns 1"), not the old `Base/Earned/Spent/Bank 0/60` formula dump. Editor field labels were de-jargoned too ("Bank cap" → "Save for tomorrow — up to (minutes)"; "Earn rate" → "How you earn time"). The sidebar blocking pill reads "Nothing blocked right now" / "N rules active". No behavior change — copy only.
+
 Spec: `docs/superpowers/specs/2026-06-10-rules-consolidation-design.md` · Plan: `docs/superpowers/plans/2026-06-10-rules-consolidation-plan.md` · Research: `docs/blocks-consolidation-research-2026-06-10.md`
 
 ## Status (R-slices)
