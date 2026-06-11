@@ -30,8 +30,8 @@ macOS (+iOS "Puck") focus app. AI scores whether you're on-task; you EARN screen
 
 ## NEXT — LAUNCH CHECKLIST (this week)
 Distribution = BOTH (direct download + App Store); surface = Mac + iPhone; pricing = FREE. Realistic: Mac direct-download + landing + IG go live now; App Store + iOS submitted, live on Apple's clock.
-1. **Merge polish wave to main** (verify build first).
-2. **Rebrand pass** — kill every "puck"/getpuck.com string. KNOWN: onboarding.html still shows "puck" wordmark ×3 + "getpuck.com" footer (cold-walk finding — launch blocker, first impression).
+1. ~~Merge polish wave to main~~ DONE (merged + final tidy ae5925f).
+2. ~~Rebrand pass~~ DONE (056ff31): login.html getpuck billing line + footer link removed; dashboard "Ship Puck" placeholder + dead puckOnly option removed. Verified live: VM login screen (fresh build, signed-out) shows only Intentional branding; host dashboard DOM contains zero "puck". NOTE: the onboarding.html "puck wordmark ×3" cold-walk finding was the OLD build — source onboarding.html is clean; login.html (pre-signup surface) was the real culprit, now fixed. Remaining "puck" = code comments + wire-protocol values only.
 3. **Onboarding redesign** (designed, not built — see below): value-before-commitment first-run.
 4. **Cold fresh-install test in VM** — real notarized installer, fresh signup → first session, end to end. Highest-risk unknown (never tested by a non-Ameer user).
 5. Notarized PKG/DMG build (`scripts/build-pkg.sh`) verified on clean machine.
