@@ -156,6 +156,8 @@ class FocusMonitor {
         }
         inputs.rules = RuleEnforcementMirror.shared.activeSets()
         inputs.defaultBlockedBundleIds = distractingAppBundleIds.union(standaloneBlockedBundleIds)
+        // R5: ⏳ targets gate as blocked once the shared allowance is spent.
+        inputs.allowanceExhausted = AllowanceBalance.shared.isExhausted
         return inputs
     }
 
@@ -785,6 +787,8 @@ class FocusMonitor {
         stopBrowserPolling()
         stopWorkTickTimer()
         stopNeutralTickTimer()
+        allowanceMeterTimer?.invalidate()
+        allowanceMeterTimer = nil
         nudgeController?.dismiss()
         overlayController?.dismiss()
         redShiftController?.dismiss()
@@ -1668,6 +1672,22 @@ class FocusMonitor {
            focusModeController?.isOn != true {
             handleStandaloneBlockedApp(app: app, bundleId: bidStandalone)
             return
+        }
+
+        // R5: ⏳ (limited) apps hard-block outside sessions once the shared
+        // allowance is exhausted. Same pre-gate slot as the standalone rule
+        // branch above — the focus-off gate below would otherwise return
+        // early and never reach the resolver. With balance remaining, the
+        // allowance meter (5s tick) spends against the app instead.
+        if let bidLimited = app.bundleIdentifier,
+           focusModeController?.isOn != true,
+           AllowanceBalance.shared.isExhausted {
+            let sets = RuleEnforcementMirror.shared.activeSets()
+            if sets.limitedApps.contains(bidLimited),
+               !sets.allowedApps.contains(bidLimited) {
+                handleAllowanceExhaustedApp(app: app, bundleId: bidLimited)
+                return
+            }
         }
 
         // Enforcement runs IFF Focus Mode is ON. Bedtime and Off both bypass.
@@ -3239,6 +3259,219 @@ class FocusMonitor {
             isNoPlan: false,
             displayName: appName
         )
+    }
+
+    // MARK: - R5: Allowance Spend Metering (out-of-session ⏳ targets)
+    //
+    // Sessions treat ⏳ as 🚫 (resolver limit gate). OUTSIDE sessions, time on
+    // a ⏳ app/site spends the shared daily allowance: a 5s tick meters the
+    // frontmost app / active browser tab against the limited rule sets,
+    // accumulates seconds, and POSTs whole-minute batches (≥30s apart) via
+    // RuleStore.spend. When server-available minus locally-pending hits zero,
+    // AllowanceBalance.isExhausted flips and the resolver gates ⏳ targets as
+    // blocked — WebsiteBlocker's 0.5s sweep walls limited SITES (the
+    // focus-blocked.html allowance variant) and this meter walls limited APPS
+    // with the blocking overlay. The pill shows "⏳ N min" while relevant.
+
+    private var allowanceMeterTimer: Timer?
+    private static let allowanceMeterInterval: TimeInterval = 5.0
+    private static let allowanceSpendPostThrottle: TimeInterval = 30.0
+    private var allowancePendingSpendSeconds: Double = 0
+    private var allowanceLastSpendPostAt: Date?
+    private var allowanceSpendPostInFlight = false
+    private var allowanceTabReadInFlight = false
+
+    /// Start the 5s metering tick. Idempotent. Called from AppDelegate after
+    /// focusModeController is wired. Also subscribes to .allowanceDidChange so
+    /// the pill balance updates the moment server truth lands.
+    func startAllowanceMeter() {
+        guard allowanceMeterTimer == nil else { return }
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handleAllowanceDidChange),
+            name: .allowanceDidChange, object: nil
+        )
+        let t = Timer.scheduledTimer(withTimeInterval: Self.allowanceMeterInterval, repeats: true) { [weak self] _ in
+            self?.allowanceMeterTick()
+        }
+        t.tolerance = 1.0
+        RunLoop.main.add(t, forMode: .common)
+        allowanceMeterTimer = t
+        appDelegate?.postLog("⏳ Allowance meter started (\(Int(Self.allowanceMeterInterval))s tick)")
+    }
+
+    @objc private func handleAllowanceDidChange() {
+        updateAllowancePill()
+    }
+
+    /// One-shot diagnostic so a silent meter is debuggable from the log.
+    private var allowanceMeterLoggedGates = false
+
+    private func allowanceMeterTick() {
+        // Sessions: ⏳ acts as 🚫 via the resolver — never spend in-session.
+        guard focusModeController?.isOn != true else {
+            updateAllowancePill()
+            return
+        }
+        let sets = RuleEnforcementMirror.shared.activeSets()
+        guard !sets.limitedApps.isEmpty || !sets.limitedSites.isEmpty else {
+            updateAllowancePill()
+            return
+        }
+        guard let app = NSWorkspace.shared.frontmostApplication,
+              let bid = app.bundleIdentifier else {
+            updateAllowancePill()
+            return
+        }
+        if !allowanceMeterLoggedGates {
+            allowanceMeterLoggedGates = true
+            appDelegate?.postLog("⏳ Meter gates: limitedSites=\(sets.limitedSites.count) limitedApps=\(sets.limitedApps.count) frontmost=\(bid) isBrowser=\(Self.browserBundleIds.contains(bid))")
+        }
+
+        // Limited APP frontmost → meter directly (✅ rule beats ⏳ per the
+        // one precedence; goal lists don't apply out of session). Once
+        // exhausted, wall instead of metering — server clamps spends at zero
+        // anyway, so further posts would be pure waste.
+        if sets.limitedApps.contains(bid), !sets.allowedApps.contains(bid) {
+            if AllowanceBalance.shared.isExhausted {
+                handleAllowanceExhaustedApp(app: app, bundleId: bid)
+                updateAllowancePill()
+            } else {
+                registerAllowanceUse(target: bid)
+                if AllowanceBalance.shared.isExhausted {
+                    handleAllowanceExhaustedApp(app: app, bundleId: bid)
+                }
+            }
+            return
+        }
+
+        // Browser frontmost → read the active tab (AppleScript on the
+        // background queue; never on main per CLAUDE.md bug #9) and meter if
+        // its host matches a limited site. The wall-at-zero for sites is
+        // owned by WebsiteBlocker's 0.5s sweep, not this meter.
+        if Self.browserBundleIds.contains(bid), !allowanceTabReadInFlight {
+            allowanceTabReadInFlight = true
+            appleScriptQueue.async { [weak self] in
+                let info = self?.readActiveTabInfo(for: bid)
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    self.allowanceTabReadInFlight = false
+                    guard self.focusModeController?.isOn != true,
+                          let host = info?.hostname.lowercased(),
+                          EnforcementResolver.matches(host, sets.limitedSites),
+                          !EnforcementResolver.matches(host, sets.allowedSites),
+                          // At zero, the sweep owns the wall — don't keep
+                          // metering a tab that's about to be redirected.
+                          !AllowanceBalance.shared.isExhausted else {
+                        self.updateAllowancePill()
+                        return
+                    }
+                    self.registerAllowanceUse(target: host)
+                }
+            }
+            return
+        }
+        updateAllowancePill()
+    }
+
+    /// Targets we've already announced metering for (one log line per target
+    /// per app run — the per-tick detail stays behind debugLog).
+    private var allowanceMeterAnnouncedTargets: Set<String> = []
+
+    /// Accumulate one tick of ⏳ usage and post whole-minute batches.
+    private func registerAllowanceUse(target: String) {
+        allowancePendingSpendSeconds += Self.allowanceMeterInterval
+        AllowanceBalance.shared.recordLimitedUse()
+        AllowanceBalance.shared.setPendingSpendSeconds(allowancePendingSpendSeconds)
+        if !allowanceMeterAnnouncedTargets.contains(target) {
+            allowanceMeterAnnouncedTargets.insert(target)
+            appDelegate?.postLog("⏳ Metering started on \(target) (allowance spends while it's frontmost)")
+        }
+        debugLog("⏳ Metering \(target): pending=\(Int(allowancePendingSpendSeconds))s, available(after pending)=\(AllowanceBalance.shared.availableMinutesAfterPending.map(String.init) ?? "unknown")")
+        maybePostAllowanceSpend()
+        updateAllowancePill()
+    }
+
+    private func maybePostAllowanceSpend() {
+        guard !allowanceSpendPostInFlight else { return }
+        let wholeMinutes = Int(allowancePendingSpendSeconds / 60.0)
+        guard wholeMinutes >= 1 else { return }
+        if let last = allowanceLastSpendPostAt,
+           Date().timeIntervalSince(last) < Self.allowanceSpendPostThrottle { return }
+        allowanceSpendPostInFlight = true
+        allowanceLastSpendPostAt = Date()
+        appDelegate?.postLog("⏳ Posting allowance spend: \(wholeMinutes) min")
+        Task { @MainActor [weak self] in
+            let fresh = await RuleStore.shared.spend(minutes: wholeMinutes)
+            guard let self else { return }
+            self.allowanceSpendPostInFlight = false
+            if let fresh {
+                self.allowancePendingSpendSeconds = max(0, self.allowancePendingSpendSeconds - Double(wholeMinutes * 60))
+                AllowanceBalance.shared.setPendingSpendSeconds(self.allowancePendingSpendSeconds)
+                self.appDelegate?.postLog("⏳ Spend posted: \(fresh.spentApplied ?? wholeMinutes) min applied — available now \(fresh.availableMinutes)")
+            } else {
+                // Offline / server error: keep the pending seconds local so
+                // nothing is lost; throttle stamp above prevents hammering.
+                self.appDelegate?.postLog("⚠️ Allowance spend post failed — keeping \(Int(self.allowancePendingSpendSeconds))s pending locally")
+            }
+            self.updateAllowancePill()
+        }
+    }
+
+    /// Wall a ⏳ app when the allowance is exhausted (out-of-session). The
+    /// earn path lives in the copy: focusing refills the balance.
+    private func handleAllowanceExhaustedApp(app: NSRunningApplication, bundleId bid: String) {
+        guard overlayController?.isShowing != true else { return }
+        let appName = app.localizedName ?? bid
+        let rate = AllowanceBalance.shared.earnRate
+        let earnExample = max(1, 30 / max(1, rate))
+        appDelegate?.postLog("⏳ Allowance empty — walling limited app \(appName)")
+        stopBrowserPolling()
+        stopWorkTickTimer()
+        stopNeutralTickTimer()
+        logAssessment(
+            title: appName,
+            intention: "",
+            relevant: false,
+            confidence: 100,
+            reason: "Allowance empty (limited app)",
+            action: "overlay",
+            isEvent: true
+        )
+        cancelGracePeriod()
+        currentTarget = appName
+        currentTargetKey = bid
+        showOverlay(
+            intention: "Allowance empty",
+            reason: "Focus 30 min to earn \(earnExample) more",
+            focusDurationMinutes: 0,
+            isNoPlan: false,
+            displayName: appName
+        )
+    }
+
+    /// Show/refresh/dismiss the "⏳ N min" pill. Shown only out-of-session
+    /// when the balance is interesting (a ⏳ target was used in the last
+    /// 15 min, or the balance dipped below the daily base). Never stomps
+    /// another pill mode.
+    private func updateAllowancePill() {
+        guard let controller = deepWorkTimerController else { return }
+        let bal = AllowanceBalance.shared
+        let available = bal.availableMinutesAfterPending
+        let inSession = focusModeController?.isOn == true
+        let interesting = bal.usedLimitedRecently
+            || (available != nil && bal.baseMinutes > 0 && available! < bal.baseMinutes)
+        if !inSession, let available, interesting {
+            if controller.isShowing {
+                if controller.viewModel?.mode == .allowanceBalance {
+                    controller.showAllowanceBalance(minutes: available)
+                }
+                // Another mode owns the pill — leave it alone.
+            } else {
+                controller.showAllowanceBalance(minutes: available)
+            }
+        } else if controller.viewModel?.mode == .allowanceBalance {
+            controller.dismiss()
+        }
     }
 
     /// Show the full-screen intervention overlay with a random game.

@@ -12,9 +12,11 @@
 //
 //  ⏳ (limited) targets behave as 🚫 DURING a focus session — focus time is
 //  focus time (spec 2026-06-10-rules-consolidation-design.md). Outside a
-//  session they defer to the shared allowance. TODO(R5): wire allowance
-//  metering for the out-of-session case; until R5 lands they are
-//  allowed-for-now outside sessions (.noDecision → falls through).
+//  session they defer to the shared allowance (R5): time on a ⏳ target is
+//  metered by FocusMonitor's allowance meter and spent against the backend
+//  allowance; while balance remains they fall through (.noDecision), and when
+//  `allowanceExhausted` flips (server available minus locally-pending spend
+//  ≤ 0, see AllowanceBalance) they gate as blocked with the earn-path wall.
 //
 //  Consumers:
 //    - FocusMonitor.evaluateApp / processActiveTabInfo → resolveApp/resolveSite
@@ -43,6 +45,11 @@ struct EnforcementResolver {
 
     struct Inputs {
         var inFocusSession: Bool = false
+        /// R5: true when the shared allowance is spent (server available
+        /// minutes minus locally-pending unsent spend ≤ 0). Makes ⏳ targets
+        /// gate as blocked OUTSIDE sessions too. Sourced from
+        /// AllowanceBalance.shared.isExhausted by both consumers.
+        var allowanceExhausted: Bool = false
         /// Per-goal lists (Intention.allowWebsites/allowBundleIds and
         /// macWebsites/macBundleIds, via FocusMonitor.ProjectEnforcement).
         var goalAllowedDomains: Set<String> = []
@@ -82,8 +89,10 @@ struct EnforcementResolver {
         if matches(host, inputs.goalAllowedDomains) { return .allow(.goalAllow) }
         if matches(host, inputs.rules.allowedSites) { return .allow(.allowRule) }
         if matches(host, inputs.rules.blockedSites) { return .block(.blockRule) }
-        if matches(host, inputs.rules.limitedSites), inputs.inFocusSession {
-            // ⏳ acts as 🚫 in-session. TODO(R5): out-of-session allowance metering.
+        if matches(host, inputs.rules.limitedSites),
+           inputs.inFocusSession || inputs.allowanceExhausted {
+            // ⏳ acts as 🚫 in-session, and out-of-session once the shared
+            // allowance is exhausted (R5). With balance left it falls through.
             return .block(.limitGate)
         }
         if matches(host, inputs.goalBlockedDomains) { return .block(.goalBlock) }
@@ -95,8 +104,10 @@ struct EnforcementResolver {
         if inputs.goalAllowedBundleIds.contains(bundleId) { return .allow(.goalAllow) }
         if inputs.rules.allowedApps.contains(bundleId) { return .allow(.allowRule) }
         if inputs.rules.blockedApps.contains(bundleId) { return .block(.blockRule) }
-        if inputs.rules.limitedApps.contains(bundleId), inputs.inFocusSession {
-            // ⏳ acts as 🚫 in-session. TODO(R5): out-of-session allowance metering.
+        if inputs.rules.limitedApps.contains(bundleId),
+           inputs.inFocusSession || inputs.allowanceExhausted {
+            // ⏳ acts as 🚫 in-session, and out-of-session once the shared
+            // allowance is exhausted (R5). With balance left it falls through.
             return .block(.limitGate)
         }
         if inputs.goalBlockedBundleIds.contains(bundleId) { return .block(.goalBlock) }
@@ -127,8 +138,9 @@ struct EnforcementResolver {
         for d in sessionDomains where seen.insert(d).inserted { union.append(d) }
         for d in standaloneDomains where seen.insert(d).inserted { union.append(d) }
         for d in inputs.rules.blockedSites where seen.insert(d).inserted { union.append(d) }
-        if inputs.inFocusSession {
-            // ⏳ acts as 🚫 in-session. TODO(R5): out-of-session allowance metering.
+        if inputs.inFocusSession || inputs.allowanceExhausted {
+            // ⏳ acts as 🚫 in-session, and out-of-session once the shared
+            // allowance is exhausted (R5).
             for d in inputs.rules.limitedSites where seen.insert(d).inserted { union.append(d) }
         }
         return union.filter { d in
@@ -217,5 +229,89 @@ final class RuleEnforcementMirror: @unchecked Sendable {
     /// Treatment-split sets for "now" (enabled + in-window rules only).
     func activeSets(at date: Date = Date()) -> EnforcementResolver.RuleSets {
         EnforcementResolver.activeRuleSets(rules: snapshot(), at: date)
+    }
+}
+
+// MARK: - AllowanceBalance (R5)
+
+/// Thread-safe holder for the shared daily allowance on the synchronous
+/// enforcement hot paths (same rationale as RuleEnforcementMirror — RuleStore
+/// is an actor and can't be awaited from WebsiteBlocker's 0.5s sweep or
+/// FocusMonitor's evaluation path).
+///
+/// Two writers:
+///   - RuleStore publishes SERVER truth (available/base/rate) on every
+///     allowance cache mutation (load / refresh / earn / spend / config).
+///   - FocusMonitor's allowance meter publishes locally-pending unsent spend
+///     seconds between whole-minute POSTs, and stamps ⏳ usage timestamps
+///     (drives the "show the pill balance" heuristic).
+final class AllowanceBalance: @unchecked Sendable {
+    static let shared = AllowanceBalance()
+
+    private let lock = NSLock()
+    private var serverAvailableMinutes: Int?
+    private var serverBaseMinutes: Int = 15
+    private var serverEarnRate: Int = 5
+    private var pendingSpendSeconds: Double = 0
+    private var lastLimitedUseAt: Date?
+
+    /// How recently a ⏳ target must have been used for the pill balance to
+    /// show ("used in the last N minutes" heuristic).
+    static let recentUseWindow: TimeInterval = 15 * 60
+
+    func publishServer(availableMinutes: Int, baseMinutes: Int, earnRate: Int) {
+        lock.lock()
+        serverAvailableMinutes = availableMinutes
+        serverBaseMinutes = baseMinutes
+        serverEarnRate = max(1, earnRate)
+        lock.unlock()
+    }
+
+    /// Meter-owned: seconds spent on ⏳ targets that haven't been POSTed yet.
+    func setPendingSpendSeconds(_ seconds: Double) {
+        lock.lock()
+        pendingSpendSeconds = max(0, seconds)
+        lock.unlock()
+    }
+
+    func recordLimitedUse(at date: Date = Date()) {
+        lock.lock()
+        lastLimitedUseAt = date
+        lock.unlock()
+    }
+
+    /// Server available minus whole minutes of locally-pending spend.
+    /// nil = never synced with the backend.
+    var availableMinutesAfterPending: Int? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let server = serverAvailableMinutes else { return nil }
+        return max(0, server - Int(pendingSpendSeconds / 60.0))
+    }
+
+    /// ⏳ targets hard-block when this is true. Fails OPEN when the backend
+    /// has never been seen (nil server state): don't wall the user on a guess.
+    var isExhausted: Bool {
+        guard let available = availableMinutesAfterPending else { return false }
+        return available <= 0
+    }
+
+    var earnRate: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return serverEarnRate
+    }
+
+    var baseMinutes: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return serverBaseMinutes
+    }
+
+    var usedLimitedRecently: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let last = lastLimitedUseAt else { return false }
+        return Date().timeIntervalSince(last) < Self.recentUseWindow
     }
 }

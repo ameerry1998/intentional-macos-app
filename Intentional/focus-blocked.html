@@ -189,8 +189,39 @@
                 hostname: params.get('hostname') || '',
                 url: params.get('url') || null,
                 focusDuration: parseInt(params.get('focusDuration') || '0', 10),
-                backURL: params.get('backURL') || null
+                backURL: params.get('backURL') || null,
+                // R5 allowance wall variant (?mode=allowance&earn_rate=N)
+                mode: params.get('mode') || '',
+                earnRate: parseInt(params.get('earn_rate') || '5', 10)
             };
+        }
+
+        // R5: allowance-empty wall for ⏳ (limited) targets at zero balance.
+        // Same card, different copy + CTA: the only way forward is to earn
+        // more by focusing (spec decision #3 — no override, no partner-beg).
+        function initAllowanceMode(params) {
+            const earned = Math.max(1, Math.floor(30 / Math.max(1, params.earnRate)));
+
+            document.getElementById('focusBadge').textContent = 'ALLOWANCE EMPTY';
+            document.querySelector('.subtitle').style.display = 'none';
+            document.getElementById('intention').textContent =
+                'Focus 30 min to earn ' + earned + ' more';
+            document.getElementById('offTask').innerHTML = params.hostname
+                ? 'Your daily allowance for limited sites is used up. ' +
+                  '<span class="off-task-page">' + params.hostname + '</span> unlocks as you earn more.'
+                : 'Your daily allowance for limited sites is used up.';
+
+            const btn = document.querySelector('.primary-button');
+            btn.textContent = 'Start a focus session';
+            btn.onclick = function () {
+                // Deep link into the app's focus-start overlay. The browser
+                // may show an "Open Intentional?" confirm — expected.
+                window.location.href = 'intentional://start-focus';
+            };
+
+            // No justify/override path on the allowance wall.
+            document.getElementById('relevantBtn').style.display = 'none';
+            document.getElementById('justifySection').classList.remove('visible');
         }
 
         function backToWork() {
@@ -215,6 +246,11 @@
             const params = getQueryParams();
             originalURL = params.url;
             backURL = params.backURL;
+
+            if (params.mode === 'allowance') {
+                initAllowanceMode(params);
+                return;
+            }
 
             document.getElementById('intention').textContent = params.intention;
 

@@ -54,6 +54,7 @@ enum PillMode {
     case noPlan             // "No plan set" floating card (460×~260)
     case bedtimeWindDown    // "Bedtime in N min" (300×70, moon glyph)
     case bedtimeLocked      // "Bedtime active — locked until 6:30 AM" (300×70, lock)
+    case allowanceBalance   // R5: "⏳ N min" idle balance, out-of-session (300×70)
 }
 
 struct CelebrationData {
@@ -513,7 +514,7 @@ class DeepWorkTimerController {
     ) {
         if viewModel == nil || timerWindow == nil {
             // Cold-start: build the pill window with bedtime mode pre-set.
-            buildBedtimeWindow(mode: .bedtimeWindDown)
+            buildBarePillWindow(mode: .bedtimeWindDown)
         }
         guard let vm = viewModel else { return }
         vm.mode = .bedtimeWindDown
@@ -530,7 +531,7 @@ class DeepWorkTimerController {
     ///   - onAskPartner: Tapped when the user wants the unlock-request sheet.
     func showBedtimeLocked(wakeTime: Date, onAskPartner: (() -> Void)?) {
         if viewModel == nil || timerWindow == nil {
-            buildBedtimeWindow(mode: .bedtimeLocked)
+            buildBarePillWindow(mode: .bedtimeLocked)
         }
         guard let vm = viewModel else { return }
         vm.mode = .bedtimeLocked
@@ -540,10 +541,24 @@ class DeepWorkTimerController {
         vm.onBedtimeAskPartner = onAskPartner
     }
 
-    /// Internal helper — builds the floating pill window for bedtime modes
-    /// without going through `show(intention:endsAt:)` which assumes a
-    /// timer countdown. Mirrors the show() setup but skips the timer.
-    private func buildBedtimeWindow(mode: PillMode) {
+    // MARK: - Allowance Balance Mode (R5)
+
+    /// Show / update the pill in allowance-balance mode ("⏳ N min").
+    /// Out-of-session only — FocusMonitor's allowance meter owns show,
+    /// refresh, and dismissal, and never lets this stomp another mode.
+    func showAllowanceBalance(minutes: Int) {
+        if viewModel == nil || timerWindow == nil {
+            buildBarePillWindow(mode: .allowanceBalance)
+        }
+        guard let vm = viewModel else { return }
+        vm.mode = .allowanceBalance
+        vm.allowanceMinutes = minutes
+    }
+
+    /// Internal helper — builds the floating pill window for modes without a
+    /// timer countdown (bedtime, allowance balance) — `show(intention:endsAt:)`
+    /// assumes one. Mirrors the show() setup but skips the timer.
+    private func buildBarePillWindow(mode: PillMode) {
         dismiss()
 
         let vm = DeepWorkTimerViewModel(intention: "", endsAt: Date())
@@ -691,6 +706,9 @@ class DeepWorkTimerViewModel: ObservableObject {
     @Published var editBlockDescription: String = ""
     @Published var editBlockType: ScheduleManager.BlockType = .focusHours
     private var autoStartTimer: Timer?
+
+    // R5: allowance balance ("⏳ N min") for .allowanceBalance mode
+    @Published var allowanceMinutes: Int = 0
 
     // Bedtime modes (Apr 2026)
     @Published var bedtimeMinutesUntil: Int = 30        // for .bedtimeWindDown
@@ -930,6 +948,8 @@ struct DeepWorkTimerView: View {
                 bedtimeWindDownBody
             case .bedtimeLocked:
                 bedtimeLockedBody
+            case .allowanceBalance:
+                allowanceBalanceBody
             }
         }
         .onHover { viewModel.isHovered = $0 }
@@ -2281,6 +2301,44 @@ struct DeepWorkTimerView: View {
                 .cornerRadius(10)
                 .padding(.bottom, 10)
         }
+    }
+
+    // MARK: - Allowance Balance Mode (R5)
+
+    /// "⏳ N min" idle balance pill — shown out-of-session when a ⏳ target
+    /// was recently used or the balance dipped below the daily base.
+    private var allowanceBalanceBody: some View {
+        HStack(spacing: 10) {
+            Text("⏳")
+                .font(.system(size: 16))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(viewModel.allowanceMinutes == 1
+                    ? "1 min left"
+                    : "\(viewModel.allowanceMinutes) min left")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(viewModel.allowanceMinutes <= 0 ? distractedColor : textPrimary)
+                Text(viewModel.allowanceMinutes <= 0
+                    ? "Allowance empty — focus to earn more"
+                    : "Today's allowance")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(textSecondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(width: 300, height: 70)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(bgColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(
+                            (viewModel.allowanceMinutes <= 0 ? distractedColor : amberColor).opacity(0.35),
+                            lineWidth: 1
+                        )
+                )
+        )
     }
 
     // MARK: - Bedtime Modes (Apr 2026)

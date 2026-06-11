@@ -69,6 +69,7 @@ actor RuleStore {
         if let data = try? Data(contentsOf: allowanceFileURL),
            let allowance = try? Self.decoder.decode(Allowance.self, from: data) {
             cachedAllowance = allowance
+            publishBalance()
         }
         // R4: keep the synchronous enforcement mirror in lockstep with the
         // cache from the very first load (WebsiteBlocker/FocusMonitor read it
@@ -89,6 +90,18 @@ actor RuleStore {
     private func persistAllowanceToDisk() {
         guard let cachedAllowance, let data = try? Self.encoder.encode(cachedAllowance) else { return }
         try? data.write(to: allowanceFileURL, options: .atomic)
+    }
+
+    /// R5: mirror server allowance truth into the synchronous enforcement
+    /// holder (AllowanceBalance) — every cachedAllowance mutation must call
+    /// this so the ⏳ exhausted gate and the pill balance stay in lockstep.
+    private func publishBalance() {
+        guard let a = cachedAllowance else { return }
+        AllowanceBalance.shared.publishServer(
+            availableMinutes: a.availableMinutes,
+            baseMinutes: a.baseMinutes,
+            earnRate: a.earnRate
+        )
     }
 
     // MARK: - Read API
@@ -133,6 +146,7 @@ actor RuleStore {
         guard let fresh = await backend.getAllowanceToday() else { return cachedAllowance }
         cachedAllowance = fresh
         persistAllowanceToDisk()
+        publishBalance()
         await notifyAllowanceChanged()
         return fresh
     }
@@ -268,26 +282,31 @@ actor RuleStore {
 
     /// Credit focused time → allowance minutes (server floors at earn_rate:1).
     /// Pass sessionId for idempotency — replays credit 0 (deduped=true).
+    /// Returns nil on network/backend failure (NOT the stale cache — R5
+    /// callers must be able to tell "credited" from "couldn't reach server").
     @discardableResult
     func earn(focusedMinutes: Int, sessionId: String? = nil) async -> Allowance? {
-        guard let backend else { return cachedAllowance }
+        guard let backend else { return nil }
         guard let fresh = await backend.postAllowanceEarn(
             focusedMinutes: focusedMinutes, sessionId: sessionId
-        ) else { return cachedAllowance }
+        ) else { return nil }
         cachedAllowance = fresh
         persistAllowanceToDisk()
+        publishBalance()
         await notifyAllowanceChanged()
         return fresh
     }
 
     /// Record allowance spend (server clamps at the available balance;
-    /// spentApplied on the result says how much stuck).
+    /// spentApplied on the result says how much stuck). Returns nil on
+    /// network/backend failure so the meter keeps its pending seconds.
     @discardableResult
     func spend(minutes: Int) async -> Allowance? {
-        guard let backend else { return cachedAllowance }
-        guard let fresh = await backend.postAllowanceSpend(minutes: minutes) else { return cachedAllowance }
+        guard let backend else { return nil }
+        guard let fresh = await backend.postAllowanceSpend(minutes: minutes) else { return nil }
         cachedAllowance = fresh
         persistAllowanceToDisk()
+        publishBalance()
         await notifyAllowanceChanged()
         return fresh
     }
@@ -303,6 +322,7 @@ actor RuleStore {
         ) else { return nil }
         cachedAllowance = fresh
         persistAllowanceToDisk()
+        publishBalance()
         await notifyAllowanceChanged()
         return fresh
     }

@@ -197,8 +197,8 @@ final class EnforcementResolverTests: XCTestCase {
     }
 
     func testLimitedDefersOutsideFocusSession() {
-        // TODO(R5) semantics: outside a session ⏳ is allowed-for-now —
-        // resolver returns .noDecision so nothing downstream blocks on it.
+        // R5 semantics: outside a session with allowance remaining, ⏳ is
+        // allowed-for-now — resolver returns .noDecision and the meter spends.
         let i = inputs(inFocusSession: false,
                        rules: .init(limitedSites: ["youtube.com"],
                                     limitedApps: ["com.apple.TV"]))
@@ -206,6 +206,28 @@ final class EnforcementResolverTests: XCTestCase {
                        .noDecision)
         XCTAssertEqual(EnforcementResolver.resolveApp(bundleId: "com.apple.TV", inputs: i),
                        .noDecision)
+    }
+
+    func testLimitedBlocksOutsideSessionWhenAllowanceExhausted() {
+        // R5: exhausted allowance gates ⏳ as blocked even with no session.
+        var i = inputs(inFocusSession: false,
+                       rules: .init(limitedSites: ["youtube.com"],
+                                    limitedApps: ["com.apple.TV"]))
+        i.allowanceExhausted = true
+        XCTAssertEqual(EnforcementResolver.resolveSite(host: "youtube.com", inputs: i),
+                       .block(.limitGate))
+        XCTAssertEqual(EnforcementResolver.resolveApp(bundleId: "com.apple.TV", inputs: i),
+                       .block(.limitGate))
+    }
+
+    func testAllowLayersBeatExhaustedLimitGate() {
+        // ✅ rule still wins over the ⏳-at-zero gate (one precedence).
+        var i = inputs(inFocusSession: false,
+                       rules: .init(allowedSites: ["youtube.com"],
+                                    limitedSites: ["youtube.com"]))
+        i.allowanceExhausted = true
+        XCTAssertEqual(EnforcementResolver.resolveSite(host: "youtube.com", inputs: i),
+                       .allow(.allowRule))
     }
 
     func testLimitedStillLosesToAllowLayers() {
@@ -272,15 +294,36 @@ final class EnforcementResolverTests: XCTestCase {
             sessionDomains: [], standaloneDomains: [], inputs: i)
         XCTAssertEqual(Set(out), ["reddit.com", "youtube.com"])
 
-        // Outside a session the ⏳ site is NOT in the blocklist (TODO(R5)).
+        // Outside a session with allowance left, the ⏳ site is NOT blocked.
         i.inFocusSession = false
         out = EnforcementResolver.effectiveSiteBlocklist(
             sessionDomains: [], standaloneDomains: [], inputs: i)
         XCTAssertEqual(Set(out), ["reddit.com"])
+
+        // R5: exhausted allowance pulls the ⏳ site into the blocklist.
+        i.allowanceExhausted = true
+        out = EnforcementResolver.effectiveSiteBlocklist(
+            sessionDomains: [], standaloneDomains: [], inputs: i)
+        XCTAssertEqual(Set(out), ["reddit.com", "youtube.com"])
     }
 
     /// Set-algebra adapter must agree with the per-host resolver for hosts
     /// that match list entries (the equivalence WebsiteBlocker relies on).
+    ///
+    /// The equivalence that IS guaranteed: membership in
+    /// `effectiveSiteBlocklist(sessionDomains:standaloneDomains:inputs:)`
+    /// equals `resolveSite(host:inputs:).isBlock` for inputs whose
+    /// `defaultBlockedDomains` is the union of those two parameters — that's
+    /// the layer they represent (Inputs.defaultBlockedDomains: "default
+    /// blocking profile (session-fed) + BlockRuleEnforcer standalone unions").
+    /// What is NOT guaranteed (by design, not a hole): the set-algebra call
+    /// ignores `inputs.defaultBlockedDomains` / `inputs.goalBlockedDomains` —
+    /// the former arrives as the explicit parameters above, the latter is
+    /// enforced by FocusMonitor's per-host path only (WebsiteBlocker never
+    /// sets it; see FocusMonitor.enforcementInputs which symmetrically leaves
+    /// defaultBlockedDomains empty because the sweep owns that layer). So a
+    /// resolveSite call with bottom layers the adapter never received cannot
+    /// be compared against the adapter's output.
     func testEffectiveBlocklistAgreesWithResolveSite() {
         var i = inputs(
             goalAllowedDomains: ["twitch.tv"],
@@ -291,8 +334,14 @@ final class EnforcementResolverTests: XCTestCase {
         let union = ["twitch.tv", "discord.com", "facebook.com"]
         let out = Set(EnforcementResolver.effectiveSiteBlocklist(
             sessionDomains: union, standaloneDomains: [], inputs: i))
+        // Model reality: the sessionDomains the adapter received ARE the
+        // per-host resolver's bottom layer (WebsiteBlocker's session-fed
+        // default profile). Without this the comparison is between two
+        // different worlds, not two implementations of one precedence.
+        var perHost = i
+        perHost.defaultBlockedDomains = Set(union)
         for host in union + ["reddit.com", "youtube.com"] {
-            let v = EnforcementResolver.resolveSite(host: host, inputs: i)
+            let v = EnforcementResolver.resolveSite(host: host, inputs: perHost)
             XCTAssertEqual(out.contains(host), v.isBlock,
                            "blocklist membership and resolveSite disagree for \(host): \(v)")
         }

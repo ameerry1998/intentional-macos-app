@@ -58,6 +58,8 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
         inputs.inFocusSession = appDelegate?.focusModeController?.isOn == true
         inputs.goalAllowedDomains = sessionAllowedDomains
         inputs.rules = RuleEnforcementMirror.shared.activeSets()
+        // R5: ⏳ sites join the blocklist once the shared allowance is spent.
+        inputs.allowanceExhausted = AllowanceBalance.shared.isExhausted
         return EnforcementResolver.effectiveSiteBlocklist(
             sessionDomains: blockedDomains,
             standaloneDomains: standaloneDomains,
@@ -71,6 +73,38 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
             return "file://\(bundlePath)/blocked.html"
         }
         return "about:blank"
+    }
+
+    // R5: focus-blocked.html doubles as the allowance-empty wall
+    // (?mode=allowance&earn_rate=N) for ⏳ sites blocked at zero balance.
+    private var focusBlockPageURL: String {
+        if let bundlePath = Bundle.main.resourcePath {
+            return "file://\(bundlePath)/focus-blocked.html"
+        }
+        return "about:blank"
+    }
+
+    /// R5: pick the block page for a matched URL. ⏳ (limited) domains that
+    /// are blocked ONLY because the shared allowance hit zero get the
+    /// focus-blocked.html allowance variant ("Allowance empty — focus 30 min
+    /// to earn N more" + a start-session deep link). Everything else —
+    /// including in-session limit gates, where the earn pitch would invite
+    /// abandoning the session — keeps the standard blocked.html.
+    private func buildBlockURL(forMatchedURL url: String, browserName: String) -> String {
+        let encodedURL = url.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        if appDelegate?.focusModeController?.isOn != true,
+           AllowanceBalance.shared.isExhausted,
+           let host = URL(string: url)?.host?.lowercased() {
+            let sets = RuleEnforcementMirror.shared.activeSets()
+            if EnforcementResolver.matches(host, sets.limitedSites),
+               !EnforcementResolver.matches(host, sets.allowedSites),
+               !EnforcementResolver.matches(host, sessionAllowedDomains) {
+                let rate = AllowanceBalance.shared.earnRate
+                return "\(focusBlockPageURL)?mode=allowance&earn_rate=\(rate)&hostname=\(host)&blocked=\(encodedURL)"
+            }
+        }
+        let encodedBrowser = browserName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? browserName
+        return "\(blockPageURL)?blocked=\(encodedURL)&browser=\(encodedBrowser)&protected=\(getProtectedBrowsersList())"
     }
 
     // Track if blocking is currently active
@@ -557,10 +591,7 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func blockSafariTab(url: String) {
-        let encodedURL = url.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let encodedBrowser = "Safari".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Safari"
-        let protectedBrowsers = getProtectedBrowsersList()
-        let blockURL = "\(blockPageURL)?blocked=\(encodedURL)&browser=\(encodedBrowser)&protected=\(protectedBrowsers)"
+        let blockURL = buildBlockURL(forMatchedURL: url, browserName: "Safari")
 
         let blockScript = """
         tell application "Safari"
@@ -593,16 +624,14 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
 
     /// Fast path: check just the active tab of the front window
     private func checkChromeActiveTab() {
-        let protectedBrowsers = getProtectedBrowsersList()
-        let encodedBrowser = "Chrome".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Chrome"
-
         // Build domain checks for the active tab.
         // Uses effectiveBlockedDomains so BlockRuleEnforcer-driven entries are
-        // included.
+        // included. buildBlockURL picks the allowance wall for ⏳-at-zero
+        // domains (a pseudo-URL carries the host — the page only needs the
+        // domain for display).
         var domainChecks = ""
         for domain in effectiveBlockedDomains {
-            let encodedDomain = domain.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? domain
-            let blockURL = "\(blockPageURL)?blocked=\(encodedDomain)&browser=\(encodedBrowser)&protected=\(protectedBrowsers)"
+            let blockURL = buildBlockURL(forMatchedURL: "https://\(domain)/", browserName: "Chrome")
             domainChecks += """
                         if tabURL contains "\(domain)" and tabURL does not contain "blocked.html" then
                             set URL of active tab of front window to "\(blockURL)"
@@ -645,15 +674,11 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
 
     /// Slow path: scan ALL tabs across all windows (catches background tabs)
     private func checkChromeAllTabs() {
-        let protectedBrowsers = getProtectedBrowsersList()
-        let encodedBrowser = "Chrome".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Chrome"
-
         var domainChecks = ""
         // Uses effectiveBlockedDomains so BlockRuleEnforcer-driven entries are
-        // included.
+        // included; buildBlockURL picks the allowance wall for ⏳-at-zero.
         for domain in effectiveBlockedDomains {
-            let encodedDomain = domain.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? domain
-            let blockURL = "\(blockPageURL)?blocked=\(encodedDomain)&browser=\(encodedBrowser)&protected=\(protectedBrowsers)"
+            let blockURL = buildBlockURL(forMatchedURL: "https://\(domain)/", browserName: "Chrome")
             domainChecks += """
                             if tabURL contains "\(domain)" and tabURL does not contain "blocked.html" then
                                 set URL of t to "\(blockURL)"
@@ -733,10 +758,7 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func blockBraveTab(url: String) {
-        let encodedURL = url.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let encodedBrowser = "Brave".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Brave"
-        let protectedBrowsers = getProtectedBrowsersList()
-        let blockURL = "\(blockPageURL)?blocked=\(encodedURL)&browser=\(encodedBrowser)&protected=\(protectedBrowsers)"
+        let blockURL = buildBlockURL(forMatchedURL: url, browserName: "Brave")
 
         let blockScript = """
         tell application "Brave Browser"
@@ -788,10 +810,7 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func blockEdgeTab(url: String) {
-        let encodedURL = url.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let encodedBrowser = "Edge".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Edge"
-        let protectedBrowsers = getProtectedBrowsersList()
-        let blockURL = "\(blockPageURL)?blocked=\(encodedURL)&browser=\(encodedBrowser)&protected=\(protectedBrowsers)"
+        let blockURL = buildBlockURL(forMatchedURL: url, browserName: "Edge")
 
         let blockScript = """
         tell application "Microsoft Edge"
@@ -855,10 +874,7 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func blockArcTab(url: String) {
-        let encodedURL = url.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let encodedBrowser = "Arc".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Arc"
-        let protectedBrowsers = getProtectedBrowsersList()
-        let blockURL = "\(blockPageURL)?blocked=\(encodedURL)&browser=\(encodedBrowser)&protected=\(protectedBrowsers)"
+        let blockURL = buildBlockURL(forMatchedURL: url, browserName: "Arc")
 
         appDelegate?.postLog("🔧 Arc: Attempting to block URL: \(url)")
         appDelegate?.postLog("🔧 Arc: Redirect target: \(blockURL)")
@@ -960,10 +976,7 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
 
     /// Block a tab in any Chromium-based browser
     private func blockChromiumTab(url: String, browserName: String, scriptName: String) {
-        let encodedURL = url.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let encodedBrowser = browserName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? browserName
-        let protectedBrowsers = getProtectedBrowsersList()
-        let blockURL = "\(blockPageURL)?blocked=\(encodedURL)&browser=\(encodedBrowser)&protected=\(protectedBrowsers)"
+        let blockURL = buildBlockURL(forMatchedURL: url, browserName: browserName)
 
         let blockScript = """
         tell application "\(scriptName)"
@@ -1026,10 +1039,7 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
 
     /// Attempt to block a tab in Firefox-based browsers
     private func blockFirefoxTab(url: String, browserName: String, scriptName: String) {
-        let encodedURL = url.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let encodedBrowser = browserName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? browserName
-        let protectedBrowsers = getProtectedBrowsersList()
-        let blockURL = "\(blockPageURL)?blocked=\(encodedURL)&browser=\(encodedBrowser)&protected=\(protectedBrowsers)"
+        let blockURL = buildBlockURL(forMatchedURL: url, browserName: browserName)
 
         // Firefox blocking is attempted but may not work on all variants
         let blockScript = """

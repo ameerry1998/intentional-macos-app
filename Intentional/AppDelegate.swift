@@ -694,6 +694,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             await ruleStore?.wire(backend: backendClient!, appDelegate: self)
             await ruleStore?.pull()
             await ruleStore?.refreshAllowance()
+            // R5: earns that failed to POST in a previous run replay once the
+            // store is wired (server dedupes by session_id, so this is safe).
+            self.retryPendingAllowanceEarns()
         }
         ruleStore?.startSyncTimer()
         postLog("📐 RuleStore wired and pulling (rules + allowance)")
@@ -780,10 +783,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         focusMonitor?.focusModeController = focusModeController
         self.switchCoordinator?.focusModeController = focusModeController
 
+        // R5 earn: if a session was rehydrated from disk (boot reconcile), the
+        // .off→.focus transition never fires, so capture the restored period
+        // here — otherwise the eventual session end would have nothing to
+        // credit against the allowance.
+        if restoredState == .focus, let restored = focusModeController?.currentPeriod {
+            pendingAllowanceEarnPeriod = restored
+        }
+
+        // R5 spend metering: 5s tick that meters out-of-session time on ⏳
+        // targets against the shared allowance. Cheap no-op when in a session
+        // or when no limited rules exist. Started after focusModeController is
+        // wired into FocusMonitor (the tick reads it).
+        focusMonitor?.startAllowanceMeter()
+
         focusModeController?.onStateChanged = { [weak self] old, new, period in
             guard let self = self else { return }
             let intentionStr = period?.intention.map { " (\"\($0)\")" } ?? ""
             self.postLog("🎯 Focus Mode: \(old.rawValue) → \(new.rawValue)\(intentionStr)")
+
+            // R5 earn: a focus session just ended (.focus → .off/.bedtime) —
+            // credit its focused minutes to the shared allowance. The period
+            // param is nil on deactivate (FocusModeController clears it before
+            // notify), so we use the period captured at activation. Intention
+            // swaps keep the same period id/startedAt (activate() preserves
+            // them), so one session = one earn = one server-side dedupe key.
+            if old == .focus && new != .focus, let ended = self.pendingAllowanceEarnPeriod {
+                self.pendingAllowanceEarnPeriod = nil
+                self.postAllowanceEarn(for: ended)
+            }
+            if new == .focus, let period {
+                self.pendingAllowanceEarnPeriod = period
+            }
 
             // Backend sync — single source of truth. Previously the post was
             // wired only in handleFocusModeToggle + scheduleManager.onBlockChanged,
@@ -1499,6 +1530,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             switch action {
             case "open", "dashboard", "":
                 showMainWindow()
+            case "start-focus":
+                // R5: deep link from the allowance-empty wall
+                // (focus-blocked.html?mode=allowance) — "Start a focus session".
+                if focusModeController?.isOn == true {
+                    postLog("🔗 start-focus: session already active — showing dashboard")
+                    showMainWindow()
+                } else {
+                    showFocusStartOverlay(isPuckTriggered: false)
+                }
             default:
                 postLog("🔗 Unknown URL action: \(action), showing main window")
                 showMainWindow()
@@ -1860,6 +1900,139 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.postLog("🎯 /focus/toggle \(action) → backend OK")
             }
         }.resume()
+    }
+
+    // MARK: - R5: Allowance earn on session end
+
+    /// Period of the running focus session, captured at activation (and at
+    /// boot reconcile for disk-restored sessions). FocusModeController clears
+    /// currentPeriod BEFORE notifying .off, so the earn path needs its own
+    /// capture. One session keeps one period id across intention swaps.
+    var pendingAllowanceEarnPeriod: FocusModeController.Period?
+
+    /// Wall-clock minutes cap for a single earn post — a stale 12h-TTL session
+    /// must not credit unbounded allowance.
+    private static let allowanceEarnCapMinutes = 480
+
+    /// POST the ended session's focused minutes to /allowance/earn via
+    /// RuleStore (server credits floor(focused/earn_rate), dedupes by
+    /// session_id).
+    ///
+    /// "Focused minutes" here is the session's WALL-CLOCK length. Investigated
+    /// alternatives (plan R5): EarnedBrowseManager.blockFocusStats.focusedSeconds
+    /// is dead (featureEnabled=false gates recordWorkTick, so it never
+    /// accumulates) and TimeTracker only meters social-media platforms — wall
+    /// clock is the only live, reliable signal today. AI scoring polices
+    /// session quality per spec decision #2 ("any focus session earns").
+    private func postAllowanceEarn(for period: FocusModeController.Period) {
+        let rawMinutes = Int(Date().timeIntervalSince(period.startedAt) / 60.0)
+        let focusedMinutes = min(rawMinutes, Self.allowanceEarnCapMinutes)
+        guard focusedMinutes >= 1 else {
+            postLog("⏳ Session ended under 1 min — no allowance earn")
+            return
+        }
+        if rawMinutes > Self.allowanceEarnCapMinutes {
+            postLog("⏳ Session length \(rawMinutes) min exceeds earn cap — crediting \(focusedMinutes) min")
+        }
+        let sessionId = period.id.uuidString
+        Task { [weak self] in
+            if let a = await RuleStore.shared.earn(focusedMinutes: focusedMinutes, sessionId: sessionId) {
+                if a.deduped == true {
+                    self?.postLog("⏳ Allowance earn deduped (session \(sessionId) already credited)")
+                } else {
+                    self?.postLog("⏳ Earned \(a.creditedMinutes ?? 0) allowance min (\(focusedMinutes) focused) — available now \(a.availableMinutes)")
+                }
+                // Backend is reachable — flush any earns that failed earlier.
+                self?.retryPendingAllowanceEarns()
+            } else {
+                // The credit must survive the outage (and restarts) — persist
+                // and replay later. Server dedupe by session_id makes the
+                // replay idempotent.
+                PendingAllowanceEarn.append(.init(
+                    sessionId: sessionId, focusedMinutes: focusedMinutes, endedAt: Date()
+                ))
+                self?.postLog("⚠️ Allowance earn post failed (\(focusedMinutes) focused min, session \(sessionId)) — queued for retry")
+            }
+        }
+    }
+
+    /// Earn POSTs that failed (backend unreachable), persisted so the credit
+    /// survives restarts. Mirrors the spend path's keep-pending-on-failure
+    /// rule. Server-side dedupe by session_id makes replays safe (credit 0,
+    /// deduped=true) — no client-side dedupe needed.
+    private struct PendingAllowanceEarn: Codable {
+        let sessionId: String
+        let focusedMinutes: Int
+        let endedAt: Date
+
+        /// Entries past this age are dropped on every load — the file must
+        /// not grow unbounded if the backend stays unreachable.
+        static let maxAge: TimeInterval = 7 * 24 * 3600
+
+        private static let lock = NSLock()
+        private static let fileURL: URL = {
+            let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            let dir = support.appendingPathComponent("Intentional", isDirectory: true)
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            return dir.appendingPathComponent("pending_allowance_earns.json")
+        }()
+
+        static func append(_ entry: PendingAllowanceEarn) {
+            lock.lock(); defer { lock.unlock() }
+            saveLocked(loadLocked() + [entry])
+        }
+
+        static func snapshot() -> [PendingAllowanceEarn] {
+            lock.lock(); defer { lock.unlock() }
+            return loadLocked()
+        }
+
+        static func remove(sessionId: String) {
+            lock.lock(); defer { lock.unlock() }
+            saveLocked(loadLocked().filter { $0.sessionId != sessionId })
+        }
+
+        private static func loadLocked() -> [PendingAllowanceEarn] {
+            guard let data = try? Data(contentsOf: fileURL),
+                  let entries = try? JSONDecoder().decode([PendingAllowanceEarn].self, from: data)
+            else { return [] }
+            return entries.filter { Date().timeIntervalSince($0.endedAt) < maxAge }
+        }
+
+        private static func saveLocked(_ entries: [PendingAllowanceEarn]) {
+            if entries.isEmpty {
+                try? FileManager.default.removeItem(at: fileURL)
+            } else if let data = try? JSONEncoder().encode(entries) {
+                try? data.write(to: fileURL, options: .atomic)
+            }
+        }
+    }
+
+    /// Replay earns whose POST failed. Hooks: app launch (after RuleStore is
+    /// wired + pulling) and after any successful earn (backend reachable
+    /// again). Entries are removed only once the server acknowledges them.
+    private func retryPendingAllowanceEarns() {
+        let pending = PendingAllowanceEarn.snapshot()
+        guard !pending.isEmpty else { return }
+        postLog("⏳ Replaying \(pending.count) pending allowance earn(s)")
+        Task { [weak self] in
+            for entry in pending {
+                guard let a = await RuleStore.shared.earn(
+                    focusedMinutes: entry.focusedMinutes, sessionId: entry.sessionId
+                ) else {
+                    // Backend still unreachable — keep this and the rest for
+                    // the next hook instead of hammering a dead connection.
+                    self?.postLog("⏳ Pending earn replay failed (session \(entry.sessionId)) — kept for next attempt")
+                    break
+                }
+                PendingAllowanceEarn.remove(sessionId: entry.sessionId)
+                if a.deduped == true {
+                    self?.postLog("⏳ Pending earn replay deduped (session \(entry.sessionId) already credited)")
+                } else {
+                    self?.postLog("⏳ Pending earn replayed: \(a.creditedMinutes ?? 0) min credited (\(entry.focusedMinutes) focused, session \(entry.sessionId)) — available now \(a.availableMinutes)")
+                }
+            }
+        }
     }
 
     /// Apply the user's default blocking profile (the one with `isDefault: true`).

@@ -14,6 +14,13 @@ class EarnedBrowseManager {
     // MARK: - Feature flag (deferred — see docs/FOCUS_CONCEPTS_SIMPLIFICATION.md)
     /// When false, the manager is inert: public methods early-return, properties
     /// return zero/empty defaults. Code is preserved for re-enable later.
+    ///
+    /// R5 (June 2026): REPLACED by the shared daily allowance — backend
+    /// /allowance/* via RuleStore (earn on session end in AppDelegate, spend
+    /// metering in FocusMonitor's allowance meter, ⏳ gating in
+    /// EnforcementResolver). This flag MUST stay false so the two systems
+    /// never double-meter; deleting this class is slice R6's job
+    /// (docs/superpowers/plans/2026-06-10-rules-consolidation-plan.md).
     static let featureEnabled: Bool = false
 
     weak var appDelegate: AppDelegate?
