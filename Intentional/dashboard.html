@@ -5041,7 +5041,7 @@ body.theme-effects-warm::after {
         </div>
       </div>
       <div class="focus-calendar-header-right" id="calendar-add-buttons">
-        <button class="btn-small" onclick="addFocusBlock('focusHours')" style="background:rgba(var(--accent-primary-rgb),0.1);color:var(--accent-primary);">+ Focus</button>
+        <button class="btn-small" onclick="addFocusBlock('focusHours')" style="background:rgba(var(--accent-primary-rgb),0.1);color:var(--accent-primary);">+ Focus time</button>
         <button class="btn-small btn-small-free" onclick="addFocusBlock('freeTime')">+ Free Time</button>
         <button onclick="navigateToScheduleSettings()" title="Schedule settings" style="background:none;border:none;color:rgba(255,255,255,0.4);font-size:16px;cursor:pointer;padding:2px 6px;margin-left:2px;">&#x2026;</button>
       </div>
@@ -5060,12 +5060,12 @@ body.theme-effects-warm::after {
     <!-- AI Assessments (always visible; shows last 30 coach verdicts) -->
     <div class="settings-card" id="ai-assessments-card" style="margin-top:12px; padding:0;">
       <div class="assessments-card-header">
-        <span class="assessments-card-title">AI Assessments</span>
+        <span class="assessments-card-title">Activity check</span>
         <button class="copy-assessments-btn" onclick="sendMessage({type:'EXPORT_RELEVANCE_LOG'});" title="Open persistent log file">Open Log File</button>
         <button class="copy-assessments-btn" id="copyAssessmentsBtn" onclick="copyAssessments();">Copy</button>
       </div>
       <div id="relevance-log" style="max-height:300px;overflow-y:auto;">
-        <div class="setting-row"><div class="setting-desc">No assessments yet</div></div>
+        <div class="setting-row"><div class="setting-desc">Nothing checked yet</div></div>
       </div>
     </div>
 
@@ -5175,11 +5175,11 @@ body.theme-effects-warm::after {
         <button class="rule-menu-btn" id="rules-allowance-edit-btn" title="Allowance settings" onclick="toggleRulesAllowanceEditor()">✎</button>
       </div>
       <div class="rules-allowance-editor" id="rules-allowance-editor" style="display:none;">
-        <div class="ns-modal-field" style="margin-top:10px;"><label>Daily base minutes (0–240)</label>
+        <div class="ns-modal-field" style="margin-top:10px;"><label>Free minutes each day (0–240)</label>
           <input type="number" min="0" max="240" class="ns-modal-input" id="allowance-base" style="width:110px;"></div>
-        <div class="ns-modal-field"><label>Earn rate (1–20) — <span id="allowance-rate-caption" style="text-transform:none;">5 focused min = 1 allowance min</span></label>
+        <div class="ns-modal-field"><label>How you earn time — <span id="allowance-rate-caption" style="text-transform:none;">every 5 focused minutes adds 1 minute</span></label>
           <input type="number" min="1" max="20" class="ns-modal-input" id="allowance-rate" style="width:110px;" oninput="_updateAllowanceRateCaption()"></div>
-        <div class="ns-modal-field"><label>Bank cap — rollover limit (0–240)</label>
+        <div class="ns-modal-field"><label>Save for tomorrow — up to (minutes)</label>
           <input type="number" min="0" max="240" class="ns-modal-input" id="allowance-cap" style="width:110px;"></div>
         <div class="rule-modal-error" id="allowance-editor-error"></div>
         <div class="ns-modal-footer" style="margin-top:10px;">
@@ -5501,7 +5501,7 @@ body.theme-effects-warm::after {
       <button class="strictness-advanced-toggle" id="strictness-advanced-toggle" onclick="toggleStrictnessAdvanced()">Advanced…</button>
       <div id="strictness-advanced" style="display:none;">
     <div class="settings-card" id="enforcement-settings-card">
-      <div class="settings-card-title">Per-mechanism overrides</div>
+      <div class="settings-card-title">Fine-tune what happens</div>
       <style>
         .enf-grid {
           display: grid;
@@ -5549,13 +5549,13 @@ body.theme-effects-warm::after {
         </div>
 
         <div class="enf-row">
-          <div class="enf-label">Screen red shift</div>
+          <div class="enf-label">Tint the screen red</div>
           <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-dw-redshift" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
           <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-fh-redshift" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
         </div>
 
         <div class="enf-row">
-          <div class="enf-label">Auto-redirect</div>
+          <div class="enf-label">Send me back to my work</div>
           <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-dw-redirect" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
           <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-fh-redirect" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
         </div>
@@ -5567,7 +5567,7 @@ body.theme-effects-warm::after {
         </div>
 
         <div class="enf-row">
-          <div class="enf-label">Intervention exercises</div>
+          <div class="enf-label">Make me pause and refocus</div>
           <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-dw-intervention" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
           <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-fh-intervention" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
         </div>
@@ -5579,7 +5579,7 @@ body.theme-effects-warm::after {
         </div>
 
         <div class="enf-row">
-          <div class="enf-label">Context-switch countdown</div>
+          <div class="enf-label">Countdown before switching apps</div>
           <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-dw-contextswitch" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
           <div class="enf-toggle"><label class="toggle"><input type="checkbox" id="enf-fh-contextswitch" onchange="onEnforcementSettingChange()"><span class="toggle-track"></span></label></div>
         </div>
@@ -5595,7 +5595,7 @@ body.theme-effects-warm::after {
       <div class="setting-row">
         <div>
           <div class="setting-label">Screen Lock</div>
-          <div class="setting-desc">Block your screen until you set a focus mode for your time</div>
+          <div class="setting-desc">Lock your screen until you start a session</div>
         </div>
         <label class="toggle">
           <input type="checkbox" id="intentional-mode-enabled" onchange="onIntentionalModeChange()">
@@ -5606,12 +5606,12 @@ body.theme-effects-warm::after {
         <div class="setting-row">
           <div>
             <div class="setting-label">Schedule</div>
-            <div class="setting-desc">When should Intentional Mode be active?</div>
+            <div class="setting-desc">When should Screen Lock be on?</div>
           </div>
           <select id="intentional-mode-schedule" class="setting-select" onchange="onIntentionalModeChange()" style="width: 140px; padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: white; font-size: 13px;">
             <option value="always">Always</option>
-            <option value="custom">Custom Hours</option>
-            <option value="puckOnly">Puck Only</option>
+            <option value="custom">Custom hours</option>
+            <option value="puckOnly">Only when Puck is on</option>
           </select>
         </div>
         <div id="intentional-mode-custom-hours" style="display: none; padding: 4px 20px 12px;">
@@ -5701,10 +5701,10 @@ body.theme-effects-warm::after {
     <div class="settings-detail" id="settings-detail-bedtime">
       <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
       <div class="settings-detail-title">Bedtime</div>
-      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">Wind-down and sleep enforcement</div>
+      <div class="settings-detail-sub" style="font-size:12px;color:var(--text-secondary);margin-bottom:16px;">Reminders, then the screen locks</div>
       <div class="settings-card" style="padding:16px;">
         <div class="setting-row">
-          <div><div class="setting-label">Bedtime Enforcer</div><div class="setting-desc">15-min wind-down, then lockout with 3-min auto-sleep</div></div>
+          <div><div class="setting-label">Bedtime</div><div class="setting-desc">Reminders starting 15 min before, then your Mac locks at bedtime.</div></div>
           <label class="toggle"><input type="checkbox" id="bedtime-enabled"><span class="toggle-track"></span></label>
         </div>
         <div class="setting-row">
@@ -5786,7 +5786,7 @@ body.theme-effects-warm::after {
     <details class="ns-modal-section">
       <summary>Weekly goal link</summary>
       <select class="ns-modal-input" id="ns-goal-link">
-        <option value="">No goal — standalone session</option>
+        <option value="">Not linked to a goal</option>
       </select>
     </details>
 
@@ -6301,7 +6301,7 @@ window._strictModeLocksResult = function(res) {
   }
   _updateStrictModeUI();
   if (typeof showToast === 'function') {
-    showToast('Strict Mode — unlocking a protection needs a partner code', 'error');
+    showToast('Locked by Strict Mode — ask your partner for the code to change this.', 'error');
   }
   onRequestStrictDisable();
 };
@@ -9181,7 +9181,7 @@ function _rulesStrictGate(rule, change) {
   var locked = !!s.enabled && !s.isUnlocked;
   if (!locked || !isLooseningAction(rule, change)) return false;
   sendMessage({ type: 'OPEN_PARTNER_UNLOCK_SHEET', purpose: 'rules_loosening' });
-  if (typeof showToast === 'function') showToast('Strict Mode — loosening a rule needs a partner code', 'error');
+  if (typeof showToast === 'function') showToast('Locked by Strict Mode — ask your partner for the code to change this.', 'error');
   return true;
 }
 
@@ -9611,10 +9611,11 @@ function _renderAllowanceCard() {
   }
   var left = (p.available_minutes != null) ? p.available_minutes : '—';
   headline.textContent = '⏳ Allowance · ' + left + ' min left today';
+  // Plain-language breakdown (2026-06-11, jargon audit P0-1) — no formula dump.
   breakdown.textContent =
-    'Base ' + p.base_minutes + ' · Earned ' + p.earned_minutes +
-    ' · Spent ' + p.spent_minutes + ' · Bank ' + p.bank_minutes + '/' + p.bank_cap +
-    ' · ' + p.earn_rate + ' focused min = 1 allowance min';
+    p.base_minutes + ' free min daily + ' + p.earned_minutes + ' earned − ' +
+    p.spent_minutes + ' used · ' + p.bank_minutes + ' min saved for tomorrow (max ' +
+    p.bank_cap + ') · every ' + p.earn_rate + ' focused min earns 1';
 }
 
 function toggleRulesAllowanceEditor(show) {
@@ -9640,7 +9641,7 @@ function _updateAllowanceRateCaption() {
   var cap = document.getElementById('allowance-rate-caption');
   if (!el || !cap) return;
   var v = parseInt(el.value, 10);
-  cap.textContent = (isNaN(v) ? '?' : v) + ' focused min = 1 allowance min';
+  cap.textContent = 'every ' + (isNaN(v) ? '?' : v) + ' focused minutes adds 1 minute';
 }
 window._updateAllowanceRateCaption = _updateAllowanceRateCaption;
 
@@ -9663,9 +9664,9 @@ function saveRulesAllowanceConfig() {
   var rate = parseInt((document.getElementById('allowance-rate') || {}).value, 10);
   var cap = parseInt((document.getElementById('allowance-cap') || {}).value, 10);
   // Same ranges the backend enforces (it 422s outside these).
-  if (isNaN(base) || base < 0 || base > 240) { _showAllowanceError('Daily base must be 0–240 minutes.'); return; }
-  if (isNaN(rate) || rate < 1 || rate > 20) { _showAllowanceError('Earn rate must be 1–20.'); return; }
-  if (isNaN(cap) || cap < 0 || cap > 240) { _showAllowanceError('Bank cap must be 0–240 minutes.'); return; }
+  if (isNaN(base) || base < 0 || base > 240) { _showAllowanceError('Free minutes must be 0–240.'); return; }
+  if (isNaN(rate) || rate < 1 || rate > 20) { _showAllowanceError('Earn amount must be 1–20.'); return; }
+  if (isNaN(cap) || cap < 0 || cap > 240) { _showAllowanceError('You can save 0–240 minutes for tomorrow.'); return; }
 
   // Asymmetric gate: any LOOSENING field (raise base, lower rate, raise cap)
   // partner-gates the whole save while Strict Mode is locked. Tightening-only
@@ -9678,7 +9679,7 @@ function saveRulesAllowanceConfig() {
   var s = window._strictModeState || {};
   if (loosening && s.enabled && !s.isUnlocked) {
     sendMessage({ type: 'OPEN_PARTNER_UNLOCK_SHEET', purpose: 'rules_loosening' });
-    if (typeof showToast === 'function') showToast('Strict Mode — loosening the allowance needs a partner code', 'error');
+    if (typeof showToast === 'function') showToast('Locked by Strict Mode — ask your partner for the code to change this.', 'error');
     return;
   }
 
@@ -9951,7 +9952,7 @@ function renderGoalEdit(id) {
   var intentLen = (g.intent_text || '').length;
   var blockCount = ((g.mac_websites || []).length) + ((g.mac_bundle_ids || []).length);
   var allowCount = ((g.allow_websites || []).length) + ((g.allow_bundle_ids || []).length);
-  var monthlyLabel = monthly ? monthly.title : 'No link · standalone';
+  var monthlyLabel = monthly ? monthly.title : 'No goal linked';
   var status = g.status || 'planned';
   var strict = g.strictness_preset || 'standard';
   // FIX-10: When a session of THIS goal is currently active, strictness changes
@@ -10199,7 +10200,7 @@ function renderGoalEditCreate() {
           </div>
         </div>
         <div class="modal-field"><label>For monthly goal</label>
-          <div class="modal-input" id="ge-monthly-picker" style="cursor:pointer;" onclick="alert('Pick a monthly goal after creating this weekly goal.')">No link · standalone</div>
+          <div class="modal-input" id="ge-monthly-picker" style="cursor:pointer;" onclick="alert('Pick a monthly goal after creating this weekly goal.')">No goal linked</div>
         </div>
       </div>
       <div class="ge-divider"></div>
@@ -10597,7 +10598,7 @@ function populateIntentionPicker(sel, block) {
   sel.innerHTML = '';
   var opt0 = document.createElement('option');
   opt0.value = '';
-  opt0.textContent = '(none)';
+  opt0.textContent = 'No goal — just this session';
   sel.appendChild(opt0);
 
   // Only show weekly goals from THIS week. The legacy "Focus Mode" dropdown
@@ -12754,7 +12755,7 @@ window._relevanceLogResult = function(entries) {
   var container = document.getElementById('relevance-log');
   if (!container) return;
   if (!entries || !entries.length) {
-    container.innerHTML = '<div class="setting-row"><div class="setting-desc">No assessments yet</div></div>';
+    container.innerHTML = '<div class="setting-row"><div class="setting-desc">Nothing checked yet</div></div>';
     return;
   }
   var html = '';
@@ -13165,8 +13166,8 @@ const ProjectsController = (() => {
   function renderNewTile() {
     return `
       <div class="projects-card projects-card--new" onclick="ProjectsController.openNew()">
-        <div class="projects-card-title" style="opacity: 0.6;">+ New Focus Mode</div>
-        <div class="projects-card-intention" style="opacity: 0.5;">Define a focus mode, pick a blocklist, get to work.</div>
+        <div class="projects-card-title" style="opacity: 0.6;">+ New goal</div>
+        <div class="projects-card-intention" style="opacity: 0.5;">Name a goal, set your rules, get to work.</div>
       </div>`;
   }
 
@@ -13571,7 +13572,7 @@ const ProjectsController = (() => {
     const isStandard = !isStrict;
     const currentWeekly = (formState.weekly_budget_hours != null) ? formState.weekly_budget_hours : '';
     const titleValue = isNew ? '' : (formState.name || '');
-    const namePlaceholder = isNew ? 'Untitled focus mode' : 'Coding';
+    const namePlaceholder = isNew ? 'Name your goal' : 'Coding';
 
     root.innerHTML = `
       <div class="fm-v3">
@@ -13815,7 +13816,7 @@ const ProjectsController = (() => {
 
   function renderBlocklistChips() {
     if (!state.blocklists || state.blocklists.length === 0) {
-      return `<div class="field-helper" style="font-size:12px;color:var(--text-tertiary);font-style:italic;">No blocklists yet. Create one in Distractions.</div>`;
+      return `<div class="field-helper" style="font-size:12px;color:var(--text-tertiary);font-style:italic;">No rules yet. Add some on the Rules page.</div>`;
     }
     const selected = new Set(formState.blocklistIds || []);
     return '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
@@ -14215,7 +14216,7 @@ function onChangeStrictness(intentionId, toPreset, intentionName, currentPreset)
   }
   if (currentPreset === 'standard' && toPreset === 'soft') {
     // 24h cool-down: D15 warm-tone confirm dialog.
-    if (confirm("Tomorrow you, not right-now you, gets the change.\n\nYou picked Standard because it's where the work happens. The cool-down is the part that protects that decision.\n\nThis change takes effect in 24 hours. You can cancel any time before then.")) {
+    if (confirm("This change takes effect in 24 hours, so future-you gets a say. You can cancel anytime before then. Continue?")) {
       sendStrictnessUpdate(intentionId, toPreset);
     }
     return;
@@ -14325,7 +14326,7 @@ window._navigateToIntentionEditor = function(intentionId) {
 <!-- Spec 3 (May 2026): inline + Create new Intention mini-editor -->
 <div id="intention-mini-editor" style="display:none;position:fixed;top:0;right:0;bottom:0;width:380px;background:#1a1a1a;border-left:1px solid rgba(255,255,255,0.08);box-shadow:-8px 0 24px rgba(0,0,0,0.4);z-index:9999;padding:24px;transform:translateX(100%);transition:transform 0.25s ease;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-    <div style="font-size:16px;font-weight:600;color:#fff;">New Focus Mode</div>
+    <div style="font-size:16px;font-weight:600;color:#fff;">New weekly goal</div>
     <button class="btn-small" onclick="closeIntentionMiniEditor(null)">×</button>
   </div>
   <div class="block-editor-row">
@@ -14472,10 +14473,20 @@ function _currentISOMonday() {
 }
 
 const _MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const _MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const _WEEKDAYS_FULL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 function _labelForIsoMonday(iso) {
   const d = new Date(iso + 'T00:00:00');
   return `${_MONTHS_SHORT[d.getMonth()]} ${d.getDate()}`;
 }
+// Real date for the Plan page eyebrow (was hardcoded "Wednesday · Week 2 of May").
+function _todayEyebrow() {
+  const d = new Date();
+  const weekOfMonth = Math.ceil(d.getDate() / 7);
+  return `${_WEEKDAYS_FULL[d.getDay()]} · Week ${weekOfMonth} of ${_MONTHS_FULL[d.getMonth()]}`;
+}
+function _todayWeekday() { return _WEEKDAYS_FULL[new Date().getDay()]; }
+function _thisMonthFull() { return _MONTHS_FULL[new Date().getMonth()]; }
 
 function buildWeeksList(intentionsCache) {
   const current = _currentISOMonday();
@@ -14543,7 +14554,7 @@ function openLogTimeModal(goalId) {
         '<div class="ns-modal-field"><label>How many minutes did you spend?</label>' +
           '<input type="number" id="logtime-minutes" class="ns-modal-input" min="1" max="600" value="30" autofocus>' +
         '</div>' +
-        '<div class="setting-desc" style="padding:0 4px 8px; font-size:11px;">Adds a backend focus session — counts toward your hours_done.</div>' +
+        '<div class="setting-desc" style="padding:0 4px 8px; font-size:11px;">This time counts toward your goal\'s progress.</div>' +
         '<div class="ns-modal-footer" style="margin-top:10px;">' +
           '<button class="btn-quiet" onclick="_closeLogTimeModal()">Cancel</button>' +
           '<button class="ge-done-btn" onclick="_submitLogTime(\'' + _escapeHTML(goalId) + '\')">Log</button>' +
@@ -15295,7 +15306,7 @@ function PlanApp() {
         <div>
           <div className="eyebrow-row">
             {isCurrent
-              ? 'Wednesday · Week 2 of May'
+              ? _todayEyebrow()
               : `Viewing week of ${currentWeek?.label}`}
           </div>
           <h1>Your goals</h1>
@@ -15351,7 +15362,7 @@ function PlanApp() {
       )}
 
       <div>
-        <div className="eyebrow">May</div>
+        <div className="eyebrow">{_thisMonthFull()}</div>
         {MONTHLY.length === 0 ? (
           <div className="plan-empty-cta"
             onClick={() => window.openMonthlyGoalCreate && window.openMonthlyGoalCreate()}>
@@ -15403,7 +15414,7 @@ function PlanApp() {
 
       {isCurrent && (
         <div>
-          <div className="eyebrow">Today · Wednesday</div>
+          <div className="eyebrow">Today · {_todayWeekday()}</div>
           <TimelineStrip
             blocks={blocks}
             setBlocks={setBlocks}
@@ -15478,7 +15489,7 @@ window.PlanApp = PlanApp;
     // Populate weekly goal dropdown from intentions cache
     var sel = document.getElementById('ns-goal-link');
     if (sel) {
-      sel.innerHTML = '<option value="">No goal — standalone session</option>';
+      sel.innerHTML = '<option value="">Not linked to a goal</option>';
       var goals = window._intentionsCache || [];
       goals.forEach(function (g) {
         if (!g || g.deleted_at) return;
