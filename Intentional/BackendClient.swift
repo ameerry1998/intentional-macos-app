@@ -1595,6 +1595,30 @@ class BackendClient {
         }
     }
 
+    /// GET /intentions/{id}/sessions?limit=N — recent focus_sessions rows for
+    /// the goal (started_at, ended_at, duration_seconds, focus_score,
+    /// triggered_by), newest first. Returns nil on any network/decode error
+    /// so the caller can fall back to the local cache.
+    func getIntentionSessions(id: UUID, limit: Int = 20) async -> [GoalSession]? {
+        var components = URLComponents(string: "\(baseURL)/intentions/\(id.uuidString)/sessions")
+        components?.queryItems = [URLQueryItem(name: "limit", value: String(limit))]
+        guard let url = components?.url else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                return nil
+            }
+            struct SessionsResponse: Codable { let sessions: [GoalSession] }
+            let resp = try GoalSessionHistoryCache.wireDecoder().decode(SessionsResponse.self, from: data)
+            return resp.sessions
+        } catch {
+            return nil
+        }
+    }
+
     /// POST /intentions — server assigns id and version=1.
     func createIntention(_ payload: IntentionCreatePayload) async throws -> Intention {
         guard let url = URL(string: "\(baseURL)/intentions") else {

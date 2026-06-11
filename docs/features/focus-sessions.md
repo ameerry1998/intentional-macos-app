@@ -2,7 +2,7 @@
 feature: FocusSessions
 status: shipping
 owner: Intentional Mac
-last_verified: 2026-06-10
+last_verified: 2026-06-11
 files:
   - Intentional/FocusModeController.swift
   - Intentional/FocusStatePoller.swift
@@ -10,6 +10,8 @@ files:
   - Intentional/ScheduleManager.swift
   - Intentional/AppDelegate.swift
   - Intentional/BlockEndRitualController.swift
+  - Intentional/SessionFocusScore.swift
+  - Intentional/GoalSessionHistory.swift
 related:
   - intentions
   - schedule-manager
@@ -208,6 +210,8 @@ sequenceDiagram
 | `Intentional/ScheduleManager.swift` | ~800+ | Manages daily schedule (`daily_schedule.json`), 10s block-check timer, `onBlockChanged` callback routing into `FocusModeController` |
 | `Intentional/AppDelegate.swift` | ~2478 | Wires all components, hosts `focusModeController.onStateChanged` fanout callback (line 720), boot reconcile (line 893), initial block sync (line 1103) |
 | `Intentional/BlockEndRitualController.swift` | ~400 | Full-screen end-of-block celebration carousel (focus score, app breakdown, up-next block) |
+| `Intentional/SessionFocusScore.swift` | ~95 | Derives the stop-POST `focus_score` (0.0–1.0) from `relevance_log.jsonl` assessments inside the session window (excludes `isEvent` + `neutral` lines; nil under 3 samples — never fabricated) |
+| `Intentional/GoalSessionHistory.swift` | ~115 | `GoalSession` wire model for `GET /intentions/{id}/sessions` + `session_history.json` cache backing the goal editor's "Recent sessions" panel (`GET_GOAL_SESSIONS` → `_goalSessions`) |
 
 ---
 
@@ -223,7 +227,7 @@ sequenceDiagram
 | `FocusStatePoller.applyTransition(active:sessionId:triggeredBy:intentionId:)` | `FocusStatePoller.swift` | L114 | Detects START / STOP / SESSION_CHANGE transitions; ignores `triggeredBy == "puck"` | `poll()` (on `MainActor`) |
 | `FocusStatePoller.disengageIfRemoteOriginated()` | `FocusStatePoller.swift` | L177 | Only deactivates if `currentPeriod.source == .puck || .crossDevice`; manual/schedule sessions are not killed by backend stop | `applyTransition` on STOP detected |
 | `AppDelegate.onStateChanged` (closure) | `AppDelegate.swift` | L720 | The master fanout: clears cache, injects synthetic block, fans out to earnedBrowse, focusMonitor, applies blocklist, runs sweep, pushes dashboard update | `FocusModeController.notify()` |
-| `AppDelegate.postFocusToggleToBackend(action:)` | `AppDelegate.swift` | L1753 | Fire-and-forget POST `/focus/toggle` with `X-Device-ID`. No retry — next poller tick reconciles on failure | `onStateChanged` (for locally-originated transitions only) |
+| `AppDelegate.postFocusToggleToBackend(action:intentionId:focusScore:)` | `AppDelegate.swift` | ~L1800 | Fire-and-forget POST `/focus/toggle` with `X-Device-ID`. Start carries `intention_id`; stop carries the derived `focus_score` (June 2026 — backend `focus_sessions.focus_score` is the permanent record). No retry — next poller tick reconciles on failure | `onStateChanged` (for locally-originated transitions only) |
 | `AppDelegate.applyDefaultBlockingProfile()` | `AppDelegate.swift` | L1778 | Reads `blockingProfileManager.profiles.first(where: { $0.isDefault })`, pushes domains + bundleIds to `WebsiteBlocker` and `FocusMonitor` | `onStateChanged` on enter-`.focus`; boot reconcile at line 895 |
 | `ScheduleManager.recalculateState(forceCallback:)` | `ScheduleManager.swift` | ~L700 | Computes `currentBlock` + `currentTimeState` from clock; fires `onBlockChanged` only on change (or if `forceCallback`) | 10s block-check timer; `pullFromBackend`; `injectFocusSessionBlock` |
 | `FocusMonitor.onBlockChanged()` | `FocusMonitor.swift` | ~L500 | Re-evaluates current app/tab, starts or stops enforcement, shows/dismisses start ritual | `AppDelegate.onStateChanged`; boot reconcile |

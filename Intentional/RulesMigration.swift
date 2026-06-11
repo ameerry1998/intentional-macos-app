@@ -3,7 +3,8 @@
 // Rules Consolidation R6 (June 2026) — one-shot runner that moves the legacy
 // list systems into the unified `rules` table (backend) via RuleStore.
 //
-// Receipt: migration_rules_v1.json (same pattern as IntentionMigration):
+// Receipt: migration_rules_v1.json (same pattern as the May 2026 projects →
+// intentions migration, since deleted):
 //   - {"completed_at": ...} → done, run() is a no-op forever.
 //   - {"partial_processed": [keys...]} → a previous run created SOME rules
 //     and hit a failure; next launch resumes from where it stopped (created

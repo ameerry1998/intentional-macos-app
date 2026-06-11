@@ -103,7 +103,7 @@ struct MergedBlockList {
 
 // MARK: - BlockingProfileManager
 
-@available(*, deprecated, message: "Profile concept folded into Focus Mode app rules. Use FocusModeStore. Will be removed in slice 13.")
+@available(*, deprecated, message: "Profile concept folded into Focus Mode app rules. Use IntentionStore. Will be removed in slice 13.")
 class BlockingProfileManager {
 
     // MARK: - Storage

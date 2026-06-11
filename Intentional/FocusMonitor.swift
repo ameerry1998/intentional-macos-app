@@ -1268,7 +1268,7 @@ class FocusMonitor {
     /// of the active Focus Mode, or "standard" as fallback when none is set.
     private func currentBlockStrictness() -> String {
         // Spec 1 + slice 2: each block has an intention (Focus Mode) id.
-        // Look it up via IntentionStore (renamed-via-alias FocusModeStore in slice 2).
+        // Look it up via IntentionStore.
         guard let uuid = scheduleManager?.currentBlock?.intentionId else {
             return "standard"
         }

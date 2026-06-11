@@ -79,8 +79,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var stageOneIntentController: StageOneIntentWindowController?
     var sweepReviewController: SweepReviewWindowController?
 
-    var projectStore: ProjectStore?
-
     // Spec 1: cross-device account-scoped focus presets (replaces local-only Project)
     var intentionStore: IntentionStore?
 
@@ -101,48 +99,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // banner via window._entitlementState. Wired after mainWindowController exists.
     private var lapsedBanner: LapsedSubscriberBanner?
 
-    // Transient: which project's session is currently active (replaces
-    // FocusBlock.projectId; cleared on block end in onBlockChanged).
-    private(set) var activeProjectSession: (projectId: UUID, blockId: String)?
-
-    func setActiveProjectSession(projectId: UUID, blockId: String) {
-        self.activeProjectSession = (projectId, blockId)
-        Task { await self.refreshProjectEnforcement(for: projectId) }
-    }
-
-    func clearActiveProjectSession() {
-        self.activeProjectSession = nil
-        self.focusMonitor?.projectEnforcement = nil
-        // R4(a): drop the goal's allow list alongside its block/allow overlay.
-        self.websiteBlocker?.setSessionAllowedDomains([])
-    }
-
-    /// Call after an in-session project edit so the new allow/block lists take effect.
-    func refreshActiveProjectEnforcement() {
-        guard let pid = activeProjectSession?.projectId else { return }
-        Task { await self.refreshProjectEnforcement(for: pid) }
-    }
-
-    /// Sync `activeProjectSession` to the current schedule block. Called on app startup
-    /// and whenever the active block changes — the in-memory session isn't otherwise
-    /// restored after a restart and queued sessions don't auto-activate when their
-    /// block becomes current.
-    func ensureProjectSessionMatchesCurrentBlock() {
-        guard let block = scheduleManager?.currentBlock else { return }
-        if activeProjectSession?.blockId == block.id { return }
-        guard let store = projectStore else { return }
-        Task {
-            let all = await store.list()
-            let match = all.first { p in
-                p.sessions.contains { $0.blockId?.uuidString == block.id }
-            }
-            guard let project = match else { return }
-            await MainActor.run {
-                guard self.scheduleManager?.currentBlock?.id == block.id else { return }
-                self.setActiveProjectSession(projectId: project.id, blockId: block.id)
-            }
-        }
-    }
+    // B3 (projects kill, June 2026): `activeProjectSession` and its
+    // set/clear/ensure plumbing are gone. The active session's goal lives in
+    // FocusModeController.currentPeriod.intentionId (set by every activation
+    // path — manual, schedule, poller, WS) and per-goal enforcement flows
+    // exclusively through refreshIntentionEnforcement via the
+    // focusModeController.onStateChanged fanout.
 
     /// Per-goal enforcement from the Weekly Goal (Intention) itself — the canonical
     /// source post-Spec-1. `macWebsites`/`macBundleIds` block; `allowWebsites`/
@@ -165,7 +127,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         await MainActor.run {
             // Stale-guard: only apply if this goal is still the active session's goal.
             let activeGoal = self.focusModeController?.currentPeriod?.intentionId
-            guard activeGoal == intentionId || self.activeProjectSession?.projectId == intentionId else { return }
+            guard activeGoal == intentionId else { return }
             self.focusMonitor?.projectEnforcement = enforcement
             // R4(a): the tab sweep must honor the goal's Allow list too —
             // without this, a goal-allowed domain that's also in the default
@@ -174,54 +136,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.postLog("🎯 Goal enforcement active: \(intention.name) — block \(enforcement.blockedDomains.count)d/\(enforcement.blockedBundleIds.count)a, allow \(enforcement.allowedDomains.count)d/\(enforcement.allowedBundleIds.count)a")
         }
     }
-
-    private func refreshProjectEnforcement(for projectId: UUID) async {
-        guard let store = projectStore,
-              let project = await store.get(id: projectId) else {
-            // No legacy Project with this id — post-migration goals live only in
-            // IntentionStore. Fall through to goal-based enforcement instead of
-            // clearing (clearing silently disabled per-goal lists for manual starts
-            // of goals created after the May 2026 migration).
-            await refreshIntentionEnforcement(for: projectId)
-            return
-        }
-        let merged = blockingProfileManager?.mergedBlockList(profileIds: project.blocklistIds)
-        var allowedBundleIds = Set<String>()
-        var allowedDomains = Set<String>()
-        for item in project.allowed {
-            switch item.kind {
-            case .appBundleId: allowedBundleIds.insert(item.value)
-            case .domain: allowedDomains.insert(item.value.lowercased())
-            }
-        }
-        var blockedBundleIds = Set<String>()
-        var blockedDomains = Set<String>()
-        for item in project.blocked {
-            switch item.kind {
-            case .appBundleId: blockedBundleIds.insert(item.value)
-            case .domain: blockedDomains.insert(item.value.lowercased())
-            }
-        }
-        if let merged = merged {
-            for app in merged.appBundleIds { blockedBundleIds.insert(app) }
-            for d in merged.domains { blockedDomains.insert(d.lowercased()) }
-        }
-        let enforcement = FocusMonitor.ProjectEnforcement(
-            projectId: projectId,
-            allowedBundleIds: allowedBundleIds,
-            allowedDomains: allowedDomains,
-            blockedBundleIds: blockedBundleIds,
-            blockedDomains: blockedDomains
-        )
-        await MainActor.run {
-            guard self.activeProjectSession?.projectId == projectId else { return }
-            self.focusMonitor?.projectEnforcement = enforcement
-            // R4(a): mirror the allow list into the tab sweep (legacy path).
-            self.websiteBlocker?.setSessionAllowedDomains(Array(enforcement.allowedDomains))
-        }
-    }
-
-    var activeProjectId: UUID? { activeProjectSession?.projectId }
 
     var focusWebSocketClient: FocusWebSocketClient?
     var focusStatePoller: FocusStatePoller?
@@ -634,35 +548,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Earn Your Browse budget system: deleted in R6 (June 2026). The
         // shared daily allowance (RuleStore + /allowance/*) replaced it.
 
-        // Initialize Projects store
-        projectStore = ProjectStore()
-        postLog("📁 ProjectStore initialized")
+        // B3 (projects kill, June 2026): ProjectStore + IntentionMigration are
+        // deleted. The May 2026 projects.json → Intentions migration is
+        // receipt-complete on every install that ever held projects;
+        // projects.json / projects.legacy.json stay on disk untouched.
 
-        // Spec 1: IntentionStore (cross-device focus presets via backend) + one-time migration
+        // Spec 1: IntentionStore (cross-device focus presets via backend)
         intentionStore = IntentionStore.shared
         Task { @MainActor in
             await intentionStore?.wire(backend: backendClient!, appDelegate: self)
             await intentionStore?.pull()
 
-            // Run one-time migration of local projects.json → backend Intentions.
-            // Idempotent + resumable; receipt at ~/Library/Application Support/Intentional/migration_intentions_v1.json
-            let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            let dir = support.appendingPathComponent("Intentional", isDirectory: true)
-            let migration = IntentionMigration(
-                projectStore: self.projectStore,
-                blockingProfileManager: self.blockingProfileManager,
-                intentionStore: self.intentionStore!,
-                backend: self.backendClient!,
-                settingsDir: dir
-            )
-            await migration.run(log: { msg in
-                Task { @MainActor in self.postLog(msg) }
-            })
-
             // May 2026 prototype → production: one-shot migration —
             // copy Intention.description → intentText for goals that don't have it.
             if let store = self.intentionStore {
                 await IntentTextMigration.runIfNeeded(intentionStore: store) { msg in
+                    Task { @MainActor in self.postLog(msg) }
+                }
+
+                // B3: one-shot port of legacy per-project learned sites into
+                // LearnedSitesStore (keyed by intentionId, mapped by name).
+                // Idempotent via migration_learned_sites_v1.json.
+                await LearnedSitesStore.shared.migrateFromLegacyProjectsIfNeeded(
+                    intentionStore: store
+                ) { msg in
                     Task { @MainActor in self.postLog(msg) }
                 }
             }
@@ -800,6 +709,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // notify), so we use the period captured at activation. Intention
             // swaps keep the same period id/startedAt (activate() preserves
             // them), so one session = one earn = one server-side dedupe key.
+            // B2 (projects kill): snapshot the ended session's period BEFORE the
+            // earn branch consumes it — the stop POST below derives focus_score
+            // from the session window (period is nil on deactivate).
+            let endedPeriod: FocusModeController.Period? =
+                (old == .focus && new != .focus) ? self.pendingAllowanceEarnPeriod : nil
+
             if old == .focus && new != .focus, let ended = self.pendingAllowanceEarnPeriod {
                 self.pendingAllowanceEarnPeriod = nil
                 self.postAllowanceEarn(for: ended)
@@ -836,7 +751,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     if new == .focus {
                         self.postFocusToggleToBackend(action: "start", intentionId: period?.intentionId)
                     } else if new == .off && old == .focus {
-                        self.postFocusToggleToBackend(action: "stop")
+                        // B2: derive the session's focus score from the relevance
+                        // log (relevant vs not-relevant assessments inside the
+                        // session window; events + neutral entries excluded — see
+                        // SessionFocusScore.swift). The log read is bounded but
+                        // touches disk, so compute off the main thread, then post.
+                        let sessionStart = endedPeriod?.startedAt
+                        Task.detached(priority: .utility) { [weak self] in
+                            let score = sessionStart.flatMap {
+                                SessionFocusScore.compute(sessionStart: $0)
+                            }
+                            await MainActor.run {
+                                if let score = score {
+                                    self?.postLog("🎯 Session focus_score derived: \(String(format: "%.3f", score)) (window start \(sessionStart.map { ISO8601DateFormatter().string(from: $0) } ?? "-"))")
+                                } else {
+                                    self?.postLog("🎯 Session focus_score: nil (under \(SessionFocusScore.minimumSamples) qualifying assessments in window — sending stop without score)")
+                                }
+                                self?.postFocusToggleToBackend(action: "stop", focusScore: score)
+                            }
+                        }
                     }
                 }
             }
@@ -883,11 +816,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.applyDefaultBlockingProfile()
             }
 
-            if new == .focus, let goalId = period?.intentionId {
-                // Per-goal block/allow lists + stacks on the default profile above.
-                // Covers schedule starts (which never call setActiveProjectSession)
-                // and is idempotent with the manual path's refresh.
-                Task { await self.refreshIntentionEnforcement(for: goalId) }
+            if new == .focus {
+                if let goalId = period?.intentionId {
+                    // Per-goal block/allow lists + stacks on the default profile
+                    // above. THE single enforcement path for every activation
+                    // source (manual, schedule, poller/WS) post projects-kill.
+                    Task { await self.refreshIntentionEnforcement(for: goalId) }
+                } else {
+                    // Goal-less session (e.g. dashboard toggle without a goal, or
+                    // a block with no bound Intention): drop any previous goal's
+                    // overlay so it doesn't leak across sessions. Pre-B3 this
+                    // clearing lived in clearActiveProjectSession on block change.
+                    self.focusMonitor?.projectEnforcement = nil
+                    self.websiteBlocker?.setSessionAllowedDomains([])
+                }
             }
 
             if new == .focus {
@@ -1160,28 +1102,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // If celebration was skipped but pill was in blockComplete, resume deferred start
             self.focusMonitor?.resumeIfPendingBlockStart()
 
-            if let tracked = self.activeProjectSession?.blockId, block?.id != tracked {
-                // Finalize the session BEFORE clearing so we can look up the session id
-                // and snapshot the focus score for the just-ended block.
-                if let projectId = self.activeProjectSession?.projectId,
-                   let blockUUID = UUID(uuidString: tracked),
-                   let store = self.projectStore {
-                    // R6: EarnedBrowse per-block focus score retired — it had
-                    // been nil at runtime since the engine's flag went false.
-                    let scoreFraction: Double? = nil
-                    Task {
-                        if let sid = await store.findActiveSession(projectId: projectId, blockId: blockUUID) {
-                            _ = await store.recordSessionEnd(
-                                projectId: projectId,
-                                sessionId: sid,
-                                focusScore: scoreFraction
-                            )
-                        }
-                    }
-                }
-                self.clearActiveProjectSession()
-            }
-            self.ensureProjectSessionMatchesCurrentBlock()
+            // B3 (projects kill): local SessionEntry bookkeeping is gone — the
+            // backend's focus_sessions table is the permanent session record
+            // (focus_score included, posted by the stop branch of the
+            // focusModeController fanout). Per-goal enforcement clearing on
+            // block change also lives in that fanout now.
         }
 
         // ScheduleManager.init() already called recalculateState(), but the callback
@@ -1189,7 +1114,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // immediately when the app starts during a work block.
         if scheduleManager?.currentBlock != nil {
             focusMonitor?.onBlockChanged()
-            ensureProjectSessionMatchesCurrentBlock()
         }
 
         // Spec 3 (May 2026): rebind any block.profileIds → block.intentionId.
@@ -1870,7 +1794,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// feedback; this fires async to mirror the change to backend so other
     /// devices (iPhone, future) and the Mac's own poller see it. On failure
     /// the next poller tick reconciles (backend wins).
-    func postFocusToggleToBackend(action: String, intentionId: UUID? = nil) {
+    func postFocusToggleToBackend(action: String, intentionId: UUID? = nil, focusScore: Double? = nil) {
         guard let deviceId = backendClient?.getDeviceId(),
               let url = URL(string: "https://api.intentional.social/focus/toggle") else { return }
         var req = URLRequest(url: url)
@@ -1882,6 +1806,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Without triggered_by the backend records "puck" for Mac-originated sessions.
         var body: [String: Any] = ["action": action, "triggered_by": "mac"]
         if let intentionId = intentionId { body["intention_id"] = intentionId.uuidString }
+        // B2: stop carries the session's derived focus score (0.0–1.0) so the
+        // backend's focus_sessions row is the permanent record. nil = no sound
+        // signal (key omitted; never fabricate).
+        if let focusScore = focusScore {
+            body["focus_score"] = (focusScore * 1000).rounded() / 1000
+        }
         req.httpBody = try? JSONSerialization.data(withJSONObject: body)
         req.timeoutInterval = 5
         URLSession.shared.dataTask(with: req) { [weak self] _, response, error in
@@ -1891,7 +1821,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             } else if status >= 400 {
                 self?.postLog("⚠️ /focus/toggle \(action) HTTP \(status)")
             } else {
-                self?.postLog("🎯 /focus/toggle \(action) → backend OK")
+                let scoreNote = focusScore.map { String(format: " (focus_score=%.3f)", $0) } ?? ""
+                self?.postLog("🎯 /focus/toggle \(action) → backend OK\(scoreNote)")
             }
         }.resume()
     }

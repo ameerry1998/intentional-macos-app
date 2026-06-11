@@ -1,5 +1,17 @@
 # Projects (Intention-Driven Sessions)
 
+> **⚠️ ARCHIVED 2026-06-11 (projects kill, Step B).** The `Project`/`ProjectStore`
+> model described below was DELETED from the codebase. Weekly Goals
+> (`Intention` / `IntentionStore`, backend-resident) own everything Projects
+> did: per-goal block/allow lists, AI-scoring intent text, and session
+> history (backend `focus_sessions` incl. `focus_score`; Mac cache at
+> `session_history.json`). Learned sites live on in `LearnedSitesStore`
+> (local, keyed by intentionId, migrated from `projects.legacy.json`).
+> `projects.json` / `projects.legacy.json` remain on disk untouched.
+> See `docs/cross-repo-projects-kill-2026-06-11.md` and
+> `docs/superpowers/specs/2026-06-10-projects-kill-and-intentionid-fix-design.md`.
+> This document is historical reference only.
+
 ## Overview
 
 Projects are the user's durable intention containers — a named project carries an intention string, an optional per-project allow-list, a set of referenced blocklists, and a history of focus sessions with a 14-day minutes sparkline. A project session is a FocusBlock that the app tags with `activeProjectId` so that downstream scorers and enforcement can reason about "is this content related to what the user said they'd work on". This PR1 scope delivers the data model, the dashboard UI, and start-session wiring (immediate / queued / refused). **PR2 wires the relevance scorer** to consult `project.allowed` / `project.learned` / `LearnedSite.isPromoted` and to side-effect `hitCount` on score-misses.

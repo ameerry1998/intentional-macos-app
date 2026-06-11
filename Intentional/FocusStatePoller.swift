@@ -144,8 +144,8 @@ final class FocusStatePoller {
     /// IntentionStore using the intention_id stamped on the backend session.
     /// Cache miss falls through with a generic name and triggers an out-of-band
     /// pull so the next session lookup hits.
-    /// Also mirrors the resolved intention into AppDelegate.activeProjectSession,
-    /// so the in-RAM cache stays canonically driven by the backend.
+    /// Per-goal enforcement engages via the focusModeController.onStateChanged
+    /// fanout (activate carries intentionId) — no separate mirror (B3).
     private func engage(triggeredBy: String, intentionId: UUID?, sessionId: String?) {
         Task { @MainActor in
             let intentionName: String?
@@ -155,9 +155,6 @@ final class FocusStatePoller {
                 } else {
                     intentionName = "Focus session"
                     Task { await IntentionStore.shared.pull() }
-                }
-                if let sessionId = sessionId {
-                    self.appDelegate?.setActiveProjectSession(projectId: id, blockId: sessionId)
                 }
             } else {
                 intentionName = triggeredBy == "puck"

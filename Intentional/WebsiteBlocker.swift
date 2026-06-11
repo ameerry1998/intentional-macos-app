@@ -32,8 +32,9 @@ class WebsiteBlocker: NSObject, UNUserNotificationCenterDelegate {
     private var standaloneDomains: Set<String> = []
 
     // R4(a): per-goal Allow list (Intention.allowWebsites) for the active
-    // session's goal. Pushed by AppDelegate.refreshIntentionEnforcement /
-    // refreshProjectEnforcement; cleared on session end. Lowercased.
+    // session's goal. Pushed by AppDelegate.refreshIntentionEnforcement
+    // (the only producer post projects-kill B3); cleared on session end.
+    // Lowercased.
     // Closes the "WebsiteBlocker consults NO allow source" gap (research §4.3):
     // a goal-allowed domain must survive the tab sweep even when the default
     // profile or a standalone rule lists it.

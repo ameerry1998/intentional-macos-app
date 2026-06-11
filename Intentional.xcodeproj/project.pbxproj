@@ -76,9 +76,11 @@
 		BD00010900000000000001 /* RulesMigrationPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00010A00000000000001 /* RulesMigrationPlan.swift */; };
 		BD00010B00000000000001 /* RulesMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00010C00000000000001 /* RulesMigration.swift */; };
 		BD00010D00000000000001 /* BlockFocusStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00010E00000000000001 /* BlockFocusStats.swift */; };
+		BD00011500000000000001 /* LearnedSitesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00011600000000000001 /* LearnedSitesStore.swift */; };
+		BD00011100000000000001 /* SessionFocusScore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00011200000000000001 /* SessionFocusScore.swift */; };
+		BD00011300000000000001 /* GoalSessionHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00011400000000000001 /* GoalSessionHistory.swift */; };
 		BD00010700000000000001 /* EnforcementResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00010800000000000001 /* EnforcementResolver.swift */; };
 		BD00000300000000000001 /* IntentionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000400000000000001 /* IntentionStore.swift */; };
-		BD00000500000000000001 /* IntentionMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000600000000000001 /* IntentionMigration.swift */; };
 		BD0000F500000000000001 /* IntentTextMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0000F600000000000001 /* IntentTextMigration.swift */; };
 		BD00010100000000000001 /* BlockRuleEnforcer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00010200000000000001 /* BlockRuleEnforcer.swift */; };
 		BD00000700000000000001 /* BlockingProfilesToIntentionsMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000800000000000001 /* BlockingProfilesToIntentionsMigration.swift */; };
@@ -92,7 +94,6 @@
 		AA00000100000000000001 /* FocusWebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000200000000000001 /* FocusWebSocketClient.swift */; };
 		AA00000300000000000099 /* FocusStatePoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000400000000000099 /* FocusStatePoller.swift */; };
 		AA00000500000000000099 /* PartnerSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000600000000000099 /* PartnerSyncService.swift */; };
-		AB00000100000000000001 /* ProjectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000200000000000001 /* ProjectStore.swift */; };
 		AC00000100000000000001 /* SwitchInterventionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC00000200000000000001 /* SwitchInterventionCoordinator.swift */; };
 		AC00000300000000000002 /* SwitchOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC00000400000000000002 /* SwitchOverlayController.swift */; };
 		AD00000100000000000001 /* ConstraintEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD00000200000000000001 /* ConstraintEvaluator.swift */; };
@@ -215,9 +216,11 @@
 		BD00010A00000000000001 /* RulesMigrationPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RulesMigrationPlan.swift; sourceTree = "<group>"; };
 		BD00010C00000000000001 /* RulesMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RulesMigration.swift; sourceTree = "<group>"; };
 		BD00010E00000000000001 /* BlockFocusStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockFocusStats.swift; sourceTree = "<group>"; };
+		BD00011600000000000001 /* LearnedSitesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearnedSitesStore.swift; sourceTree = "<group>"; };
+		BD00011200000000000001 /* SessionFocusScore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFocusScore.swift; sourceTree = "<group>"; };
+		BD00011400000000000001 /* GoalSessionHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalSessionHistory.swift; sourceTree = "<group>"; };
 		BD00010800000000000001 /* EnforcementResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnforcementResolver.swift; sourceTree = "<group>"; };
 		BD00000400000000000001 /* IntentionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentionStore.swift; sourceTree = "<group>"; };
-		BD00000600000000000001 /* IntentionMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentionMigration.swift; sourceTree = "<group>"; };
 		BD0000F600000000000001 /* IntentTextMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentTextMigration.swift; sourceTree = "<group>"; };
 		BD00010200000000000001 /* BlockRuleEnforcer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockRuleEnforcer.swift; sourceTree = "<group>"; };
 		BD00000800000000000001 /* BlockingProfilesToIntentionsMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockingProfilesToIntentionsMigration.swift; sourceTree = "<group>"; };
@@ -231,7 +234,6 @@
 		AA00000200000000000001 /* FocusWebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusWebSocketClient.swift; sourceTree = "<group>"; };
 		AA00000400000000000099 /* FocusStatePoller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusStatePoller.swift; sourceTree = "<group>"; };
 		AA00000600000000000099 /* PartnerSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerSyncService.swift; sourceTree = "<group>"; };
-		AB00000200000000000001 /* ProjectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectStore.swift; sourceTree = "<group>"; };
 		AB500423E96AEF2BF4B2C62D /* EnforcementReconciler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EnforcementReconciler.swift; sourceTree = "<group>"; };
 		AC00000200000000000001 /* SwitchInterventionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchInterventionCoordinator.swift; sourceTree = "<group>"; };
 		AC00000400000000000002 /* SwitchOverlayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchOverlayController.swift; sourceTree = "<group>"; };
@@ -305,7 +307,6 @@
 				A300000200000000000001 /* QuitPolicy.swift */,
 				A301000200000000000001 /* ContentSafetyStateGuard.swift */,
 				A700000200000000000001 /* BlockingProfileManager.swift */,
-				AB00000200000000000001 /* ProjectStore.swift */,
 				A900000200000000000001 /* FocusStartOverlay.swift */,
 				AA00000200000000000001 /* FocusWebSocketClient.swift */,
 				AA00000400000000000099 /* FocusStatePoller.swift */,
@@ -326,8 +327,10 @@
 				BD00010A00000000000001 /* RulesMigrationPlan.swift */,
 				BD00010C00000000000001 /* RulesMigration.swift */,
 				BD00010E00000000000001 /* BlockFocusStats.swift */,
+				BD00011600000000000001 /* LearnedSitesStore.swift */,
+				BD00011200000000000001 /* SessionFocusScore.swift */,
+				BD00011400000000000001 /* GoalSessionHistory.swift */,
 				BD00010800000000000001 /* EnforcementResolver.swift */,
-				BD00000600000000000001 /* IntentionMigration.swift */,
 				BD0000F600000000000001 /* IntentTextMigration.swift */,
 				BD00010200000000000001 /* BlockRuleEnforcer.swift */,
 				BD00000800000000000001 /* BlockingProfilesToIntentionsMigration.swift */,
@@ -586,8 +589,10 @@
 				BD00010900000000000001 /* RulesMigrationPlan.swift in Sources */,
 				BD00010B00000000000001 /* RulesMigration.swift in Sources */,
 				BD00010D00000000000001 /* BlockFocusStats.swift in Sources */,
+				BD00011500000000000001 /* LearnedSitesStore.swift in Sources */,
+				BD00011100000000000001 /* SessionFocusScore.swift in Sources */,
+				BD00011300000000000001 /* GoalSessionHistory.swift in Sources */,
 				BD00010700000000000001 /* EnforcementResolver.swift in Sources */,
-				BD00000500000000000001 /* IntentionMigration.swift in Sources */,
 				BD0000F500000000000001 /* IntentTextMigration.swift in Sources */,
 				BD00010100000000000001 /* BlockRuleEnforcer.swift in Sources */,
 				BD00000700000000000001 /* BlockingProfilesToIntentionsMigration.swift in Sources */,
@@ -597,7 +602,6 @@
 				B600000100000000000001 /* BedtimeWindDownController.swift in Sources */,
 				B700000100000000000001 /* BedtimeUnlockRequestView.swift in Sources */,
 				A700000100000000000001 /* BlockingProfileManager.swift in Sources */,
-				AB00000100000000000001 /* ProjectStore.swift in Sources */,
 				A900000100000000000001 /* FocusStartOverlay.swift in Sources */,
 				AA00000100000000000001 /* FocusWebSocketClient.swift in Sources */,
 				AA00000300000000000099 /* FocusStatePoller.swift in Sources */,

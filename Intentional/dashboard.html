@@ -6694,6 +6694,17 @@ window.onProjectDetail = function(project) {
   ProjectsController.onMessage({ kind: 'detail', payload: project });
 };
 
+// B3 (projects kill): PROMOTE_LEARNED_SITE reply — the host was marked
+// promoted in LearnedSitesStore and appended to the goal's Allow list.
+window._learnedSitePromoted = function(result) {
+  if (!result || !result.host) return;
+  if (result.success) {
+    showToast('Promoted ' + result.host + (result.added_to_allow ? ' to Allow list' : ''), 'success');
+  } else {
+    showToast('Promote failed for ' + result.host, 'error');
+  }
+};
+
 window.onProjectSessionResult = function(result) {
   if (!result) return;
   if (result.status === 'started') {
@@ -9946,6 +9957,12 @@ function renderGoalEdit(id) {
       </div>
       ${isActiveNow ? '<div style="font-size:11px; color:var(--text-tertiary); margin-top:4px;">Strictness locked — an active session of this goal is running.</div>' : ''}
 
+      <div class="ge-divider"></div>
+      <div class="ge-advanced-label">Recent sessions</div>
+      <div id="ge-sessions-list" style="margin-top:8px;">
+        <div style="font-size:12px;color:var(--text-tertiary);padding:6px 0;">Loading…</div>
+      </div>
+
       <div class="ge-foot">
         <button class="ge-delete-link" onclick="deleteWeeklyGoal('${g.id}')">Delete this Weekly Goal</button>
         <div class="right" style="display:flex; gap:8px;">
@@ -9968,8 +9985,53 @@ function renderGoalEdit(id) {
       p.classList.add('active');
     };
   });
+
+  // B2 (projects kill, June 2026): pull recent session history for this goal.
+  // Swift replies via window._goalSessions — instantly from session_history.json
+  // when cached, then again with the live backend payload.
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+    window.webkit.messageHandlers.intentional.postMessage({ type: 'GET_GOAL_SESSIONS', id: id });
+  }
 }
 window.renderGoalEdit = renderGoalEdit;
+
+// Receiver for GET_GOAL_SESSIONS. Ignores payloads for goals other than the
+// one currently open in the editor (guards against stale async replies).
+window._goalSessions = function(payload) {
+  if (!payload || !payload.id) return;
+  if (!window._editingGoalId ||
+      String(window._editingGoalId).toLowerCase() !== String(payload.id).toLowerCase()) return;
+  var el = document.getElementById('ge-sessions-list');
+  if (!el) return;
+  var sessions = payload.sessions || [];
+  if (sessions.length === 0) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text-tertiary);padding:6px 0;">No sessions yet — start one from the Plan tab.</div>';
+    return;
+  }
+  el.innerHTML = sessions.slice(0, 10).map(function(s) {
+    var started = new Date(s.started_at);
+    var dateLbl = isNaN(started.getTime()) ? '—'
+      : started.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' · ' +
+        started.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    var durLbl;
+    if (s.duration_seconds != null) {
+      var secs = Math.max(0, Math.round(s.duration_seconds));
+      if (secs < 60) durLbl = secs + 's';
+      else if (secs < 3600) durLbl = Math.round(secs / 60) + ' min';
+      else durLbl = Math.floor(secs / 3600) + 'h ' + (Math.round(secs / 60) % 60) + 'm';
+    } else {
+      durLbl = s.ended_at ? '—' : 'in progress';
+    }
+    var scoreLbl = (s.focus_score != null)
+      ? '<span style="color:var(--accent-primary);font-weight:600;">' + Math.round(s.focus_score * 100) + '% focus</span>'
+      : '<span style="color:var(--text-tertiary);">—</span>';
+    return '<div style="display:flex;align-items:center;gap:12px;padding:7px 2px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12.5px;">' +
+      '<span style="color:var(--text-secondary);flex:1;">' + _escapeHTML(dateLbl) + '</span>' +
+      '<span style="color:var(--text-secondary);min-width:64px;text-align:right;">' + _escapeHTML(durLbl) + '</span>' +
+      '<span style="min-width:76px;text-align:right;">' + scoreLbl + '</span>' +
+    '</div>';
+  }).join('');
+};
 
 function saveWeeklyGoal(id) {
   var g = (window._intentionsCache || []).find(function(x){ return x.id === id; });
@@ -12791,11 +12853,8 @@ const ProjectsController = (() => {
   let promotePending = null;            // host string awaiting detail reply
 
   function onEnter() {
-    // Fetch on first entry, refresh on every entry (cheap).
-    sendMessage({ type: 'GET_PROJECTS' });
-    // Phase 1 of FocusMode/Intent unification: refresh backend intents
-    // every time the Intents page opens so the index renders the latest
-    // server state (covers cross-device adds from iPhone since last open).
+    // B3 (projects kill): GET_PROJECTS is gone — intentionsCache (refreshed
+    // below) is the only data source for the index.
     sendMessage({ type: 'GET_INTENTIONS' });
     if (!state.loadedOnce) {
       sendMessage({ type: 'GET_BLOCKING_PROFILES' });
@@ -12868,38 +12927,20 @@ const ProjectsController = (() => {
     if (which === 'setup') renderSetup();
   }
 
+  // B3 (projects kill): the legacy local-Project detail view is gone with
+  // ProjectStore — every open routes to the Setup form seeded from
+  // intentionsCache. openDashboard kept as an alias for old callers.
   function openDashboard(id) {
-    state.selected = null;
-    // Reset transient dashboard state so the new project starts clean.
-    dashboardSelectedDuration = null;
-    dashboardCustomDuration = '';
-    dashboardCustomOpen = false;
-    promotePending = null;
-    sendMessage({ type: 'GET_PROJECT_DETAIL', id: id });
-    showView('dashboard');
+    openIntentSetup(id);
   }
 
-  /// Phase 1 of FocusMode/Intent unification — dispatch click on an Index
-  /// card to the right view based on whether a local Project row exists.
-  /// - Match in state.projects → openDashboard (legacy: rich detail view
-  ///   with sessions + sparkline + resume hero).
-  /// - No match (backend-only Intent) → openIntentSetup (seeds state.selected
-  ///   from intentionsCache and opens Setup form). Save goes through legacy
-  ///   UPDATE_PROJECT bridge which Swift aliases to UPDATE_INTENTION.
   function openByIdAuto(id) {
-    var hasLocal = state.projects.some(function(p){ return p.id === id; });
-    if (hasLocal) {
-      openDashboard(id);
-    } else {
-      openIntentSetup(id);
-    }
+    openIntentSetup(id);
   }
 
-  /// Open the Setup form pre-seeded from a backend Intent (no local
-  /// Project row). Used for intents created on iPhone that haven't been
-  /// fetched into local projects.json yet. Maps Intent → Project shape
-  /// so renderSetup can reuse the existing form. Save uses the legacy
-  /// UPDATE_PROJECT bridge → backend UPDATE_INTENTION.
+  /// Open the Setup form pre-seeded from a backend Intent. Maps Intent →
+  /// the form's legacy shape so renderSetup can reuse the existing form.
+  /// Save goes through UPDATE_INTENTION directly (B3).
   function openIntentSetup(id) {
     if (typeof intentionsCache === 'undefined') return;
     var intent = intentionsCache.find(function(x){ return x.id === id; });
@@ -13384,12 +13425,12 @@ const ProjectsController = (() => {
 
   function _startSession() {
     if (!state.selected || !state.selected.id) return;
-    const mins = resolvedStartMinutes();
-    if (!mins) return;
+    // B3 (projects kill): START_INTENTION_SESSION starts the goal's session
+    // immediately (duration picker is a legacy concept — sessions run until
+    // stopped or the schedule block ends). Reply: onProjectSessionResult.
     sendMessage({
-      type: 'START_PROJECT_SESSION',
+      type: 'START_INTENTION_SESSION',
       id: state.selected.id,
-      durationMins: mins,
     });
   }
 
@@ -13948,64 +13989,83 @@ const ProjectsController = (() => {
     const allowed = stripLocal(formState.allowed);
     const blocked = stripLocal(formState.blocked);
 
-    if (state.isNew) {
-      savePending = 'create';
-      sendMessage({
-        type: 'CREATE_PROJECT',
-        name: name,
-        intention: intention,
-        allowed: allowed,
-        blocked: blocked,
-        blocklistIds: (formState.blocklistIds || []).slice(),
-        allowSearchEngines: !!formState.allowSearchEngines,
-        // Slice 9 + 6 follow-ups: pass new fields. Mac side may ignore them
-        // until the bridge handler is updated; safe to send.
-        strictness_preset: formState.strictness_preset || 'standard',
-        weekly_budget_hours: formState.weekly_budget_hours,
-      });
-    } else if (state.selected && state.selected.id) {
-      savePending = 'update';
-      sendMessage({
-        type: 'UPDATE_PROJECT',
-        id: state.selected.id,
-        patch: {
-          name: name,
-          intention: intention,
-          allowed: allowed,
-          blocked: blocked,
-          blocklistIds: (formState.blocklistIds || []).slice(),
-          allowSearchEngines: !!formState.allowSearchEngines,
-          strictness_preset: formState.strictness_preset || 'standard',
-          weekly_budget_hours: formState.weekly_budget_hours,
-        }
-      });
+    // B3 (projects kill): saves go straight to the Intentions bridge.
+    // Setup-form HostItems map onto the Intention's four lists:
+    //   blocked domain → mac_websites · blocked app → mac_bundle_ids
+    //   allowed domain → allow_websites · allowed app → allow_bundle_ids
+    const pick = (list, kind) => (list || [])
+      .filter(a => a.kind === kind).map(a => a.value);
+    const macWebsites = pick(blocked, 'domain');
+    const macBundleIds = pick(blocked, 'appBundleId');
+    const allowWebsites = pick(allowed, 'domain');
+    const allowBundleIds = pick(allowed, 'appBundleId');
 
-      // Slice 9 followup of 2026-05-05 redesign: strictness goes through a
-      // dedicated backend endpoint (PUT /intentions/{id}/strictness). The
-      // legacy UPDATE_PROJECT path doesn't persist strictness. Send a
-      // separate UPDATE_INTENTION_STRICTNESS message so the dedicated
-      // endpoint actually fires + syncs to backend (so iPhone sees it).
-      // Only fire if it actually changed vs. the loaded value.
+    if (state.isNew) {
+      sendMessage({
+        type: 'CREATE_INTENTION',
+        name: name,
+        description: intention,
+        color_hex: null,
+        icon: null,
+        mac_websites: macWebsites,
+        mac_bundle_ids: macBundleIds,
+        allow_websites: allowWebsites,
+        allow_bundle_ids: allowBundleIds,
+        status: 'planned',
+        ai_scoring_enabled: true,
+      });
+      showToast('Created', 'success');
+      sendMessage({ type: 'GET_INTENTIONS' });
+      goBack();
+    } else if (state.selected && state.selected.id) {
+      // Pull the live record for version + fields the Setup form doesn't edit.
+      var live = (typeof intentionsCache !== 'undefined' &&
+                  intentionsCache.find(function(x){ return x.id === state.selected.id; })) || {};
+      sendMessage({
+        type: 'UPDATE_INTENTION',
+        id: state.selected.id,
+        version: live.version,
+        name: name,
+        description: intention,
+        color_hex: live.color_hex || null,
+        icon: live.icon || null,
+        mac_websites: macWebsites,
+        mac_bundle_ids: macBundleIds,
+        allow_websites: allowWebsites,
+        allow_bundle_ids: allowBundleIds,
+        monthly_goal_id: live.monthly_goal_id || null,
+        week_of: live.week_of || null,
+        intent_text: live.intent_text || '',
+        ai_scoring_enabled: live.ai_scoring_enabled !== false,
+        outcome: live.outcome || '',
+        status: live.status || 'planned',
+        weekly_target_hours: (live.weekly_target_hours != null) ? live.weekly_target_hours : null,
+      });
+      showToast('Saved', 'success');
+      sendMessage({ type: 'GET_INTENTIONS' });
+      goBack();
+
+      // Strictness goes through its dedicated endpoint
+      // (PUT /intentions/{id}/strictness). Only fire if it actually changed.
       var loadedStrictness = (state.selected && state.selected.strictness_preset) || 'standard';
       var newStrictness = formState.strictness_preset || 'standard';
-      console.log('[FM-EDITOR] strictness check: loaded=', loadedStrictness, ' new=', newStrictness, ' will-fire=', newStrictness !== loadedStrictness);
       if (newStrictness !== loadedStrictness) {
         sendMessage({
           type: 'UPDATE_INTENTION_STRICTNESS',
           id: state.selected.id,
           to_preset: newStrictness,
         });
-        console.log('[FM-EDITOR] UPDATE_INTENTION_STRICTNESS sent for id=', state.selected.id, ' to=', newStrictness);
       }
     }
   }
 
   function _handleDelete() {
     if (state.isNew || !state.selected || !state.selected.id) return;
-    const name = state.selected.name || 'this project';
+    const name = state.selected.name || 'this goal';
     if (!confirm('Delete "' + name + '"? This cannot be undone.')) return;
-    sendMessage({ type: 'DELETE_PROJECT', id: state.selected.id });
-    // Swift will reply via onProjectsList, which refreshes Index.
+    // B3 (projects kill): soft-deletes the backend Intention.
+    sendMessage({ type: 'DELETE_INTENTION', id: state.selected.id });
+    sendMessage({ type: 'GET_INTENTIONS' });
     goBack();
   }
 
@@ -14131,12 +14191,8 @@ window._navigateToIntentionEditor = function(intentionId) {
   navigateTo('intentions');
   setTimeout(function() {
     if (typeof ProjectsController === 'undefined') return;
-    // Phase 1 of FocusMode/Intent unification: ProjectsController
-    // dispatches internally — legacy Project dashboard for ids that
-    // have a local Project row, Setup form pre-seeded from
-    // intentionsCache for backend-only ids. Save flow goes through
-    // CREATE/UPDATE_PROJECT which Swift aliases to CREATE/UPDATE
-    // _INTENTION for one release cycle.
+    // B3 (projects kill): every id opens the Setup form pre-seeded from
+    // intentionsCache; saves go through CREATE/UPDATE_INTENTION directly.
     if (ProjectsController.openByIdAuto) {
       ProjectsController.openByIdAuto(intentionId);
     } else if (ProjectsController.openDashboard) {

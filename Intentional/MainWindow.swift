@@ -306,11 +306,11 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         var state = manager.getScheduleSyncPayload()
         state.removeValue(forKey: "type")
         // FIX-10: Surface the live intention id of the active session so the dashboard
-        // can grey out strictness controls for that goal while it's running. Prefer the
-        // explicit manual project session; fall back to the current scheduled block's
-        // bound intentionId if a scheduled block is active without a manual session.
-        if let sessionId = appDelegate?.activeProjectSession?.projectId {
-            state["active_intention_id"] = sessionId.uuidString
+        // can grey out strictness controls for that goal while it's running. The
+        // session's period (set by every activation path) is canonical; fall back to
+        // the current scheduled block's bound intentionId.
+        if let sessionGoalId = appDelegate?.focusModeController?.currentPeriod?.intentionId {
+            state["active_intention_id"] = sessionGoalId.uuidString
         } else if let blockIntentionId = manager.currentBlock?.intentionId {
             state["active_intention_id"] = blockIntentionId.uuidString
         } else {
@@ -692,39 +692,19 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 handleGetBlockingProfiles()
             }
 
-        case "START_PROJECT_SESSION":
-            if let body = message.body as? [String: Any] {
-                handleStartProjectSession(body)
-            }
-
-        case "GET_PROJECTS":
-            handleGetProjects()
-
-        case "GET_PROJECT_DETAIL":
-            if let body = message.body as? [String: Any],
-               let idStr = body["id"] as? String,
-               let id = UUID(uuidString: idStr) {
-                handleGetProjectDetail(id: id)
-            }
-
-        case "CREATE_PROJECT":
-            if let body = message.body as? [String: Any] {
-                handleCreateProject(body)
-            }
-
-        case "UPDATE_PROJECT":
-            if let body = message.body as? [String: Any] {
-                handleUpdateProject(body)
-            }
-
-        case "DELETE_PROJECT":
-            if let body = message.body as? [String: Any],
-               let idStr = body["id"] as? String,
-               let id = UUID(uuidString: idStr) {
-                handleDeleteProject(id: id)
-            }
+        // LEGACY (projects kill B3, 2026-06-11): Project/ProjectStore is
+        // deleted — Intentions (Weekly Goals) own these concepts. Dashboard
+        // senders switched to the *_INTENTION_* / GET_GOAL_SESSIONS
+        // equivalents in the same commit. No-op aliases for one release
+        // cycle (same convention as the R6 taxonomy aliases). Remove after
+        // 2026-07.
+        case "START_PROJECT_SESSION", "GET_PROJECTS", "GET_PROJECT_DETAIL",
+             "CREATE_PROJECT", "UPDATE_PROJECT", "DELETE_PROJECT":
+            appDelegate?.postLog("⚠️ \(type): legacy Projects message ignored (Intentions own goals now)")
 
         case "PROMOTE_LEARNED_SITE":
+            // Kept live (B3): promotes against LearnedSitesStore (keyed by
+            // intentionId) + appends the host to the goal's allow_websites.
             if let body = message.body as? [String: Any] {
                 handlePromoteLearnedSite(body)
             }
@@ -855,6 +835,16 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             // New drag-to-schedule flow uses CREATE_SCHEDULED_SESSION instead.
             if let body = message.body as? [String: Any] {
                 handleStartIntentionSession(body)
+            }
+
+        case "GET_GOAL_SESSIONS":
+            // B2 (projects kill, June 2026): recent session history for the goal
+            // detail panel. Backend is the permanent record (focus_sessions incl.
+            // focus_score); session_history.json is the instant/offline cache.
+            if let body = message.body as? [String: Any],
+               let idStr = body["id"] as? String,
+               let id = UUID(uuidString: idStr) {
+                handleGetGoalSessions(id: id)
             }
 
         // June 2026 — Rules Consolidation R2 (unified blocked/limited/allowed
@@ -2368,9 +2358,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         var state = manager.getScheduleSyncPayload()
         state.removeValue(forKey: "type") // Don't send the "SCHEDULE_SYNC" type to dashboard
         // FIX-10: Surface the live intention id of the active session for strictness greying.
-        // Prefer the manual project session; fall back to the active block's intentionId.
-        if let sessionId = appDelegate?.activeProjectSession?.projectId {
-            state["active_intention_id"] = sessionId.uuidString
+        // The session's period is canonical; fall back to the active block's intentionId.
+        if let sessionGoalId = appDelegate?.focusModeController?.currentPeriod?.intentionId {
+            state["active_intention_id"] = sessionGoalId.uuidString
         } else if let blockIntentionId = manager.currentBlock?.intentionId {
             state["active_intention_id"] = blockIntentionId.uuidString
         } else {
@@ -2713,254 +2703,79 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             callJS("window.onBlockingProfileDeleteRefused && window.onBlockingProfileDeleteRefused(\(payload))")
             return
         }
-        Task {
-            if let store = appDelegate?.projectStore {
-                let referencing = await store.projectsReferencing(blocklistId: id)
-                if !referencing.isEmpty {
-                    let names = referencing.map { $0.name }
-                    await MainActor.run {
-                        self.appDelegate?.postLog("🚫 [BlockingProfile] refused to delete \(id) — referenced by \(names.count) project(s): \(names.joined(separator: ", "))")
-                        let namesJSON = (try? String(data: JSONSerialization.data(withJSONObject: names), encoding: .utf8)) ?? "[]"
-                        self.callJS("window.onBlockingProfileDeleteRefused && window.onBlockingProfileDeleteRefused({ id: '\(id.uuidString)', referencedBy: \(namesJSON) })")
-                    }
-                    return
-                }
-            }
-            await MainActor.run {
-                _ = self.appDelegate?.blockingProfileManager?.deleteProfile(id: id)
-                // Engage BlockRuleEnforcer immediately so the deleted rule's
-                // blocklist is removed from the standalone enforcement layer.
-                BlockRuleEnforcer.shared.reevaluateNow()
-                self.handleGetBlockingProfiles()
-            }
-        }
+        // B3 (projects kill): the projects-referencing-this-blocklist guard is
+        // gone with ProjectStore — Intentions own their lists directly and
+        // never reference profiles.
+        _ = appDelegate?.blockingProfileManager?.deleteProfile(id: id)
+        // Engage BlockRuleEnforcer immediately so the deleted rule's
+        // blocklist is removed from the standalone enforcement layer.
+        BlockRuleEnforcer.shared.reevaluateNow()
+        handleGetBlockingProfiles()
     }
 
-    // MARK: - Projects Handlers
+    // MARK: - Learned sites (B3 — Projects deleted; store keyed by intentionId)
 
-    private func handleGetProjects() {
-        Task {
-            guard let store = appDelegate?.projectStore else {
-                await MainActor.run {
-                    self.callJS("window.onProjectsList && window.onProjectsList([])")
-                }
-                return
-            }
-            let summaries = await store.listSummary()
-            await MainActor.run {
-                if let data = try? Self.projectsJSONEncoder().encode(summaries),
-                   let jsonStr = String(data: data, encoding: .utf8) {
-                    self.callJS("window.onProjectsList && window.onProjectsList(\(jsonStr))")
-                }
-            }
-        }
-    }
-
-    private func handleGetProjectDetail(id: UUID) {
-        Task {
-            guard let store = appDelegate?.projectStore else { return }
-            guard let project = await store.get(id: id) else {
-                await MainActor.run {
-                    self.callJS("window.onProjectDetail && window.onProjectDetail(null)")
-                }
-                return
-            }
-            await MainActor.run {
-                self.emitProjectDetail(project)
-            }
-        }
-    }
-
-    private func handleCreateProject(_ body: [String: Any]) {
-        let name = body["name"] as? String ?? "New Project"
-        let intention = body["intention"] as? String ?? ""
-        let allowSearchEngines = body["allowSearchEngines"] as? Bool ?? true
-        let allowed = Self.decodeHostItems(body["allowed"] as? [[String: Any]] ?? [])
-        let blocked = Self.decodeHostItems(body["blocked"] as? [[String: Any]] ?? [])
-        let blocklistIds = (body["blocklistIds"] as? [String] ?? []).compactMap(UUID.init(uuidString:))
-
-        Task {
-            guard let store = appDelegate?.projectStore else { return }
-            let project = await store.create(
-                name: name,
-                intention: intention,
-                allowed: allowed,
-                blocked: blocked,
-                blocklistIds: blocklistIds,
-                allowSearchEngines: allowSearchEngines
-            )
-            await MainActor.run {
-                self.emitProjectDetail(project)
-            }
-        }
-    }
-
-    private func handleUpdateProject(_ body: [String: Any]) {
-        appDelegate?.postLog("🎯 UPDATE_PROJECT handler fired: id=\(body["id"] ?? "nil") patch_keys=\(((body["patch"] as? [String: Any]) ?? [:]).keys)")
-        guard let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) else { return }
-        let patchDict = body["patch"] as? [String: Any] ?? [:]
-
-        var patch = ProjectPatch()
-        patch.name = patchDict["name"] as? String
-        patch.intention = patchDict["intention"] as? String
-        patch.accent = patchDict["accent"] as? String
-        patch.allowSearchEnginesForThisProject = patchDict["allowSearchEngines"] as? Bool
-        if let allowedRaw = patchDict["allowed"] as? [[String: Any]] {
-            patch.allowed = Self.decodeHostItems(allowedRaw)
-        }
-        if let blockedRaw = patchDict["blocked"] as? [[String: Any]] {
-            patch.blocked = Self.decodeHostItems(blockedRaw)
-        }
-        if let idsRaw = patchDict["blocklistIds"] as? [String] {
-            patch.blocklistIds = idsRaw.compactMap(UUID.init(uuidString:))
-        }
-
-        Task {
-            guard let store = appDelegate?.projectStore else { return }
-            guard let project = await store.update(id: id, patch: patch) else {
-                await MainActor.run {
-                    self.callJS("window.onProjectDetail && window.onProjectDetail(null)")
-                }
-                return
-            }
-            await MainActor.run {
-                self.emitProjectDetail(project)
-                if self.appDelegate?.activeProjectId == id {
-                    self.appDelegate?.refreshActiveProjectEnforcement()
-                }
-            }
-        }
-    }
-
-    private func handleDeleteProject(id: UUID) {
-        Task {
-            guard let store = appDelegate?.projectStore else { return }
-            _ = await store.delete(id: id)
-            let summaries = await store.listSummary()
-            await MainActor.run {
-                if let data = try? Self.projectsJSONEncoder().encode(summaries),
-                   let jsonStr = String(data: data, encoding: .utf8) {
-                    self.callJS("window.onProjectsList && window.onProjectsList(\(jsonStr))")
-                }
-            }
-        }
-    }
-
+    /// PROMOTE_LEARNED_SITE {id: <intention uuid>, host}: marks the host
+    /// promoted in LearnedSitesStore AND appends it to the Intention's
+    /// allow_websites (the old ProjectStore.promoteLearnedSite added the host
+    /// to the project's allowed list — same contract, new owner). If the
+    /// goal's session is live, enforcement re-applies immediately.
+    /// Reply: window._learnedSitePromoted({id, host, success, added_to_allow}).
     private func handlePromoteLearnedSite(_ body: [String: Any]) {
         guard let idStr = body["id"] as? String,
               let id = UUID(uuidString: idStr),
-              let host = body["host"] as? String else { return }
+              let host = body["host"] as? String, !host.isEmpty else { return }
 
         Task {
-            guard let store = appDelegate?.projectStore else { return }
-            _ = await store.promoteLearnedSite(projectId: id, host: host)
-            guard let project = await store.get(id: id) else { return }
+            _ = await LearnedSitesStore.shared.promote(intentionId: id, host: host)
+
+            var addedToAllow = false
+            if let existing = await IntentionStore.shared.intention(id: id),
+               existing.deletedAt == nil {
+                if existing.allowWebsites.contains(where: { $0.caseInsensitiveCompare(host) == .orderedSame }) {
+                    addedToAllow = true
+                } else {
+                    var payload = IntentionUpdatePayload(
+                        name: existing.name,
+                        description: existing.description,
+                        colorHex: existing.colorHex,
+                        icon: existing.icon,
+                        macWebsites: existing.macWebsites,
+                        macBundleIds: existing.macBundleIds,
+                        iosAppTokensB64: existing.iosAppTokensB64,
+                        iosCategoryTokensB64: existing.iosCategoryTokensB64,
+                        version: existing.version
+                    )
+                    payload.outcome = existing.outcome
+                    payload.status = existing.status
+                    payload.weeklyTargetHours = existing.weeklyTargetHours
+                    payload.intentText = existing.intentText
+                    payload.aiScoringEnabled = existing.aiScoringEnabled
+                    payload.allowWebsites = existing.allowWebsites + [host]
+                    payload.allowBundleIds = existing.allowBundleIds
+                    payload.monthlyGoalId = existing.monthlyGoalId
+                    payload.weekOf = existing.weekOf
+                    do {
+                        _ = try await IntentionStore.shared.update(id: id, payload: payload)
+                        addedToAllow = true
+                    } catch {
+                        await MainActor.run {
+                            self.appDelegate?.postLog("⚠️ PROMOTE_LEARNED_SITE: allow-list update failed for \(host): \(error.localizedDescription)")
+                        }
+                    }
+                }
+            }
+
             await MainActor.run {
-                self.emitProjectDetail(project)
-            }
-        }
-    }
-
-    private func handleStartProjectSession(_ body: [String: Any]) {
-        guard let idStr = body["id"] as? String,
-              let id = UUID(uuidString: idStr),
-              let durationMins = body["durationMins"] as? Int,
-              durationMins > 0 && durationMins <= 240
-        else {
-            emitSessionResult([
-                "status": "refused",
-                "reason": "Invalid request"
-            ])
-            return
-        }
-
-        Task {
-            guard let store = appDelegate?.projectStore,
-                  let scheduleManager = appDelegate?.scheduleManager,
-                  let project = await store.get(id: id)
-            else {
-                await MainActor.run {
-                    self.emitSessionResult([
-                        "status": "refused",
-                        "reason": "Project not found"
-                    ])
+                // Live session of this goal? Apply the new allow right away.
+                if self.appDelegate?.focusModeController?.currentPeriod?.intentionId == id {
+                    Task { await self.appDelegate?.refreshIntentionEnforcement(for: id) }
                 }
-                return
-            }
-
-            // Prepare + insert on MainActor (schedule state is main-isolated).
-            // Returns (refusal?, startMinutes, endMinutes, blockId, blockUUID, isImmediate).
-            let prep: (String?, Int, Int, String, UUID, Bool) = await MainActor.run {
-                let now = Date()
-                let cal = Calendar.current
-                let nowMinutes = cal.component(.hour, from: now) * 60 + cal.component(.minute, from: now)
-
-                let currentBlock = scheduleManager.currentBlock
-                let allBlocks: [ScheduleManager.FocusBlock] = scheduleManager.todaySchedule?.blocks ?? []
-                let isImmediate = currentBlock == nil
-                let start = currentBlock?.endMinutes ?? nowMinutes
-                let end = start + durationMins
-
-                if end > 24 * 60 {
-                    return ("Session would run past midnight", 0, 0, "", UUID(), false)
-                }
-                let conflict = allBlocks.first { b in
-                    if let cur = currentBlock, b.id == cur.id { return false }
-                    if b.startMinutes < start { return false }
-                    return b.startMinutes < end
-                }
-                if let conflict = conflict {
-                    return ("Would collide with your next block: \(conflict.title)", 0, 0, "", UUID(), false)
-                }
-                let blockUUID = UUID()
-                let blockIdStr = blockUUID.uuidString
-                let newBlock = ScheduleManager.FocusBlock(
-                    id: blockIdStr,
-                    title: "Project: \(project.name)",
-                    description: project.intention,
-                    startHour: start / 60,
-                    startMinute: start % 60,
-                    endHour: end / 60,
-                    endMinute: end % 60,
-                    blockType: .focusHours,
-                    ignoreProfile: false
-                )
-                scheduleManager.addBlock(newBlock)
-                return (nil, start, end, blockIdStr, blockUUID, isImmediate)
-            }
-
-            let (refusal, start, end, blockIdStr, blockUUID, isImmediate) = prep
-            if let reason = refusal {
-                await MainActor.run {
-                    self.emitSessionResult(["status": "refused", "reason": reason])
-                }
-                return
-            }
-
-            if isImmediate {
-                _ = await store.recordSessionStart(projectId: id, blockId: blockUUID)
-                await MainActor.run {
-                    self.appDelegate?.setActiveProjectSession(projectId: id, blockId: blockIdStr)
-                    self.emitSessionResult([
-                        "status": "started",
-                        "blockId": blockIdStr,
-                        "projectId": idStr,
-                        "startMinutes": start,
-                        "endMinutes": end
-                    ])
-                }
-            } else {
-                // Queued sessions are activated when their block becomes current.
-                // See docs/PROJECTS.md "Known Deferrals" — activation hook is not yet wired.
-                await MainActor.run {
-                    self.emitSessionResult([
-                        "status": "queued",
-                        "blockId": blockIdStr,
-                        "projectId": idStr,
-                        "startMinutes": start,
-                        "endMinutes": end
-                    ])
-                }
+                let hostJS = host.replacingOccurrences(of: "'", with: "")
+                self.callJS("window._learnedSitePromoted && window._learnedSitePromoted({ id: '\(id.uuidString.lowercased())', host: '\(hostJS)', success: true, added_to_allow: \(addedToAllow) })")
+                self.appDelegate?.postLog("📚 Promoted learned site \(host) for goal \(id.uuidString.prefix(8)) (allow-list updated: \(addedToAllow))")
+                // Refresh dashboard caches so allow counts re-render.
+                self.handleGetIntentions()
             }
         }
     }
@@ -2969,32 +2784,6 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         guard let data = try? JSONSerialization.data(withJSONObject: dict, options: []),
               let json = String(data: data, encoding: .utf8) else { return }
         callJS("window.onProjectSessionResult && window.onProjectSessionResult(\(json))")
-    }
-
-    // MARK: - Projects helpers
-
-    private static func projectsJSONEncoder() -> JSONEncoder {
-        let enc = JSONEncoder()
-        enc.dateEncodingStrategy = .iso8601
-        return enc
-    }
-
-    private static func decodeHostItems(_ raw: [[String: Any]]) -> [HostItem] {
-        raw.compactMap { dict -> HostItem? in
-            guard let kindRaw = dict["kind"] as? String,
-                  let kind = HostKind(rawValue: kindRaw),
-                  let value = dict["value"] as? String else { return nil }
-            let idStr = dict["id"] as? String
-            let id = idStr.flatMap(UUID.init(uuidString:)) ?? UUID()
-            return HostItem(id: id, kind: kind, value: value, note: dict["note"] as? String)
-        }
-    }
-
-    private func emitProjectDetail(_ project: Project) {
-        if let data = try? Self.projectsJSONEncoder().encode(project),
-           let jsonStr = String(data: data, encoding: .utf8) {
-            self.callJS("window.onProjectDetail && window.onProjectDetail(\(jsonStr))")
-        }
     }
 
     // MARK: - Focus Score
@@ -3663,6 +3452,13 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 }
 
                 await MainActor.run {
+                    // B3: if a session of THIS goal is live, re-apply enforcement
+                    // so edited block/allow lists take effect immediately (the
+                    // old UPDATE_PROJECT path did this via
+                    // refreshActiveProjectEnforcement).
+                    if self.appDelegate?.focusModeController?.currentPeriod?.intentionId == id {
+                        Task { await self.appDelegate?.refreshIntentionEnforcement(for: id) }
+                    }
                     self.emitIntentionMutationResult([
                         "status": "updated", "id": updated.id.uuidString,
                         "version": updated.version
@@ -3711,15 +3507,13 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 }
                 return
             }
-            // Optimistic local activation
+            // Optimistic local activation. Per-goal enforcement engages via the
+            // focusModeController.onStateChanged fanout (B3 — no separate mirror).
             await MainActor.run {
                 self.appDelegate?.focusModeController?.activate(
                     intention: intention.name,
                     intentionId: id,
                     source: .manual
-                )
-                self.appDelegate?.setActiveProjectSession(
-                    projectId: id, blockId: "manual-\(UUID().uuidString)"
                 )
             }
             // Backend POST (fire-and-forget; rollback on failure)
@@ -3744,6 +3538,35 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 ])
             }
         }
+    }
+
+    // MARK: - Goal session history (B2, June 2026)
+
+    /// Pull-on-open + cache-fallback: reply instantly from session_history.json
+    /// when present, then fetch GET /intentions/{id}/sessions live; on success
+    /// refresh the cache + re-push. Receiver: window._goalSessions.
+    private func handleGetGoalSessions(id: UUID) {
+        if let cached = GoalSessionHistoryCache.load(intentionId: id) {
+            emitGoalSessions(id: id, sessions: cached, source: "cache")
+        }
+        Task {
+            guard let live = await self.appDelegate?.backendClient?
+                .getIntentionSessions(id: id, limit: 20) else {
+                // Backend unreachable — the cache push above (if any) stands.
+                self.appDelegate?.postLog("⚠️ GET_GOAL_SESSIONS: live fetch failed for \(id.uuidString.prefix(8)) — cache only")
+                return
+            }
+            GoalSessionHistoryCache.save(intentionId: id, sessions: live)
+            await MainActor.run {
+                self.emitGoalSessions(id: id, sessions: live, source: "live")
+            }
+        }
+    }
+
+    private func emitGoalSessions(id: UUID, sessions: [GoalSession], source: String) {
+        guard let data = try? GoalSessionHistoryCache.wireEncoder().encode(sessions),
+              let json = String(data: data, encoding: .utf8) else { return }
+        callJS("window._goalSessions && window._goalSessions({ id: '\(id.uuidString.lowercased())', source: '\(source)', sessions: \(json) })")
     }
 
     // FIX-2 (May 2026): Drag-to-schedule creates a real calendar block.
