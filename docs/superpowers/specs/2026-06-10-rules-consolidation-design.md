@@ -9,15 +9,15 @@ One sidebar tab **Rules** (sidebar: Today / Goals / **Rules** / Accountability /
 | Treatment | Meaning |
 |---|---|
 | 🚫 Blocked | Never usable (optionally only within schedule windows) |
-| ⏳ Limited | Usable against the shared daily leisure pool |
+| ⏳ Limited | Usable against the shared daily leisure pool (renamed: allowance, 2026-06-11) |
 | ✅ Allowed | Never blocked, never swept |
 
 Per-goal lists (Intention.macWebsites/allow*) are NOT rules — they stay on goals ("blocked during this goal"). "Distractions" as a word dies.
 
 ## Decisions (all user-approved 2026-06-10)
 
-1. **Pool model: ONE shared pool.** Single daily leisure balance spendable on any ⏳ app/site. Pill shows it: "⏳ 20 min".
-2. **Base + earn:** pool = daily base (default 15 min) + earned. **Any** focus session earns (AI scoring polices quality) at default **5:1** focused:leisure.
+1. **Pool model: ONE shared pool.** (renamed: allowance, 2026-06-11) Single daily leisure balance spendable on any ⏳ app/site. Pill shows it: "⏳ 20 min".
+2. **Base + earn:** pool = daily base (default 15 min) + earned. **Any** focus session earns (AI scoring polices quality) at default **5:1** focused:leisure (renamed: allowance, 2026-06-11).
 3. **Zero balance = wall + earn path.** Block page shows "Focus 30 min to earn 6 more — [Start a session]". No override, no partner-beg flow.
 4. **Daily reset, rollover cap:** base refreshes daily; unspent earned minutes roll over, bank capped at 60 min.
 5. **Partner lock semantics (asymmetric):** tightening always free; loosening (delete/disable a 🚫, raise base/rate/bank-cap, demote 🚫→⏳/✅) partner-gated when Strict Mode on. Locks apply to the REAL store (research: current locks guard a settings mirror).

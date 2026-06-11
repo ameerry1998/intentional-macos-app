@@ -1695,9 +1695,9 @@ body.theme-effects-warm::after {
 .rules-add-btn { background: var(--accent-gradient); color: #1a0f0a; border: 0; padding: 8px 18px; border-radius: 7px; font-weight: 700; font-size: 12.5px; cursor: pointer; }
 .rules-btn-quiet { background: transparent; border: 1px solid rgba(255,255,255,0.14); color: var(--text-secondary); padding: 8px 14px; border-radius: 7px; font-size: 12.5px; cursor: pointer; }
 .rules-btn-quiet:hover { color: var(--text-primary); }
-.rules-pool-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
-.rules-pool-breakdown { font-size: 12px; color: var(--text-tertiary); margin-top: 3px; }
-.rules-pool-editor { padding: 4px 16px 14px; border-top: 0.5px solid rgba(255,255,255,0.06); }
+.rules-allowance-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
+.rules-allowance-breakdown { font-size: 12px; color: var(--text-tertiary); margin-top: 3px; }
+.rules-allowance-editor { padding: 4px 16px 14px; border-top: 0.5px solid rgba(255,255,255,0.06); }
 .rules-moved-banner { margin: 12px 28px 0; padding: 10px 14px; border-radius: 10px; background: rgba(243,139,92,0.10); border: 0.5px solid rgba(243,139,92,0.25); color: #f38b5c; font-size: 12.5px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
 .rules-moved-banner:hover { background: rgba(243,139,92,0.16); }
 .rule-seg { display: inline-flex; align-items: center; gap: 0; border: 1px solid rgba(255,255,255,0.10); border-radius: 8px; padding: 2px; background: rgba(255,255,255,0.03); }
@@ -5068,7 +5068,7 @@ body.theme-effects-warm::after {
     <span class="sidebar-item-icon">📓</span> Goals
   </div>
   <!-- Rules Consolidation R3 (2026-06-10): unified Blocked / Limited / Allowed
-       rules + shared leisure pool. Replaces the Today "Blocks" sub-tab (R6). -->
+       rules + shared allowance. Replaces the Today "Blocks" sub-tab (R6). -->
   <div class="sidebar-item" data-page="rules" onclick="navigateTo('rules')">
     <span class="sidebar-item-icon">⚖</span> Rules
   </div>
@@ -5364,34 +5364,34 @@ body.theme-effects-warm::after {
 
   <!-- Page: Rules (Rules Consolidation R3, 2026-06-10) — one list of
        account-scoped rules grouped by treatment (🚫 Blocked / ⏳ Limited /
-       ✅ Allowed) + the shared leisure-pool card. Data layer: RuleStore (R2).
+       ✅ Allowed) + the shared allowance card. Data layer: RuleStore (R2).
        Enforcement unification lands in R4; the earn/spend engine in R5. -->
   <div class="page" id="page-rules">
     <div class="section-title" style="margin-bottom:6px;">Rules</div>
     <div class="rules-sub">What's blocked, limited, and always fine — synced to your iPhone.</div>
 
-    <!-- Leisure pool summary + (✎) config editor. Raising base / raising cap /
+    <!-- Allowance summary + (✎) config editor. Raising base / raising cap /
          lowering rate = LOOSENING → partner-gated under Strict Mode (see
          isLooseningAction in the JS below). Tightening is always free. -->
-    <div class="settings-card" id="rules-pool-card">
-      <div class="rules-pool-head">
+    <div class="settings-card" id="rules-allowance-card">
+      <div class="rules-allowance-head">
         <div style="flex:1; min-width:0;">
-          <div class="setting-label" style="font-size:14.5px;" id="rules-pool-headline">⏳ Leisure pool</div>
-          <div class="rules-pool-breakdown" id="rules-pool-breakdown">Loading…</div>
+          <div class="setting-label" style="font-size:14.5px;" id="rules-allowance-headline">⏳ Allowance</div>
+          <div class="rules-allowance-breakdown" id="rules-allowance-breakdown">Loading…</div>
         </div>
-        <button class="rule-menu-btn" id="rules-pool-edit-btn" title="Pool settings" onclick="toggleRulesPoolEditor()">✎</button>
+        <button class="rule-menu-btn" id="rules-allowance-edit-btn" title="Allowance settings" onclick="toggleRulesAllowanceEditor()">✎</button>
       </div>
-      <div class="rules-pool-editor" id="rules-pool-editor" style="display:none;">
+      <div class="rules-allowance-editor" id="rules-allowance-editor" style="display:none;">
         <div class="ns-modal-field" style="margin-top:10px;"><label>Daily base minutes (0–240)</label>
-          <input type="number" min="0" max="240" class="ns-modal-input" id="pool-base" style="width:110px;"></div>
-        <div class="ns-modal-field"><label>Earn rate (1–20) — <span id="pool-rate-caption" style="text-transform:none;">5 focused min = 1 leisure min</span></label>
-          <input type="number" min="1" max="20" class="ns-modal-input" id="pool-rate" style="width:110px;" oninput="_updatePoolRateCaption()"></div>
+          <input type="number" min="0" max="240" class="ns-modal-input" id="allowance-base" style="width:110px;"></div>
+        <div class="ns-modal-field"><label>Earn rate (1–20) — <span id="allowance-rate-caption" style="text-transform:none;">5 focused min = 1 allowance min</span></label>
+          <input type="number" min="1" max="20" class="ns-modal-input" id="allowance-rate" style="width:110px;" oninput="_updateAllowanceRateCaption()"></div>
         <div class="ns-modal-field"><label>Bank cap — rollover limit (0–240)</label>
-          <input type="number" min="0" max="240" class="ns-modal-input" id="pool-cap" style="width:110px;"></div>
-        <div class="rule-modal-error" id="pool-editor-error"></div>
+          <input type="number" min="0" max="240" class="ns-modal-input" id="allowance-cap" style="width:110px;"></div>
+        <div class="rule-modal-error" id="allowance-editor-error"></div>
         <div class="ns-modal-footer" style="margin-top:10px;">
-          <button class="rules-btn-quiet" onclick="toggleRulesPoolEditor(false)">Cancel</button>
-          <button class="rules-add-btn" id="pool-save-btn" onclick="saveRulesPoolConfig()">Save</button>
+          <button class="rules-btn-quiet" onclick="toggleRulesAllowanceEditor(false)">Cancel</button>
+          <button class="rules-add-btn" id="allowance-save-btn" onclick="saveRulesAllowanceConfig()">Save</button>
         </div>
       </div>
     </div>
@@ -6927,7 +6927,7 @@ function navigateTo(pageId) {
     ProjectsController.onEnter();
   }
 
-  // R3 (2026-06-10): Rules page — pull rules + leisure pool on entry.
+  // R3 (2026-06-10): Rules page — pull rules + allowance on entry.
   if (pageId === 'rules' && typeof loadRulesPage === 'function') {
     loadRulesPage();
   }
@@ -9894,21 +9894,23 @@ window._addBlockCategory = _addBlockCategory;
 // =====================================================================
 // ===== Rules page (Rules Consolidation R3, June 2026) ================
 // One list of account-scoped rules grouped by treatment:
-//   🚫 blocked — never usable, ⏳ limited — spends the shared leisure pool,
+//   🚫 blocked — never usable, ⏳ limited — spends the shared allowance,
 //   ✅ allowed — never blocked, never swept.
 // Data layer: RuleStore (R2) via GET_RULES / CREATE_RULE / UPDATE_RULE /
-// DELETE_RULE / GET_LEISURE_POOL / UPDATE_LEISURE_POOL_CONFIG.
+// DELETE_RULE / GET_ALLOWANCE / UPDATE_ALLOWANCE_CONFIG.
+// ("Leisure pool" renamed "allowance" 2026-06-11; Swift keeps the old
+//  *_LEISURE_POOL* message names as deprecated aliases for one release.)
 // Wire shape is snake_case: { id, target_kind: 'site'|'app', target,
 // treatment: 'blocked'|'limited'|'allowed', schedule|null, enabled }.
 // `schedule` is a client-defined blob (R1 stores it as opaque jsonb); R3
 // defines it as { start: "HH:MM", end: "HH:MM", days: [1..7] } (ISO, Mon=1).
 // =====================================================================
 window._rulesCache = window._rulesCache || [];
-window._rulesPoolCache = window._rulesPoolCache || null;
+window._rulesAllowanceCache = window._rulesAllowanceCache || null;
 
 function loadRulesPage() {
   sendMessage({ type: 'GET_RULES' });
-  sendMessage({ type: 'GET_LEISURE_POOL' });
+  sendMessage({ type: 'GET_ALLOWANCE' });
   // Hydrate friendly app names for target_kind=app rows (same cache the
   // app picker uses; _installedAppsResult re-renders us when it lands).
   if (typeof installedAppsCache === 'undefined' || !installedAppsCache) {
@@ -9985,25 +9987,25 @@ window._ruleDeleted = function (res) {
   if (typeof showToast === 'function') showToast('Rule deleted');
 };
 
-var _poolSavePending = false;
-window._leisurePool = function (pool) {
-  if (!pool || pool.error) {
-    if (_poolSavePending) {
-      _poolSavePending = false;
-      _setPoolSaving(false);
-      _showPoolError('Couldn’t save — server unreachable. Changes not applied.');
+var _allowanceSavePending = false;
+window._allowance = function (allowance) {
+  if (!allowance || allowance.error) {
+    if (_allowanceSavePending) {
+      _allowanceSavePending = false;
+      _setAllowanceSaving(false);
+      _showAllowanceError('Couldn’t save — server unreachable. Changes not applied.');
     }
-    _renderPoolCard();   // renders the offline/empty copy
+    _renderAllowanceCard();   // renders the offline/empty copy
     return;
   }
-  window._rulesPoolCache = pool;
-  if (_poolSavePending) {
-    _poolSavePending = false;
-    _setPoolSaving(false);
-    toggleRulesPoolEditor(false);
-    if (typeof showToast === 'function') showToast('Pool settings saved');
+  window._rulesAllowanceCache = allowance;
+  if (_allowanceSavePending) {
+    _allowanceSavePending = false;
+    _setAllowanceSaving(false);
+    toggleRulesAllowanceEditor(false);
+    if (typeof showToast === 'function') showToast('Allowance settings saved');
   }
-  _renderPoolCard();
+  _renderAllowanceCard();
 };
 
 // --- Asymmetric Strict-Mode gate (spec #5) ----------------------------
@@ -10014,8 +10016,8 @@ window._leisurePool = function (pool) {
 //   • disable a 🚫 Blocked rule (toggle off)             → loosening
 //   • demote treatment toward less strict                → loosening
 //       (strictness rank: blocked 2 > limited 1 > allowed 0)
-//   • pool config: RAISE base, RAISE bank cap, or LOWER
-//       earn rate (fewer focused minutes per leisure min) → loosening
+//   • allowance config: RAISE base, RAISE bank cap, or LOWER
+//       earn rate (fewer focused minutes per allowance min) → loosening
 // Everything else — add a Blocked rule, enable a rule, promote
 // allowed→blocked, lower base/cap, raise rate — stays free.
 // Known simplification (documented): schedule edits on a Blocked rule
@@ -10033,11 +10035,11 @@ window._leisurePool = function (pool) {
 //   isLooseningAction({treatment:'blocked'}, {action:'treatment', to:'allowed'})     === true
 //   isLooseningAction({treatment:'limited'}, {action:'treatment', to:'allowed'})     === true
 //   isLooseningAction({treatment:'allowed'}, {action:'treatment', to:'blocked'})     === false
-//   isLooseningAction(null, {action:'pool', field:'base_minutes', from:15, to:30})   === true
-//   isLooseningAction(null, {action:'pool', field:'base_minutes', from:15, to:10})   === false
-//   isLooseningAction(null, {action:'pool', field:'earn_rate',    from:5,  to:3})    === true
-//   isLooseningAction(null, {action:'pool', field:'earn_rate',    from:5,  to:8})    === false
-//   isLooseningAction(null, {action:'pool', field:'bank_cap',     from:60, to:120})  === true
+//   isLooseningAction(null, {action:'allowance', field:'base_minutes', from:15, to:30})   === true
+//   isLooseningAction(null, {action:'allowance', field:'base_minutes', from:15, to:10})   === false
+//   isLooseningAction(null, {action:'allowance', field:'earn_rate',    from:5,  to:3})    === true
+//   isLooseningAction(null, {action:'allowance', field:'earn_rate',    from:5,  to:8})    === false
+//   isLooseningAction(null, {action:'allowance', field:'bank_cap',     from:60, to:120})  === true
 function isLooseningAction(rule, change) {
   var RANK = { blocked: 2, limited: 1, allowed: 0 };
   switch (change && change.action) {
@@ -10049,7 +10051,7 @@ function isLooseningAction(rule, change) {
       return !!rule && rule.treatment === 'blocked' && change.enabled === false;
     case 'treatment':
       return !!rule && RANK[change.to] < RANK[rule.treatment];
-    case 'pool':
+    case 'allowance':
       if (change.field === 'earn_rate') return change.to < change.from;  // easier earning
       return change.to > change.from;  // base_minutes / bank_cap raised
   }
@@ -10128,7 +10130,7 @@ function renderRulesPage() {
   });
   var empties = {
     blocked: 'Nothing blocked yet. Add the sites and apps you never want to slip into.',
-    limited: 'No limits yet. Limited sites & apps spend your daily leisure pool — when it’s empty, they’re blocked.',
+    limited: 'No limits yet. Limited sites & apps spend your daily allowance — when it’s empty, they’re blocked.',
     allowed: 'Nothing always-allowed yet. Allowed targets are never blocked and never swept.'
   };
   Object.keys(mounts).forEach(function (k) {
@@ -10139,7 +10141,7 @@ function renderRulesPage() {
       ? rules.map(_renderRuleRow).join('')
       : '<div class="rules-empty">' + empties[k] + '</div>';
   });
-  _renderPoolCard();
+  _renderAllowanceCard();
 }
 window.renderRulesPage = renderRulesPage;
 
@@ -10318,7 +10320,7 @@ function _showRuleModal(titleText) {
 function _ruleTreatmentHint(t) {
   return {
     blocked: 'Never usable (or only blocked inside the schedule window).',
-    limited: 'Usable while your leisure pool lasts — blocked when it hits zero.',
+    limited: 'Usable while your allowance lasts — blocked when it hits zero.',
     allowed: 'Never blocked, never swept — even mid-session.'
   }[t] || '';
 }
@@ -10481,96 +10483,96 @@ function _saveRuleFromModal() {
 }
 window._saveRuleFromModal = _saveRuleFromModal;
 
-// --- Leisure pool card + config editor ----------------------------------
+// --- Allowance card + config editor --------------------------------------
 
-function _renderPoolCard() {
-  var headline = document.getElementById('rules-pool-headline');
-  var breakdown = document.getElementById('rules-pool-breakdown');
+function _renderAllowanceCard() {
+  var headline = document.getElementById('rules-allowance-headline');
+  var breakdown = document.getElementById('rules-allowance-breakdown');
   if (!headline || !breakdown) return;
-  var p = window._rulesPoolCache;
+  var p = window._rulesAllowanceCache;
   if (!p) {
-    headline.textContent = '⏳ Leisure pool';
-    breakdown.textContent = 'Couldn’t load the pool yet — it’ll sync when the server is reachable.';
+    headline.textContent = '⏳ Allowance';
+    breakdown.textContent = 'Couldn’t load your allowance yet — it’ll sync when the server is reachable.';
     return;
   }
   var left = (p.available_minutes != null) ? p.available_minutes : '—';
-  headline.textContent = '⏳ Leisure pool · ' + left + ' min left today';
+  headline.textContent = '⏳ Allowance · ' + left + ' min left today';
   breakdown.textContent =
     'Base ' + p.base_minutes + ' · Earned ' + p.earned_minutes +
     ' · Spent ' + p.spent_minutes + ' · Bank ' + p.bank_minutes + '/' + p.bank_cap +
-    ' · ' + p.earn_rate + ' focused min = 1 leisure min';
+    ' · ' + p.earn_rate + ' focused min = 1 allowance min';
 }
 
-function toggleRulesPoolEditor(show) {
-  var ed = document.getElementById('rules-pool-editor');
+function toggleRulesAllowanceEditor(show) {
+  var ed = document.getElementById('rules-allowance-editor');
   if (!ed) return;
   var open = ed.style.display !== 'none';
   var next = (typeof show === 'boolean') ? show : !open;
   ed.style.display = next ? '' : 'none';
-  var err = document.getElementById('pool-editor-error');
+  var err = document.getElementById('allowance-editor-error');
   if (err) err.style.display = 'none';
   if (next) {
-    var p = window._rulesPoolCache || {};
-    document.getElementById('pool-base').value = (p.base_minutes != null) ? p.base_minutes : 15;
-    document.getElementById('pool-rate').value = (p.earn_rate != null) ? p.earn_rate : 5;
-    document.getElementById('pool-cap').value = (p.bank_cap != null) ? p.bank_cap : 60;
-    _updatePoolRateCaption();
+    var p = window._rulesAllowanceCache || {};
+    document.getElementById('allowance-base').value = (p.base_minutes != null) ? p.base_minutes : 15;
+    document.getElementById('allowance-rate').value = (p.earn_rate != null) ? p.earn_rate : 5;
+    document.getElementById('allowance-cap').value = (p.bank_cap != null) ? p.bank_cap : 60;
+    _updateAllowanceRateCaption();
   }
 }
-window.toggleRulesPoolEditor = toggleRulesPoolEditor;
+window.toggleRulesAllowanceEditor = toggleRulesAllowanceEditor;
 
-function _updatePoolRateCaption() {
-  var el = document.getElementById('pool-rate');
-  var cap = document.getElementById('pool-rate-caption');
+function _updateAllowanceRateCaption() {
+  var el = document.getElementById('allowance-rate');
+  var cap = document.getElementById('allowance-rate-caption');
   if (!el || !cap) return;
   var v = parseInt(el.value, 10);
-  cap.textContent = (isNaN(v) ? '?' : v) + ' focused min = 1 leisure min';
+  cap.textContent = (isNaN(v) ? '?' : v) + ' focused min = 1 allowance min';
 }
-window._updatePoolRateCaption = _updatePoolRateCaption;
+window._updateAllowanceRateCaption = _updateAllowanceRateCaption;
 
-function _showPoolError(msg) {
-  var el = document.getElementById('pool-editor-error');
+function _showAllowanceError(msg) {
+  var el = document.getElementById('allowance-editor-error');
   if (!el) { if (typeof showToast === 'function') showToast(msg, 'error'); return; }
   el.textContent = msg;
   el.style.display = 'block';
 }
 
-function _setPoolSaving(saving) {
-  var btn = document.getElementById('pool-save-btn');
+function _setAllowanceSaving(saving) {
+  var btn = document.getElementById('allowance-save-btn');
   if (!btn) return;
   btn.disabled = !!saving;
   btn.textContent = saving ? 'Saving…' : 'Save';
 }
 
-function saveRulesPoolConfig() {
-  var base = parseInt((document.getElementById('pool-base') || {}).value, 10);
-  var rate = parseInt((document.getElementById('pool-rate') || {}).value, 10);
-  var cap = parseInt((document.getElementById('pool-cap') || {}).value, 10);
+function saveRulesAllowanceConfig() {
+  var base = parseInt((document.getElementById('allowance-base') || {}).value, 10);
+  var rate = parseInt((document.getElementById('allowance-rate') || {}).value, 10);
+  var cap = parseInt((document.getElementById('allowance-cap') || {}).value, 10);
   // Same ranges the backend enforces (it 422s outside these).
-  if (isNaN(base) || base < 0 || base > 240) { _showPoolError('Daily base must be 0–240 minutes.'); return; }
-  if (isNaN(rate) || rate < 1 || rate > 20) { _showPoolError('Earn rate must be 1–20.'); return; }
-  if (isNaN(cap) || cap < 0 || cap > 240) { _showPoolError('Bank cap must be 0–240 minutes.'); return; }
+  if (isNaN(base) || base < 0 || base > 240) { _showAllowanceError('Daily base must be 0–240 minutes.'); return; }
+  if (isNaN(rate) || rate < 1 || rate > 20) { _showAllowanceError('Earn rate must be 1–20.'); return; }
+  if (isNaN(cap) || cap < 0 || cap > 240) { _showAllowanceError('Bank cap must be 0–240 minutes.'); return; }
 
   // Asymmetric gate: any LOOSENING field (raise base, lower rate, raise cap)
   // partner-gates the whole save while Strict Mode is locked. Tightening-only
   // saves go straight through.
-  var p = window._rulesPoolCache || { base_minutes: 15, earn_rate: 5, bank_cap: 60 };
+  var p = window._rulesAllowanceCache || { base_minutes: 15, earn_rate: 5, bank_cap: 60 };
   var loosening =
-    isLooseningAction(null, { action: 'pool', field: 'base_minutes', from: p.base_minutes, to: base }) ||
-    isLooseningAction(null, { action: 'pool', field: 'earn_rate', from: p.earn_rate, to: rate }) ||
-    isLooseningAction(null, { action: 'pool', field: 'bank_cap', from: p.bank_cap, to: cap });
+    isLooseningAction(null, { action: 'allowance', field: 'base_minutes', from: p.base_minutes, to: base }) ||
+    isLooseningAction(null, { action: 'allowance', field: 'earn_rate', from: p.earn_rate, to: rate }) ||
+    isLooseningAction(null, { action: 'allowance', field: 'bank_cap', from: p.bank_cap, to: cap });
   var s = window._strictModeState || {};
   if (loosening && s.enabled && !s.isUnlocked) {
     sendMessage({ type: 'OPEN_PARTNER_UNLOCK_SHEET', purpose: 'rules_loosening' });
-    if (typeof showToast === 'function') showToast('Strict Mode — loosening the pool needs a partner code', 'error');
+    if (typeof showToast === 'function') showToast('Strict Mode — loosening the allowance needs a partner code', 'error');
     return;
   }
 
-  _poolSavePending = true;
-  _setPoolSaving(true);
-  sendMessage({ type: 'UPDATE_LEISURE_POOL_CONFIG', base_minutes: base, earn_rate: rate, bank_cap: cap });
+  _allowanceSavePending = true;
+  _setAllowanceSaving(true);
+  sendMessage({ type: 'UPDATE_ALLOWANCE_CONFIG', base_minutes: base, earn_rate: rate, bank_cap: cap });
 }
-window.saveRulesPoolConfig = saveRulesPoolConfig;
+window.saveRulesAllowanceConfig = saveRulesAllowanceConfig;
 
 // ===== Block Now modal — pick duration, then start an immediate focus session =====
 function openBlockNowModal() {

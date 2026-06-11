@@ -88,7 +88,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var monthlyGoalStore: MonthlyGoalStore?
 
     // June 2026 Rules Consolidation R2: unified blocked/limited/allowed rules
-    // + shared daily leisure pool, backend-synced (pull launch+foreground+60s).
+    // + shared daily allowance, backend-synced (pull launch+foreground+60s).
     var ruleStore: RuleStore?
 
     // Slice 1 (Subscription Entitlements): polls /me/entitlements on launch +
@@ -681,8 +681,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         monthlyGoalStore?.startSyncTimer()
         postLog("📅 MonthlyGoalStore wired and pulling")
 
-        // June 2026 Rules Consolidation R2 — RuleStore (unified rules + leisure
-        // pool, backend-synced). Initialized HERE — init step 11b, alongside
+        // June 2026 Rules Consolidation R2 — RuleStore (unified rules +
+        // allowance, backend-synced). Initialized HERE — init step 11b, alongside
         // IntentionStore/MonthlyGoalStore — because (a) its only dependency is
         // BackendClient (step 1), which already exists, and (b) the future
         // enforcement consumers (ScheduleManager step 13, FocusMonitor step 15)
@@ -693,10 +693,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             await ruleStore?.wire(backend: backendClient!, appDelegate: self)
             await ruleStore?.pull()
-            await ruleStore?.refreshPool()
+            await ruleStore?.refreshAllowance()
         }
         ruleStore?.startSyncTimer()
-        postLog("📐 RuleStore wired and pulling (rules + leisure pool)")
+        postLog("📐 RuleStore wired and pulling (rules + allowance)")
 
         // Wire TimeTracker callback: deduct social media time from earned pool
         timeTracker?.onSocialMediaTimeRecorded = { [weak self] platform, minutes, isFreeBrowse in

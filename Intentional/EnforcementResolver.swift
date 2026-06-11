@@ -12,7 +12,7 @@
 //
 //  ⏳ (limited) targets behave as 🚫 DURING a focus session — focus time is
 //  focus time (spec 2026-06-10-rules-consolidation-design.md). Outside a
-//  session they defer to the shared leisure pool. TODO(R5): wire pool
+//  session they defer to the shared allowance. TODO(R5): wire allowance
 //  metering for the out-of-session case; until R5 lands they are
 //  allowed-for-now outside sessions (.noDecision → falls through).
 //
@@ -83,7 +83,7 @@ struct EnforcementResolver {
         if matches(host, inputs.rules.allowedSites) { return .allow(.allowRule) }
         if matches(host, inputs.rules.blockedSites) { return .block(.blockRule) }
         if matches(host, inputs.rules.limitedSites), inputs.inFocusSession {
-            // ⏳ acts as 🚫 in-session. TODO(R5): out-of-session pool metering.
+            // ⏳ acts as 🚫 in-session. TODO(R5): out-of-session allowance metering.
             return .block(.limitGate)
         }
         if matches(host, inputs.goalBlockedDomains) { return .block(.goalBlock) }
@@ -96,7 +96,7 @@ struct EnforcementResolver {
         if inputs.rules.allowedApps.contains(bundleId) { return .allow(.allowRule) }
         if inputs.rules.blockedApps.contains(bundleId) { return .block(.blockRule) }
         if inputs.rules.limitedApps.contains(bundleId), inputs.inFocusSession {
-            // ⏳ acts as 🚫 in-session. TODO(R5): out-of-session pool metering.
+            // ⏳ acts as 🚫 in-session. TODO(R5): out-of-session allowance metering.
             return .block(.limitGate)
         }
         if inputs.goalBlockedBundleIds.contains(bundleId) { return .block(.goalBlock) }
@@ -128,7 +128,7 @@ struct EnforcementResolver {
         for d in standaloneDomains where seen.insert(d).inserted { union.append(d) }
         for d in inputs.rules.blockedSites where seen.insert(d).inserted { union.append(d) }
         if inputs.inFocusSession {
-            // ⏳ acts as 🚫 in-session. TODO(R5): out-of-session pool metering.
+            // ⏳ acts as 🚫 in-session. TODO(R5): out-of-session allowance metering.
             for d in inputs.rules.limitedSites where seen.insert(d).inserted { union.append(d) }
         }
         return union.filter { d in

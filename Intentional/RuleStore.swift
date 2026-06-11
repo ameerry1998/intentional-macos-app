@@ -1,11 +1,12 @@
 // RuleStore.swift
 //
 // Actor-isolated store for unified `Rule` records + the shared daily
-// `LeisurePool` (Rules Consolidation R2, June 2026). Mirrors IntentionStore:
+// `Allowance` (Rules Consolidation R2, June 2026; "leisure pool" renamed
+// "allowance" 2026-06-11). Mirrors IntentionStore:
 //   - Pull on launch, on app foreground (didBecomeActive), every 60s.
 //   - Push on user-driven create/update/delete (immediately), with
 //     optimistic local apply + server reconcile (revert on failure).
-//   - Offline = serve the local cache (rules.json / leisure_pool.json).
+//   - Offline = serve the local cache (rules.json / allowance.json).
 // Rules are hard-deleted on the backend (no tombstones) — pull() replaces
 // the whole local set, so deletes from other devices converge within 60s.
 //
@@ -23,14 +24,14 @@ actor RuleStore {
 
     /// All rules known to this device, keyed by id.
     private var byId: [UUID: Rule] = [:]
-    /// Last-known leisure pool (today's, per server-local date). Serve-stale
+    /// Last-known allowance (today's, per server-local date). Serve-stale
     /// when offline; refreshed alongside rules on the sync rhythm.
-    private var cachedPool: LeisurePool?
+    private var cachedAllowance: Allowance?
 
     private var pullTimer: Timer?
 
     private let fileURL: URL
-    private let poolFileURL: URL
+    private let allowanceFileURL: URL
     private static let encoder: JSONEncoder = {
         let e = JSONEncoder()
         e.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -47,7 +48,7 @@ actor RuleStore {
             dirURL = support.appendingPathComponent("Intentional", isDirectory: true)
         }
         self.fileURL = dirURL.appendingPathComponent("rules.json")
-        self.poolFileURL = dirURL.appendingPathComponent("leisure_pool.json")
+        self.allowanceFileURL = dirURL.appendingPathComponent("allowance.json")
         try? FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
         loadFromDisk()
     }
@@ -65,9 +66,9 @@ actor RuleStore {
            let cached = try? Self.decoder.decode([Rule].self, from: data) {
             for r in cached { byId[r.id] = r }
         }
-        if let data = try? Data(contentsOf: poolFileURL),
-           let pool = try? Self.decoder.decode(LeisurePool.self, from: data) {
-            cachedPool = pool
+        if let data = try? Data(contentsOf: allowanceFileURL),
+           let allowance = try? Self.decoder.decode(Allowance.self, from: data) {
+            cachedAllowance = allowance
         }
         // R4: keep the synchronous enforcement mirror in lockstep with the
         // cache from the very first load (WebsiteBlocker/FocusMonitor read it
@@ -85,9 +86,9 @@ actor RuleStore {
         RuleEnforcementMirror.shared.publish(Array(byId.values))
     }
 
-    private func persistPoolToDisk() {
-        guard let cachedPool, let data = try? Self.encoder.encode(cachedPool) else { return }
-        try? data.write(to: poolFileURL, options: .atomic)
+    private func persistAllowanceToDisk() {
+        guard let cachedAllowance, let data = try? Self.encoder.encode(cachedAllowance) else { return }
+        try? data.write(to: allowanceFileURL, options: .atomic)
     }
 
     // MARK: - Read API
@@ -107,8 +108,8 @@ actor RuleStore {
         return byId.values.first { $0.targetKind == targetKind && $0.target == needle }
     }
 
-    /// Last-known leisure pool (may be stale/yesterday's when offline).
-    func pool() -> LeisurePool? { cachedPool }
+    /// Last-known allowance (may be stale/yesterday's when offline).
+    func allowance() -> Allowance? { cachedAllowance }
 
     // MARK: - Sync — Pull
 
@@ -124,15 +125,15 @@ actor RuleStore {
         return true
     }
 
-    /// Refresh today's pool from the backend. Returns the fresh pool, or the
-    /// stale cache when offline (nil only if we've never seen a pool).
+    /// Refresh today's allowance from the backend. Returns the fresh
+    /// allowance, or the stale cache when offline (nil only if never seen).
     @discardableResult
-    func refreshPool() async -> LeisurePool? {
-        guard let backend else { return cachedPool }
-        guard let fresh = await backend.getLeisurePoolToday() else { return cachedPool }
-        cachedPool = fresh
-        persistPoolToDisk()
-        await notifyPoolChanged()
+    func refreshAllowance() async -> Allowance? {
+        guard let backend else { return cachedAllowance }
+        guard let fresh = await backend.getAllowanceToday() else { return cachedAllowance }
+        cachedAllowance = fresh
+        persistAllowanceToDisk()
+        await notifyAllowanceChanged()
         return fresh
     }
 
@@ -142,15 +143,15 @@ actor RuleStore {
         }
     }
 
-    private func notifyPoolChanged() async {
+    private func notifyAllowanceChanged() async {
         await MainActor.run {
-            NotificationCenter.default.post(name: .leisurePoolDidChange, object: nil)
+            NotificationCenter.default.post(name: .allowanceDidChange, object: nil)
         }
     }
 
     // MARK: - Sync rhythm
 
-    /// Start the 60s pull timer (rules + pool). Call from AppDelegate after
+    /// Start the 60s pull timer (rules + allowance). Call from AppDelegate after
     /// wire(). Also subscribes to NSApplication.didBecomeActiveNotification.
     nonisolated func startSyncTimer() {
         Task { @MainActor [weak self] in
@@ -161,14 +162,14 @@ actor RuleStore {
             ) { [weak self] _ in
                 Task {
                     await self?.pull()
-                    await self?.refreshPool()
+                    await self?.refreshAllowance()
                 }
             }
             // 60s timer
             let t = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { [weak self] _ in
                 Task {
                     await self?.pull()
-                    await self?.refreshPool()
+                    await self?.refreshAllowance()
                 }
             }
             t.tolerance = 5.0
@@ -263,51 +264,51 @@ actor RuleStore {
         return ok
     }
 
-    // MARK: - Leisure pool mutations (R5 consumes these)
+    // MARK: - Allowance mutations (R5 consumes these)
 
-    /// Credit focused time → leisure minutes (server floors at earn_rate:1).
+    /// Credit focused time → allowance minutes (server floors at earn_rate:1).
     /// Pass sessionId for idempotency — replays credit 0 (deduped=true).
     @discardableResult
-    func earn(focusedMinutes: Int, sessionId: String? = nil) async -> LeisurePool? {
-        guard let backend else { return cachedPool }
-        guard let fresh = await backend.postPoolEarn(
+    func earn(focusedMinutes: Int, sessionId: String? = nil) async -> Allowance? {
+        guard let backend else { return cachedAllowance }
+        guard let fresh = await backend.postAllowanceEarn(
             focusedMinutes: focusedMinutes, sessionId: sessionId
-        ) else { return cachedPool }
-        cachedPool = fresh
-        persistPoolToDisk()
-        await notifyPoolChanged()
+        ) else { return cachedAllowance }
+        cachedAllowance = fresh
+        persistAllowanceToDisk()
+        await notifyAllowanceChanged()
         return fresh
     }
 
-    /// Record leisure spend (server clamps at the available balance;
+    /// Record allowance spend (server clamps at the available balance;
     /// spentApplied on the result says how much stuck).
     @discardableResult
-    func spend(minutes: Int) async -> LeisurePool? {
-        guard let backend else { return cachedPool }
-        guard let fresh = await backend.postPoolSpend(minutes: minutes) else { return cachedPool }
-        cachedPool = fresh
-        persistPoolToDisk()
-        await notifyPoolChanged()
+    func spend(minutes: Int) async -> Allowance? {
+        guard let backend else { return cachedAllowance }
+        guard let fresh = await backend.postAllowanceSpend(minutes: minutes) else { return cachedAllowance }
+        cachedAllowance = fresh
+        persistAllowanceToDisk()
+        await notifyAllowanceChanged()
         return fresh
     }
 
-    /// Update pool config (base 0-240, rate 1-20, cap 0-240; server 422s
+    /// Update allowance config (base 0-240, rate 1-20, cap 0-240; server 422s
     /// outside ranges → nil here, cache untouched).
     @discardableResult
-    func updatePoolConfig(baseMinutes: Int? = nil, earnRate: Int? = nil,
-                          bankCap: Int? = nil) async -> LeisurePool? {
-        guard let backend else { return cachedPool }
-        guard let fresh = await backend.putPoolConfig(
+    func updateAllowanceConfig(baseMinutes: Int? = nil, earnRate: Int? = nil,
+                               bankCap: Int? = nil) async -> Allowance? {
+        guard let backend else { return cachedAllowance }
+        guard let fresh = await backend.putAllowanceConfig(
             baseMinutes: baseMinutes, earnRate: earnRate, bankCap: bankCap
         ) else { return nil }
-        cachedPool = fresh
-        persistPoolToDisk()
-        await notifyPoolChanged()
+        cachedAllowance = fresh
+        persistAllowanceToDisk()
+        await notifyAllowanceChanged()
         return fresh
     }
 }
 
 extension Notification.Name {
     static let rulesDidChange = Notification.Name("rulesDidChange")
-    static let leisurePoolDidChange = Notification.Name("leisurePoolDidChange")
+    static let allowanceDidChange = Notification.Name("allowanceDidChange")
 }

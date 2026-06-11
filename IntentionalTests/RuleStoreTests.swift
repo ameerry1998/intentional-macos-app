@@ -7,7 +7,7 @@
 //
 // Covers: Rule wire-format decode (backend feat/rules-table commit 5603ab5),
 // tolerant decoding (unknown fields ignored, bad rules skipped, fractional-
-// second timestamps), LeisurePool decode, RuleUpdatePayload partial encoding
+// second timestamps), Allowance decode, RuleUpdatePayload partial encoding
 // (omitted fields absent; clear_schedule), and RuleStore disk-cache loading.
 
 import XCTest
@@ -127,9 +127,9 @@ final class RuleStoreTests: XCTestCase {
         )
     }
 
-    // MARK: - LeisurePool decode
+    // MARK: - Allowance decode
 
-    func test_pool_decodes_wire_format_with_extras() throws {
+    func test_allowance_decodes_wire_format_with_extras() throws {
         let json = """
         {
           "pool_date": "2026-06-10",
@@ -140,15 +140,15 @@ final class RuleStoreTests: XCTestCase {
         }
         """.data(using: .utf8)!
 
-        let pool = try JSONDecoder().decode(LeisurePool.self, from: json)
-        XCTAssertEqual(pool.poolDate, "2026-06-10")
-        XCTAssertEqual(pool.availableMinutes, 27)
-        XCTAssertEqual(pool.creditedMinutes, 6)
-        XCTAssertEqual(pool.deduped, false)
-        XCTAssertNil(pool.spentApplied)
+        let allowance = try JSONDecoder().decode(Allowance.self, from: json)
+        XCTAssertEqual(allowance.poolDate, "2026-06-10")
+        XCTAssertEqual(allowance.availableMinutes, 27)
+        XCTAssertEqual(allowance.creditedMinutes, 6)
+        XCTAssertEqual(allowance.deduped, false)
+        XCTAssertNil(allowance.spentApplied)
     }
 
-    func test_pool_computes_available_when_missing() throws {
+    func test_allowance_computes_available_when_missing() throws {
         // Tolerant decode: a payload without available_minutes still works
         // (max(0, base + earned + bank - spent)).
         let json = """
@@ -156,8 +156,8 @@ final class RuleStoreTests: XCTestCase {
          "spent_minutes": 30, "bank_minutes": 0, "earn_rate": 5, "bank_cap": 60}
         """.data(using: .utf8)!
 
-        let pool = try JSONDecoder().decode(LeisurePool.self, from: json)
-        XCTAssertEqual(pool.availableMinutes, 0)  // clamped at zero
+        let allowance = try JSONDecoder().decode(Allowance.self, from: json)
+        XCTAssertEqual(allowance.availableMinutes, 0)  // clamped at zero
     }
 
     // MARK: - RuleUpdatePayload partial encoding
@@ -202,15 +202,15 @@ final class RuleStoreTests: XCTestCase {
         XCTAssertEqual(all.map(\.target), ["twitter.com", "com.apple.TV"])
     }
 
-    func test_store_loads_pool_from_disk_cache() async throws {
-        let pool = LeisurePool(poolDate: "2026-06-10", baseMinutes: 15,
-                               earnedMinutes: 3, spentMinutes: 0,
-                               bankMinutes: 12, earnRate: 5, bankCap: 60)
-        let url = tempDir.appendingPathComponent("leisure_pool.json")
-        try JSONEncoder().encode(pool).write(to: url)
+    func test_store_loads_allowance_from_disk_cache() async throws {
+        let allowance = Allowance(poolDate: "2026-06-10", baseMinutes: 15,
+                                  earnedMinutes: 3, spentMinutes: 0,
+                                  bankMinutes: 12, earnRate: 5, bankCap: 60)
+        let url = tempDir.appendingPathComponent("allowance.json")
+        try JSONEncoder().encode(allowance).write(to: url)
 
         let store = RuleStore(settingsDir: tempDir.path)
-        let cached = await store.pool()
+        let cached = await store.allowance()
         XCTAssertEqual(cached?.poolDate, "2026-06-10")
         XCTAssertEqual(cached?.availableMinutes, 30)
     }

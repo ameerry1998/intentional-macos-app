@@ -1746,9 +1746,10 @@ class BackendClient {
         }
     }
 
-    // MARK: - Rules + Leisure Pool (Rules Consolidation R2 — June 2026)
+    // MARK: - Rules + Allowance (Rules Consolidation R2 — June 2026; "leisure pool" renamed "allowance" 2026-06-11)
     // Wire format: intentional-backend feat/rules-table commit 5603ab5
-    // (migration 028). Dual-auth via X-Device-ID like /intentions.
+    // (migration 028; allowance rename in commit 6058f75 — paths + table
+    // renamed, JSON field names frozen). Dual-auth via X-Device-ID.
 
     enum RuleError: Error, LocalizedError {
         /// 409 — a rule for this (target_kind, target) already exists.
@@ -1836,26 +1837,26 @@ class BackendClient {
         }
     }
 
-    /// GET /leisure_pool/today — creates today's row server-side on first
+    /// GET /allowance/today — creates today's row server-side on first
     /// call of the day (with bank rollover). nil on any failure.
-    func getLeisurePoolToday() async -> LeisurePool? {
-        guard let url = URL(string: "\(baseURL)/leisure_pool/today") else { return nil }
+    func getAllowanceToday() async -> Allowance? {
+        guard let url = URL(string: "\(baseURL)/allowance/today") else { return nil }
         var req = URLRequest(url: url)
         req.httpMethod = "GET"
         req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
         do {
             let (data, response) = try await URLSession.shared.data(for: req)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
-            return try JSONDecoder().decode(LeisurePool.self, from: data)
+            return try JSONDecoder().decode(Allowance.self, from: data)
         } catch {
             return nil
         }
     }
 
-    /// POST /leisure_pool/earn — credit focused minutes at earn_rate:1
+    /// POST /allowance/earn — credit focused minutes at earn_rate:1
     /// (server-side floor). sessionId makes replays idempotent (deduped).
-    func postPoolEarn(focusedMinutes: Int, sessionId: String? = nil) async -> LeisurePool? {
-        guard let url = URL(string: "\(baseURL)/leisure_pool/earn") else { return nil }
+    func postAllowanceEarn(focusedMinutes: Int, sessionId: String? = nil) async -> Allowance? {
+        guard let url = URL(string: "\(baseURL)/allowance/earn") else { return nil }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -1866,16 +1867,16 @@ class BackendClient {
         do {
             let (data, response) = try await URLSession.shared.data(for: req)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
-            return try JSONDecoder().decode(LeisurePool.self, from: data)
+            return try JSONDecoder().decode(Allowance.self, from: data)
         } catch {
             return nil
         }
     }
 
-    /// POST /leisure_pool/spend — record leisure spend (server clamps at
+    /// POST /allowance/spend — record allowance spend (server clamps at
     /// available; the response's spent_applied says how much stuck).
-    func postPoolSpend(minutes: Int) async -> LeisurePool? {
-        guard let url = URL(string: "\(baseURL)/leisure_pool/spend") else { return nil }
+    func postAllowanceSpend(minutes: Int) async -> Allowance? {
+        guard let url = URL(string: "\(baseURL)/allowance/spend") else { return nil }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -1884,18 +1885,18 @@ class BackendClient {
         do {
             let (data, response) = try await URLSession.shared.data(for: req)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
-            return try JSONDecoder().decode(LeisurePool.self, from: data)
+            return try JSONDecoder().decode(Allowance.self, from: data)
         } catch {
             return nil
         }
     }
 
-    /// PUT /leisure_pool/config — base 0-240, rate 1-20, cap 0-240 (server
+    /// PUT /allowance/config — base 0-240, rate 1-20, cap 0-240 (server
     /// 422s outside ranges → nil). Applies to today's row; future days
     /// inherit via rollover carry-forward.
-    func putPoolConfig(baseMinutes: Int? = nil, earnRate: Int? = nil,
-                       bankCap: Int? = nil) async -> LeisurePool? {
-        guard let url = URL(string: "\(baseURL)/leisure_pool/config") else { return nil }
+    func putAllowanceConfig(baseMinutes: Int? = nil, earnRate: Int? = nil,
+                            bankCap: Int? = nil) async -> Allowance? {
+        guard let url = URL(string: "\(baseURL)/allowance/config") else { return nil }
         var req = URLRequest(url: url)
         req.httpMethod = "PUT"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -1908,7 +1909,7 @@ class BackendClient {
         do {
             let (data, response) = try await URLSession.shared.data(for: req)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
-            return try JSONDecoder().decode(LeisurePool.self, from: data)
+            return try JSONDecoder().decode(Allowance.self, from: data)
         } catch {
             return nil
         }

@@ -889,7 +889,10 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             }
 
         // June 2026 — Rules Consolidation R2 (unified blocked/limited/allowed
-        // rules + shared leisure pool). Handlers only; Rules page UI is R3.
+        // rules + shared allowance). Handlers only; Rules page UI is R3.
+        // "Leisure pool" renamed "allowance" 2026-06-11; the old
+        // *_LEISURE_POOL* message names stay as deprecated aliases for one
+        // release cycle (same convention as the legacy *_PROJECT_* handlers).
         case "GET_RULES":
             handleGetRules()
 
@@ -909,15 +912,17 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 handleDeleteRule(id: id)
             }
 
-        case "GET_LEISURE_POOL":
-            handleGetLeisurePool()
+        case "GET_ALLOWANCE",
+             "GET_LEISURE_POOL":  // deprecated alias (pre-rename), one release cycle
+            handleGetAllowance()
 
-        case "UPDATE_LEISURE_POOL_CONFIG":
-            // R3: Rules-page pool editor (base 0-240, rate 1-20, cap 0-240).
+        case "UPDATE_ALLOWANCE_CONFIG",
+             "UPDATE_LEISURE_POOL_CONFIG":  // deprecated alias (pre-rename), one release cycle
+            // R3: Rules-page allowance editor (base 0-240, rate 1-20, cap 0-240).
             // Loosening changes are partner-gated in the dashboard JS before
             // this message is ever sent; Swift just persists + re-emits.
             if let body = message.body as? [String: Any] {
-                handleUpdateLeisurePoolConfig(body)
+                handleUpdateAllowanceConfig(body)
             }
 
         case "CREATE_SCHEDULED_SESSION":
@@ -4296,7 +4301,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         callJS("window._monthlyGoalUpdated && window._monthlyGoalUpdated(\(json))")
     }
 
-    // MARK: - Rules + Leisure Pool (Rules Consolidation R2 — June 2026)
+    // MARK: - Rules + Allowance (Rules Consolidation R2 — June 2026; "leisure pool" renamed "allowance" 2026-06-11)
 
     /// Wire-format dict for one rule, mirroring the backend's _rule_to_dict
     /// (snake_case keys) so the dashboard JS sees the same shape either way.
@@ -4318,7 +4323,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         return d
     }
 
-    static func leisurePoolToDict(_ p: LeisurePool) -> [String: Any] {
+    static func allowanceToDict(_ p: Allowance) -> [String: Any] {
         var d: [String: Any] = [
             "pool_date": p.poolDate,
             "base_minutes": p.baseMinutes,
@@ -4470,44 +4475,44 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         }
     }
 
-    private func handleGetLeisurePool() {
+    private func handleGetAllowance() {
         guard let store = appDelegate?.ruleStore else {
-            emitLeisurePool(["error": "store unavailable"])
+            emitAllowance(["error": "store unavailable"])
             return
         }
         Task {
-            // refreshPool() returns the fresh server pool, falling back to the
-            // stale local cache when offline; nil only if we've never synced.
-            if let pool = await store.refreshPool() {
-                let dict = Self.leisurePoolToDict(pool)
-                await MainActor.run { self.emitLeisurePool(dict) }
+            // refreshAllowance() returns the fresh server allowance, falling
+            // back to the stale local cache when offline; nil = never synced.
+            if let allowance = await store.refreshAllowance() {
+                let dict = Self.allowanceToDict(allowance)
+                await MainActor.run { self.emitAllowance(dict) }
             } else {
-                await MainActor.run { self.emitLeisurePool(["error": "unavailable"]) }
+                await MainActor.run { self.emitAllowance(["error": "unavailable"]) }
             }
         }
     }
 
-    private func handleUpdateLeisurePoolConfig(_ body: [String: Any]) {
+    private func handleUpdateAllowanceConfig(_ body: [String: Any]) {
         guard let store = appDelegate?.ruleStore else {
-            emitLeisurePool(["error": "store unavailable"])
+            emitAllowance(["error": "store unavailable"])
             return
         }
         let base = body["base_minutes"] as? Int
         let rate = body["earn_rate"] as? Int
         let cap = body["bank_cap"] as? Int
         Task {
-            // updatePoolConfig returns nil on server rejection (422 outside
-            // ranges) or network failure — surface as an error so the editor
-            // shows "couldn't save" instead of silently pretending.
-            if let pool = await store.updatePoolConfig(
+            // updateAllowanceConfig returns nil on server rejection (422
+            // outside ranges) or network failure — surface as an error so the
+            // editor shows "couldn't save" instead of silently pretending.
+            if let allowance = await store.updateAllowanceConfig(
                 baseMinutes: base, earnRate: rate, bankCap: cap
             ) {
-                var dict = Self.leisurePoolToDict(pool)
+                var dict = Self.allowanceToDict(allowance)
                 dict["config_saved"] = true
-                await MainActor.run { self.emitLeisurePool(dict) }
+                await MainActor.run { self.emitAllowance(dict) }
             } else {
                 await MainActor.run {
-                    self.emitLeisurePool(["error": "config update failed"])
+                    self.emitAllowance(["error": "config update failed"])
                 }
             }
         }
@@ -4535,9 +4540,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         callJS("window._ruleDeleted && window._ruleDeleted(\(json))")
     }
 
-    private func emitLeisurePool(_ dict: [String: Any]) {
+    private func emitAllowance(_ dict: [String: Any]) {
         let json = jsonString(dict)
-        callJS("window._leisurePool && window._leisurePool(\(json))")
+        callJS("window._allowance && window._allowance(\(json))")
     }
 
     /// JSON-encode dict/array as String. Falls back to "null" on failure.

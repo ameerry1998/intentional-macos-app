@@ -1,16 +1,17 @@
 // Rule.swift
 //
-// Unified blocking/limits/allow rule + shared daily leisure pool
-// (Rules Consolidation R2, June 2026).
+// Unified blocking/limits/allow rule + shared daily allowance
+// (Rules Consolidation R2, June 2026; "leisure pool" renamed "allowance" 2026-06-11).
 //
-// Mirrors intentional-backend `rules` + `leisure_pool` tables (migration 028,
-// branch feat/rules-table, commit 5603ab5 — the wire format there is
-// authoritative and decoded verbatim here):
+// Mirrors intentional-backend `rules` + `allowance` tables (migration 028,
+// branch feat/rules-table, commit 5603ab5; renamed to `allowance` in
+// commit 6058f75 — the wire format there is authoritative and decoded
+// verbatim here):
 //
 //   Rule = { id, target_kind: "site"|"app", target, treatment:
 //            "blocked"|"limited"|"allowed", schedule: object|null,
 //            enabled, created_at, updated_at }
-//   Pool = { pool_date, base_minutes, earned_minutes, spent_minutes,
+//   Allowance = { pool_date, base_minutes, earned_minutes, spent_minutes,
 //            bank_minutes, earn_rate, bank_cap, available_minutes }
 //
 // Decoding is tolerant by design:
@@ -32,7 +33,7 @@ enum RuleTargetKind: String, Codable, Equatable {
 enum RuleTreatment: String, Codable, Equatable {
     /// 🚫 Never usable (optionally only within schedule windows).
     case blocked
-    /// ⏳ Usable against the shared daily leisure pool.
+    /// ⏳ Usable against the shared daily allowance.
     case limited
     /// ✅ Never blocked, never swept.
     case allowed
@@ -211,13 +212,14 @@ struct RuleUpdatePayload: Codable {
     }
 }
 
-// MARK: - Leisure pool
+// MARK: - Allowance
 
-/// Shared daily leisure pool (spec decisions #1-#4: one pool, base + earned,
+/// Shared daily allowance (spec decisions #1-#4: one allowance, base + earned,
 /// daily reset with capped bank rollover). `available = max(0, base + earned
 /// + bank - spent)` — server-computed; we trust the wire value when present.
-struct LeisurePool: Codable {
+struct Allowance: Codable {
     /// "YYYY-MM-DD" — SERVER-local date (currently UTC on Railway).
+    /// Wire key stays `pool_date` — frozen JSON field names, see backend rename commit.
     var poolDate: String
     var baseMinutes: Int
     var earnedMinutes: Int

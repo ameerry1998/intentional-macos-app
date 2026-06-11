@@ -7,10 +7,10 @@ Mandate: no half-working controls; every slice verified before the next starts.
 ## Slices (strict order — each gates the next)
 
 **R1. Backend: rules table + pool (intentional-backend, branch `feat/rules-table` off main)**
-Migration 028: `rules` (id, account_id, target_kind site|app, target, treatment blocked|limited|allowed, schedule jsonb nullable, enabled bool, created/updated) + `leisure_pool` (account_id, date, base_minutes default 15, earned_minutes, spent_minutes, bank_minutes, earn_rate default 5, bank_cap default 60). CRUD `/rules` (dual auth like /intentions), `GET/PUT /leisure_pool/today`, `POST /leisure_pool/earn|spend` (idempotent increments). Pytest per repo patterns. NOT pushed/deployed — wire format documented in commit for R2.
+Migration 028: `rules` (id, account_id, target_kind site|app, target, treatment blocked|limited|allowed, schedule jsonb nullable, enabled bool, created/updated) + `leisure_pool` (renamed: allowance, 2026-06-11) (account_id, date, base_minutes default 15, earned_minutes, spent_minutes, bank_minutes, earn_rate default 5, bank_cap default 60). CRUD `/rules` (dual auth like /intentions), `GET/PUT /leisure_pool/today`, `POST /leisure_pool/earn|spend` (renamed: /allowance/*, 2026-06-11) (idempotent increments). Pytest per repo patterns. NOT pushed/deployed — wire format documented in commit for R2.
 
 **R2. Mac data layer: RuleStore**
-Actor mirroring IntentionStore (pull launch+foreground+60s, cache `rules.json`), Codable Rule struct matching R1 wire format, bridge messages GET/CREATE/UPDATE/DELETE_RULE + GET_LEISURE_POOL. No UI. Unit-testable decode/merge.
+Actor mirroring IntentionStore (pull launch+foreground+60s, cache `rules.json`), Codable Rule struct matching R1 wire format, bridge messages GET/CREATE/UPDATE/DELETE_RULE + GET_LEISURE_POOL (renamed: GET_ALLOWANCE, 2026-06-11). No UI. Unit-testable decode/merge.
 
 **R3. Rules page UI + sidebar tab**
 Sidebar: Today / Goals / Rules / Accountability / Settings. Page = one list grouped by treatment, add-rule modal (target + treatment + optional schedule), toggle/snooze/edit/delete per row, pool card (base/earned/spent/left + rate/base/cap editors). Partner-gate loosening actions (asymmetric, per spec #5) via existing unlock sheet. Old Today "Blocks" sub-tab content replaced by a link to Rules (kill in R6). Verify: every control via ui-test hook + screenshots.
