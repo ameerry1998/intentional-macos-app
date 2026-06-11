@@ -5138,7 +5138,7 @@ body.theme-effects-warm::after {
   <div class="page" id="page-plan">
     <div class="cd-plan" data-theme="dark">
       <div id="plan-react-root">
-        <div style="padding:32px;color:var(--text-tertiary);text-align:center;">Loading planning view…</div>
+        <div style="padding:32px;color:var(--text-tertiary);text-align:center;">Loading your goals…</div>
       </div>
     </div>
   </div>
@@ -9793,7 +9793,7 @@ function renderNowCard() {
       + '<span class="wg-lbl"><strong>This week’s goals</strong></span>'
       + '<span style="display:flex;gap:12px;align-items:center;">'
       + '<span style="cursor:pointer;color:var(--accent-primary);" onclick="openWeeklyGoalCreate()">+ New</span>'
-      + '<span class="wg-hint" onclick="navigateTo(\'plan\')" style="cursor:pointer;color:var(--accent-primary);">Open Plan →</span>'
+      + '<span class="wg-hint" onclick="navigateTo(\'plan\')" style="cursor:pointer;color:var(--accent-primary);">Open Goals →</span>'
       + '</span>'
       + '</div>'
       + '<div style="margin:0 28px 18px;padding:18px;border:1px dashed rgba(255,255,255,0.12);border-radius:10px;font-size:13px;color:var(--text-tertiary);text-align:center;">'
@@ -9830,7 +9830,7 @@ function renderNowCard() {
     + '<span class="wg-lbl"><strong>This week’s goals</strong> · drag onto schedule to create a session</span>'
     + '<span style="display:flex;gap:12px;align-items:center;">'
     + '<span style="cursor:pointer;color:var(--accent-primary);" onclick="openWeeklyGoalCreate()">+ New</span>'
-    + '<span class="wg-hint" onclick="navigateTo(\'plan\')" style="cursor:pointer;color:var(--accent-primary);">Open Plan →</span>'
+    + '<span class="wg-hint" onclick="navigateTo(\'plan\')" style="cursor:pointer;color:var(--accent-primary);">Open Goals →</span>'
     + '</span>'
     + '</div>'
     + '<div class="wg-row">' + cards + '</div>';
@@ -12775,13 +12775,13 @@ window._relevanceLogResult = function(entries) {
       : '';
     var pathBadgeHtml = '';
     if (e.path === 'metadataOffTask') {
-      pathBadgeHtml = '<span class="relevance-path-badge metadata-offtask" title="Scored off-task from metadata only">META</span>';
+      pathBadgeHtml = '<span class="relevance-path-badge metadata-offtask" title="Checked the page title">quick check</span>';
     } else if (e.path === 'metadataOffTaskLowConf') {
-      pathBadgeHtml = '<span class="relevance-path-badge metadata-offtask-lowconf" title="Off-task verdict below confidence threshold — not enforced">META ?</span>';
+      pathBadgeHtml = '<span class="relevance-path-badge metadata-offtask-lowconf" title="Not sure enough to block">quick check ?</span>';
     } else if (e.path === 'ocrVerifiedRelevant') {
-      pathBadgeHtml = '<span class="relevance-path-badge ocr-verified-relevant" title="OCR overturned verdict to relevant">OCR \u2713</span>';
+      pathBadgeHtml = '<span class="relevance-path-badge ocr-verified-relevant" title="Read what was on screen \u2014 looked relevant">read screen \u2713</span>';
     } else if (e.path === 'ocrVerifiedOffTask') {
-      pathBadgeHtml = '<span class="relevance-path-badge ocr-verified-offtask" title="OCR confirmed off-task verdict">OCR \u2717</span>';
+      pathBadgeHtml = '<span class="relevance-path-badge ocr-verified-offtask" title="Read what was on screen \u2014 off-task">read screen \u2717</span>';
     }
     var reasonHtml = e.reason
       ? '<div class="relevance-reason">&ldquo;' + escapeHtml(e.reason) + '&rdquo;</div>'

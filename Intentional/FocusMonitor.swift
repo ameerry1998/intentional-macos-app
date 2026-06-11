@@ -2248,7 +2248,7 @@ class FocusMonitor {
             let browserName = Self.browserAppNames[bundleId] ?? "Browser"
             logAssessment(
                 title: info.title, appName: browserName, hostname: info.hostname, intention: block.title,
-                relevant: true, confidence: 100, reason: "Whitelisted site", action: "none"
+                relevant: true, confidence: 100, reason: "On your always-allowed list", action: "none"
             )
             appDelegate?.postLog("👁️ Whitelist bypass: \"\(info.title)\" (\(info.hostname)) — skipping AI, treating as relevant")
             handleRelevantContent()
@@ -3199,7 +3199,7 @@ class FocusMonitor {
             intention: "",
             relevant: false,
             confidence: 100,
-            reason: "Block rule (standalone)",
+            reason: "Blocked by your rule",
             action: "overlay",
             isEvent: true
         )
