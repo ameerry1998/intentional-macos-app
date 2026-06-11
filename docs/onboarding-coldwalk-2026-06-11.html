@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Onboarding Cold-Walk — 2026-06-11</title>
+<style>
+  :root { --bg:#16131f; --surface:#1f1a2b; --card:#262033; --coral:#E87461; --gold:#E8B45A; --text:#EDE9F2; --text2:rgba(237,233,242,.62); --text3:rgba(237,233,242,.45); --red:#e05d5d; --green:#5dbf7a; --amber:#d9a441; }
+  body { background:var(--bg); color:var(--text); font:14px/1.55 -apple-system,system-ui,sans-serif; max-width:980px; margin:0 auto; padding:40px 24px; }
+  h1 { font-size:24px; } h1 em { color:var(--coral); font-style:normal; }
+  h2 { font-size:17px; margin-top:36px; border-bottom:1px solid rgba(255,255,255,.08); padding-bottom:8px; }
+  .meta { color:var(--text3); font-size:12.5px; margin-bottom:24px; }
+  table { width:100%; border-collapse:collapse; margin:16px 0; font-size:13px; }
+  th { text-align:left; color:var(--text3); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; padding:8px 10px; }
+  td { padding:10px; border-top:1px solid rgba(255,255,255,.06); vertical-align:top; }
+  tr:nth-child(even) td { background:rgba(255,255,255,.02); }
+  .pill { display:inline-block; padding:2px 9px; border-radius:99px; font-size:11px; font-weight:600; white-space:nowrap; }
+  .p-blocker { background:rgba(224,93,93,.18); color:var(--red); }
+  .p-major { background:rgba(217,164,65,.16); color:var(--amber); }
+  .p-minor { background:rgba(255,255,255,.08); color:var(--text2); }
+  .p-good { background:rgba(93,191,122,.15); color:var(--green); }
+  .quote { color:var(--text2); font-style:italic; }
+  code { background:rgba(255,255,255,.07); padding:1px 5px; border-radius:4px; font-size:12px; }
+  .verdict { background:var(--card); border-left:3px solid var(--coral); border-radius:8px; padding:16px 18px; margin:20px 0; }
+</style>
+</head>
+<body>
+
+<h1>Onboarding cold-walk — <em>what a brand-new user actually sees</em></h1>
+<div class="meta">2026-06-11 · Fresh signup (<code>ameer.rayan+coldwalk@gmail.com</code>) in the Tart VM, driven headlessly via the DEBUG ui-test hook. Screenshots captured per screen. Build: post-rebrand main (056ff31).</div>
+
+<div class="verdict">
+<strong>Verdict: the auth flow is launch-ready; the onboarding wizard is not.</strong> Screens 1–2 of auth (email → code) are clean and on-brand. The 5-screen wizard after it is a previous generation of the product: violet/indigo styling from before the coral design system, a theme picker for a dark-only app, a "platforms" screen configuring features that were deleted with the browser extension, and partner + settings-lock asks placed <em>before</em> the user has experienced any value — the exact inverse of the agreed value-before-commitment design. It reads vibecoded because it is: it was built for a different app and never revisited.
+</div>
+
+<h2>Screen-by-screen</h2>
+<table>
+<tr><th>#</th><th>Screen</th><th>Severity</th><th>Findings</th></tr>
+<tr><td>A1</td><td><strong>Sign-in</strong> ("Choose what gets your attention")</td><td><span class="pill p-good">GOOD</span></td><td>Coral brand, clean copy, Privacy/Terms footer. getpuck.com strings removed (verified this build). Apple Sign-In visible but disabled — fine pre-launch.</td></tr>
+<tr><td>A2</td><td><strong>Email + code</strong></td><td><span class="pill p-good">GOOD</span></td><td>"We'll send you a sign-in code" — plain, fast, 6-box OTP. Verification + welcome emails already rebranded (sender <code>noreply@intentional.social</code>, "Intentional" throughout).</td></tr>
+<tr><td>1</td><td><strong>"Take back your time."</strong></td><td><span class="pill p-major">MAJOR</span></td><td>Subtitle <span class="quote">"Watch what matters. Skip the rabbit holes."</span> reads like a video-limits app, not a focus app. CTA "Set Up My Limits" frames the whole product as chores/restriction — no value shown, no mirror of the user's pain. Violet gradient button (off design system).</td></tr>
+<tr><td>2</td><td><strong>"Choose Your Look"</strong> (theme picker)</td><td><span class="pill p-blocker">BLOCKER</span></td><td>5 themes (Iridescent/Classic/Emerald/Warm/Light) — the product decision is <strong>dark-only</strong> (§17b.12); the dashboard ignores theme entirely. A dead choice as screen 2 of the first run, burning new-user motivation on a no-op.</td></tr>
+<tr><td>3</td><td><strong>"Choose Your Platforms"</strong> (YouTube/Instagram)</td><td><span class="pill p-blocker">BLOCKER</span></td><td>Offers "Shorts blocked", "Reels blocked · Explore blocked · NSFW filter" with per-platform Configure panels (time-per-period dropdowns, category blocks). <strong>None of it is enforced</strong>: zero matches for shorts/reels/explore in WebsiteBlocker/FocusMonitor — these were browser-extension features, deleted 2026-05-21. Settings are saved to <code>onboarding_settings.json</code> and echoed by GET_SETTINGS, but no enforcement path exists. The first promises the product makes are ones it can't keep. Also ignores the real model (Rules / allowance / goals).</td></tr>
+<tr><td>4</td><td><strong>"Accountability Partner"</strong></td><td><span class="pill p-major">MAJOR</span></td><td>Placed before any value is felt — agreed design says offer partner <em>after</em> the first win. Functionality itself works (POSTs to backend). Placeholder "e.g., Mom, Alex, Coach" is decent for parent-ICP-later.</td></tr>
+<tr><td>5</td><td><strong>"Lock Your Settings?"</strong></td><td><span class="pill p-major">MAJOR</span></td><td>Asks a stranger to partner-lock their settings on minute one. Commitment-stakes belong after value realization (and the strictness dial now owns this concept). lockMode does wire to backend.</td></tr>
+<tr><td>→</td><td><strong>Landing: empty dashboard</strong></td><td><span class="pill p-blocker">BLOCKER</span></td><td>"No goals for this week yet · No blocks scheduled · Free time." No first session, no guided first action, no aha. The motivation a viral video generated dies here. No permission prompts appeared either (VM had prior TCC grants — permission UX unverified, needs a truly clean machine).</td></tr>
+</table>
+
+<h2>What survives into the redesign</h2>
+<table>
+<tr><th>Keep</th><th>Why</th></tr>
+<tr><td>Auth flow (email → OTP) as-is</td><td>Clean, on-brand, already rebranded end-to-end including emails.</td></tr>
+<tr><td>Partner screen mechanics (backend POST, consent fetch)</td><td>Reuse the plumbing; move the ask to after the first win.</td></tr>
+<tr><td>SAVE_ONBOARDING bridge + <code>onboardingComplete</code> flag</td><td>Plumbing works; payload schema changes to the new flow's data (distracting apps → Rules seed, first goal, partner-optional).</td></tr>
+</table>
+
+<h2>Redesign target (agreed 2026-06-11, see PROJECT-STATE)</h2>
+<p class="meta" style="margin-bottom:8px">Value before commitment, for a mid-20s user arriving hot from an IG video:</p>
+<table>
+<tr><th>#</th><th>New screen</th><th>Replaces</th></tr>
+<tr><td>1</td><td>Land the punch — mirror the brainrot, no lecture</td><td>"Take back your time" / "Set Up My Limits"</td></tr>
+<tr><td>2</td><td>Name the enemy — tap your distracting apps/sites (seeds Rules)</td><td>"Choose Your Platforms" (dead toggles)</td></tr>
+<tr><td>3</td><td>The deal — allowance revealed in one line; catch-them-live demo if bold</td><td>— (didn't exist)</td></tr>
+<tr><td>4</td><td>First 25-min session, started inside onboarding</td><td>— (didn't exist; the empty-dashboard cliff)</td></tr>
+<tr><td>5</td><td>Partner ask, post-win, opt-in</td><td>Partner + Lock screens (moved, merged)</td></tr>
+<tr><td>—</td><td>Permissions just-in-time with privacy promise</td><td>— (unverified today)</td></tr>
+<tr><td>—</td><td>Theme picker</td><td>DELETED (dark-only)</td></tr>
+</table>
+
+<p class="meta">Evidence: /tmp/coldwalk-*.png (session-local). Wizard source: <code>Intentional/onboarding.html</code>; save path <code>MainWindow.swift</code> SAVE_ONBOARDING → <code>onboarding_settings.json</code>.</p>
+
+</body>
+</html>
