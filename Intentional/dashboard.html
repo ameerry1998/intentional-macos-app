@@ -9757,6 +9757,27 @@ function _escapeHTML(s) {
   });
 }
 
+// Stable ordering + coloring for goal cards (fixes the navigate-away shuffle bug,
+// 2026-06-11). Backend GET_INTENTIONS has no guaranteed ORDER BY, so we pin the
+// order to a stable key (created_at, then id) and derive the fallback highlight
+// hue from a hash of the id — never from array index, which moved with order.
+function _goalSortKey(g) {
+  return String((g && g.created_at) || '') + '|' + String((g && g.id) || '');
+}
+function _sortGoalsStable(arr) {
+  return (arr || []).slice().sort(function(a, b) {
+    var ka = _goalSortKey(a), kb = _goalSortKey(b);
+    return ka < kb ? -1 : ka > kb ? 1 : 0;
+  });
+}
+function _stableHueIndex(id, n) {
+  var s = String(id == null ? '' : id), h = 0;
+  for (var i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h) % n;
+}
+window._sortGoalsStable = _sortGoalsStable;
+window._stableHueIndex = _stableHueIndex;
+
 function renderNowCard() {
   var mount = document.getElementById('now-card-mount');
   if (!mount) return;
@@ -9764,7 +9785,8 @@ function renderNowCard() {
   // FIX-14: STRICT filter — only goals tagged for this week.
   // Previously fell back to top-3 unscheduled goals when no week match; this hid the
   // week-boundary freeze from the user (goals from last week still showed).
-  var goals = (window._intentionsCache || []).filter(function(g) { return g && g.week_of === week; }).slice(0, 3);
+  // Stable sort before slice so the same 3 cards keep the same order across navigations.
+  var goals = _sortGoalsStable((window._intentionsCache || []).filter(function(g) { return g && g.week_of === week; })).slice(0, 3);
   if (goals.length === 0) {
     mount.innerHTML = '<div class="wg-section-header">'
       + '<span class="wg-lbl"><strong>This week’s goals</strong></span>'
@@ -14401,11 +14423,14 @@ function mapMonthlyFromCache() {
   const cache = window._monthlyGoalsCache || [];
   if (cache.length === 0) return null;
   const hues = [HUE.coral, HUE.green, HUE.pink];
-  return cache.map((g, i) => ({
+  // Stable order (created_at, then id) + stable fallback hue (hash of id) so
+  // cards don't reshuffle or recolor when you navigate away and back (2026-06-11).
+  const sorted = window._sortGoalsStable ? window._sortGoalsStable(cache) : cache;
+  return sorted.map((g) => ({
     id: g.id,
     title: g.title || 'Untitled',
     outcome: g.outcome || '',
-    hue: g.color_hex || hues[i % hues.length],
+    hue: g.color_hex || hues[window._stableHueIndex(g.id, hues.length)],
   }));
 }
 
@@ -14417,8 +14442,10 @@ function _isoWeekStartFromDate(d) {
 }
 
 function mapWeeklyFromCache() {
-  const cache = window._intentionsCache || [];
-  if (cache.length === 0) return null;
+  const cache0 = window._intentionsCache || [];
+  if (cache0.length === 0) return null;
+  // Stable order so cards within a week don't reshuffle across navigations (2026-06-11).
+  const cache = window._sortGoalsStable ? window._sortGoalsStable(cache0) : cache0;
   const grouped = {};
   cache.forEach(i => {
     const wk = i.week_of || 'unscheduled';
@@ -14466,8 +14493,10 @@ function buildWeeksList(intentionsCache) {
 
 function buildWeeklyMap(intentionsCache) {
   // Keyed by ISO Monday date so it lines up with WEEKS ids.
+  // Stable order so cards within a week keep their slot across navigations (2026-06-11).
+  const ordered = window._sortGoalsStable ? window._sortGoalsStable(intentionsCache || []) : (intentionsCache || []);
   const map = {};
-  (intentionsCache || []).forEach(i => {
+  ordered.forEach(i => {
     if (!i || !i.week_of) return;
     if (!map[i.week_of]) map[i.week_of] = [];
     map[i.week_of].push({
