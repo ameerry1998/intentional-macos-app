@@ -5035,7 +5035,7 @@ body.theme-effects-warm::after {
     <span class="sidebar-item-icon">◉</span> Today
   </div>
   <div class="sidebar-item" data-page="plan" onclick="navigateTo('plan')">
-    <span class="sidebar-item-icon">📓</span> Plan
+    <span class="sidebar-item-icon">📓</span> Goals
   </div>
   <!-- Focus Modes tab removed 2026-05-14 — replaced by full-page Weekly Goal editor reachable from Today/Plan cards -->
   <div class="sidebar-item" data-page="lock" onclick="navigateTo('lock')">
@@ -15697,7 +15697,7 @@ function PlanApp() {
               ? 'Wednesday · Week 2 of May'
               : `Viewing week of ${currentWeek?.label}`}
           </div>
-          <h1>Your plan</h1>
+          <h1>Your goals</h1>
         </div>
         <div className="head-actions">
           <button className="btn-ghost" onClick={() => window.openMonthlyGoalCreate && window.openMonthlyGoalCreate()}>
