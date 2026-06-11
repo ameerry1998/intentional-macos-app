@@ -48,10 +48,26 @@
   --color-warning: #F0B060;
   --color-warning-rgb: 240, 176, 96;
 
-  /* Text */
+  /* Text — lifted 2026-06-11 for AA contrast on near-black bg */
   --text-primary: #f7f8f8;
-  --text-secondary: rgba(255, 255, 255, 0.5);
-  --text-tertiary: rgba(255, 255, 255, 0.25);
+  --text-secondary: rgba(255, 255, 255, 0.62);  /* was 0.5 (≈5:1) → 0.62 (≈7:1) */
+  --text-tertiary: rgba(255, 255, 255, 0.45);   /* was 0.25 (≈2:1, FAIL) → 0.45. decoration only */
+
+  /* ═══ Unified design scale (2026-06-11 polish wave) ═══ */
+  /* One source of truth — collapses fm-v3 / cd-plan / ge-page parallel systems. */
+  /* TYPE — 5 sizes. No half-pixels. */
+  --type-display: 22px;   /* page titles, big numbers */
+  --type-title: 15px;     /* card titles, modal titles */
+  --type-body: 13px;      /* default. THE size. */
+  --type-label: 12px;     /* secondary rows, small buttons, field labels */
+  --type-caption: 11px;   /* timestamps, counts — never for content */
+  /* SPACING — 4pt grid. */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px;
+  --space-4: 16px; --space-6: 24px; --space-8: 32px;
+  /* RADIUS — 3 values. */
+  --radius-sm: 6px;   /* chips, inputs */
+  --radius-md: 10px;  /* buttons, cards */
+  --radius-lg: 14px;  /* modals, panels */
 
   /* Borders */
   --border-subtle: rgba(255, 255, 255, 0.05);
@@ -373,7 +389,7 @@ body.theme-effects-warm::after {
 
 /* FIX-1: Today → Schedule/Blocks segmented control + Blocks view styles */
 /* Today mode toggle CSS removed (R6) — Blocks sub-tab retired. */
-.blk-section-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-tertiary); margin: 14px 28px 8px; display: flex; align-items: center; justify-content: space-between; }
+.blk-section-h { font-size: var(--type-label); letter-spacing: 0; color: var(--text-secondary); font-weight: 600; margin: 14px 28px 8px; display: flex; align-items: center; justify-content: space-between; }
 .blk-section-h .blk-count { font-weight: 500; }
 .blk-ideas-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 28px 14px; }
 .blk-idea-btn { background: rgba(255,255,255,0.04); border: 0.5px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; cursor: pointer; transition: background 0.12s; }
@@ -421,12 +437,11 @@ body.theme-effects-warm::after {
   align-items: center;
   justify-content: space-between;
   padding: 14px 0 8px;  /* was 14px 28px 8px — match the calendar's edge (only .page padding) */
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
+  font-size: var(--type-title);     /* sentence-case section header — 2026-06-11 */
+  letter-spacing: 0;
+  color: var(--text-secondary);
 }
-.wg-section-header .wg-lbl strong { color: var(--text-primary); font-weight: 700; }
+.wg-section-header .wg-lbl strong { color: var(--text-primary); font-weight: 600; }
 .wg-section-header .wg-hint { font-size: 11px; }
 .wg-row {
   display: grid;
@@ -611,20 +626,18 @@ body.theme-effects-warm::after {
 }
 
 .section-title {
-  font-size: 12px;
+  font-size: var(--type-title);
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.35);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: var(--text-primary);          /* sentence-case, full contrast — 2026-06-11 */
+  letter-spacing: 0;
   margin-bottom: 12px;
 }
 
 .platform-section-title {
   font-size: 14px;
   font-weight: 600;
-  color: rgba(255,255,255,0.5);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  letter-spacing: 0;
   margin: 28px 0 12px 0;
   padding-bottom: 8px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -922,7 +935,7 @@ body.theme-effects-warm::after {
 .detail-subtitle { font-size: 12px; color: #636366; margin-bottom: 20px; }
 .detail-section { margin-bottom: 20px; }
 .detail-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.detail-section-label { font-size: 11px; font-weight: 600; color: #8e8e93; letter-spacing: 0.5px; text-transform: uppercase; }
+.detail-section-label { font-size: var(--type-label); font-weight: 600; color: var(--text-secondary); letter-spacing: 0; }
 .detail-section-label.green { color: #4ade80; }
 .detail-add-btn { font-size: 12px; color: var(--accent-primary); background: none; border: none; cursor: pointer; font-weight: 500; font-family: inherit; }
 .detail-add-btn:hover { text-decoration: underline; }
@@ -1547,9 +1560,9 @@ body.theme-effects-warm::after {
   padding: 10px 16px;
   background: var(--accent-gradient);
   border: none;
-  border-radius: 12px;
-  color: #0a0a0b;
-  font-size: 13px;
+  border-radius: var(--radius-md);
+  color: #1a0f0a;
+  font-size: var(--type-body);
   font-weight: 600;
   cursor: pointer;
   transition: box-shadow 0.15s;
@@ -1569,10 +1582,10 @@ body.theme-effects-warm::after {
 .btn-secondary {
   padding: 8px 20px;
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--type-body);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
@@ -1582,6 +1595,20 @@ body.theme-effects-warm::after {
 .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.08);
 }
+
+/* Tertiary button — bare accent text, inline affordances ("+ New", "Open →") — 2026-06-11 */
+.btn-text {
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  color: var(--accent-primary);
+  font-size: var(--type-label);
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.btn-text:hover { color: var(--accent-primary-hover); }
+.btn-text:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .btn-danger {
   padding: 8px 20px;
@@ -1674,7 +1701,7 @@ body.theme-effects-warm::after {
 
 /* ===== Rules page (Rules Consolidation R3, June 2026) ===== */
 .rules-sub { font-size: 13px; color: rgba(255,255,255,0.55); margin-bottom: 18px; }
-.rules-section-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-tertiary); margin: 20px 0 8px; display: flex; align-items: center; justify-content: space-between; }
+.rules-section-h { font-size: var(--type-label); letter-spacing: 0; font-weight: 600; color: var(--text-secondary); margin: 20px 0 8px; display: flex; align-items: center; justify-content: space-between; }
 .rules-section-h .count { font-weight: 500; }
 .rule-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(255,255,255,0.03); border: 0.5px solid rgba(255,255,255,0.06); border-radius: 10px; margin-bottom: 6px; position: relative; }
 .rule-row.disabled .rule-target, .rule-row.disabled .rule-glyph { opacity: 0.45; }
@@ -2067,7 +2094,7 @@ body.theme-effects-warm::after {
   border: 1px solid rgba(var(--accent-primary-rgb), 0.3);
   border-radius: 6px;
   background: rgba(var(--accent-primary-rgb), 0.15);
-  color: #a5b4fc;
+  color: var(--accent-primary);
   cursor: pointer;
 }
 .coach-context-editor-actions .coach-ctx-save:hover { background: rgba(var(--accent-primary-rgb), 0.25); }
@@ -2154,7 +2181,7 @@ body.theme-effects-warm::after {
   border: 1px solid rgba(var(--accent-primary-rgb), 0.3);
   border-radius: 8px;
   background: rgba(var(--accent-primary-rgb), 0.1);
-  color: #a5b4fc;
+  color: var(--accent-primary);
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -2472,7 +2499,7 @@ body.theme-effects-warm::after {
   pointer-events: auto; padding: 10px 24px;
   background: rgba(var(--accent-primary-rgb), 0.15);
   border: 1px solid rgba(var(--accent-primary-rgb), 0.3);
-  border-radius: 10px; color: #a5b4fc;
+  border-radius: 10px; color: var(--accent-primary);
   font-size: 14px; font-weight: 600; cursor: pointer;
   transition: all 0.15s;
 }
@@ -4362,17 +4389,18 @@ body.theme-effects-warm::after {
 
 /* ─── Focus Mode editor v3 (Slice 10 followup of 2026-05-05 redesign) ─── */
 .fm-v3 {
-  --fm-accent: #FF7A2E;
-  --fm-accent-soft: rgba(255,122,46,0.12);
-  --fm-accent-line: rgba(255,122,46,0.32);
-  --fm-sunset: linear-gradient(135deg,#FF9A2E 0%,#FF6B3D 60%,#E04E6A 100%);
+  /* Accent unified to coral (was #FF7A2E — a second orange) — 2026-06-11 */
+  --fm-accent: #E87461;
+  --fm-accent-soft: rgba(232,116,97,0.12);
+  --fm-accent-line: rgba(232,116,97,0.32);
+  --fm-sunset: linear-gradient(135deg,#F0B060 0%,#E87461 60%,#d45a6a 100%);
   --fm-line: rgba(255,255,255,0.06);
   --fm-line-2: rgba(255,255,255,0.10);
   --fm-line-3: rgba(255,255,255,0.16);
   --fm-text-1: #f4f5f6;
   --fm-text-2: rgba(255,255,255,0.62);
-  --fm-text-3: rgba(255,255,255,0.40);
-  --fm-text-4: rgba(255,255,255,0.24);
+  --fm-text-3: rgba(255,255,255,0.48);  /* lifted for contrast — 2026-06-11 */
+  --fm-text-4: rgba(255,255,255,0.32);  /* lifted for contrast — 2026-06-11 */
   --fm-surface: #14161a;
   --fm-surface-2: #1a1d22;
   --fm-allow: #6FB58E;
@@ -4658,8 +4686,8 @@ body.theme-effects-warm::after {
   --line-3:    rgba(255,255,255,0.26);
   --text-1:    #F4F5F6;
   --text-2:    rgba(255,255,255,0.62);
-  --text-3:    rgba(255,255,255,0.42);
-  --text-4:    rgba(255,255,255,0.22);
+  --text-3:    rgba(255,255,255,0.46);  /* lifted for contrast — 2026-06-11 */
+  --text-4:    rgba(255,255,255,0.30);  /* lifted for contrast — 2026-06-11 */
   --primary-bg: #F2EFE5;
   --primary-fg: #1A1410;
   --primary-bg-h: #FFFCF2;
@@ -11154,10 +11182,11 @@ function renderCalendar() {
     '<span class="calendar-zoom-icon">-</span>' +
     '<input type="range" class="calendar-zoom-slider" id="calendar-zoom-slider" min="42" max="140" value="' + calendarZoomLevel + '">' +
     '<span class="calendar-zoom-icon">+</span>' +
-    '<div class="calendar-focus-stats">' +
-    '<span><span id="score-focused-time">--</span> focused</span>' +
-    '<span><span id="score-offtask-time">--</span> off-task</span>' +
-    '<span><span id="score-break-time">--</span> free</span>' +
+    // Zero-stat rule (2026-06-11): hidden until there's real data — no "0m / 0m / 0m" above an empty day.
+    '<div class="calendar-focus-stats" id="calendar-focus-stats" style="display:none;">' +
+    '<span><span id="score-focused-time">0m</span> focused</span>' +
+    '<span><span id="score-offtask-time">0m</span> off-task</span>' +
+    '<span><span id="score-break-time">0m</span> free</span>' +
     '</div>' +
     '</div>';
   html += '<div class="calendar-grid" id="calendar-grid" style="height:' + gridHeight + 'px;">';
@@ -12635,12 +12664,16 @@ function loadFocusScore() {
 
 window._focusScoreResult = function(data) {
   var el;
+  var fMin = data.focusedMinutes || 0, oMin = data.offTaskMinutes || 0, bMin = data.breakMinutes || 0;
   el = document.getElementById('score-focused-time');
-  if (el) el.textContent = formatFocusDuration(data.focusedMinutes || 0);
+  if (el) el.textContent = formatFocusDuration(fMin);
   el = document.getElementById('score-offtask-time');
-  if (el) el.textContent = formatFocusDuration(data.offTaskMinutes || 0);
+  if (el) el.textContent = formatFocusDuration(oMin);
   el = document.getElementById('score-break-time');
-  if (el) el.textContent = formatFocusDuration(data.breakMinutes || 0);
+  if (el) el.textContent = formatFocusDuration(bMin);
+  // Zero-stat rule: only show the stats row once there's at least one nonzero value.
+  var statsRow = document.getElementById('calendar-focus-stats');
+  if (statsRow) statsRow.style.display = (fMin === 0 && oMin === 0 && bMin === 0) ? 'none' : '';
 
   var breakdown = document.getElementById('score-block-breakdown');
   if (breakdown) {
@@ -13139,15 +13172,15 @@ const ProjectsController = (() => {
 
       <div style="display:flex; gap: 12px; margin-top: 20px;">
         <div style="flex:1; padding: 14px 16px; background: var(--bg-card, var(--bg-elevated)); border: 1px solid var(--border-subtle); border-radius: 10px;">
-          <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); margin-bottom: 6px;">Total hours</div>
+          <div style="font-size: var(--type-caption); font-weight: 600; letter-spacing: 0; color: var(--text-secondary); margin-bottom: 6px;">Total hours</div>
           <div style="font-size: 22px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums;">${stats.totalHours.toFixed(1)}</div>
         </div>
         <div style="flex:1; padding: 14px 16px; background: var(--bg-card, var(--bg-elevated)); border: 1px solid var(--border-subtle); border-radius: 10px;">
-          <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); margin-bottom: 6px;">Sessions this week</div>
+          <div style="font-size: var(--type-caption); font-weight: 600; letter-spacing: 0; color: var(--text-secondary); margin-bottom: 6px;">Sessions this week</div>
           <div style="font-size: 22px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums;">${stats.thisWeekCount}</div>
         </div>
         <div style="flex:1; padding: 14px 16px; background: var(--bg-card, var(--bg-elevated)); border: 1px solid var(--border-subtle); border-radius: 10px;">
-          <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); margin-bottom: 6px;">Avg focus</div>
+          <div style="font-size: var(--type-caption); font-weight: 600; letter-spacing: 0; color: var(--text-secondary); margin-bottom: 6px;">Avg focus</div>
           <div style="font-size: 22px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums;">${stats.avgScorePct == null ? '—' : (stats.avgScorePct + '%')}</div>
         </div>
       </div>

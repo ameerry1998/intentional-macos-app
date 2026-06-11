@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Site Blocked - Intentional</title>
+    <title>Blocked for now — Intentional</title>
     <style>
         * {
             margin: 0;
@@ -146,21 +146,21 @@
 
         .install-button {
             display: inline-block;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, #E87461 0%, #F0B060 100%);
+            color: #1a0f0a;
             padding: 16px 32px;
             border-radius: 12px;
             text-decoration: none;
             font-weight: 600;
             font-size: 18px;
             transition: transform 0.2s, box-shadow 0.2s;
-            box-shadow: 0 4px 20px rgba(118, 75, 162, 0.4);
+            box-shadow: 0 4px 20px rgba(232, 116, 97, 0.4);
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         .install-button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 30px rgba(118, 75, 162, 0.6);
+            box-shadow: 0 8px 30px rgba(232, 116, 97, 0.6);
         }
 
         .install-subtitle {
@@ -454,22 +454,10 @@
             return { name: 'unknown', type: 'chromium' }; // Default to chromium
         }
 
-        // Get install URL based on browser
+        // Extension removed 2026-05-21 — Intentional protects browsers automatically
+        // via AppleScript, so there is no install path. Function kept as a no-op
+        // because the dead "PUCK BRANCH" block below still references it.
         function getInstallInfo(browserType) {
-            // TODO: Replace with actual store URLs when published
-            if (browserType === 'chromium') {
-                return {
-                    url: 'https://chrome.google.com/webstore', // Placeholder - will be specific extension URL
-                    storeName: 'Chrome Web Store',
-                    buttonText: 'Install Extension'
-                };
-            } else if (browserType === 'firefox') {
-                return {
-                    url: 'https://addons.mozilla.org/firefox/', // Placeholder - will be specific extension URL
-                    storeName: 'Firefox Add-ons',
-                    buttonText: 'Install Extension'
-                };
-            }
             return null;
         }
 

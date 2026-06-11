@@ -109,7 +109,7 @@ struct NoPlanData {
 /// Manages a floating pill-shaped timer widget shown during schedule blocks.
 ///
 /// Displays the block intention + countdown timer in the top-right corner.
-/// A colored dot indicates focus state: indigo = focused, red = distracted.
+/// A colored dot indicates focus state: coral = focused, red = distracted.
 /// A stats row below shows focus percentage and earned browse time.
 ///
 /// At block end, the pill transitions to "Block complete" state, then expands
@@ -368,6 +368,7 @@ class DeepWorkTimerController {
     func update(focusPercent: Int, earnedMinutes: Double) {
         viewModel?.focusPercent = min(max(focusPercent, 0), 100)
         viewModel?.earnedMinutes = earnedMinutes
+        viewModel?.hasFocusData = true  // first real score arrived — stop showing the neutral "no data" state
     }
 
     /// Update the focus goal (from block ritual selection).
@@ -667,6 +668,7 @@ class DeepWorkTimerViewModel: ObservableObject {
     @Published var isShowingDistractionCard: Bool = false
     @Published var isMuted: Bool = false
     @Published var focusPercent: Int = 0
+    @Published var hasFocusData: Bool = false  // false until the first real score lands — avoids an angry red "0% focused"
     @Published var earnedMinutes: Double = 0.0
     @Published var focusGoal: Int = 80
     @Published var isApproachingEnd: Bool = false
@@ -901,9 +903,9 @@ struct DeepWorkTimerView: View {
     private let separatorColor = Color.white.opacity(0.08)
     private let amberColor = Color(red: 0.95, green: 0.75, blue: 0.25)
 
-    // Dot colors
-    private let focusedStart = Color(red: 0.39, green: 0.4, blue: 0.95)
-    private let focusedEnd = Color(red: 0.55, green: 0.36, blue: 0.96)
+    // Dot colors — coral→gold to match dashboard brand (was indigo→violet, 2026-06-11)
+    private let focusedStart = Color(red: 0.910, green: 0.455, blue: 0.380)  // #E87461 coral
+    private let focusedEnd = Color(red: 0.941, green: 0.690, blue: 0.376)    // #F0B060 gold
     private let distractedColor = Color(red: 0.95, green: 0.25, blue: 0.25)
     private let recoveryColor = Color(red: 0.25, green: 0.78, blue: 0.45)
 
@@ -912,14 +914,21 @@ struct DeepWorkTimerView: View {
     private let goGreenBright = Color(red: 0.30, green: 0.88, blue: 0.52)
 
     private let deepWorkColor = Color(red: 0.95, green: 0.35, blue: 0.35)
-    private let focusHoursColor = Color(red: 0.45, green: 0.46, blue: 1.0)
+    private let focusHoursColor = Color(red: 0.910, green: 0.455, blue: 0.380)  // #E87461 coral (was indigo, 2026-06-11)
     private let freeTimeColor = Color(red: 0.35, green: 0.85, blue: 0.55)
 
     private var focusColor: Color {
+        // No score yet → neutral grey, never an angry red zero (2026-06-11).
+        if !viewModel.hasFocusData { return textSecondary }
         let pct = viewModel.focusPercent
         if pct >= 80 { return Color(red: 0.39, green: 0.8, blue: 0.5) }
         if pct >= 50 { return Color(red: 0.95, green: 0.65, blue: 0.15) }
         return Color(red: 0.95, green: 0.25, blue: 0.25)
+    }
+
+    /// Stat-row label: neutral "Focusing" until a real score arrives, then "N% focused".
+    private var focusStatText: String {
+        viewModel.hasFocusData ? "\(viewModel.focusPercent)% focused" : "Focusing"
     }
 
     private var earnedText: String {
@@ -1238,7 +1247,7 @@ struct DeepWorkTimerView: View {
             } else {
                 // Normal: stats row
                 HStack {
-                    Text("\(viewModel.focusPercent)% focused")
+                    Text(focusStatText)
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(focusColor)
 
@@ -1285,7 +1294,7 @@ struct DeepWorkTimerView: View {
                 .padding(.horizontal, 14)
 
             HStack {
-                Text("\(viewModel.focusPercent)% focused")
+                Text(focusStatText)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(focusColor)
 
