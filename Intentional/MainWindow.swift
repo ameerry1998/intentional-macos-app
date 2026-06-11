@@ -916,17 +916,10 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             return
         }
 
-        // Extract per-platform settings
-        let platforms = settings["platforms"] as? [String: Any] ?? [:]
-        let ytSettings = platforms["youtube"] as? [String: Any] ?? [:]
-        let igSettings = platforms["instagram"] as? [String: Any] ?? [:]
-        let fbSettings = platforms["facebook"] as? [String: Any] ?? [:]
-
         let partnerEmail = settings["partnerEmail"] as? String
         let partnerName = settings["partnerName"] as? String
         var lockMode = settings["lockMode"] as? String ?? "none"
         if lockMode == "self" { lockMode = "none" } // "self" lock mode removed
-        let theme = settings["theme"] as? String
 
         appDelegate?.postLog("📋 Saving onboarding: lock=\(lockMode)")
 
@@ -934,14 +927,11 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         UserDefaults.standard.set(true, forKey: "onboardingComplete")
         UserDefaults.standard.set(lockMode, forKey: "lockMode")
 
-        // 2. Save structured data to JSON file
-        saveOnboardingSettings(
-            platforms: platforms,
-            partnerEmail: partnerEmail,
-            partnerName: partnerName,
-            lockMode: lockMode,
-            theme: theme
-        )
+        // 2. Merge-write the FULL settings payload the new onboarding sent
+        //    (quiz / enemyPicks / firstTask / partner fields / lockMode).
+        var toPersist = settings
+        toPersist["lockMode"] = lockMode  // persist the normalized value
+        mergeOnboardingSettings(toPersist)
 
         // 3. Make API calls, sync consent status, and broadcast to extensions
         Task {
@@ -1020,35 +1010,16 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
 
     // MARK: - Settings Persistence
 
-    private func saveOnboardingSettings(
-        platforms: [String: Any],
-        partnerEmail: String?,
-        partnerName: String?,
-        lockMode: String,
-        theme: String? = nil
-    ) {
-        let appSupport = FileManager.default.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        ).first!
-        let dir = appSupport.appendingPathComponent("Intentional")
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-
-        let settingsURL = dir.appendingPathComponent("onboarding_settings.json")
-
-        var settings: [String: Any] = [
-            "platforms": platforms,
-            "partnerEmail": partnerEmail ?? "",
-            "partnerName": partnerName ?? "",
-            "lockMode": lockMode,
-            "completedAt": ISO8601DateFormatter().string(from: Date())
-        ]
-        if let th = theme { settings["theme"] = th }
-
-        if let data = try? JSONSerialization.data(withJSONObject: settings, options: .prettyPrinted) {
-            try? data.write(to: settingsURL)
-            appDelegate?.postLog("💾 Onboarding settings saved to \(settingsURL.lastPathComponent)")
+    /// Merge-writes onboarding settings. MUST NOT drop keys other components
+    /// store in this file (e.g. contentSafety.permissionsConfirmedAt, written
+    /// by ContentSafetyMonitor) — so we always read-merge-write via
+    /// `updateSettingsFile`, never blind-overwrite.
+    private func mergeOnboardingSettings(_ new: [String: Any]) {
+        updateSettingsFile { settings in
+            for (k, v) in new { settings[k] = v }
+            settings["completedAt"] = ISO8601DateFormatter().string(from: Date())
         }
+        appDelegate?.postLog("💾 Onboarding settings merged into \(settingsFileURL.lastPathComponent)")
     }
 
     // MARK: - Settings File
