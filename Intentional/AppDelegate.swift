@@ -35,8 +35,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var focusModeController: FocusModeController?
     var nudgeController: NudgeWindowController?
 
-    // Earn Your Browse budget system
-    var earnedBrowseManager: EarnedBrowseManager?
+    // Earn Your Browse budget system: DELETED (R6, June 2026) — replaced by
+    // the shared daily allowance (RuleStore + backend /allowance/*).
 
     // Content Safety — on-device screen monitoring for explicit content
     var contentSafetyMonitor: ContentSafetyMonitor?
@@ -631,10 +631,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         timeTracker?.backendClient = backendClient
         postLog("⏱️ TimeTracker initialized")
 
-        // Initialize Earn Your Browse budget system
-        earnedBrowseManager = EarnedBrowseManager(appDelegate: self)
-        earnedBrowseManager?.load()
-        postLog("💰 EarnedBrowseManager initialized")
+        // Earn Your Browse budget system: deleted in R6 (June 2026). The
+        // shared daily allowance (RuleStore + /allowance/*) replaced it.
 
         // Initialize Projects store
         projectStore = ProjectStore()
@@ -701,17 +699,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ruleStore?.startSyncTimer()
         postLog("📐 RuleStore wired and pulling (rules + allowance)")
 
-        // Wire TimeTracker callback: deduct social media time from earned pool
-        timeTracker?.onSocialMediaTimeRecorded = { [weak self] platform, minutes, isFreeBrowse in
-            guard let mgr = self?.earnedBrowseManager else { return }
-            // Spec 2: nil block = free time (absence of block).
-            let blockType = self?.scheduleManager?.currentBlock?.blockType
-            let remaining = mgr.recordSocialMediaTime(
-                minutes: minutes, blockType: blockType, isFreeBrowse: isFreeBrowse
-            )
-            self?.mainWindowController?.pushEarnedUpdate()
-            self?.postLog("💰 Social media time: -\(String(format: "%.1f", minutes))m, remaining: \(String(format: "%.1f", remaining))m")
-        }
+        // TimeTracker → EarnedBrowse wiring: removed in R6 (June 2026). The
+        // callback's only consumer was EarnedBrowseManager (verified by grep),
+        // and its feeder (recordUsageHeartbeat) has had zero callers since the
+        // extension removal. ⏳ spend metering lives in FocusMonitor's
+        // allowance meter (R5) instead.
 
         // Initialize Daily Focus Plan (V2: schedule engine + relevance scoring)
         scheduleManager = ScheduleManager(appDelegate: self)
@@ -855,9 +847,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // block backs the activation (cross-device, puck, or manual
             // FOCUS_MODE_TOGGLE), inject a synthetic block so the AI scoring +
             // enforcement paths (which all `guard let block = manager.currentBlock`)
-            // have context to work with. MUST run before earnedBrowseManager /
-            // focusMonitor fanout below so they see the injected block on this
-            // very first transition. Schedule-driven activations already have
+            // have context to work with. MUST run before the focusMonitor
+            // fanout below so it sees the injected block on this very first
+            // transition. Schedule-driven activations already have
             // currentBlock set; this is a no-op for them.
             if new == .focus && old != .focus && self.scheduleManager?.currentBlock == nil {
                 let now = Date()
@@ -876,12 +868,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.postLog("🎯 Injected synthetic block for sessionless .focus activation: \"\(synthetic.title)\"")
             }
 
-            // earnedBrowseManager.onBlockChanged MUST run before focusMonitor.onBlockChanged
-            // — recordWorkTick reads activeBlockId. (CLAUDE.md Known Bug Fixes #2.)
-            // Read currentBlock from the schedule because Period doesn't carry blockId.
-            let block = self.scheduleManager?.currentBlock
-            self.earnedBrowseManager?.onBlockChanged(blockId: block?.id, blockTitle: block?.title)
-
+            // (R6: the earnedBrowseManager.onBlockChanged ordering invariant
+            // is gone with the engine — focusMonitor is the only consumer now.)
             self.focusMonitor?.onBlockChanged()
             self.mainWindowController?.pushScheduleUpdate()
 
@@ -1143,15 +1131,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self = self else { return }
             self.postLog("📋 Block changed → \(state.rawValue)" + (block != nil ? " (\(block!.title))" : ""))
 
-            // Capture previous block data BEFORE transitioning state (used for
-            // celebration and project-session bookkeeping below).
-            let prevBlockId = self.earnedBrowseManager?.activeBlockId
-            let prevStats = prevBlockId.flatMap { self.earnedBrowseManager?.blockFocusStats[$0] }
-            let prevBlock = prevBlockId.flatMap { id in
-                self.scheduleManager?.todaySchedule?.blocks.first(where: { $0.id == id })
-            }
+            // (R6: the celebration-on-block-change path is retired with
+            // EarnedBrowseManager. Its per-block stats had been all-zeros since
+            // the engine's feature flag went false, so `prevStats.totalTicks
+            // > 0` never held and showCelebration never fired from here —
+            // removing the capture preserves runtime behavior exactly.)
 
-            // Route into FocusModeController. Fanout (clearCache, earnedBrowse, focusMonitor,
+            // Route into FocusModeController. Fanout (clearCache, focusMonitor,
             // broadcasts) runs via focusModeController.onStateChanged.
             switch state {
             case .focus:
@@ -1171,21 +1157,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // — keyed off the period's source so .schedule transitions sync
             // and .crossDevice receivers don't echo-post.
 
-            // Show celebration in the pill for the block that just ended
-            if let prevBlock = prevBlock, let prevStats = prevStats,
-               prevBlock.id != block?.id,      // Not the same block (edited)
-               prevStats.totalTicks > 0 {      // User was actually present
-
-                let nextBlock = self.scheduleManager?.nextUpcomingBlock()
-
-                self.focusMonitor?.showCelebration(
-                    block: prevBlock,
-                    stats: prevStats,
-                    nextBlock: nextBlock,
-                    onDone: {}
-                )
-            }
-
             // If celebration was skipped but pill was in blockComplete, resume deferred start
             self.focusMonitor?.resumeIfPendingBlockStart()
 
@@ -1195,8 +1166,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if let projectId = self.activeProjectSession?.projectId,
                    let blockUUID = UUID(uuidString: tracked),
                    let store = self.projectStore {
-                    let scorePct = self.earnedBrowseManager?.blockFocusStats[tracked]?.focusScore
-                    let scoreFraction: Double? = scorePct.map { Double($0) / 100.0 }
+                    // R6: EarnedBrowse per-block focus score retired — it had
+                    // been nil at runtime since the engine's flag went false.
+                    let scoreFraction: Double? = nil
                     Task {
                         if let sid = await store.findActiveSession(projectId: projectId, blockId: blockUUID) {
                             _ = await store.recordSessionEnd(
@@ -1213,11 +1185,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // ScheduleManager.init() already called recalculateState(), but the callback
-        // wasn't wired yet, so activeBlockId was never set. Sync it now in case the
-        // app started during a work block.
-        if let block = scheduleManager?.currentBlock {
-            earnedBrowseManager?.onBlockChanged(blockId: block.id, blockTitle: block.title)
-            // Also sync focusMonitor so the floating timer shows immediately on startup mid-block
+        // wasn't wired yet. Sync focusMonitor now so the floating timer shows
+        // immediately when the app starts during a work block.
+        if scheduleManager?.currentBlock != nil {
             focusMonitor?.onBlockChanged()
             ensureProjectSessionMatchesCurrentBlock()
         }
@@ -1242,6 +1212,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 settingsDir: dir
             )
             await mig.run(log: { msg in
+                Task { @MainActor in self.postLog(msg) }
+            })
+        }
+
+        // R6 (June 2026): one-shot migration of the legacy list systems into
+        // unified rules — BlockingProfile block rules → 🚫, AlwaysAllowedStore
+        // → ✅, backend always_blocked/distractions rows → 🚫. Idempotent +
+        // resumable via migration_rules_v1.json; backs the originals up
+        // before any mutation; renames them to *.legacy.json only after every
+        // create landed. Runs after blockingProfileManager + ruleStore exist.
+        // Env INTENTIONAL_RULES_MIGRATION_DRY_RUN=1 → plan + log only.
+        Task { @MainActor [weak self] in
+            guard let self = self,
+                  let ruleStore = self.ruleStore,
+                  let backend = self.backendClient else { return }
+            let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            let dir = support.appendingPathComponent("Intentional", isDirectory: true)
+            let rulesMig = RulesMigration(
+                settingsDir: dir,
+                ruleStore: ruleStore,
+                backend: backend,
+                blockingProfileManager: self.blockingProfileManager,
+                alwaysAllowedStore: self.alwaysAllowedStore,
+                appDelegate: self
+            )
+            let dryRun = ProcessInfo.processInfo.environment["INTENTIONAL_RULES_MIGRATION_DRY_RUN"] == "1"
+            await rulesMig.run(dryRun: dryRun, log: { msg in
                 Task { @MainActor in self.postLog(msg) }
             })
         }
@@ -1407,9 +1404,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Force sync time tracking data
         timeTracker?.forceSync()
-
-        // Save earned browse state
-        earnedBrowseManager?.save()
 
         // Send shutdown event before quitting (synchronously to ensure it's sent)
         let semaphore = DispatchSemaphore(value: 0)
@@ -1919,10 +1913,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// session_id).
     ///
     /// "Focused minutes" here is the session's WALL-CLOCK length. Investigated
-    /// alternatives (plan R5): EarnedBrowseManager.blockFocusStats.focusedSeconds
-    /// is dead (featureEnabled=false gates recordWorkTick, so it never
-    /// accumulates) and TimeTracker only meters social-media platforms — wall
-    /// clock is the only live, reliable signal today. AI scoring polices
+    /// alternatives (plan R5): the old EarnedBrowseManager per-block tick
+    /// stats were dead behind its feature flag (the engine was deleted
+    /// outright in R6) and TimeTracker only meters social-media platforms —
+    /// wall clock is the only live, reliable signal today. AI scoring polices
     /// session quality per spec decision #2 ("any focus session earns").
     private func postAllowanceEarn(for period: FocusModeController.Period) {
         let rawMinutes = Int(Date().timeIntervalSince(period.startedAt) / 60.0)
@@ -2085,12 +2079,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func runCloseTheNoiseSweep(sessionId: String,
                                voiceIntent: String,
                                intentionId: UUID?) async {
-        guard let alwaysAllowed = alwaysAllowedStore?.list,
+        guard let storedAllowed = alwaysAllowedStore?.list,
               let stashStore = sessionStashStore,
               let blocker = websiteBlocker else {
             postLog("⚠️ Sweep skipped — stores not ready")
             return
         }
+
+        // R6: ✅ allow rules are "never blocked, never swept" (spec) — union
+        // them into the sweep's always-allowed input. Post-migration the
+        // legacy store is empty and the rules ARE the allow list; pre-pull /
+        // offline the cached mirror still serves. Schedule-active sets only
+        // (a windowed ✅ outside its window doesn't protect).
+        let ruleSets = RuleEnforcementMirror.shared.activeSets()
+        let alwaysAllowed = AlwaysAllowedList(
+            bundleIds: storedAllowed.bundleIds.union(ruleSets.allowedApps),
+            domains: storedAllowed.domains.union(ruleSets.allowedSites)
+        )
 
         // 0. Stage 1 prompt — forced declaration of intent before the sweep
         //    runs. Text-only v1. User can Skip to fall back to Intention's
@@ -2141,8 +2146,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         //    rule used to stash tabs at session start (research §8.3).
         let sweepProfiles = (blockingProfileManager?.profiles ?? [])
             .filter { BlockRuleEnforcer.shared.isEffectivelyActive($0) }
+        // R6: 🚫 rules (enabled + in-window) join the legacy profile hosts as
+        // auto-stash inputs — post-migration the profiles are empty and the
+        // rules carry this signal. ⏳ rules act as 🚫 during a session (spec),
+        // so they pre-bucket as probably-close too; the user confirms in the
+        // review modal before anything closes.
         let activeRuleHosts: Set<String> = Set(sweepProfiles.flatMap { $0.blockedDomains })
+            .union(ruleSets.blockedSites).union(ruleSets.limitedSites)
         let activeRuleBundleIds: Set<String> = Set(sweepProfiles.flatMap { $0.blockedAppBundleIds })
+            .union(ruleSets.blockedApps).union(ruleSets.limitedApps)
 
         // 3. Sweep browser tabs across every browser BrowserMonitor discovered
         //    at launch (Launch Services → LSCopyAllHandlersForURLScheme).

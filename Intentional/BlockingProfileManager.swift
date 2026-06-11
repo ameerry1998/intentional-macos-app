@@ -246,6 +246,15 @@ class BlockingProfileManager {
         return profiles[index]
     }
 
+    /// R6 RulesMigration: empty the store AND persist an empty array so the
+    /// next launch loads `[]` instead of re-seeding the default profile
+    /// (init only seeds when the file is missing/unreadable). The migrated
+    /// 🚫 rules own these targets now.
+    func removeAllProfilesForMigration() {
+        profiles = []
+        save()
+    }
+
     /// Returns merged block list of all profiles with alwaysActive == true
     func alwaysActiveBlockList() -> MergedBlockList {
         let activeIds = profiles.filter { $0.alwaysActive }.map { $0.id }

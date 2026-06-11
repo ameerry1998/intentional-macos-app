@@ -1,0 +1,2730 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Intentional — Full app prototype</title>
+<!-- React + Babel for Cloud Design Plan view (sourced from Planning Page.html, 2026-05-13) -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+<!-- Cloud Design CSS for Plan view — sourced verbatim from docs/planning-system-design-2026-05-13/Planning Page.html, scoped under .cd-plan -->
+<style>
+.cd-plan {
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+  --r-sm: 6px; --r-md: 10px; --r-lg: 14px;
+  --hue-1: #D85A30;
+  --hue-2: #1D9E75;
+  --hue-3: #A855C7;
+
+  background: var(--bg);
+  color: var(--text-1);
+  font: 13px/1.5 var(--font);
+  display: block;
+  -webkit-font-smoothing: antialiased;
+}
+.cd-plan[data-theme="light"] {
+  --bg:        #E2DCC8;
+  --bg-app:    #F7F3EA;
+  --bg-side:   #EDE5D2;
+  --surface:   #FFFFFF;
+  --surface-2: #F4EEDE;
+  --line:      rgba(26,20,16,0.09);
+  --line-2:    rgba(26,20,16,0.18);
+  --line-3:    rgba(26,20,16,0.28);
+  --text-1:    #1A1410;
+  --text-2:    rgba(26,20,16,0.62);
+  --text-3:    rgba(26,20,16,0.42);
+  --text-4:    rgba(26,20,16,0.22);
+  --primary-bg: #1A1410;
+  --primary-fg: #F7F3EA;
+  --primary-bg-h: #2c241d;
+  --status-success: #1D9E75;
+  --status-warning: #B97316;
+  --status-error:   #B8323C;
+  --status-info:    #355AB4;
+}
+.cd-plan[data-theme="dark"] {
+  --bg:        #0A0B0D;
+  --bg-app:    #14161A;
+  --bg-side:   #14161A;
+  --surface:   #1A1D22;
+  --surface-2: #22262C;
+  --line:      rgba(255,255,255,0.08);
+  --line-2:    rgba(255,255,255,0.16);
+  --line-3:    rgba(255,255,255,0.26);
+  --text-1:    #F4F5F6;
+  --text-2:    rgba(255,255,255,0.62);
+  --text-3:    rgba(255,255,255,0.42);
+  --text-4:    rgba(255,255,255,0.22);
+  --primary-bg: #F2EFE5;
+  --primary-fg: #1A1410;
+  --primary-bg-h: #FFFCF2;
+  --status-success: #4EBE92;
+  --status-warning: #D9A04A;
+  --status-error:   #E26676;
+  --status-info:    #9CB7EE;
+}
+
+/* Chrome elements from Cloud Design (Mac window frame) — HIDDEN since app.html has its own */
+.cd-plan .stage { padding: 0; min-height: auto; display: block; }
+.cd-plan .win { width: 100%; border-radius: 0; background: transparent; border: 0; box-shadow: none; }
+.cd-plan .titlebar { display: none; }
+.cd-plan .traffic { display: none; }
+.cd-plan .win-body { display: block; min-height: auto; grid-template-columns: 1fr; }
+.cd-plan .sidebar { display: none; }
+.cd-plan .brand { display: none; }
+.cd-plan .nav-list { display: none; }
+
+/* Page */
+.cd-plan .page { padding: 0; display: flex; flex-direction: column; gap: 22px; }
+.cd-plan .pg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.cd-plan .pg-head .eyebrow-row { font: 500 11px var(--font); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-3); margin-bottom: 4px; }
+.cd-plan .pg-head h1 { font: 600 22px/1.15 var(--font); letter-spacing: -0.01em; margin: 0; color: var(--text-1); }
+.cd-plan .head-actions { display: flex; gap: 6px; align-items: center; }
+.cd-plan .btn-ghost { background: transparent; border: 0.5px solid var(--line-2); color: var(--text-1); padding: 6px 11px; border-radius: var(--r-sm); font: 500 12.5px var(--font); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: border-color 120ms ease; }
+.cd-plan .btn-ghost:hover { border-color: var(--line-3); }
+.cd-plan .btn-ghost svg { width: 12px; height: 12px; opacity: 0.7; }
+.cd-plan .btn-primary { background: var(--primary-bg); color: var(--primary-fg); border: 0.5px solid var(--primary-bg); padding: 7px 13px; border-radius: var(--r-sm); font: 600 12.5px var(--font); cursor: pointer; }
+.cd-plan .btn-primary:hover { background: var(--primary-bg-h); border-color: var(--primary-bg-h); }
+.cd-plan .btn-link { background: transparent; border: 0; color: var(--text-2); padding: 4px 6px; font: 500 12.5px var(--font); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.cd-plan .btn-link:hover { color: var(--text-1); }
+.cd-plan .eyebrow { font: 500 11px var(--font); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-3); margin-bottom: 12px; }
+.cd-plan .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+/* Monthly card */
+.cd-plan .mcard { background: var(--m-bg, var(--surface)); border: 0.5px solid var(--m-line, var(--line)); border-radius: var(--r-lg); padding: 14px 16px; min-height: 92px; cursor: pointer; transition: filter 120ms ease, border-color 120ms ease, opacity 120ms ease; display: flex; flex-direction: column; gap: 6px; }
+.cd-plan .mcard:hover { filter: brightness(1.04); }
+.cd-plan .mcard.sel { box-shadow: 0 0 0 1.5px var(--hue, transparent) inset; }
+.cd-plan .mcard.dim { opacity: 0.35; filter: none; }
+.cd-plan .mcard .ttl { font: 600 14px/1.3 var(--font); color: var(--text-1); }
+.cd-plan .mcard .out { font: 12px/1.4 var(--font); color: var(--m-out, var(--text-3)); }
+
+/* Weekly card */
+.cd-plan .wcard { position: relative; background: var(--surface); border: 0.5px solid var(--line); border-radius: var(--r-lg); padding: 14px 16px 14px 18px; min-height: 92px; overflow: hidden; transition: border-color 120ms ease, opacity 120ms ease, transform 120ms ease; display: flex; flex-direction: column; gap: 4px; cursor: pointer; user-select: none; }
+.cd-plan .wcard:hover { border-color: var(--line-2); transform: translateY(-1px); }
+.cd-plan .wcard-grip { margin-left: auto; font-size: 13px; opacity: 0.4; cursor: grab; padding: 3px 6px; border-radius: 4px; line-height: 1; transition: all 0.1s; }
+.cd-plan .wcard-grip:hover { opacity: 1; background: rgba(255,255,255,0.06); color: var(--accent, #D85A30); }
+.cd-plan .wcard-grip:active { cursor: grabbing; }
+.cd-plan .wcard.dragging { opacity: 0.4; }
+.cd-plan .wcard.dim { opacity: 0.35; }
+.cd-plan .wcard.unlinked { border-style: dashed; cursor: pointer; }
+.cd-plan .wcard .edge { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--hue, transparent); }
+.cd-plan .wcard .ttl { font: 600 14px/1.3 var(--font); color: var(--text-1); }
+.cd-plan .wcard .out { font: 12px/1.4 var(--font); color: var(--text-3); }
+.cd-plan .wcard .foot { margin-top: auto; padding-top: 4px; font: 500 11.5px var(--font); color: var(--text-3); display: flex; align-items: center; gap: 6px; }
+.cd-plan .status { font-weight: 500; }
+.cd-plan .status.in-progress { color: var(--status-info); font-weight: 600; }
+.cd-plan .status.planned    { color: var(--text-3); }
+.cd-plan .status.done       { color: var(--status-success); }
+.cd-plan .status.slipped    { color: var(--status-error); }
+.cd-plan .status.dropped    { color: var(--text-4); text-decoration: line-through; }
+.cd-plan .status.unlinked   { color: var(--text-4); }
+
+/* Timeline strip */
+.cd-plan .tstrip { background: var(--surface); border: 0.5px solid var(--line); border-radius: var(--r-lg); overflow: hidden; transition: border-color 120ms ease, box-shadow 120ms ease; }
+.cd-plan .tstrip.drop-target { border-color: var(--line-3); }
+.cd-plan .tstrip-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; cursor: pointer; transition: background 120ms ease; }
+.cd-plan .tstrip-head:hover { background: var(--surface-2); }
+.cd-plan .tstrip-head .summary { display: flex; align-items: center; gap: 10px; color: var(--text-1); font: 500 13px var(--font); min-width: 0; }
+.cd-plan .tstrip-head .summary.empty { color: var(--text-3); }
+.cd-plan .tstrip-head .summary svg { width: 13px; height: 13px; color: var(--text-3); flex-shrink: 0; }
+.cd-plan .tstrip-head .right { display: flex; align-items: center; gap: 14px; }
+.cd-plan .tstrip-head .right .open-link { font: 500 12.5px var(--font); color: var(--status-info); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.cd-plan .tstrip-head .right .open-link:hover { text-decoration: underline; }
+.cd-plan .tstrip-head .chev { width: 12px; height: 12px; color: var(--text-3); transition: transform 180ms ease; }
+.cd-plan .tstrip.collapsed .chev { transform: rotate(180deg); }
+.cd-plan .tstrip-body { padding: 26px 18px 18px; border-top: 0.5px solid var(--line); }
+.cd-plan .tstrip.collapsed .tstrip-body { display: none; }
+.cd-plan .tline { position: relative; height: 80px; user-select: none; }
+.cd-plan .tline .hour { position: absolute; top: 0; bottom: 0; border-left: 0.5px solid var(--line); }
+.cd-plan .tline .hour-lbl { position: absolute; top: -18px; font: 500 10px var(--font); color: var(--text-3); transform: translateX(-50%); }
+.cd-plan .tline .nowline { position: absolute; top: -8px; bottom: -8px; width: 1.5px; background: var(--status-warning); z-index: 4; pointer-events: none; }
+.cd-plan .tline .nowline::before { content: 'NOW'; position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font: 600 9px var(--font); color: var(--status-warning); letter-spacing: 0.06em; white-space: nowrap; }
+.cd-plan .tline .block { position: absolute; top: 6px; bottom: 6px; border-radius: var(--r-md); padding: 6px 9px; background: var(--blk-bg); border-left: 2px solid var(--blk-fg); color: var(--blk-fg); cursor: grab; overflow: hidden; display: flex; flex-direction: column; justify-content: center; transition: box-shadow 80ms ease; }
+.cd-plan .tline .block:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.10); z-index: 3; }
+.cd-plan .tline .block.dragging { cursor: grabbing; box-shadow: 0 6px 18px rgba(0,0,0,0.18); z-index: 5; }
+.cd-plan .tline .block .ttl { font: 600 11px/1.2 var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cd-plan .tline .block .tm  { font: 500 10px var(--font); opacity: 0.85; margin-top: 1px; font-variant-numeric: tabular-nums; }
+.cd-plan .tline .block .resize { position: absolute; top: 0; bottom: 0; width: 6px; cursor: ew-resize; }
+.cd-plan .tline .block .resize.l { left: 0; }
+.cd-plan .tline .block .resize.r { right: 0; }
+.cd-plan .tline.drop-active { background: var(--surface-2); border-radius: var(--r-md); }
+
+/* Past-week summary */
+.cd-plan .past-summary { background: var(--surface); border: 0.5px solid var(--line); border-radius: var(--r-md); padding: 14px 18px; display: flex; align-items: center; gap: 28px; }
+.cd-plan .past-summary .stat { font: 500 12px var(--font); color: var(--text-3); display: flex; align-items: baseline; gap: 6px; }
+.cd-plan .past-summary .stat b { font: 600 18px var(--font); font-variant-numeric: tabular-nums; color: var(--text-1); }
+.cd-plan .past-summary .stat.success b { color: var(--status-success); }
+.cd-plan .past-summary .stat.error b { color: var(--status-error); }
+.cd-plan .readonly { color: var(--text-3); font: 500 12px var(--font); background: var(--surface-2); border: 0.5px solid var(--line); border-radius: var(--r-md); padding: 6px 12px; width: fit-content; }
+.cd-plan .readonly b { color: var(--text-2); font-weight: 600; }
+
+/* History popover */
+.cd-plan .history-wrap { position: relative; }
+.cd-plan .history-pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 40; background: var(--surface); border: 0.5px solid var(--line-2); border-radius: var(--r-md); padding: 6px; min-width: 220px; box-shadow: 0 14px 40px rgba(0,0,0,0.10); display: flex; flex-direction: column; gap: 1px; }
+.cd-plan[data-theme="dark"] .history-pop { box-shadow: 0 14px 40px rgba(0,0,0,0.5); }
+.cd-plan .history-pop .hphd { font: 500 11px var(--font); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-3); padding: 8px 10px 4px; }
+.cd-plan .history-pop button { background: transparent; border: 0; color: var(--text-1); padding: 8px 10px; border-radius: 6px; font: 500 12.5px var(--font); cursor: pointer; text-align: left; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cd-plan .history-pop button:hover { background: var(--surface-2); }
+.cd-plan .history-pop button.on { background: var(--surface-2); color: var(--text-1); font-weight: 600; }
+.cd-plan .history-pop button .hpmeta { font: 500 11.5px var(--font); color: var(--text-3); }
+
+/* Apply dark theme bg to the .cd-plan container itself so it matches the app */
+.cd-plan { background: var(--bg-app); padding: 20px; border-radius: 10px; }
+</style>
+
+<style>
+  :root, body[data-theme="dark"] {
+    --bg: #0a0c0a; --bg-2: #111414; --bg-deep: #060707;
+    --card: rgba(255,255,255,0.04); --card-hover: rgba(255,255,255,0.07);
+    --card-2: rgba(255,255,255,0.06);
+    --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.14);
+    --text: #f7f8f8; --muted: rgba(255,255,255,0.55); --dim: rgba(255,255,255,0.36);
+    --sidebar-bg: rgba(0,0,0,0.30);
+    --coral: #E87461; --gold: #F0B060; --green: #6FB58E; --blue: #6E8FE0;
+    --violet: #B287D9; --amber: #E5A063; --red: #D45050; --indigo: #8B5CF6; --teal: #5CA39B;
+    --grad: linear-gradient(135deg, var(--coral), var(--gold));
+    --grad-mint: linear-gradient(135deg, #8FE5C1, #6FB58E);
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif;
+    --mono: "SF Mono", Menlo, Monaco, monospace;
+  }
+  body[data-theme="light"] {
+    --bg: #F7F3EA; --bg-2: #FFFFFF; --bg-deep: #E2DCC8;
+    --card: rgba(26,20,16,0.04); --card-hover: rgba(26,20,16,0.07);
+    --card-2: rgba(26,20,16,0.06);
+    --border: rgba(26,20,16,0.10); --border-strong: rgba(26,20,16,0.18);
+    --text: #1A1410; --muted: rgba(26,20,16,0.62); --dim: rgba(26,20,16,0.42);
+    --sidebar-bg: rgba(26,20,16,0.04);
+  }
+  body { background: radial-gradient(ellipse at top, rgba(232,116,97,0.06), transparent 60%), var(--bg); transition: background 0.2s; }
+  body[data-theme="light"] { background: radial-gradient(ellipse at top, rgba(232,116,97,0.04), transparent 60%), var(--bg); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; line-height: 1.55; height: 100%; }
+  body { background: radial-gradient(ellipse at top, rgba(232,116,97,0.06), transparent 60%), var(--bg); background-attachment: fixed; overflow-x: hidden; }
+
+  /* APP */
+  .app { display: flex; height: 100vh; }
+  .sidebar { width: 220px; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 22px 14px; display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+  .brand { font-size: 15px; font-weight: 700; color: var(--coral); margin-bottom: 24px; padding: 0 10px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; color: var(--muted); font-size: 14px; font-weight: 500; cursor: pointer; user-select: none; transition: background 0.1s; }
+  .nav-item:hover { background: rgba(255,255,255,0.03); color: var(--text); }
+  .nav-item .ndot { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); flex-shrink: 0; }
+  .nav-item.active { background: rgba(232,116,97,0.10); color: var(--coral); }
+  .nav-item.active .ndot { background: var(--coral); box-shadow: 0 0 8px var(--coral); }
+  .sidebar-foot { margin-top: auto; padding: 12px 10px 0; font-size: 11px; color: var(--dim); font-family: var(--mono); line-height: 1.6; }
+  .content { flex: 1; padding: 28px 36px 28px; overflow-y: auto; }
+  .view-container { max-width: 980px; margin: 0 auto; }
+
+  /* TOP ROW */
+  .top-row { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 18px; gap: 12px; }
+  .top-left { flex: 1; }
+  .page-title { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; margin: 0; }
+  .page-sub { font-size: 13px; color: var(--dim); margin-top: 2px; }
+  .mode-toggle { display: flex; gap: 2px; padding: 3px; background: rgba(0,0,0,0.4); border-radius: 9px; user-select: none; }
+  .mode-toggle .opt { padding: 8px 16px; font-size: 13px; font-weight: 500; color: var(--muted); border-radius: 6px; cursor: pointer; transition: all 0.12s; }
+  .mode-toggle .opt.active { background: rgba(232,116,97,0.16); color: var(--coral); font-weight: 600; }
+  .mode-toggle .opt:hover:not(.active) { color: var(--text); }
+
+  /* BUTTONS */
+  .btn-primary { background: var(--grad); color: #1a0f0a; border: 0; padding: 9px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; font-family: var(--font); }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-secondary { background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--border-strong); padding: 9px 14px; border-radius: 8px; font-weight: 500; font-size: 13px; cursor: pointer; font-family: var(--font); }
+  .btn-secondary:hover { background: rgba(255,255,255,0.10); }
+  .btn-quiet { background: transparent; color: var(--muted); border: 0; padding: 9px 4px; font-size: 12px; cursor: pointer; }
+  .btn-quiet:hover { color: var(--text); }
+  .btn-danger { background: transparent; color: var(--red); border: 1px solid rgba(212,80,80,0.36); padding: 9px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .btn-tiny { background: rgba(232,116,97,0.10); color: var(--coral); border: 0; padding: 6px 12px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .btn-tiny.green { background: rgba(111,181,142,0.10); color: var(--green); }
+  .btn-tiny.blue { background: rgba(110,143,224,0.10); color: var(--blue); }
+  .btn-tiny:hover { filter: brightness(1.1); }
+
+  /* BLOCK CARDS — Today Now strip */
+  .blocks-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding: 0 2px; }
+  .blocks-section-header .lbl { font-size: 11px; color: var(--blue); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+  .blocks-section-header .lbl.empty { color: var(--dim); }
+  .blocks-section-header .manage { color: var(--coral); font-size: 11px; cursor: pointer; }
+  .blocks-section-header .manage:hover { filter: brightness(1.15); }
+  .blocks-card-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .block-card { flex: 1 1 220px; background: var(--card); border: 1px solid var(--border-strong); border-radius: 12px; padding: 14px 16px 14px 14px; display: flex; align-items: center; gap: 12px; cursor: pointer; position: relative; overflow: hidden; transition: all 0.18s; min-height: 76px; }
+  .block-card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.18); transform: translateY(-1px); }
+  .block-card.bedtime { background: linear-gradient(135deg, rgba(110,143,224,0.16), rgba(110,143,224,0.04)); border-color: rgba(110,143,224,0.40); }
+  .bc-icon { width: 40px; height: 40px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 2px 8px rgba(0,0,0,0.2); }
+  .bc-icon.color-blue { background: linear-gradient(135deg, rgba(110,143,224,0.55), rgba(110,143,224,0.18)); }
+  .bc-icon.color-amber { background: linear-gradient(135deg, rgba(229,160,99,0.55), rgba(229,160,99,0.18)); }
+  .bc-icon.color-green { background: linear-gradient(135deg, rgba(111,181,142,0.55), rgba(111,181,142,0.18)); }
+  .bc-icon.color-violet { background: linear-gradient(135deg, rgba(178,135,217,0.55), rgba(178,135,217,0.18)); }
+  .bc-icon.color-red { background: linear-gradient(135deg, rgba(212,80,80,0.55), rgba(212,80,80,0.18)); }
+  .bc-content { flex: 1; min-width: 0; }
+  .bc-title { font-size: 14px; font-weight: 700; margin: 0; line-height: 1.25; letter-spacing: -0.15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bc-sub { font-size: 11px; color: var(--muted); margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .bc-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .bc-pill { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px 3px 6px; background: rgba(111,181,142,0.18); color: var(--green); border: 1px solid rgba(111,181,142,0.36); border-radius: 999px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+  .bc-pill .bp-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .bc-pill .bp-x { cursor: pointer; opacity: 0.7; margin-left: 2px; font-size: 11px; }
+  .bc-pill .bp-x:hover { opacity: 1; }
+  .bc-arrow { color: var(--muted); font-size: 16px; font-weight: 300; }
+  .bc-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(255,255,255,0.05); }
+  .bc-progress .bar { height: 100%; transition: width 0.3s; }
+  .bc-progress.color-blue .bar { background: var(--blue); }
+  .bc-progress.color-amber .bar { background: var(--amber); }
+  .bc-progress.color-green .bar { background: var(--green); }
+  .bc-progress.color-violet .bar { background: var(--violet); }
+  .bc-progress.color-red .bar { background: var(--red); }
+  .blocks-empty-card { padding: 18px 22px; background: rgba(255,255,255,0.02); border: 1px dashed var(--border-strong); border-radius: 12px; text-align: center; font-size: 13px; color: var(--muted); cursor: pointer; transition: all 0.15s; margin-bottom: 16px; }
+  .blocks-empty-card:hover { background: rgba(255,255,255,0.04); border-color: var(--coral); color: var(--text); }
+  .blocks-empty-card strong { color: var(--text); font-weight: 600; }
+
+  /* CALENDAR */
+  .sched-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .sched-stats { display: flex; gap: 16px; font-size: 11px; color: var(--muted); margin-bottom: 8px; padding: 0 4px; }
+  .sched-stats .stat-num { color: var(--text); font-weight: 600; font-family: var(--mono); }
+  .calendar { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 0; max-height: 480px; overflow-y: auto; margin-bottom: 14px; }
+  .hour-row { display: flex; min-height: 42px; border-top: 1px dashed rgba(255,255,255,0.04); position: relative; }
+  .hour-row:first-child { border-top: none; }
+  .hour-row .lbl { font-family: var(--mono); font-size: 10px; color: var(--dim); width: 56px; padding: 5px 0 0 14px; flex-shrink: 0; }
+  .hour-row .lane { flex: 1; position: relative; padding: 2px 14px 2px 0; }
+  .session-block { padding: 8px 14px; margin: 3px 0; border-radius: 7px; font-size: 12px; color: var(--text); display: flex; align-items: center; gap: 10px; cursor: pointer; transition: filter 0.1s; }
+  .session-block:hover { filter: brightness(1.15); }
+  .sb-coral { background: rgba(232,116,97,0.18); border-left: 3px solid var(--coral); }
+  .sb-gold { background: rgba(240,176,96,0.18); border-left: 3px solid var(--gold); }
+  .sb-violet { background: rgba(178,135,217,0.18); border-left: 3px solid var(--violet); }
+  .session-block.active { box-shadow: 0 0 0 1px rgba(232,116,97,0.5), 0 0 18px rgba(232,116,97,0.20); }
+  .session-block.done { opacity: 0.55; text-decoration: line-through; text-decoration-color: rgba(255,255,255,0.3); }
+  .session-block .when { font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .session-block .label { flex: 1; }
+  .session-block .badge-r { font-size: 9px; padding: 2px 7px; border-radius: 999px; background: rgba(255,255,255,0.08); color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .session-block .badge-r.red { background: rgba(212,80,80,0.18); color: var(--red); }
+  .session-block .badge-r.green { background: rgba(111,181,142,0.18); color: var(--green); }
+  .now-line { position: absolute; left: 0; right: 0; height: 2px; background: var(--coral); top: 50%; box-shadow: 0 0 12px var(--coral); z-index: 5; }
+  .now-line::before { content: 'NOW'; position: absolute; left: 70px; top: -7px; font-size: 9px; font-weight: 700; color: var(--coral); background: var(--bg-2); padding: 0 5px; letter-spacing: 1px; }
+
+  /* BLOCKS LIST MODE */
+  .section-h { font-size: 13px; color: var(--muted); font-weight: 600; margin: 22px 0 12px; display: flex; align-items: center; justify-content: space-between; }
+  .section-h .count { color: var(--dim); font-weight: 400; font-size: 12px; }
+  .ideas-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 22px; }
+  .idea-btn { padding: 14px 16px; background: var(--card-2); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: background 0.1s; }
+  .idea-btn:hover { background: var(--card-hover); }
+  .idea-icon { width: 28px; height: 28px; border-radius: 7px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .idea-btn .idea-label { font-size: 13px; font-weight: 600; }
+  .idea-btn.primary { background: linear-gradient(135deg, rgba(232,116,97,0.12), rgba(240,176,96,0.05)); border-color: rgba(232,116,97,0.32); }
+  .idea-btn.primary .idea-icon { background: var(--coral); color: white; }
+  .block-row { display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 6px; cursor: pointer; transition: all 0.15s; }
+  .block-row:hover { background: var(--card-hover); }
+  .block-row.active { border-color: rgba(110,143,224,0.40); background: linear-gradient(180deg, rgba(110,143,224,0.06), transparent); }
+  .block-row .b-icon { width: 44px; height: 44px; border-radius: 10px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; position: relative; }
+  .block-row.active .b-icon::after { content: ''; position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; border-radius: 50%; background: var(--blue); border: 2px solid var(--bg-2); box-shadow: 0 0 8px var(--blue); animation: pulse 1.4s infinite ease-in-out; }
+  @keyframes pulse { 50% { opacity: 0.4; transform: scale(0.7); } }
+  .block-row .b-body { flex: 1; min-width: 0; }
+  .block-row .b-name { font-size: 15px; font-weight: 600; margin: 0 0 2px; display: flex; align-items: center; gap: 8px; }
+  .block-row .b-when { font-size: 12px; color: var(--muted); }
+  .block-row .b-apps { font-size: 11px; color: var(--dim); margin-top: 2px; }
+  .b-control { display: flex; align-items: center; gap: 6px; }
+  .toggle-switch { width: 38px; height: 22px; border-radius: 999px; background: rgba(255,255,255,0.10); position: relative; flex-shrink: 0; cursor: pointer; transition: background 0.15s; }
+  .toggle-switch.on { background: var(--blue); }
+  .toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: white; transition: left 0.15s; }
+  .toggle-switch.on::after { left: 18px; }
+  .b-status { font-size: 10px; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; }
+  .b-status.active { background: rgba(110,143,224,0.18); color: var(--blue); }
+  .b-status.upcoming { background: rgba(255,255,255,0.06); color: var(--dim); }
+  .b-status.always { background: rgba(229,160,99,0.14); color: var(--amber); }
+  .b-status.ondemand { background: rgba(255,255,255,0.04); color: var(--dim); }
+
+  /* PLAN VIEW */
+  .plan-actions { display: flex; gap: 8px; }
+  .goals-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 22px; }
+  .goal-card { padding: 16px 18px; border-radius: 12px; border: 1px solid; cursor: pointer; transition: all 0.15s; min-height: 100px; display: flex; flex-direction: column; }
+  .goal-card:hover { transform: translateY(-1px); }
+  .goal-card.color-coral { background: rgba(232,116,97,0.10); border-color: rgba(232,116,97,0.36); }
+  .goal-card.color-gold { background: rgba(240,176,96,0.10); border-color: rgba(240,176,96,0.36); }
+  .goal-card.color-violet { background: rgba(178,135,217,0.10); border-color: rgba(178,135,217,0.36); }
+  .goal-card.empty { background: transparent; border: 1px dashed var(--border-strong); color: var(--dim); display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  .goal-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .goal-outcome { font-size: 12px; color: var(--muted); flex: 1; line-height: 1.5; }
+  .goal-progress { font-size: 11px; color: var(--muted); margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06); font-family: var(--mono); }
+  .missions-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 22px; }
+  .mission-card { padding: 14px 16px 14px 14px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--dim); cursor: pointer; transition: all 0.15s; min-height: 110px; }
+  .mission-card:hover { background: var(--card-hover); transform: translateY(-1px); }
+  .mission-card.color-coral { border-left-color: var(--coral); }
+  .mission-card.color-gold { border-left-color: var(--gold); }
+  .mission-card.color-violet { border-left-color: var(--violet); }
+  .mission-card.empty { background: transparent; border: 1px dashed var(--border-strong); border-left: 1px dashed var(--border-strong); display: flex; align-items: center; justify-content: center; color: var(--dim); font-size: 13px; min-height: 110px; }
+  .mission-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.1px; }
+  .mission-outcome { font-size: 12px; color: var(--muted); margin-bottom: 8px; line-height: 1.5; }
+  .mission-meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; font-size: 10px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+  .pill.coral { background: rgba(232,116,97,0.12); color: var(--coral); border: 1px solid rgba(232,116,97,0.28); }
+  .pill.red { background: rgba(212,80,80,0.12); color: var(--red); border: 1px solid rgba(212,80,80,0.28); }
+  .pill.green { background: rgba(111,181,142,0.12); color: var(--green); border: 1px solid rgba(111,181,142,0.28); }
+  .pill.amber { background: rgba(229,160,99,0.12); color: var(--amber); border: 1px solid rgba(229,160,99,0.28); }
+  .pill.blue { background: rgba(110,143,224,0.12); color: var(--blue); border: 1px solid rgba(110,143,224,0.28); }
+  .pill.dim { background: rgba(255,255,255,0.04); color: var(--dim); border: 1px solid var(--border); }
+
+  /* SETTINGS VIEW */
+  .settings-section { margin-bottom: 24px; }
+  .settings-section h3 { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin: 0 0 10px; padding: 0 2px; }
+  .settings-section.danger h3 { color: var(--red); }
+  .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 6px; cursor: pointer; transition: all 0.1s; }
+  .setting-row:hover { background: var(--card-hover); }
+  .setting-row.danger { border-color: rgba(212,80,80,0.20); }
+  .setting-row.danger:hover { background: rgba(212,80,80,0.04); border-color: rgba(212,80,80,0.36); }
+  .sr-body { flex: 1; padding-right: 16px; }
+  .sr-title { font-size: 14px; font-weight: 600; margin-bottom: 3px; display: flex; align-items: center; gap: 8px; }
+  .setting-row.danger .sr-title { color: var(--red); }
+  .sr-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .sr-control { font-size: 12px; }
+  .sr-manage { color: var(--coral); font-weight: 500; cursor: pointer; }
+
+  /* STATUS FOOTER */
+  .status-footer { display: flex; gap: 16px; flex-wrap: wrap; padding: 12px 16px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 10px; font-size: 12px; color: var(--muted); margin-top: 14px; }
+  .status-footer .item { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .status-footer .item .sf-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+  .status-footer .item.off .sf-dot { background: var(--dim); }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+  .modal-overlay[hidden] { display: none; }
+  .modal { background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: 14px; padding: 24px; max-width: 540px; width: 100%; box-shadow: 0 24px 60px rgba(0,0,0,0.5); max-height: 90vh; overflow-y: auto; }
+  .modal-title { font-size: 18px; font-weight: 700; margin: 0 0 16px; letter-spacing: -0.2px; }
+  .modal-title.highlight { padding: 5px 10px; background: linear-gradient(135deg, rgba(232,116,97,0.40), rgba(240,176,96,0.20)); color: white; border-radius: 8px; display: inline-block; margin: 0 0 18px; }
+  .modal-field { margin-bottom: 14px; }
+  .modal-field label { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; display: block; margin-bottom: 6px; }
+  .modal-input { padding: 9px 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 7px; font-size: 14px; width: 100%; font-family: var(--font); color: var(--text); }
+  .modal-input.textarea { min-height: 60px; resize: vertical; }
+  .modal-row { display: flex; gap: 12px; }
+  .modal-row > * { flex: 1; }
+  .modal-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 22px; }
+  .modal-actions .right { display: flex; gap: 8px; }
+  .day-pills { display: flex; gap: 8px; }
+  .day-pill { flex: 1; padding: 10px 0; background: rgba(255,255,255,0.95); color: #1a0f0a; font-size: 13px; font-weight: 700; border-radius: 999px; text-align: center; cursor: pointer; user-select: none; transition: all 0.1s; }
+  .day-pill.off { background: rgba(255,255,255,0.06); color: var(--dim); }
+  .strict-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .strict-pill { padding: 7px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--muted); cursor: pointer; }
+  .strict-pill.active { background: rgba(212,80,80,0.18); color: var(--red); border-color: var(--red); }
+  .strict-pill.standard.active { background: rgba(232,116,97,0.18); color: var(--coral); border-color: var(--coral); }
+  .auto-blocks-section { padding: 12px 14px; background: rgba(110,143,224,0.06); border: 1px solid rgba(110,143,224,0.20); border-radius: 8px; }
+  .auto-blocks-section .ab-label { font-size: 11px; color: var(--blue); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; display: block; margin-bottom: 8px; }
+  .auto-blocks-list { display: flex; gap: 6px; flex-wrap: wrap; }
+  .ab-pill { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; background: rgba(110,143,224,0.14); color: var(--blue); border: 1px solid rgba(110,143,224,0.28); border-radius: 999px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .ab-pill.unselected { background: rgba(255,255,255,0.04); color: var(--muted); border-color: var(--border); }
+  .ab-hint { font-size: 11px; color: var(--muted); margin-top: 8px; }
+
+  /* HELP ME PLAN RITUAL */
+  .ritual-step { padding: 28px 32px; text-align: center; }
+  .ritual-step .step { font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px; color: var(--coral); font-weight: 700; margin-bottom: 12px; }
+  .ritual-step .q { font-size: 22px; font-weight: 600; max-width: 480px; margin: 0 auto 20px; letter-spacing: -0.2px; }
+
+  /* POPOVER */
+  .popover { position: fixed; background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: 12px; padding: 14px; box-shadow: 0 16px 40px rgba(0,0,0,0.5); min-width: 240px; z-index: 90; }
+  .popover h4 { font-size: 13px; margin: 0 0 6px; color: var(--text); font-weight: 600; }
+  .popover p { font-size: 12px; color: var(--muted); margin: 0 0 10px; line-height: 1.5; }
+  .popover .pop-row { display: flex; gap: 6px; }
+  .popover-backdrop { position: fixed; inset: 0; z-index: 89; }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: 10px; padding: 12px 18px; font-size: 13px; box-shadow: 0 12px 32px rgba(0,0,0,0.5); z-index: 200; animation: toastIn 0.2s; }
+  @keyframes toastIn { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+
+  /* DEMO PANEL */
+  .demo-panel { position: fixed; right: 16px; bottom: 16px; background: var(--bg-2); border: 1px solid rgba(232,116,97,0.32); border-radius: 12px; padding: 12px 14px; z-index: 80; box-shadow: 0 12px 32px rgba(0,0,0,0.5); max-width: 260px; }
+  .demo-panel .dp-title { font-size: 10px; color: var(--coral); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin-bottom: 8px; }
+  .demo-panel .dp-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+  .demo-panel button { background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text); padding: 5px 9px; border-radius: 6px; font-size: 11px; cursor: pointer; text-align: left; font-family: var(--font); }
+  .demo-panel button:hover { background: rgba(255,255,255,0.08); }
+  .demo-panel button.active { background: rgba(232,116,97,0.10); color: var(--coral); border-color: rgba(232,116,97,0.32); }
+  .demo-panel .dp-hint { font-size: 10px; color: var(--dim); margin-top: 8px; line-height: 1.4; }
+
+  /* THEME TOGGLE */
+  .theme-toggle-btn { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-top: 6px; border-radius: 8px; background: var(--card); border: 1px solid var(--border); color: var(--muted); font-size: 12px; cursor: pointer; user-select: none; }
+  .theme-toggle-btn:hover { background: var(--card-hover); color: var(--text); }
+
+  /* SIDEBAR BLOCKING STATUS (moved from Today header) */
+  .sb-blocking { display: flex; align-items: center; gap: 8px; padding: 9px 12px; margin-top: 4px; border-radius: 8px; background: rgba(110,143,224,0.08); border: 1px solid rgba(110,143,224,0.20); color: var(--blue); font-size: 12px; font-weight: 600; cursor: pointer; user-select: none; }
+  .sb-blocking:hover { background: rgba(110,143,224,0.14); }
+  .sb-blocking .shield { font-size: 12px; }
+  .sb-blocking .arrow { margin-left: auto; opacity: 0.6; }
+  .sb-blocking.empty { background: rgba(255,255,255,0.03); border-color: var(--border); color: var(--dim); }
+
+  /* WEEKLY GOAL CARDS — top of Today */
+  .wg-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding: 0 2px; }
+  .wg-lbl { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+  .wg-lbl strong { color: var(--coral); font-weight: 700; }
+  .wg-hint { font-size: 11px; color: var(--dim); }
+  .wg-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+  .wg-card { position: relative; padding: 14px 16px 14px 18px; background: var(--card-2); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; user-select: none; transition: all 0.15s; min-height: 96px; display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
+  .wg-card:hover { background: var(--card-hover); border-color: var(--border-strong); transform: translateY(-1px); }
+  .wg-card.dragging { opacity: 0.4; transform: scale(0.98); }
+  .wg-card.unlinked { border-style: dashed; }
+  .wg-card .wg-edge { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--wg-hue, transparent); }
+  .wg-card .wg-ttl { font-size: 14px; font-weight: 700; line-height: 1.3; letter-spacing: -0.1px; }
+  .wg-card .wg-out { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .wg-card .wg-foot { margin-top: auto; padding-top: 6px; font-size: 11px; color: var(--dim); display: flex; align-items: center; gap: 6px; }
+  .wg-status { font-weight: 600; }
+  .wg-status.in-progress { color: var(--blue); }
+  .wg-status.planned { color: var(--dim); }
+  .wg-status.done { color: var(--green); }
+  .wg-status.unlinked { color: var(--dim); font-style: italic; }
+  .wg-grip { font-size: 14px; opacity: 0.45; cursor: grab; padding: 3px 6px; border-radius: 4px; line-height: 1; transition: all 0.1s; }
+  .wg-grip:hover { opacity: 1; background: var(--card-hover); color: var(--coral); }
+  .wg-grip:active { cursor: grabbing; }
+
+  /* Calendar drop-target highlight */
+  .calendar.drop-target { border-color: var(--coral); box-shadow: 0 0 0 1px var(--coral); }
+  .hour-row.drop-hover { background: rgba(232,116,97,0.08); }
+
+  /* FOCUS MODES VIEW */
+  .fm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 760px; margin: 22px auto 0; }
+  .fm-card { background: var(--card-2); border: 1px solid var(--border); border-radius: 14px; padding: 0; overflow: hidden; cursor: pointer; transition: all 0.15s; min-height: 160px; display: flex; flex-direction: column; position: relative; }
+  .fm-card:hover { background: var(--card-hover); transform: translateY(-1px); }
+  .fm-card .fm-strip { height: 4px; }
+  .fm-card.color-blue .fm-strip { background: var(--blue); }
+  .fm-card.color-white .fm-strip { background: rgba(255,255,255,0.45); }
+  body[data-theme="light"] .fm-card.color-white .fm-strip { background: rgba(26,20,16,0.30); }
+  .fm-card.color-orange .fm-strip { background: var(--coral); }
+  .fm-card.color-teal .fm-strip { background: var(--teal); }
+  .fm-card.color-gold .fm-strip { background: var(--gold); }
+  .fm-card.color-violet .fm-strip { background: var(--violet); }
+  .fm-card-body { padding: 16px 18px; flex: 1; display: flex; flex-direction: column; }
+  .fm-title { font-size: 15px; font-weight: 700; margin: 0; }
+  .fm-desc { font-size: 12.5px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+  .fm-pill { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; margin-top: 10px; align-self: flex-start; }
+  .fm-pill.strict { background: rgba(212,80,80,0.18); color: var(--red); border: 1px solid rgba(212,80,80,0.32); }
+  .fm-pill.standard { background: rgba(255,255,255,0.06); color: var(--muted); border: 1px solid var(--border); }
+  body[data-theme="light"] .fm-pill.standard { background: rgba(26,20,16,0.06); }
+  .fm-foot { padding: 10px 18px; border-top: 1px solid var(--border); font-size: 11px; color: var(--dim); margin-top: auto; }
+  .fm-card.dashed { border-style: dashed; background: transparent; align-items: center; justify-content: center; text-align: center; padding: 20px; }
+  .fm-card.dashed .fm-strip { display: none; }
+  .fm-card.dashed .new-title { font-size: 14px; font-weight: 700; line-height: 1.2; }
+  .fm-card.dashed .new-desc { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  /* SENSITIVE CONTENT VIEW */
+  .sc-card { background: var(--card-2); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; max-width: 720px; margin: 22px auto 0; display: flex; align-items: center; gap: 16px; }
+  .sc-card .sc-eyebrow { font-size: 9.5px; color: var(--dim); letter-spacing: 1.2px; text-transform: uppercase; font-weight: 700; margin-bottom: 6px; }
+  .sc-card .sc-body { flex: 1; }
+  .sc-card .sc-title { font-size: 14px; font-weight: 700; margin: 0 0 4px; }
+  .sc-card .sc-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* ACCOUNTABILITY VIEW */
+  .acc-section { max-width: 760px; margin: 0 auto; }
+  .acc-eyebrow { font-size: 10.5px; color: var(--dim); letter-spacing: 1.4px; text-transform: uppercase; font-weight: 700; padding: 0 4px; margin-bottom: 6px; line-height: 1.6; }
+  .acc-partner-card { background: var(--card-2); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+  .acc-avatar { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--coral), var(--gold)); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; color: white; flex-shrink: 0; }
+  .acc-info { flex: 1; }
+  .acc-name { font-size: 16px; font-weight: 700; margin: 0; }
+  .acc-email { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .acc-status { padding: 5px 12px; background: rgba(111,181,142,0.12); color: var(--green); border: 1px solid rgba(111,181,142,0.30); border-radius: 999px; font-size: 11.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .acc-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .acc-enable-btn { width: 100%; padding: 14px; background: var(--grad); color: #1a0f0a; border: 0; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; margin-bottom: 12px; }
+  .acc-enable-btn:hover { filter: brightness(1.05); }
+  .acc-remove-row { background: var(--card-2); border: 1px solid var(--border); border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; gap: 14px; }
+  .acc-remove-info { flex: 1; }
+  .acc-remove-title { font-size: 14px; font-weight: 700; margin: 0 0 2px; }
+  .acc-remove-desc { font-size: 12px; color: var(--muted); }
+  .acc-remove-btn { padding: 7px 16px; background: rgba(212,80,80,0.10); border: 1px solid rgba(212,80,80,0.32); color: var(--red); border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .acc-footer-note { text-align: center; font-size: 12px; color: var(--dim); margin-top: 16px; }
+
+  /* SETTINGS LIST VIEW (actual app design) */
+  .settings-eyebrow { font-size: 10.5px; color: var(--dim); letter-spacing: 1.4px; text-transform: uppercase; font-weight: 700; padding: 0 4px; margin-bottom: 10px; }
+  .settings-list-card { background: var(--card-2); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; max-width: 760px; margin: 0 auto; }
+  .settings-list-row { display: flex; align-items: center; gap: 14px; padding: 14px 18px; cursor: pointer; transition: background 0.1s; border-bottom: 1px solid var(--border); }
+  .settings-list-row:last-child { border-bottom: 0; }
+  .settings-list-row:hover { background: var(--card-hover); }
+  .slr-icon { width: 36px; height: 36px; border-radius: 9px; background: var(--card); display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; border: 1px solid var(--border); }
+  .slr-icon.color-coral { background: rgba(232,116,97,0.14); border-color: rgba(232,116,97,0.32); }
+  .slr-icon.color-blue  { background: rgba(110,143,224,0.14); border-color: rgba(110,143,224,0.32); }
+  .slr-icon.color-green { background: rgba(111,181,142,0.14); border-color: rgba(111,181,142,0.32); }
+  .slr-icon.color-amber { background: rgba(229,160,99,0.14); border-color: rgba(229,160,99,0.32); }
+  .slr-icon.color-violet{ background: rgba(178,135,217,0.14); border-color: rgba(178,135,217,0.32); }
+  .slr-icon.color-red   { background: rgba(212,80,80,0.14); border-color: rgba(212,80,80,0.32); }
+  .slr-body { flex: 1; min-width: 0; }
+  .slr-title { font-size: 14.5px; font-weight: 600; margin: 0; }
+  .slr-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .slr-arrow { color: var(--dim); font-size: 14px; flex-shrink: 0; }
+
+  /* SETTINGS SUBPAGE (drilldown) */
+  .sub-back { color: var(--coral); font-size: 13px; font-weight: 500; cursor: pointer; margin-bottom: 14px; display: inline-flex; align-items: center; gap: 2px; }
+  .sub-back:hover { filter: brightness(1.2); }
+  .sub-title { font-size: 24px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.3px; }
+  .sub-intro { font-size: 13.5px; color: var(--muted); margin-bottom: 18px; max-width: 600px; line-height: 1.5; }
+  .sub-card { background: var(--card-2); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; max-width: 760px; margin-bottom: 14px; }
+  .sub-toggle-row { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+  .sub-toggle-row:last-child { border-bottom: 0; }
+  .sub-toggle-row .body { flex: 1; }
+  .sub-toggle-row .ttl { font-size: 14px; font-weight: 600; margin: 0; }
+  .sub-toggle-row .desc { font-size: 12px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+  .sub-section-header { padding: 14px 18px 6px; }
+  .sub-section-header .heyebrow { font-size: 10.5px; color: var(--dim); letter-spacing: 1.4px; text-transform: uppercase; font-weight: 700; }
+  .sub-section-header .hsub { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.45; }
+
+  /* INPUT + ADD (Always Blocked) */
+  .input-add-card { background: var(--card-2); border: 1px solid var(--border); border-radius: 14px; padding: 14px; max-width: 760px; }
+  .input-add-row { display: flex; gap: 8px; }
+  .input-add-row input { flex: 1; padding: 10px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--text); font-family: var(--font); }
+  .input-add-row .add-btn { padding: 10px 16px; background: rgba(232,116,97,0.10); color: var(--coral); border: 1px solid rgba(232,116,97,0.32); border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .input-add-empty { font-size: 12px; color: var(--muted); margin-top: 14px; padding: 0 4px; }
+
+  /* WEEKLY GOAL EDIT (Focus-Mode-style) */
+  .ge-modal { max-width: 620px; }
+  /* Full-page variant (rendered into #goal-edit-mount, not a modal overlay) */
+  .ge-page { max-width: 760px; margin: 0 auto; padding: 8px 0 80px; }
+  .ge-page .ge-title-input { font-size: 28px; }
+  .ge-back { color: var(--coral); font-size: 13px; cursor: pointer; margin-bottom: 14px; display: inline-flex; align-items: center; gap: 2px; }
+  .ge-back:hover { filter: brightness(1.2); }
+  .ge-title-row { margin-bottom: 22px; }
+  .ge-title-input { font-size: 24px; font-weight: 700; letter-spacing: -0.3px; background: transparent; border: 0; outline: 0; color: var(--text); padding: 0; width: 100%; font-family: var(--font); }
+  .ge-title-input:focus { background: var(--card); padding: 4px 8px; margin: -4px -8px; border-radius: 6px; }
+  .ge-rename-hint { font-size: 12px; color: var(--muted); margin-top: 4px; display: flex; align-items: center; gap: 5px; }
+  .ge-main-card { background: var(--card-2); border: 1px solid var(--border); border-left: 4px solid var(--ge-hue, var(--coral)); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }
+  .ge-main-card .gm-header { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
+  .ge-main-card .gm-header h3 { font-size: 16px; font-weight: 700; margin: 0; letter-spacing: -0.1px; }
+  .ge-main-card .gm-info { color: var(--dim); font-size: 12px; cursor: help; }
+  .ge-main-card .gm-textarea { width: 100%; background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-size: 13px; color: var(--text); resize: vertical; min-height: 100px; font-family: var(--font); line-height: 1.5; }
+  body[data-theme="light"] .ge-main-card .gm-textarea { background: rgba(255,255,255,0.6); }
+  .ge-main-card .gm-counter { text-align: right; font-size: 11px; color: var(--dim); margin-top: 6px; font-variant-numeric: tabular-nums; }
+
+  .ge-row { background: var(--card-2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: background 0.1s; margin-bottom: 14px; }
+  .ge-row:hover { background: var(--card-hover); }
+  .ge-row .gm-color-square { width: 24px; height: 24px; border-radius: 5px; background: var(--ge-hue, var(--coral)); flex-shrink: 0; opacity: 0.5; }
+  .ge-row .gm-row-title { flex: 1; font-size: 14px; font-weight: 600; }
+  .ge-row .gm-row-counts { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 12px; }
+  .ge-row .gm-count { display: inline-flex; align-items: center; gap: 5px; }
+  .ge-row .gm-count .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .ge-row .gm-count .dot.block { background: var(--red); }
+  .ge-row .gm-count .dot.allow { background: var(--green); }
+  .ge-row .gm-row-chev { color: var(--dim); font-size: 14px; }
+
+  .ge-divider { border-top: 1px solid var(--border); margin: 22px 0 16px; }
+  .ge-advanced-label { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 1.4px; font-weight: 700; margin-bottom: 14px; }
+  .ge-adv-row { display: flex; align-items: center; gap: 18px; margin-bottom: 14px; }
+  .ge-adv-row .gm-adv-label { font-size: 13px; font-weight: 600; min-width: 100px; display: flex; align-items: center; gap: 5px; }
+  .ge-num-input { width: 72px; padding: 7px 10px; background: var(--card); border: 1px solid var(--border); border-radius: 7px; font-size: 13px; color: var(--text); text-align: center; font-family: var(--mono); }
+  .ge-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .ge-delete-link { background: transparent; border: 0; color: var(--coral); font-size: 13px; cursor: pointer; padding: 6px 0; }
+  .ge-delete-link:hover { text-decoration: underline; }
+  .ge-done-btn { background: var(--grad); color: #1a0f0a; border: 0; padding: 9px 22px; border-radius: 7px; font-weight: 700; font-size: 13px; cursor: pointer; }
+
+  /* CUSTOM RULES sub-modal */
+  .cr-modal { max-width: 620px; }
+  .cr-info-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 22px; font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .cr-info-card strong { color: var(--text); }
+  .cr-section { margin-bottom: 24px; }
+  .cr-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .cr-section-header .left { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+  .cr-section-header .left .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .cr-section-header .left .dot.block { background: var(--red); }
+  .cr-section-header .left .dot.allow { background: var(--green); }
+  .cr-section-header .left.block { color: var(--red); }
+  .cr-section-header .left.allow { color: var(--green); }
+  .cr-section-header .right { font-size: 12px; color: var(--dim); }
+  .cr-input-row { display: flex; gap: 6px; margin-bottom: 10px; }
+  .cr-input-row input { flex: 1; padding: 10px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 7px; font-size: 13px; color: var(--text); font-family: var(--font); }
+  .cr-add-btn { padding: 10px 14px; background: var(--card); border: 1px solid var(--border-strong); border-radius: 7px; font-size: 12.5px; font-weight: 600; color: var(--text); cursor: pointer; }
+  .cr-add-btn:hover { background: var(--card-hover); }
+  .cr-empty { padding: 14px; border: 1px dashed var(--border-strong); border-radius: 8px; text-align: center; color: var(--muted); font-size: 12.5px; }
+  .cr-entry-list { display: flex; flex-direction: column; gap: 4px; }
+  .cr-entry { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; }
+  .cr-entry .name { flex: 1; }
+  .cr-entry .type-pill { padding: 1px 7px; background: var(--card); border: 1px solid var(--border); border-radius: 4px; font-size: 10px; color: var(--muted); text-transform: capitalize; }
+  .cr-entry .remove { color: var(--dim); cursor: pointer; font-size: 14px; padding: 2px 6px; }
+  .cr-entry .remove:hover { color: var(--red); }
+
+  /* COLLAPSIBLE sections (task creation overlay) */
+  .collapsible { border-top: 1px solid var(--border); margin: 6px -4px 0; }
+  .collapsible:last-of-type { border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+  .coll-header { display: flex; align-items: center; gap: 10px; padding: 11px 6px; cursor: pointer; user-select: none; border-radius: 6px; transition: background 0.1s; }
+  .coll-header:hover { background: var(--card-hover); }
+  .coll-arrow { font-size: 9px; color: var(--dim); transition: transform 0.18s; width: 10px; text-align: center; }
+  .collapsible.open .coll-arrow { transform: rotate(90deg); }
+  .coll-label { font-size: 13px; font-weight: 600; color: var(--text); }
+  .coll-hint { font-size: 11px; color: var(--dim); margin-left: auto; }
+  .coll-summary { font-size: 11px; color: var(--coral); margin-left: 4px; }
+  .coll-body { display: none; padding: 4px 6px 14px; }
+  .collapsible.open .coll-body { display: block; }
+
+  /* ENFORCEMENT MATRIX */
+  .enforce-table { width: 100%; border-collapse: collapse; }
+  .enforce-table th, .enforce-table td { padding: 12px 14px; font-size: 13px; border-bottom: 1px solid var(--border); text-align: left; }
+  .enforce-table thead th { font-size: 10.5px; color: var(--dim); letter-spacing: 1.4px; text-transform: uppercase; font-weight: 700; text-align: center; }
+  .enforce-table thead th:first-child { padding-left: 18px; }
+  .enforce-table td.col-toggle { text-align: center; width: 80px; }
+  .enforce-table td:first-child { padding-left: 18px; }
+  .enforce-table tr:last-child td { border-bottom: 0; }
+
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">Intentional</div>
+    <div class="nav-item active" data-view="today" onclick="switchView('today')"><span class="ndot"></span>Today</div>
+    <div class="nav-item" data-view="plan" onclick="switchView('plan')"><span class="ndot"></span>Plan</div>
+<!-- Focus Modes tab removed 2026-05-14 — replaced by Weekly Goal full-page editor reachable from Today/Plan cards -->
+    <div class="nav-item" data-view="sensitive" onclick="switchView('sensitive')"><span class="ndot"></span>Sensitive Content</div>
+    <div class="nav-item" data-view="accountability" onclick="switchView('accountability')"><span class="ndot"></span>Accountability</div>
+    <div class="nav-item" data-view="settings" onclick="switchView('settings')"><span class="ndot"></span>Settings</div>
+    <div class="sidebar-foot" id="sidebar-foot">2:24 PM · Caity ✓ · Content ON</div>
+    <div class="sb-blocking" id="sb-blocking" onclick="switchView('today');setTodayMode('blocks');"><span class="shield">🛡</span><span id="sb-blocking-label">3 blocking</span><span class="arrow">›</span></div>
+    <div class="theme-toggle-btn" onclick="toggleTheme()" id="theme-toggle-btn" title="Toggle theme">
+      <span id="theme-toggle-icon">🌙</span>
+      <span id="theme-toggle-label">Dark</span>
+    </div>
+  </aside>
+
+  <main class="content">
+
+    <!-- ───── VIEW: TODAY ───── -->
+    <div id="view-today" class="view-container">
+      <div class="top-row">
+        <div class="top-left">
+          <h3 class="page-title">Tuesday, May 13</h3>
+          <div class="page-sub" id="today-page-sub">3 tasks · 1 done · 2 to go · in session</div>
+        </div>
+        <div class="mode-toggle" id="mode-toggle">
+          <span class="opt active" data-mode="schedule" onclick="setTodayMode('schedule')">Schedule</span>
+          <span class="opt" data-mode="blocks" onclick="setTodayMode('blocks')">Blocks</span>
+        </div>
+      </div>
+
+      <div id="now-card-mount"></div>
+
+      <div id="view-schedule-inner">
+        <div class="sched-header">
+          <div style="font-size:13px; color:var(--muted); font-weight:600;">Today's schedule</div>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <button class="btn-tiny" onclick="openNewTaskModal()">+ Task</button>
+            <button class="btn-tiny green" onclick="openFreeTimeModal()">+ Free Time</button>
+          </div>
+        </div>
+        <div class="sched-stats"><span><span class="stat-num">2h 53m</span> focused</span><span><span class="stat-num">2m</span> off-task</span><span><span class="stat-num">0m</span> free</span></div>
+        <div class="calendar" id="calendar-mount"></div>
+      </div>
+
+      <div id="view-blocks-inner" hidden>
+        <div class="section-h">Quick actions</div>
+        <div class="ideas-row">
+          <div class="idea-btn primary" onclick="openBlockNowModal()"><div class="idea-icon">▶</div><div class="idea-label">Block Now</div></div>
+          <div class="idea-btn" onclick="switchView('plan')"><div class="idea-icon">📓</div><div class="idea-label">Plan Day</div></div>
+          <div class="idea-btn" onclick="startPomodoro()"><div class="idea-icon">🍅</div><div class="idea-label">Pomodoro 25</div></div>
+          <div class="idea-btn" onclick="openSettingModal('budget')"><div class="idea-icon">⏱</div><div class="idea-label">Set Limits</div></div>
+        </div>
+        <div class="section-h"><span>Your blocks</span><span class="count" id="blocks-count">· 3 active · 8 total</span></div>
+        <div id="blocks-list-mount"></div>
+      </div>
+
+      <div class="status-footer">
+        <span class="item" onclick="openPopover(event, 'partner')"><span class="sf-dot"></span>Caity · partner active</span>
+        <span class="item" onclick="openPopover(event, 'content')"><span class="sf-dot"></span>Content protection · ON</span>
+        <span class="item off" onclick="openPopover(event, 'puck')"><span class="sf-dot"></span>Puck · not paired</span>
+      </div>
+    </div>
+
+    <!-- ───── VIEW: PLAN (Cloud Design — sourced verbatim from Planning Page.html) ───── -->
+    <div id="view-plan" class="view-container" hidden>
+      <div class="cd-plan" data-theme="dark">
+        <div id="plan-react-root"></div>
+      </div>
+      <div class="status-footer" style="margin-top:18px;">
+        <span class="item" onclick="openPopover(event, 'partner')"><span class="sf-dot"></span>Caity · partner active</span>
+        <span class="item" onclick="openPopover(event, 'content')"><span class="sf-dot"></span>Content protection · ON</span>
+        <span class="item off" onclick="openPopover(event, 'puck')"><span class="sf-dot"></span>Puck · not paired</span>
+      </div>
+    </div>
+
+    <!-- ───── VIEW: FOCUS MODES ───── (sourced from actual app, screenshot 2026-05-13) -->
+    <div id="view-focus-modes" class="view-container" hidden>
+      <div style="max-width:760px; margin: 0 auto;">
+        <div style="padding: 0 4px;">
+          <div style="font-size:14px; font-weight:600;">Focus Modes</div>
+          <div style="font-size:13px; color:var(--muted); margin-top:2px;">Your work, organized by focus mode</div>
+        </div>
+      </div>
+      <div class="fm-grid">
+        <div class="fm-card color-blue" onclick="openFocusModeEdit('Focus')">
+          <div class="fm-strip"></div>
+          <div class="fm-card-body">
+            <div class="fm-title">Focus</div>
+            <div class="fm-desc">Default starter intention. Edit me!</div>
+            <span class="fm-pill strict">STRICT</span>
+          </div>
+          <div class="fm-foot">new · 0 distractions + 8 mode-specific</div>
+        </div>
+        <div class="fm-card color-white" onclick="openFocusModeEdit('Deep Work')">
+          <div class="fm-strip"></div>
+          <div class="fm-card-body">
+            <div class="fm-title">Deep Work</div>
+            <span class="fm-pill standard">STANDARD</span>
+          </div>
+          <div class="fm-foot">new · 0 distractions</div>
+        </div>
+        <div class="fm-card color-blue" onclick="openFocusModeEdit('Study')">
+          <div class="fm-strip"></div>
+          <div class="fm-card-body">
+            <div class="fm-title">Study</div>
+            <span class="fm-pill strict">STRICT</span>
+          </div>
+          <div class="fm-foot">new · 0 distractions</div>
+        </div>
+        <div class="fm-card color-white" onclick="openFocusModeEdit('Family')">
+          <div class="fm-strip"></div>
+          <div class="fm-card-body">
+            <div class="fm-title">Family</div>
+            <span class="fm-pill standard">STANDARD</span>
+          </div>
+          <div class="fm-foot">new · 0 distractions</div>
+        </div>
+        <div class="fm-card color-orange" onclick="openFocusModeEdit('Intentional')">
+          <div class="fm-strip"></div>
+          <div class="fm-card-body">
+            <div class="fm-title">Intentional</div>
+            <div class="fm-desc">Building Intentional my macOS/iOS foc…</div>
+            <span class="fm-pill strict">STRICT</span>
+          </div>
+          <div class="fm-foot">new · 0 distractions + 5 mode-specific</div>
+        </div>
+        <div class="fm-card color-teal" onclick="openFocusModeEdit('Reading-1')">
+          <div class="fm-strip"></div>
+          <div class="fm-card-body">
+            <div class="fm-title">Reading</div>
+            <span class="fm-pill strict">STRICT</span>
+          </div>
+          <div class="fm-foot">new · 0 distractions</div>
+        </div>
+        <div class="fm-card color-orange" onclick="openFocusModeEdit('Reading-2')">
+          <div class="fm-strip"></div>
+          <div class="fm-card-body">
+            <div class="fm-title">Reading</div>
+            <span class="fm-pill standard">STANDARD</span>
+          </div>
+          <div class="fm-foot">new · 0 distractions</div>
+        </div>
+        <div class="fm-card dashed" onclick="openFocusModeEdit('new')">
+          <div class="new-title">+ New<br>Focus<br>Mode</div>
+          <div class="new-desc">Define a focus mode, pic…</div>
+        </div>
+      </div>
+      <div class="status-footer" style="margin-top:22px; max-width:760px; margin-left:auto; margin-right:auto;">
+        <span class="item" onclick="openPopover(event, 'partner')"><span class="sf-dot"></span>Caity · partner active</span>
+        <span class="item" onclick="openPopover(event, 'content')"><span class="sf-dot"></span>Content protection · ON</span>
+        <span class="item off" onclick="openPopover(event, 'puck')"><span class="sf-dot"></span>Puck · not paired</span>
+      </div>
+    </div>
+
+    <!-- ───── VIEW: SENSITIVE CONTENT ───── (sourced from actual app, screenshot 2026-05-13) -->
+    <div id="view-sensitive" class="view-container" hidden>
+      <div style="max-width:720px; margin: 0 auto;">
+        <h2 style="font-size:20px; font-weight:700; margin:0 0 6px; letter-spacing:-0.3px;">Sensitive Content</h2>
+        <div style="font-size:13.5px; color:var(--muted); line-height:1.55; max-width: 600px;">On-device NSFW detection. When enabled, an overlay covers the screen and your accountability partner is notified.</div>
+      </div>
+      <div class="sc-card">
+        <div class="sc-body">
+          <div class="sc-eyebrow">CONTENT SAFETY</div>
+          <div class="sc-title">Screen monitoring</div>
+          <div class="sc-desc">Scans all screens for explicit content every 2 seconds. Blocks screens and notifies your accountability partner on detection.</div>
+        </div>
+        <div class="toggle-switch" id="sensitive-toggle" onclick="this.classList.toggle('on'); showToast('Sensitive content '+(this.classList.contains('on')?'ON':'OFF'));"></div>
+      </div>
+      <div class="status-footer" style="margin-top:22px; max-width:720px; margin-left:auto; margin-right:auto;">
+        <span class="item" onclick="openPopover(event, 'partner')"><span class="sf-dot"></span>Caity · partner active</span>
+        <span class="item" onclick="openPopover(event, 'content')"><span class="sf-dot"></span>Content protection · ON</span>
+        <span class="item off" onclick="openPopover(event, 'puck')"><span class="sf-dot"></span>Puck · not paired</span>
+      </div>
+    </div>
+
+    <!-- ───── VIEW: ACCOUNTABILITY ───── (sourced from actual app, screenshot 2026-05-13) -->
+    <div id="view-accountability" class="view-container" hidden>
+      <div class="acc-section">
+        <div class="acc-eyebrow">ACCOUNTABILITY<br>PARTNER</div>
+        <div class="acc-partner-card">
+          <div class="acc-avatar">C</div>
+          <div class="acc-info">
+            <div class="acc-name">Caity Enroth</div>
+            <div class="acc-email">caity.enroth@gmail.com</div>
+          </div>
+          <span class="acc-status">Active · ready to lock</span>
+        </div>
+        <button class="acc-enable-btn" onclick="showToast('Partner Lock enabled')">Enable Partner Lock</button>
+        <div class="acc-remove-row">
+          <div class="acc-remove-info">
+            <div class="acc-remove-title">Remove partner</div>
+            <div class="acc-remove-desc">You'll keep your own access. Caity is notified.</div>
+          </div>
+          <button class="acc-remove-btn" onclick="confirm('Remove Caity as partner?') && showToast('Partner removed')">Remove</button>
+        </div>
+        <div class="acc-footer-note">Caity can revoke their role anytime from their device.</div>
+      </div>
+      <div class="status-footer" style="margin-top:22px; max-width:760px; margin-left:auto; margin-right:auto;">
+        <span class="item" onclick="openPopover(event, 'partner')"><span class="sf-dot"></span>Caity · partner active</span>
+        <span class="item" onclick="openPopover(event, 'content')"><span class="sf-dot"></span>Content protection · ON</span>
+        <span class="item off" onclick="openPopover(event, 'puck')"><span class="sf-dot"></span>Puck · not paired</span>
+      </div>
+    </div>
+
+    <!-- ───── VIEW: SETTINGS ───── (sourced from actual app, screenshot 2026-05-13) -->
+    <div id="view-settings" class="view-container" hidden>
+      <!-- Settings INDEX (default) -->
+      <div id="settings-index">
+        <div class="settings-eyebrow">SETTINGS</div>
+        <div class="settings-list-card">
+          <div class="settings-list-row" onclick="openSettingsSub('account')"><div class="slr-icon color-coral">⊕</div><div class="slr-body"><div class="slr-title">Account</div><div class="slr-sub">Loading…</div></div><span class="slr-arrow">›</span></div>
+          <div class="settings-list-row" onclick="openSettingsSub('theme')"><div class="slr-icon color-coral">◐</div><div class="slr-body"><div class="slr-title">Theme</div><div class="slr-sub">Deep Lush</div></div><span class="slr-arrow">›</span></div>
+          <div class="settings-list-row" onclick="openSettingsSub('ai')"><div class="slr-icon color-coral">◎</div><div class="slr-body"><div class="slr-title">AI Scoring</div><div class="slr-sub">Relevance scoring</div></div><span class="slr-arrow">›</span></div>
+          <div class="settings-list-row" onclick="openSettingsSub('enforcement')"><div class="slr-icon color-coral">◆</div><div class="slr-body"><div class="slr-title">Enforcement</div><div class="slr-sub">Nudges, red shift, overlays</div></div><span class="slr-arrow">›</span></div>
+          <div class="settings-list-row" onclick="openSettingsSub('content-safety')"><div class="slr-icon color-green">●</div><div class="slr-body"><div class="slr-title">Content Safety</div><div class="slr-sub">Screen monitoring</div></div><span class="slr-arrow">›</span></div>
+          <div class="settings-list-row" onclick="openSettingsSub('distractions')"><div class="slr-icon color-coral">⊘</div><div class="slr-body"><div class="slr-title">Distractions</div><div class="slr-sub">Apps that drain your daily budget</div></div><span class="slr-arrow">›</span></div>
+          <div class="settings-list-row" onclick="openSettingsSub('budget')"><div class="slr-icon color-amber">⏱</div><div class="slr-body"><div class="slr-title">Distraction Budget</div><div class="slr-sub">Daily allowance + lock</div></div><span class="slr-arrow">›</span></div>
+          <div class="settings-list-row" onclick="openSettingsSub('always-blocked')"><div class="slr-icon color-red">⊗</div><div class="slr-body"><div class="slr-title">Always Blocked</div><div class="slr-sub">Apps that are never usable</div></div><span class="slr-arrow">›</span></div>
+          <div class="settings-list-row" onclick="openSettingsSub('bedtime')"><div class="slr-icon color-blue">🌙</div><div class="slr-body"><div class="slr-title">Bedtime</div><div class="slr-sub">Configure</div></div><span class="slr-arrow">›</span></div>
+          <div class="settings-list-row" onclick="openSettingsSub('focus-mode')"><div class="slr-icon color-coral">◉</div><div class="slr-body"><div class="slr-title">Focus Mode</div><div class="slr-sub">Interventions & screen lock</div></div><span class="slr-arrow">›</span></div>
+          <div class="settings-list-row" onclick="openSettingsSub('browsers')"><div class="slr-icon color-blue">⊞</div><div class="slr-body"><div class="slr-title">Browsers</div><div class="slr-sub">Extension status</div></div><span class="slr-arrow">›</span></div>
+        </div>
+      </div>
+
+      <!-- Settings SUBPAGE container — dynamic content rendered by JS -->
+      <div id="settings-sub" hidden></div>
+
+      <div class="status-footer" style="margin-top:22px; max-width:760px; margin-left:auto; margin-right:auto;">
+        <span class="item" onclick="openPopover(event, 'partner')"><span class="sf-dot"></span>Caity · partner active</span>
+        <span class="item" onclick="openPopover(event, 'content')"><span class="sf-dot"></span>Content protection · ON</span>
+        <span class="item off" onclick="openPopover(event, 'puck')"><span class="sf-dot"></span>Puck · not paired</span>
+      </div>
+    </div>
+
+    <!-- ───── VIEW: GOAL EDIT (full page, NOT modal) ───── -->
+    <div id="view-goal-edit" class="view-container" hidden>
+      <div id="goal-edit-mount" style="max-width:760px; margin:0 auto; padding:8px 4px 80px 4px;"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODAL OVERLAY -->
+<div class="modal-overlay" id="modal-overlay" hidden onclick="if(event.target===this)closeModal()">
+  <div id="modal-content"></div>
+</div>
+
+<!-- POPOVER MOUNT -->
+<div id="popover-mount"></div>
+
+<!-- TOAST MOUNT -->
+<div id="toast-mount"></div>
+
+<!-- DEMO PANEL -->
+<div class="demo-panel">
+  <div class="dp-title">Demo · Today state</div>
+  <div class="dp-row">
+    <button data-variant="task-blocks" class="active" onclick="setVariant('task-blocks')">Task + 3 blocks running</button>
+    <button data-variant="blocks-only" onclick="setVariant('blocks-only')">Workout only · no task</button>
+    <button data-variant="task-only" onclick="setVariant('task-only')">Task only · no blocks</button>
+    <button data-variant="bedtime" onclick="setVariant('bedtime')">Bedtime active</button>
+    <button data-variant="idle" onclick="setVariant('idle')">Nothing running</button>
+  </div>
+  <div class="dp-hint">On Today: drag a weekly goal onto the schedule to create a session. Active blocks show in the sidebar — click "X blocking" to jump to Blocks tab.</div>
+</div>
+
+<script>
+// ────────────────────────────────────────
+// DATA
+// ────────────────────────────────────────
+const BLOCKS = [
+  { id: 'social',    name: 'Block social media',     icon: '📱', schedule: 'Weekdays · 9:00 AM — 5:00 PM',                       apps: 'Instagram, X, TikTok, Reddit, Facebook',  color: 'blue',   recurring: true,  default: true,  always: false },
+  { id: 'video',     name: 'Block video',            icon: '📺', schedule: 'Weekdays 9–5 & daily 7 PM — 11 PM',                  apps: 'YouTube, Netflix, Twitch, Vimeo',         color: 'blue',   recurring: true,  default: true,  always: false },
+  { id: 'news',      name: 'Block news',             icon: '📰', schedule: 'Triggered by task',                                  apps: 'NYT, BBC, Hacker News, Wired',            color: 'blue',   recurring: false, default: true,  always: false },
+  { id: 'workout',   name: 'Workout mode',           icon: '🏃', schedule: 'M / W / F · 5:00 — 7:00 PM',                         apps: 'Everything except Music + Phone',         color: 'green',  recurring: true,  default: false, always: false },
+  { id: 'bedtime',   name: 'Bedtime',                icon: '🌙', schedule: 'Every day · 11:00 PM — 6:30 AM · highest priority',  apps: 'Everything except Emergency calls',       color: 'amber',  recurring: true,  default: false, always: true },
+  { id: 'dinner',    name: 'Dinner with family',     icon: '🍽', schedule: 'Every day · 7:00 — 8:00 PM',                         apps: 'All phone (Mac unaffected)',              color: 'violet', recurring: true,  default: false, always: false },
+  { id: 'nuclear',   name: 'Block everything',       icon: '🚫', schedule: 'On demand · manual trigger only',                    apps: 'Allowlist only (Editor, Notes, Phone)',   color: 'red',    recurring: false, default: false, always: false },
+  { id: 'study',     name: 'Study mode',             icon: '📚', schedule: 'On demand · manual trigger only',                    apps: 'Social, video, news, games',              color: 'amber',  recurring: false, default: false, always: false },
+];
+
+const GOALS = [
+  { id: 'blogs', title: 'Write 4 blog posts',  outcome: 'All 4 published by May 31 · ≥500 words each', color: 'coral',  progress: '2 of 4 published' },
+  { id: 'mac',   title: 'Ship Mac app v2',     outcome: 'Beta testers onboarded by May 25',           color: 'gold',   progress: '12 days to beta' },
+  { id: '5k',    title: 'Train for a 5k',      outcome: 'Run 4×/week, finish a timed 5k by May 31',   color: 'violet', progress: '3 of 16 runs' },
+];
+
+const MISSIONS = [
+  { id: 'outline-blog', goalId: 'blogs', goalColor: 'coral',  title: 'Outline blog #3',       outcome: 'Outline + 500 words by Wed EOD', strictness: 'strict',   hoursTarget: 4, hoursDone: 1.5 },
+  { id: 'stripe',       goalId: 'mac',   goalColor: 'gold',   title: 'Ship Stripe webhook',   outcome: 'PR merged by Fri',                strictness: 'standard', hoursTarget: 6, hoursDone: 2 },
+  { id: 'run-3',        goalId: '5k',    goalColor: 'violet', title: 'Run 3 times this week', outcome: 'Tue / Thu / Sat mornings',        strictness: 'standard', hoursTarget: 3, hoursDone: 1 },
+];
+
+const VARIANTS = {
+  'task-blocks': { activeBlocks: ['social','video','news'], blockInfo: { social:{remaining:'2h 36m left · ends 5:00 PM',progress:67}, video:{remaining:'2h 36m left · ends 5:00 PM',progress:67}, news:{remaining:'1h 37m left · ends with task',progress:30} }, pageSub: '3 tasks · 1 done · 2 to go · in session', time: '2:24 PM' },
+  'blocks-only': { activeBlocks: ['workout','social'], blockInfo: { workout:{remaining:'1h 46m left · ends 7:00 PM',progress:12}, social:{remaining:'36m left · ends 5:00 PM',progress:92} }, pageSub: '3 tasks · 2 done · in workout window', time: '5:14 PM' },
+  'task-only': { activeBlocks: [], blockInfo: {}, pageSub: 'Ad-hoc focus session · no scheduled blocks', time: '11:42 AM' },
+  'bedtime': { activeBlocks: ['bedtime','social'], blockInfo: { bedtime:{remaining:'7h 22m left · ends 6:30 AM',progress:8}, social:{remaining:'always at this hour',progress:100} }, pageSub: 'Bedtime active · locked', time: '11:08 PM' },
+  'idle': { activeBlocks: [], blockInfo: {}, pageSub: 'Nothing running', time: '12:45 PM' },
+};
+
+const SETTINGS_SECTIONS = [
+  { title: 'Defenses', rows: [
+    { id: 'content-protection', title: 'Content protection', desc: 'Scans your screen every 2 sec for explicit content. Blocks the screen and notifies Caity on detection.', pill: {text:'ON', color:'green'}, control: 'toggle', value: true },
+    { id: 'partner', title: 'Accountability partner', desc: 'caity.enroth@gmail.com · ready to lock · last seen 5 min ago.', pill: {text:'CAITY', color:'coral'}, control: 'manage' },
+    { id: 'strict-mode', title: 'Strict mode', desc: 'App cannot be quit or uninstalled without Caity\'s approval. Watchdog daemon running.', pill: {text:'ACTIVE', color:'amber'}, control: 'toggle', value: true },
+    { id: 'bedtime', title: 'Bedtime', desc: '11:00 PM — 6:30 AM · wind-down notifications · OS lock-loop · partner unlock available', pill: {text:'11 PM – 6:30 AM', color:'blue'}, control: 'manage' },
+    { id: 'puck', title: 'Puck (NFC tap target)', desc: 'Tap your phone on Puck to dismiss alarms, end sessions, trigger morning planning.', pill: {text:'NOT PAIRED', color:'dim'}, control: 'pair' },
+    { id: 'budget', title: 'Distraction budget', desc: 'Earn social-media minutes via focused work. Cross-device share toggle.', pill: {text:'30m/day', color:'green'}, control: 'configure' },
+  ]},
+  { title: 'AI & Coaching', rows: [
+    { id: 'ai-model', title: 'AI relevance model', desc: 'On-device scoring. Qwen3-4B (recommended) or Apple Foundation Models.', pill: {text:'QWEN3-4B', color:'coral'}, control: 'pick' },
+    { id: 'enforcement', title: 'Enforcement mode', desc: 'Nudge (gentle redirects) or Block (hard overlays on off-mission activity).', pill: {text:'NUDGE', color:'coral'}, control: 'pick' },
+    { id: 'coach-context', title: 'Coach Context', desc: '"I\'m a software engineer building a focus app called Intentional…" Used by the AI to score relevance.', control: 'edit' },
+    { id: 'per-block', title: 'Per-block enforcement', desc: 'Per-mechanism × per-block-type toggles · 12 controls total.', control: 'edit' },
+    { id: 'interventions', title: 'Interventions', desc: 'Scrambled Words · Reflect & Commit · 60/90/120s wait. Fires after 5 min cumulative drift.', control: 'edit' },
+    { id: 'ai-log', title: 'AI assessments log', desc: 'Last 50 coach verdicts with timestamps. Useful for debugging false positives.', control: 'view' },
+  ]},
+  { title: 'App', rows: [
+    { id: 'theme', title: 'Theme', desc: 'Visual style across the app.', pill: {text:'DEEP LUSH', color:'coral'}, control: 'change' },
+    { id: 'open-login', title: 'Open on login', desc: 'Required for blocking to work after restart.', control: 'toggle', value: true },
+    { id: 'notifications', title: 'Notifications', desc: 'Session start · drift redirects · end-of-block summaries · wind-down · permission changes.', control: 'configure' },
+    { id: 'sound', title: 'Sound effects', desc: 'Pop / Glass / Tink on transitions. Mutable per-event.', control: 'configure' },
+    { id: 'pill-pos', title: 'Pill position', desc: 'Top-right by default. Drag pill to move; click here to reset.', control: 'reset' },
+    { id: 'block-ritual', title: 'Block ritual variant', desc: '8 visual designs for the start-of-session ritual.', pill: {text:'DESIGN 3', color:'dim'}, control: 'change' },
+    { id: 'browsers', title: 'Browsers', desc: 'Chrome ✓ · Arc ✓ · Safari ✓ · Firefox ✗ (install extension).', control: 'manage' },
+  ]},
+  { title: 'Account', rows: [
+    { id: 'account', title: 'Account info', desc: 'ameer.rayan@gmail.com · member since Apr 2026 · 2 devices.', control: 'view' },
+    { id: 'subscription', title: 'Subscription', desc: 'Annual · renews Nov 23, 2026 · $59/yr.', pill: {text:'PRO', color:'green'}, control: 'manage' },
+    { id: 'usage', title: 'Usage history', desc: '7-day default · per-app breakdown · focus score trends.', control: 'view' },
+    { id: 'journal', title: 'Sessions journal', desc: 'Every session this month with focus scores.', control: 'view' },
+  ]},
+  { title: 'Danger zone', danger: true, rows: [
+    { id: 'sign-out', title: 'Sign out', desc: 'You\'ll need to magic-link in again to access.', control: 'action', danger: true },
+    { id: 'reset', title: 'Reset all settings', desc: 'Wipes onboarding settings, returns to first-launch.', control: 'action', danger: true },
+    { id: 'uninstall', title: 'Uninstall Intentional', desc: 'Partner-gated. Removes the app, watchdog daemon, and all local data.', control: 'action', danger: true },
+    { id: 'delete', title: 'Delete account', desc: 'Permanent. Removes everything.', control: 'action', danger: true },
+  ]},
+];
+
+// STATE
+let state = {
+  view: 'today',
+  todayMode: 'schedule',
+  variant: 'task-blocks',
+  blocks: BLOCKS.map(b => ({...b, active: false})),
+  toggles: { 'content-protection': true, 'strict-mode': true, 'open-login': true },
+};
+state.blocks.forEach(b => { b.active = VARIANTS[state.variant].activeBlocks.includes(b.id); });
+
+function defaultBlockInfo(b) { return { remaining: 'Active · ' + (b.schedule || 'manual'), progress: 50 }; }
+
+// ────────────────────────────────────────
+// RENDER
+// ────────────────────────────────────────
+function renderAll() {
+  renderViewSwitch();
+  renderNowCard();
+  renderTodayMode();
+  renderCalendar();
+  renderBlocksList();
+  renderGoals();
+  renderMissions();
+  renderPlanTimeline();
+  renderSettings();
+  renderPageMeta();
+}
+
+function switchView(view) { state.view = view; renderAll(); }
+function setTodayMode(m) { state.todayMode = m; renderAll(); }
+
+function renderViewSwitch() {
+  document.querySelectorAll('.view-container').forEach(v => v.hidden = (v.id !== 'view-' + state.view));
+  // While editing a goal, keep the originating tab visually active in the sidebar (Today or Plan)
+  const sidebarActive = state.view === 'goal-edit' ? (state.goalEditReturnTo || 'today') : state.view;
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === sidebarActive));
+}
+
+function renderTodayMode() {
+  document.querySelectorAll('#mode-toggle .opt').forEach(o => o.classList.toggle('active', o.dataset.mode === state.todayMode));
+  document.getElementById('view-schedule-inner').hidden = state.todayMode !== 'schedule';
+  document.getElementById('view-blocks-inner').hidden = state.todayMode !== 'blocks';
+}
+
+function renderPageMeta() {
+  const v = VARIANTS[state.variant];
+  document.getElementById('today-page-sub').textContent = v.pageSub;
+  document.getElementById('sidebar-foot').innerHTML = v.time + ' · Caity ✓ · Content ON';
+  const activeCount = state.blocks.filter(b => b.active).length;
+  document.getElementById('blocks-count').textContent = `· ${activeCount} active · ${state.blocks.length} total`;
+  // Sidebar blocking indicator
+  const sb = document.getElementById('sb-blocking');
+  const label = document.getElementById('sb-blocking-label');
+  if (activeCount === 0) {
+    sb.classList.add('empty');
+    label.textContent = 'Nothing blocking';
+  } else {
+    sb.classList.remove('empty');
+    label.textContent = `${activeCount} blocking`;
+  }
+}
+
+// Weekly goals data — Focus-Mode-equivalent. Each goal has its own intent text, custom rules, strictness, weekly target.
+const WEEKLY_GOALS_TODAY = [
+  {
+    id:'wg1', title:'Record 3 demo videos', outcome:'Posted to IG by Sun',
+    color:'coral', hue:'#D85A30', status:'in-progress', linked:true, hoursDone: 1.5,
+    intent:'Recording demo videos for Puck launch. Editing in Final Cut, planning shots in Notion. Aim is 3 polished 30-second clips by Sunday for IG launch.',
+    strictness:'strict', weeklyTarget: 4,
+    blockList: [],
+    allowList: [
+      { name:'finalcutpro.app', type:'app' },
+      { name:'notion.so', type:'site' },
+      { name:'capcut.com', type:'site' },
+    ],
+  },
+  {
+    id:'wg2', title:'Block phone 9-5 daily', outcome:'Zero IG scrolls 9-5',
+    color:'green', hue:'#1D9E75', status:'planned', linked:true, hoursDone: 0,
+    intent:'No phone during work hours. Zero IG scrolls 9-5. This is a meta-goal — the discipline of staying off my phone IS the work.',
+    strictness:'strict', weeklyTarget: 0,
+    blockList: [
+      { name:'instagram.com', type:'site' },
+      { name:'x.com', type:'site' },
+      { name:'tiktok.com', type:'site' },
+    ],
+    allowList: [],
+  },
+  {
+    id:'wg3', title:'Pitch 3 podcasts', outcome:'1 booked recording',
+    color:'pink', hue:null, status:'planned', linked:false, hoursDone: 0,
+    intent:'Pitching 3 podcasts this week. Researching shows, writing personalized intros, sending emails. Success = 1 booked recording.',
+    strictness:'standard', weeklyTarget: 2,
+    blockList: [],
+    allowList: [
+      { name:'gmail.com', type:'site' },
+      { name:'spotify.com', type:'site' },
+    ],
+  },
+];
+
+function renderNowCard() {
+  // Today's "header strip" is now the 3 weekly goals — drag onto schedule to create sessions
+  const mount = document.getElementById('now-card-mount');
+  const cards = WEEKLY_GOALS_TODAY.map(g => {
+    const edge = g.hue ? `<span class="wg-edge" style="--wg-hue: ${g.hue};"></span>` : '';
+    const statusText = g.linked ? g.status.replace('-', ' ') : 'unlinked';
+    const statusClass = g.linked ? g.status : 'unlinked';
+    const hoursLine = g.hoursDone > 0 ? ` · ${g.hoursDone}h done` : '';
+    return `
+      <div class="wg-card${g.linked ? '' : ' unlinked'}"
+        onclick="openWeeklyGoalEdit('${g.id}')">
+        ${edge}
+        <div class="wg-ttl">${g.title}</div>
+        <div class="wg-out">${g.outcome}</div>
+        <div class="wg-foot">
+          <span class="wg-status ${statusClass}">${statusText}${hoursLine}</span>
+          <span style="margin-left:auto;" class="wg-grip"
+            draggable="true"
+            ondragstart="event.stopPropagation(); weeklyGoalDragStart(event, '${g.id}')"
+            ondragend="weeklyGoalDragEnd(event)"
+            onclick="event.stopPropagation()"
+            title="Drag to schedule">⋮⋮</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+  mount.innerHTML = `
+    <div class="wg-section-header">
+      <span class="wg-lbl"><strong>This week's goals</strong> · drag onto schedule to create a session</span>
+      <span class="wg-hint" onclick="switchView('plan')" style="cursor:pointer; color:var(--coral);">Open Plan →</span>
+    </div>
+    <div class="wg-row">${cards}</div>
+  `;
+}
+
+// ────────────────────────────────────────
+// WEEKLY GOAL → SCHEDULE drag-and-drop
+// ────────────────────────────────────────
+let dragGoalId = null;
+function weeklyGoalDragStart(e, id) {
+  dragGoalId = id;
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'copy';
+  e.dataTransfer.setData('text/plain', id);
+}
+function weeklyGoalDragEnd(e) {
+  dragGoalId = null;
+  e.target.classList.remove('dragging');
+  document.getElementById('calendar-mount').classList.remove('drop-target');
+  document.querySelectorAll('.hour-row.drop-hover').forEach(r => r.classList.remove('drop-hover'));
+}
+
+// Distinguish click from drag — wg-cards are draggable AND clickable.
+// Without this, browsers eat the click event in favor of dragstart on draggable elements.
+let wgClickState = null;
+function wgCardMouseDown(e) {
+  wgClickState = { x: e.clientX, y: e.clientY, t: Date.now() };
+}
+function wgCardMouseUp(e, id) {
+  const s = wgClickState;
+  wgClickState = null;
+  if (!s) return;
+  const moved = Math.hypot(e.clientX - s.x, e.clientY - s.y);
+  const dt = Date.now() - s.t;
+  // If mouse barely moved and was held briefly → it's a click, open edit modal
+  if (moved < 6 && dt < 350) {
+    openWeeklyGoalEdit(id);
+  }
+}
+
+function openWeeklyGoalEdit(id) {
+  const g = WEEKLY_GOALS_TODAY.find(x => x.id === id); if (!g) return;
+  // Close any open modal (e.g. if user came from old modal-based flow)
+  if (typeof closeModal === 'function') closeModal();
+  // Remember where to return to (Today or Plan)
+  if (state.view !== 'goal-edit') state.goalEditReturnTo = state.view || 'today';
+  state.editingGoalId = id;
+  state.view = 'goal-edit';
+  renderViewSwitch();
+  renderGoalEdit();
+}
+
+function closeGoalEdit() {
+  const back = state.goalEditReturnTo || 'today';
+  state.view = back;
+  renderViewSwitch();
+}
+
+function renderGoalEdit() {
+  const id = state.editingGoalId;
+  const g = WEEKLY_GOALS_TODAY.find(x => x.id === id); if (!g) return;
+  const hue = g.hue || 'var(--coral)';
+  const intentLen = (g.intent || '').length;
+  const blockCount = (g.blockList || []).length;
+  const allowCount = (g.allowList || []).length;
+  const monthlyLabel = g.linked ? (g.color === 'coral' ? 'Ship Puck (coral)' : g.color === 'green' ? '4hr deep work (green)' : 'Hit 10k followers (pink)') : 'No link · standalone';
+  document.getElementById('goal-edit-mount').innerHTML = `
+    <div class="ge-page">
+      <div class="ge-back" onclick="closeGoalEdit()">‹ All Weekly Goals</div>
+
+      <div class="ge-title-row">
+        <input type="text" class="ge-title-input" value="${g.title}" id="ge-title-input">
+        <div class="ge-rename-hint">✏️ Click to rename</div>
+      </div>
+
+      <!-- "What are you working on?" card -->
+      <div class="ge-main-card" style="--ge-hue: ${hue};">
+        <div class="gm-header" style="justify-content: space-between;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <h3>What are you working on?</h3>
+            <span class="gm-info" title="This text is what the local AI uses to score whether your current activity is relevant to this goal.">ⓘ</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.8px; color:var(--dim); font-weight:700;">AI scoring</span>
+            <div class="toggle-switch on" onclick="this.classList.toggle('on')" title="Toggle AI relevance scoring for this goal"></div>
+          </div>
+        </div>
+        <textarea class="gm-textarea" id="ge-intent" maxlength="140" placeholder="Describe what you'll be doing — apps, sites, what success looks like in this session. The more concrete, the better the AI can score relevance." oninput="document.getElementById('ge-intent-counter').textContent = this.value.length + ' / 140'">${g.intent || ''}</textarea>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-top:6px;">
+          <div style="font-size:11px; color:var(--muted); line-height:1.4;">🤖 Only used if <strong>AI scoring</strong> is on. The AI uses this text to judge if your activity is on-task.</div>
+          <div class="gm-counter" id="ge-intent-counter">${intentLen} / 140</div>
+        </div>
+      </div>
+
+      <!-- Custom rules drilldown row -->
+      <div class="ge-row" onclick="openGoalCustomRules('${g.id}')" style="--ge-hue: ${hue};">
+        <div class="gm-color-square"></div>
+        <div class="gm-row-title">Custom rules</div>
+        <div class="gm-row-counts">
+          <span class="gm-count"><span class="dot block"></span>${blockCount} blocked</span>
+          <span class="gm-count"><span class="dot allow"></span>${allowCount} allowed</span>
+        </div>
+        <span class="gm-row-chev">›</span>
+      </div>
+
+      <!-- Outcome (goal-specific, not in Focus Modes) -->
+      <div class="modal-field"><label>Outcome (done looks like)</label><textarea class="modal-input textarea">${g.outcome}</textarea></div>
+
+      <!-- Status + Monthly link (goal-specific) -->
+      <div class="modal-row">
+        <div class="modal-field"><label>Status</label><div class="strict-pills"><span class="strict-pill ${g.status==='in-progress'?'active':''}">In progress</span><span class="strict-pill standard ${g.status==='planned'?'active':''}">Planned</span><span class="strict-pill ${g.status==='done'?'active':''}">Done</span></div></div>
+        <div class="modal-field"><label>For monthly goal</label><div class="modal-input" style="cursor:pointer;" onclick="showToast('Monthly goal picker')">${monthlyLabel}</div></div>
+      </div>
+
+      <!-- ADVANCED divider -->
+      <div class="ge-divider"></div>
+      <div class="ge-advanced-label">Advanced</div>
+
+      <div class="ge-adv-row">
+        <span class="gm-adv-label">Strictness <span class="gm-info" title="Strict requires partner approval to end early">ⓘ</span></span>
+        <div class="strict-pills" data-group="strict-advanced">
+          <span class="strict-pill standard ${g.strictness==='standard'?'active':''}">Standard</span>
+          <span class="strict-pill ${g.strictness==='strict'?'active':''}">Strict</span>
+        </div>
+
+        <span class="gm-adv-label" style="margin-left:30px;">Weekly target <span class="gm-info" title="Hours you want to spend per week on this goal">ⓘ</span></span>
+        <input type="number" class="ge-num-input" value="${g.weeklyTarget || ''}" placeholder="—">
+        <span style="font-size:12px; color:var(--muted);">hrs / week</span>
+      </div>
+
+      <!-- Footer -->
+      <div class="ge-foot">
+        <button class="ge-delete-link" onclick="closeGoalEdit();showToast('Goal deleted')">Delete this Weekly Goal</button>
+        <div class="right" style="display:flex; gap:8px;">
+          <button class="btn-quiet" onclick="closeGoalEdit()">Cancel</button>
+          <button class="ge-done-btn" onclick="closeGoalEdit();showToast('Goal saved')">Done</button>
+        </div>
+      </div>
+    </div>
+  `;
+  attachPillGroupHandlers();
+}
+
+function openGoalCustomRules(goalId) {
+  const g = WEEKLY_GOALS_TODAY.find(x => x.id === goalId); if (!g) return;
+  state.editingGoalId = goalId;
+  if (state.view !== 'goal-edit') {
+    if (state.view !== 'goal-edit') state.goalEditReturnTo = state.view || 'today';
+    state.view = 'goal-edit';
+    renderViewSwitch();
+  }
+  const blockList = g.blockList || [];
+  const allowList = g.allowList || [];
+  const renderEntries = (list) => list.map((e, i) => `
+    <div class="cr-entry">
+      <span class="name">${e.name}</span>
+      <span class="type-pill">${e.type}</span>
+      <span class="remove" onclick="this.closest('.cr-entry').remove(); showToast('Removed ${e.name}')">×</span>
+    </div>
+  `).join('');
+  document.getElementById('goal-edit-mount').innerHTML = `
+    <div class="ge-page cr-page">
+      <div class="ge-back" onclick="openWeeklyGoalEdit('${goalId}')">‹ ${g.title}</div>
+
+      <div class="ge-title-row" style="margin-bottom:6px;">
+        <div style="font-size:22px; font-weight:700; letter-spacing:-0.3px;">Custom rules</div>
+        <div style="font-size:13px; color:var(--muted); margin-top:4px;">During <strong style="color:var(--text);">${g.title}</strong> blocks only.</div>
+      </div>
+
+      <div class="cr-info-card">
+        <strong>Most goals don't need custom rules</strong> — the AI handles the rest. Add tweaks here only if you want to.
+      </div>
+
+      <!-- BLOCK section -->
+      <div class="cr-section">
+        <div class="cr-section-header">
+          <span class="left block"><span class="dot block"></span>Block <span class="gm-info" title="These apps/sites are extra-blocked during this goal's sessions">ⓘ</span></span>
+          <span class="right">${blockList.length} entries</span>
+        </div>
+        <div class="cr-input-row">
+          <input type="text" placeholder="e.g. slack.com" id="cr-block-input">
+          <button class="cr-add-btn" onclick="showToast('Added to block')">+ Site</button>
+          <button class="cr-add-btn" onclick="showToast('Added app to block')">+ App</button>
+        </div>
+        ${blockList.length === 0
+          ? `<div class="cr-empty"><strong>Nothing extra to block</strong> — the AI is doing the work.</div>`
+          : `<div class="cr-entry-list">${renderEntries(blockList)}</div>`}
+      </div>
+
+      <!-- ALLOW section -->
+      <div class="cr-section">
+        <div class="cr-section-header">
+          <span class="left allow"><span class="dot allow"></span>Allow <span class="gm-info" title="These are guaranteed accessible even if a block would normally hide them">ⓘ</span></span>
+          <span class="right">${allowList.length} entries</span>
+        </div>
+        <div class="cr-input-row">
+          <input type="text" placeholder="e.g. github.com" id="cr-allow-input">
+          <button class="cr-add-btn" onclick="showToast('Added to allow')">+ Site</button>
+          <button class="cr-add-btn" onclick="showToast('Added app to allow')">+ App</button>
+        </div>
+        ${allowList.length === 0
+          ? `<div class="cr-empty">No allow overrides yet.</div>`
+          : `<div class="cr-entry-list">${renderEntries(allowList)}</div>`}
+      </div>
+
+      <div class="ge-foot">
+        <div></div>
+        <div class="right" style="display:flex; gap:8px;">
+          <button class="ge-done-btn" onclick="openWeeklyGoalEdit('${goalId}')">Done</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Sessions dropped from weekly goals — start empty, grow as user drops cards
+state.droppedSessions = state.droppedSessions || [];
+
+function renderCalendar() {
+  const baseHours = [
+    { lbl: '8 AM', hour: 8,  tasks: [] },
+    { lbl: '9',    hour: 9,  tasks: [{type:'sb-coral', when:'9:00–10:30', label:'Morning planning ritual', badge:'✓ 91%', badgeClass:'green', done:true}] },
+    { lbl: '10',   hour: 10, tasks: [] },
+    { lbl: '11',   hour: 11, tasks: [] },
+    { lbl: '12 PM',hour: 12, tasks: [] },
+    { lbl: '1',    hour: 13, tasks: [{type:'sb-gold', when:'1:00–3:00', label:'Outline blog post #3', badge:'strict', badgeClass:'red', active: state.variant==='task-blocks'}] },
+    { lbl: '2',    hour: 14, tasks: [], showNow: state.variant === 'task-blocks' },
+    { lbl: '3',    hour: 15, tasks: [{type:'sb-violet', when:'3:30–5:00', label:'Code review backlog', badge:'standard', badgeClass:''}] },
+    { lbl: '4',    hour: 16, tasks: [] },
+    { lbl: '5',    hour: 17, tasks: [] },
+    { lbl: '6',    hour: 18, tasks: [] },
+    { lbl: '7',    hour: 19, tasks: [] },
+    { lbl: '8',    hour: 20, tasks: [] },
+    { lbl: '9 PM', hour: 21, tasks: [] },
+  ];
+  // Merge dropped sessions into hours
+  (state.droppedSessions || []).forEach(s => {
+    const row = baseHours.find(h => h.hour === s.hour);
+    if (row) row.tasks.push({ type: 'sb-coral-drop', when: s.when, label: s.label, badge: s.status || 'planned', badgeClass: '', color: s.color });
+  });
+
+  const html = baseHours.map(h => {
+    const tasks = h.tasks.map(t => {
+      const cls = `session-block ${t.type === 'sb-coral-drop' ? '' : t.type}${t.done?' done':''}${t.active?' active':''}`;
+      const inlineStyle = t.color ? `style="background: ${hexToRgba(t.color, 0.18)}; border-left: 3px solid ${t.color};"` : '';
+      return `<div class="${cls}" ${inlineStyle} onclick="event.stopPropagation();openTaskEditModal('${t.label}','${t.badge}','${t.when}')"><span class="when">${t.when}</span><span class="label">${t.label}</span><span class="badge-r ${t.badgeClass}">${t.badge}</span></div>`;
+    }).join('');
+    const nowLine = h.showNow ? '<div class="now-line"></div>' : '';
+    const hasTasks = h.tasks.length > 0;
+    return `<div class="hour-row" data-hour="${h.hour}"
+      ondragover="event.preventDefault(); event.dataTransfer.dropEffect='copy'; this.classList.add('drop-hover'); document.getElementById('calendar-mount').classList.add('drop-target');"
+      ondragleave="this.classList.remove('drop-hover');"
+      ondrop="handleGoalDrop(event, ${h.hour}, '${h.lbl}')"
+      ${!hasTasks ? `onclick="openNewTaskModal(${h.hour})" style="cursor: pointer;"` : ''}
+    ><span class="lbl">${h.lbl}</span><span class="lane">${nowLine}${tasks}</span></div>`;
+  }).join('');
+  const calMount = document.getElementById('calendar-mount');
+  if (calMount) calMount.innerHTML = html;
+  const planMount = document.getElementById('plan-timeline-mount');
+  if (planMount) planMount.innerHTML = html;
+}
+
+function hexToRgba(hex, a) {
+  if (!hex || !hex.startsWith('#')) return `rgba(255,255,255,${a})`;
+  const r = parseInt(hex.slice(1,3), 16), g = parseInt(hex.slice(3,5), 16), b = parseInt(hex.slice(5,7), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function handleGoalDrop(e, hour, lbl) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drop-hover');
+  document.getElementById('calendar-mount').classList.remove('drop-target');
+  if (!dragGoalId) return;
+  const g = WEEKLY_GOALS_TODAY.find(x => x.id === dragGoalId);
+  if (!g) return;
+  const startHr = hour;
+  const endHr = hour + 1;
+  const fmt = (h) => { const hh = h > 12 ? h - 12 : h; const period = h >= 12 ? 'PM' : 'AM'; return `${hh}:00 ${period}`; };
+  const when = `${startHr === 12 ? '12:00' : (startHr > 12 ? startHr - 12 : startHr) + ':00'}–${endHr === 12 ? '12:00' : (endHr > 12 ? endHr - 12 : endHr) + ':00'}`;
+  state.droppedSessions.push({
+    id: 'dropped-' + Date.now(),
+    hour: hour,
+    when: when,
+    label: g.title,
+    color: g.hue || '#888888',
+    status: 'planned',
+  });
+  renderCalendar();
+  showToast(`Session created · ${g.title} at ${fmt(hour)}`);
+  dragGoalId = null;
+}
+
+function renderBlocksList() {
+  document.getElementById('blocks-list-mount').innerHTML = state.blocks.map(b => {
+    const activeClass = b.active ? 'active' : '';
+    let status = '';
+    if (b.active) status = `<span class="b-status active">Active</span>`;
+    else if (b.always) status = `<span class="b-status always">Always scheduled</span>`;
+    else if (b.recurring) status = `<span class="b-status upcoming">Upcoming</span>`;
+    else status = `<span class="b-status ondemand">On demand</span>`;
+    return `
+      <div class="block-row ${activeClass}" onclick="openBlockEditModal('${b.id}')">
+        <div class="b-icon" style="background: rgba(${rgbForColor(b.color)},0.14);">${b.icon}</div>
+        <div class="b-body">
+          <div class="b-name">${b.name} ${status}</div>
+          <div class="b-when">${b.schedule}</div>
+          <div class="b-apps">Blocking: ${b.apps}</div>
+        </div>
+        <div class="b-control" onclick="event.stopPropagation();toggleBlock('${b.id}')"><div class="toggle-switch ${b.active?'on':''}"></div></div>
+      </div>
+    `;
+  }).join('') + `
+    <div class="block-row" style="border-style:dashed; background:transparent;" onclick="openNewBlockModal()">
+      <div class="b-icon" style="background:transparent; border:1px dashed var(--border-strong);">+</div>
+      <div class="b-body"><div class="b-name" style="color:var(--muted);">New block</div><div class="b-when">Set up a new blocking rule</div></div>
+    </div>
+  `;
+}
+
+function rgbForColor(c) { return {blue:'110,143,224',amber:'229,160,99',green:'111,181,142',violet:'178,135,217',red:'212,80,80'}[c] || '255,255,255'; }
+
+function renderGoals() {
+  const mount = document.getElementById('goals-mount');
+  if (!mount) return;
+  mount.innerHTML = GOALS.map(g => `
+    <div class="goal-card color-${g.color}" onclick="openGoalEditModal('${g.id}')">
+      <div class="goal-title">${g.title}</div>
+      <div class="goal-outcome">${g.outcome}</div>
+      <div class="goal-progress">${g.progress}</div>
+    </div>
+  `).join('');
+}
+
+function renderMissions() {
+  const mount = document.getElementById('missions-mount');
+  if (!mount) return;
+  mount.innerHTML = MISSIONS.map(m => {
+    const strictPill = m.strictness === 'strict' ? '<span class="pill red">Strict</span>' : '<span class="pill coral">Standard</span>';
+    return `
+      <div class="mission-card color-${m.goalColor}" onclick="openMissionEditModal('${m.id}')">
+        <div class="mission-title">${m.title}</div>
+        <div class="mission-outcome">${m.outcome}</div>
+        <div class="mission-meta">
+          ${strictPill}
+          <span class="pill dim">${m.hoursTarget}h target · ${m.hoursDone}h done</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderPlanTimeline() { /* same calendar as today, rendered into plan-timeline-mount */ }
+
+function renderSettings() {
+  const mount = document.getElementById('settings-mount');
+  if (!mount) return;
+  mount.innerHTML = SETTINGS_SECTIONS.map(section => {
+    const rows = section.rows.map(row => {
+      const pill = row.pill ? `<span class="pill ${row.pill.color}">${row.pill.text}</span>` : '';
+      let control = '';
+      if (row.control === 'toggle') {
+        const val = state.toggles[row.id] !== undefined ? state.toggles[row.id] : (row.value || false);
+        control = `<div class="toggle-switch ${val?'on':''}" onclick="event.stopPropagation();toggleSetting('${row.id}')"></div>`;
+      } else if (row.control === 'manage' || row.control === 'pick' || row.control === 'change' || row.control === 'edit' || row.control === 'view' || row.control === 'configure' || row.control === 'pair' || row.control === 'reset') {
+        const label = row.control === 'manage' ? 'Manage →' : row.control === 'pair' ? 'Pair →' : row.control === 'reset' ? 'Reset →' : row.control === 'configure' ? 'Configure →' : row.control === 'edit' ? 'Edit →' : row.control === 'view' ? 'View →' : 'Change →';
+        control = `<span class="sr-manage">${label}</span>`;
+      } else if (row.control === 'action') {
+        control = `<span class="sr-manage" style="color: var(--red);">Confirm →</span>`;
+      }
+      return `<div class="setting-row ${row.danger?'danger':''}" onclick="openSettingModal('${row.id}')"><div class="sr-body"><div class="sr-title">${row.title} ${pill}</div><div class="sr-desc">${row.desc}</div></div><div class="sr-control">${control}</div></div>`;
+    }).join('');
+    return `<div class="settings-section ${section.danger?'danger':''}"><h3>${section.title}</h3>${rows}</div>`;
+  }).join('');
+}
+
+// ────────────────────────────────────────
+// HANDLERS
+// ────────────────────────────────────────
+function toggleBlock(id) {
+  const b = state.blocks.find(x => x.id === id); b.active = !b.active;
+  renderAll();
+  showToast(b.active ? `${b.name} turned ON` : `${b.name} turned OFF`);
+}
+
+function toggleSetting(id) {
+  state.toggles[id] = !state.toggles[id];
+  renderAll();
+  showToast(`${id} → ${state.toggles[id]?'ON':'OFF'}`);
+}
+
+function setVariant(v) {
+  state.variant = v;
+  const va = VARIANTS[v].activeBlocks;
+  state.blocks.forEach(b => { b.active = va.includes(b.id); });
+  document.querySelectorAll('.demo-panel button').forEach(el => el.classList.toggle('active', el.dataset.variant === v));
+  renderAll();
+}
+
+// ────────────────────────────────────────
+// MODALS
+// ────────────────────────────────────────
+function openModal(html) { document.getElementById('modal-content').innerHTML = html; document.getElementById('modal-overlay').hidden = false; }
+function closeModal() { document.getElementById('modal-overlay').hidden = true; document.getElementById('modal-content').innerHTML = ''; }
+
+function openBlockEditModal(id) {
+  const b = state.blocks.find(x => x.id === id); if (!b) return;
+  openModal(`
+    <div class="modal">
+      <div class="modal-title highlight">${b.icon} ${b.name}</div>
+      <div class="modal-field"><label>Name</label><input type="text" class="modal-input" value="${b.name}"></div>
+      <div class="modal-field"><label>Apps blocked</label><div class="modal-input">${b.apps} <span style="float:right; color:var(--coral); cursor:pointer;">Edit →</span></div></div>
+      <div class="modal-field"><label>Difficulty</label><div class="strict-pills" data-group="strict"><span class="strict-pill standard active">Standard</span><span class="strict-pill">Strict</span></div></div>
+      <div class="modal-row">
+        <div class="modal-field"><label>Start</label><input type="text" class="modal-input" value="9:00 AM"></div>
+        <div class="modal-field"><label>End</label><input type="text" class="modal-input" value="5:00 PM"></div>
+      </div>
+      <div class="modal-field"><label>Days of week active</label><div class="day-pills">${['M','T','W','T','F','S','S'].map((d,i)=>`<div class="day-pill${i>=5?' off':''}">${d}</div>`).join('')}</div></div>
+      <div class="modal-actions">
+        <button class="btn-danger" onclick="closeModal();showToast('Block deleted')">Delete</button>
+        <div class="right"><button class="btn-quiet" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="closeModal();showToast('Block saved')">Save</button></div>
+      </div>
+    </div>
+  `);
+  attachPillGroupHandlers();
+}
+
+function openNewBlockModal() {
+  openModal(`
+    <div class="modal">
+      <div class="modal-title">New Block</div>
+      <div class="modal-field"><label>Name</label><input type="text" class="modal-input" placeholder="e.g. Block social media"></div>
+      <div class="modal-field"><label>What does it block?</label><input type="text" class="modal-input" placeholder="Apps + sites"></div>
+      <div class="modal-field"><label>Difficulty</label><div class="strict-pills" data-group="strict"><span class="strict-pill standard active">Standard</span><span class="strict-pill">Strict</span></div></div>
+      <div class="modal-row"><div class="modal-field"><label>Start</label><input type="text" class="modal-input" placeholder="9:00 AM"></div><div class="modal-field"><label>End</label><input type="text" class="modal-input" placeholder="5:00 PM"></div></div>
+      <div class="modal-field"><label>Active days</label><div class="day-pills">${['M','T','W','T','F','S','S'].map((d,i)=>`<div class="day-pill${i>=5?' off':''}">${d}</div>`).join('')}</div></div>
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-quiet" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="closeModal();showToast('New block created')">Create</button></div></div>
+    </div>
+  `);
+  attachPillGroupHandlers();
+}
+
+function openNewTaskModal(prefillHour) {
+  const when = prefillHour !== undefined ? hourToTimeStr(prefillHour) : '';
+  openTaskFormModal({ modalTitle: 'New Task', title: '', doneLooks: '', when, strictness: 'standard', autoBlocks: [], goalId: null, aiOn: true, isNew: true });
+}
+function openTaskEditModal(title, strictness, when) {
+  const autoBlocks = title.includes('blog') ? ['social','video','news'] : title.includes('Code') ? ['social'] : [];
+  const goalId = title.includes('blog') ? 'wg1' : title.includes('Code') ? 'wg2' : null;
+  openTaskFormModal({ modalTitle: `Edit Task: ${title}`, title, doneLooks: 'Outline + 500 words by Wed EOD', when, strictness: strictness === 'strict' ? 'strict' : 'standard', autoBlocks, goalId, aiOn: true });
+}
+function openMissionEditModal(id) {
+  const m = MISSIONS.find(x => x.id === id); if (!m) return;
+  openTaskFormModal({ modalTitle: `Edit Mission: ${m.title}`, title: m.title, doneLooks: m.outcome, when: '1:00 PM – 3:00 PM', strictness: m.strictness, autoBlocks: m.id === 'outline-blog' ? ['social','video','news'] : ['social'], goalId: m.goalId, aiOn: true });
+}
+
+function hourToTimeStr(h) {
+  const hh = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const eh = h + 1;
+  const ehh = eh > 12 ? eh - 12 : (eh === 0 ? 12 : eh);
+  const eperiod = eh >= 12 ? 'PM' : 'AM';
+  return `${hh}:00 ${period} – ${ehh}:00 ${eperiod}`;
+}
+
+function openTaskFormModal(opts) {
+  const { modalTitle, title, doneLooks, when, strictness, autoBlocks, goalId, aiOn, isNew } = opts;
+  const goalOptions = WEEKLY_GOALS_TODAY.map(g => `<span class="ab-pill ${goalId === g.id ? '' : 'unselected'}" data-goal-id="${g.id}">${g.title}${goalId === g.id ? ' ✓' : ''}</span>`).join('') + `<span class="ab-pill ${!goalId ? '' : 'unselected'}" data-goal-id="">No goal · ad-hoc${!goalId ? ' ✓' : ''}</span>`;
+
+  // Summaries for collapsed state
+  const goalSummary = goalId ? (WEEKLY_GOALS_TODAY.find(g => g.id === goalId)?.title || '') : '';
+  const blocksCount = autoBlocks.length;
+  const blocksSummary = blocksCount ? `${blocksCount} block${blocksCount>1?'s':''} selected` : '';
+  const doneSummary = doneLooks ? '✓' : '';
+
+  openModal(`
+    <div class="modal" style="max-width:560px;">
+      <div class="modal-title">${modalTitle}</div>
+
+      <div class="modal-field"><label>Title</label><input type="text" class="modal-input" value="${title}" placeholder="What are you working on?"></div>
+
+      <div class="modal-row">
+        <div class="modal-field"><label>Date</label><input type="text" class="modal-input" value="Today (Tue, May 13)"></div>
+        <div class="modal-field"><label>Time</label><input type="text" class="modal-input" value="${when}" placeholder="1:00 PM – 3:00 PM"></div>
+      </div>
+
+      <div class="modal-field"><label>Strictness</label><div class="strict-pills" data-group="strict"><span class="strict-pill standard ${strictness==='standard'?'active':''}">Standard</span><span class="strict-pill ${strictness==='strict'?'active':''}">Strict</span></div></div>
+
+      <!-- Optional: Done looks like -->
+      <div class="collapsible${doneLooks ? ' open' : ''}">
+        <div class="coll-header" onclick="this.parentElement.classList.toggle('open'); this.querySelector('.coll-arrow').style.transform = this.parentElement.classList.contains('open') ? 'rotate(90deg)' : '';">
+          <span class="coll-arrow">▶</span>
+          <span class="coll-label">Done looks like</span>
+          <span class="coll-summary">${doneSummary}</span>
+          <span class="coll-hint">optional</span>
+        </div>
+        <div class="coll-body">
+          <textarea class="modal-input textarea" placeholder="Outline + 500 words by Wed EOD">${doneLooks}</textarea>
+        </div>
+      </div>
+
+      <!-- Optional: Link to weekly goal -->
+      <div class="collapsible${goalId ? ' open' : ''}">
+        <div class="coll-header" onclick="this.parentElement.classList.toggle('open'); this.querySelector('.coll-arrow').style.transform = this.parentElement.classList.contains('open') ? 'rotate(90deg)' : '';">
+          <span class="coll-arrow">▶</span>
+          <span class="coll-label">Link to weekly goal</span>
+          <span class="coll-summary">${goalSummary}</span>
+          <span class="coll-hint">optional</span>
+        </div>
+        <div class="coll-body">
+          <div class="auto-blocks-list" id="goal-pills">${goalOptions}</div>
+        </div>
+      </div>
+
+      <!-- Optional: Auto-activate blocks -->
+      <div class="collapsible${blocksCount ? ' open' : ''}">
+        <div class="coll-header" onclick="this.parentElement.classList.toggle('open'); this.querySelector('.coll-arrow').style.transform = this.parentElement.classList.contains('open') ? 'rotate(90deg)' : '';">
+          <span class="coll-arrow">▶</span>
+          <span class="coll-label">🛡 Auto-activate blocks</span>
+          <span class="coll-summary">${blocksSummary}</span>
+          <span class="coll-hint">optional</span>
+        </div>
+        <div class="coll-body">
+          <div class="auto-blocks-list">${state.blocks.map(b => { const sel = autoBlocks.includes(b.id); return `<span class="ab-pill ${sel?'':'unselected'}" data-block-id="${b.id}">${b.icon} ${b.name}${sel?' ✓':''}</span>`; }).join('')}</div>
+          <div class="ab-hint">When this task starts, the ✓ blocks turn on. They turn off when the task ends.</div>
+        </div>
+      </div>
+
+      <!-- Optional: AI relevance scoring -->
+      <div class="collapsible">
+        <div class="coll-header" onclick="this.parentElement.classList.toggle('open'); this.querySelector('.coll-arrow').style.transform = this.parentElement.classList.contains('open') ? 'rotate(90deg)' : '';">
+          <span class="coll-arrow">▶</span>
+          <span class="coll-label">🤖 AI relevance scoring</span>
+          <span class="coll-summary">${aiOn ? 'on' : 'off'}</span>
+          <span class="coll-hint">on by default</span>
+        </div>
+        <div class="coll-body">
+          <div class="sr-desc" style="font-size:12px; color:var(--muted); margin-bottom:10px; line-height:1.5;">AI watches your activity and nudges/redirects when off-task. Uses the title as the relevance prompt.</div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div class="toggle-switch ${aiOn?'on':''}" onclick="this.classList.toggle('on')"></div>
+            <span style="font-size:12px; color:var(--muted);">Score this task's activity against its title</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        ${isNew ? '<div></div>' : '<button class="btn-danger" onclick="closeModal();showToast(\'Task deleted\')">Delete</button>'}
+        <div class="right"><button class="btn-quiet" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="closeModal();showToast('${isNew?'Task created':'Task saved'}')">${isNew ? 'Create' : 'Save'}</button></div>
+      </div>
+    </div>
+  `);
+  attachPillGroupHandlers();
+  attachAutoBlocksHandlers();
+  // Goal pill picker — single select
+  const goalPills = document.querySelectorAll('#goal-pills .ab-pill');
+  goalPills.forEach(p => p.onclick = () => {
+    goalPills.forEach(x => { x.classList.add('unselected'); x.innerHTML = x.innerHTML.replace(' ✓',''); });
+    p.classList.remove('unselected');
+    p.innerHTML += ' ✓';
+  });
+}
+
+function openGoalEditModal(id) {
+  const g = GOALS.find(x => x.id === id); if (!g) return;
+  openModal(`
+    <div class="modal">
+      <div class="modal-title">Edit Goal: ${g.title}</div>
+      <div class="modal-field"><label>Title</label><input type="text" class="modal-input" value="${g.title}"></div>
+      <div class="modal-field"><label>Done looks like</label><textarea class="modal-input textarea">${g.outcome}</textarea></div>
+      <div class="modal-field"><label>Identity color</label><div style="display:flex; gap:8px;">${['coral','gold','violet','green','blue'].map(c => `<span style="width:26px; height:26px; border-radius:50%; background:var(--${c}); cursor:pointer; ${c===g.color?'box-shadow:0 0 0 2px white;':''}"></span>`).join('')}</div></div>
+      <div class="modal-field"><label>Progress</label><div class="modal-input">${g.progress}</div></div>
+      <div class="modal-actions"><button class="btn-danger" onclick="closeModal();showToast('Goal deleted')">Delete</button><div class="right"><button class="btn-quiet" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="closeModal();showToast('Goal saved')">Save</button></div></div>
+    </div>
+  `);
+}
+
+function openHelpMePlanModal() {
+  openModal(`
+    <div class="modal" style="max-width:600px;">
+      <div class="ritual-step">
+        <div class="step">Help me plan · Step 1 of 3</div>
+        <div class="q">What 1–3 things would make this week feel meaningfully better?</div>
+        <textarea class="modal-input textarea" placeholder="Type or speak…" style="min-height:120px;"></textarea>
+      </div>
+      <div class="modal-actions"><button class="btn-quiet" onclick="closeModal()">Skip ritual</button><div class="right"><button class="btn-primary" onclick="closeModal();showToast('Plan saved (demo)')">Next →</button></div></div>
+    </div>
+  `);
+}
+
+function openBlockNowModal() {
+  openModal(`
+    <div class="modal" style="max-width:440px;">
+      <div class="modal-title">Block now (ad-hoc)</div>
+      <p style="font-size:13px; color:var(--muted); margin:0 0 14px;">Start an ad-hoc focus session with no task attached.</p>
+      <div class="modal-field"><label>Duration</label><div class="strict-pills" data-group="duration"><span class="strict-pill">15m</span><span class="strict-pill standard active">30m</span><span class="strict-pill">60m</span><span class="strict-pill">2h</span></div></div>
+      <div class="modal-field"><label>Strictness</label><div class="strict-pills" data-group="strict"><span class="strict-pill standard active">Standard</span><span class="strict-pill">Strict</span></div></div>
+      <div class="modal-field"><label>Which blocks to turn on</label><div class="auto-blocks-list">${state.blocks.slice(0,3).map(b => `<span class="ab-pill" data-block-id="${b.id}">${b.icon} ${b.name} ✓</span>`).join('')}</div></div>
+      <div class="modal-actions"><button class="btn-quiet" onclick="closeModal()">Cancel</button><div class="right"><button class="btn-primary" onclick="closeModal();showToast('Block session started')">Start</button></div></div>
+    </div>
+  `);
+  attachPillGroupHandlers();
+  attachAutoBlocksHandlers();
+}
+
+function openFreeTimeModal() {
+  openModal(`
+    <div class="modal" style="max-width:400px;">
+      <div class="modal-title">+ Free Time</div>
+      <p style="font-size:13px; color:var(--muted); margin:0 0 14px;">Add a Free Time block (lunch, walk, etc.).</p>
+      <div class="modal-row"><div class="modal-field"><label>Start</label><input type="text" class="modal-input" value="12:00 PM"></div><div class="modal-field"><label>End</label><input type="text" class="modal-input" value="1:00 PM"></div></div>
+      <div class="modal-field"><label>Label</label><input type="text" class="modal-input" placeholder="Lunch"></div>
+      <div class="modal-actions"><button class="btn-quiet" onclick="closeModal()">Cancel</button><div class="right"><button class="btn-primary" onclick="closeModal();showToast('Free Time added')">Add</button></div></div>
+    </div>
+  `);
+}
+
+function startPomodoro() { showToast('Pomodoro 25 started'); }
+
+// SETTINGS MODALS — one per row
+function openSettingModal(id) {
+  const map = {
+    'content-protection': () => openContentProtectionModal(),
+    'partner': () => openPartnerModal(),
+    'strict-mode': () => openStrictModeModal(),
+    'bedtime': () => openBedtimeModal(),
+    'puck': () => openPuckModal(),
+    'budget': () => openBudgetModal(),
+    'ai-model': () => openAIModelModal(),
+    'enforcement': () => openEnforcementModal(),
+    'coach-context': () => openCoachContextModal(),
+    'per-block': () => openPerBlockModal(),
+    'interventions': () => openInterventionsModal(),
+    'ai-log': () => openAILogModal(),
+    'theme': () => openThemeModal(),
+    'notifications': () => openNotificationsModal(),
+    'sound': () => openSoundModal(),
+    'pill-pos': () => { showToast('Pill position reset'); },
+    'block-ritual': () => openBlockRitualModal(),
+    'browsers': () => openBrowsersModal(),
+    'account': () => openAccountModal(),
+    'subscription': () => openSubscriptionModal(),
+    'usage': () => openUsageModal(),
+    'journal': () => openJournalModal(),
+    'sign-out': () => openConfirmModal('Sign out?', 'You\'ll need to magic-link in again.', 'Sign out', () => showToast('Signed out (demo)')),
+    'reset': () => openConfirmModal('Reset all settings?', 'Returns to first-launch onboarding.', 'Reset', () => showToast('Settings reset (demo)')),
+    'uninstall': () => openConfirmModal('Uninstall Intentional?', 'Strict mode is on. Caity must approve.', 'Ask Caity', () => showToast('Unlock request sent')),
+    'delete': () => openConfirmModal('Delete account?', 'Permanent. Removes everything.', 'Delete', () => showToast('Account deletion initiated (demo)')),
+    'open-login': () => showToast('Toggle handled by the switch'),
+  };
+  if (map[id]) map[id](); else openModal(`<div class="modal"><div class="modal-title">${id}</div><p style="color:var(--muted);">Setting modal not yet implemented for "${id}".</p><div class="modal-actions"><div></div><div class="right"><button class="btn-primary" onclick="closeModal()">OK</button></div></div></div>`);
+}
+
+function openContentProtectionModal() {
+  openModal(`
+    <div class="modal">
+      <div class="modal-title">Content Protection</div>
+      <p style="font-size:13px; color:var(--muted); margin:0 0 14px;">Scans your screen every 2s for explicit content. Blocks the screen and notifies Caity on detection.</p>
+      <div class="modal-field"><label>Detection action</label><div class="strict-pills"><span class="strict-pill standard active">Blur + notify</span><span class="strict-pill">Block + lock</span></div></div>
+      <div class="modal-field"><label>Notify partner</label><div class="strict-pills"><span class="strict-pill standard active">Instant ping</span><span class="strict-pill">Daily digest</span></div></div>
+      <div class="setting-row" style="margin-top:14px;"><div class="sr-body"><div class="sr-title">Test detection</div><div class="sr-desc">Triggers a fake NSFW detection through the pipeline.</div></div><span class="sr-manage" onclick="closeModal();showToast('Test detection fired')">Test →</span></div>
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-quiet" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="closeModal();showToast('Saved')">Save</button></div></div>
+    </div>
+  `);
+  attachPillGroupHandlers();
+}
+
+function openPartnerModal() {
+  openModal(`
+    <div class="modal">
+      <div class="modal-title">Accountability Partner</div>
+      <div class="setting-row" style="margin-bottom:14px;"><div class="sr-body"><div class="sr-title">Caity Enroth <span class="pill green">ACTIVE</span></div><div class="sr-desc">caity.enroth@gmail.com · ready to lock · online 5m ago</div></div></div>
+      <div class="modal-field"><label>Lock mode</label><div class="strict-pills"><span class="strict-pill standard active">Partner</span><span class="strict-pill">None</span></div></div>
+      <div style="display:flex; gap:10px; margin-top:14px;"><button class="btn-secondary" onclick="showToast('Invite resent to Caity')">Resend invite</button><button class="btn-danger" onclick="closeModal();showToast('Partner removed')">Remove partner</button></div>
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-primary" onclick="closeModal()">Done</button></div></div>
+    </div>
+  `);
+  attachPillGroupHandlers();
+}
+
+function openStrictModeModal() {
+  openModal(`
+    <div class="modal" style="max-width:440px;">
+      <div class="modal-title">Disable Strict Mode</div>
+      <p style="font-size:13px; color:var(--muted); margin:0 0 14px;">Strict Mode requires partner approval to disable. Caity will receive a code via email.</p>
+      <div class="modal-field"><label>Code from Caity</label><input type="text" class="modal-input" placeholder="6-digit code"></div>
+      <div class="modal-actions"><button class="btn-quiet" onclick="closeModal()">Cancel</button><div class="right"><button class="btn-primary" onclick="closeModal();showToast('Strict mode disabled')">Verify</button></div></div>
+    </div>
+  `);
+}
+
+function openBedtimeModal() {
+  openModal(`
+    <div class="modal">
+      <div class="modal-title">Bedtime</div>
+      <div class="modal-row"><div class="modal-field"><label>Start</label><input type="text" class="modal-input" value="11:00 PM"></div><div class="modal-field"><label>Wake</label><input type="text" class="modal-input" value="6:30 AM"></div></div>
+      <div class="modal-field"><label>Active days</label><div class="day-pills">${['M','T','W','T','F','S','S'].map(d=>`<div class="day-pill">${d}</div>`).join('')}</div></div>
+      <div class="modal-field"><label>Wind-down notifications</label><div class="strict-pills"><span class="strict-pill active">T-30</span><span class="strict-pill active">T-15</span><span class="strict-pill active">T-10</span><span class="strict-pill active">T-5</span><span class="strict-pill active">T-1</span></div></div>
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-quiet" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="closeModal();showToast('Bedtime saved')">Save</button></div></div>
+    </div>
+  `);
+  document.querySelectorAll('.day-pill').forEach(p => p.onclick = () => p.classList.toggle('off'));
+  attachPillGroupHandlers();
+}
+
+function openPuckModal() {
+  openModal(`
+    <div class="modal">
+      <div class="modal-title">Pair Puck</div>
+      <p style="font-size:13px; color:var(--muted); margin:0 0 14px;">Hold your iPhone near the Puck and tap. The Mac and Puck pair via the iOS app.</p>
+      <div style="background:var(--card); border:1px dashed var(--border-strong); border-radius:12px; padding:30px; text-align:center;"><div style="font-size:48px; opacity:0.5;">📱→⬜</div><div style="font-size:13px; color:var(--muted); margin-top:14px;">Waiting for tap…</div></div>
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-quiet" onclick="closeModal()">Cancel</button></div></div>
+    </div>
+  `);
+}
+
+function openBudgetModal() {
+  openModal(`
+    <div class="modal">
+      <div class="modal-title">Distraction Budget</div>
+      <p style="font-size:13px; color:var(--muted); margin:0 0 14px;">Earn social-media minutes via focused work.</p>
+      <div class="modal-field"><label>Earning rate</label><div style="display:flex; align-items:center; gap:8px; font-size:13px;"><span>1 min earned per</span><input type="text" class="modal-input" style="width:60px; text-align:center;" value="3"><span>min focused</span></div></div>
+      <div class="modal-field"><label>Daily cap</label><div style="display:flex; align-items:center; gap:8px;"><input type="text" class="modal-input" style="width:80px;" value="30"><span style="font-size:13px;">minutes/day</span></div></div>
+      <div class="modal-field"><label>Reset time</label><input type="text" class="modal-input" value="5:00 AM"></div>
+      <div class="setting-row" style="margin-top:14px;"><div class="sr-body"><div class="sr-title">Sync across devices <span class="pill amber">SOON</span></div><div class="sr-desc">30m total across iPhone + Mac, not 30 per device.</div></div><div class="toggle-switch" onclick="this.classList.toggle('on')"></div></div>
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-quiet" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="closeModal();showToast('Budget saved')">Save</button></div></div>
+    </div>
+  `);
+}
+
+function openAIModelModal() {
+  openModal(`
+    <div class="modal">
+      <div class="modal-title">AI Relevance Model</div>
+      <div style="border:1px solid var(--coral); background:rgba(232,116,97,0.06); padding:14px 16px; border-radius:10px; margin-bottom:10px;"><div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;"><span style="width:14px; height:14px; border-radius:50%; background:var(--coral);"></span><strong>Qwen3-4B (local)</strong></div><div style="font-size:12px; color:var(--muted); padding-left:24px;">Higher accuracy on coding + writing. ~4 GB model. Recommended.</div></div>
+      <div style="border:1px solid var(--border); padding:14px 16px; border-radius:10px;"><div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;"><span style="width:14px; height:14px; border-radius:50%; border:2px solid var(--muted);"></span><strong>Apple Foundation Models</strong></div><div style="font-size:12px; color:var(--muted); padding-left:24px;">Built into macOS 15.4+. Smaller, faster, less accurate.</div></div>
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-quiet" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="closeModal();showToast('Model saved')">Save</button></div></div>
+    </div>
+  `);
+}
+
+function openEnforcementModal() {
+  openModal(`
+    <div class="modal">
+      <div class="modal-title">Enforcement mode</div>
+      <p style="font-size:13px; color:var(--muted); margin:0 0 14px;">When the AI detects off-mission activity:</p>
+      <div style="border:1px solid var(--coral); background:rgba(232,116,97,0.06); padding:14px 16px; border-radius:10px; margin-bottom:10px;"><strong>Nudge</strong><div style="font-size:12px; color:var(--muted); margin-top:4px;">Gentle in-pill or toast prompt to return to mission. Less interruptive.</div></div>
+      <div style="border:1px solid var(--border); padding:14px 16px; border-radius:10px;"><strong>Block</strong><div style="font-size:12px; color:var(--muted); margin-top:4px;">Full-screen overlay that requires action to dismiss. More interruptive.</div></div>
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-quiet" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="closeModal();showToast('Saved')">Save</button></div></div>
+    </div>
+  `);
+}
+
+function openCoachContextModal() {
+  openModal(`
+    <div class="modal">
+      <div class="modal-title">Coach Context</div>
+      <div class="modal-field"><label>About you</label><textarea class="modal-input textarea" style="min-height:80px;">I'm a software engineer. I spend more of my day coding and watching educational videos. I'm building Intentional.</textarea></div>
+      <div class="modal-field"><label>Today's plan (optional)</label><textarea class="modal-input textarea">Outline blog #3 in the morning, then code review.</textarea></div>
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-quiet" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="closeModal();showToast('Coach Context saved')">Save</button></div></div>
+    </div>
+  `);
+}
+
+function openPerBlockModal() {
+  openModal(`
+    <div class="modal" style="max-width:600px;">
+      <div class="modal-title">Per-block enforcement</div>
+      <div style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px;">
+        <table style="width:100%; border-collapse:collapse; font-size:12px;">
+          <tr><th></th><th style="text-align:center; color:var(--dim); font-weight:600; font-size:11px; padding:8px;">Deep work</th><th style="text-align:center; color:var(--dim); font-weight:600; font-size:11px; padding:8px;">Focus hours</th></tr>
+          ${['Nudge notifications','Screen red shift','Auto-redirect','Blocking overlay','Intervention exercises','Background audio block','Context-switch countdown'].map(name => `<tr><td style="padding:8px;">${name}</td><td style="text-align:center;"><div class="toggle-switch on" style="margin:0 auto;" onclick="this.classList.toggle('on')"></div></td><td style="text-align:center;"><div class="toggle-switch ${Math.random()>0.3?'on':''}" style="margin:0 auto;" onclick="this.classList.toggle('on')"></div></td></tr>`).join('')}
+        </table>
+      </div>
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-primary" onclick="closeModal()">Done</button></div></div>
+    </div>
+  `);
+}
+
+function openInterventionsModal() {
+  openModal(`
+    <div class="modal">
+      <div class="modal-title">Interventions</div>
+      <div class="setting-row" style="margin-bottom:6px;"><div class="sr-body"><div class="sr-title">Scrambled Words</div><div class="sr-desc">Unscramble 3 words to dismiss. 60s wait.</div></div><div class="toggle-switch on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="setting-row" style="margin-bottom:6px;"><div class="sr-body"><div class="sr-title">Reflect &amp; Commit</div><div class="sr-desc">Type 1 sentence about why you're back. 90s wait.</div></div><div class="toggle-switch on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="setting-row" style="margin-bottom:6px;"><div class="sr-body"><div class="sr-title">Push-up challenge</div><div class="sr-desc">Phone camera detects 5 push-ups. 120s alternative.</div></div><div class="toggle-switch" onclick="this.classList.toggle('on')"></div></div>
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-primary" onclick="closeModal()">Done</button></div></div>
+    </div>
+  `);
+}
+
+function openAILogModal() {
+  openModal(`
+    <div class="modal" style="max-width:620px;">
+      <div class="modal-title">AI Assessments</div>
+      <p style="font-size:13px; color:var(--muted); margin:0 0 14px;">Last 50 verdicts from the relevance scorer.</p>
+      <div style="max-height:240px; overflow-y:auto; background:var(--bg); border:1px solid var(--border); border-radius:8px; font-family:var(--mono); font-size:11px; padding:8px 12px;">
+        <div style="padding:4px 0; color:var(--muted);"><span style="color:var(--green);">RELEVANT</span> 2:31pm vscode "BlockEndRitualController.swift"</div>
+        <div style="padding:4px 0; color:var(--muted);"><span style="color:var(--red);">OFF-MISSION</span> 2:24pm safari "twitter.com"</div>
+        <div style="padding:4px 0; color:var(--muted);"><span style="color:var(--green);">RELEVANT</span> 2:18pm arc "reddit.com/r/writing"</div>
+        <div style="padding:4px 0; color:var(--muted);"><span style="color:var(--amber);">UNCERTAIN</span> 2:12pm notes.app "Untitled"</div>
+        <div style="padding:4px 0; color:var(--muted);">…</div>
+      </div>
+      <div class="modal-actions"><button class="btn-secondary" onclick="showToast('Log exported')">Export</button><div class="right"><button class="btn-primary" onclick="closeModal()">Done</button></div></div>
+    </div>
+  `);
+}
+
+function openThemeModal() {
+  openModal(`
+    <div class="modal" style="max-width:560px;">
+      <div class="modal-title">Theme</div>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px;">
+        ${[['Deep Lush','#1a0a08, #3a1a14','coral'],['Iridescent','#0a1020, #2a3358','blue'],['Warm','#2a1a08, #4a3018','amber'],['Forest','#0a1a14, #1a3a2a','green'],['Plum','#181016, #3a1828','violet'],['Light','#f0e8de, #e0d0b8','dim']].map(([name,grad,c],i) => `<div style="padding:10px; border-radius:10px; border:1px solid ${i===0?'var(--coral)':'var(--border)'}; cursor:pointer;"><div style="height:60px; background:linear-gradient(135deg, ${grad}); border-radius:6px; margin-bottom:6px;"></div><div style="font-size:12px; text-align:center;">${name}</div></div>`).join('')}
+      </div>
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-primary" onclick="closeModal()">Done</button></div></div>
+    </div>
+  `);
+}
+
+function openNotificationsModal() {
+  openModal(`
+    <div class="modal">
+      <div class="modal-title">Notifications</div>
+      ${['Session start','Drift redirects','End-of-block summary','Wind-down','Permission changes','Partner notifications'].map(n => `<div class="setting-row" style="margin-bottom:6px;"><div class="sr-body"><div class="sr-title">${n}</div></div><div class="toggle-switch on" onclick="this.classList.toggle('on')"></div></div>`).join('')}
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-primary" onclick="closeModal()">Done</button></div></div>
+    </div>
+  `);
+}
+
+function openSoundModal() {
+  openModal(`
+    <div class="modal">
+      <div class="modal-title">Sound effects</div>
+      ${[['Block start','Pop'],['Block end','Glass'],['Drift detected','Tink'],['Celebration','Hero']].map(([event,sound]) => `<div class="setting-row" style="margin-bottom:6px;"><div class="sr-body"><div class="sr-title">${event}</div><div class="sr-desc">Plays "${sound}.aiff"</div></div><span class="sr-manage" onclick="showToast('Preview: '+'${sound}')">▶ Preview</span></div>`).join('')}
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-primary" onclick="closeModal()">Done</button></div></div>
+    </div>
+  `);
+}
+
+function openBlockRitualModal() {
+  openModal(`
+    <div class="modal" style="max-width:600px;">
+      <div class="modal-title">Block ritual variant</div>
+      <p style="font-size:13px; color:var(--muted); margin:0 0 14px;">Pick the visual design for your start-of-session ritual.</p>
+      <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">
+        ${Array.from({length:8}).map((_,i) => `<div style="padding:14px 10px; border-radius:10px; border:1px solid ${i===2?'var(--coral)':'var(--border)'}; cursor:pointer; text-align:center;"><div style="height:50px; background:rgba(255,255,255,0.04); border-radius:6px; margin-bottom:6px;"></div><div style="font-size:11px;">Design ${i+1}</div></div>`).join('')}
+      </div>
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-primary" onclick="closeModal()">Done</button></div></div>
+    </div>
+  `);
+}
+
+function openBrowsersModal() {
+  openModal(`
+    <div class="modal">
+      <div class="modal-title">Browsers</div>
+      ${[['Chrome',true],['Arc',true],['Safari',true],['Firefox',false],['Brave',false]].map(([name,installed]) => `<div class="setting-row" style="margin-bottom:6px;"><div class="sr-body"><div class="sr-title">${name} ${installed?'<span class="pill green">INSTALLED</span>':'<span class="pill amber">MISSING</span>'}</div><div class="sr-desc">${installed?'Extension active':'Install the extension to enable blocking'}</div></div><span class="sr-manage" onclick="showToast(installed?'Browser OK':'Opening extension page')">${installed?'OK':'Install →'}</span></div>`).join('')}
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-primary" onclick="closeModal()">Done</button></div></div>
+    </div>
+  `);
+}
+
+function openAccountModal() {
+  openModal(`
+    <div class="modal">
+      <div class="modal-title">Account</div>
+      <div class="setting-row" style="margin-bottom:6px;"><div class="sr-body"><div class="sr-title">Email</div><div class="sr-desc">ameer.rayan@gmail.com</div></div></div>
+      <div class="setting-row" style="margin-bottom:6px;"><div class="sr-body"><div class="sr-title">Member since</div><div class="sr-desc">April 2026</div></div></div>
+      <div class="setting-row" style="margin-bottom:6px;"><div class="sr-body"><div class="sr-title">Devices</div><div class="sr-desc">2 active · Ameer's Mac · Ameer's iPhone</div></div></div>
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-primary" onclick="closeModal()">Done</button></div></div>
+    </div>
+  `);
+}
+
+function openSubscriptionModal() {
+  openModal(`
+    <div class="modal" style="max-width:440px;">
+      <div class="modal-title">Subscription</div>
+      <div style="background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px;"><div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;"><strong>Pro · annual</strong><span class="pill green">ACTIVE</span></div><div style="font-size:12px; color:var(--muted);">Renews Nov 23, 2026 · $59/yr · paid with •••• 4242</div></div>
+      <div style="margin-top:14px;"><span class="sr-manage" onclick="showToast('Opens Stripe portal')">Manage on Stripe →</span></div>
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-primary" onclick="closeModal()">Done</button></div></div>
+    </div>
+  `);
+}
+
+function openUsageModal() {
+  openModal(`
+    <div class="modal" style="max-width:620px;">
+      <div class="modal-title">Usage history</div>
+      <div style="display:flex; gap:8px; margin-bottom:14px;"><span style="font-size:12px; color:var(--muted);">Range:</span><div style="display:flex; gap:2px; background:rgba(255,255,255,0.04); border-radius:6px; padding:2px;"><span style="padding:4px 10px; font-size:12px; color:var(--text); background:rgba(255,255,255,0.10); border-radius:4px;">7d</span><span style="padding:4px 10px; font-size:12px; color:var(--muted);">30d</span><span style="padding:4px 10px; font-size:12px; color:var(--muted);">90d</span></div></div>
+      <div style="height:140px; background:var(--card); border-radius:8px; padding:10px; display:flex; align-items:flex-end; gap:8px;">
+        ${[50,72,84,31,91,20,10].map(h => `<div style="flex:1; background:var(--coral); height:${h}%; border-radius:3px 3px 0 0;"></div>`).join('')}
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:10px; color:var(--dim); font-family:var(--mono);"><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>SUN</span></div>
+      <div class="modal-actions"><span class="sr-manage" onclick="showToast('CSV exported')">Export CSV →</span><div class="right"><button class="btn-primary" onclick="closeModal()">Done</button></div></div>
+    </div>
+  `);
+}
+
+function openJournalModal() {
+  openModal(`
+    <div class="modal" style="max-width:520px;">
+      <div class="modal-title">Sessions journal</div>
+      ${[['Today 1:00–3:00','Outline blog post #3','87%'],['Today 9:00–10:30','Morning planning','91%'],['Yesterday 3:30–5:00','Code review','83%'],['Yesterday 9:00–11:00','Outline blog #2','94%']].map(([when,what,score]) => `<div class="setting-row" style="margin-bottom:6px;"><div class="sr-body"><div class="sr-title">${what}</div><div class="sr-desc">${when} · ${score} focus</div></div><span class="sr-manage" onclick="showToast('Detail view')">View →</span></div>`).join('')}
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-primary" onclick="closeModal()">Done</button></div></div>
+    </div>
+  `);
+}
+
+function openConfirmModal(title, body, actionLabel, action) {
+  openModal(`
+    <div class="modal" style="max-width:440px;">
+      <div class="modal-title" style="color:var(--red);">${title}</div>
+      <p style="font-size:13px; color:var(--muted); margin:0 0 14px;">${body}</p>
+      <div class="modal-actions"><div></div><div class="right"><button class="btn-quiet" onclick="closeModal()">Cancel</button><button class="btn-danger" onclick="closeModal();(${action.toString()})()">${actionLabel}</button></div></div>
+    </div>
+  `);
+}
+
+// HELPERS
+function attachPillGroupHandlers() {
+  document.querySelectorAll('.strict-pills').forEach(group => {
+    group.querySelectorAll('.strict-pill').forEach(p => p.onclick = () => {
+      group.querySelectorAll('.strict-pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+    });
+  });
+  document.querySelectorAll('.day-pill').forEach(p => p.onclick = () => p.classList.toggle('off'));
+}
+
+function attachAutoBlocksHandlers() {
+  document.querySelectorAll('.ab-pill').forEach(p => p.onclick = () => {
+    p.classList.toggle('unselected');
+    const isSelected = !p.classList.contains('unselected');
+    p.innerHTML = p.innerHTML.replace(' ✓','');
+    if (isSelected) p.innerHTML += ' ✓';
+  });
+}
+
+// POPOVERS
+function openPopover(e, kind) {
+  e.stopPropagation();
+  const rect = e.target.closest('.item').getBoundingClientRect();
+  let html = '';
+  if (kind === 'partner') html = `<h4>Partner: Caity Enroth</h4><p>caity.enroth@gmail.com<br>Ready to lock · online 5m ago</p><div class="pop-row"><button class="btn-secondary" style="font-size:12px; padding:6px 10px;" onclick="closePopovers();openSettingModal('partner')">Request unlock</button><button class="btn-quiet" style="font-size:12px;" onclick="closePopovers();state.view='settings';renderAll();showToast('Settings → Partner')">Manage →</button></div>`;
+  else if (kind === 'content') html = `<h4 style="color:var(--green);">Content protection · ON</h4><p>Last detection 2 days ago<br>OpenNSFW on-device · Caity notified on detection</p><div class="pop-row"><button class="btn-secondary" style="font-size:12px; padding:6px 10px;" onclick="closePopovers();showToast('Test detection fired')">Test</button><button class="btn-quiet" style="font-size:12px;" onclick="closePopovers();state.view='settings';renderAll();">Settings →</button></div>`;
+  else if (kind === 'puck') html = `<h4 style="color:var(--dim);">Puck · not paired</h4><p>Pair to enable NFC tap-to-wake + tap-to-end-session</p><div class="pop-row"><button class="btn-primary" style="font-size:12px; padding:6px 10px;" onclick="closePopovers();openSettingModal('puck')">Pair</button><button class="btn-quiet" style="font-size:12px;" onclick="closePopovers();state.view='settings';renderAll();">Settings →</button></div>`;
+  const pop = document.createElement('div'); pop.className = 'popover'; pop.style.left = rect.left + 'px'; pop.style.bottom = (window.innerHeight - rect.top + 8) + 'px'; pop.innerHTML = html;
+  const backdrop = document.createElement('div'); backdrop.className = 'popover-backdrop'; backdrop.onclick = closePopovers;
+  document.getElementById('popover-mount').appendChild(backdrop);
+  document.getElementById('popover-mount').appendChild(pop);
+}
+function closePopovers() { document.getElementById('popover-mount').innerHTML = ''; }
+
+// TOAST
+function showToast(msg) {
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.getElementById('toast-mount').appendChild(t);
+  setTimeout(() => t.remove(), 2400);
+}
+
+// ────────────────────────────────────────
+// THEME TOGGLE (light / dark, app-wide)
+// ────────────────────────────────────────
+function toggleTheme() {
+  const cur = document.body.getAttribute('data-theme') || 'dark';
+  const next = cur === 'dark' ? 'light' : 'dark';
+  setTheme(next);
+}
+function setTheme(t) {
+  document.body.setAttribute('data-theme', t);
+  document.getElementById('theme-toggle-icon').textContent = t === 'light' ? '☀️' : '🌙';
+  document.getElementById('theme-toggle-label').textContent = t === 'light' ? 'Light' : 'Dark';
+  // Sync Cloud Design Plan view's theme
+  document.querySelectorAll('.cd-plan').forEach(el => el.setAttribute('data-theme', t));
+  try { localStorage.setItem('intentional-theme', t); } catch(e) {}
+}
+// Restore theme on load
+try { setTheme(localStorage.getItem('intentional-theme') || 'dark'); } catch(e) { setTheme('dark'); }
+
+// ────────────────────────────────────────
+// FOCUS MODE EDITOR (placeholder — opens existing edit modal)
+// ────────────────────────────────────────
+function openFocusModeEdit(name) {
+  openModal(`
+    <div class="modal">
+      <div class="modal-title">Edit Focus Mode: ${name}</div>
+      <div class="modal-field"><label>Title</label><input type="text" class="modal-input" value="${name === 'new' ? '' : name}" placeholder="e.g. Deep Work"></div>
+      <div class="modal-field"><label>Description</label><textarea class="modal-input textarea" placeholder="What is this focus mode for?"></textarea></div>
+      <div class="modal-field"><label>Strictness</label><div class="strict-pills"><span class="strict-pill standard active">Standard</span><span class="strict-pill">Strict</span></div></div>
+      <div class="modal-field"><label>Distracting sites / apps</label><div class="modal-input">Inherits global Distractions list + add per-mode overrides</div></div>
+      <div class="modal-actions"><button class="btn-danger" onclick="closeModal();showToast('Focus mode deleted')">Delete</button><div class="right"><button class="btn-quiet" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="closeModal();showToast('Focus mode saved')">Save</button></div></div>
+    </div>
+  `);
+  attachPillGroupHandlers();
+}
+
+// ────────────────────────────────────────
+// SETTINGS SUB-PAGE RENDERER (drilldown from Settings index)
+// ────────────────────────────────────────
+function openSettingsSub(id) {
+  state.settingsSub = id;
+  document.getElementById('settings-index').hidden = true;
+  const subEl = document.getElementById('settings-sub');
+  subEl.hidden = false;
+  subEl.innerHTML = renderSettingsSub(id);
+  attachPillGroupHandlers();
+}
+function closeSettingsSub() {
+  state.settingsSub = null;
+  document.getElementById('settings-index').hidden = false;
+  document.getElementById('settings-sub').hidden = true;
+}
+
+function renderSettingsSub(id) {
+  const map = {
+    'focus-mode': () => `
+      <div class="sub-back" onclick="closeSettingsSub()">‹ Settings</div>
+      <h1 class="sub-title">Focus Mode</h1>
+      <div class="sub-intro">Enforcement bundle active while Focus Mode is on. Toggle individual interventions below.</div>
+      <div class="sub-card">
+        <div class="sub-toggle-row">
+          <div class="body"><div class="ttl">Screen Lock</div><div class="desc">Block your screen until you set a focus mode for your time</div></div>
+          <div class="toggle-switch" onclick="this.classList.toggle('on')"></div>
+        </div>
+      </div>
+      <div class="sub-card">
+        <div class="sub-section-header">
+          <div class="heyebrow">INTERVENTIONS</div>
+          <div class="hsub">When Focus Mode is on, these enforce automatically. Toggle off any to soften the bundle.</div>
+        </div>
+        ${[
+          ['Distractions blocking', 'Hard block apps + sites in your distractions list.', true],
+          ['Context-switch overlay', '10s countdown when switching to a non-relevant app.', true],
+          ['AI relevance scoring', 'Browser tabs scored against your intention.', true],
+          ['Screen red shift', 'Gradual screen tint when off-task.', true],
+          ['Off-task nudge toast', 'Small reminder before harder interventions.', true],
+          ['Block start ritual', 'Forces you to type intention before a scheduled block.', true],
+          ['Block end ritual', '3-sec stats card at end of block.', true],
+          ['Always-on pill widget', 'Menu bar pill with state, intention, timer.', true],
+          ['Distracting app force-quit', 'HARD MODE: distracting apps minimized/quit on activation.', false],
+        ].map(([t, d, on]) => `<div class="sub-toggle-row"><div class="body"><div class="ttl">${t}</div><div class="desc">${d}</div></div><div class="toggle-switch ${on?'on':''}" onclick="this.classList.toggle('on')"></div></div>`).join('')}
+      </div>
+    `,
+    'always-blocked': () => `
+      <div class="sub-back" onclick="closeSettingsSub()">‹ Settings</div>
+      <h1 class="sub-title">Always Blocked</h1>
+      <div class="sub-intro">Apps and sites that are never usable, regardless of budget. Hard block. Use for things you've decided you don't want at all.</div>
+      <div class="input-add-card">
+        <div class="input-add-row">
+          <input type="text" placeholder="e.g. pornhub.com">
+          <button class="add-btn" onclick="showToast('Added to Always Blocked')">+ Add</button>
+        </div>
+        <div class="input-add-empty">Empty. Add an app or domain above.</div>
+      </div>
+    `,
+    'enforcement': () => `
+      <div class="sub-back" onclick="closeSettingsSub()">‹ Settings</div>
+      <h1 class="sub-title">Enforcement</h1>
+      <div class="sub-intro">What happens when you're off-task during focus</div>
+      <div class="sub-card">
+        <div class="sub-section-header">
+          <div class="heyebrow">ENFORCEMENT SETTINGS</div>
+        </div>
+        <table class="enforce-table">
+          <thead><tr><th></th><th>Deep Work</th><th>Focus Hours</th></tr></thead>
+          <tbody>
+            ${[
+              ['Nudge notifications', true, true],
+              ['Screen red shift', true, true],
+              ['Auto-redirect', true, false],
+              ['Blocking overlay', true, false],
+              ['Intervention exercises', true, false],
+              ['Background audio from distracting sites', true, true],
+              ['Context-switch countdown', true, true],
+            ].map(([name, a, b]) => `<tr><td>${name}</td><td class="col-toggle"><div class="toggle-switch ${a?'on':''}" onclick="this.classList.toggle('on')" style="margin:0 auto;"></div></td><td class="col-toggle"><div class="toggle-switch ${b?'on':''}" onclick="this.classList.toggle('on')" style="margin:0 auto;"></div></td></tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    `,
+    'account': () => `
+      <div class="sub-back" onclick="closeSettingsSub()">‹ Settings</div>
+      <h1 class="sub-title">Account</h1>
+      <div class="sub-intro">Your sign-in, devices, and subscription.</div>
+      <div class="sub-card">
+        <div class="sub-toggle-row"><div class="body"><div class="ttl">Email</div><div class="desc">ameer.rayan@gmail.com</div></div></div>
+        <div class="sub-toggle-row"><div class="body"><div class="ttl">Member since</div><div class="desc">April 2026</div></div></div>
+        <div class="sub-toggle-row"><div class="body"><div class="ttl">Devices</div><div class="desc">2 active · Ameer's Mac · Ameer's iPhone</div></div></div>
+        <div class="sub-toggle-row"><div class="body"><div class="ttl">Subscription <span class="pill green" style="margin-left:6px;">PRO</span></div><div class="desc">Annual · renews Nov 23, 2026 · $59/yr</div></div><span class="sr-manage" onclick="showToast('Opens Stripe portal')">Manage →</span></div>
+        <div class="sub-toggle-row"><div class="body"><div class="ttl" style="color:var(--red);">Sign out</div><div class="desc">You'll need to magic-link in again to access.</div></div><span class="sr-manage" style="color:var(--red);" onclick="showToast('Signed out (demo)')">Sign out</span></div>
+      </div>
+    `,
+    'theme': () => `
+      <div class="sub-back" onclick="closeSettingsSub()">‹ Settings</div>
+      <h1 class="sub-title">Theme</h1>
+      <div class="sub-intro">Pick how the app looks.</div>
+      <div class="sub-card" style="padding:14px;">
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px;">
+          ${[['Deep Lush','linear-gradient(135deg,#1a0a08,#3a1a14)','dark'],['Light','linear-gradient(135deg,#F7F3EA,#E2DCC8)','light'],['Iridescent','linear-gradient(135deg,#0a1020,#2a3358)','dark'],['Warm','linear-gradient(135deg,#2a1a08,#4a3018)','dark'],['Forest','linear-gradient(135deg,#0a1a14,#1a3a2a)','dark'],['Plum','linear-gradient(135deg,#181016,#3a1828)','dark']].map(([name,grad,t],i) => `<div style="padding:10px; border-radius:10px; border:1px solid ${i===0?'var(--coral)':'var(--border)'}; cursor:pointer; text-align:center;" onclick="setTheme('${t}');showToast('Theme: ${name}')"><div style="height:60px; background:${grad}; border-radius:6px; margin-bottom:6px;"></div><div style="font-size:12px;">${name}</div></div>`).join('')}
+        </div>
+      </div>
+    `,
+    'ai': () => `
+      <div class="sub-back" onclick="closeSettingsSub()">‹ Settings</div>
+      <h1 class="sub-title">AI Scoring</h1>
+      <div class="sub-intro">On-device relevance scoring for your tabs + apps.</div>
+      <div class="sub-card">
+        <div class="sub-toggle-row"><div class="body"><div class="ttl">Enable Daily Focus Plan</div><div class="desc">AI generates a daily plan based on your context.</div></div><div class="toggle-switch on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="sub-toggle-row"><div class="body"><div class="ttl">Block irrelevant tabs</div><div class="desc">Hard block (vs nudge) when AI scores off-mission.</div></div><div class="toggle-switch" onclick="this.classList.toggle('on')"></div></div>
+        <div class="sub-toggle-row"><div class="body"><div class="ttl">AI Model</div><div class="desc">Qwen3-4B (local, recommended) or Apple Foundation Models.</div></div><span class="sr-manage" onclick="showToast('Model picker')">Change →</span></div>
+        <div class="sub-toggle-row"><div class="body"><div class="ttl">Coach Context</div><div class="desc">"I'm a software engineer..."</div></div><span class="sr-manage" onclick="showToast('Edit context')">Edit →</span></div>
+      </div>
+    `,
+    'content-safety': () => `
+      <div class="sub-back" onclick="closeSettingsSub()">‹ Settings</div>
+      <h1 class="sub-title">Content Safety</h1>
+      <div class="sub-intro">Same as the Sensitive Content tab — mirrored here for convenience.</div>
+      <div class="sub-card">
+        <div class="sub-toggle-row"><div class="body"><div class="ttl">Screen monitoring</div><div class="desc">Scans every 2s for explicit content. Blocks screens and notifies Caity.</div></div><div class="toggle-switch on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="sub-toggle-row"><div class="body"><div class="ttl">Test detection</div><div class="desc">Triggers a fake NSFW detection through the pipeline.</div></div><span class="sr-manage" onclick="showToast('Test fired')">Test →</span></div>
+      </div>
+    `,
+    'distractions': () => `
+      <div class="sub-back" onclick="closeSettingsSub()">‹ Settings</div>
+      <h1 class="sub-title">Distractions</h1>
+      <div class="sub-intro">Apps that drain your daily budget when used.</div>
+      <div class="sub-card">
+        ${['Instagram','TikTok','Twitter / X','Reddit','YouTube','Facebook'].map(name => `<div class="sub-toggle-row"><div class="body"><div class="ttl">${name}</div><div class="desc">Counts toward Distraction Budget</div></div><div class="toggle-switch on" onclick="this.classList.toggle('on')"></div></div>`).join('')}
+      </div>
+    `,
+    'budget': () => `
+      <div class="sub-back" onclick="closeSettingsSub()">‹ Settings</div>
+      <h1 class="sub-title">Distraction Budget</h1>
+      <div class="sub-intro">Daily allowance for distractions + lockout once spent.</div>
+      <div class="sub-card">
+        <div class="sub-toggle-row"><div class="body"><div class="ttl">Daily cap</div><div class="desc">Total minutes per day you can spend on Distractions.</div></div><span class="sr-manage">30 min</span></div>
+        <div class="sub-toggle-row"><div class="body"><div class="ttl">Earning rate</div><div class="desc">1 min earned per X min focused.</div></div><span class="sr-manage">3 min</span></div>
+        <div class="sub-toggle-row"><div class="body"><div class="ttl">Reset time</div><div class="desc">When the daily budget refills.</div></div><span class="sr-manage">5:00 AM</span></div>
+        <div class="sub-toggle-row"><div class="body"><div class="ttl">Cross-device sync <span class="pill amber" style="margin-left:6px;">SOON</span></div><div class="desc">Share budget total across Mac + iPhone.</div></div><div class="toggle-switch" onclick="this.classList.toggle('on')"></div></div>
+      </div>
+    `,
+    'bedtime': () => `
+      <div class="sub-back" onclick="closeSettingsSub()">‹ Settings</div>
+      <h1 class="sub-title">Bedtime</h1>
+      <div class="sub-intro">Wind-down + lock-loop. Cross-device.</div>
+      <div class="sub-card">
+        <div class="sub-toggle-row"><div class="body"><div class="ttl">Bedtime Enforcer</div><div class="desc">Triggers wind-down notifications + OS lock loop.</div></div><div class="toggle-switch on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="sub-toggle-row"><div class="body"><div class="ttl">Bedtime</div><div class="desc">11:00 PM</div></div><span class="sr-manage">Edit →</span></div>
+        <div class="sub-toggle-row"><div class="body"><div class="ttl">Wake</div><div class="desc">6:30 AM</div></div><span class="sr-manage">Edit →</span></div>
+      </div>
+    `,
+    'browsers': () => `
+      <div class="sub-back" onclick="closeSettingsSub()">‹ Settings</div>
+      <h1 class="sub-title">Browsers</h1>
+      <div class="sub-intro">Extension status across browsers.</div>
+      <div class="sub-card">
+        ${[['Chrome','INSTALLED','green'],['Arc','INSTALLED','green'],['Safari','INSTALLED','green'],['Firefox','MISSING','amber'],['Brave','MISSING','amber']].map(([name,status,color]) => `<div class="sub-toggle-row"><div class="body"><div class="ttl">${name} <span class="pill ${color}" style="margin-left:6px;">${status}</span></div><div class="desc">${status==='INSTALLED'?'Extension active':'Install the extension to enable blocking'}</div></div><span class="sr-manage">${status==='INSTALLED'?'OK':'Install →'}</span></div>`).join('')}
+      </div>
+    `,
+  };
+  return (map[id] || (() => `<div class="sub-back" onclick="closeSettingsSub()">‹ Settings</div><h1 class="sub-title">${id}</h1><div class="sub-intro">Subpage not yet implemented for "${id}".</div>`))();
+}
+
+// Reset settings sub when leaving settings view
+const origSwitchView = switchView;
+switchView = function(v) {
+  if (state.view === 'settings' && v !== 'settings') closeSettingsSub();
+  origSwitchView(v);
+};
+
+// INIT
+renderAll();
+</script>
+
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!-- CLOUD DESIGN PLAN VIEW — sourced verbatim from                            -->
+<!-- docs/planning-system-design-2026-05-13/Planning Page.html                  -->
+<!-- DO NOT EDIT THIS BLOCK except by replacing it from the Cloud Design source -->
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<script type="text/babel">
+const HUE = { coral: 'var(--hue-1)', green: 'var(--hue-2)', pink: 'var(--hue-3)' };
+
+const MONTHLY = [
+  { id:'m1', title:'Ship Puck to 25 founding members', outcome:'25 paid orders by May 31', hue: HUE.coral },
+  { id:'m2', title:'4hr deep work daily',              outcome:'20 weekdays averaged',     hue: HUE.green },
+  { id:'m3', title:'Hit 10k followers on Puck IG',     outcome:'From 0 to 10k by May 31',  hue: HUE.pink  },
+];
+
+const WEEKLY = {
+  may11: [
+    { id:'wg1', title:'Record 3 demo videos', outcome:'Posted to IG by Sun', linksTo:'m1', status:'in-progress' },
+    { id:'wg2', title:'Block phone 9-5 daily', outcome:'Zero IG scrolls 9-5', linksTo:'m2', status:'planned' },
+    { id:'wg3', title:'Pitch 3 podcasts', outcome:'1 booked recording', linksTo:null, status:'planned' },
+  ],
+  may4: [
+    { id:'pa1', title:'Set up WeWork desk', outcome:'Laptop stays at desk M-F', linksTo:'m2', status:'done' },
+    { id:'pa2', title:'Block IG on phone after 9am', outcome:'Zero scrolls 9-5', linksTo:'m2', status:'slipped' },
+    { id:'pa3', title:'DM 10 founders', outcome:'10 sent', linksTo:'m1', status:'done' },
+  ],
+  apr27: [
+    { id:'pb1', title:'Ship v0.2 beta', outcome:'5 users on it', linksTo:'m1', status:'done' },
+    { id:'pb2', title:'Write launch post', outcome:'Posted IG + Twitter', linksTo:'m3', status:'slipped' },
+    { id:'pb3', title:'Reading hour daily', outcome:'5 sessions', linksTo:'m2', status:'done' },
+  ],
+  apr20: [
+    { id:'pc1', title:'Customer interviews', outcome:'5 calls', linksTo:'m1', status:'done' },
+    { id:'pc2', title:'Set up alarm system', outcome:'Works on first try', linksTo:'m2', status:'done' },
+    { id:'pc3', title:'IG demo clip #1', outcome:'Posted Sunday', linksTo:'m3', status:'done' },
+  ],
+};
+
+const WEEKS = [
+  { id:'apr20', label:'Apr 20' },
+  { id:'apr27', label:'Apr 27' },
+  { id:'may4',  label:'May 4' },
+  { id:'may11', label:'May 11', current:true },
+];
+
+const fmtStatus = (s) => s.replace('-', ' ');
+
+const SparkIcon = () => (
+  <svg width="11" height="11" viewBox="0 0 16 16" fill="none"
+    stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+    <path d="M8 1 L9.3 6 L14 7 L9.3 8 L8 13 L6.7 8 L2 7 L6.7 6 Z" />
+  </svg>
+);
+const ClockIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 16 16" fill="none"
+    stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+    <path d="M3 8 a5 5 0 1 0 1.5 -3.5" />
+    <path d="M3 3 V5.5 H5.5" />
+    <path d="M8 5 V8 L10 9.5" />
+  </svg>
+);
+const ArrowRight = () => (
+  <svg width="11" height="11" viewBox="0 0 16 16" fill="none"
+    stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+    <path d="M3 8 H13 M9 4 L13 8 L9 12" />
+  </svg>
+);
+
+const HEX = { 'var(--hue-1)': '#D85A30', 'var(--hue-2)': '#1D9E75', 'var(--hue-3)': '#A855C7' };
+const toRgba = (hueRef, a) => {
+  const hex = HEX[hueRef] || hueRef;
+  const r = parseInt(hex.slice(1,3), 16),
+        g = parseInt(hex.slice(3,5), 16),
+        b = parseInt(hex.slice(5,7), 16);
+  return `rgba(${r},${g},${b},${a})`;
+};
+
+function MonthlyCard({ g, sel, dim, onClick }) {
+  return (
+    <div className={`mcard${sel ? ' sel' : ''}${dim ? ' dim' : ''}`}
+      onClick={onClick}
+      style={{
+        '--hue': g.hue,
+        '--m-bg':   toRgba(g.hue, 0.14),
+        '--m-line': toRgba(g.hue, 0.32),
+        '--m-out':  toRgba(g.hue, 0.95),
+      }}>
+      <div className="ttl">{g.title}</div>
+      <div className="out">{g.outcome}</div>
+    </div>
+  );
+}
+
+function WeeklyCard({ g, monthly, dim, onDragStart, onDragEnd, dragging }) {
+  const parent = monthly.find(m => m.id === g.linksTo);
+  const openEdit = () => {
+    if (window.openWeeklyGoalEdit) window.openWeeklyGoalEdit(g.id);
+  };
+  return (
+    <div className={`wcard${dim ? ' dim' : ''}${!parent ? ' unlinked' : ''}${dragging ? ' dragging' : ''}`}
+      onClick={openEdit}
+      style={{ '--hue': parent ? parent.hue : 'transparent', cursor: 'pointer' }}>
+      {parent && <span className="edge" />}
+      <div className="ttl">{g.title}</div>
+      <div className="out">{g.outcome}</div>
+      <div className="foot">
+        <span className={`status ${g.status}`}>{fmtStatus(g.status)}</span>
+        {!parent && <span className="status unlinked">· unlinked</span>}
+        {parent && (
+          <span
+            className="wcard-grip"
+            draggable
+            onDragStart={(e) => { e.stopPropagation(); onDragStart(g, parent, e); }}
+            onDragEnd={onDragEnd}
+            onClick={(e) => e.stopPropagation()}
+            title="Drag to schedule">⋮⋮</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const DAY_START = 8;
+const DAY_END   = 20;
+const NOW_HOUR  = 11.7;
+
+const fmtHr = (h) => {
+  const hh = Math.floor(h), mm = Math.round((h - hh) * 60);
+  const period = hh >= 12 ? 'p' : 'a';
+  const dh = ((hh + 11) % 12) + 1;
+  return mm ? `${dh}:${String(mm).padStart(2,'0')}${period}` : `${dh}${period}`;
+};
+const fmtDur = (hrs) => {
+  if (hrs <= 0) return '0';
+  const h = Math.floor(hrs), m = Math.round((hrs - h) * 60);
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+};
+const snap = (h) => Math.round(h * 4) / 4;
+const hrPct = (h) => ((h - DAY_START) / (DAY_END - DAY_START)) * 100;
+
+function TimelineBlock({ block, onChange }) {
+  const elRef = React.useRef(null);
+  const [dragging, setDragging] = React.useState(false);
+
+  React.useEffect(() => {
+    const el = elRef.current;
+    if (!el) return;
+    let mode = null, startX = 0, startBlock = null, tlWidth = 0;
+    const tl = el.parentElement;
+
+    function down(e) {
+      if (e.target.classList.contains('resize')) {
+        mode = e.target.classList.contains('l') ? 'l' : 'r';
+      } else {
+        mode = 'move';
+      }
+      startX = e.clientX;
+      startBlock = { start: block.start, end: block.end };
+      tlWidth = tl.getBoundingClientRect().width;
+      setDragging(true);
+      e.preventDefault(); e.stopPropagation();
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', up);
+    }
+    function move(e) {
+      const dx = e.clientX - startX;
+      const dhr = (dx / tlWidth) * (DAY_END - DAY_START);
+      let next = { ...startBlock };
+      if (mode === 'move') {
+        const dur = startBlock.end - startBlock.start;
+        let ns = snap(startBlock.start + dhr);
+        ns = Math.max(DAY_START, Math.min(DAY_END - dur, ns));
+        next = { start: ns, end: ns + dur };
+      } else if (mode === 'l') {
+        let ns = snap(startBlock.start + dhr);
+        ns = Math.max(DAY_START, Math.min(block.end - 0.25, ns));
+        next = { ...startBlock, start: ns, end: startBlock.end };
+      } else if (mode === 'r') {
+        let ne = snap(startBlock.end + dhr);
+        ne = Math.max(block.start + 0.25, Math.min(DAY_END, ne));
+        next = { ...startBlock, start: startBlock.start, end: ne };
+      }
+      onChange(next);
+    }
+    function up() {
+      mode = null;
+      setDragging(false);
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+    }
+    el.addEventListener('mousedown', down);
+    return () => el.removeEventListener('mousedown', down);
+  }, [block, onChange]);
+
+  return (
+    <div ref={elRef} className={`block${dragging ? ' dragging' : ''}`}
+      style={{
+        left: hrPct(block.start) + '%',
+        width: (hrPct(block.end) - hrPct(block.start)) + '%',
+        '--blk-bg': toRgba(block.hue, 0.18),
+        '--blk-fg': HEX[block.hue] || block.hue,
+      }}>
+      <div className="resize l" />
+      <div className="ttl">{block.title}</div>
+      <div className="tm">{fmtHr(block.start)}–{fmtHr(block.end)} · {fmtDur(block.end - block.start)}</div>
+      <div className="resize r" />
+    </div>
+  );
+}
+
+function TimelineStrip({ blocks, setBlocks, isDragOverFromCard, onDrop }) {
+  const [open, setOpen] = React.useState(true);
+  const [hover, setHover] = React.useState(false);
+  const tlRef = React.useRef(null);
+
+  const total = blocks.reduce((s, b) => s + (b.end - b.start), 0);
+  const emptyText = 'No sessions planned · drag weekly goals here';
+  const summaryText = blocks.length === 0
+    ? emptyText
+    : `${blocks.length} session${blocks.length > 1 ? 's' : ''} · ${fmtDur(total)} scheduled`;
+
+  const handleDragOver = (e) => {
+    if (!isDragOverFromCard) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    if (!open) setOpen(true);
+    setHover(true);
+  };
+  const handleDragLeave = (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) setHover(false);
+  };
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setHover(false);
+    const tl = tlRef.current;
+    if (!tl) return;
+    const r = tl.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const hr = snap(DAY_START + (x / r.width) * (DAY_END - DAY_START));
+    const start = Math.max(DAY_START, Math.min(DAY_END - 1, hr - 0.5));
+    const end = Math.min(DAY_END, start + 1);
+    onDrop({ start, end });
+  };
+
+  const hours = [];
+  for (let h = DAY_START; h <= DAY_END; h += 2) hours.push(h);
+
+  return (
+    <div className={`tstrip${open ? '' : ' collapsed'}${hover ? ' drop-target' : ''}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}>
+      <div className="tstrip-head" onClick={() => setOpen(o => !o)}>
+        <div className={`summary${blocks.length === 0 ? ' empty' : ''}`}>
+          <ClockIcon />
+          <span>{summaryText}</span>
+        </div>
+        <div className="right">
+          <a className="open-link" onClick={(e) => { e.stopPropagation(); window.switchView && window.switchView('today'); }}>
+            Open today <ArrowRight />
+          </a>
+          <svg className="chev" viewBox="0 0 16 16" fill="none"
+            stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+            <path d="M4 10 L8 6 L12 10" />
+          </svg>
+        </div>
+      </div>
+      <div className="tstrip-body">
+        <div ref={tlRef} className={`tline${hover ? ' drop-active' : ''}`}>
+          {hours.map(h => (
+            <React.Fragment key={h}>
+              <div className="hour" style={{ left: hrPct(h) + '%' }} />
+              <div className="hour-lbl" style={{ left: hrPct(h) + '%' }}>{fmtHr(h)}</div>
+            </React.Fragment>
+          ))}
+          <div className="nowline" style={{ left: hrPct(NOW_HOUR) + '%' }} />
+          {blocks.map((b) => (
+            <TimelineBlock key={b.id} block={b}
+              onChange={(patch) => setBlocks(prev => prev.map(x => x.id === b.id ? { ...x, ...patch } : x))} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PlanApp() {
+  const [weekId, setWeekId] = React.useState('may11');
+  const [selectedMonthly, setSelectedMonthly] = React.useState(null);
+  const [historyOpen, setHistoryOpen] = React.useState(false);
+
+  const [blocks, setBlocks] = React.useState([
+    { id: 'b1', title: 'Record 3 demo videos', hue: 'var(--hue-1)', start: 9, end: 10.5 },
+  ]);
+  const [dragSource, setDragSource] = React.useState(null);
+  const nextBlockId = React.useRef(2);
+
+  const w = WEEKLY[weekId] || [];
+  const currentWeek = WEEKS.find(x => x.id === weekId);
+  const isCurrent = !!currentWeek?.current;
+  const isPast = !isCurrent;
+
+  const handleCardDragStart = (g, parent, e) => {
+    setDragSource({ goalId: g.id, title: g.title, hue: parent.hue });
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('text/plain', g.id);
+  };
+  const handleCardDragEnd = () => setDragSource(null);
+  const handleDropOnTimeline = ({ start, end }) => {
+    if (!dragSource) return;
+    setBlocks(prev => [...prev, {
+      id: 'b' + (nextBlockId.current++),
+      title: dragSource.title,
+      hue: dragSource.hue,
+      start, end,
+    }]);
+    setDragSource(null);
+  };
+
+  return (
+    <div className="page" onClick={() => setHistoryOpen(false)}>
+      <div className="pg-head">
+        <div>
+          <div className="eyebrow-row">
+            {isCurrent
+              ? 'Wednesday · Week 2 of May'
+              : `Viewing week of ${currentWeek?.label}`}
+          </div>
+          <h1>Your plan</h1>
+        </div>
+        <div className="head-actions">
+          <div className="history-wrap" onClick={e => e.stopPropagation()}>
+            <button className="btn-ghost" onClick={() => setHistoryOpen(v => !v)}>
+              <ClockIcon />History
+            </button>
+            {historyOpen && (
+              <div className="history-pop">
+                <div className="hphd">Jump to week</div>
+                {WEEKS.slice().reverse().map(wk => {
+                  const w2 = WEEKLY[wk.id] || [];
+                  const done = w2.filter(x => x.status === 'done').length;
+                  return (
+                    <button key={wk.id}
+                      className={weekId === wk.id ? 'on' : ''}
+                      onClick={() => { setWeekId(wk.id); setSelectedMonthly(null); setHistoryOpen(false); }}>
+                      <span>{wk.label}{wk.current ? ' · this week' : ''}</span>
+                      <span className="hpmeta">
+                        {wk.current ? 'in progress' : `${done}/${w2.length} done`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          {isCurrent && (
+            <button className="btn-ghost">
+              <SparkIcon />Help me plan
+            </button>
+          )}
+        </div>
+      </div>
+
+      {isPast && (
+        <div className="readonly"><b>Read-only</b> · past week</div>
+      )}
+
+      <div>
+        <div className="eyebrow">May</div>
+        <div className="row3">
+          {MONTHLY.map(g => (
+            <MonthlyCard key={g.id} g={g}
+              sel={selectedMonthly === g.id}
+              dim={selectedMonthly && selectedMonthly !== g.id}
+              onClick={() => setSelectedMonthly(selectedMonthly === g.id ? null : g.id)} />
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="eyebrow">This week</div>
+        <div className="row3">
+          {w.map(g => (
+            <WeeklyCard key={g.id} g={g} monthly={MONTHLY}
+              dim={selectedMonthly && g.linksTo !== selectedMonthly}
+              onDragStart={handleCardDragStart}
+              onDragEnd={handleCardDragEnd}
+              dragging={dragSource?.goalId === g.id} />
+          ))}
+        </div>
+      </div>
+
+      {isCurrent && (
+        <div>
+          <div className="eyebrow">Today · Wednesday</div>
+          <TimelineStrip
+            blocks={blocks}
+            setBlocks={setBlocks}
+            isDragOverFromCard={!!dragSource}
+            onDrop={handleDropOnTimeline} />
+        </div>
+      )}
+
+      {isPast && (
+        <div>
+          <div className="eyebrow">Last week summary</div>
+          <div className="past-summary">
+            <div className="stat success"><b>{w.filter(x => x.status === 'done').length}</b><span>done</span></div>
+            <div className="stat error"><b>{w.filter(x => x.status === 'slipped').length}</b><span>slipped</span></div>
+            <div className="stat"><b>{w.filter(x => x.status === 'dropped').length}</b><span>dropped</span></div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Expose switchView so PlanApp can navigate to Today via the "Open today →" link
+window.switchView = window.switchView || (function(orig){ return function(v){ orig(v); }; })(switchView);
+
+ReactDOM.createRoot(document.getElementById('plan-react-root')).render(<PlanApp />);
+</script>
+
+</body>
+</html>

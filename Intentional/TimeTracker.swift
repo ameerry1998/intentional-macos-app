@@ -23,9 +23,9 @@ class TimeTracker {
     /// retained for future cross-device session-sync wiring.
     var onSessionChanged: ((_ platform: String) -> Void)?
 
-    /// Called when social media time is recorded. EarnedBrowseManager uses this to deduct from pool.
-    /// Parameters: (platform, minutes, isFreeBrowse)
-    var onSocialMediaTimeRecorded: ((_ platform: String, _ minutes: Double, _ isFreeBrowse: Bool) -> Void)?
+    // R6 (June 2026): onSocialMediaTimeRecorded callback removed — its only
+    // consumer was EarnedBrowseManager (deleted), and the feeder path
+    // (recordUsageHeartbeat) has had zero callers since the extension removal.
 
     // Session expiry timer
     private var sessionExpiryTimer: Timer?
@@ -216,9 +216,6 @@ class TimeTracker {
 
         // Save periodically
         saveUsage()
-
-        // Notify EarnedBrowseManager of social media time
-        onSocialMediaTimeRecorded?(platform, minutes, isFreeBrowse)
 
         // Log when crossing a minute boundary
         if let usage = dailyUsage[key], Int(usage.minutesUsed) != Int(usage.minutesUsed - minutes) {

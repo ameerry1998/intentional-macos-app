@@ -1,5 +1,12 @@
 # Earned Browse System (EarnedBrowseManager)
 
+> **SUPERSEDED — Rules Consolidation R6 (2026-06-11).** `EarnedBrowseManager`
+> was DELETED (it had been feature-flagged off with a dead feeder since the
+> extension removal). The concept lives on as the shared daily **allowance**
+> (backend `/allowance/*` via `RuleStore`) with ⏳ Limited rules on the Rules
+> page. Authoritative doc: [docs/features/rules.md](features/rules.md).
+> This file is kept for historical reference only.
+
 ## Earning Rates
 
 | Condition | Rate | Meaning |

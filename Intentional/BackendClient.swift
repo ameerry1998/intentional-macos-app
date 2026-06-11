@@ -2348,6 +2348,31 @@ class BackendClient {
         return await getAppList(path: "/always_blocked")
     }
 
+    /// R6 RulesMigration variant: returns nil on network/HTTP failure so the
+    /// migration can tell "table is empty" from "server unreachable" (it must
+    /// NOT stamp its receipt after silently dropping backend rows).
+    func getAppListForMigration(path: String) async -> [String]? {
+        guard let url = URL(string: "\(baseURL)\(path)") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        if let token = await loadJWT() {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            struct Response: Codable { let apps: [Entry]
+                struct Entry: Codable { let app_identifier: String }
+            }
+            let decoded = try JSONDecoder().decode(Response.self, from: data)
+            return decoded.apps.map { $0.app_identifier }
+        } catch {
+            print("getAppListForMigration \(path) error: \(error)")
+            return nil
+        }
+    }
+
     private func getAppList(path: String) async -> [String] {
         guard let url = URL(string: "\(baseURL)\(path)") else { return [] }
         var req = URLRequest(url: url)

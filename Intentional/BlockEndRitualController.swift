@@ -16,7 +16,7 @@ class BlockEndRitualController {
 
     func show(
         block: ScheduleManager.FocusBlock,
-        stats: EarnedBrowseManager.BlockFocusStats,
+        stats: BlockFocusStats,
         nextBlock: ScheduleManager.FocusBlock?,
         onDone: @escaping () -> Void
     ) {

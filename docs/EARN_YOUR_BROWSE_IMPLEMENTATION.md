@@ -1,5 +1,12 @@
 # Earn Your Browse — Implementation Specification
 
+> **SUPERSEDED — Rules Consolidation R6 (2026-06-11).** `EarnedBrowseManager`
+> was DELETED (it had been feature-flagged off with a dead feeder since the
+> extension removal). The concept lives on as the shared daily **allowance**
+> (backend `/allowance/*` via `RuleStore`) with ⏳ Limited rules on the Rules
+> page. Authoritative doc: [docs/features/rules.md](features/rules.md).
+> This file is kept for historical reference only.
+
 This document is the implementation guide for the unified budget system. It covers every UI screen (with ASCII mockups), every code change across the macOS app, Chrome extension, and backend, and every message type and data structure.
 
 Reference: `UNIFIED_BUDGET_DESIGN.md` for product rationale and design decisions.

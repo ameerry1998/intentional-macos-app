@@ -372,10 +372,7 @@ body.theme-effects-warm::after {
 .status-footer .item.off { opacity: 0.65; }
 
 /* FIX-1: Today → Schedule/Blocks segmented control + Blocks view styles */
-.today-mode-bar { display: flex; align-items: center; justify-content: flex-end; padding: 14px 28px 0; }
-.today-mode-toggle { display: inline-flex; align-items: center; gap: 0; border: 1px solid rgba(255,255,255,0.10); border-radius: 8px; padding: 2px; background: rgba(255,255,255,0.03); }
-.today-mode-toggle .opt { padding: 5px 13px; font-size: 12px; cursor: pointer; border-radius: 6px; color: var(--text-tertiary); transition: all 0.15s; user-select: none; }
-.today-mode-toggle .opt.active { background: var(--accent-primary); color: #fff; }
+/* Today mode toggle CSS removed (R6) — Blocks sub-tab retired. */
 .blk-section-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-tertiary); margin: 14px 28px 8px; display: flex; align-items: center; justify-content: space-between; }
 .blk-section-h .blk-count { font-weight: 500; }
 .blk-ideas-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 28px 14px; }
@@ -1698,8 +1695,7 @@ body.theme-effects-warm::after {
 .rules-allowance-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
 .rules-allowance-breakdown { font-size: 12px; color: var(--text-tertiary); margin-top: 3px; }
 .rules-allowance-editor { padding: 4px 16px 14px; border-top: 0.5px solid rgba(255,255,255,0.06); }
-.rules-moved-banner { margin: 12px 28px 0; padding: 10px 14px; border-radius: 10px; background: rgba(243,139,92,0.10); border: 0.5px solid rgba(243,139,92,0.25); color: #f38b5c; font-size: 12.5px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
-.rules-moved-banner:hover { background: rgba(243,139,92,0.16); }
+/* rules-moved-banner CSS removed (R6). */
 .rule-seg { display: inline-flex; align-items: center; gap: 0; border: 1px solid rgba(255,255,255,0.10); border-radius: 8px; padding: 2px; background: rgba(255,255,255,0.03); }
 .rule-seg .opt { padding: 6px 14px; font-size: 12.5px; cursor: pointer; border-radius: 6px; color: var(--text-tertiary); transition: all 0.15s; user-select: none; }
 .rule-seg .opt.active { background: var(--accent-primary); color: #fff; }
@@ -2178,133 +2174,7 @@ body.theme-effects-warm::after {
 }
 .btn-small-free:hover { background: rgba(var(--color-success-rgb), 0.2); }
 
-/* ===== Earned Browse Widget ===== */
-.earned-browse-widget {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
-  padding: 16px;
-  position: relative;
-}
-.earned-browse-widget::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 10%; right: 10%;
-  height: 1px;
-  background: var(--highlight-edge);
-  border-radius: 1px;
-  pointer-events: none;
-}
-
-/* --- Extra Time Request Flow --- */
-.earned-extra-time-link {
-  background: none;
-  border: none;
-  padding: 0;
-  font-size: 11px;
-  font-family: inherit;
-  color: rgba(255, 255, 255, 0.35);
-  cursor: pointer;
-  transition: color 0.15s ease;
-  white-space: nowrap;
-}
-.earned-extra-time-link:hover {
-  color: rgba(255, 255, 255, 0.6);
-  text-decoration: underline;
-}
-.earned-extra-time-flow {
-  margin-top: 10px;
-}
-.extra-time-pills {
-  display: flex;
-  gap: 8px;
-}
-.extra-time-pill {
-  flex: 1;
-  padding: 8px 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.6);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1.5px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  font-family: inherit;
-}
-.extra-time-pill:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #fff;
-}
-.extra-time-pill.selected {
-  background: rgba(var(--accent-primary-rgb), 0.15);
-  border-color: var(--accent-primary);
-  color: #fff;
-}
-.extra-time-action-btn {
-  flex: 1;
-  padding: 7px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #fff;
-  background: var(--accent-primary);
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  font-family: inherit;
-}
-.extra-time-action-btn:hover { background: #4f46e5; }
-.extra-time-action-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-.extra-time-cancel-btn {
-  padding: 7px 12px;
-  font-size: 12px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.4);
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  font-family: inherit;
-}
-.extra-time-cancel-btn:hover {
-  color: rgba(255, 255, 255, 0.6);
-  border-color: rgba(255, 255, 255, 0.15);
-}
-.extra-time-code-grid {
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-}
-.extra-time-code-cell {
-  width: 36px;
-  height: 40px;
-  text-align: center;
-  font-size: 18px;
-  font-weight: 700;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1.5px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  outline: none;
-  caret-color: var(--accent-primary);
-  transition: border-color 0.15s ease;
-  font-family: inherit;
-}
-.extra-time-code-cell:focus {
-  border-color: var(--accent-primary);
-  background: rgba(var(--accent-primary-rgb), 0.08);
-}
-.extra-time-error {
-  font-size: 11px;
-  color: var(--color-error);
-  margin-top: 6px;
-}
+/* Earned Browse widget CSS removed (R6, 2026-06-11) — engine deleted. */
 
 /* ===== Collapsible Sections ===== */
 .collapsible-section {
@@ -4738,7 +4608,6 @@ body.theme-effects-warm::after {
 /* Today page — hide legacy sections (per user request, May 2026) */
 #coach-context-card,
 #ai-assessments-card,
-#earned-browse-widget,
 #focus-profile-inline,
 .focus-profile-inline,
 #page-today .collapsible-section { display: none !important; }
@@ -5089,10 +4958,11 @@ body.theme-effects-warm::after {
     <span id="sb-strict-label">Strict Mode</span>
     <span class="arrow">›</span>
   </div>
-  <!-- Bottom-left blocking pill (May 2026 prototype port) -->
-  <div class="sb-blocking empty" id="sb-blocking" onclick="navigateTo('today');setTodayMode && setTodayMode('blocks');">
+  <!-- Bottom-left blocking pill — counts schedule-active 🚫/⏳ rules and
+       opens the Rules page (R6: Blocks sub-tab retired). -->
+  <div class="sb-blocking empty" id="sb-blocking" onclick="navigateTo('rules');">
     <span class="shield">🛡</span>
-    <span id="sb-blocking-label">Nothing blocking</span>
+    <span id="sb-blocking-label">No rules blocking</span>
     <span class="arrow">›</span>
   </div>
   <div class="sidebar-label">Session</div>
@@ -5136,37 +5006,9 @@ body.theme-effects-warm::after {
   <!-- Page: Usage -->
   <div class="page active" id="page-today">
 
-    <!-- FIX-1: Today → Schedule / Blocks segmented mode toggle.
-         Schedule view = everything below this bar (calendar + AI assessments etc).
-         Blocks view = #view-blocks-inner; toggle via setTodayMode() in JS. -->
-    <div class="today-mode-bar" data-today-mode-keep="1">
-      <div class="today-mode-toggle" id="today-mode-toggle">
-        <span class="opt active" data-mode="schedule" onclick="setTodayMode('schedule')">Schedule</span>
-        <span class="opt" data-mode="blocks" onclick="setTodayMode('blocks')">Blocks</span>
-      </div>
-    </div>
-
-    <!-- FIX-1: Blocks inner view (Opal-style). Hidden until mode switches. -->
-    <div id="view-blocks-inner" data-today-mode-keep="1" hidden>
-      <!-- R3 (2026-06-10): blocks management is consolidating into the Rules
-           tab; this whole sub-tab is removed in R6. -->
-      <div class="rules-moved-banner" onclick="navigateTo('rules')">
-        <span>⚖</span>
-        <span><b>Rules has moved</b> — manage blocked, limited &amp; allowed sites and apps in the new <u>Rules tab</u> →</span>
-      </div>
-      <div class="blk-section-h">Quick actions</div>
-      <div class="blk-ideas-row">
-        <div class="blk-idea-btn primary" onclick="openBlockNowModal()"><div class="blk-idea-icon">▶</div><div class="blk-idea-label">Block Now</div></div>
-        <div class="blk-idea-btn" onclick="navigateTo('plan')"><div class="blk-idea-icon">📓</div><div class="blk-idea-label">Plan Day</div></div>
-        <div class="blk-idea-btn" onclick="startPomodoro()"><div class="blk-idea-icon">🍅</div><div class="blk-idea-label">Pomodoro 25</div></div>
-        <div class="blk-idea-btn" onclick="openBlockRuleCreate()"><div class="blk-idea-icon">⏱</div><div class="blk-idea-label">Set Limits</div></div>
-      </div>
-      <div class="blk-section-h" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-        <div><span>Your blocks</span><span class="blk-count" id="blocks-count"></span></div>
-        <button class="ge-done-btn" style="padding:6px 14px; font-size:12px;" onclick="openBlockRuleCreate()">+ New Block</button>
-      </div>
-      <div id="blocks-list-mount"></div>
-    </div>
+    <!-- R6 (2026-06-11): the Schedule/Blocks mode toggle + Blocks sub-tab
+         are gone — the Rules tab owns all blocking. Schedule is the only
+         Today view now. -->
 
     <!-- May 2026 prototype port — weekly-goal cards strip -->
     <div id="now-card-mount"></div>
@@ -5217,67 +5059,8 @@ body.theme-effects-warm::after {
       </div>
     </div>
 
-    <!-- B. Earned Browse (hidden — stripped for Puck model) -->
-    <div class="earned-browse-widget" id="earned-browse-widget" style="margin-top: 16px; display:none;">
-      <div class="focus-goals-title">Earned Browse</div>
-      <div style="height: 20px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; display: flex; margin-top: 8px;">
-        <div id="eb4-bar-avail" style="background: var(--accent-gradient); transition: width 0.3s; border-radius: 4px 0 0 4px;"></div>
-        <div id="eb4-bar-used" style="background: #f87171; transition: width 0.3s;"></div>
-      </div>
-      <div style="display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: rgba(255,255,255,0.5);">
-        <span id="eb4-avail-label" style="color: var(--color-success);">0 available</span>
-        <span id="eb4-used-label" style="color: #f87171;">0 used</span>
-      </div>
-
-      <!-- Footer: platform usage, cost, extra time -->
-      <div id="earned-platform-usage" style="display: flex; align-items: center; gap: 16px; margin-top: 10px; font-size: 11px; color: rgba(255,255,255,0.4);">
-        <span id="earned-yt-usage"></span>
-        <span id="earned-ig-usage"></span>
-        <span id="earned-fb-usage"></span>
-        <span id="earned-extra-time-section" style="display: none; margin-left: auto;"><button id="earned-extra-time-btn" class="earned-extra-time-link">Request Extra Time</button></span>
-      </div>
-      <div style="display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: rgba(255,255,255,0.4);">
-        <span id="earned-cost-indicator"></span>
-        <span id="earned-deep-work" style="display: none;">Deep work active</span>
-        <span id="earned-visits"></span>
-      </div>
-      <!-- Extra Time Flow -->
-      <div id="earned-extra-time-flow" class="earned-extra-time-flow" style="display: none;">
-        <div id="extra-time-step-amount" style="display: none;">
-          <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 8px;">How much extra time?</div>
-          <div class="extra-time-pills">
-            <button class="extra-time-pill" data-minutes="15">15 min</button>
-            <button class="extra-time-pill" data-minutes="30">30 min</button>
-            <button class="extra-time-pill" data-minutes="60">60 min</button>
-          </div>
-          <div id="extra-time-send-error" class="extra-time-error" style="display: none;"></div>
-          <div style="display: flex; gap: 8px; margin-top: 10px;">
-            <button id="extra-time-send" class="extra-time-action-btn" disabled>Send Request</button>
-            <button class="extra-time-cancel-btn" data-action="cancel">Cancel</button>
-          </div>
-          <div id="extra-time-remaining" style="font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 6px;"></div>
-        </div>
-        <div id="extra-time-step-code" style="display: none;">
-          <div id="extra-time-code-msg" style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 8px;"></div>
-          <div class="extra-time-code-grid">
-            <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="0">
-            <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="1">
-            <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="2">
-            <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="3">
-            <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="4">
-            <input class="extra-time-code-cell" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-index="5">
-          </div>
-          <div id="extra-time-code-error" class="extra-time-error" style="display: none;"></div>
-          <div style="display: flex; gap: 8px; margin-top: 10px;">
-            <button id="extra-time-verify" class="extra-time-action-btn" disabled>Verify</button>
-            <button class="extra-time-cancel-btn" data-action="cancel">Cancel</button>
-          </div>
-        </div>
-        <div id="extra-time-step-success" style="display: none;">
-          <div id="extra-time-success-msg" style="font-size: 13px; font-weight: 600; color: var(--color-success);"></div>
-        </div>
-      </div>
-    </div>
+    <!-- Earned Browse widget removed (R6, 2026-06-11) — replaced by the
+         allowance card on the Rules page. -->
 
     <!-- Profile setup (inline, shown when no profile exists) -->
     <div id="focus-profile-inline" class="focus-profile-inline" style="display:none;">
@@ -5542,21 +5325,6 @@ body.theme-effects-warm::after {
         <div class="settings-menu-row" onclick="showSettingsDetail('safety')">
           <div class="settings-menu-icon" style="background:rgba(92,192,154,0.1);color:#5cc09a;">◔</div>
           <div class="settings-menu-info"><div class="settings-menu-title">Sensitive Content</div><div class="settings-menu-sub" id="settings-safety-sub">Screen monitoring</div></div>
-          <span class="settings-menu-chevron">›</span>
-        </div>
-        <div class="settings-menu-row" onclick="showSettingsDetail('distractions')">
-          <div class="settings-menu-icon" style="background:rgba(232,116,97,0.1);color:var(--accent-primary);">⊘</div>
-          <div class="settings-menu-info"><div class="settings-menu-title">Distractions</div><div class="settings-menu-sub" id="settings-distractions-sub">Apps that drain your daily budget</div></div>
-          <span class="settings-menu-chevron">›</span>
-        </div>
-        <div class="settings-menu-row" onclick="showSettingsDetail('always-blocked')">
-          <div class="settings-menu-icon" style="background:rgba(212,80,80,0.1);color:#d45050;">⊠</div>
-          <div class="settings-menu-info"><div class="settings-menu-title">Always Blocked</div><div class="settings-menu-sub" id="settings-always-blocked-sub">Apps that are never usable</div></div>
-          <span class="settings-menu-chevron">›</span>
-        </div>
-        <div class="settings-menu-row" onclick="showSettingsDetail('always-allowed')">
-          <div class="settings-menu-icon" style="background:rgba(120,180,140,0.12);color:#7cc492;">✓</div>
-          <div class="settings-menu-info"><div class="settings-menu-title">Always Allowed</div><div class="settings-menu-sub" id="settings-always-allowed-sub">Apps & sites the sweep never touches</div></div>
           <span class="settings-menu-chevron">›</span>
         </div>
         <div class="settings-menu-row" onclick="showSettingsDetail('bedtime')">
@@ -5915,100 +5683,9 @@ body.theme-effects-warm::after {
          are the Strictness Advanced grid). showSettingsDetail('focusgate')
          aliases to 'enforcement'. -->
 
-    <!-- Detail: Distractions list (Slice 5 of 2026-05-05 redesign) -->
-    <div class="settings-detail" id="settings-detail-distractions">
-      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
-      <div class="settings-detail-title">Distractions</div>
-      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">Apps and sites that drain your daily Distraction Budget when used. At zero budget remaining, all of these are locked for the rest of the day.</div>
-      <div class="settings-card" style="padding:16px;">
-        <div style="display:flex;gap:8px;margin-bottom:14px;">
-          <input id="distractions-add-input" type="text" placeholder="e.g. youtube.com or com.tiktok.app"
-                 style="flex:1;padding:8px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--border-default);border-radius:6px;color:var(--text-primary);font-size:13px;">
-          <button class="btn-small" onclick="addDistractionEntry()">+ Add</button>
-        </div>
-        <div id="distractions-list" style="display:flex;flex-direction:column;gap:6px;">
-          <div style="color:rgba(255,255,255,0.4);font-size:12px;">Loading…</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Detail: Distraction Budget config (Slice 3/6 of 2026-05-05 redesign) -->
-    <div class="settings-detail" id="settings-detail-budget">
-      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
-      <div class="settings-detail-title">Distraction Budget</div>
-      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">Your daily floor for distraction time. Earned focus minutes are added on top. Lock it to require a partner code to change.</div>
-      <div class="settings-card" style="padding:16px;">
-        <div class="setting-row">
-          <div>
-            <div class="setting-label">Daily baseline (minutes)</div>
-            <div class="setting-desc">How many minutes per day, regardless of focus earned. Default 60.</div>
-          </div>
-          <input id="budget-baseline-input" type="number" min="0" max="1440" step="5"
-                 style="width:90px;padding:8px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--border-default);border-radius:6px;color:var(--text-primary);font-size:13px;text-align:right;"
-                 oninput="markBudgetDirty()">
-        </div>
-        <div class="setting-row">
-          <div>
-            <div class="setting-label">Lock behind partner</div>
-            <div class="setting-desc">Once locked, raising the baseline requires a partner-issued code.</div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="budget-lock-toggle" onchange="markBudgetDirty()">
-            <span class="slider"></span>
-          </label>
-        </div>
-        <div id="budget-state-readout" style="margin-top:14px;padding:10px;background:rgba(255,255,255,0.02);border-radius:6px;font-size:12px;color:rgba(255,255,255,0.5);">Loading current state…</div>
-        <div style="margin-top:14px;display:flex;gap:8px;">
-          <button class="btn-small" onclick="saveBudgetConfig()" id="budget-save-btn" disabled>Save</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Detail: Always-Allowed list (Stage 2 close-the-noise sweep) -->
-    <div class="settings-detail" id="settings-detail-always-allowed">
-      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
-      <div class="settings-detail-title">Always Allowed</div>
-      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">Apps and websites the close-the-noise sweep never touches at session start. Things like your password manager, music app, calendar — stuff you want available no matter what you're working on. Ships with sensible defaults; add or remove as needed.</div>
-      <div class="settings-card" style="padding:16px; margin-bottom:14px;">
-        <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:rgba(255,255,255,0.6);">APPS (BUNDLE IDS)</div>
-        <div style="display:flex;gap:8px;margin-bottom:12px;">
-          <input id="always-allowed-app-input" type="text" placeholder="com.example.app"
-                 style="flex:1;padding:8px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--border-default);border-radius:6px;color:var(--text-primary);font-size:13px;font-family:monospace;">
-          <button class="btn-small" onclick="addAlwaysAllowedApp()">+ Add</button>
-        </div>
-        <div id="always-allowed-apps-list" style="display:flex;flex-direction:column;gap:6px;">
-          <div style="color:rgba(255,255,255,0.4);font-size:12px;">Loading…</div>
-        </div>
-      </div>
-      <div class="settings-card" style="padding:16px;">
-        <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:rgba(255,255,255,0.6);">WEBSITES (DOMAINS)</div>
-        <div style="display:flex;gap:8px;margin-bottom:12px;">
-          <input id="always-allowed-domain-input" type="text" placeholder="example.com"
-                 style="flex:1;padding:8px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--border-default);border-radius:6px;color:var(--text-primary);font-size:13px;font-family:monospace;">
-          <button class="btn-small" onclick="addAlwaysAllowedDomain()">+ Add</button>
-        </div>
-        <div id="always-allowed-domains-list" style="display:flex;flex-direction:column;gap:6px;">
-          <div style="color:rgba(255,255,255,0.4);font-size:12px;">Loading…</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Detail: Always-Blocked list (Slice 5 of 2026-05-05 redesign) -->
-    <div class="settings-detail" id="settings-detail-always-blocked">
-      <button class="settings-detail-back" onclick="hideSettingsDetail()">‹ Settings</button>
-      <div class="settings-detail-title">Always Blocked</div>
-      <div class="settings-detail-sub" style="font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;">Apps and sites that are never usable, regardless of budget. Hard block. Use for things you've decided you don't want at all.</div>
-      <div class="settings-card" style="padding:16px;">
-        <div style="display:flex;gap:8px;margin-bottom:14px;">
-          <input id="always-blocked-add-input" type="text" placeholder="e.g. pornhub.com"
-                 style="flex:1;padding:8px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--border-default);border-radius:6px;color:var(--text-primary);font-size:13px;">
-          <button class="btn-small" onclick="addAlwaysBlockedEntry()">+ Add</button>
-        </div>
-        <div id="always-blocked-list" style="display:flex;flex-direction:column;gap:6px;">
-          <div style="color:rgba(255,255,255,0.4);font-size:12px;">Loading…</div>
-        </div>
-      </div>
-    </div>
+    <!-- R6 (2026-06-11): Distractions / Distraction Budget / Always Allowed /
+         Always Blocked detail pages removed — the Rules page owns all of it
+         (entries migrated to 🚫/✅ rules by RulesMigration). -->
 
     <!-- Detail: Bedtime -->
     <div class="settings-detail" id="settings-detail-bedtime">
@@ -6103,10 +5780,9 @@ body.theme-effects-warm::after {
       </select>
     </details>
 
-    <details class="ns-modal-section">
-      <summary>Auto-activate blocks</summary>
-      <div id="ns-block-checkboxes"><div style="color:rgba(255,255,255,0.4);font-size:12px;">No blocks configured yet.</div></div>
-    </details>
+    <!-- R6: "Auto-activate blocks" section removed — its wire param was
+         accepted-but-dropped on the Swift side, and block rules are now
+         Rules-page 🚫 rules that enforce on their own schedule. -->
 
     <!-- Calm-Down D3: per-session "AI scoring" toggle removed — scoring is the
          engine, not a setting. ai_scoring_enabled is always sent true. -->
@@ -6329,14 +6005,9 @@ function showSettingsDetail(id) {
   var el = document.getElementById('settings-detail-' + id);
   if (el) el.classList.add('active');
   window._currentSettingsSub = id;
-  // Slice 5/6 followup: pull list contents on detail open
-  if (id === 'distractions') {
-    sendMessage({ type: 'GET_DISTRACTIONS' });
-  } else if (id === 'always-blocked') {
-    sendMessage({ type: 'GET_ALWAYS_BLOCKED' });
-  } else if (id === 'budget') {
-    sendMessage({ type: 'GET_BUDGET_STATE' });
-  } else if (id === 'enforcement') {
+  // (R6: distractions / always-blocked / budget fetch branches removed with
+  // their Settings pages — the Rules page owns those concepts now.)
+  if (id === 'enforcement') {
     // Strictness dial (Calm-Down D2): render from cache immediately, then
     // refresh from Swift so the dial + Advanced grid reflect stored state.
     if (typeof renderStrictnessDial === 'function') renderStrictnessDial();
@@ -6626,137 +6297,8 @@ window.closeSettingsSub = function() {
   window._currentSettingsSub = null;
 };
 
-// ===== App Taxonomy (Slice 5 of 2026-05-05 redesign) =====
-
-window._appListResult = function(payload) {
-  var kind = payload && payload.kind;
-  var apps = (payload && payload.apps) || [];
-  // Cache the global distractions count so Focus Mode cards can show how many
-  // global rules apply during ANY session (the user's confusion: "youtube isn't
-  // in this Focus Mode's list, why is it blocked?" — answer: it's a global
-  // distraction, blocked during any work session).
-  if (kind === 'distractions') {
-    distractionsCache = apps.slice();
-    if (typeof ProjectsController !== 'undefined' && ProjectsController.refresh) {
-      try { ProjectsController.refresh(); } catch (e) {}
-    }
-  }
-  var listEl = document.getElementById(kind === 'distractions' ? 'distractions-list' : 'always-blocked-list');
-  if (!listEl) return;
-  if (apps.length === 0) {
-    listEl.innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:12px;padding:8px;">Empty. Add an app or domain above.</div>';
-    return;
-  }
-  var msgType = kind === 'distractions' ? 'REMOVE_DISTRACTION' : 'REMOVE_ALWAYS_BLOCKED';
-  listEl.innerHTML = apps.map(function(id) {
-    var safe = id.replace(/'/g, "\\'");
-    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid var(--border-default);border-radius:6px;font-size:13px;">' +
-      '<span>' + escapeHtml(id) + '</span>' +
-      '<button class="btn-small" onclick="sendMessage({type:\'' + msgType + '\',app_identifier:\'' + safe + '\'})" style="background:transparent;color:rgba(255,255,255,0.4);border:none;cursor:pointer;font-size:14px;padding:2px 8px;">×</button>' +
-    '</div>';
-  }).join('');
-};
-
-function addDistractionEntry() {
-  var inputEl = document.getElementById('distractions-add-input');
-  var v = (inputEl && inputEl.value || '').trim();
-  if (!v) return;
-  sendMessage({ type: 'ADD_DISTRACTION', app_identifier: v });
-  inputEl.value = '';
-}
-
-function addAlwaysBlockedEntry() {
-  var inputEl = document.getElementById('always-blocked-add-input');
-  var v = (inputEl && inputEl.value || '').trim();
-  if (!v) return;
-  sendMessage({ type: 'ADD_ALWAYS_BLOCKED', app_identifier: v });
-  inputEl.value = '';
-}
-
-// ===== Always Allowed list (Stage 2 close-the-noise sweep) =====
-// Mirrors the Always Blocked UI pattern but inverted semantics: these apps + sites
-// are SPARED from the sweep at session-start regardless of session scope.
-
-window._alwaysAllowedState = { bundleIds: [], domains: [] };
-
-window._alwaysAllowedResult = function(data) {
-  if (!data || typeof data !== 'object') return;
-  window._alwaysAllowedState.bundleIds = data.bundleIds || [];
-  window._alwaysAllowedState.domains = data.domains || [];
-  renderAlwaysAllowed();
-};
-
-function renderAlwaysAllowed() {
-  var appsEl = document.getElementById('always-allowed-apps-list');
-  var domainsEl = document.getElementById('always-allowed-domains-list');
-  if (!appsEl || !domainsEl) return;
-  var s = window._alwaysAllowedState;
-  appsEl.innerHTML = s.bundleIds.length === 0
-    ? '<div style="color:rgba(255,255,255,0.4);font-size:12px;">(empty)</div>'
-    : s.bundleIds.map(function(b) {
-        return '<div class="setting-row" style="padding:6px 10px;background:rgba(255,255,255,0.03);border-radius:6px;font-size:12.5px;">' +
-          '<span style="flex:1;font-family:monospace;">' + b + '</span>' +
-          '<button onclick="removeAlwaysAllowedApp(\'' + b + '\')" class="btn-small" style="font-size:10.5px;">Remove</button>' +
-          '</div>';
-      }).join('');
-  domainsEl.innerHTML = s.domains.length === 0
-    ? '<div style="color:rgba(255,255,255,0.4);font-size:12px;">(empty)</div>'
-    : s.domains.map(function(d) {
-        return '<div class="setting-row" style="padding:6px 10px;background:rgba(255,255,255,0.03);border-radius:6px;font-size:12.5px;">' +
-          '<span style="flex:1;font-family:monospace;">' + d + '</span>' +
-          '<button onclick="removeAlwaysAllowedDomain(\'' + d + '\')" class="btn-small" style="font-size:10.5px;">Remove</button>' +
-          '</div>';
-      }).join('');
-}
-
-function addAlwaysAllowedApp() {
-  var input = document.getElementById('always-allowed-app-input');
-  var v = (input && input.value || '').trim();
-  if (!v) return;
-  if (window._alwaysAllowedState.bundleIds.indexOf(v) < 0) {
-    window._alwaysAllowedState.bundleIds.push(v);
-    window._alwaysAllowedState.bundleIds.sort();
-    persistAlwaysAllowed();
-  }
-  if (input) input.value = '';
-}
-
-function removeAlwaysAllowedApp(bid) {
-  window._alwaysAllowedState.bundleIds = window._alwaysAllowedState.bundleIds.filter(function(b) { return b !== bid; });
-  persistAlwaysAllowed();
-}
-
-function addAlwaysAllowedDomain() {
-  var input = document.getElementById('always-allowed-domain-input');
-  var v = (input && input.value || '').trim().toLowerCase();
-  if (!v) return;
-  if (window._alwaysAllowedState.domains.indexOf(v) < 0) {
-    window._alwaysAllowedState.domains.push(v);
-    window._alwaysAllowedState.domains.sort();
-    persistAlwaysAllowed();
-  }
-  if (input) input.value = '';
-}
-
-function removeAlwaysAllowedDomain(d) {
-  window._alwaysAllowedState.domains = window._alwaysAllowedState.domains.filter(function(x) { return x !== d; });
-  persistAlwaysAllowed();
-}
-
-function persistAlwaysAllowed() {
-  sendMessage({
-    type: 'SAVE_ALWAYS_ALLOWED',
-    bundleIds: window._alwaysAllowedState.bundleIds,
-    domains:   window._alwaysAllowedState.domains
-  });
-  renderAlwaysAllowed();
-  if (typeof showToast === 'function') showToast('Always Allowed updated');
-}
-
-window.addAlwaysAllowedApp = addAlwaysAllowedApp;
-window.removeAlwaysAllowedApp = removeAlwaysAllowedApp;
-window.addAlwaysAllowedDomain = addAlwaysAllowedDomain;
-window.removeAlwaysAllowedDomain = removeAlwaysAllowedDomain;
+// App Taxonomy + Always Allowed settings JS removed (R6, 2026-06-11) —
+// the Rules page owns these concepts; entries migrated by RulesMigration.
 
 // ===== Close-the-noise sweep toast (Stage 2 of Deep Work Protocol) =====
 // 30s undo banner with [View stash] + [Restore everything]. Fires from
@@ -6801,46 +6343,9 @@ function viewStash(sessionId) {
 
 window.viewStash = viewStash;
 
-// ===== Distraction Budget config (Slice 3/6 of 2026-05-05 redesign) =====
+// Distraction Budget config JS removed (R6) — superseded by the Rules
+// page allowance card (GET_ALLOWANCE / UPDATE_ALLOWANCE_CONFIG).
 
-var _budgetDirty = false;
-
-window._budgetState = function(state) {
-  if (!state) return;
-  var baselineEl = document.getElementById('budget-baseline-input');
-  var lockEl = document.getElementById('budget-lock-toggle');
-  var readoutEl = document.getElementById('budget-state-readout');
-  if (baselineEl && !_budgetDirty) baselineEl.value = state.baseline_minutes;
-  if (lockEl && !_budgetDirty) lockEl.checked = !!state.is_locked;
-  if (readoutEl) {
-    var earned = Math.round(state.earned_minutes || 0);
-    var consumed = Math.round(state.consumed_minutes || 0);
-    var available = Math.round(state.available_minutes || 0);
-    readoutEl.innerHTML =
-      '<div><strong>' + available + ' min</strong> available today</div>' +
-      '<div style="margin-top:4px;">Baseline: ' + state.baseline_minutes + ' · Earned: ' + earned + ' · Used: ' + consumed + '</div>';
-  }
-  var saveBtn = document.getElementById('budget-save-btn');
-  if (saveBtn) saveBtn.disabled = !_budgetDirty;
-};
-
-function markBudgetDirty() {
-  _budgetDirty = true;
-  var saveBtn = document.getElementById('budget-save-btn');
-  if (saveBtn) saveBtn.disabled = false;
-}
-
-function saveBudgetConfig() {
-  var baselineEl = document.getElementById('budget-baseline-input');
-  var lockEl = document.getElementById('budget-lock-toggle');
-  var baseline = parseInt(baselineEl && baselineEl.value, 10);
-  if (isNaN(baseline) || baseline < 0) baseline = 60;
-  var locked = !!(lockEl && lockEl.checked);
-  sendMessage({ type: 'SET_BUDGET_CONFIG', baseline_minutes: baseline, is_locked: locked });
-  _budgetDirty = false;
-  var saveBtn = document.getElementById('budget-save-btn');
-  if (saveBtn) saveBtn.disabled = true;
-}
 function hideSettingsDetail() {
   document.getElementById('settings-menu').style.display = '';
   document.querySelectorAll('.settings-detail').forEach(function(d) { d.classList.remove('active'); });
@@ -7082,9 +6587,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Set up lock interceptors on toggle checkboxes
   setupLockInterceptors();
-
-  // Initialize extra time request flow
-  initExtraTimeFlow();
 
   // S4 (2026-06-10): renderInterventionToggles() call removed with the
   // Focus Mode settings page.
@@ -9177,10 +8679,8 @@ window._dashboardDataResult = function(data) {
     }
   });
 
-  // Update earned browse state from dashboard data
-  if (data.earnedBrowse) {
-    window._earnedStatusResult(data.earnedBrowse);
-  }
+  // (R6: earnedBrowse key still arrives (empty) from older Swift builds —
+  // its widget + receiver are deleted, so it's ignored.)
 };
 
 // ===== Account Auth =====
@@ -9368,11 +8868,6 @@ var focusState = {
 // the intentions list with strictness + pending change + budget fields.
 var intentionsCache = [];
 
-// Slice 5 follow-up: cache the global distractions list count so Focus Mode
-// cards can show "N distractions + M mode-specific". Populated from
-// `_appListResult` (kind === 'distractions') and refreshed on demand.
-var distractionsCache = [];
-
 window._intentionsList = function(items) {
   intentionsCache = Array.isArray(items) ? items : [];
   // If the block editor is open, refresh its dropdown
@@ -9386,510 +8881,44 @@ window._intentionsList = function(items) {
   }
 };
 
-// FIX-1 + FIX-6: Block rules (renamed from Blocking Profiles in UI) drive both
-// the Today→Blocks list and the sidebar "N blocking" pill. Cache populated by
-// the new `_blockingProfilesList` receiver below.
-window._blockRulesCache = window._blockRulesCache || [];
-window._activeBlockCount = window._activeBlockCount || 0;
-
-function isRuleCurrentlyActive(r) {
-  if (!r || r.enabled === false) return false;
-  // Backend already computes this; trust it when present.
-  if (typeof r.is_currently_active === 'boolean') return r.is_currently_active;
-  // No schedule = always-active rule.
-  if (r.start_hour == null || r.end_hour == null) return true;
+// R6 (2026-06-11): the Today "Blocks" sub-tab + BlockingProfile cards are
+// gone — the Rules page owns all blocking. The sidebar pill now counts
+// schedule-active 🚫/⏳ rules from the rules cache (window._rulesCache,
+// hydrated by GET_RULES on load + the _rulesList receiver).
+function _ruleScheduleActiveNow(s) {
+  if (!s || !s.start || !s.end) return true;   // no schedule = always in effect
+  var days = (s.days && s.days.length) ? s.days : [1, 2, 3, 4, 5, 6, 7];
   var now = new Date();
-  var day = (now.getDay() || 7);  // JS Sun=0..Sat=6 -> ISO 1..7 (Mon=1..Sun=7)
-  if (day === 0) day = 7;
-  var activeDays = r.active_days || [1,2,3,4,5,6,7];
-  if (activeDays.indexOf(day) === -1) return false;
-  var nowMin = now.getHours() * 60 + now.getMinutes();
-  var startMin = (r.start_hour || 0) * 60 + (r.start_minute || 0);
-  var endMin = (r.end_hour || 0) * 60 + (r.end_minute || 0);
-  return nowMin >= startMin && nowMin < endMin;
-}
-window.isRuleCurrentlyActive = isRuleCurrentlyActive;
-
-function formatRuleSchedule(r) {
-  if (!r || r.start_hour == null || r.end_hour == null) return 'Always active';
-  var dayLbls = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  var days = (r.active_days || [1,2,3,4,5,6,7]);
-  var allWeekdays = days.length === 5 && days.every(function(d){ return d >= 1 && d <= 5; });
-  var dayStr = days.length === 7 ? 'Daily' : (allWeekdays ? 'Weekdays' : days.map(function(d){ return dayLbls[d-1]; }).join('/'));
-  function fmt(h, m) {
-    var period = h >= 12 ? 'p' : 'a';
-    var dh = ((h + 11) % 12) + 1;
-    return dh + (m ? ':' + String(m).padStart(2,'0') : '') + period;
+  var day = now.getDay(); if (day === 0) day = 7;   // JS Sun=0 → ISO 7
+  if (days.indexOf(day) === -1) return false;
+  function mins(hhmm) {
+    var parts = String(hhmm).split(':');
+    return (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
   }
-  return dayStr + ' · ' + fmt(r.start_hour, r.start_minute) + '–' + fmt(r.end_hour, r.end_minute);
+  var nowMin = now.getHours() * 60 + now.getMinutes();
+  return nowMin >= mins(s.start) && nowMin < mins(s.end);
 }
-window.formatRuleSchedule = formatRuleSchedule;
+window._ruleScheduleActiveNow = _ruleScheduleActiveNow;
 
 function refreshSidebarBlockingPill() {
-  var rules = window._blockRulesCache || [];
-  var activeCount = rules.filter(function(r){ return isRuleCurrentlyActive(r); }).length;
-  window._activeBlockCount = activeCount;
+  var rules = window._rulesCache || [];
+  var activeCount = rules.filter(function (r) {
+    return r && r.enabled !== false &&
+      (r.treatment === 'blocked' || r.treatment === 'limited') &&
+      _ruleScheduleActiveNow(r.schedule);
+  }).length;
   var el = document.getElementById('sb-blocking');
   var lbl = document.getElementById('sb-blocking-label');
   if (!el || !lbl) return;
   if (activeCount === 0) {
     el.classList.add('empty');
-    lbl.textContent = 'Nothing blocking';
+    lbl.textContent = 'No rules blocking';
   } else {
     el.classList.remove('empty');
-    lbl.textContent = activeCount + ' blocking';
+    lbl.textContent = activeCount + ' rule' + (activeCount === 1 ? '' : 's') + ' blocking';
   }
 }
 window.refreshSidebarBlockingPill = refreshSidebarBlockingPill;
-
-// FIX-1: Receiver wired to MainWindow.handleGetBlockingProfiles' new
-// snake_case emit. Keeps the legacy `onBlockingProfiles` receiver alive too
-// (separate JSON shipment from the Swift side).
-window._blockingProfilesList = function(items) {
-  window._blockRulesCache = Array.isArray(items) ? items : [];
-  renderBlocksList();
-  refreshSidebarBlockingPill();
-};
-
-function _ruleWindowEndDate(r) {
-  // Compute today's window-end Date for the active-now display.
-  // For always-active rules, return end of day.
-  var now = new Date();
-  if (r.end_hour == null) {
-    var endOfDay = new Date(now);
-    endOfDay.setHours(23, 59, 59, 999);
-    return endOfDay;
-  }
-  var endMin = r.end_minute || 0;
-  var d = new Date(now);
-  d.setHours(r.end_hour, endMin, 0, 0);
-  return d;
-}
-
-function _formatRemaining(msRemaining) {
-  if (msRemaining <= 0) return '0m';
-  var totalMin = Math.floor(msRemaining / 60000);
-  if (totalMin < 60) return totalMin + 'm';
-  var hrs = Math.floor(totalMin / 60);
-  var mins = totalMin % 60;
-  return hrs + 'h ' + (mins ? mins + 'm' : '0m');
-}
-
-function renderBlocksList() {
-  var mount = document.getElementById('blocks-list-mount');
-  if (!mount) return;
-  var rules = window._blockRulesCache || [];
-  // "active" means enabled + in-window + not snoozed (per backend is_currently_active)
-  var active = rules.filter(function(r){ return r.is_currently_active === true; }).length;
-  var countEl = document.getElementById('blocks-count');
-  if (countEl) countEl.textContent = '· ' + active + ' active · ' + rules.length + ' total';
-  if (rules.length === 0) {
-    mount.innerHTML = '<div class="blocks-empty-card">No blocks yet. <span class="link" onclick="openBlockRuleCreate()">+ Create your first block</span></div>';
-    return;
-  }
-  var now = new Date();
-  mount.innerHTML = rules.map(function(r) {
-    var sites = (r.websites || []).slice(0,4).join(', ');
-    var appsCount = (r.bundle_ids || []).length;
-    var scheduleStr = formatRuleSchedule(r);
-    var snoozed = r.is_snoozed === true;
-    var inWindow = (r.is_in_window === true) || (r.is_in_window == null && isRuleCurrentlyActive(r));
-    var activeNow = (r.is_currently_active === true);
-    var pill;
-    if (snoozed) {
-      pill = '<span class="block-pill snoozed">SNOOZED</span>';
-    } else if (activeNow) {
-      pill = '<span class="block-pill active">ACTIVE</span>';
-    } else if (r.enabled === false) {
-      pill = '<span class="block-pill off">OFF</span>';
-    } else {
-      pill = '<span class="block-pill upcoming">UPCOMING</span>';
-    }
-    var toggleClass = r.enabled !== false ? 'on' : '';
-    var nextEnabled = r.enabled === false ? 'true' : 'false';
-    var listLine = '';
-    if (sites || appsCount > 0) {
-      listLine = '<div class="block-card-list">Blocking: ' + _escapeHTML(sites) + (appsCount > 0 ? (sites ? ' · ' : '') + appsCount + ' apps' : '') + '</div>';
-    }
-
-    // Countdown + snooze controls on ACTIVE cards
-    var actionsLine = '';
-    if (activeNow) {
-      var endDate = _ruleWindowEndDate(r);
-      var remaining = endDate.getTime() - now.getTime();
-      var remainTxt = _formatRemaining(remaining);
-      actionsLine =
-        '<div class="block-card-actions">' +
-          '<span class="block-card-remaining" data-rule-id="' + r.id + '" data-end-iso="' + endDate.toISOString() + '">' +
-            'Ends in ' + _escapeHTML(remainTxt) +
-          '</span>' +
-          '<button class="block-card-snooze" onclick="event.stopPropagation(); snoozeBlockRule(\'' + r.id + '\')" title="Pause for the rest of today\'s window">Snooze for today</button>' +
-        '</div>';
-    } else if (snoozed) {
-      var until = r.snoozed_until ? new Date(r.snoozed_until) : null;
-      var untilTxt = '';
-      if (until && !isNaN(until.getTime())) {
-        var hh = until.getHours();
-        var mm = until.getMinutes();
-        var period = hh >= 12 ? 'p' : 'a';
-        var dh = ((hh + 11) % 12) + 1;
-        untilTxt = ' until ' + dh + ':' + String(mm).padStart(2,'0') + period;
-      }
-      actionsLine =
-        '<div class="block-card-actions">' +
-          '<span class="block-card-remaining">Snoozed' + _escapeHTML(untilTxt) + '</span>' +
-          '<button class="block-card-snooze" onclick="event.stopPropagation(); unsnoozeBlockRule(\'' + r.id + '\')">Resume now</button>' +
-        '</div>';
-    }
-
-    return '<div class="block-card' + (activeNow ? ' active' : '') + (snoozed ? ' snoozed' : '') + '" onclick="openBlockRuleEdit(\'' + r.id + '\')">'
-      + '<div class="block-card-head">'
-      +   '<div class="block-card-title">' + _escapeHTML(r.name) + ' ' + pill + '</div>'
-      +   '<div class="block-toggle ' + toggleClass + '"'
-      +     ' onclick="event.stopPropagation(); toggleBlockRule(\'' + r.id + '\', ' + nextEnabled + ')"></div>'
-      + '</div>'
-      + '<div class="block-card-sched">' + _escapeHTML(scheduleStr) + '</div>'
-      + listLine
-      + actionsLine
-      + '</div>';
-  }).join('');
-}
-window.renderBlocksList = renderBlocksList;
-
-function snoozeBlockRule(id) {
-  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
-    window.webkit.messageHandlers.intentional.postMessage({ type: 'SNOOZE_BLOCK_RULE', id: id });
-  }
-}
-window.snoozeBlockRule = snoozeBlockRule;
-
-function unsnoozeBlockRule(id) {
-  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
-    window.webkit.messageHandlers.intentional.postMessage({ type: 'UNSNOOZE_BLOCK_RULE', id: id });
-  }
-}
-window.unsnoozeBlockRule = unsnoozeBlockRule;
-
-// Light-weight 30s tick that only updates the visible "Ends in X" text — no DOM re-render
-// (otherwise the user can never read the countdown).
-window._blockCountdownTick = window._blockCountdownTick || setInterval(function() {
-  var nodes = document.querySelectorAll('.block-card-remaining[data-end-iso]');
-  if (!nodes.length) return;
-  var now = Date.now();
-  nodes.forEach(function(el) {
-    var iso = el.getAttribute('data-end-iso');
-    if (!iso) return;
-    var endMs = new Date(iso).getTime();
-    if (isNaN(endMs)) return;
-    el.textContent = 'Ends in ' + _formatRemaining(endMs - now);
-  });
-}, 30000);
-
-function toggleBlockRule(id, enabled) {
-  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
-    window.webkit.messageHandlers.intentional.postMessage({ type: 'TOGGLE_BLOCK_RULE', id: id, enabled: !!enabled });
-  }
-  // Optimistic update — Swift will re-broadcast and reconcile.
-  var r = (window._blockRulesCache || []).find(function(x){ return x.id === id; });
-  if (r) r.enabled = !!enabled;
-  renderBlocksList();
-  refreshSidebarBlockingPill();
-}
-window.toggleBlockRule = toggleBlockRule;
-
-function _refreshBlockRules() {
-  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
-    window.webkit.messageHandlers.intentional.postMessage({ type: 'GET_BLOCKING_PROFILES' });
-  }
-}
-
-// ===== Block-rule modal (replaces prompt() chain — WKWebView blocks window.prompt) =====
-var _blockRuleDraft = null;  // { id?, name, websites:[], bundle_ids:[], enabled, alwaysActive, startHour, startMinute, endHour, endMinute, activeDays:[] }
-var _blockRuleAppNames = {}; // bundleId → friendly name, hydrated from installedAppsCache
-
-function _hydrateAppNames() {
-  var apps = (typeof installedAppsCache !== 'undefined' && installedAppsCache) ? installedAppsCache : [];
-  apps.forEach(function(a) { _blockRuleAppNames[a.bundleId] = a.name; });
-}
-
-function openBlockRuleCreate() {
-  _blockRuleDraft = {
-    id: null,
-    name: '',
-    websites: [],
-    bundle_ids: [],
-    enabled: true,
-    alwaysActive: true,
-    startHour: 9, startMinute: 0,
-    endHour: 17, endMinute: 0,
-    activeDays: [1,2,3,4,5]
-  };
-  _showBlockRuleModal('New block');
-}
-window.openBlockRuleCreate = openBlockRuleCreate;
-
-function openBlockRuleEdit(id) {
-  var r = (window._blockRulesCache || []).find(function(x){ return x.id === id; });
-  if (!r) return;
-  var hasSchedule = (r.start_hour != null && r.end_hour != null);
-  _blockRuleDraft = {
-    id: r.id,
-    name: r.name || '',
-    websites: (r.websites || []).slice(),
-    bundle_ids: (r.bundle_ids || []).slice(),
-    enabled: r.enabled !== false,
-    alwaysActive: !hasSchedule,
-    startHour: r.start_hour != null ? r.start_hour : 9,
-    startMinute: r.start_minute || 0,
-    endHour: r.end_hour != null ? r.end_hour : 17,
-    endMinute: r.end_minute || 0,
-    activeDays: (r.active_days && r.active_days.length) ? r.active_days.slice() : [1,2,3,4,5]
-  };
-  _showBlockRuleModal('Edit block');
-}
-window.openBlockRuleEdit = openBlockRuleEdit;
-
-function _showBlockRuleModal(titleText) {
-  _hydrateAppNames();
-  var d = _blockRuleDraft;
-  var existing = document.getElementById('br-modal-overlay');
-  if (existing) existing.parentNode.removeChild(existing);
-
-  // Sites + apps lists
-  var sitesText = (d.websites || []).join('\n');
-  var appsHtml = (d.bundle_ids || []).map(function(bid) {
-    var nm = _blockRuleAppNames[bid] || bid;
-    return '<div class="br-app-row" data-bid="' + _escapeHTML(bid) + '">' +
-             '<span class="br-app-name">' + _escapeHTML(nm) + '</span>' +
-             '<button class="br-app-remove" onclick="_removeBlockRuleApp(\'' + _escapeHTML(bid) + '\')" title="Remove">&times;</button>' +
-           '</div>';
-  }).join('');
-  if (!appsHtml) appsHtml = '<div class="br-empty">No apps yet.</div>';
-
-  // Day chips
-  var dayLabels = ['M','T','W','T','F','S','S'];
-  var dayChips = dayLabels.map(function(lbl, i) {
-    var iso = i + 1;
-    var on = (d.activeDays || []).indexOf(iso) !== -1;
-    return '<button type="button" class="br-day-chip' + (on ? ' on' : '') + '" data-day="' + iso + '" onclick="_toggleBlockRuleDay(' + iso + ')">' + lbl + '</button>';
-  }).join('');
-
-  var html =
-    '<div id="br-modal-overlay" class="ns-modal-overlay">' +
-      '<div class="ns-modal-card" style="min-width:520px; max-width:600px;">' +
-        '<div class="ns-modal-title">' + _escapeHTML(titleText) + '</div>' +
-
-        '<div class="ns-modal-field"><label>Name</label>' +
-          '<input type="text" class="ns-modal-input" id="br-name" value="' + _escapeHTML(d.name) + '" placeholder="e.g. Block social media" autofocus></div>' +
-
-        '<div class="ns-modal-field"><label>Sites to block (one per line)</label>' +
-          '<textarea class="ns-modal-input textarea" id="br-sites" placeholder="instagram.com\ntiktok.com\nreddit.com" style="min-height:88px;">' + _escapeHTML(sitesText) + '</textarea>' +
-        '</div>' +
-
-        '<div class="ns-modal-field"><label>Apps to block</label>' +
-          '<div id="br-apps-list">' + appsHtml + '</div>' +
-          '<button class="br-add-app-btn" onclick="_openBlockRuleAppPicker()">+ Add app</button>' +
-        '</div>' +
-
-        '<div class="ns-modal-field"><label>Quick add by category</label>' +
-          '<div class="br-cat-row">' +
-            '<button type="button" class="br-cat-chip" onclick="_addBlockCategory(\'social\')">Social</button>' +
-            '<button type="button" class="br-cat-chip" onclick="_addBlockCategory(\'games\')">Games</button>' +
-            '<button type="button" class="br-cat-chip" onclick="_addBlockCategory(\'news\')">News</button>' +
-            '<button type="button" class="br-cat-chip" onclick="_addBlockCategory(\'streaming\')">Streaming</button>' +
-            '<button type="button" class="br-cat-chip" onclick="_addBlockCategory(\'shopping\')">Shopping</button>' +
-          '</div>' +
-        '</div>' +
-
-        '<div class="ns-modal-field"><label>Schedule</label>' +
-          '<label class="ns-modal-toggle-row">' +
-            '<input type="checkbox" id="br-always" ' + (d.alwaysActive ? 'checked' : '') + ' onchange="_toggleBlockRuleAlwaysActive(this.checked)"> ' +
-            'Always active' +
-          '</label>' +
-          '<div id="br-schedule-detail" style="margin-top:8px;' + (d.alwaysActive ? 'display:none;' : '') + '">' +
-            '<div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">' +
-              '<span style="font-size:12px; color:var(--text-tertiary);">From</span>' +
-              '<input type="number" min="0" max="23" class="ns-modal-input" style="width:64px;" id="br-start-h" value="' + d.startHour + '"> :' +
-              '<input type="number" min="0" max="59" class="ns-modal-input" style="width:64px;" id="br-start-m" value="' + d.startMinute + '">' +
-              '<span style="font-size:12px; color:var(--text-tertiary); margin-left:8px;">to</span>' +
-              '<input type="number" min="0" max="23" class="ns-modal-input" style="width:64px;" id="br-end-h" value="' + d.endHour + '"> :' +
-              '<input type="number" min="0" max="59" class="ns-modal-input" style="width:64px;" id="br-end-m" value="' + d.endMinute + '">' +
-            '</div>' +
-            '<div style="font-size:11px; color:var(--text-tertiary); margin-bottom:4px;">Active days:</div>' +
-            '<div id="br-day-chips" style="display:flex; gap:6px;">' + dayChips + '</div>' +
-          '</div>' +
-        '</div>' +
-
-        '<div class="ns-modal-footer">' +
-          (d.id ? '<button class="ge-delete-link" style="margin-right:auto;" onclick="_deleteBlockRuleFromModal()">Delete</button>' : '') +
-          '<button class="btn-quiet" onclick="_closeBlockRuleModal()">Cancel</button>' +
-          '<button class="ge-done-btn" onclick="_saveBlockRuleFromModal()">' + (d.id ? 'Save' : 'Create') + '</button>' +
-        '</div>' +
-      '</div>' +
-    '</div>';
-  document.body.insertAdjacentHTML('beforeend', html);
-  setTimeout(function() { var el = document.getElementById('br-name'); if (el) el.focus(); }, 50);
-}
-
-function _closeBlockRuleModal() {
-  var overlay = document.getElementById('br-modal-overlay');
-  if (overlay) overlay.parentNode.removeChild(overlay);
-  _blockRuleDraft = null;
-}
-window._closeBlockRuleModal = _closeBlockRuleModal;
-
-function _toggleBlockRuleAlwaysActive(checked) {
-  if (!_blockRuleDraft) return;
-  _blockRuleDraft.alwaysActive = !!checked;
-  var detail = document.getElementById('br-schedule-detail');
-  if (detail) detail.style.display = checked ? 'none' : '';
-}
-window._toggleBlockRuleAlwaysActive = _toggleBlockRuleAlwaysActive;
-
-function _toggleBlockRuleDay(iso) {
-  if (!_blockRuleDraft) return;
-  var days = _blockRuleDraft.activeDays || [];
-  var idx = days.indexOf(iso);
-  if (idx >= 0) days.splice(idx, 1); else days.push(iso);
-  days.sort();
-  _blockRuleDraft.activeDays = days;
-  document.querySelectorAll('#br-day-chips .br-day-chip').forEach(function(el){
-    var d = parseInt(el.getAttribute('data-day'), 10);
-    el.classList.toggle('on', days.indexOf(d) !== -1);
-  });
-}
-window._toggleBlockRuleDay = _toggleBlockRuleDay;
-
-function _openBlockRuleAppPicker() {
-  // Reuse existing app picker
-  appPickerContext = {
-    onPick: function(app) {
-      if (!_blockRuleDraft) return;
-      if ((_blockRuleDraft.bundle_ids || []).indexOf(app.bundleId) === -1) {
-        _blockRuleDraft.bundle_ids.push(app.bundleId);
-        _blockRuleAppNames[app.bundleId] = app.name;
-      }
-      hideAppPicker();
-      // Re-render the modal apps list inline
-      _refreshBlockRuleAppsList();
-    },
-    getAddedIds: function() { return (_blockRuleDraft && _blockRuleDraft.bundle_ids) || []; }
-  };
-  showAppPicker('Add app to block');
-}
-window._openBlockRuleAppPicker = _openBlockRuleAppPicker;
-
-function _refreshBlockRuleAppsList() {
-  var listEl = document.getElementById('br-apps-list');
-  if (!listEl || !_blockRuleDraft) return;
-  var bids = _blockRuleDraft.bundle_ids || [];
-  if (!bids.length) { listEl.innerHTML = '<div class="br-empty">No apps yet.</div>'; return; }
-  listEl.innerHTML = bids.map(function(bid){
-    var nm = _blockRuleAppNames[bid] || bid;
-    return '<div class="br-app-row" data-bid="' + _escapeHTML(bid) + '">' +
-             '<span class="br-app-name">' + _escapeHTML(nm) + '</span>' +
-             '<button class="br-app-remove" onclick="_removeBlockRuleApp(\'' + _escapeHTML(bid) + '\')" title="Remove">&times;</button>' +
-           '</div>';
-  }).join('');
-}
-
-function _removeBlockRuleApp(bid) {
-  if (!_blockRuleDraft) return;
-  _blockRuleDraft.bundle_ids = (_blockRuleDraft.bundle_ids || []).filter(function(x){ return x !== bid; });
-  _refreshBlockRuleAppsList();
-}
-window._removeBlockRuleApp = _removeBlockRuleApp;
-
-function _saveBlockRuleFromModal() {
-  if (!_blockRuleDraft) return;
-  var nameEl = document.getElementById('br-name');
-  var sitesEl = document.getElementById('br-sites');
-  var name = (nameEl ? nameEl.value : '').trim();
-  if (!name) { if (nameEl) nameEl.focus(); return; }
-  var sites = (sitesEl ? sitesEl.value : '').split(/[\n,]+/).map(function(s){ return s.trim(); }).filter(Boolean);
-  var d = _blockRuleDraft;
-  var startH = null, startM = 0, endH = null, endM = 0;
-  if (!d.alwaysActive) {
-    startH = parseInt(document.getElementById('br-start-h').value, 10);
-    startM = parseInt(document.getElementById('br-start-m').value, 10) || 0;
-    endH = parseInt(document.getElementById('br-end-h').value, 10);
-    endM = parseInt(document.getElementById('br-end-m').value, 10) || 0;
-    if (isNaN(startH)) startH = null;
-    if (isNaN(endH)) endH = null;
-  }
-  var payload = {
-    name: name,
-    websites: sites,
-    bundle_ids: d.bundle_ids || [],
-    enabled: d.enabled !== false,
-    start_hour: startH,
-    start_minute: startM,
-    end_hour: endH,
-    end_minute: endM,
-    active_days: (d.activeDays && d.activeDays.length) ? d.activeDays : [1,2,3,4,5,6,7]
-  };
-  var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional;
-  if (bridge) {
-    if (d.id) {
-      payload.type = 'UPDATE_BLOCK_RULE';
-      payload.id = d.id;
-    } else {
-      payload.type = 'CREATE_BLOCK_RULE';
-    }
-    bridge.postMessage(payload);
-  }
-  _closeBlockRuleModal();
-  if (typeof showToast === 'function') showToast(d.id ? 'Block saved' : 'Block created');
-  // Belt-and-braces refresh — Swift also re-emits after create/update.
-  setTimeout(_refreshBlockRules, 600);
-}
-window._saveBlockRuleFromModal = _saveBlockRuleFromModal;
-
-function _deleteBlockRuleFromModal() {
-  if (!_blockRuleDraft || !_blockRuleDraft.id) return;
-  if (!confirm('Delete this block?')) return;
-  var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional;
-  if (bridge) {
-    bridge.postMessage({ type: 'DELETE_BLOCK_RULE', id: _blockRuleDraft.id });
-  }
-  _closeBlockRuleModal();
-  setTimeout(_refreshBlockRules, 400);
-}
-window._deleteBlockRuleFromModal = _deleteBlockRuleFromModal;
-
-// ===== Category presets (Phase 4 — Opal-parity quick-add) =====
-window._blockCategoryPresets = {
-  social: ['instagram.com','twitter.com','x.com','facebook.com','tiktok.com','reddit.com','snapchat.com','linkedin.com','threads.net'],
-  games: ['twitch.tv','steamcommunity.com','steampowered.com','epicgames.com','roblox.com','fortnite.com','chess.com','lichess.org'],
-  news: ['cnn.com','foxnews.com','nytimes.com','bbc.com','bbc.co.uk','reuters.com','washingtonpost.com','huffpost.com','wsj.com','news.ycombinator.com'],
-  streaming: ['youtube.com','netflix.com','hulu.com','primevideo.com','disneyplus.com','hbomax.com','max.com','spotify.com','soundcloud.com'],
-  shopping: ['amazon.com','ebay.com','etsy.com','walmart.com','target.com','bestbuy.com','aliexpress.com','wayfair.com']
-};
-
-function _addBlockCategory(cat) {
-  if (!_blockRuleDraft) return;
-  var preset = window._blockCategoryPresets[cat] || [];
-  if (!preset.length) return;
-  var existing = (_blockRuleDraft.websites || []).slice();
-  var existingLC = existing.map(function(s){ return s.toLowerCase(); });
-  preset.forEach(function(d) {
-    if (existingLC.indexOf(d.toLowerCase()) === -1) {
-      existing.push(d);
-      existingLC.push(d.toLowerCase());
-    }
-  });
-  _blockRuleDraft.websites = existing;
-  var sitesEl = document.getElementById('br-sites');
-  if (sitesEl) sitesEl.value = existing.join('\n');
-  // Auto-fill a sensible name if name is still blank
-  var nameEl = document.getElementById('br-name');
-  if (nameEl && !nameEl.value.trim()) {
-    var labels = { social: 'Block social media', games: 'Block games', news: 'Block news', streaming: 'Block streaming', shopping: 'Block shopping' };
-    nameEl.value = labels[cat] || ('Block ' + cat);
-  }
-  if (typeof showToast === 'function') showToast('Added ' + preset.length + ' sites from ' + cat);
-}
-window._addBlockCategory = _addBlockCategory;
 
 // =====================================================================
 // ===== Rules page (Rules Consolidation R3, June 2026) ================
@@ -9935,6 +8964,8 @@ window.loadRulesPage = loadRulesPage;
 window._rulesList = function (items) {
   window._rulesCache = Array.isArray(items) ? items : [];
   renderRulesPage();
+  // R6: the sidebar blocking pill is fed by rules now.
+  if (typeof refreshSidebarBlockingPill === 'function') refreshSidebarBlockingPill();
 };
 
 window._ruleCreated = function (res) {
@@ -10574,103 +9605,15 @@ function saveRulesAllowanceConfig() {
 }
 window.saveRulesAllowanceConfig = saveRulesAllowanceConfig;
 
-// ===== Block Now modal — pick duration, then start an immediate focus session =====
-function openBlockNowModal() {
-  var existing = document.getElementById('bn-modal-overlay');
-  if (existing) existing.parentNode.removeChild(existing);
-  var html =
-    '<div id="bn-modal-overlay" class="ns-modal-overlay">' +
-      '<div class="ns-modal-card" style="min-width:380px; max-width:440px;">' +
-        '<div class="ns-modal-title">Block Now</div>' +
-        '<div class="ns-modal-field" style="color:var(--text-tertiary); font-size:12.5px;">' +
-          'Starts a focus session immediately. Your active blocking rules + the session\'s blocklist will both apply.' +
-        '</div>' +
-        '<div class="ns-modal-field"><label>Duration</label>' +
-          '<div class="bn-duration-row">' +
-            '<button type="button" class="bn-dur-chip" onclick="_startBlockNow(15)">15 min</button>' +
-            '<button type="button" class="bn-dur-chip" onclick="_startBlockNow(30)">30 min</button>' +
-            '<button type="button" class="bn-dur-chip" onclick="_startBlockNow(60)">1 hour</button>' +
-            '<button type="button" class="bn-dur-chip" onclick="_startBlockNow(90)">90 min</button>' +
-            '<button type="button" class="bn-dur-chip" onclick="_startBlockNow(0)">Until I stop</button>' +
-          '</div>' +
-        '</div>' +
-        '<div class="ns-modal-footer">' +
-          '<button class="btn-quiet" onclick="_closeBlockNowModal()">Cancel</button>' +
-        '</div>' +
-      '</div>' +
-    '</div>';
-  document.body.insertAdjacentHTML('beforeend', html);
-}
-window.openBlockNowModal = openBlockNowModal;
+// R6 (2026-06-11): Block Now / Pomodoro quick actions + setTodayMode died
+// with the Blocks sub-tab. Sessions start from the schedule (+ Focus) or
+// the menubar; rules enforce on their own schedule from the Rules page.
 
-function _closeBlockNowModal() {
-  var overlay = document.getElementById('bn-modal-overlay');
-  if (overlay) overlay.parentNode.removeChild(overlay);
+// Pull rules on load so the sidebar pill is accurate immediately
+// (the _rulesList receiver re-renders the pill on every update).
+if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
+  window.webkit.messageHandlers.intentional.postMessage({ type: 'GET_RULES' });
 }
-window._closeBlockNowModal = _closeBlockNowModal;
-
-function _startBlockNow(minutes) {
-  _closeBlockNowModal();
-  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
-    window.webkit.messageHandlers.intentional.postMessage({ type: 'FOCUS_MODE_TOGGLE', on: true });
-  }
-  if (minutes > 0) {
-    // Schedule auto-stop. Persisted in window so a re-render preserves it; if the page
-    // reloads the timer dies but the user can still manually stop, and Focus Mode auto-
-    // expires server-side after 12h regardless.
-    if (window._blockNowAutoStopTimer) clearTimeout(window._blockNowAutoStopTimer);
-    window._blockNowAutoStopTimer = setTimeout(function() {
-      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
-        window.webkit.messageHandlers.intentional.postMessage({ type: 'FOCUS_MODE_TOGGLE', on: false });
-      }
-      if (typeof showToast === 'function') showToast('Block session complete');
-    }, minutes * 60 * 1000);
-    if (typeof showToast === 'function') showToast('Blocking for ' + minutes + ' min');
-  } else {
-    if (typeof showToast === 'function') showToast('Block session started — toggle Focus Mode to stop');
-  }
-}
-window._startBlockNow = _startBlockNow;
-
-function startPomodoro() {
-  _startBlockNow(25);
-}
-window.startPomodoro = startPomodoro;
-
-// FIX-1: Today mode toggle — swap Schedule view (default children of #page-today)
-// with the dedicated Blocks view. We mark the keep-visible siblings (mode bar + blocks view)
-// with `data-today-mode-keep` so the swap only hides the schedule content.
-function setTodayMode(mode) {
-  window._todayMode = mode;
-  var toggle = document.getElementById('today-mode-toggle');
-  if (toggle) {
-    toggle.querySelectorAll('.opt').forEach(function(o){
-      o.classList.toggle('active', o.dataset.mode === mode);
-    });
-  }
-  var page = document.getElementById('page-today');
-  if (!page) return;
-  var blocksView = document.getElementById('view-blocks-inner');
-  if (blocksView) blocksView.hidden = (mode !== 'blocks');
-  // Hide every direct child of page-today except the toggle bar + blocks view.
-  Array.prototype.forEach.call(page.children, function(child){
-    if (child.dataset && child.dataset.todayModeKeep === '1') return;
-    if (mode === 'blocks') {
-      if (child.dataset) child.dataset.todayHiddenByBlocks = '1';
-      child.style.display = 'none';
-    } else if (child.dataset && child.dataset.todayHiddenByBlocks === '1') {
-      delete child.dataset.todayHiddenByBlocks;
-      child.style.display = '';
-    }
-  });
-  if (mode === 'blocks') {
-    _refreshBlockRules();
-  }
-}
-window.setTodayMode = setTodayMode;
-
-// Pull block rules on load so the sidebar pill is accurate immediately.
-_refreshBlockRules();
 refreshSidebarBlockingPill();
 
 // May 2026 prototype port — Today weekly-goal cards strip.
@@ -11381,23 +10324,26 @@ function addRule(goalId, kind, type) {
   var val = inputEl ? (inputEl.value || '').trim() : '';
   if (!val) return;
 
-  // FIX-9: Heads-up if the user is adding something to the Allow list that's
-  // also covered by an enabled block rule. Globally-active block rules win
-  // during their window (requirements §17b.7), so this surface ensures the
-  // user knows their per-goal allowance won't override the block-rule clock.
+  // FIX-9 (rewired in R6): Heads-up if the user is adding something to the
+  // Allow list that's also covered by an enabled 🚫/⏳ rule. Globally-active
+  // rules win during their window (requirements §17b.7), so this surface
+  // ensures the user knows their per-goal allowance won't override the rule.
   if (kind === 'allow') {
-    var rules = window._blockRulesCache || [];
+    var rules = window._rulesCache || [];
     var lcVal = val.toLowerCase();
+    var wantKind = (type === 'site') ? 'site' : 'app';
     var conflicts = rules.filter(function(r) {
-      if (!r || r.enabled === false) return false;
-      var field = (type === 'site') ? 'websites' : 'bundle_ids';
-      return (r[field] || []).some(function(x){ return String(x).toLowerCase() === lcVal; });
+      return r && r.enabled !== false &&
+        (r.treatment === 'blocked' || r.treatment === 'limited') &&
+        r.target_kind === wantKind &&
+        String(r.target).toLowerCase() === lcVal;
     });
     if (conflicts.length > 0) {
-      var ruleName = conflicts[0].name || 'a block rule';
-      var schedStr = formatRuleSchedule(conflicts[0]);
-      var ok = confirm('Heads up — "' + val + '" is blocked by your "' + ruleName +
-        '" rule (' + schedStr + '). Adding it here won\'t override that during ' +
+      var chip = (typeof _formatRuleScheduleChip === 'function')
+        ? _formatRuleScheduleChip(conflicts[0].schedule) : null;
+      var treatmentLbl = conflicts[0].treatment === 'blocked' ? 'Blocked' : 'Limited';
+      var ok = confirm('Heads up — "' + val + '" has a ' + treatmentLbl + ' rule' +
+        (chip ? ' (' + chip + ')' : '') + '. Adding it here won\'t override that during ' +
         'the blocked window. Add anyway?');
       if (!ok) return;
     }
@@ -11634,7 +10580,6 @@ window._scheduleStateResult = function(data) {
   if (typeof window._planScheduleRefresh === 'function') window._planScheduleRefresh();
   updateDateNavUI();
   loadFocusScore();
-  loadEarnedStatus();
 
   // S2 (2026-06-10): AI model dropdown removed — Qwen3-4B is hardcoded.
   // (data.aiModel may still arrive from older builds; ignored.)
@@ -13635,286 +12580,8 @@ window._focusScoreResult = function(data) {
   }
 };
 
-// ---- Earned Browse ----
-
-function updateEarnedBrowseBar(earned, used, available, effectiveTime) {
-  var availPct = earned > 0 ? Math.min(100, (available / earned) * 100) : 0;
-  var usedPct = earned > 0 ? Math.min(100, (used / earned) * 100) : 0;
-
-  var barAvail = document.getElementById('eb4-bar-avail');
-  if (barAvail) barAvail.style.width = (earned > 0 ? availPct : 0) + '%';
-  var barUsed = document.getElementById('eb4-bar-used');
-  if (barUsed) barUsed.style.width = (earned > 0 ? usedPct : 0) + '%';
-  var availLabel = document.getElementById('eb4-avail-label');
-  if (availLabel) availLabel.textContent = Math.round(effectiveTime) + ' min available';
-  var usedLabel = document.getElementById('eb4-used-label');
-  if (usedLabel) usedLabel.textContent = Math.round(used) + ' min used';
-}
-
-function loadEarnedStatus() {
-  sendMessage({ type: 'GET_EARNED_STATUS' });
-}
-
-window._earnedStatusResult = function(data) {
-  var widget = document.getElementById('earned-browse-widget');
-  if (!widget) return;
-
-  var earned = data.earnedMinutes || 0;
-  var used = data.usedMinutes || 0;
-  var available = Math.max(0, data.availableMinutes || 0);
-  var effectiveTime = data.effectiveBrowseTime != null ? Math.max(0, data.effectiveBrowseTime) : available;
-
-  updateEarnedBrowseBar(earned, used, available, effectiveTime);
-
-  // Cost multiplier indicator
-  var costEl = document.getElementById('earned-cost-indicator');
-  if (costEl) {
-    if (data.isWorkBlock && data.costMultiplier > 1) {
-      costEl.textContent = data.costMultiplier + 'x cost active';
-      costEl.style.color = 'var(--color-warning)';
-    } else {
-      costEl.textContent = '';
-    }
-  }
-
-  // Deep work indicator
-  var deepEl = document.getElementById('earned-deep-work');
-  if (deepEl) deepEl.style.display = data.isDeepWork ? '' : 'none';
-
-  // Visit count
-  var visitsEl = document.getElementById('earned-visits');
-  if (visitsEl) {
-    visitsEl.textContent = data.visitCount > 0
-      ? data.visitCount + ' visit' + (data.visitCount > 1 ? 's' : '') + ' this block'
-      : '';
-  }
-
-  // Store block focus data for calendar ring rendering
-  if (data.blockFocusStats) {
-    data.blockFocusStats.forEach(function(b) {
-      blockFocusData[b.blockId] = b;
-    });
-    updateBlockRings();
-  }
-
-  // Extra time link: always show inline, disable when no partner
-  var extraSection = document.getElementById('earned-extra-time-section');
-  if (extraSection) {
-    extraSection.style.display = '';
-    var extraBtn = document.getElementById('earned-extra-time-btn');
-    extraSection.dataset.hasPartner = data.hasPartner ? '1' : '0';
-    extraSection.dataset.partnerName = data.partnerName || 'your partner';
-    if (extraBtn) {
-      extraBtn.textContent = 'Request Extra Time';
-      if (data.hasPartner) {
-        extraBtn.disabled = false;
-        extraBtn.style.opacity = '';
-        extraBtn.style.cursor = '';
-      } else {
-        extraBtn.disabled = false;
-        extraBtn.style.opacity = '0.5';
-        extraBtn.style.cursor = 'pointer';
-      }
-    }
-  }
-};
-
-// ---- Extra Time Request Flow ----
-
-var extraTimeState = { step: null, selectedMinutes: null, requestId: null, partnerName: '' };
-
-function updateExtraTimeRemaining(verifiedToday, remainingToday) {
-  // No daily limit — partner approval is the rate limiter.
-  // Keep function signature for backward compat but clear any stale text.
-  var el = document.getElementById('extra-time-remaining');
-  if (el) el.textContent = '';
-}
-
-function initExtraTimeFlow() {
-  var btn = document.getElementById('earned-extra-time-btn');
-  if (!btn) return;
-
-  btn.addEventListener('click', function() {
-    var section = document.getElementById('earned-extra-time-section');
-    var hasPartner = section && section.dataset.hasPartner === '1';
-    if (!hasPartner) {
-      // Briefly show message, then revert
-      var origText = btn.textContent;
-      btn.textContent = 'Only available with an accountability partner';
-      btn.style.opacity = '1';
-      btn.style.color = 'rgba(255, 140, 140, 0.8)';
-      setTimeout(function() {
-        btn.textContent = origText;
-        btn.style.opacity = '0.5';
-        btn.style.color = '';
-      }, 3000);
-      return;
-    }
-    if (btn.disabled) return;
-    extraTimeState.partnerName = (section && section.dataset.partnerName) || 'your partner';
-    showExtraTimeStep('amount');
-  });
-
-  // Amount pills → enable Send Request
-  document.querySelectorAll('.extra-time-pill').forEach(function(pill) {
-    pill.addEventListener('click', function() {
-      document.querySelectorAll('.extra-time-pill').forEach(function(p) { p.classList.remove('selected'); });
-      pill.classList.add('selected');
-      extraTimeState.selectedMinutes = parseInt(pill.dataset.minutes, 10);
-      var sendBtn = document.getElementById('extra-time-send');
-      if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send Request'; }
-      var err = document.getElementById('extra-time-send-error');
-      if (err) { err.style.display = 'none'; }
-    });
-  });
-
-  // Send request (directly from amount step)
-  var sendBtn = document.getElementById('extra-time-send');
-  if (sendBtn) sendBtn.addEventListener('click', function() {
-    if (!extraTimeState.selectedMinutes) return;
-    sendBtn.disabled = true;
-    sendBtn.textContent = 'Sending...';
-    sendMessage({ type: 'REQUEST_EXTRA_TIME', minutes: extraTimeState.selectedMinutes });
-  });
-
-  // Code cell input handling
-  var cells = document.querySelectorAll('.extra-time-code-cell');
-  var verifyBtn = document.getElementById('extra-time-verify');
-  cells.forEach(function(cell, idx) {
-    cell.addEventListener('input', function(e) {
-      var val = e.target.value.replace(/[^0-9]/g, '');
-      e.target.value = val.slice(0, 1);
-      if (val && idx < cells.length - 1) cells[idx + 1].focus();
-      checkCodeComplete();
-    });
-    cell.addEventListener('keydown', function(e) {
-      if (e.key === 'Backspace' && !e.target.value && idx > 0) cells[idx - 1].focus();
-    });
-    cell.addEventListener('paste', function(e) {
-      e.preventDefault();
-      var pasted = (e.clipboardData.getData('text') || '').replace(/[^0-9]/g, '').slice(0, 6);
-      for (var i = 0; i < pasted.length && i + idx < cells.length; i++) cells[i + idx].value = pasted[i];
-      cells[Math.min(idx + pasted.length, cells.length - 1)].focus();
-      checkCodeComplete();
-    });
-  });
-
-  function checkCodeComplete() {
-    var code = getCodeValue();
-    if (verifyBtn) verifyBtn.disabled = code.length !== 6;
-  }
-
-  function getCodeValue() {
-    var code = '';
-    cells.forEach(function(c) { code += c.value; });
-    return code;
-  }
-
-  // Verify
-  if (verifyBtn) verifyBtn.addEventListener('click', function() {
-    var code = getCodeValue();
-    if (code.length !== 6) return;
-    verifyBtn.disabled = true;
-    verifyBtn.textContent = 'Verifying...';
-    sendMessage({ type: 'VERIFY_EXTRA_TIME_CODE', code: code, requestId: extraTimeState.requestId });
-  });
-
-  // Cancel buttons
-  document.querySelectorAll('.extra-time-cancel-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() { resetExtraTimeFlow(); });
-  });
-}
-
-function showExtraTimeStep(step) {
-  extraTimeState.step = step;
-  var flow = document.getElementById('earned-extra-time-flow');
-  var section = document.getElementById('earned-extra-time-section');
-  if (flow) flow.style.display = '';
-  if (section) section.style.display = 'none';
-
-  ['amount', 'code', 'success'].forEach(function(s) {
-    var el = document.getElementById('extra-time-step-' + s);
-    if (el) el.style.display = s === step ? '' : 'none';
-  });
-
-  if (step === 'amount') {
-    extraTimeState.selectedMinutes = null;
-    document.querySelectorAll('.extra-time-pill').forEach(function(p) { p.classList.remove('selected'); });
-    var sendBtn = document.getElementById('extra-time-send');
-    if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = 'Send Request'; }
-    var err = document.getElementById('extra-time-send-error');
-    if (err) { err.style.display = 'none'; }
-  }
-  if (step === 'code') {
-    var cells = document.querySelectorAll('.extra-time-code-cell');
-    cells.forEach(function(c) { c.value = ''; });
-    var verifyBtn = document.getElementById('extra-time-verify');
-    if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.textContent = 'Verify'; }
-    var err = document.getElementById('extra-time-code-error');
-    if (err) { err.style.display = 'none'; err.textContent = ''; }
-    if (cells[0]) setTimeout(function() { cells[0].focus(); }, 50);
-    var codeMsg = document.getElementById('extra-time-code-msg');
-    if (codeMsg) codeMsg.textContent = 'Ask ' + extraTimeState.partnerName + ' for the 6-digit code we just emailed them.';
-  }
-}
-
-function resetExtraTimeFlow() {
-  extraTimeState.step = null;
-  extraTimeState.selectedMinutes = null;
-  extraTimeState.requestId = null;
-  var flow = document.getElementById('earned-extra-time-flow');
-  var section = document.getElementById('earned-extra-time-section');
-  if (flow) flow.style.display = 'none';
-  if (section) section.style.display = '';
-  var btn = document.getElementById('earned-extra-time-btn');
-  if (btn) {
-    btn.textContent = 'Request Extra Time';
-    btn.disabled = false;
-    btn.style.opacity = (section && section.dataset.hasPartner === '1') ? '' : '0.5';
-  }
-}
-
-// Callbacks from Swift
-window._extraTimeRequestResult = function(data) {
-  var sendBtn = document.getElementById('extra-time-send');
-  // Update remaining count if provided
-  if (data.remainingToday != null) {
-    updateExtraTimeRemaining(data.verifiedToday || 0, data.remainingToday);
-  }
-  if (data.success) {
-    extraTimeState.requestId = data.requestId;
-    extraTimeState.partnerName = data.partnerName || extraTimeState.partnerName;
-    showExtraTimeStep('code');
-  } else {
-    if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send Request'; }
-    var err = document.getElementById('extra-time-send-error');
-    if (err) { err.textContent = data.message || 'Could not send request.'; err.style.display = ''; }
-  }
-};
-
-window._extraTimeVerifyResult = function(data) {
-  // Update remaining count if provided
-  if (data.remainingToday != null) {
-    updateExtraTimeRemaining(data.verifiedToday || 0, data.remainingToday);
-  }
-  if (data.success) {
-    var msg = document.getElementById('extra-time-success-msg');
-    if (msg) msg.textContent = (data.addedMinutes || extraTimeState.selectedMinutes) + ' Minutes Added!';
-    showExtraTimeStep('success');
-    setTimeout(function() {
-      resetExtraTimeFlow();
-      loadEarnedStatus();
-    }, 2000);
-  } else {
-    var verifyBtn = document.getElementById('extra-time-verify');
-    if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.textContent = 'Verify'; }
-    var cells = document.querySelectorAll('.extra-time-code-cell');
-    cells.forEach(function(c) { c.value = ''; });
-    if (cells[0]) cells[0].focus();
-    var err = document.getElementById('extra-time-code-error');
-    if (err) { err.textContent = data.message || 'Invalid code. Please try again.'; err.style.display = ''; }
-  }
-};
+// Earned Browse + Extra Time JS removed (R6, 2026-06-11) — widget deleted;
+// the Rules page allowance card replaced the pool.
 
 // ---- Relevance Log ----
 
@@ -14051,7 +12718,6 @@ sendMessage({ type: 'GET_SETTINGS' });
 sendMessage({ type: 'GET_PARTNER_STATUS' });
 sendMessage({ type: 'GET_FOCUS_MODE' });
 sendMessage({ type: 'GET_INTENTIONS' });  // Spec 3 — populate intentionsCache for picker
-sendMessage({ type: 'GET_DISTRACTIONS' });  // Slice 5 follow-up — populate distractionsCache for Focus Mode card hint
 
 // S3 (2026-06-10): the first-load relocation of the content-safety card into
 // page-sensitive was removed along with that page — the card stays in
@@ -14317,15 +12983,11 @@ const ProjectsController = (() => {
     const sparkline = renderSparkline(p.weekMinutes || [], p.accent || 'var(--accent-primary)');
     const intention = escapeHTML(p.intention || '');
     const name = escapeHTML(p.name || 'Untitled');
-    // Slice 5 follow-up: surface the global distractions count alongside the
-    // mode-specific overrides so the user understands "youtube isn't in THIS
-    // mode's list, but it's a global distraction so it gets blocked during
-    // every Focus session." Reads from `distractionsCache` populated by the
-    // GET_DISTRACTIONS push.
-    var globalCount = (typeof distractionsCache !== 'undefined') ? distractionsCache.length : 0;
+    // R6: the "N distractions" hint died with the Distractions table UI —
+    // global blocking now lives on the Rules page; the card shows only its
+    // own mode-specific count.
     var modeCount = p.allowedCount || 0;
-    var blockedLine = globalCount + ' distraction' + (globalCount === 1 ? '' : 's')
-      + (modeCount > 0 ? ' + ' + modeCount + ' mode-specific' : '');
+    var blockedLine = modeCount > 0 ? (modeCount + ' mode-specific') : null;
     const meta = [
       p.humanLastUsed || 'new',
       blockedLine,
@@ -16662,27 +15324,9 @@ window.PlanApp = PlanApp;
         sel.appendChild(opt);
       });
     }
-    // Populate auto-activate block checkboxes from block rules cache
-    var wrap = document.getElementById('ns-block-checkboxes');
-    if (wrap) {
-      var rules = window._blockRulesCache || [];
-      if (rules.length === 0) {
-        wrap.innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:12px;">No blocks configured yet.</div>';
-      } else {
-        wrap.innerHTML = '';
-        rules.forEach(function (r) {
-          if (!r || !r.id) return;
-          var row = document.createElement('label');
-          row.className = 'ns-modal-toggle-row';
-          var safeId = String(r.id).replace(/"/g, '&quot;');
-          var safeName = (r.name || '(unnamed)').replace(/[<>&]/g, function(c){
-            return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c];
-          });
-          row.innerHTML = '<input type="checkbox" data-rule-id="' + safeId + '"> ' + safeName;
-          wrap.appendChild(row);
-        });
-      }
-    }
+    // (R6: "Auto-activate blocks" checkboxes removed — the wire param was
+    // accepted-but-dropped on the Swift side, and 🚫 rules enforce on their
+    // own schedule from the Rules page.)
     // Reset form
     var titleEl = document.getElementById('ns-title');
     var outcomeEl = document.getElementById('ns-outcome');
@@ -16800,9 +15444,7 @@ window.PlanApp = PlanApp;
     var outcome = (outcomeEl && outcomeEl.value || '').trim();
     var intentionId = (goalSel && goalSel.value) || null;
     var aiOn = true; // Calm-Down D3: AI scoring is always-on, toggle removed
-    var enabledRules = Array.prototype.slice.call(
-      document.querySelectorAll('#ns-block-checkboxes input[type=checkbox]:checked')
-    ).map(function (el) { return el.getAttribute('data-rule-id'); }).filter(Boolean);
+    // (R6: auto-activate block-rule collection removed — dead wire param.)
 
     var todayStr = (function(){
       var d = new Date();
@@ -16819,8 +15461,7 @@ window.PlanApp = PlanApp;
       start_date: todayStr,
       title_override: title,
       outcome: outcome,
-      ai_scoring_enabled: aiOn,
-      auto_activate_block_rules: enabledRules
+      ai_scoring_enabled: aiOn
     };
     sendMessage(payload);
     closeNewSessionModal();

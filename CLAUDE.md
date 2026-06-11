@@ -46,7 +46,7 @@ Violating the letter of this process violates the spirit of the development appr
 ## Documentation Maintenance (MANDATORY)
 
 After completing any code changes, assess whether this CLAUDE.md or the relevant `docs/` file needs updating. Update if any of the following changed:
-- Changes to EarnedBrowseManager, TimeTracker, or ScheduleManager state/APIs
+- Changes to RuleStore, TimeTracker, or ScheduleManager state/APIs
 - New features or significant behavior changes
 - Changes to focus enforcement, blocking, or overlay logic
 - New Swift files or significant restructuring
@@ -268,6 +268,17 @@ Cross-repo log: `docs/overnight-run-2026-05-14.md`
 
 ---
 
+## Rules + Allowance (Rules Consolidation, June 2026) — ACTIVE
+
+One sidebar tab **Rules** owns everything block/limit/allow. Sidebar is 5 items: Today / Goals / Rules / Accountability / Settings. A **rule** = target (site domain or app bundle id) + treatment (🚫 blocked / ⏳ limited / ✅ allowed) + optional schedule blob `{start:"HH:MM", end:"HH:MM", days:[1..7]}` (ISO, Mon=1). Account-scoped on the backend (`rules` table, migration 028, `/rules` CRUD with X-Device-ID auth — DEPLOYED). ⏳ targets spend the shared daily **allowance** (`/allowance/*`; base + earned at 5:1, 60-min bank cap; ⏳ behaves as 🚫 in-session and at zero balance).
+
+- **Source of truth:** `RuleStore` actor (cache `rules.json` + `allowance.json`, pull launch/foreground/60s) → `RuleEnforcementMirror` + `AllowanceBalance` for the synchronous enforcement hot paths. `EnforcementResolver` is THE precedence: per-goal allow > ✅ > 🚫/⏳gate > goal blocklist > default lists — same for sites and apps; consumed by WebsiteBlocker (0.5s sweep), FocusMonitor (evaluateApp + out-of-session 🚫-app pre-gate), and the close-the-noise sweep (✅ never swept, 🚫/⏳ auto-stash inputs).
+- **R6 (2026-06-11):** one-shot `RulesMigration` (receipt `migration_rules_v1.json`) moved BlockingProfile block rules → 🚫, AlwaysAllowedStore → ✅, backend always_blocked/distractions rows → 🚫. Originals backed up + renamed `*.legacy.json`; the live stores were written EMPTY (don't repopulate them — `BlockingProfileManager.removeAllProfilesForMigration` exists precisely so the default profile doesn't re-seed). **EarnedBrowseManager is DELETED** (`BlockFocusStats` survives standalone as the celebration data carrier); the Settings list pages (Distractions / Always Blocked / Always Allowed / Budget) and the Today "Blocks" sub-tab are gone. Their bridge messages are one-cycle no-op aliases — remove after 2026-07. `BlockingProfileManager` + `BlockRuleEnforcer` code remains (resolver still reads their layers) but their stores are empty; removal is a later slice. Backend `always_blocked`/`distractions` tables + endpoints still exist (unread) — retire later.
+- **Strict-mode (asymmetric):** tightening free; loosening (delete/disable 🚫, demote treatment, raise base/cap, lower rate) partner-gated — JS gate in dashboard + real-store gate in MainWindow (`blockRulesLockEngaged`, reads the DAEMON strict flag, not the JS mirror).
+- Docs: `docs/features/rules.md` (authoritative) · spec `docs/superpowers/specs/2026-06-10-rules-consolidation-design.md` · cross-repo log `docs/cross-repo-rules-2026-06-11.md`.
+
+---
+
 ## Parallel Development (Worktree Workflow)
 
 This repo uses git worktrees for parallel feature development. Multiple Claude Code agents may be working on different features simultaneously in separate worktrees.
@@ -303,9 +314,10 @@ Order matters. Components have dependencies that must be wired in sequence.
 8.  Backend: registerDevice, sync lock/partner state
 9.  Strict mode init        → Reads `strictModeEnabled` from UserDefaults → login item, watchdog, flag file
 10. TimeTracker             → Cross-browser usage aggregation
-11. EarnedBrowseManager     → Load pool from disk
+11. (EarnedBrowseManager DELETED in R6, June 2026 — replaced by the shared daily allowance: RuleStore + backend /allowance/*)
 11a. ProjectStore            → Load projects.json
-12. Wire TimeTracker.onSocialMediaTimeRecorded → EarnedBrowseManager.recordSocialMediaTime
+11b. RuleStore               → Unified rules + allowance (pull on launch + foreground + 60s; cache rules.json/allowance.json; publishes to RuleEnforcementMirror + AllowanceBalance for the sync enforcement hot paths)
+12. (TimeTracker→EarnedBrowse wiring removed in R6 — ⏳ spend metering lives in FocusMonitor's allowance meter)
 13. ScheduleManager         → Load schedule, recalculateState
 14. RelevanceScorer         → AI model initialization
 15. FocusMonitor            → Desktop monitoring (refs: ScheduleManager, RelevanceScorer)
@@ -319,6 +331,7 @@ Order matters. Components have dependencies that must be wired in sequence.
 18. Heartbeat timer (2 min interval)
 19. FocusStatePoller       → Polls /focus/active every 2s with X-Device-ID auth. On state transition, drives FocusModeController.activate/.deactivate. Backend-as-master cross-device sync; no JWT-expiry pain.
 20. (boot reconcile)       → If FocusModeController.state == .focus from disk restore, applyDefaultBlockingProfile() + focusMonitor?.onBlockChanged() to re-engage enforcement.
+21. RulesMigration (R6)    → One-shot, fire-and-forget Task after blockingProfileManager + ruleStore exist: BlockingProfile block rules → 🚫, AlwaysAllowedStore → ✅, backend always_blocked/distractions rows → 🚫. Receipt migration_rules_v1.json; backs originals up to a timestamped dir, renames them *.legacy.json + writes EMPTY stores (prevents default re-seed) only after every create lands. Env INTENTIONAL_RULES_MIGRATION_DRY_RUN=1 = plan+log only.
 ```
 
 ### Critical Callback Wiring
@@ -337,29 +350,25 @@ scheduleManager.onBlockChanged = { block, state in
 // FocusModeController.onStateChanged → fans out enforcement
 focusModeController.onStateChanged = { old, new, period in
     relevanceScorer.clearCache()
-    earnedBrowseManager.onBlockChanged(blockId:blockTitle:)  // before focusMonitor — preserves activeBlockId-before-recordWorkTick invariant
     focusMonitor.onBlockChanged()
     mainWindow.pushScheduleUpdate()
     mainWindow.pushFocusModeUpdate(state: new)
     if new == .off { switchCoordinator.reset() }
 }
-
-// TimeTracker.onSocialMediaTimeRecorded → deduct from earned pool
-timeTracker.onSocialMediaTimeRecorded = { platform, minutes, isFreeBrowse in
-    earnedBrowseManager.recordSocialMediaTime(minutes:isWorkBlock:isJustified:)
-    mainWindow.pushEarnedUpdate()
-}
+// (R6: the earnedBrowseManager.onBlockChanged-before-focusMonitor ordering
+// invariant and the TimeTracker.onSocialMediaTimeRecorded wiring are GONE
+// with EarnedBrowseManager. Allowance earn posts on .focus→.off via
+// AppDelegate.postAllowanceEarn; ⏳ spend metering is FocusMonitor's
+// 5s allowance meter.)
 ```
-
-**Order invariant**: `earnedBrowseManager.onBlockChanged` must run BEFORE `focusMonitor.onBlockChanged` because FocusMonitor may call `recordWorkTick`, which needs the correct `activeBlockId`.
 
 ---
 
 ## Known Bug Fixes
 
-1. **activeBlockId nil on startup**: `ScheduleManager.init()` calls `recalculateState()` before `onBlockChanged` callback is wired. Fixed by manual sync after wiring: `earnedBrowseManager.onBlockChanged(blockId: scheduleManager.currentBlock?.id)`.
+1. **activeBlockId nil on startup**: *(retired in R6 with EarnedBrowseManager — the manual post-wiring sync now only re-pokes `focusMonitor.onBlockChanged()` for the mid-block-startup pill.)*
 
-2. **Callback execution order**: `earnedBrowseManager.onBlockChanged` must run BEFORE `focusMonitor.onBlockChanged`. FocusMonitor's `onBlockChanged` may call `recordWorkTick`, which needs the correct `activeBlockId` already set.
+2. **Callback execution order**: *(retired in R6 — `recordWorkTick`/`activeBlockId` deleted with EarnedBrowseManager; `focusMonitor.onBlockChanged` is the only consumer in the fanout now.)*
 
 3. **MLX parse error fail-open**: Changed from fail-open (relevant=true on error) to fail-closed (relevant=false, confidence=0). Prevents broken AI from silently allowing all content.
 
@@ -389,7 +398,7 @@ timeTracker.onSocialMediaTimeRecorded = { platform, minutes, isFreeBrowse in
 
 13. **iPhone scheduled blocks via DeviceActivityMonitor (April 30, 2026).** Puck iPhone now has a Schedule tab ("Blocks") where users create recurring Deep Work / Focus Hours blocks. At the scheduled time, `PuckBedtimeMonitor` (the DeviceActivity extension) applies a per-block `ManagedSettingsStore` shield — even with the app closed. The extension dispatches on `DeviceActivityName` prefix: `"bedtime"` → existing bedtime path unchanged; `"schedule_<8 hex chars>"` → per-block path reads blocklist from App Group UserDefaults (`BedtimeSharedStorage.loadBlockBlocklist(blockId:)`). Block timing is authoritative on the backend at `/schedule/blocks` (4 commits on `intentional-backend:feat/schedule-blocks`); per-device app blocklists are local-only. Mac does NOT yet read this endpoint — the Mac has its own schedule format. See `docs/cross-repo-iphone-schedule-2026-04-30.md` and `docs/superpowers/plans/2026-04-30-iphone-schedule-tab.md`.
 
-14. **Scheduled Intentions Redesign (May 2026).** Block editor's "Blocking Profiles" chips are gone — replaced by an Intention picker dropdown sourced from `IntentionStore`. Block editor also drops the Block Type segmented control (Free Time = absence of block per Spec 2). New active-days pill row (Mon–Sun, default `[1..5]`). Each Intention now has a `strictnessPreset` (Strict / Standard / Soft) edited from the Intentions tab. Tightening is instant; softening Standard→Soft has a 24h cool-down (server-side cron, cancellable, warm-tone D15 confirm copy); softening from Strict requires a partner unlock code (reuses generalized `BedtimeUnlockRequestView` with `UnlockRequestKind.intentionStrictness`). Strictness control greys out during an active Session of that Intention (D6). Sidebar restructured to 8 items: Today / Intentions / Schedule / Distractions / Sensitive Content / Weekly Planning / Accountability / Settings. Sensitive Content promoted from Settings to its own page; Weekly Planning is a placeholder for the deferred budgets feature (D9 schema prep landed; behavior deferred). Bedtime + Wake render as solid bands on the calendar (deep navy `#3B2459` bottom, warm coral `#F38B5C` top, no gradients per D11). Calendar gestures (drag-to-create / edge-resize / move) explicitly DEFERRED to v1.5 per D13. One-shot migration `BlockingProfilesToIntentionsMigration` rebinds existing block→profile bindings to block→intention idempotently with a receipt at `~/Library/Application Support/Intentional/migration_profiles_to_intentions_v1.json`. Per D14, `BlockingProfileManager` and its data file are NOT removed in this redesign — only the chips UI is hidden. Cleanup (Profiles tab + dashboard handlers + `BlockingProfileManager`) deferred to a follow-up spec after ≥2 weeks of stability.
+14. **Scheduled Intentions Redesign (May 2026).** Block editor's "Blocking Profiles" chips are gone — replaced by an Intention picker dropdown sourced from `IntentionStore`. Block editor also drops the Block Type segmented control (Free Time = absence of block per Spec 2). New active-days pill row (Mon–Sun, default `[1..5]`). Each Intention now has a `strictnessPreset` (Strict / Standard / Soft) edited from the Intentions tab. Tightening is instant; softening Standard→Soft has a 24h cool-down (server-side cron, cancellable, warm-tone D15 confirm copy); softening from Strict requires a partner unlock code (reuses generalized `BedtimeUnlockRequestView` with `UnlockRequestKind.intentionStrictness`). Strictness control greys out during an active Session of that Intention (D6). Sidebar restructured to 8 items: Today / Intentions / Schedule / Distractions / Sensitive Content / Weekly Planning / Accountability / Settings *(historical — since Rules Consolidation R3/R6, June 2026, the sidebar is 5 items: Today / Goals / Rules / Accountability / Settings, and Settings' list pages are gone — see the Rules section below)*. Sensitive Content promoted from Settings to its own page; Weekly Planning is a placeholder for the deferred budgets feature (D9 schema prep landed; behavior deferred). Bedtime + Wake render as solid bands on the calendar (deep navy `#3B2459` bottom, warm coral `#F38B5C` top, no gradients per D11). Calendar gestures (drag-to-create / edge-resize / move) explicitly DEFERRED to v1.5 per D13. One-shot migration `BlockingProfilesToIntentionsMigration` rebinds existing block→profile bindings to block→intention idempotently with a receipt at `~/Library/Application Support/Intentional/migration_profiles_to_intentions_v1.json`. Per D14, `BlockingProfileManager` and its data file are NOT removed in this redesign — only the chips UI is hidden. Cleanup (Profiles tab + dashboard handlers + `BlockingProfileManager`) deferred to a follow-up spec after ≥2 weeks of stability.
 
    **Architecture key points:**
    - `Intention.strictnessPreset` + `pendingStrictnessChange` + `weeklyBudgetHours` + `budgetEnforcement` fields decode tolerantly so older payloads still parse.
@@ -499,7 +508,7 @@ Detailed docs for each subsystem live in `docs/`. Read the relevant doc when wor
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Project structure, architecture diagram, process model (relay/primary), state machine, persistence files, backend API |
 | [PUCK_SPEC.md](docs/PUCK_SPEC.md) | Product vision, Puck integration, blocking modes, new systems (April 2026) |
 | [FOCUS_ENFORCEMENT.md](docs/FOCUS_ENFORCEMENT.md) | FocusMonitor enforcement timelines (Deep Work vs Focus Hours), block start/end rituals, pill widget, overlays, distracting apps, always-allowed apps |
-| [EARNED_BROWSE_SYSTEM.md](docs/EARNED_BROWSE_SYSTEM.md) | Earning rates, cost multipliers, intent bonus, delay escalation, per-block tracking, pool state |
+| [EARNED_BROWSE_SYSTEM.md](docs/EARNED_BROWSE_SYSTEM.md) | **SUPERSEDED (R6, June 2026)** — engine deleted; see [docs/features/rules.md](docs/features/rules.md) (allowance) |
 | [AI_SCORING.md](docs/AI_SCORING.md) | Relevance scorer pipeline (keyword→cache→LLM), Qwen3-4B / Apple FM models, fail-closed policy |
 | [CONTENT_SAFETY_MONITOR.md](docs/CONTENT_SAFETY_MONITOR.md) | On-device NSFW detection, two-pass capture, OpenNSFW for Developer ID builds, partner notification |
 | [CS_TESTING_WINDOW_PLAYBOOK.md](docs/CS_TESTING_WINDOW_PLAYBOOK.md) | How to pause CS emails + enforcement constraint for a debugging window, and how to fully reverse it. Paired scripts in `intentional-backend/scripts/` (`pause_cs_constraint.py` / `resume_cs_constraint.py`) + env var `CS_EMAILS_PAUSED_UNTIL` |
@@ -509,7 +518,7 @@ Detailed docs for each subsystem live in `docs/`. Read the relevant doc when wor
 | [PRIORITY_TODOS.md](docs/PRIORITY_TODOS.md) | Implementation backlog: Intentional Mode, permission monitoring, NE integration, anti-tamper hardening |
 | [PKG_BUILD_GUIDE.md](docs/PKG_BUILD_GUIDE.md) | PKG build pipeline, signing details, daemon relaunch strategy, testing checklist |
 | [ROADMAP.md](docs/ROADMAP.md) | Product roadmap, psychology research, feature priorities (P0-P3), coaching language overhaul |
-| [EARN_YOUR_BROWSE_IMPLEMENTATION.md](docs/EARN_YOUR_BROWSE_IMPLEMENTATION.md) | Full earned browse implementation spec with UI mockups |
+| [EARN_YOUR_BROWSE_IMPLEMENTATION.md](docs/EARN_YOUR_BROWSE_IMPLEMENTATION.md) | **SUPERSEDED (R6, June 2026)** — engine deleted; see [docs/features/rules.md](docs/features/rules.md) (allowance) |
 | [CALENDAR_BLOCK_RULES.md](docs/CALENDAR_BLOCK_RULES.md) | Block manipulation rules (past locked, active limited, future editable) |
 | [BLOCK_TYPE_ENFORCEMENT_SETTINGS.md](docs/BLOCK_TYPE_ENFORCEMENT_SETTINGS.md) | Per-block enforcement toggles (6 mechanisms per block type) |
 

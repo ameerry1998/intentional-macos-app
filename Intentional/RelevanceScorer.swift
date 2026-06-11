@@ -1359,7 +1359,8 @@ class RelevanceScorer {
     // MARK: - Justification Assessment
 
     /// Assess whether a user's justification for visiting social media is work-related.
-    /// Used by EarnedBrowseManager to determine 1x vs 2x cost multiplier.
+    /// (R6: former EarnedBrowseManager consumer deleted; still used by the
+    /// justification flow in FocusMonitor.)
     func assessJustification(text: String, intention: String, intentionDescription: String = "") async -> (approved: Bool, reason: String) {
         let userMessage = """
         The user is working on: "\(intention)"\(intentionDescription.isEmpty ? "" : " — \(intentionDescription)")

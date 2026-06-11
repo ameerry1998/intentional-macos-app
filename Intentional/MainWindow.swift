@@ -565,14 +565,13 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "SET_AI_MODEL":
             handleSetAIModel(body)
 
-        case "GET_EARNED_STATUS":
-            handleGetEarnedStatus()
-
-        case "REQUEST_EXTRA_TIME":
-            handleRequestExtraTime(body)
-
-        case "VERIFY_EXTRA_TIME_CODE":
-            handleVerifyExtraTimeCode(body)
+        // LEGACY (Rules Consolidation R6, 2026-06-11): the Earned Browse
+        // widget + Extra Time flow were deleted with EarnedBrowseManager —
+        // the shared daily allowance (Rules page) replaced them. Kept as
+        // no-op aliases for one release cycle (an old cached dashboard could
+        // still post these). Remove after 2026-07.
+        case "GET_EARNED_STATUS", "REQUEST_EXTRA_TIME", "VERIFY_EXTRA_TIME_CODE":
+            appDelegate?.postLog("⚠️ \(type): legacy earned-browse message ignored (deleted in R6)")
 
         case "GET_BLOCK_ASSESSMENTS":
             handleGetBlockAssessments(body)
@@ -626,25 +625,13 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 appDelegate?.postLog("📋 SAVE_PLAN_FIRST_PROMPT: enabled=\(enabled)")
             }
 
-        case "GET_ALWAYS_ALLOWED":
-            if let store = appDelegate?.alwaysAllowedStore {
-                let dict: [String: Any] = [
-                    "bundleIds": Array(store.list.bundleIds).sorted(),
-                    "domains":   Array(store.list.domains).sorted()
-                ]
-                if let data = try? JSONSerialization.data(withJSONObject: dict),
-                   let json = String(data: data, encoding: .utf8) {
-                    callJS("window._alwaysAllowedResult && window._alwaysAllowedResult(\(json))")
-                }
-            }
-
-        case "SAVE_ALWAYS_ALLOWED":
-            if let store = appDelegate?.alwaysAllowedStore,
-               let bids = body["bundleIds"] as? [String],
-               let domains = body["domains"] as? [String] {
-                store.replace(AlwaysAllowedList(bundleIds: Set(bids), domains: Set(domains)))
-                appDelegate?.postLog("✅ SAVE_ALWAYS_ALLOWED: \(bids.count) apps, \(domains.count) sites")
-            }
+        // LEGACY (R6, 2026-06-11): the Always Allowed Settings page is gone —
+        // ✅ rules on the Rules page own this concept now (migrated by
+        // RulesMigration). No-op aliases for one release cycle; the SAVE
+        // no-op also closes the old "save from a never-fetched page wipes
+        // the store" footgun (research §3.2). Remove after 2026-07.
+        case "GET_ALWAYS_ALLOWED", "SAVE_ALWAYS_ALLOWED":
+            appDelegate?.postLog("⚠️ \(type): legacy always-allowed message ignored (Rules page owns ✅ now)")
 
         case "OPEN_STASH_INSPECTOR":
             if let sid = body["sessionId"] as? String {
@@ -743,33 +730,16 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 handlePromoteLearnedSite(body)
             }
 
-        // Slice 5 of 2026-05-05 redesign — App taxonomy (Distractions + Always-Blocked)
-        case "GET_DISTRACTIONS":
-            handleGetAppList(kind: "distractions")
-        case "ADD_DISTRACTION":
-            if let body = message.body as? [String: Any], let id = body["app_identifier"] as? String {
-                handleAddAppList(kind: "distractions", appIdentifier: id)
-            }
-        case "REMOVE_DISTRACTION":
-            if let body = message.body as? [String: Any], let id = body["app_identifier"] as? String {
-                handleRemoveAppList(kind: "distractions", appIdentifier: id)
-            }
-        case "GET_ALWAYS_BLOCKED":
-            handleGetAppList(kind: "always_blocked")
-        case "ADD_ALWAYS_BLOCKED":
-            if let body = message.body as? [String: Any], let id = body["app_identifier"] as? String {
-                handleAddAppList(kind: "always_blocked", appIdentifier: id)
-            }
-        case "REMOVE_ALWAYS_BLOCKED":
-            if let body = message.body as? [String: Any], let id = body["app_identifier"] as? String {
-                handleRemoveAppList(kind: "always_blocked", appIdentifier: id)
-            }
-        case "GET_BUDGET_STATE":
-            handleGetBudgetState()
-        case "SET_BUDGET_CONFIG":
-            if let body = message.body as? [String: Any] {
-                handleSetBudgetConfig(body)
-            }
+        // LEGACY (R6, 2026-06-11): the Distractions / Always Blocked Settings
+        // pages and the orphaned Distraction Budget page are gone — 🚫 rules
+        // + the shared allowance own these concepts (rows migrated by
+        // RulesMigration; backend tables retire with their endpoints in a
+        // later slice). No-op aliases for one release cycle. Remove after
+        // 2026-07.
+        case "GET_DISTRACTIONS", "ADD_DISTRACTION", "REMOVE_DISTRACTION",
+             "GET_ALWAYS_BLOCKED", "ADD_ALWAYS_BLOCKED", "REMOVE_ALWAYS_BLOCKED",
+             "GET_BUDGET_STATE", "SET_BUDGET_CONFIG":
+            appDelegate?.postLog("⚠️ \(type): legacy taxonomy/budget message ignored (Rules page owns blocking now)")
 
         // Spec 1 — Intentions (new handlers; project handlers above kept as deprecated aliases)
         case "GET_INTENTIONS":
@@ -1036,27 +1006,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             return data
         }
 
-        // Earned browse state
-        var earnedBrowse: [String: Any] = [:]
-        if let mgr = appDelegate?.earnedBrowseManager {
-            mgr.ensureToday()
-            var savedSettings: [String: Any] = [:]
-            if FileManager.default.fileExists(atPath: settingsFileURL.path),
-               let fileData = try? Data(contentsOf: settingsFileURL),
-               let json = try? JSONSerialization.jsonObject(with: fileData) as? [String: Any] {
-                savedSettings = json
-            }
-            let partnerEmail = (savedSettings["partnerEmail"] as? String) ?? ""
-            let partnerName = (savedSettings["partnerName"] as? String) ?? ""
-            earnedBrowse = [
-                "earnedMinutes": mgr.earnedMinutes,
-                "usedMinutes": mgr.usedMinutes,
-                "availableMinutes": mgr.availableMinutes,
-                "poolExhausted": mgr.isPoolExhausted,
-                "hasPartner": !partnerEmail.isEmpty,
-                "partnerName": partnerName.isEmpty ? "your partner" : partnerName
-            ]
-        }
+        // Earned browse state: engine deleted in R6 — the key ships empty for
+        // one release cycle so an old cached dashboard's reader doesn't choke.
+        let earnedBrowse: [String: Any] = [:]
 
         let result: [String: Any] = [
             "youtube": platformData(platform: "youtube", minutes: ytMinutes),
@@ -2970,13 +2922,13 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         let now = Date()
         let calendar = Calendar.current
         let currentMinute = calendar.component(.hour, from: now) * 60 + calendar.component(.minute, from: now)
-        let focusStats = appDelegate?.earnedBrowseManager?.blockFocusStats ?? [:]
+        // R6: EarnedBrowse per-block stats deleted (they were empty at runtime
+        // behind the feature flag) — the time-based fallback below is, and
+        // was, the live scoring path.
 
         var totalWorkMinutes = 0
         var completedWorkMinutes = 0
         var breakMinutes = 0
-        var totalFocusScore = 0
-        var scoredBlockCount = 0
 
         var blocksData: [[String: Any]] = []
         for block in schedule.blocks {
@@ -2997,15 +2949,7 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 }
             }
 
-            // Use real focus score from EarnedBrowseManager if available
-            let blockScore: Int
-            if let stats = focusStats[block.id], stats.totalTicks > 0 {
-                blockScore = stats.focusScore
-                totalFocusScore += blockScore
-                scoredBlockCount += 1
-            } else {
-                blockScore = 0
-            }
+            let blockScore = 0  // per-block stats source deleted (R6)
 
             blocksData.append([
                 "title": block.title,
@@ -3019,23 +2963,15 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             ])
         }
 
-        // Focus score: average of per-block scores, or time-based fallback
-        let score: Int
-        if scoredBlockCount > 0 {
-            score = totalFocusScore / scoredBlockCount
-        } else {
-            score = totalWorkMinutes > 0 ? min(100, (completedWorkMinutes * 100) / totalWorkMinutes) : 0
-        }
+        // Focus score: time-based (completed/total work minutes). This was
+        // already the live path — per-block AI scores were zeros behind the
+        // deleted engine's feature flag.
+        let score = totalWorkMinutes > 0 ? min(100, (completedWorkMinutes * 100) / totalWorkMinutes) : 0
 
-        // Compute off-task minutes from focus stats (each tick ≈ 10s)
-        var offTaskTicks = 0
-        var focusedTicks = 0
-        for (_, stats) in focusStats {
-            offTaskTicks += stats.totalTicks - stats.relevantTicks
-            focusedTicks += stats.relevantTicks
-        }
-        let offTaskMinutes = (offTaskTicks * 10) / 60
-        let focusedMinutes = (focusedTicks * 10) / 60
+        // Off-task / focused tick aggregation retired with the engine (R6) —
+        // the values had been zero at runtime, so the fallbacks below carry.
+        let offTaskMinutes = 0
+        let focusedMinutes = 0
 
         let result: [String: Any] = [
             "score": score,
@@ -3259,146 +3195,10 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         }
     }
 
-    // MARK: - Earned Browse Status
-
-    private func handleGetEarnedStatus() {
-        guard let mgr = appDelegate?.earnedBrowseManager else { return }
-        // Spec 2: absence of block = free time.
-        let blockTypeOpt = appDelegate?.scheduleManager?.currentBlock?.blockType
-        let blockType: ScheduleManager.BlockType = blockTypeOpt ?? .focusHours
-        let isFreeTime = (blockTypeOpt == nil)
-        let costMultiplier: Double
-        if isFreeTime {
-            costMultiplier = mgr.freeTimeCost
-        } else {
-            switch blockType {
-            case .deepWork: costMultiplier = mgr.deepWorkCost
-            case .focusHours: costMultiplier = mgr.focusHoursCost
-            }
-        }
-        let effectiveBrowseTime = costMultiplier > 0 ? mgr.availableMinutes / costMultiplier : mgr.availableMinutes
-
-        // Build per-block focus stats array
-        var blockStats: [[String: Any]] = []
-        for (_, stats) in mgr.blockFocusStats {
-            blockStats.append([
-                "blockId": stats.blockId,
-                "blockTitle": stats.blockTitle,
-                "focusScore": stats.focusScore,
-                "earnedMinutes": stats.earnedMinutes,
-                "relevantTicks": stats.relevantTicks,
-                "totalTicks": stats.totalTicks,
-                "nudgeCount": stats.nudgeCount
-            ])
-        }
-
-        // Partner info for extra time flow (read from settings file, same as handleGetSettings)
-        var savedSettings: [String: Any] = [:]
-        if FileManager.default.fileExists(atPath: settingsFileURL.path),
-           let fileData = try? Data(contentsOf: settingsFileURL),
-           let json = try? JSONSerialization.jsonObject(with: fileData) as? [String: Any] {
-            savedSettings = json
-        }
-        let partnerEmail = (savedSettings["partnerEmail"] as? String) ?? ""
-        let partnerName = (savedSettings["partnerName"] as? String) ?? ""
-        let hasPartner = !partnerEmail.isEmpty
-
-        let data: [String: Any] = [
-            "earnedMinutes": mgr.earnedMinutes,
-            "usedMinutes": mgr.usedMinutes,
-            "availableMinutes": mgr.availableMinutes,
-            "effectiveBrowseTime": effectiveBrowseTime,
-            "blockType": isFreeTime ? "freeTime" : blockType.rawValue,
-            "isWorkBlock": !isFreeTime,
-            "costMultiplier": costMultiplier,
-            "poolExhausted": mgr.isPoolExhausted,
-            "isDeepWork": !isFreeTime && (blockType == .deepWork || mgr.isDeepWork),
-            "blockFocusStats": blockStats,
-            "hasPartner": hasPartner,
-            "partnerName": partnerName.isEmpty ? "your partner" : partnerName
-        ]
-        if let json = try? JSONSerialization.data(withJSONObject: data),
-           let str = String(data: json, encoding: .utf8) {
-            callJS("window._earnedStatusResult && window._earnedStatusResult(\(str))")
-        }
-    }
-
-    // MARK: - Extra Time (Dashboard)
-
-    private func handleRequestExtraTime(_ body: [String: Any]) {
-        guard let mgr = appDelegate?.earnedBrowseManager else {
-            callJSCallback("_extraTimeRequestResult", data: ["success": false, "message": "Earned browse manager not available"])
-            return
-        }
-        let minutes = body["minutes"] as? Int ?? Int(mgr.partnerExtraTimeAmount)
-
-        guard let backendClient = appDelegate?.backendClient else {
-            callJSCallback("_extraTimeRequestResult", data: ["success": false, "message": "Backend client not available"])
-            return
-        }
-
-        Task {
-            let result = await backendClient.requestExtraTime(minutes: minutes)
-            await MainActor.run {
-                self.callJSCallback("_extraTimeRequestResult", data: [
-                    "success": result.success,
-                    "requestId": result.requestId ?? "",
-                    "partnerName": result.partnerName ?? "",
-                    "message": result.message,
-                    "verifiedToday": result.verifiedToday,
-                    "remainingToday": result.remainingToday
-                ])
-            }
-            self.appDelegate?.postLog("💰 Dashboard extra time request: \(minutes) min → \(result.success ? "sent" : result.message)")
-        }
-    }
-
-    private func handleVerifyExtraTimeCode(_ body: [String: Any]) {
-        guard let code = body["code"] as? String,
-              let requestId = body["requestId"] as? String ?? body["request_id"] as? String else {
-            callJSCallback("_extraTimeVerifyResult", data: ["success": false, "message": "Missing code or requestId"])
-            return
-        }
-
-        guard let mgr = appDelegate?.earnedBrowseManager else {
-            callJSCallback("_extraTimeVerifyResult", data: ["success": false, "message": "Earned browse manager not available"])
-            return
-        }
-
-        guard let backendClient = appDelegate?.backendClient else {
-            callJSCallback("_extraTimeVerifyResult", data: ["success": false, "message": "Backend client not available"])
-            return
-        }
-
-        Task {
-            let result = await backendClient.verifyExtraTime(code: code, requestId: requestId)
-            await MainActor.run {
-                if result.success {
-                    mgr.grantPartnerExtraTime(minutes: Double(result.addedMinutes))
-                    self.callJSCallback("_extraTimeVerifyResult", data: [
-                        "success": true,
-                        "addedMinutes": result.addedMinutes,
-                        "message": "Extra time added",
-                        "verifiedToday": result.verifiedToday,
-                        "remainingToday": result.remainingToday
-                    ])
-                } else {
-                    self.callJSCallback("_extraTimeVerifyResult", data: [
-                        "success": false,
-                        "message": result.message,
-                        "verifiedToday": result.verifiedToday,
-                        "remainingToday": result.remainingToday
-                    ])
-                }
-            }
-            self.appDelegate?.postLog("💰 Dashboard extra time verify: code=\(code.prefix(2))*** → \(result.success ? "+\(result.addedMinutes) min" : result.message)")
-        }
-    }
-
-    /// Push earned browse status to the dashboard (called by AppDelegate when pool changes).
-    func pushEarnedUpdate() {
-        handleGetEarnedStatus()
-    }
+    // Earned Browse status + Extra Time handlers deleted in R6 (2026-06-11)
+    // with EarnedBrowseManager — the shared daily allowance (Rules page /
+    // GET_ALLOWANCE) replaced the pool, and partner Extra Time went with the
+    // hidden widget. Bridge messages are no-op aliases in didReceive.
 
     /// Push content safety status to dashboard (permission state, monitoring state).
     func pushContentSafetyStatus(_ status: [String: Any]) {
@@ -3521,81 +3321,10 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         callJS("window.\(callbackName) && window.\(callbackName)(\(jsonStr))")
     }
 
-    // MARK: - App Taxonomy (Slice 5 of 2026-05-05 redesign)
-
-    private func handleGetAppList(kind: String) {
-        guard let backend = appDelegate?.backendClient else { return }
-        Task {
-            let apps = (kind == "distractions")
-                ? await backend.getDistractions()
-                : await backend.getAlwaysBlocked()
-            await MainActor.run {
-                let payload: [String: Any] = ["kind": kind, "apps": apps]
-                if let data = try? JSONSerialization.data(withJSONObject: payload),
-                   let json = String(data: data, encoding: .utf8) {
-                    self.callJS("window._appListResult && window._appListResult(\(json))")
-                }
-            }
-        }
-    }
-
-    private func handleAddAppList(kind: String, appIdentifier: String) {
-        guard let backend = appDelegate?.backendClient else { return }
-        Task {
-            let ok = (kind == "distractions")
-                ? await backend.addDistraction(appIdentifier: appIdentifier)
-                : await backend.addAlwaysBlocked(appIdentifier: appIdentifier)
-            if ok {
-                self.handleGetAppList(kind: kind)
-            }
-        }
-    }
-
-    private func handleRemoveAppList(kind: String, appIdentifier: String) {
-        guard let backend = appDelegate?.backendClient else { return }
-        Task {
-            let ok = (kind == "distractions")
-                ? await backend.removeDistraction(appIdentifier: appIdentifier)
-                : await backend.removeAlwaysBlocked(appIdentifier: appIdentifier)
-            if ok {
-                self.handleGetAppList(kind: kind)
-            }
-        }
-    }
-
-    private func handleGetBudgetState() {
-        guard let backend = appDelegate?.backendClient else { return }
-        Task {
-            let state = await backend.getBudgetState()
-            await MainActor.run {
-                if let s = state {
-                    let payload: [String: Any] = [
-                        "day": s.day,
-                        "baseline_minutes": s.baselineMinutes,
-                        "earned_minutes": s.earnedMinutes,
-                        "consumed_minutes": s.consumedMinutes,
-                        "available_minutes": s.availableMinutes,
-                        "is_locked": s.isLocked,
-                    ]
-                    if let data = try? JSONSerialization.data(withJSONObject: payload),
-                       let json = String(data: data, encoding: .utf8) {
-                        self.callJS("window._budgetState && window._budgetState(\(json))")
-                    }
-                }
-            }
-        }
-    }
-
-    private func handleSetBudgetConfig(_ body: [String: Any]) {
-        guard let backend = appDelegate?.backendClient else { return }
-        let baseline = body["baseline_minutes"] as? Int ?? 60
-        let isLocked = body["is_locked"] as? Bool ?? false
-        let partnerCode = body["partner_code"] as? String
-        Task {
-            _ = await backend.putBudgetConfig(baselineMinutes: baseline, isLocked: isLocked, partnerCode: partnerCode)
-            self.handleGetBudgetState()
-        }
-    }
+    // App Taxonomy handlers (Slice 5 of 2026-05-05) deleted in R6 — the
+    // Settings pages that drove them are gone; their bridge messages are
+    // no-op aliases in didReceive. BackendClient's taxonomy getters survive
+    // because RulesMigration reads the rows.
 
     // MARK: - Intentions (Spec 1)
 
