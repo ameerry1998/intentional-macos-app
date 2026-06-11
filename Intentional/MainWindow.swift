@@ -891,6 +891,12 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 handleCreateScheduledSession(body)
             }
 
+        case "GET_SCREEN_PERMISSION":
+            emitScreenPermissionStatus()
+
+        case "REQUEST_SCREEN_PERMISSION":
+            handleRequestScreenPermission()
+
         case "FOCUS_MODE_TOGGLE":
             handleFocusModeToggle(body: body)
 
@@ -4029,6 +4035,31 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 }
             }
         }
+    }
+
+    // MARK: - Screen-permission bridge (onboarding just-in-time ask)
+
+    private func emitScreenPermissionStatus() {
+        let granted = CGPreflightScreenCaptureAccess()
+        callJS("window._screenPermissionStatus && window._screenPermissionStatus({ granted: \(granted) })")
+    }
+
+    private func handleRequestScreenPermission() {
+        if CGPreflightScreenCaptureAccess() {
+            emitScreenPermissionStatus()
+            return
+        }
+        // Triggers the one-time system prompt AND registers the app in the
+        // Screen Recording list. Returns current grant state immediately.
+        let granted = CGRequestScreenCaptureAccess()
+        if !granted {
+            // The system prompt only fires once per install; afterwards the user
+            // must flip the toggle manually — take them straight to the pane.
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                NSWorkspace.shared.open(url)
+            }
+        }
+        emitScreenPermissionStatus()
     }
 
     private func handleUpdateRule(_ body: [String: Any]) {
