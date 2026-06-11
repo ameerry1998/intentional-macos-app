@@ -912,6 +912,14 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         case "GET_LEISURE_POOL":
             handleGetLeisurePool()
 
+        case "UPDATE_LEISURE_POOL_CONFIG":
+            // R3: Rules-page pool editor (base 0-240, rate 1-20, cap 0-240).
+            // Loosening changes are partner-gated in the dashboard JS before
+            // this message is ever sent; Swift just persists + re-emits.
+            if let body = message.body as? [String: Any] {
+                handleUpdateLeisurePoolConfig(body)
+            }
+
         case "CREATE_SCHEDULED_SESSION":
             // FIX-2: Drag a weekly-goal card onto the calendar — creates a real
             // local FocusBlock so the session shows up on Today + pushes to backend.
@@ -4382,6 +4390,32 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 await MainActor.run { self.emitLeisurePool(dict) }
             } else {
                 await MainActor.run { self.emitLeisurePool(["error": "unavailable"]) }
+            }
+        }
+    }
+
+    private func handleUpdateLeisurePoolConfig(_ body: [String: Any]) {
+        guard let store = appDelegate?.ruleStore else {
+            emitLeisurePool(["error": "store unavailable"])
+            return
+        }
+        let base = body["base_minutes"] as? Int
+        let rate = body["earn_rate"] as? Int
+        let cap = body["bank_cap"] as? Int
+        Task {
+            // updatePoolConfig returns nil on server rejection (422 outside
+            // ranges) or network failure — surface as an error so the editor
+            // shows "couldn't save" instead of silently pretending.
+            if let pool = await store.updatePoolConfig(
+                baseMinutes: base, earnRate: rate, bankCap: cap
+            ) {
+                var dict = Self.leisurePoolToDict(pool)
+                dict["config_saved"] = true
+                await MainActor.run { self.emitLeisurePool(dict) }
+            } else {
+                await MainActor.run {
+                    self.emitLeisurePool(["error": "config update failed"])
+                }
             }
         }
     }

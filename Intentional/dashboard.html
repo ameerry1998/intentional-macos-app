@@ -1675,6 +1675,36 @@ body.theme-effects-warm::after {
 .br-day-chip { width: 28px; height: 28px; border-radius: 50%; background: transparent; color: var(--text-tertiary); border: 0.5px solid rgba(255,255,255,0.14); cursor: pointer; font-size: 11px; font-weight: 600; padding: 0; }
 .br-day-chip.on { background: var(--accent-primary); color: #fff; border-color: var(--accent-primary); }
 
+/* ===== Rules page (Rules Consolidation R3, June 2026) ===== */
+.rules-sub { font-size: 13px; color: rgba(255,255,255,0.55); margin-bottom: 18px; }
+.rules-section-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-tertiary); margin: 20px 0 8px; display: flex; align-items: center; justify-content: space-between; }
+.rules-section-h .count { font-weight: 500; }
+.rule-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(255,255,255,0.03); border: 0.5px solid rgba(255,255,255,0.06); border-radius: 10px; margin-bottom: 6px; position: relative; }
+.rule-row.disabled .rule-target, .rule-row.disabled .rule-glyph { opacity: 0.45; }
+.rule-glyph { width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; background: rgba(255,255,255,0.07); color: var(--text-secondary); flex-shrink: 0; }
+.rule-target { font-size: 13.5px; color: var(--text-primary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rule-kind { font-size: 10.5px; color: var(--text-tertiary); margin-left: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+.rule-sched-chip { font-size: 11px; color: #f38b5c; background: rgba(243,139,92,0.14); padding: 3px 8px; border-radius: 6px; white-space: nowrap; flex-shrink: 0; }
+.rule-menu-btn { background: none; border: none; color: var(--text-tertiary); font-size: 16px; cursor: pointer; padding: 2px 7px; border-radius: 5px; line-height: 1; }
+.rule-menu-btn:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+.rule-menu { position: absolute; right: 10px; top: 36px; background: #242428; border: 0.5px solid rgba(255,255,255,0.10); border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,0.45); z-index: 60; min-width: 130px; overflow: hidden; }
+.rule-menu .mi { padding: 8px 14px; font-size: 12.5px; cursor: pointer; color: var(--text-primary); }
+.rule-menu .mi:hover { background: rgba(255,255,255,0.07); }
+.rule-menu .mi.danger { color: #fa6464; }
+.rules-empty { padding: 14px; border: 1px dashed rgba(255,255,255,0.12); border-radius: 10px; font-size: 12.5px; color: var(--text-tertiary); text-align: center; }
+.rules-add-btn { background: var(--accent-gradient); color: #1a0f0a; border: 0; padding: 8px 18px; border-radius: 7px; font-weight: 700; font-size: 12.5px; cursor: pointer; }
+.rules-btn-quiet { background: transparent; border: 1px solid rgba(255,255,255,0.14); color: var(--text-secondary); padding: 8px 14px; border-radius: 7px; font-size: 12.5px; cursor: pointer; }
+.rules-btn-quiet:hover { color: var(--text-primary); }
+.rules-pool-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
+.rules-pool-breakdown { font-size: 12px; color: var(--text-tertiary); margin-top: 3px; }
+.rules-pool-editor { padding: 4px 16px 14px; border-top: 0.5px solid rgba(255,255,255,0.06); }
+.rules-moved-banner { margin: 12px 28px 0; padding: 10px 14px; border-radius: 10px; background: rgba(243,139,92,0.10); border: 0.5px solid rgba(243,139,92,0.25); color: #f38b5c; font-size: 12.5px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.rules-moved-banner:hover { background: rgba(243,139,92,0.16); }
+.rule-seg { display: inline-flex; align-items: center; gap: 0; border: 1px solid rgba(255,255,255,0.10); border-radius: 8px; padding: 2px; background: rgba(255,255,255,0.03); }
+.rule-seg .opt { padding: 6px 14px; font-size: 12.5px; cursor: pointer; border-radius: 6px; color: var(--text-tertiary); transition: all 0.15s; user-select: none; }
+.rule-seg .opt.active { background: var(--accent-primary); color: #fff; }
+.rule-modal-error { color: #fa6464; font-size: 12px; margin-top: 6px; display: none; }
+
 .toast.error {
   background: var(--color-error);
 }
@@ -5037,6 +5067,11 @@ body.theme-effects-warm::after {
   <div class="sidebar-item" data-page="plan" onclick="navigateTo('plan')">
     <span class="sidebar-item-icon">📓</span> Goals
   </div>
+  <!-- Rules Consolidation R3 (2026-06-10): unified Blocked / Limited / Allowed
+       rules + shared leisure pool. Replaces the Today "Blocks" sub-tab (R6). -->
+  <div class="sidebar-item" data-page="rules" onclick="navigateTo('rules')">
+    <span class="sidebar-item-icon">⚖</span> Rules
+  </div>
   <!-- Focus Modes tab removed 2026-05-14 — replaced by full-page Weekly Goal editor reachable from Today/Plan cards -->
   <div class="sidebar-item" data-page="lock" onclick="navigateTo('lock')">
     <span class="sidebar-item-icon">◫</span> Accountability
@@ -5113,6 +5148,12 @@ body.theme-effects-warm::after {
 
     <!-- FIX-1: Blocks inner view (Opal-style). Hidden until mode switches. -->
     <div id="view-blocks-inner" data-today-mode-keep="1" hidden>
+      <!-- R3 (2026-06-10): blocks management is consolidating into the Rules
+           tab; this whole sub-tab is removed in R6. -->
+      <div class="rules-moved-banner" onclick="navigateTo('rules')">
+        <span>⚖</span>
+        <span><b>Rules has moved</b> — manage blocked, limited &amp; allowed sites and apps in the new <u>Rules tab</u> →</span>
+      </div>
       <div class="blk-section-h">Quick actions</div>
       <div class="blk-ideas-row">
         <div class="blk-idea-btn primary" onclick="openBlockNowModal()"><div class="blk-idea-icon">▶</div><div class="blk-idea-label">Block Now</div></div>
@@ -5319,6 +5360,52 @@ body.theme-effects-warm::after {
     <div class="projects-page" id="projects-view-index"></div>
     <div class="projects-dashboard-page" id="projects-view-dashboard" style="display:none"></div>
     <div class="projects-setup-page" id="projects-view-setup" style="display:none"></div>
+  </div>
+
+  <!-- Page: Rules (Rules Consolidation R3, 2026-06-10) — one list of
+       account-scoped rules grouped by treatment (🚫 Blocked / ⏳ Limited /
+       ✅ Allowed) + the shared leisure-pool card. Data layer: RuleStore (R2).
+       Enforcement unification lands in R4; the earn/spend engine in R5. -->
+  <div class="page" id="page-rules">
+    <div class="section-title" style="margin-bottom:6px;">Rules</div>
+    <div class="rules-sub">What's blocked, limited, and always fine — synced to your iPhone.</div>
+
+    <!-- Leisure pool summary + (✎) config editor. Raising base / raising cap /
+         lowering rate = LOOSENING → partner-gated under Strict Mode (see
+         isLooseningAction in the JS below). Tightening is always free. -->
+    <div class="settings-card" id="rules-pool-card">
+      <div class="rules-pool-head">
+        <div style="flex:1; min-width:0;">
+          <div class="setting-label" style="font-size:14.5px;" id="rules-pool-headline">⏳ Leisure pool</div>
+          <div class="rules-pool-breakdown" id="rules-pool-breakdown">Loading…</div>
+        </div>
+        <button class="rule-menu-btn" id="rules-pool-edit-btn" title="Pool settings" onclick="toggleRulesPoolEditor()">✎</button>
+      </div>
+      <div class="rules-pool-editor" id="rules-pool-editor" style="display:none;">
+        <div class="ns-modal-field" style="margin-top:10px;"><label>Daily base minutes (0–240)</label>
+          <input type="number" min="0" max="240" class="ns-modal-input" id="pool-base" style="width:110px;"></div>
+        <div class="ns-modal-field"><label>Earn rate (1–20) — <span id="pool-rate-caption" style="text-transform:none;">5 focused min = 1 leisure min</span></label>
+          <input type="number" min="1" max="20" class="ns-modal-input" id="pool-rate" style="width:110px;" oninput="_updatePoolRateCaption()"></div>
+        <div class="ns-modal-field"><label>Bank cap — rollover limit (0–240)</label>
+          <input type="number" min="0" max="240" class="ns-modal-input" id="pool-cap" style="width:110px;"></div>
+        <div class="rule-modal-error" id="pool-editor-error"></div>
+        <div class="ns-modal-footer" style="margin-top:10px;">
+          <button class="rules-btn-quiet" onclick="toggleRulesPoolEditor(false)">Cancel</button>
+          <button class="rules-add-btn" id="pool-save-btn" onclick="saveRulesPoolConfig()">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; margin:16px 0 0;">
+      <button class="rules-add-btn" id="rules-add-btn" onclick="openRuleModal()">+ Add rule</button>
+    </div>
+
+    <div class="rules-section-h"><span>🚫 Blocked</span><span class="count" id="rules-count-blocked"></span></div>
+    <div id="rules-list-blocked"></div>
+    <div class="rules-section-h"><span>⏳ Limited</span><span class="count" id="rules-count-limited"></span></div>
+    <div id="rules-list-limited"></div>
+    <div class="rules-section-h"><span>✅ Allowed</span><span class="count" id="rules-count-allowed"></span></div>
+    <div id="rules-list-allowed"></div>
   </div>
 
   <!-- Page: Sensitive Content — REMOVED (Settings Consolidation S3, 2026-06-10).
@@ -6838,6 +6925,11 @@ function navigateTo(pageId) {
 
   if (pageId === 'projects' || pageId === 'intentions') {
     ProjectsController.onEnter();
+  }
+
+  // R3 (2026-06-10): Rules page — pull rules + leisure pool on entry.
+  if (pageId === 'rules' && typeof loadRulesPage === 'function') {
+    loadRulesPage();
   }
 
   if (pageId === 'today') {
@@ -9798,6 +9890,687 @@ function _addBlockCategory(cat) {
   if (typeof showToast === 'function') showToast('Added ' + preset.length + ' sites from ' + cat);
 }
 window._addBlockCategory = _addBlockCategory;
+
+// =====================================================================
+// ===== Rules page (Rules Consolidation R3, June 2026) ================
+// One list of account-scoped rules grouped by treatment:
+//   🚫 blocked — never usable, ⏳ limited — spends the shared leisure pool,
+//   ✅ allowed — never blocked, never swept.
+// Data layer: RuleStore (R2) via GET_RULES / CREATE_RULE / UPDATE_RULE /
+// DELETE_RULE / GET_LEISURE_POOL / UPDATE_LEISURE_POOL_CONFIG.
+// Wire shape is snake_case: { id, target_kind: 'site'|'app', target,
+// treatment: 'blocked'|'limited'|'allowed', schedule|null, enabled }.
+// `schedule` is a client-defined blob (R1 stores it as opaque jsonb); R3
+// defines it as { start: "HH:MM", end: "HH:MM", days: [1..7] } (ISO, Mon=1).
+// =====================================================================
+window._rulesCache = window._rulesCache || [];
+window._rulesPoolCache = window._rulesPoolCache || null;
+
+function loadRulesPage() {
+  sendMessage({ type: 'GET_RULES' });
+  sendMessage({ type: 'GET_LEISURE_POOL' });
+  // Hydrate friendly app names for target_kind=app rows (same cache the
+  // app picker uses; _installedAppsResult re-renders us when it lands).
+  if (typeof installedAppsCache === 'undefined' || !installedAppsCache) {
+    sendMessage({ type: 'GET_INSTALLED_APPS' });
+  }
+  renderRulesPage();
+}
+window.loadRulesPage = loadRulesPage;
+
+// Re-render rule rows once installed-app names arrive (wraps the existing
+// receiver; runs after the app picker + Projects hooks it already serves).
+(function () {
+  var _origInstalledApps = window._installedAppsResult;
+  window._installedAppsResult = function (apps) {
+    if (_origInstalledApps) _origInstalledApps(apps);
+    if (window.currentPage === 'rules') renderRulesPage();
+  };
+})();
+
+// --- Bridge receivers -------------------------------------------------
+
+window._rulesList = function (items) {
+  window._rulesCache = Array.isArray(items) ? items : [];
+  renderRulesPage();
+};
+
+window._ruleCreated = function (res) {
+  if (!res || res.success === false) {
+    var reason = (res && res.reason) || 'unknown error';
+    _showRuleModalError(reason === 'duplicate'
+      ? 'You already have a rule for this target.'
+      : 'Couldn’t save — ' + reason);
+    _setRuleModalSaving(false);
+    return;
+  }
+  window._rulesCache.push(res);
+  _closeRuleModal();
+  renderRulesPage();
+  if (typeof showToast === 'function') showToast('Rule added');
+};
+
+window._ruleUpdated = function (res) {
+  var modalOpen = !!document.getElementById('rule-modal-overlay');
+  if (!res || res.success === false) {
+    var reason = (res && res.reason) || 'unknown error';
+    if (modalOpen) {
+      _showRuleModalError(reason === 'duplicate'
+        ? 'You already have a rule for this target.'
+        : 'Couldn’t save — ' + reason);
+      _setRuleModalSaving(false);
+    } else {
+      if (typeof showToast === 'function') showToast('Couldn’t update rule — ' + reason, 'error');
+    }
+    // Re-sync the list so an optimistic toggle that the server (or the
+    // offline cache revert) rejected doesn't leave the UI lying.
+    sendMessage({ type: 'GET_RULES' });
+    return;
+  }
+  var idx = window._rulesCache.findIndex(function (r) { return r.id === res.id; });
+  if (idx >= 0) window._rulesCache[idx] = res; else window._rulesCache.push(res);
+  if (modalOpen) _closeRuleModal();
+  renderRulesPage();
+  if (typeof showToast === 'function') showToast('Rule updated');
+};
+
+window._ruleDeleted = function (res) {
+  if (!res || res.success === false) {
+    if (typeof showToast === 'function') showToast('Couldn’t delete rule — ' + ((res && res.reason) || 'unknown error'), 'error');
+    sendMessage({ type: 'GET_RULES' });
+    return;
+  }
+  window._rulesCache = window._rulesCache.filter(function (r) { return r.id !== res.id; });
+  renderRulesPage();
+  if (typeof showToast === 'function') showToast('Rule deleted');
+};
+
+var _poolSavePending = false;
+window._leisurePool = function (pool) {
+  if (!pool || pool.error) {
+    if (_poolSavePending) {
+      _poolSavePending = false;
+      _setPoolSaving(false);
+      _showPoolError('Couldn’t save — server unreachable. Changes not applied.');
+    }
+    _renderPoolCard();   // renders the offline/empty copy
+    return;
+  }
+  window._rulesPoolCache = pool;
+  if (_poolSavePending) {
+    _poolSavePending = false;
+    _setPoolSaving(false);
+    toggleRulesPoolEditor(false);
+    if (typeof showToast === 'function') showToast('Pool settings saved');
+  }
+  _renderPoolCard();
+};
+
+// --- Asymmetric Strict-Mode gate (spec #5) ----------------------------
+// Tightening is ALWAYS free; LOOSENING is partner-gated while Strict Mode
+// is on with no active unlock window. A change "loosens" when it makes a
+// distraction easier to reach:
+//   • delete a 🚫 Blocked rule                          → loosening
+//   • disable a 🚫 Blocked rule (toggle off)             → loosening
+//   • demote treatment toward less strict                → loosening
+//       (strictness rank: blocked 2 > limited 1 > allowed 0)
+//   • pool config: RAISE base, RAISE bank cap, or LOWER
+//       earn rate (fewer focused minutes per leisure min) → loosening
+// Everything else — add a Blocked rule, enable a rule, promote
+// allowed→blocked, lower base/cap, raise rate — stays free.
+// Known simplification (documented): schedule edits on a Blocked rule
+// (e.g. shrinking its window) pass free in R3; R4's enforcement pass
+// revisits whether schedule-narrowing needs gating.
+//
+// Unit-style truth table (executable documentation — paste into the
+// console to spot-check):
+//   isLooseningAction({treatment:'blocked'}, {action:'delete'})                      === true
+//   isLooseningAction({treatment:'allowed'}, {action:'delete'})                      === false
+//   isLooseningAction({treatment:'blocked'}, {action:'toggle', enabled:false})       === true
+//   isLooseningAction({treatment:'blocked'}, {action:'toggle', enabled:true})        === false
+//   isLooseningAction({treatment:'limited'}, {action:'toggle', enabled:false})       === false
+//   isLooseningAction({treatment:'blocked'}, {action:'treatment', to:'limited'})     === true
+//   isLooseningAction({treatment:'blocked'}, {action:'treatment', to:'allowed'})     === true
+//   isLooseningAction({treatment:'limited'}, {action:'treatment', to:'allowed'})     === true
+//   isLooseningAction({treatment:'allowed'}, {action:'treatment', to:'blocked'})     === false
+//   isLooseningAction(null, {action:'pool', field:'base_minutes', from:15, to:30})   === true
+//   isLooseningAction(null, {action:'pool', field:'base_minutes', from:15, to:10})   === false
+//   isLooseningAction(null, {action:'pool', field:'earn_rate',    from:5,  to:3})    === true
+//   isLooseningAction(null, {action:'pool', field:'earn_rate',    from:5,  to:8})    === false
+//   isLooseningAction(null, {action:'pool', field:'bank_cap',     from:60, to:120})  === true
+function isLooseningAction(rule, change) {
+  var RANK = { blocked: 2, limited: 1, allowed: 0 };
+  switch (change && change.action) {
+    case 'delete':
+      // Deleting any Blocked rule (even a currently-disabled one) is
+      // loosening — conservative on purpose.
+      return !!rule && rule.treatment === 'blocked';
+    case 'toggle':
+      return !!rule && rule.treatment === 'blocked' && change.enabled === false;
+    case 'treatment':
+      return !!rule && RANK[change.to] < RANK[rule.treatment];
+    case 'pool':
+      if (change.field === 'earn_rate') return change.to < change.from;  // easier earning
+      return change.to > change.from;  // base_minutes / bank_cap raised
+  }
+  return false;
+}
+window.isLooseningAction = isLooseningAction;
+
+// Same interception pattern as LOCKED_INPUT_IDS: when gated, the action
+// does NOT run — the partner-unlock sheet (BedtimeUnlockRequestView via
+// OPEN_PARTNER_UNLOCK_SHEET) opens instead. Returns true when intercepted.
+function _rulesStrictGate(rule, change) {
+  var s = window._strictModeState || {};
+  var locked = !!s.enabled && !s.isUnlocked;
+  if (!locked || !isLooseningAction(rule, change)) return false;
+  sendMessage({ type: 'OPEN_PARTNER_UNLOCK_SHEET', purpose: 'rules_loosening' });
+  if (typeof showToast === 'function') showToast('Strict Mode — loosening a rule needs a partner code', 'error');
+  return true;
+}
+
+// --- Rendering ---------------------------------------------------------
+
+function _ruleDisplayName(r) {
+  if (r.target_kind === 'app') {
+    var nm = (typeof _blockRuleAppNames !== 'undefined' && _blockRuleAppNames[r.target]) || null;
+    if (!nm && typeof installedAppsCache !== 'undefined' && installedAppsCache) {
+      var hit = installedAppsCache.find(function (a) { return a.bundleId === r.target; });
+      if (hit) nm = hit.name;
+    }
+    return nm || r.target;
+  }
+  return r.target;
+}
+
+function _ruleGlyph(r) {
+  // Favicon-ish: first letter of the display name in a tinted square.
+  var letter = (_ruleDisplayName(r) || '?').replace(/^www\./i, '').charAt(0).toUpperCase();
+  return '<span class="rule-glyph">' + _escapeHTML(letter || (r.target_kind === 'app' ? '📱' : '🌐')) + '</span>';
+}
+
+function _formatRuleScheduleChip(s) {
+  if (!s || !s.start || !s.end) return null;   // null schedule = always in effect
+  var days = (s.days && s.days.length) ? s.days : [1, 2, 3, 4, 5, 6, 7];
+  var lbls = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  var dayStr;
+  if (days.length === 7) dayStr = 'Daily';
+  else if (days.length === 5 && days.every(function (d) { return d >= 1 && d <= 5; })) dayStr = 'Mon–Fri';
+  else dayStr = days.map(function (d) { return lbls[d - 1] || '?'; }).join(' ');
+  return s.start + '–' + s.end + ' ' + dayStr;
+}
+
+function _renderRuleRow(r) {
+  var chip = _formatRuleScheduleChip(r.schedule);
+  var enabled = r.enabled !== false;
+  return '<div class="rule-row' + (enabled ? '' : ' disabled') + '" data-rule-id="' + _escapeHTML(r.id) + '">' +
+    _ruleGlyph(r) +
+    '<span class="rule-target">' + _escapeHTML(_ruleDisplayName(r)) +
+      '<span class="rule-kind">' + (r.target_kind === 'app' ? 'app' : 'site') + '</span>' +
+    '</span>' +
+    (chip ? '<span class="rule-sched-chip">' + _escapeHTML(chip) + '</span>' : '') +
+    '<div class="block-toggle ' + (enabled ? 'on' : '') + '" title="' + (enabled ? 'Disable' : 'Enable') + '"' +
+      ' onclick="toggleRuleEnabled(\'' + _escapeHTML(r.id) + '\', ' + (!enabled) + ')"></div>' +
+    '<button class="rule-menu-btn" title="More" onclick="toggleRuleMenu(event, \'' + _escapeHTML(r.id) + '\')">⋯</button>' +
+  '</div>';
+}
+
+function renderRulesPage() {
+  var mounts = {
+    blocked: document.getElementById('rules-list-blocked'),
+    limited: document.getElementById('rules-list-limited'),
+    allowed: document.getElementById('rules-list-allowed')
+  };
+  if (!mounts.blocked) return;   // page not in DOM yet
+  var groups = { blocked: [], limited: [], allowed: [] };
+  (window._rulesCache || []).forEach(function (r) {
+    if (groups[r.treatment]) groups[r.treatment].push(r);
+  });
+  var empties = {
+    blocked: 'Nothing blocked yet. Add the sites and apps you never want to slip into.',
+    limited: 'No limits yet. Limited sites & apps spend your daily leisure pool — when it’s empty, they’re blocked.',
+    allowed: 'Nothing always-allowed yet. Allowed targets are never blocked and never swept.'
+  };
+  Object.keys(mounts).forEach(function (k) {
+    var rules = groups[k];
+    var countEl = document.getElementById('rules-count-' + k);
+    if (countEl) countEl.textContent = rules.length ? String(rules.length) : '';
+    mounts[k].innerHTML = rules.length
+      ? rules.map(_renderRuleRow).join('')
+      : '<div class="rules-empty">' + empties[k] + '</div>';
+  });
+  _renderPoolCard();
+}
+window.renderRulesPage = renderRulesPage;
+
+// --- Row actions --------------------------------------------------------
+
+function toggleRuleEnabled(id, enabled) {
+  var r = (window._rulesCache || []).find(function (x) { return x.id === id; });
+  if (!r) return;
+  if (_rulesStrictGate(r, { action: 'toggle', enabled: !!enabled })) return;
+  r.enabled = !!enabled;   // optimistic; _ruleUpdated reconciles
+  renderRulesPage();
+  sendMessage({ type: 'UPDATE_RULE', id: id, enabled: !!enabled });
+}
+window.toggleRuleEnabled = toggleRuleEnabled;
+
+function toggleRuleMenu(ev, id) {
+  ev.stopPropagation();
+  var existing = document.querySelector('.rule-menu');
+  var wasFor = existing ? existing.getAttribute('data-for') : null;
+  if (existing) existing.remove();
+  if (wasFor === id) return;   // second click on same ⋯ = close
+  var row = document.querySelector('.rule-row[data-rule-id="' + id + '"]');
+  if (!row) return;
+  var menu = document.createElement('div');
+  menu.className = 'rule-menu';
+  menu.setAttribute('data-for', id);
+  menu.innerHTML =
+    '<div class="mi" onclick="editRule(\'' + _escapeHTML(id) + '\')">Edit</div>' +
+    '<div class="mi danger" onclick="deleteRulePrompt(\'' + _escapeHTML(id) + '\')">Delete</div>';
+  row.appendChild(menu);
+}
+window.toggleRuleMenu = toggleRuleMenu;
+
+// Close any open ⋯ menu on outside click.
+document.addEventListener('click', function () {
+  var m = document.querySelector('.rule-menu');
+  if (m) m.remove();
+});
+
+function deleteRulePrompt(id) {
+  var r = (window._rulesCache || []).find(function (x) { return x.id === id; });
+  if (!r) return;
+  if (_rulesStrictGate(r, { action: 'delete' })) return;
+  // WKWebView silently drops window.confirm — use an .ns-modal-overlay confirm.
+  var existing = document.getElementById('rule-delete-overlay');
+  if (existing) existing.remove();
+  var html =
+    '<div id="rule-delete-overlay" class="ns-modal-overlay" onclick="if(event.target===this)this.remove()">' +
+      '<div class="ns-modal-card" style="min-width:360px; max-width:420px;">' +
+        '<div class="ns-modal-title">Delete rule?</div>' +
+        '<div style="font-size:13px; color:var(--text-secondary); margin-bottom:6px;">' +
+          _escapeHTML(_ruleDisplayName(r)) + ' — ' + _escapeHTML(r.treatment) +
+        '</div>' +
+        '<div class="ns-modal-footer">' +
+          '<button class="rules-btn-quiet" onclick="document.getElementById(\'rule-delete-overlay\').remove()">Cancel</button>' +
+          '<button class="btn-danger" onclick="_confirmDeleteRule(\'' + _escapeHTML(id) + '\')">Delete</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+window.deleteRulePrompt = deleteRulePrompt;
+
+function _confirmDeleteRule(id) {
+  var overlay = document.getElementById('rule-delete-overlay');
+  if (overlay) overlay.remove();
+  sendMessage({ type: 'DELETE_RULE', id: id });
+}
+window._confirmDeleteRule = _confirmDeleteRule;
+
+// --- Add / Edit rule modal ----------------------------------------------
+
+var _ruleDraft = null;  // { id?, target_kind, target, appName?, treatment, scheduled, start, end, days[], enabled }
+
+function openRuleModal() {
+  _ruleDraft = {
+    id: null, target_kind: 'site', target: '', appName: null,
+    treatment: 'blocked', scheduled: false,
+    start: '09:00', end: '17:00', days: [1, 2, 3, 4, 5], enabled: true
+  };
+  _showRuleModal('Add rule');
+}
+window.openRuleModal = openRuleModal;
+
+function editRule(id) {
+  var r = (window._rulesCache || []).find(function (x) { return x.id === id; });
+  if (!r) return;
+  var s = r.schedule || null;
+  _ruleDraft = {
+    id: r.id, target_kind: r.target_kind, target: r.target,
+    appName: r.target_kind === 'app' ? _ruleDisplayName(r) : null,
+    treatment: r.treatment,
+    scheduled: !!(s && s.start && s.end),
+    start: (s && s.start) || '09:00',
+    end: (s && s.end) || '17:00',
+    days: (s && s.days && s.days.length) ? s.days.slice() : [1, 2, 3, 4, 5],
+    enabled: r.enabled !== false
+  };
+  _showRuleModal('Edit rule');
+}
+window.editRule = editRule;
+
+function _showRuleModal(titleText) {
+  var d = _ruleDraft;
+  var existing = document.getElementById('rule-modal-overlay');
+  if (existing) existing.remove();
+
+  var dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  var dayChips = dayLabels.map(function (lbl, i) {
+    var iso = i + 1;
+    var on = (d.days || []).indexOf(iso) !== -1;
+    return '<button type="button" class="br-day-chip' + (on ? ' on' : '') + '" data-day="' + iso + '" onclick="_toggleRuleDay(' + iso + ')">' + lbl + '</button>';
+  }).join('');
+
+  var html =
+    '<div id="rule-modal-overlay" class="ns-modal-overlay" onclick="if(event.target===this)_closeRuleModal()">' +
+      '<div class="ns-modal-card" style="min-width:480px; max-width:560px;">' +
+        '<div class="ns-modal-title">' + _escapeHTML(titleText) + '</div>' +
+
+        '<div class="ns-modal-field"><label>Target</label>' +
+          '<div class="rule-seg" id="rule-kind-seg" style="margin-bottom:8px;">' +
+            '<span class="opt' + (d.target_kind === 'site' ? ' active' : '') + '" data-kind="site" onclick="_setRuleDraftKind(\'site\')">Site</span>' +
+            '<span class="opt' + (d.target_kind === 'app' ? ' active' : '') + '" data-kind="app" onclick="_setRuleDraftKind(\'app\')">App</span>' +
+          '</div>' +
+          '<div id="rule-target-site" style="' + (d.target_kind === 'site' ? '' : 'display:none;') + '">' +
+            '<input type="text" class="ns-modal-input" id="rule-target-input" placeholder="e.g. youtube.com" value="' + (d.target_kind === 'site' ? _escapeHTML(d.target) : '') + '">' +
+          '</div>' +
+          '<div id="rule-target-app" style="display:' + (d.target_kind === 'app' ? 'flex' : 'none') + '; align-items:center; gap:8px;">' +
+            '<span id="rule-app-chosen" style="font-size:13px; color:var(--text-primary); flex:1;">' +
+              (d.target_kind === 'app' && d.target ? _escapeHTML(d.appName || d.target) : '<span style="color:var(--text-tertiary);">No app picked yet</span>') +
+            '</span>' +
+            '<button type="button" class="rules-btn-quiet" onclick="_openRuleAppPicker()">Choose app…</button>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="ns-modal-field"><label>Treatment</label>' +
+          '<div class="rule-seg" id="rule-treatment-seg">' +
+            '<span class="opt' + (d.treatment === 'blocked' ? ' active' : '') + '" data-treatment="blocked" onclick="_setRuleDraftTreatment(\'blocked\')">🚫 Blocked</span>' +
+            '<span class="opt' + (d.treatment === 'limited' ? ' active' : '') + '" data-treatment="limited" onclick="_setRuleDraftTreatment(\'limited\')">⏳ Limited</span>' +
+            '<span class="opt' + (d.treatment === 'allowed' ? ' active' : '') + '" data-treatment="allowed" onclick="_setRuleDraftTreatment(\'allowed\')">✅ Allowed</span>' +
+          '</div>' +
+          '<div id="rule-treatment-hint" style="font-size:11.5px; color:var(--text-tertiary); margin-top:6px;">' + _ruleTreatmentHint(d.treatment) + '</div>' +
+        '</div>' +
+
+        '<div class="ns-modal-field"><label>Schedule</label>' +
+          '<label class="ns-modal-toggle-row">' +
+            '<input type="checkbox" id="rule-scheduled" ' + (d.scheduled ? 'checked' : '') + ' onchange="_toggleRuleScheduled(this.checked)"> ' +
+            'Only during a schedule window' +
+          '</label>' +
+          '<div id="rule-schedule-detail" style="margin-top:8px;' + (d.scheduled ? '' : 'display:none;') + '">' +
+            '<div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">' +
+              '<span style="font-size:12px; color:var(--text-tertiary);">From</span>' +
+              '<input type="time" class="ns-modal-input" style="width:110px;" id="rule-start" value="' + _escapeHTML(d.start) + '">' +
+              '<span style="font-size:12px; color:var(--text-tertiary);">to</span>' +
+              '<input type="time" class="ns-modal-input" style="width:110px;" id="rule-end" value="' + _escapeHTML(d.end) + '">' +
+            '</div>' +
+            '<div style="font-size:11px; color:var(--text-tertiary); margin-bottom:4px;">Days:</div>' +
+            '<div id="rule-day-chips" style="display:flex; gap:6px;">' + dayChips + '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="rule-modal-error" id="rule-modal-error"></div>' +
+
+        '<div class="ns-modal-footer">' +
+          '<button class="rules-btn-quiet" onclick="_closeRuleModal()">Cancel</button>' +
+          '<button class="rules-add-btn" id="rule-save-btn" onclick="_saveRuleFromModal()">' + (d.id ? 'Save' : 'Add rule') + '</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+  if (d.target_kind === 'site') {
+    setTimeout(function () { var el = document.getElementById('rule-target-input'); if (el) el.focus(); }, 50);
+  }
+}
+
+function _ruleTreatmentHint(t) {
+  return {
+    blocked: 'Never usable (or only blocked inside the schedule window).',
+    limited: 'Usable while your leisure pool lasts — blocked when it hits zero.',
+    allowed: 'Never blocked, never swept — even mid-session.'
+  }[t] || '';
+}
+
+function _closeRuleModal() {
+  var overlay = document.getElementById('rule-modal-overlay');
+  if (overlay) overlay.remove();
+  _ruleDraft = null;
+}
+window._closeRuleModal = _closeRuleModal;
+
+function _setRuleDraftKind(kind) {
+  if (!_ruleDraft) return;
+  // Preserve a typed site target before switching away so flipping back keeps it.
+  if (_ruleDraft.target_kind === 'site') {
+    var inp = document.getElementById('rule-target-input');
+    if (inp) _ruleDraft.siteTargetStash = inp.value;
+  }
+  _ruleDraft.target_kind = kind;
+  document.querySelectorAll('#rule-kind-seg .opt').forEach(function (el) {
+    el.classList.toggle('active', el.getAttribute('data-kind') === kind);
+  });
+  var siteEl = document.getElementById('rule-target-site');
+  var appEl = document.getElementById('rule-target-app');
+  if (siteEl) siteEl.style.display = kind === 'site' ? '' : 'none';
+  if (appEl) appEl.style.display = kind === 'app' ? 'flex' : 'none';
+  if (kind === 'site') {
+    var inp2 = document.getElementById('rule-target-input');
+    if (inp2 && _ruleDraft.siteTargetStash != null) inp2.value = _ruleDraft.siteTargetStash;
+  }
+}
+window._setRuleDraftKind = _setRuleDraftKind;
+
+function _setRuleDraftTreatment(t) {
+  if (!_ruleDraft) return;
+  _ruleDraft.treatment = t;
+  document.querySelectorAll('#rule-treatment-seg .opt').forEach(function (el) {
+    el.classList.toggle('active', el.getAttribute('data-treatment') === t);
+  });
+  var hint = document.getElementById('rule-treatment-hint');
+  if (hint) hint.textContent = _ruleTreatmentHint(t);
+}
+window._setRuleDraftTreatment = _setRuleDraftTreatment;
+
+function _toggleRuleScheduled(checked) {
+  if (!_ruleDraft) return;
+  _ruleDraft.scheduled = !!checked;
+  var detail = document.getElementById('rule-schedule-detail');
+  if (detail) detail.style.display = checked ? '' : 'none';
+}
+window._toggleRuleScheduled = _toggleRuleScheduled;
+
+function _toggleRuleDay(iso) {
+  if (!_ruleDraft) return;
+  var days = _ruleDraft.days || [];
+  var idx = days.indexOf(iso);
+  if (idx >= 0) days.splice(idx, 1); else days.push(iso);
+  days.sort(function (a, b) { return a - b; });
+  _ruleDraft.days = days;
+  document.querySelectorAll('#rule-day-chips .br-day-chip').forEach(function (el) {
+    var d = parseInt(el.getAttribute('data-day'), 10);
+    el.classList.toggle('on', days.indexOf(d) !== -1);
+  });
+}
+window._toggleRuleDay = _toggleRuleDay;
+
+function _openRuleAppPicker() {
+  // Reuse the global app picker (GET_INSTALLED_APPS / _installedAppsResult).
+  // Its modal sits at z-index 300 by default — below .ns-modal-overlay's
+  // 1100 — so bump it above the rules modal.
+  var picker = document.getElementById('app-picker-modal');
+  if (picker) picker.style.zIndex = '1200';
+  appPickerContext = {
+    onPick: function (app) {
+      if (_ruleDraft) {
+        _ruleDraft.target = app.bundleId;
+        _ruleDraft.appName = app.name;
+        if (typeof _blockRuleAppNames !== 'undefined') _blockRuleAppNames[app.bundleId] = app.name;
+        var chosen = document.getElementById('rule-app-chosen');
+        if (chosen) chosen.textContent = app.name;
+      }
+      hideAppPicker();
+    },
+    getAddedIds: function () { return []; }
+  };
+  showAppPicker('Pick an app');
+}
+window._openRuleAppPicker = _openRuleAppPicker;
+
+function _showRuleModalError(msg) {
+  var el = document.getElementById('rule-modal-error');
+  if (!el) { if (typeof showToast === 'function') showToast(msg, 'error'); return; }
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function _setRuleModalSaving(saving) {
+  var btn = document.getElementById('rule-save-btn');
+  if (!btn) return;
+  btn.disabled = !!saving;
+  btn.textContent = saving ? 'Saving…' : (_ruleDraft && _ruleDraft.id ? 'Save' : 'Add rule');
+}
+
+function _normalizeSiteTarget(raw) {
+  // "https://www.YouTube.com/watch?v=x" → "www.youtube.com" → keep host only.
+  return String(raw || '').trim().toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/.*$/, '');
+}
+
+function _saveRuleFromModal() {
+  if (!_ruleDraft) return;
+  var d = _ruleDraft;
+  var err = document.getElementById('rule-modal-error');
+  if (err) err.style.display = 'none';
+
+  if (d.target_kind === 'site') {
+    var inp = document.getElementById('rule-target-input');
+    d.target = _normalizeSiteTarget(inp ? inp.value : '');
+  }
+  // Validation: non-empty target.
+  if (!d.target) {
+    _showRuleModalError(d.target_kind === 'site' ? 'Enter a site domain first — e.g. youtube.com.' : 'Pick an app first.');
+    return;
+  }
+
+  // Asymmetric gate on edit: demoting treatment (blocked→limited/allowed,
+  // limited→allowed) is loosening → partner-gated under Strict Mode.
+  if (d.id) {
+    var orig = (window._rulesCache || []).find(function (x) { return x.id === d.id; });
+    if (orig && d.treatment !== orig.treatment &&
+        _rulesStrictGate(orig, { action: 'treatment', to: d.treatment })) {
+      return;
+    }
+  }
+
+  var schedule = null;
+  if (d.scheduled) {
+    if (!d.days || !d.days.length) {
+      _showRuleModalError('Pick at least one day, or untick the schedule.');
+      return;
+    }
+    var st = (document.getElementById('rule-start') || {}).value || '09:00';
+    var en = (document.getElementById('rule-end') || {}).value || '17:00';
+    schedule = { start: st, end: en, days: d.days.slice().sort(function (a, b) { return a - b; }) };
+  }
+
+  _setRuleModalSaving(true);
+  if (d.id) {
+    var upd = { type: 'UPDATE_RULE', id: d.id, target_kind: d.target_kind, target: d.target, treatment: d.treatment, enabled: d.enabled !== false };
+    if (schedule) upd.schedule = schedule; else upd.clear_schedule = true;
+    sendMessage(upd);
+  } else {
+    var crt = { type: 'CREATE_RULE', target_kind: d.target_kind, target: d.target, treatment: d.treatment, enabled: true };
+    if (schedule) crt.schedule = schedule;
+    sendMessage(crt);
+  }
+  // _ruleCreated / _ruleUpdated closes the modal on success or shows the
+  // inline error (duplicate / server unreachable) on failure.
+}
+window._saveRuleFromModal = _saveRuleFromModal;
+
+// --- Leisure pool card + config editor ----------------------------------
+
+function _renderPoolCard() {
+  var headline = document.getElementById('rules-pool-headline');
+  var breakdown = document.getElementById('rules-pool-breakdown');
+  if (!headline || !breakdown) return;
+  var p = window._rulesPoolCache;
+  if (!p) {
+    headline.textContent = '⏳ Leisure pool';
+    breakdown.textContent = 'Couldn’t load the pool yet — it’ll sync when the server is reachable.';
+    return;
+  }
+  var left = (p.available_minutes != null) ? p.available_minutes : '—';
+  headline.textContent = '⏳ Leisure pool · ' + left + ' min left today';
+  breakdown.textContent =
+    'Base ' + p.base_minutes + ' · Earned ' + p.earned_minutes +
+    ' · Spent ' + p.spent_minutes + ' · Bank ' + p.bank_minutes + '/' + p.bank_cap +
+    ' · ' + p.earn_rate + ' focused min = 1 leisure min';
+}
+
+function toggleRulesPoolEditor(show) {
+  var ed = document.getElementById('rules-pool-editor');
+  if (!ed) return;
+  var open = ed.style.display !== 'none';
+  var next = (typeof show === 'boolean') ? show : !open;
+  ed.style.display = next ? '' : 'none';
+  var err = document.getElementById('pool-editor-error');
+  if (err) err.style.display = 'none';
+  if (next) {
+    var p = window._rulesPoolCache || {};
+    document.getElementById('pool-base').value = (p.base_minutes != null) ? p.base_minutes : 15;
+    document.getElementById('pool-rate').value = (p.earn_rate != null) ? p.earn_rate : 5;
+    document.getElementById('pool-cap').value = (p.bank_cap != null) ? p.bank_cap : 60;
+    _updatePoolRateCaption();
+  }
+}
+window.toggleRulesPoolEditor = toggleRulesPoolEditor;
+
+function _updatePoolRateCaption() {
+  var el = document.getElementById('pool-rate');
+  var cap = document.getElementById('pool-rate-caption');
+  if (!el || !cap) return;
+  var v = parseInt(el.value, 10);
+  cap.textContent = (isNaN(v) ? '?' : v) + ' focused min = 1 leisure min';
+}
+window._updatePoolRateCaption = _updatePoolRateCaption;
+
+function _showPoolError(msg) {
+  var el = document.getElementById('pool-editor-error');
+  if (!el) { if (typeof showToast === 'function') showToast(msg, 'error'); return; }
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function _setPoolSaving(saving) {
+  var btn = document.getElementById('pool-save-btn');
+  if (!btn) return;
+  btn.disabled = !!saving;
+  btn.textContent = saving ? 'Saving…' : 'Save';
+}
+
+function saveRulesPoolConfig() {
+  var base = parseInt((document.getElementById('pool-base') || {}).value, 10);
+  var rate = parseInt((document.getElementById('pool-rate') || {}).value, 10);
+  var cap = parseInt((document.getElementById('pool-cap') || {}).value, 10);
+  // Same ranges the backend enforces (it 422s outside these).
+  if (isNaN(base) || base < 0 || base > 240) { _showPoolError('Daily base must be 0–240 minutes.'); return; }
+  if (isNaN(rate) || rate < 1 || rate > 20) { _showPoolError('Earn rate must be 1–20.'); return; }
+  if (isNaN(cap) || cap < 0 || cap > 240) { _showPoolError('Bank cap must be 0–240 minutes.'); return; }
+
+  // Asymmetric gate: any LOOSENING field (raise base, lower rate, raise cap)
+  // partner-gates the whole save while Strict Mode is locked. Tightening-only
+  // saves go straight through.
+  var p = window._rulesPoolCache || { base_minutes: 15, earn_rate: 5, bank_cap: 60 };
+  var loosening =
+    isLooseningAction(null, { action: 'pool', field: 'base_minutes', from: p.base_minutes, to: base }) ||
+    isLooseningAction(null, { action: 'pool', field: 'earn_rate', from: p.earn_rate, to: rate }) ||
+    isLooseningAction(null, { action: 'pool', field: 'bank_cap', from: p.bank_cap, to: cap });
+  var s = window._strictModeState || {};
+  if (loosening && s.enabled && !s.isUnlocked) {
+    sendMessage({ type: 'OPEN_PARTNER_UNLOCK_SHEET', purpose: 'rules_loosening' });
+    if (typeof showToast === 'function') showToast('Strict Mode — loosening the pool needs a partner code', 'error');
+    return;
+  }
+
+  _poolSavePending = true;
+  _setPoolSaving(true);
+  sendMessage({ type: 'UPDATE_LEISURE_POOL_CONFIG', base_minutes: base, earn_rate: rate, bank_cap: cap });
+}
+window.saveRulesPoolConfig = saveRulesPoolConfig;
 
 // ===== Block Now modal — pick duration, then start an immediate focus session =====
 function openBlockNowModal() {
