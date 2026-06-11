@@ -114,25 +114,16 @@ class ContentSafetyMonitor {
     /// UserDefaults under `cs_nsfw_threshold`. Capped at 0.99 max so it can
     /// never be effectively disabled (which would defeat the partner lock).
     private static let nsfwDefaultsKey = "cs_nsfw_threshold"
-    private var nsfwScoreThreshold: Float {
-        let raw = UserDefaults.standard.object(forKey: Self.nsfwDefaultsKey) as? Double
-        // Default 0.99 (was 0.95): OpenNSFW scores skin-heavy-but-innocent frames
-        // 0.86-0.95 (verified false positives 2026-06-10 — clothed person in shorts),
-        // while genuinely explicit content scores ≥0.995 in our tests. 0.99 splits
-        // them cleanly. Tune against labeled captures in content_safety_debug/.
-        let val = Float(raw ?? 0.99)
-        // Clamp defensively
-        return min(max(val, 0.85), 0.99)
-    }
-    /// Persist a new threshold (called from MainWindow bridge handler).
-    static func setNSFWThreshold(_ value: Float) {
-        let clamped = min(max(value, 0.85), 0.99)
-        UserDefaults.standard.set(Double(clamped), forKey: nsfwDefaultsKey)
-    }
-    static func currentNSFWThreshold() -> Float {
-        let raw = UserDefaults.standard.object(forKey: nsfwDefaultsKey) as? Double
-        return Float(raw ?? 0.95)
-    }
+    /// PINNED at 0.99 (calm-down, 2026-06-10): the user-tunable slider was removed.
+    /// OpenNSFW scores skin-heavy-but-innocent frames 0.86-0.95 (verified false
+    /// positives — clothed person in shorts), while genuinely explicit content
+    /// scores ≥0.995. 0.99 splits them cleanly, and removing the optionality means
+    /// there is nothing for a user to weaken (partner-lock integrity). The old
+    /// `cs_nsfw_threshold` UserDefaults value is intentionally IGNORED.
+    private var nsfwScoreThreshold: Float { 0.99 }
+    /// Legacy bridge compat — setter is a no-op, getter reports the pinned value.
+    static func setNSFWThreshold(_ value: Float) { /* pinned — no-op */ }
+    static func currentNSFWThreshold() -> Float { 0.99 }
 
     /// Debug: save flagged screenshots so we can review what triggered detection
     private let debugSaveScreenshots = true
