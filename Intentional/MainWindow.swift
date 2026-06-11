@@ -605,11 +605,10 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             // Per-item lock map for Strict Mode. Stored in settings JSON so the
             // enforcement code (FocusMonitor, ContentSafetyMonitor, etc.) can
             // consult which protections to actually freeze when strict is on.
+            // Gated: with Strict Mode on, disabling a currently-enabled lock
+            // needs an active partner-unlock window (R4 follow-up).
             if let locks = body["locks"] as? [String: Any] {
-                updateSettingsFile { settings in
-                    settings["strictModeLocks"] = locks
-                }
-                appDelegate?.postLog("🔒 SAVE_STRICT_MODE_LOCKS: \(locks)")
+                handleSaveStrictModeLocks(locks)
             }
 
         case "SAVE_IF_THEN_PLAN":
@@ -1792,6 +1791,75 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         return false
     }
 
+    // MARK: - Strict Mode Lock Map
+
+    /// Default per-item lock map — must mirror `_defaultStrictLocks()` in
+    /// dashboard.html. Used when no map was ever saved (a key absent from
+    /// the stored map falls back to this; unknown keys default to enabled,
+    /// matching the dashboard's `locks[key] !== false` render and
+    /// `blockRulesLockEngaged`'s absent-means-engaged semantics).
+    static let defaultStrictLocks: [String: Bool] = [
+        "sensitive_content": true,
+        "block_rules": true,
+        "weekly_goals": false,
+        "today_schedule": true,
+        "strict_mode_self": true,
+        "ai_scoring": true,
+    ]
+
+    /// R4 follow-up (2026-06-11): SAVE_STRICT_MODE_LOCKS was a one-step bypass
+    /// of every R4 loosening gate — uncheck `block_rules` with no partner code,
+    /// then delete/disable rules freely. The lock map itself is now
+    /// lock-protected: with Strict Mode ON (daemon-authoritative), disabling
+    /// any currently-enabled lock item (true→false) requires an active
+    /// partner-unlock window (`temporaryUnlockUntil`). Enabling locks
+    /// (false→true) always passes. With Strict Mode OFF everything passes —
+    /// locks are config-in-waiting.
+    private func handleSaveStrictModeLocks(_ locks: [String: Any]) {
+        if appDelegate?.daemonClient.isStrictModeEnabledSync() == true {
+            var json: [String: Any] = [:]
+            if let data = try? Data(contentsOf: settingsFileURL),
+               let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                json = j
+            }
+            let stored = json["strictModeLocks"] as? [String: Any]
+            var unlocked = false
+            if let unlockUntil = json["temporaryUnlockUntil"] as? String,
+               let date = ISO8601DateFormatter().date(from: unlockUntil), date > Date() {
+                unlocked = true   // active partner-unlock window — loosening allowed
+            }
+            if !unlocked {
+                let disabling = locks.keys.sorted().filter { key in
+                    guard (locks[key] as? Bool) == false else { return false }
+                    let currentlyEnabled = (stored?[key] as? Bool)
+                        ?? MainWindow.defaultStrictLocks[key] ?? true
+                    return currentlyEnabled
+                }
+                if !disabling.isEmpty {
+                    appDelegate?.postLog("🔒 SAVE_STRICT_MODE_LOCKS refused — disabling [\(disabling.joined(separator: ", "))] needs a partner unlock window (Strict Mode on)")
+                    // Echo the authoritative map so the dashboard can revert
+                    // its optimistic checkbox mutation.
+                    let authoritative: [String: Any] = stored ?? MainWindow.defaultStrictLocks
+                    let payload: [String: Any] = [
+                        "success": false,
+                        "reason": "strict_mode_locked",
+                        "locks": authoritative,
+                    ]
+                    if let data = try? JSONSerialization.data(withJSONObject: payload),
+                       let js = String(data: data, encoding: .utf8) {
+                        callJS("window._strictModeLocksResult && window._strictModeLocksResult(\(js))")
+                    }
+                    return
+                }
+            }
+        }
+        updateSettingsFile { settings in
+            settings["strictModeLocks"] = locks
+        }
+        appDelegate?.postLog("🔒 SAVE_STRICT_MODE_LOCKS: \(locks)")
+        callJS("window._strictModeLocksResult && window._strictModeLocksResult({ success: true })")
+    }
+
     // MARK: - Strict Mode Toggle
 
     private func handleSaveStrictMode(_ body: [String: Any]) {
@@ -2573,6 +2641,25 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         guard let idStr = body["id"] as? String, let id = UUID(uuidString: idStr) else { return }
         let domains = (body["websites"] as? [String]) ?? (body["domains"] as? [String])
         let apps = (body["bundle_ids"] as? [String]) ?? (body["appBundleIds"] as? [String])
+        // R4 follow-up (2026-06-11): this legacy path skipped the R4 loosening
+        // gate entirely. Post-R6 the profile store is empty (data migrated to
+        // the unified rule store) and the editor UI is orphaned, but the bridge
+        // alias is live for one release cycle — gate loosening edits (disable,
+        // demote always-active, shrink blocklists) like the rule-store paths.
+        if blockRulesLockEngaged(),
+           let current = appDelegate?.blockingProfileManager?.profile(for: id) {
+            let disabling = (body["enabled"] as? Bool) == false && current.enabled
+            let demotingAlwaysActive =
+                ((body["alwaysActive"] as? Bool ?? body["always_active"] as? Bool) == false)
+                && current.alwaysActive
+            let removesDomains = domains.map { !Set(current.blockedDomains).isSubset(of: Set($0)) } ?? false
+            let removesApps = apps.map { !Set(current.blockedAppBundleIds).isSubset(of: Set($0)) } ?? false
+            if disabling || demotingAlwaysActive || removesDomains || removesApps {
+                refuseLockedRuleMutation("UPDATE_BLOCK_RULE(loosening) for \(id)")
+                handleGetBlockingProfiles()   // re-render reverts any optimistic UI state
+                return
+            }
+        }
         // For schedule fields, treat key-present-and-NSNull as "clear to nil",
         // key-present-and-Int as "set", key-absent as "leave alone".
         let scheduleArgs: (Int??, Int??, Int??, Int??) = (

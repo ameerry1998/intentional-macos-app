@@ -6234,6 +6234,28 @@ window._strictModeResult = function(res) {
   if (typeof refreshSidebarStrictPill === 'function') refreshSidebarStrictPill();
 };
 
+// Swift pushes the SAVE_STRICT_MODE_LOCKS result here (R4 follow-up). With
+// Strict Mode on, unchecking a currently-enabled lock item without an active
+// partner-unlock window is refused on the Swift side of the bridge — revert
+// the checkboxes to the authoritative map Swift echoes back and route into
+// the partner-unlock flow (same interception the master toggle uses).
+window._strictModeLocksResult = function(res) {
+  if (!res || res.success !== false) return;
+  if (res.locks && typeof res.locks === 'object') {
+    window._strictModeLocks = res.locks;
+    window._strictModeLocks.strict_mode_self = true;
+    window._strictModeLocks.ai_scoring = true;
+  } else {
+    // No authoritative map echoed — re-pull from settings.
+    sendMessage({ type: 'GET_SETTINGS' });
+  }
+  _updateStrictModeUI();
+  if (typeof showToast === 'function') {
+    showToast('Strict Mode — unlocking a protection needs a partner code', 'error');
+  }
+  onRequestStrictDisable();
+};
+
 // Hook into the existing settings/partner-status receivers to keep our local
 // _strictModeState in sync. We piggyback on whatever fires after GET_SETTINGS.
 (function() {
