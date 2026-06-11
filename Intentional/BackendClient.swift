@@ -1488,7 +1488,7 @@ class BackendClient {
 
     private func intentionsJSONDecoder() -> JSONDecoder {
         let d = JSONDecoder()
-        d.dateDecodingStrategy = .iso8601
+        d.dateDecodingStrategy = ISO8601Tolerant.decodingStrategy
         return d
     }
     private func intentionsJSONEncoder() -> JSONEncoder {
@@ -2520,5 +2520,40 @@ private extension Data {
             _ = CC_SHA256(buf.baseAddress, CC_LONG(self.count), &hash)
         }
         return hash.map { String(format: "%02X", $0) }.joined(separator: ":")
+    }
+}
+
+/// Backend timestamps arrive as fractional ISO8601 ("2026-06-11T23:51:21.195335+00:00").
+/// Foundation's `.iso8601` strategy rejects fractional seconds, so decoders that touch
+/// backend JSON must use this strategy instead. Generalized 2026-06-11 from
+/// GoalSessionHistoryCache.parseISO after fresh-account intention sync was found
+/// silently failing (decode error → getIntentions returned nil → app ran off stale cache).
+enum ISO8601Tolerant {
+    static let fractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+    static let plain = ISO8601DateFormatter()
+
+    static func parse(_ s: String) -> Date? {
+        if let d = fractional.date(from: s) ?? plain.date(from: s) { return d }
+        // Defensive: strip a fraction of any length and retry (formatter quirks).
+        if let r = s.range(of: #"\.\d+"#, options: .regularExpression) {
+            var t = s
+            t.removeSubrange(r)
+            return plain.date(from: t)
+        }
+        return nil
+    }
+
+    static let decodingStrategy: JSONDecoder.DateDecodingStrategy = .custom { dec in
+        let c = try dec.singleValueContainer()
+        let s = try c.decode(String.self)
+        guard let d = parse(s) else {
+            throw DecodingError.dataCorruptedError(
+                in: c, debugDescription: "Unparseable ISO8601 date: \(s)")
+        }
+        return d
     }
 }

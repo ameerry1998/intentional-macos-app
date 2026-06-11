@@ -23,7 +23,9 @@ actor MonthlyGoalStore {
     }()
     private static let decoder: JSONDecoder = {
         let d = JSONDecoder()
-        d.dateDecodingStrategy = .iso8601
+        // Tolerant: cache is written plain-ISO8601, but accept fractional too
+        // (backend wire format) so a copied/migrated payload never bricks the cache.
+        d.dateDecodingStrategy = ISO8601Tolerant.decodingStrategy
         return d
     }()
 
