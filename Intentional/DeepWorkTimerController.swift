@@ -128,7 +128,7 @@ struct CoachCardData {
 ///
 /// - `show(intention:endsAt:)` — show the widget and start counting down
 /// - `update(isDistracted:)` — change the dot color
-/// - `update(focusPercent:earnedMinutes:)` — update stats display
+/// - `update(focusPercent:earnedMinutes:samples:)` — update stats display
 /// - `enterCelebration(data:onDone:)` — expand into celebration cards
 /// - `dismiss()` — hide the widget
 class DeepWorkTimerController {
@@ -376,10 +376,20 @@ class DeepWorkTimerController {
     }
 
     /// Update focus stats displayed in the stats row.
-    func update(focusPercent: Int, earnedMinutes: Double) {
+    ///
+    /// `samples` is the number of real relevance assessments the live % is
+    /// derived from. With 0 samples (session just started, nothing scored yet)
+    /// the pill must keep its neutral "Focusing" placeholder instead of flashing
+    /// "0% focused" — so `hasFocusData` only flips true once a real score lands.
+    ///
+    /// `earnedMinutes > 0` indicates a real earned value; the earned chip stays
+    /// hidden until then (there's no honest live earned source mid-session — see
+    /// FocusMonitor.pushFocusStatsToTimer).
+    func update(focusPercent: Int, earnedMinutes: Double, samples: Int) {
         viewModel?.focusPercent = min(max(focusPercent, 0), 100)
         viewModel?.earnedMinutes = earnedMinutes
-        viewModel?.hasFocusData = true  // first real score arrived — stop showing the neutral "no data" state
+        if samples > 0 { viewModel?.hasFocusData = true }
+        if earnedMinutes > 0 { viewModel?.hasEarnedData = true }
     }
 
     /// Update the focus goal (from block ritual selection).
@@ -759,6 +769,7 @@ class DeepWorkTimerViewModel: ObservableObject {
     @Published var isMuted: Bool = false
     @Published var focusPercent: Int = 0
     @Published var hasFocusData: Bool = false  // false until the first real score lands — avoids an angry red "0% focused"
+    @Published var hasEarnedData: Bool = false  // false until a real earned-minutes value lands — avoids a misleading "+0m"
     @Published var earnedMinutes: Double = 0.0
     @Published var focusGoal: Int = 80
     @Published var isApproachingEnd: Bool = false
@@ -1028,6 +1039,10 @@ struct DeepWorkTimerView: View {
     }
 
     private var earnedText: String {
+        // No honest live earned-minutes source mid-session (allowance earn lands
+        // once on session stop), so suppress the chip until real data exists
+        // rather than show a fake "+0m" the whole session.
+        guard viewModel.hasEarnedData else { return "" }
         let mins = viewModel.earnedMinutes
         if mins < 0.1 { return "+0m" }
         if mins < 10 { return String(format: "+%.1fm", mins) }

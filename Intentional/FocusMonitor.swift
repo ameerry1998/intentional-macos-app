@@ -443,6 +443,13 @@ class FocusMonitor {
         if relevanceLog.count > Self.maxLogEntries {
             relevanceLog.removeFirst(relevanceLog.count - Self.maxLogEntries)
         }
+        // Live focus tally — mirror SessionFocusScore.compute()'s qualifying set
+        // exactly: count real on-screen relevance judgments only, excluding
+        // EVENT lines (red-shift/intervention/override) and neutral-app entries.
+        if !isEvent && !neutral {
+            sessionAssessmentTotal += 1
+            if relevant { sessionAssessmentRelevant += 1 }
+        }
         persistAssessment(entry)
     }
 
@@ -607,6 +614,17 @@ class FocusMonitor {
     private var lastDistractionEndTime: Date?
     /// Number of distraction→focus recoveries during the current block
     private var blockRecoveryCount: Int = 0
+
+    // MARK: - Live in-session focus tally
+    // Running counters that mirror SessionFocusScore's derivation (relevant /
+    // total over the session window, excluding `isEvent` + `neutral` entries),
+    // maintained in-memory at the single logAssessment() funnel so the pill can
+    // show a live focus % without re-reading the multi-MB relevance_log.jsonl
+    // tail on every poll tick. Reset per session in resetEnforcementState().
+    /// Qualifying assessments this session (excludes events + neutral entries).
+    private var sessionAssessmentTotal: Int = 0
+    /// Of those, how many were judged relevant.
+    private var sessionAssessmentRelevant: Int = 0
 
     // AI override state
     /// When the current override expires (nil = no active override)
@@ -1003,6 +1021,8 @@ class FocusMonitor {
         redShiftTriggeredThisBlock = false
         lastDistractionEndTime = nil
         blockRecoveryCount = 0
+        sessionAssessmentTotal = 0
+        sessionAssessmentRelevant = 0
         interventionController?.dismiss()
         deepWorkRedirectedSites.removeAll()
         overrideActiveUntil = nil
@@ -2817,12 +2837,29 @@ class FocusMonitor {
 
     // MARK: - Floating Timer Stats
 
-    /// Push focus percentage + earned minutes to the floating timer widget.
-    /// R6: the EarnedBrowse per-block stats source is deleted — it had been
-    /// producing zeros at runtime since its feature flag went false, so the
-    /// pill keeps receiving the same (0, 0) it always did.
+    /// Push the live in-session focus percentage to the floating timer widget.
+    ///
+    /// R6 deleted the old source (EarnedBrowseManager.blockFocusStats) and the
+    /// stub that replaced it hardcoded (0, 0), so the pill read "0% focused"
+    /// for the whole session. We now derive the % the same way SessionFocusScore
+    /// does at session stop — relevant ÷ total qualifying assessments — but from
+    /// the in-memory running tally (sessionAssessmentRelevant/Total) instead of
+    /// re-reading the relevance_log.jsonl tail, since this fires on every poll
+    /// tick / recovery and must stay cheap.
+    ///
+    /// `samples == 0` (just-started session, nothing scored yet) → the pill
+    /// keeps its neutral "Focusing" placeholder rather than an angry "0%".
+    ///
+    /// Earned minutes: there is no honest live source — the allowance earn rule
+    /// grants minutes once, on session stop (AppDelegate.postAllowanceEarn on
+    /// .focus→.off), not incrementally. So we pass 0 and the pill suppresses the
+    /// earned chip until real data exists (see DeepWorkTimerController.update).
     private func pushFocusStatsToTimer() {
-        deepWorkTimerController?.update(focusPercent: 0, earnedMinutes: 0)
+        let samples = sessionAssessmentTotal
+        let percent = samples > 0
+            ? Int((Double(sessionAssessmentRelevant) / Double(samples) * 100).rounded())
+            : 0
+        deepWorkTimerController?.update(focusPercent: percent, earnedMinutes: 0, samples: samples)
     }
 
     // MARK: - Relevance Handling
