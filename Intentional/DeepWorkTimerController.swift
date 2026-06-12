@@ -55,6 +55,7 @@ enum PillMode {
     case bedtimeWindDown    // "Bedtime in N min" (300×70, moon glyph)
     case bedtimeLocked      // "Bedtime active — locked until 6:30 AM" (300×70, lock)
     case allowanceBalance   // R5: "⏳ N min" idle balance, out-of-session (300×70)
+    case coachCard          // Focus Agent S3: plan-prompt coach card (460×~250)
 }
 
 struct CelebrationData {
@@ -102,6 +103,16 @@ struct NoPlanData {
     var onScheduleNow: (() -> Void)?
     var onDismiss: (() -> Void)?
     var onSnooze: (() -> Void)?
+}
+
+/// Focus Agent S3: data for the plan-prompt coach card (.coachCard mode).
+/// `onStart` receives the task text the user typed; `onLater` is the quiet
+/// dismissal. Both are set by AppDelegate, which owns outcome reporting and
+/// the goal-create + session-start chain.
+struct CoachCardData {
+    let message: String
+    var onStart: (String) -> Void
+    var onLater: () -> Void
 }
 
 // MARK: - Controller
@@ -556,6 +567,85 @@ class DeepWorkTimerController {
         vm.allowanceMinutes = minutes
     }
 
+    // MARK: - Coach Card (Focus Agent S3)
+
+    /// Present the plan-prompt coach card. Returns false (one card at a time,
+    /// never stomp another surface) when any other pill mode owns the window —
+    /// the only mode we replace is the idle allowance-balance pill, which
+    /// re-shows itself via FocusMonitor's meter after this card dismisses.
+    /// Session/bedtime guards live in the caller (AppDelegate) which also
+    /// reads FocusModeController.
+    @discardableResult
+    func showCoachCard(data: CoachCardData) -> Bool {
+        if timerWindow != nil, let mode = viewModel?.mode, mode != .allowanceBalance {
+            return false
+        }
+        dismiss()
+
+        let vm = DeepWorkTimerViewModel(intention: "", endsAt: Date())
+        vm.coachCardData = data
+        vm.mode = .coachCard
+        self.viewModel = vm
+
+        let view = DeepWorkTimerView(viewModel: vm)
+        let hostingView = TransparentHostingView(rootView: view)
+        hostingView.autoresizingMask = [.width, .height]
+        hostingView.wantsLayer = true
+        hostingView.layer?.backgroundColor = .clear
+
+        let windowWidth: CGFloat = 460
+        let windowHeight: CGFloat = 250
+        hostingView.frame = NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight)
+
+        let window = KeyablePanel(
+            contentRect: NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.hasShadow = true
+        window.level = .floating
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        window.isReleasedWhenClosed = false
+        window.isMovableByWindowBackground = true
+        window.animationBehavior = .utilityWindow
+
+        positionWindow(window, width: windowWidth, height: windowHeight)
+
+        print("🚨 ACTIVATE: DeepWorkTimerController.showCoachCard — orderFrontRegardless")
+        // Text input needs key status (same pattern as startRitualEdit).
+        window.allowKeyboardInput = true
+        window.orderFrontRegardless()
+        window.makeKey()
+        timerWindow = window
+        startTrackingPosition()
+        Self.playSound("Glass")
+        return true
+    }
+
+    /// Disable/enable the coach card's buttons while the start chain runs.
+    func setCoachCardBusy(_ busy: Bool) {
+        guard viewModel?.mode == .coachCard else { return }
+        viewModel?.coachCardBusy = busy
+        if busy { viewModel?.coachCardError = nil }
+    }
+
+    /// Surface a start failure inside the card and re-enable the buttons.
+    func failCoachCard(message: String) {
+        guard viewModel?.mode == .coachCard else { return }
+        viewModel?.coachCardBusy = false
+        viewModel?.coachCardError = message
+    }
+
+    /// Dismiss the coach card (no-op when another mode owns the pill).
+    func dismissCoachCard() {
+        guard viewModel?.mode == .coachCard else { return }
+        dismiss()
+    }
+
     /// Internal helper — builds the floating pill window for modes without a
     /// timer countdown (bedtime, allowance balance) — `show(intention:endsAt:)`
     /// assumes one. Mirrors the show() setup but skips the timer.
@@ -711,6 +801,12 @@ class DeepWorkTimerViewModel: ObservableObject {
 
     // R5: allowance balance ("⏳ N min") for .allowanceBalance mode
     @Published var allowanceMinutes: Int = 0
+
+    // Focus Agent S3: coach plan-prompt card (.coachCard mode)
+    @Published var coachCardData: CoachCardData? = nil
+    @Published var coachTaskInput: String = ""
+    @Published var coachCardBusy: Bool = false
+    @Published var coachCardError: String? = nil
 
     // Bedtime modes (Apr 2026)
     @Published var bedtimeMinutesUntil: Int = 30        // for .bedtimeWindDown
@@ -959,6 +1055,8 @@ struct DeepWorkTimerView: View {
                 bedtimeLockedBody
             case .allowanceBalance:
                 allowanceBalanceBody
+            case .coachCard:
+                coachCardBody
             }
         }
         .onHover { viewModel.isHovered = $0 }
@@ -2348,6 +2446,110 @@ struct DeepWorkTimerView: View {
                         )
                 )
         )
+    }
+
+    // MARK: - Coach Card (Focus Agent S3)
+
+    /// Plan-prompt coach card: kicker, the LLM's message, a task input, and a
+    /// "Start 25 min" CTA. Coral/warm to match the dashboard brand.
+    private var coachCardBody: some View {
+        let fieldBg = Color.white.opacity(0.07)
+        let fieldBorder = Color.white.opacity(0.12)
+        let inputEmpty = viewModel.coachTaskInput
+            .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+
+        return VStack(alignment: .leading, spacing: 0) {
+            // Kicker
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(LinearGradient(colors: [focusedStart, focusedEnd],
+                                         startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 7, height: 7)
+                Text("YOUR COACH")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(focusedStart)
+                    .tracking(1.2)
+                Spacer()
+            }
+            .padding(.bottom, 12)
+
+            // The coach's message (1–2 sentences from the LLM)
+            if let data = viewModel.coachCardData {
+                Text(data.message)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(textPrimary)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.bottom, 14)
+            }
+
+            // Task input
+            TextField("e.g. Send 10 recruiter emails", text: $viewModel.coachTaskInput)
+                .textFieldStyle(.plain)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(textPrimary)
+                .padding(10)
+                .background(fieldBg)
+                .cornerRadius(8)
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(fieldBorder, lineWidth: 1))
+                .disabled(viewModel.coachCardBusy)
+                .padding(.bottom, 10)
+
+            if let error = viewModel.coachCardError {
+                Text(error)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(distractedColor)
+                    .lineLimit(2)
+                    .padding(.bottom, 8)
+            }
+
+            Spacer(minLength: 0)
+
+            // CTA row: Start 25 min + quiet "later"
+            HStack(spacing: 12) {
+                Button(action: {
+                    let task = viewModel.coachTaskInput
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !task.isEmpty, !viewModel.coachCardBusy else { return }
+                    viewModel.coachCardData?.onStart(task)
+                }) {
+                    Text(viewModel.coachCardBusy ? "Starting…" : "Start 25 min")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(
+                            LinearGradient(colors: [focusedStart, focusedEnd],
+                                           startPoint: .leading, endPoint: .trailing)
+                                .opacity(inputEmpty || viewModel.coachCardBusy ? 0.35 : 1.0)
+                        )
+                        .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+                .disabled(inputEmpty || viewModel.coachCardBusy)
+
+                Button(action: {
+                    guard !viewModel.coachCardBusy else { return }
+                    viewModel.coachCardData?.onLater()
+                }) {
+                    Text("later")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(textSecondary)
+                        .underline()
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.coachCardBusy)
+            }
+        }
+        .padding(18)
+        .frame(width: 460, height: 250, alignment: .top)
+        .background(bgColor)
+        .cornerRadius(18)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(focusedStart.opacity(0.35), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.5), radius: 12, x: 0, y: 4)
     }
 
     // MARK: - Bedtime Modes (Apr 2026)

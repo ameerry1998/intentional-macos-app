@@ -34,6 +34,20 @@ final class CoachTelemetry {
     static let sampleInterval: TimeInterval = 60
     static let flushInterval: TimeInterval = 180
     static let descriptionInterval: TimeInterval = 60
+    static let decisionPollInterval: TimeInterval = 60
+
+    // Focus Agent S3: pending coach-decision poll (plan_prompt card).
+    // Set by AppDelegate. Invoked on the MAIN thread with the decision dict;
+    // returns true only when the card was actually presented (guards may
+    // refuse: session active, bedtime, pill busy). We only mark a decision
+    // id as presented on true, so refused decisions retry next poll.
+    var onCoachDecision: (([String: Any]) -> Bool)?
+    private var decisionTimer: Timer?
+    private var decisionPollInFlight = false
+    /// In-memory only — deliberately NOT persisted. Survival rule: a decision
+    /// the backend still serves with outcome=="shown" re-presents exactly once
+    /// after app restart (the set starts empty), then lands here again.
+    private var presentedDecisionIds: Set<String> = []
 
     /// Current privacy tier. Default is "descriptions" (new top tier).
     private var level: String {
@@ -58,14 +72,55 @@ final class CoachTelemetry {
         flushTimer = Timer.scheduledTimer(withTimeInterval: Self.flushInterval, repeats: true) { [weak self] _ in
             self?.flush()
         }
+        // S3: parallel 60s check for a pending coach decision (plan_prompt).
+        decisionTimer = Timer.scheduledTimer(withTimeInterval: Self.decisionPollInterval, repeats: true) { [weak self] _ in
+            self?.pollPendingDecision()
+        }
         RunLoop.main.add(sampleTimer!, forMode: .common)
         RunLoop.main.add(flushTimer!, forMode: .common)
-        NSLog("📡 CoachTelemetry started (sample \(Int(Self.sampleInterval))s, flush \(Int(Self.flushInterval))s)")
+        RunLoop.main.add(decisionTimer!, forMode: .common)
+        NSLog("📡 CoachTelemetry started (sample \(Int(Self.sampleInterval))s, flush \(Int(Self.flushInterval))s, decision poll \(Int(Self.decisionPollInterval))s)")
     }
 
     func stop() {
         sampleTimer?.invalidate(); sampleTimer = nil
         flushTimer?.invalidate(); flushTimer = nil
+        decisionTimer?.invalidate(); decisionTimer = nil
+    }
+
+    /// Focus Agent S3: fetch the pending coach decision and hand it to the
+    /// presenter (AppDelegate → pill coach card). Single-flight; skips ids
+    /// already presented this app run (see presentedDecisionIds note).
+    private func pollPendingDecision() {
+        guard enabled, onCoachDecision != nil else { return }
+        lock.lock()
+        if decisionPollInFlight { lock.unlock(); return }
+        decisionPollInFlight = true
+        lock.unlock()
+        Task { [weak self] in
+            defer {
+                if let self {
+                    self.lock.lock()
+                    self.decisionPollInFlight = false
+                    self.lock.unlock()
+                }
+            }
+            guard let self, let client = self.backendClient else { return }
+            guard let decision = await client.fetchPendingCoachDecision(),
+                  let id = decision["id"] as? String else { return }
+            self.lock.lock()
+            let alreadyPresented = self.presentedDecisionIds.contains(id)
+            self.lock.unlock()
+            guard !alreadyPresented else { return }
+            // Present on main; mark presented only when the card actually rendered.
+            let presented = await MainActor.run { self.onCoachDecision?(decision) ?? false }
+            if presented {
+                self.lock.lock()
+                self.presentedDecisionIds.insert(id)
+                self.lock.unlock()
+                NSLog("📡 CoachTelemetry: presented coach decision \(id.prefix(8))")
+            }
+        }
     }
 
     /// Boundary events pushed by AppDelegate's onStateChanged fanout.

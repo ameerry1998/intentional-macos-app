@@ -2004,6 +2004,43 @@ class BackendClient {
         }
     }
 
+    /// Focus Agent S3: GET /coach/decisions/pending — the newest unshadowed
+    /// coach decision awaiting user action (outcome null or "shown"), or nil.
+    /// Returns the raw decision dict: {id, action, message, ts, outcome, ...}.
+    func fetchPendingCoachDecision() async -> [String: Any]? {
+        guard let url = URL(string: "\(baseURL)/coach/decisions/pending") else { return nil }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard (response as? HTTPURLResponse)?.statusCode == 200,
+                  let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                return nil
+            }
+            return json["decision"] as? [String: Any]
+        } catch {
+            return nil
+        }
+    }
+
+    /// Focus Agent S3: POST /coach/decisions/{id}/outcome
+    /// body {"outcome": "shown" | "tapped_start" | "dismissed"}. Returns success.
+    func postCoachDecisionOutcome(id: String, outcome: String) async -> Bool {
+        guard let url = URL(string: "\(baseURL)/coach/decisions/\(id)/outcome") else { return false }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: ["outcome": outcome])
+            let (_, response) = try await URLSession.shared.data(for: request)
+            return (response as? HTTPURLResponse)?.statusCode == 200
+        } catch {
+            return false
+        }
+    }
+
     // MARK: - Intention Strictness (Spec 3 — May 2026)
 
     enum StrictnessUpdateError: Error, LocalizedError {

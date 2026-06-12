@@ -701,6 +701,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         coachTelemetry?.start()
         postLog("📡 CoachTelemetry started (shadow mode, descriptions tier)")
 
+        // Focus Agent S3 — plan-prompt coach card. CoachTelemetry polls
+        // GET /coach/decisions/pending every 60s and hands decisions here
+        // (on the main thread). Return value = "actually presented" so the
+        // poller only marks presented ids when the card rendered.
+        coachTelemetry?.onCoachDecision = { [weak self] decision in
+            self?.presentCoachDecision(decision) ?? false
+        }
+
         // R5 earn: if a session was rehydrated from disk (boot reconcile), the
         // .off→.focus transition never fires, so capture the restored period
         // here — otherwise the eventual session end would have nothing to
@@ -1741,6 +1749,165 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         )
+    }
+
+    // MARK: - Goal-bound session start (shared: dashboard bridge + coach card)
+
+    enum IntentionSessionStartOutcome {
+        case started(sessionId: String)
+        case refused(reason: String)
+        case error(reason: String)
+    }
+
+    /// THE goal-bound manual session-start sequence (extracted 2026-06-12 from
+    /// MainWindow.handleStartIntentionSession so the coach card shares it):
+    /// look up the Intention → optimistic local activation → POST /focus/toggle
+    /// → roll back local activation if the backend is unreachable. Per-goal
+    /// enforcement engages via the focusModeController.onStateChanged fanout.
+    func startIntentionSession(id: UUID) async -> IntentionSessionStartOutcome {
+        guard let intention = await IntentionStore.shared.intention(id: id),
+              intention.deletedAt == nil else {
+            return .refused(reason: "Focus mode not found")
+        }
+        // Optimistic local activation. Per-goal enforcement engages via the
+        // focusModeController.onStateChanged fanout (B3 — no separate mirror).
+        await MainActor.run {
+            self.focusModeController?.activate(
+                intention: intention.name,
+                intentionId: id,
+                source: .manual
+            )
+        }
+        // Backend POST (rollback on failure)
+        let result = await self.backendClient?.postFocusToggle(
+            action: .start, intentionId: id, triggeredBy: "mac_manual"
+        )
+        guard let result else {
+            // Roll back local activation on backend failure
+            await MainActor.run {
+                self.focusModeController?.deactivate(source: .manual)
+            }
+            return .error(reason: "Backend unreachable — local enforcement reverted")
+        }
+        return .started(sessionId: result.sessionId ?? "")
+    }
+
+    // MARK: - Coach Card (Focus Agent S3)
+
+    /// Present a pending plan_prompt coach decision as a pill card.
+    /// Returns true only when the card actually rendered.
+    /// Guards (one card at a time, never interrupt):
+    /// - never during a session or bedtime (FocusModeController.state must be .off)
+    /// - never over another pill mode (showCoachCard refuses unless the pill is
+    ///   free or showing the idle allowance balance)
+    /// On render, outcome "shown" posts fire-and-forget.
+    func presentCoachDecision(_ decision: [String: Any]) -> Bool {
+        guard let decisionId = decision["id"] as? String else { return false }
+        guard (decision["action"] as? String ?? "plan_prompt") == "plan_prompt" else { return false }
+        guard focusModeController?.state == .off else { return false }
+        guard let pill = focusMonitor?.deepWorkTimerController else { return false }
+
+        let raw = (decision["message"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let message = raw.isEmpty ? "What's the one thing today?" : raw
+
+        let data = CoachCardData(
+            message: message,
+            onStart: { [weak self] task in
+                self?.handleCoachCardStart(decisionId: decisionId, task: task)
+            },
+            onLater: { [weak self] in
+                guard let self = self else { return }
+                self.focusMonitor?.deepWorkTimerController?.dismissCoachCard()
+                self.postLog("🧭 Coach card: dismissed (later) — decision \(decisionId.prefix(8))")
+                Task { [weak self] in
+                    _ = await self?.backendClient?.postCoachDecisionOutcome(
+                        id: decisionId, outcome: "dismissed")
+                }
+            }
+        )
+        let presented = pill.showCoachCard(data: data)
+        if presented {
+            postLog("🧭 Coach card presented — decision \(decisionId.prefix(8))")
+            Task { [weak self] in
+                _ = await self?.backendClient?.postCoachDecisionOutcome(
+                    id: decisionId, outcome: "shown")
+            }
+        }
+        return presented
+    }
+
+    /// "Start 25 min" on the coach card: report tapped_start once, then run the
+    /// SAME chain onboarding screen 10 drives over the bridge (CREATE_INTENTION
+    /// → START_INTENTION_SESSION): IntentionStore.create with the identical
+    /// payload shape (name ≤60, intent_text ≤140, in_progress, AI scoring on,
+    /// ISO-Monday week_of), then the shared startIntentionSession sequence
+    /// (optimistic activate + POST /focus/toggle + rollback).
+    private func handleCoachCardStart(decisionId: String, task: String) {
+        let trimmed = task.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        guard let pill = focusMonitor?.deepWorkTimerController,
+              pill.viewModel?.coachCardBusy != true else { return }
+        pill.setCoachCardBusy(true)
+        // Outcome exactly once per tap (the busy gate above blocks re-entry).
+        Task { [weak self] in
+            _ = await self?.backendClient?.postCoachDecisionOutcome(
+                id: decisionId, outcome: "tapped_start")
+        }
+        Task { [weak self] in
+            guard let self = self else { return }
+            var payload = IntentionCreatePayload(
+                name: String(trimmed.prefix(60)),
+                description: nil,
+                colorHex: nil,
+                icon: nil,
+                macWebsites: [],
+                macBundleIds: [],
+                iosAppTokensB64: nil,
+                iosCategoryTokensB64: nil
+            )
+            payload.intentText = String(trimmed.prefix(140))
+            payload.status = .inProgress
+            payload.aiScoringEnabled = true
+            payload.weekOf = Self.isoMondayString()
+            do {
+                let created = try await IntentionStore.shared.create(payload)
+                let outcome = await self.startIntentionSession(id: created.id)
+                await MainActor.run {
+                    switch outcome {
+                    case .started:
+                        self.postLog("🧭 Coach card: session started for \"\(created.name)\"")
+                        // The activation fanout usually already replaced/dismissed
+                        // the pill (showTimerForCurrentBlock) — this is a safety net.
+                        self.focusMonitor?.deepWorkTimerController?.dismissCoachCard()
+                    case .refused(let reason), .error(let reason):
+                        self.postLog("🧭 Coach card: session start failed — \(reason)")
+                        self.focusMonitor?.deepWorkTimerController?.failCoachCard(
+                            message: "Couldn't start — check your connection and try again.")
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.postLog("🧭 Coach card: goal create failed — \(error.localizedDescription)")
+                    self.focusMonitor?.deepWorkTimerController?.failCoachCard(
+                        message: "Couldn't start — check your connection and try again.")
+                }
+            }
+        }
+    }
+
+    /// Local-date ISO Monday of the current week (mirrors onboarding's
+    /// isoMonday() — Mon=0 offset math, yyyy-MM-dd).
+    private static func isoMondayString() -> String {
+        let cal = Calendar.current
+        let weekday = cal.component(.weekday, from: Date())  // 1=Sun … 7=Sat
+        let daysFromMonday = (weekday + 5) % 7               // Mon=0 … Sun=6
+        let monday = cal.date(byAdding: .day, value: -daysFromMonday,
+                              to: cal.startOfDay(for: Date())) ?? Date()
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        df.timeZone = TimeZone.current
+        return df.string(from: monday)
     }
 
     func startFocusSession(profileIds: [UUID], intention: String?, aiEnabled: Bool, triggeredByPuck: Bool) {

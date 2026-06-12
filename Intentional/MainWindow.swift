@@ -3475,44 +3475,29 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
             emitSessionResult(["status": "refused", "reason": "Missing weekly goal id"])
             return
         }
+        // The activation + POST + rollback sequence lives on AppDelegate
+        // (startIntentionSession) since 2026-06-12 — shared with the coach
+        // card (Focus Agent S3). Bridge result payloads unchanged.
         Task {
-            // Look up intention name for local enforcement
-            guard let intention = await IntentionStore.shared.intention(id: id),
-                  intention.deletedAt == nil else {
+            guard let appDelegate = self.appDelegate else {
                 await MainActor.run {
-                    self.emitSessionResult(["status": "refused", "reason": "Focus mode not found"])
+                    self.emitSessionResult(["status": "error", "reason": "App not ready"])
                 }
                 return
             }
-            // Optimistic local activation. Per-goal enforcement engages via the
-            // focusModeController.onStateChanged fanout (B3 — no separate mirror).
+            let outcome = await appDelegate.startIntentionSession(id: id)
             await MainActor.run {
-                self.appDelegate?.focusModeController?.activate(
-                    intention: intention.name,
-                    intentionId: id,
-                    source: .manual
-                )
-            }
-            // Backend POST (fire-and-forget; rollback on failure)
-            let result = await self.appDelegate?.backendClient?.postFocusToggle(
-                action: .start, intentionId: id, triggeredBy: "mac_manual"
-            )
-            if result == nil {
-                // Roll back local activation on backend failure
-                await MainActor.run {
-                    self.appDelegate?.focusModeController?.deactivate(source: .manual)
+                switch outcome {
+                case .started(let sessionId):
                     self.emitSessionResult([
-                        "status": "error",
-                        "reason": "Backend unreachable — local enforcement reverted"
+                        "status": "started", "intentionId": id.uuidString,
+                        "sessionId": sessionId
                     ])
+                case .refused(let reason):
+                    self.emitSessionResult(["status": "refused", "reason": reason])
+                case .error(let reason):
+                    self.emitSessionResult(["status": "error", "reason": reason])
                 }
-                return
-            }
-            await MainActor.run {
-                self.emitSessionResult([
-                    "status": "started", "intentionId": id.uuidString,
-                    "sessionId": result?.sessionId ?? ""
-                ])
             }
         }
     }

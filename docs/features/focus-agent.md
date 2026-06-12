@@ -8,6 +8,8 @@ files:
   - Intentional/RelevanceScorer.swift
   - Intentional/BackendClient.swift
   - Intentional/AppDelegate.swift
+  - Intentional/DeepWorkTimerController.swift
+  - Intentional/MainWindow.swift
 related:
   - onboarding
   - rules
