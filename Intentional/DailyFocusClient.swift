@@ -5,7 +5,10 @@ import Foundation
 enum DailyFocusClient {
     static func create(title: String, linkedIntentionId: UUID?, via: String,
                        backend: BackendClient?) async -> UUID? {
-        let fmt = DateFormatter(); fmt.dateFormat = "yyyy-MM-dd"
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        fmt.timeZone = TimeZone.current
+        fmt.locale = Locale(identifier: "en_US_POSIX")
         return await backend?.createDailyFocus(
             localDate: fmt.string(from: Date()),
             title: String(title.prefix(60)),
