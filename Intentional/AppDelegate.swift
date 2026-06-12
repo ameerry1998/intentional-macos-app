@@ -905,6 +905,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         bedtimeEnforcer = BedtimeEnforcer(appDelegate: self)
         sleepWakeMonitor?.onWake = { [weak self] in
             self?.bedtimeEnforcer?.onMacWoke()
+            // Task 8 (idle/away clean end): a floored session that slept ≥5 min
+            // ends at sleep time with credit kept + a warm re-entry offer.
+            self?.focusMonitor?.handleSystemWake(
+                sleptAt: self?.sleepWakeMonitor?.lastWillSleepAt)
         }
         // Drive the pill widget from bedtime state transitions.
         // - .windDown(phase) → bedtimeWindDown pill (allowMinimize only at T-30)

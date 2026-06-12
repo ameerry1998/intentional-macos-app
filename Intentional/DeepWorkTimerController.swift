@@ -120,6 +120,11 @@ struct CoachCardData {
     }
     let message: String
     var style: Style = .planPrompt
+    /// Optional button-title overrides (Task 8 warm re-entry card). nil =
+    /// the style's defaults ("Start 25 min"/"later" for `.planPrompt`,
+    /// "End session"/"Keep going" for `.confirm`).
+    var primaryTitle: String? = nil
+    var secondaryTitle: String? = nil
     var onStart: (String) -> Void
     var onLater: () -> Void
 }
@@ -2623,8 +2628,9 @@ struct DeepWorkTimerView: View {
                     guard isConfirm || !task.isEmpty else { return }
                     viewModel.coachCardData?.onStart(task)
                 }) {
-                    Text(isConfirm ? "End session"
-                         : (viewModel.coachCardBusy ? "Starting…" : "Start 25 min"))
+                    Text(viewModel.coachCardData?.primaryTitle
+                         ?? (isConfirm ? "End session"
+                             : (viewModel.coachCardBusy ? "Starting…" : "Start 25 min")))
                         .font(.system(size: 13, weight: .bold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
@@ -2643,7 +2649,8 @@ struct DeepWorkTimerView: View {
                     guard !viewModel.coachCardBusy else { return }
                     viewModel.coachCardData?.onLater()
                 }) {
-                    Text(isConfirm ? "Keep going" : "later")
+                    Text(viewModel.coachCardData?.secondaryTitle
+                         ?? (isConfirm ? "Keep going" : "later"))
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(textSecondary)
                         .underline()

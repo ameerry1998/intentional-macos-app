@@ -632,6 +632,35 @@ class FocusMonitor {
     /// Minimum interval between two clean-end offers.
     private static let cleanEndRearmSeconds: TimeInterval = 600
 
+    // MARK: - Idle/away clean end + warm re-entry (Task 8, spec §C1)
+    // Away/idle ≥5 min (lock, walk-off) or a ≥5 min sleep gap (lid close)
+    // during a floored session → end at last activity, credit kept, and stash
+    // a warm re-entry offer ("31 min counted. Back for more?") shown when the
+    // user is active again.
+    /// Repeating timer driving the idle check + warm re-entry presentation.
+    private var idleEndTimer: Timer?
+    /// When the idle timer last ticked — recency guard so the first post-wake
+    /// tick doesn't double-fire alongside handleSystemWake().
+    private var lastIdleTickAt: Date?
+    /// Everything the warm re-entry card needs to restart the session.
+    struct WarmReentryStash {
+        let label: String
+        let minutesCounted: Int
+        let dailyFocusId: UUID?
+        let linkedIntentionId: UUID?
+        let createdAt: Date
+    }
+    /// Pending warm re-entry offer; nil when none. Cleared on show/expiry.
+    private var pendingWarmReentry: WarmReentryStash?
+    /// Idle check cadence.
+    private static let idleEndTickInterval: TimeInterval = 15
+    /// System idle seconds that end a floored session.
+    private static let idleEndThresholdSeconds: TimeInterval = 300
+    /// "User is back" — idle below this on a tick consumes the stash.
+    private static let warmReentryActivityThresholdSeconds: TimeInterval = 10
+    /// Unconsumed stash expires after this (stale card is worse than none).
+    private static let warmReentryExpirySeconds: TimeInterval = 1800
+
     // MARK: - Live in-session focus tally
     // Running counters that mirror SessionFocusScore's derivation (relevant /
     // total over the session window, excluding `isEvent` + `neutral` entries),
@@ -847,6 +876,11 @@ class FocusMonitor {
             name: .pillOverrideAITapped, object: nil
         )
 
+        // Task 8: idle/away clean end + warm re-entry. Always-on while the
+        // monitor runs — it no-ops unless a floored session is live (end path)
+        // or a warm re-entry stash is pending (card path).
+        startIdleEndTimer()
+
         appDelegate?.postLog("👁️ FocusMonitor started — watching frontmost app")
     }
 
@@ -860,6 +894,8 @@ class FocusMonitor {
         stopNeutralTickTimer()
         allowanceMeterTimer?.invalidate()
         allowanceMeterTimer = nil
+        idleEndTimer?.invalidate()
+        idleEndTimer = nil
         nudgeController?.dismiss()
         overlayController?.dismiss()
         redShiftController?.dismiss()
@@ -3017,6 +3053,174 @@ class FocusMonitor {
         cleanEndCardLastShownAt = Date()
         appDelegate?.postLog("🧭 Clean-end card: post-floor continuous drift \(Int(Date().timeIntervalSince(runStart)))s — offering clean end (\(mins) min counted)")
         return true
+    }
+
+    // MARK: - Idle/away clean end + warm re-entry (Task 8, spec §C1)
+
+    private func startIdleEndTimer() {
+        idleEndTimer?.invalidate()
+        idleEndTimer = Timer.scheduledTimer(withTimeInterval: Self.idleEndTickInterval,
+                                            repeats: true) { [weak self] _ in
+            self?.idleEndTick()
+        }
+        idleEndTimer?.tolerance = 2
+    }
+
+    /// Seconds since the last user input event (keyboard, mouse, trackpad —
+    /// any HID event in the combined session state). The canonical "any event
+    /// type" sentinel is ~0.
+    private func systemIdleSeconds() -> TimeInterval {
+        CGEventSource.secondsSinceLastEventType(
+            .combinedSessionState,
+            eventType: CGEventType(rawValue: ~0)!
+        )
+    }
+
+    private func idleEndTick() {
+        let now = Date()
+        // Recency guard: if the previous tick was >60s ago the machine was
+        // likely asleep — handleSystemWake() owns that path; don't double-fire
+        // on the first post-wake tick.
+        let tickRecent = lastIdleTickAt.map { now.timeIntervalSince($0) < 60 } ?? false
+        lastIdleTickAt = now
+
+        let idle = systemIdleSeconds()
+
+        // (a) Floored session live + sustained idle → clean end at last
+        // activity, credit kept. Never fires for BEDTIME (state must be
+        // .focus) or floor-less legacy/scheduled sessions (floorMinutes nil).
+        if let fmc = focusModeController, fmc.state == .focus,
+           let period = fmc.currentPeriod, period.floorMinutes != nil,
+           tickRecent, idle >= Self.idleEndThresholdSeconds {
+            endFlooredSessionForAway(period: period,
+                                     lastActivity: now.addingTimeInterval(-idle),
+                                     trigger: "idle \(Int(idle / 60))m")
+            return
+        }
+
+        // (b) Pending warm re-entry: offer it on the first tick where the
+        // user is demonstrably back.
+        maybeShowWarmReentryCard(idle: idle)
+    }
+
+    /// Wake handler (wired through AppDelegate's SleepWakeMonitor.onWake).
+    /// A floored session that slept ≥5 min ends at sleep time, credit kept.
+    func handleSystemWake(sleptAt: Date?) {
+        // Reset tick recency so the next idle tick treats this as a fresh run
+        // (its idle reading right after wake is unreliable anyway).
+        lastIdleTickAt = Date()
+        guard let fmc = focusModeController, fmc.state == .focus,
+              let period = fmc.currentPeriod, period.floorMinutes != nil,
+              let sleptAt = sleptAt else { return }
+        let gap = Date().timeIntervalSince(sleptAt)
+        guard gap >= Self.idleEndThresholdSeconds else { return }
+        endFlooredSessionForAway(period: period,
+                                 lastActivity: sleptAt,
+                                 trigger: "slept \(Int(gap / 60))m")
+    }
+
+    /// THE away-end path: stash the warm re-entry offer (when ≥1 min was
+    /// actually worked), then route through AppDelegate.endCurrentSession —
+    /// the single session-end path. NOTE (slice 1): the backend stop posted by
+    /// the .focus→.off fanout stamps "now", not lastActivity — the true worked
+    /// minutes are logged in the reason string.
+    private func endFlooredSessionForAway(period: FocusModeController.Period,
+                                          lastActivity: Date, trigger: String) {
+        guard focusModeController?.state == .focus else { return }  // double-end guard
+        let minutes = max(0, Int(lastActivity.timeIntervalSince(period.startedAt) / 60))
+        if minutes >= 1 {
+            pendingWarmReentry = WarmReentryStash(
+                label: period.label ?? period.intention ?? "Focus",
+                minutesCounted: minutes,
+                dailyFocusId: period.dailyFocusId,
+                linkedIntentionId: period.intentionId,
+                createdAt: Date()
+            )
+        } else {
+            pendingWarmReentry = nil  // <1 min worked — just end, no warm card
+        }
+        appDelegate?.endCurrentSession(
+            reason: "\(trigger) — ended at last activity (true worked: \(minutes) min; backend stop stamps now)")
+    }
+
+    /// Show the warm re-entry card once the user is active again. Defers
+    /// (returns without consuming the stash) while another pill surface owns
+    /// the window — showCoachCard refuses to stomp celebration / rituals /
+    /// timer, so we naturally retry next tick.
+    private func maybeShowWarmReentryCard(idle: TimeInterval) {
+        guard let stash = pendingWarmReentry else { return }
+        if Date().timeIntervalSince(stash.createdAt) >= Self.warmReentryExpirySeconds {
+            pendingWarmReentry = nil  // stale card is worse than none
+            appDelegate?.postLog("🧭 Warm re-entry: stash expired unconsumed (\(stash.minutesCounted) min)")
+            return
+        }
+        // A new session (or bedtime) started some other way — the offer is moot.
+        guard focusModeController?.state == .off else {
+            pendingWarmReentry = nil
+            return
+        }
+        guard idle < Self.warmReentryActivityThresholdSeconds else { return }
+        guard let pill = deepWorkTimerController else { return }
+        // Never show the warm card over a ritual/celebration surface — defer
+        // to the next tick (showCoachCard would refuse anyway; this keeps the
+        // stash unconsumed explicitly).
+        if let mode = pill.viewModel?.mode,
+           mode == .celebration || mode == .startRitual || mode == .startRitualEdit {
+            return
+        }
+        let data = CoachCardData(
+            message: "You left — \(stash.minutesCounted) min counted. Back for more?",
+            style: .confirm,
+            primaryTitle: "▶ 25 min",
+            secondaryTitle: "Done",
+            onStart: { [weak self] _ in
+                self?.handleWarmReentryRestart(stash)
+            },
+            onLater: { [weak self] in
+                self?.deepWorkTimerController?.dismissCoachCard()
+                self?.appDelegate?.postLog("🧭 Warm re-entry: dismissed (Done)")
+            }
+        )
+        guard pill.showCoachCard(data: data) else { return }  // pill busy — retry next tick
+        pendingWarmReentry = nil  // consumed — the card owns it now
+        appDelegate?.postLog("🧭 Warm re-entry card shown — \(stash.minutesCounted) min counted, offering 25 more")
+    }
+
+    /// "▶ 25 min" on the warm re-entry card. Mirrors the
+    /// AppDelegate.startIntentionSession sequence exactly: optimistic local
+    /// activation first (instant pill + enforcement via the onStateChanged
+    /// fanout), then POST /focus/toggle, rollback on backend failure.
+    private func handleWarmReentryRestart(_ stash: WarmReentryStash) {
+        guard let pill = deepWorkTimerController,
+              pill.viewModel?.coachCardBusy != true else { return }
+        pill.setCoachCardBusy(true)
+        appDelegate?.postLog("🧭 Warm re-entry: ▶ 25 min — restarting \"\(stash.label)\"")
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
+            self.focusModeController?.activate(
+                intention: stash.label,
+                intentionId: stash.linkedIntentionId,
+                source: .manual,
+                floorMinutes: 25,
+                dailyFocusId: stash.dailyFocusId,
+                label: stash.label
+            )
+            let result = await self.appDelegate?.backendClient?.postFocusToggle(
+                action: .start,
+                intentionId: stash.linkedIntentionId,
+                triggeredBy: "mac_manual",
+                dailyFocusId: stash.dailyFocusId,
+                floorMinutes: 25,
+                label: stash.label
+            )
+            guard result != nil else {
+                // Roll back local activation on backend failure (same
+                // semantics as startIntentionSession).
+                self.focusModeController?.deactivate(source: .manual)
+                self.appDelegate?.postLog("🧭 Warm re-entry: backend unreachable — local activation reverted")
+                return
+            }
+        }
     }
 
     /// Block-type-aware enforcement for irrelevant content.

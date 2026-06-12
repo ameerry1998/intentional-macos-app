@@ -13,6 +13,10 @@ class SleepWakeMonitor {
     private let backendClient: BackendClient
     private weak var appDelegate: AppDelegate?
     var onWake: (() -> Void)?
+    /// Timestamp of the most recent willSleep notification. Read by
+    /// FocusMonitor's wake handler (Task 8 idle/away clean end) to compute the
+    /// sleep gap — nil until the first sleep of this app run.
+    private(set) var lastWillSleepAt: Date?
 
     init(backendClient: BackendClient, appDelegate: AppDelegate) {
         self.backendClient = backendClient
@@ -65,6 +69,7 @@ class SleepWakeMonitor {
     // MARK: - Event Handlers
 
     private func computerWillSleep() {
+        lastWillSleepAt = Date()
         appDelegate?.postLog("💤 Computer going to sleep")
 
         Task {
