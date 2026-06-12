@@ -1,10 +1,11 @@
 ---
 feature: FocusSessions
-status: shipping
+status: wip
 owner: Intentional Mac
-last_verified: 2026-06-11
+last_verified: 2026-06-12
 files:
   - Intentional/FocusModeController.swift
+  - Intentional/DailyFocusClient.swift
   - Intentional/FocusStatePoller.swift
   - Intentional/FocusMonitor.swift
   - Intentional/ScheduleManager.swift
@@ -21,6 +22,12 @@ related:
 ## TL;DR
 
 `FocusModeController` is the single boolean gate for "is the Mac enforcing right now." Three state values (OFF / FOCUS / BEDTIME), persisted to disk on every transition, reconciled against the backend's `focus_sessions` table every 2s via `FocusStatePoller`. All downstream enforcement (blocklists, overlays, nudges, AI scoring) subscribes to a single `onStateChanged` callback.
+
+---
+
+## Daily Focus sessions (slice 1, 2026-06-12) — floor-not-box
+
+Spec: `docs/superpowers/specs/2026-06-12-daily-focus-and-coach-powers-design.md` §CONVERGED. Manual/coach/Goals-page sessions are now **floored**: `Period` (schemaVersion **3**) carries `floorMinutes` (default 25), `dailyFocusId`, `label`. The pill counts the floor DOWN, then counts UP silently (`h:mm:ss ↑`) — flow is never interrupted; the synthetic 23:59 block remains enforcement-only and is never rendered (the 709:35 midnight countdown and the `.blockComplete` wedge are dead). One end path: `AppDelegate.endCurrentSession(reason:)` — pill End, dashboard stop, post-floor clean-end card ("Calling it here? N min counted."), and idle/away (≥5 min idle or sleep gap → ends at last activity, warm re-entry card on return: "You left — N min counted. Back for more?"). Typed text in the coach card creates a backend **`daily_focus`** row (today-scoped, migration 032) + a floored session — **never an Intention**; the card offers ≤4 in-progress goal chips and a 🤷 10-min sort-it-out (90-min cap). Goals page cards have "▶ Start now" (floored, no daily_focus row). Schedule `.off` transitions no longer kill `.manual` sessions. Backend: `/daily_focus` CRUD; `focus_sessions` gained `daily_focus_id`/`floor_minutes`/`label`; coach plan-prompt gate is stretch-aware (a dead session no longer silences the day). `status: wip` until live re-verification of the 5 GUI-found fixes completes.
 
 ---
 
@@ -335,6 +342,8 @@ Status: **clean**.
 ---
 
 ## Decision history
+
+- **2026-06-12** — Daily Focus slice 1 (see section above): Period v3 floor/label/dailyFocusId, floor→count-up pill, single `endCurrentSession` path, idle/away clean end + warm re-entry, coach card v2 (typed text → `daily_focus`, never an Intention), Goals-page "▶ Start now", schedule `.off` no longer kills manual sessions, fanout reordered so `.off` clears the injected block before the monitor fanout (zombie-pill fix). Spec + plan: `2026-06-12-daily-focus-and-coach-powers-design.md` / `2026-06-12-daily-focus-slice1.md`.
 
 - **2026-05-21** — Feature doc written as session-loss investigation artifact. Deep-read of all 7 source files. Documented the boot-reconcile gap, the schedule/poller race, the TTL-vs-manual-source interaction, and the handleSaveIntentionalMode dead handler.
 
