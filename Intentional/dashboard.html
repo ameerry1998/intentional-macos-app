@@ -4802,6 +4802,8 @@ body.theme-effects-warm::after {
 .cd-plan .wcard .out { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cd-plan .wcard-log-btn { background: rgba(255,255,255,0.06); color: var(--text-2); border: 0; padding: 3px 8px; border-radius: 4px; font: 500 11px var(--font); cursor: pointer; }
 .cd-plan .wcard-log-btn:hover { background: rgba(255,255,255,0.14); color: var(--text-1); }
+.cd-plan .wcard-start-btn { background: rgba(232, 116, 97, 0.14); color: #E87461; border: 0.5px solid rgba(232, 116, 97, 0.28); padding: 3px 8px; border-radius: 4px; font: 500 10.5px var(--font); cursor: pointer; transition: background 120ms ease; }
+.cd-plan .wcard-start-btn:hover { background: rgba(232, 116, 97, 0.26); }
 .cd-plan .wcard-done-btn.reopen { background: rgba(156, 183, 238, 0.14); color: #9cb7ee; border-color: rgba(156, 183, 238, 0.25); }
 .cd-plan .wcard-done-btn.reopen:hover { background: rgba(156, 183, 238, 0.22); }
 
@@ -6775,7 +6777,9 @@ window.onProjectSessionResult = function(result) {
 window._scheduledSessionCreated = function(result) {
   if (!result) return;
   if (result.status === 'ok') {
-    if (typeof showToast === 'function') showToast('Session scheduled', 'success');
+    // started_now: the drop covered the current time, so the Mac started an
+    // immediate floored session instead of creating a schedule block.
+    if (typeof showToast === 'function') showToast(result.started_now ? 'Session started' : 'Session scheduled', 'success');
     // Defensive: if the schedule push raced ahead, this is a no-op; if it didn't,
     // request a fresh state pull so the new block paints.
     if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.intentional) {
@@ -14897,6 +14901,23 @@ function WeeklyCard({ g, monthly, dim, onDragStart, onDragEnd, dragging }) {
         <span className={`status ${g.status}`}>{fmtStatus(g.status)}</span>
         {!parent && <span className="status unlinked">· unlinked</span>}
         <span style={{ flex: 1 }} />
+        {g.status !== 'done' && (
+          <button className="wcard-start-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              // Bug 1 (2026-06-12): one-click floored start. Routes through
+              // the EXISTING floored path (MainWindow → AppDelegate
+              // .startIntentionSession, floor 25). Reply toast comes via
+              // window.onProjectSessionResult.
+              if (window.webkit?.messageHandlers?.intentional) {
+                window.webkit.messageHandlers.intentional.postMessage({
+                  type: 'START_INTENTION_SESSION', id: g.id,
+                });
+                if (typeof showToast === 'function') showToast('Starting session…');
+              }
+            }}
+            title="Start a focus session on this goal now">▶ Start now</button>
+        )}
         <button className="wcard-log-btn"
           onClick={(e) => { e.stopPropagation(); window.openLogTimeModal && window.openLogTimeModal(g.id); }}
           title="Log time you spent on this goal">⏱</button>

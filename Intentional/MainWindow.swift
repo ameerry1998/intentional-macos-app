@@ -3595,6 +3595,37 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
                 return
             }
 
+            // Bug 1 (2026-06-12): a goal-bound drop whose window covers NOW is
+            // an immediate start, not a schedule entry. Route it through THE
+            // floored manual-session path (AppDelegate.startIntentionSession:
+            // floor 25, synthetic block, source .manual) instead of creating
+            // a real block that activates floor-less via the schedule (which
+            // also wedged the pill's End button pre-2026-06-12). Future drops
+            // (or drops on another date) still create a real schedule block.
+            let nowComps = Calendar.current.dateComponents([.hour, .minute], from: Date())
+            let nowMin = (nowComps.hour ?? 0) * 60 + (nowComps.minute ?? 0)
+            let coversNow = startDateStr == todayStr
+                && (startHour * 60 + startMinute) <= nowMin
+                && nowMin < (endHour * 60 + endMinute)
+            if coversNow, let iid = intentionIdOpt, let appDelegate = self.appDelegate {
+                let outcome = await appDelegate.startIntentionSession(id: iid)
+                await MainActor.run {
+                    switch outcome {
+                    case .started:
+                        appDelegate.postLog("📋 CREATE_SCHEDULED_SESSION covers now → floored session started (goal \(iid.uuidString.prefix(8)))")
+                        self.callJS("window._scheduledSessionCreated && window._scheduledSessionCreated({status:'ok', started_now:true})")
+                    case .refused(let reason), .error(let reason):
+                        appDelegate.postLog("📋 CREATE_SCHEDULED_SESSION covers now → start failed: \(reason)")
+                        let payload: [String: Any] = ["status": "error", "reason": reason]
+                        if let data = try? JSONSerialization.data(withJSONObject: payload),
+                           let json = String(data: data, encoding: .utf8) {
+                            self.callJS("window._scheduledSessionCreated && window._scheduledSessionCreated(\(json))")
+                        }
+                    }
+                }
+                return
+            }
+
             // Map intention strictness → block intensity.
             // Strict goal → deep_work (hard block). Standard/Soft → focus_hours.
             // Standalone session (no intention) defaults to focusHours.
