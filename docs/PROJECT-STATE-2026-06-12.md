@@ -50,7 +50,7 @@ The coach works but it's bolted onto a **broken session/goal model**. One root f
 ---
 
 ## IN FLIGHT (background when this was written)
-- **Model bake-off** (`intentional-backend`, uncommitted edits in coach_agent.py/run_bench.py — env-configurable max_tokens, production default 300 unchanged; + token tally): deepseek-chat vs deepseek-reasoner (4000 tok) vs deepseek-v4-pro on the 72-scenario bench, with cost/user/month math + sample-message tone comparison. Results → `coach_bench/results-2026-06-12-bakeoff-*.txt` + a `-model-bakeoff.md`. **Commit those when done; pick the brain by: wrong-speak 0 required, tie-break on message quality.** Ameer's hypothesis: the smarter (thinking/pro) model may write better, less-robotic coach messages — worth weighing vs cost.
+- **Model bake-off — RESOLVED 12:55 (backend `632c93c`): deepseek-chat stays the brain.** Only model at wrong-speak 0/72 (both runs, 100% accuracy); reasoner 1–2 WS, v4-pro 2–3 WS per run. The thinking models interrupt on 2–3 min blips the charter says to wait out and fire plan_prompts past the nudge cap — Ameer's "smarter = better messages" hypothesis contradicted: judgment got worse, tone didn't improve. Chat is also ~3–6× faster and cheapest. No production change needed. Verdict doc: `intentional-backend/coach_bench/results-2026-06-12-model-bakeoff.md`.
 
 ## QUEUED Mac fixes (small, from live screenshots)
 - Timer-to-midnight (709:35) — folded into the session-model spec above.
