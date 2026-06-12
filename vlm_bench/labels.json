@@ -1,0 +1,212 @@
+[
+  {
+    "file": "existing-coldwalk-1-email.png",
+    "truth_sentence": "The user is signing up in the Intentional app, which is asking 'What's your email?' with an email input field, on a small macOS desktop with a dock visible.",
+    "category": "neutral",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "existing-coldwalk-2-code.png",
+    "truth_sentence": "The user is on the Intentional app's 'Check your email' screen, entering a 6-digit email verification code during sign-up.",
+    "category": "neutral",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "existing-coldwalk-3-postcode.png",
+    "truth_sentence": "The user is looking at the Intentional welcome screen with a dartboard logo, the tagline 'Take back your time', and a 'Set Up My Limits' button.",
+    "category": "neutral",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "existing-coldwalk-vm-final.png",
+    "truth_sentence": "The user is viewing the Intentional dashboard's Today tab, showing an empty 'This week's goals' section and an evening schedule timeline, on a small low-resolution screen.",
+    "category": "neutral",
+    "alt_category": "work",
+    "ambiguous": true
+  },
+  {
+    "file": "existing-ob-s1.png",
+    "truth_sentence": "The user is on an onboarding screen stating '5 to 6 hours' is the average daily screen time, with a 'See where it goes' button.",
+    "category": "neutral",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "existing-ob-s5.png",
+    "truth_sentence": "The user is on an onboarding screen titled 'Where does it go?' selecting which apps pull them in, with chips for TikTok, Instagram, YouTube, Reddit, X, Twitch, Netflix and Amazon.",
+    "category": "neutral",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "existing-ob-s7.png",
+    "truth_sentence": "The user is reading an onboarding explainer titled 'Here, scroll time is earned' describing how focusing 25 minutes earns 5 minutes of browse time, with a 'Sounds fair' button.",
+    "category": "neutral",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "existing-ob-s9.png",
+    "truth_sentence": "The user is on an onboarding screen titled 'Pick one thing to finish today' with a task input field and a 'Start my first session' button.",
+    "category": "neutral",
+    "alt_category": "work",
+    "ambiguous": true
+  },
+  {
+    "file": "existing-td-Accountability.png",
+    "truth_sentence": "The user is viewing the Accountability settings page of the Intentional app, showing partner Caity Enroth, an 'Enable Partner Lock' button, and a Strict Mode toggle that is off.",
+    "category": "neutral",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "existing-td-Goals.png",
+    "truth_sentence": "The user is reviewing their goals in the Intentional app's Goals tab, with June goals like 'Get into active interview pipelines' and 'Ship Intentional v1 to 10 paying customers' and an empty weekly session planner.",
+    "category": "work",
+    "alt_category": "neutral",
+    "ambiguous": true
+  },
+  {
+    "file": "existing-td-Rules.png",
+    "truth_sentence": "The user is viewing the Rules tab of the Intentional app, showing a daily allowance summary and a list of blocked sites like youtube.com, instagram.com, netflix.com and spotify.com with toggles.",
+    "category": "neutral",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "existing-td-Settings.png",
+    "truth_sentence": "The user is viewing the Settings page of the Intentional app, with rows for Strict Mode, Account, Strictness, Sensitive Content, Bedtime, and Reset & Delete.",
+    "category": "neutral",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "existing-td-Today.png",
+    "truth_sentence": "The user is viewing the Intentional dashboard's Today tab, showing an empty 'This week's goals' section and an evening schedule timeline with Focus time and Free Time buttons.",
+    "category": "neutral",
+    "alt_category": "work",
+    "ambiguous": true
+  },
+  {
+    "file": "existing-walk-final.png",
+    "truth_sentence": "The user is on a 'Before you focus — what stays open?' tab-review screen listing open tabs and apps to keep or close, with a macOS keychain permission dialog from Intentional on top.",
+    "category": "neutral",
+    "alt_category": "work",
+    "ambiguous": true
+  },
+  {
+    "file": "existing-walk-s4.png",
+    "truth_sentence": "A macOS keychain access dialog from Intentional is shown over an onboarding survey with answer options '2 to 4', '4 to 6', and 'Honestly, no idea', on a small desktop.",
+    "category": "neutral",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "live-1.png",
+    "truth_sentence": "The user is working in a full-screen dark terminal running a Claude Code AI coding-assistant session, with dense text about screenshots, models and benchmark tasks.",
+    "category": "work",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "live-2.png",
+    "truth_sentence": "The user is working in a full-screen dark terminal with a Claude Code AI coding-assistant session showing colored status text and a task list.",
+    "category": "work",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "live-3.png",
+    "truth_sentence": "The user is watching a YouTube video titled 'I Analysed Every DISCLOSURE DAY Trailer... What I Found Will Shock You', showing a bearded man speaking in front of a bookshelf, in Chrome with many tabs open.",
+    "category": "entertainment",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "live-4.png",
+    "truth_sentence": "The user is watching a YouTube video titled 'I did NOT like Disclosure Day', currently showing four people in a panel interview, with a sidebar of recommended videos.",
+    "category": "entertainment",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "live-5.png",
+    "truth_sentence": "The user is watching the YouTube video 'I did NOT like Disclosure Day', currently showing a dark scene with several humanoid robots.",
+    "category": "entertainment",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "live-6.png",
+    "truth_sentence": "The user is on the YouTube video 'I did NOT like Disclosure Day' showing a War of the Worlds clip captioned as a fast-paced sci-fi thriller, with a macOS battery/power-mode menu open in the top-right corner.",
+    "category": "entertainment",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "live-7.png",
+    "truth_sentence": "The user is working in a full-screen dark terminal running a Claude Code AI coding session that lists model download commands and a task checklist.",
+    "category": "work",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "live-8.png",
+    "truth_sentence": "The user is watching the YouTube video 'I did NOT like Disclosure Day', currently showing Rep. Nancy Mace speaking at a congressional hearing on an NBC feed.",
+    "category": "entertainment",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "live-9.png",
+    "truth_sentence": "The user is watching the YouTube video 'I did NOT like Disclosure Day', currently showing an astronaut quote card from Harrison Schmitt over an Earth-and-Moon image.",
+    "category": "entertainment",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "live-10.png",
+    "truth_sentence": "The user is working in a full-screen dark terminal with a Claude Code AI session showing benchmark progress, model comparisons and shell output.",
+    "category": "work",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "live-11.png",
+    "truth_sentence": "The user is browsing the YouTube home feed in Chrome, with recommended thumbnails including 'SINAI DECISION', an airlines video, and 'They're Lying About Antarctica'.",
+    "category": "entertainment",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "live-12.png",
+    "truth_sentence": "The user is browsing the YouTube home feed in Chrome, with recommendations including a '007 Tier List - Part 1' video and a HeyGen AI video-generator video.",
+    "category": "entertainment",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "live-13.png",
+    "truth_sentence": "The user is watching a YouTube video titled 'Ex-CIA Agent on Israel, Lindsey Graham, and the CIA' from the Tucker Carlson Network, showing a gray-haired man being interviewed.",
+    "category": "entertainment",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "live-14.png",
+    "truth_sentence": "The user is watching the YouTube interview video 'Ex-CIA Agent on Israel, Lindsey Graham, and the CIA' from the Tucker Carlson Network, with a man in a dark room speaking into a microphone.",
+    "category": "entertainment",
+    "alt_category": null,
+    "ambiguous": false
+  },
+  {
+    "file": "live-15.png",
+    "truth_sentence": "The user is watching the paused YouTube interview video 'Ex-CIA Agent on Israel, Lindsey Graham, and the CIA' from the Tucker Carlson Network, with the player controls and a 'jump to latest' overlay visible.",
+    "category": "entertainment",
+    "alt_category": null,
+    "ambiguous": false
+  }
+]
