@@ -824,6 +824,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.injectSyntheticBlockForCurrentPeriod()
             }
 
+            // Zombie-pill fix (2026-06-12): on .off, clear the injected
+            // synthetic block BEFORE the focusMonitor fanout below. The old
+            // order cleared it at the bottom of this closure — so
+            // showTimerForCurrentBlock still saw a currentBlock (the
+            // synthetic) with currentPeriod already nil and re-showed a timer
+            // pill for a dead session ("🚨 ACTIVATE: showFocusPill(timer)"
+            // right after a clean idle end), and nothing ever rescued it.
+            // No-op when nothing was injected.
+            if new == .off {
+                self.scheduleManager?.clearInjectedFocusSessionBlock()
+            }
+
             // (R6: the earnedBrowseManager.onBlockChanged ordering invariant
             // is gone with the engine — focusMonitor is the only consumer now.)
             self.focusMonitor?.onBlockChanged()
@@ -884,9 +896,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 // R4(a): and drop the goal's allow list from the tab sweep so
                 // standalone block rules aren't weakened outside the session.
                 self.websiteBlocker?.setSessionAllowedDomains([])
-                // Clear any synthetic block we injected so the next activation
-                // doesn't re-engage stale context.
-                self.scheduleManager?.clearInjectedFocusSessionBlock()
+                // (The injected synthetic block is cleared at the TOP of this
+                // closure — before the focusMonitor fanout — see the
+                // zombie-pill fix comment above.)
                 // Dismiss the pill if it's stuck in `.blockComplete` — this is
                 // the "session ended but celebration was skipped" state (happens
                 // when prevStats.totalTicks == 0, i.e. user was distracted the

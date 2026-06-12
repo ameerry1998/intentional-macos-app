@@ -1020,6 +1020,17 @@ class FocusMonitor {
             return
         }
         if let block = scheduleManager?.currentBlock {
+            // Belt-and-braces (zombie-pill fix, 2026-06-12): the injected
+            // synthetic block must never drive a timer pill when no session
+            // is live — that's the "pill re-shown on a dead session after a
+            // clean idle end" bug. The primary fix is fanout ordering in
+            // AppDelegate (clear-injected-before-fanout); this guard makes
+            // the pill safe even if a stale synthetic block survives.
+            if scheduleManager?.injectedFocusBlock?.id == block.id,
+               focusModeController?.state != .focus {
+                deepWorkTimerController?.dismiss()
+                return
+            }
             let now = Date()
             let endOfBlock = Calendar.current.date(
                 bySettingHour: block.endHour, minute: block.endMinute, second: 0, of: now
