@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Product Teardown — why it doesn't feel usable — 2026-06-11</title>
+<style>
+  :root { --bg:#16131f; --surface:#1f1a2b; --card:#262033; --coral:#E87461; --gold:#E8B45A; --text:#EDE9F2; --text2:rgba(237,233,242,.62); --text3:rgba(237,233,242,.45); --red:#e05d5d; --green:#5dbf7a; --amber:#d9a441; }
+  body { background:var(--bg); color:var(--text); font:14px/1.55 -apple-system,system-ui,sans-serif; max-width:1020px; margin:0 auto; padding:40px 24px; }
+  h1 { font-size:24px; } h1 em { color:var(--coral); font-style:normal; }
+  h2 { font-size:17px; margin-top:40px; border-bottom:1px solid rgba(255,255,255,.08); padding-bottom:8px; }
+  .meta { color:var(--text3); font-size:12.5px; margin-bottom:24px; }
+  table { width:100%; border-collapse:collapse; margin:16px 0; font-size:13px; }
+  th { text-align:left; color:var(--text3); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; padding:8px 10px; }
+  td { padding:10px; border-top:1px solid rgba(255,255,255,.06); vertical-align:top; }
+  tr:nth-child(even) td { background:rgba(255,255,255,.02); }
+  .pill { display:inline-block; padding:2px 9px; border-radius:99px; font-size:11px; font-weight:600; white-space:nowrap; }
+  .p-broken { background:rgba(224,93,93,.18); color:var(--red); }
+  .p-missing { background:rgba(217,164,65,.16); color:var(--amber); }
+  .p-good { background:rgba(93,191,122,.15); color:var(--green); }
+  .verdict { background:var(--card); border-left:3px solid var(--coral); border-radius:8px; padding:16px 18px; margin:20px 0; }
+  img.shot { width:100%; border-radius:10px; border:1px solid rgba(255,255,255,.1); margin:10px 0 4px; }
+  .cap { color:var(--text3); font-size:12px; margin-bottom:18px; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+</style>
+</head>
+<body>
+
+<h1>Product teardown — <em>why opening the app gives you nothing</em></h1>
+<div class="meta">2026-06-11 night · Evidence: live host app (Ameer's real data, dev build w/ today's fixes) + fresh-account VM walk. All screenshots in <code>docs/teardown-2026-06-11/</code>. Companion to the onboarding cold-walk report (which covered minutes 0–5; this covers day 2+).</div>
+
+<div class="verdict">
+<strong>Thesis: the app now has a great first five minutes and a decent settings room, but no daily loop.</strong> The new onboarding takes a fired-up stranger from pain → picks → deal → a running session. Then tomorrow they open the app and land on a Today tab that is structurally <em>empty</em>: no greeting, no question, no record of yesterday, no next action. Every reason to come back lives in surfaces that don't exist yet (daily commitment, timeline, review). The "vibe-coded" feel is mostly four specific, fixable classes of defect: <em>dead primary surface, contradictory state, silent protection failure, and inconsistent vocabulary.</em>
+</div>
+
+<h2>Exhibit A — Today, the primary tab, on a real heavy-use account (8:40 PM)</h2>
+<img class="shot" src="teardown-2026-06-11/td-Today.png">
+<div class="cap">Ameer's actual Today at 8:40 PM after a full day on the machine: "No goals for this week yet", an empty schedule grid, a red now-line over nothing. Bottom-left says "Free time" while the sidebar simultaneously offers "⏹ Stop session".</div>
+
+<p>This single screen is the product's core failure. The ADHD user opens the app with exactly one question — <em>"what should I be doing right now?"</em> — and this screen answers nothing. Specifically:</p>
+
+<table>
+<tr><th>#</th><th>Defect</th><th>Class</th><th>Detail</th></tr>
+<tr><td>A1</td><td>No "now" card</td><td><span class="pill p-missing">MISSING</span></td><td>Nothing states the current mode (focusing? free? what session? since when?). The onboarding's screen-10 question ("Pick one thing to finish today") has no daily equivalent — it was the best screen in the product and it shows exactly once, ever.</td></tr>
+<tr><td>A2</td><td>State contradiction on screen</td><td><span class="pill p-broken">BROKEN</span></td><td>"Free time" label and "⏹ Stop session" visible at the same moment. One of them is lying. Trust dies here.</td></tr>
+<tr><td>A3</td><td>Empty timeline carries no history</td><td><span class="pill p-missing">MISSING</span></td><td>The schedule grid shows only future-planning. A full day of real usage (TimeTracker has the data!) renders as blank rows. Your May 18 ask — "track how I'm actually spending my time and present it on the timeline" — is precisely the missing organ. An evening user should see their day filled in, good and bad.</td></tr>
+<tr><td>A4</td><td>"No goals for this week yet" on an account with 14 goals</td><td><span class="pill p-broken">BROKEN</span></td><td>Partly the (now fixed) ISO8601 decode bug, partly weekly-goal filtering: old goals have no week assigned, so the strip is empty and scolds a power user. Empty-state copy punishes instead of helping.</td></tr>
+<tr><td>A5</td><td>Visual hierarchy absent</td><td><span class="pill p-missing">MISSING</span></td><td>A thin content column floats in a huge dark void; sidebar and canvas don't compose; nothing is the hero. Reads as wireframe, not product.</td></tr>
+</table>
+
+<h2>Exhibit B — protection is silently OFF</h2>
+<div class="two">
+<div><img class="shot" src="teardown-2026-06-11/td-Rules.png"><div class="cap">Rules: 11 blocked sites — every toggle OFF except <code>example.com</code> (a test rule seeded tonight). Footer pill: "1 rule active".</div></div>
+<div><img class="shot" src="teardown-2026-06-11/td-Accountability.png"><div class="cap">Accountability: partner Active ("ready to lock") but Strict Mode OFF. This tab is actually well-formed — best surface in the app.</div></div>
+</div>
+<table>
+<tr><th>#</th><th>Defect</th><th>Class</th><th>Detail</th></tr>
+<tr><td>B1</td><td>All real block rules disabled, no alarm</td><td><span class="pill p-broken">BROKEN</span></td><td>The user's entire blocklist (youtube, instagram, netflix, hulu…) sits toggled off — likely the R6 migration defaulted them disabled or a later regression — and the only active rule is tonight's test seed. A protection product whose protection is off should be screaming (banner, pill state, partner visibility). It whispers "1 rule active" in the footer.</td></tr>
+<tr><td>B2</td><td>Allowance copy contradicts onboarding</td><td><span class="pill p-missing">INCONSISTENT</span></td><td>Rules card: "every 5 focused min earns 1". Onboarding deal: "Every focused 25 earns 5". Same ratio, different vocabulary. The product's central economy is described two ways.</td></tr>
+</table>
+
+<h2>Exhibit C — the first-run seam</h2>
+<img class="shot" src="teardown-2026-06-11/walk-s11.png">
+<div class="cap">Fresh account, VM: the instant the first session starts inside onboarding, the close-the-noise sweep ("Before you focus — what stays open?") fires OVER the partner screen — listing Finder as a closable item for a user 60 seconds into the product. (The password dialog on top is a test-rig signing artifact, not shipped behavior.)</div>
+<table>
+<tr><th>#</th><th>Defect</th><th>Class</th><th>Detail</th></tr>
+<tr><td>C1</td><td>Sweep interrupts onboarding's win moment</td><td><span class="pill p-broken">BROKEN</span></td><td>Surfaces don't know about each other. The sweep must be suppressed for the onboarding-started session (first impression: momentum, not a review modal listing Finder).</td></tr>
+</table>
+
+<h2>The missing daily loop — your May 18 list is the spine, not a backlog</h2>
+<p>Five of your six May 18 criticisms describe the same absent organ — the loop that makes day 2+ worth opening:</p>
+<table>
+<tr><th>Moment</th><th>What should happen</th><th>Your May 18 item it implements</th></tr>
+<tr><td>Morning open</td><td>Today greets with ONE question — the daily version of onboarding screen 10: "Pick one thing to finish today" → commit → session. Guided, two taps.</td><td>commit-icon / task-commit mechanic</td></tr>
+<tr><td>During the day</td><td>The timeline fills itself in (apps/sites already tracked; no VLM needed). Glance = "where did my morning go".</td><td>time-tracking timeline</td></tr>
+<tr><td>Stray thought mid-session</td><td>Pill quick-capture: type it, park it, stay in session.</td><td>floating-menu to-do</td></tr>
+<tr><td>Evening / Sunday</td><td>Review that shows the filled timeline + focus scores + goal movement, asks 2 questions, rolls goals forward.</td><td>weekly review rebuild</td></tr>
+<tr><td>Browser context-switch</td><td>Overlay fires on tab switches only, not app switches.</td><td>tab-only context switch</td></tr>
+</table>
+
+<h2>Ranked fix list</h2>
+<table>
+<tr><th>Rank</th><th>Fix</th><th>Size</th><th>Why this order</th></tr>
+<tr><td>1</td><td><strong>Rebuild Today around a "Now" card</strong> — three states: idle → "Pick one thing to finish today" (daily commitment, mirrors onboarding S10); focusing → live session card (goal, elapsed, focus %, allowance earned, Stop); done-for-day → today's timeline + tomorrow seed. Kills A1/A2/A5.</td><td>L</td><td>It's the answer to "no motivation to open it". Everything else hangs off this surface.</td></tr>
+<tr><td>2</td><td><strong>Protection truth</strong> — fix the disabled-rules state (migration default or regression), make rules enabled-by-default on create, and add a loud "protection off" banner + pill state when 🚫 rules are inactive. Kills B1.</td><td>S–M</td><td>Integrity: the core promise is currently silently false on the founder's own machine.</td></tr>
+<tr><td>3</td><td><strong>State + vocabulary sweep</strong> — one source of truth for the session indicator (kill "Free time"+"Stop session" contradiction), one phrasing for the allowance everywhere ("focus 25, earn 5"). Kills A2/B2.</td><td>S</td><td>Cheap, and contradictions are what "vibe-coded" smells like.</td></tr>
+<tr><td>4</td><td><strong>Suppress sweep during onboarding session</strong> + helpful empty-states (A4's copy). Kills C1/A4.</td><td>S</td><td>First-impression seams.</td></tr>
+<tr><td>5</td><td><strong>Timeline v1 (auto-filled day)</strong> — render TimeTracker's existing per-app/site data as blocks on the Today timeline. No AI categorization in v1; names + durations.</td><td>M–L</td><td>The retention organ; data already exists, render it.</td></tr>
+<tr><td>6</td><td>Pill quick-capture; weekly review rebuild; tab-only context switch</td><td>M each</td><td>The rest of the loop, post the above.</td></tr>
+</table>
+
+<div class="verdict">
+<strong>What's already good (keep, don't churn):</strong> the new onboarding (verified end-to-end tonight on a fresh account), the Rules surface structure (allowance card + list is clear), the Accountability tab (honest copy, clean hierarchy), and the visual base (dark + coral works — it's the emptiness, not the palette).
+</div>
+
+</body>
+</html>
