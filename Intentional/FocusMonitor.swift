@@ -615,6 +615,23 @@ class FocusMonitor {
     /// Number of distraction→focus recoveries during the current block
     private var blockRecoveryCount: Int = 0
 
+    // MARK: - Post-floor clean-end card (Daily Focus C4)
+    // After a floored session's floor is met, sustained CONTINUOUS drift
+    // (≥5 min without returning to relevant content) offers a clean end via
+    // a .confirm coach card instead of escalating guilt. The cumulative
+    // counter above decays and persists across runs, so it can't express
+    // "continuous" — this is a simple run-start timestamp instead.
+    /// When the current uninterrupted off-task run started; nil while on task.
+    private var offTaskRunStart: Date?
+    /// True while the clean-end card owns the pill (so the ladder doesn't stomp it).
+    private var cleanEndCardShowing = false
+    /// Last time the card was shown — re-arm no sooner than every 10 min.
+    private var cleanEndCardLastShownAt: Date?
+    /// Continuous off-task seconds required before offering a clean end.
+    private static let cleanEndDriftThresholdSeconds: TimeInterval = 300
+    /// Minimum interval between two clean-end offers.
+    private static let cleanEndRearmSeconds: TimeInterval = 600
+
     // MARK: - Live in-session focus tally
     // Running counters that mirror SessionFocusScore's derivation (relevant /
     // total over the session window, excluding `isEvent` + `neutral` entries),
@@ -1013,6 +1030,10 @@ class FocusMonitor {
         nudgeController?.dismiss()
         overlayController?.dismiss()
         isCurrentlyIrrelevant = false
+        // Daily Focus C4: clean-end card state is per-session.
+        offTaskRunStart = nil
+        cleanEndCardShowing = false
+        cleanEndCardLastShownAt = nil
         isOnBreak = false
         currentTarget = ""
         currentTargetKey = ""
@@ -1319,6 +1340,15 @@ class FocusMonitor {
         if strictness == "standard" {
             // TODO(slice 9 followup): show 10s confirmation dialog before proceeding.
             appDelegate?.postLog("⚠️ End Block on Standard mode — friction confirmation TBD; allowing for now")
+        }
+        // Daily Focus C4: a floored session ends through THE single end path —
+        // no block mutation, no `.blockComplete`. The deactivate fanout posts
+        // the backend stop (with focus score), clears the synthetic block, and
+        // dismisses the pill.
+        if focusModeController?.currentPeriod?.floorMinutes != nil {
+            appDelegate?.postLog("👁️ End tapped on pill — ending floored session")
+            appDelegate?.endCurrentSession(reason: "pill End tapped")
+            return
         }
         appDelegate?.postLog("👁️ End Block tapped on pill — triggering early block end")
         if let vm = deepWorkTimerController?.viewModel, vm.mode == .timer {
@@ -2898,6 +2928,15 @@ class FocusMonitor {
         isCurrentlyIrrelevant = false
         tabIsOnBlockingPage = false
         blockedOriginalURL = nil
+        // Daily Focus C4: the continuous off-task run ends here. If the
+        // clean-end card is up, the user returned to task on their own —
+        // treat as an implicit "Keep going" and restore the session timer.
+        offTaskRunStart = nil
+        if cleanEndCardShowing {
+            cleanEndCardShowing = false
+            deepWorkTimerController?.dismissCoachCard()
+            showTimerForCurrentBlock()
+        }
         nudgeController?.dismiss()
         deepWorkTimerController?.dismissDistractionCard()
         overlayController?.dismiss()
@@ -2937,6 +2976,49 @@ class FocusMonitor {
         }
     }
 
+    /// Daily Focus C4: post-floor clean-end card. When the session's floor is
+    /// met and the user has been CONTINUOUSLY off-task ≥5 min, replace the
+    /// session timer pill with a .confirm coach card ("Calling it here?
+    /// N min counted." → End session / Keep going). Shown at most once per
+    /// 10 min. Returns true while the card owns the pill (caller skips the
+    /// nudge/overlay ladder for that tick).
+    private func maybeShowPostFloorCleanEndCard() -> Bool {
+        guard let period = focusModeController?.currentPeriod,
+              let floorEnd = period.floorEndsAt, Date() > floorEnd else { return false }
+        if cleanEndCardShowing { return true }
+        guard let runStart = offTaskRunStart,
+              Date().timeIntervalSince(runStart) >= Self.cleanEndDriftThresholdSeconds else { return false }
+        if let last = cleanEndCardLastShownAt,
+           Date().timeIntervalSince(last) < Self.cleanEndRearmSeconds { return false }
+        guard let pill = deepWorkTimerController else { return false }
+
+        let mins = Int(Date().timeIntervalSince(period.startedAt) / 60)
+        let data = CoachCardData(
+            message: "Calling it here? \(mins) min counted.",
+            style: .confirm,
+            onStart: { [weak self] _ in
+                self?.cleanEndCardShowing = false
+                // THE single end path — posts the stop (with focus score),
+                // marks the daily focus done, clears the synthetic block,
+                // dismisses the pill via the deactivate fanout.
+                self?.appDelegate?.endCurrentSession(reason: "post-floor drift accepted")
+            },
+            onLater: { [weak self] in
+                guard let self = self else { return }
+                // Keep going: restore the session timer pill. Re-arm is
+                // enforced by cleanEndCardLastShownAt (≥10 min).
+                self.cleanEndCardShowing = false
+                self.deepWorkTimerController?.dismissCoachCard()
+                self.showTimerForCurrentBlock()
+            }
+        )
+        guard pill.showCoachCard(data: data, replacingSessionTimer: true) else { return false }
+        cleanEndCardShowing = true
+        cleanEndCardLastShownAt = Date()
+        appDelegate?.postLog("🧭 Clean-end card: post-floor continuous drift \(Int(Date().timeIntervalSince(runStart)))s — offering clean end (\(mins) min counted)")
+        return true
+    }
+
     /// Block-type-aware enforcement for irrelevant content.
     ///
     /// **Deep Work** (browsers): nudge → 30s → overlay → 5 min cumulative → tab redirect
@@ -2966,6 +3048,14 @@ class FocusMonitor {
         isCurrentlyIrrelevant = true
 
         appDelegate?.postLog("👁️ Distraction: \(Int(cumulativeDistractionSeconds))s [\(blockType.rawValue)]")
+
+        // Daily Focus C4: track the start of this continuous off-task run and,
+        // once the session's floor is met, offer a clean end after ≥5 min of
+        // sustained drift. Pre-floor behavior is unchanged (the ladder below).
+        // While the card is up, skip the ladder so an overlay/nudge doesn't
+        // stomp it.
+        if offTaskRunStart == nil { offTaskRunStart = Date() }
+        if maybeShowPostFloorCleanEndCard() { return }
 
         let intention = scheduleManager?.currentBlock?.title ?? ""
 

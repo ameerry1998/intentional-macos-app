@@ -3096,7 +3096,9 @@ class MainWindow: NSWindowController, WKScriptMessageHandler, WKUIDelegate {
         if on {
             appDelegate?.focusModeController?.activate(intention: nil, source: .manual)
         } else {
-            appDelegate?.focusModeController?.deactivate(source: .manual)
+            // Daily Focus C4: route through THE single end path (was a bare
+            // deactivate — same effect, plus daily_focus status + end log).
+            appDelegate?.endCurrentSession(reason: "dashboard toggle off")
         }
     }
 

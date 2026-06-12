@@ -655,10 +655,17 @@ class DeepWorkTimerController {
     /// re-shows itself via FocusMonitor's meter after this card dismisses.
     /// Session/bedtime guards live in the caller (AppDelegate) which also
     /// reads FocusModeController.
+    ///
+    /// `replacingSessionTimer` (Daily Focus C4): the post-floor clean-end card
+    /// is shown DURING a session, replacing the `.timer` pill. The caller
+    /// (FocusMonitor) owns restoring the timer when the card dismisses without
+    /// ending the session.
     @discardableResult
-    func showCoachCard(data: CoachCardData) -> Bool {
-        if timerWindow != nil, let mode = viewModel?.mode, mode != .allowanceBalance {
-            return false
+    func showCoachCard(data: CoachCardData, replacingSessionTimer: Bool = false) -> Bool {
+        if timerWindow != nil, let mode = viewModel?.mode {
+            let replaceable = mode == .allowanceBalance
+                || (replacingSessionTimer && mode == .timer)
+            if !replaceable { return false }
         }
         dismiss()
 
@@ -674,7 +681,8 @@ class DeepWorkTimerController {
         hostingView.layer?.backgroundColor = .clear
 
         let windowWidth: CGFloat = 460
-        let windowHeight: CGFloat = 250
+        // .confirm has no text field — shorter card.
+        let windowHeight: CGFloat = data.style == .confirm ? 170 : 250
         hostingView.frame = NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight)
 
         let window = KeyablePanel(
@@ -696,10 +704,15 @@ class DeepWorkTimerController {
         positionWindow(window, width: windowWidth, height: windowHeight)
 
         print("🚨 ACTIVATE: DeepWorkTimerController.showCoachCard — orderFrontRegardless")
-        // Text input needs key status (same pattern as startRitualEdit).
-        window.allowKeyboardInput = true
+        if data.style == .planPrompt {
+            // Text input needs key status (same pattern as startRitualEdit).
+            // .confirm has no field — don't steal key focus mid-session.
+            window.allowKeyboardInput = true
+        }
         window.orderFrontRegardless()
-        window.makeKey()
+        if data.style == .planPrompt {
+            window.makeKey()
+        }
         timerWindow = window
         startTrackingPosition()
         Self.playSound("Glass")
@@ -2548,6 +2561,9 @@ struct DeepWorkTimerView: View {
         let fieldBorder = Color.white.opacity(0.12)
         let inputEmpty = viewModel.coachTaskInput
             .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        // Daily Focus C4: `.confirm` hides the text field and renders an
+        // "End session" / "Keep going" pair (post-floor clean-end card).
+        let isConfirm = viewModel.coachCardData?.style == .confirm
 
         return VStack(alignment: .leading, spacing: 0) {
             // Kicker
@@ -2574,17 +2590,19 @@ struct DeepWorkTimerView: View {
                     .padding(.bottom, 14)
             }
 
-            // Task input
-            TextField("e.g. Send 10 recruiter emails", text: $viewModel.coachTaskInput)
-                .textFieldStyle(.plain)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(textPrimary)
-                .padding(10)
-                .background(fieldBg)
-                .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(fieldBorder, lineWidth: 1))
-                .disabled(viewModel.coachCardBusy)
-                .padding(.bottom, 10)
+            // Task input (.planPrompt only)
+            if !isConfirm {
+                TextField("e.g. Send 10 recruiter emails", text: $viewModel.coachTaskInput)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(textPrimary)
+                    .padding(10)
+                    .background(fieldBg)
+                    .cornerRadius(8)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(fieldBorder, lineWidth: 1))
+                    .disabled(viewModel.coachCardBusy)
+                    .padding(.bottom, 10)
+            }
 
             if let error = viewModel.coachCardError {
                 Text(error)
@@ -2596,15 +2614,17 @@ struct DeepWorkTimerView: View {
 
             Spacer(minLength: 0)
 
-            // CTA row: Start 25 min + quiet "later"
+            // CTA row: primary + quiet secondary
             HStack(spacing: 12) {
                 Button(action: {
+                    guard !viewModel.coachCardBusy else { return }
                     let task = viewModel.coachTaskInput
                         .trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !task.isEmpty, !viewModel.coachCardBusy else { return }
+                    guard isConfirm || !task.isEmpty else { return }
                     viewModel.coachCardData?.onStart(task)
                 }) {
-                    Text(viewModel.coachCardBusy ? "Starting…" : "Start 25 min")
+                    Text(isConfirm ? "End session"
+                         : (viewModel.coachCardBusy ? "Starting…" : "Start 25 min"))
                         .font(.system(size: 13, weight: .bold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
@@ -2612,18 +2632,18 @@ struct DeepWorkTimerView: View {
                         .background(
                             LinearGradient(colors: [focusedStart, focusedEnd],
                                            startPoint: .leading, endPoint: .trailing)
-                                .opacity(inputEmpty || viewModel.coachCardBusy ? 0.35 : 1.0)
+                                .opacity((!isConfirm && inputEmpty) || viewModel.coachCardBusy ? 0.35 : 1.0)
                         )
                         .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
-                .disabled(inputEmpty || viewModel.coachCardBusy)
+                .disabled((!isConfirm && inputEmpty) || viewModel.coachCardBusy)
 
                 Button(action: {
                     guard !viewModel.coachCardBusy else { return }
                     viewModel.coachCardData?.onLater()
                 }) {
-                    Text("later")
+                    Text(isConfirm ? "Keep going" : "later")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(textSecondary)
                         .underline()
@@ -2633,7 +2653,7 @@ struct DeepWorkTimerView: View {
             }
         }
         .padding(18)
-        .frame(width: 460, height: 250, alignment: .top)
+        .frame(width: 460, height: isConfirm ? 170 : 250, alignment: .top)
         .background(bgColor)
         .cornerRadius(18)
         .overlay(

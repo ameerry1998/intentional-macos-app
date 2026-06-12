@@ -1982,8 +1982,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         postLog("🎯 Injected synthetic block for sessionless .focus activation: \"\(synthetic.title)\"")
     }
 
+    /// THE single session-end path (Daily Focus C4, 2026-06-12). Every way a
+    /// session ends — pill End button, post-floor clean-end card, dashboard
+    /// toggle, menu/puck toggle — flows through here so end semantics can't
+    /// drift apart again.
+    ///
+    /// What it does NOT do directly: post the backend stop. Deactivating fires
+    /// focusModeController.onStateChanged's `.focus → .off` branch, which is
+    /// the EXISTING single stop mechanism — it derives the session focus score
+    /// off-main via SessionFocusScore.compute(sessionStart:) and POSTs
+    /// /focus/toggle stop (focus_score, triggered_by "mac"). Posting a second
+    /// stop here would double-stop and double-compute, so we deliberately
+    /// don't.
+    func endCurrentSession(reason: String) {
+        guard let fmc = focusModeController, fmc.state != .off else { return }
+        let period = fmc.currentPeriod
+
+        // Daily Focus row → done (best-effort, fire-and-forget).
+        if let dailyFocusId = period?.dailyFocusId {
+            Task { [weak self] in
+                await self?.backendClient?.setDailyFocusStatus(id: dailyFocusId, status: "done")
+            }
+        }
+
+        let minutes = period.map { Int(Date().timeIntervalSince($0.startedAt) / 60) } ?? 0
+        // Triggers the onStateChanged fanout: backend stop POST (with score),
+        // synthetic-block clear, enforcement teardown, pill dismissal.
+        fmc.deactivate(source: .manual)
+        postLog("🎯 endCurrentSession(\(reason)) — \(minutes) min counted")
+    }
+
     func endFocusSession() {
-        focusModeController?.deactivate(source: .manual)
+        endCurrentSession(reason: "menu/puck toggle")
 
         // Fall back to always-active profiles (or empty if none)
         applyAlwaysActiveProfiles()
