@@ -1,0 +1,49 @@
+<h2>Q1: What should the thing you type actually BE?</h2>
+<p class="subtitle">You tell the coach "finish the ingest fix" and a session starts. Today, that text becomes a permanent Weekly Goal — that's the bug. So what should it become instead?</p>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">The hierarchy today vs. the gap</div>
+    <div class="mockup-body">
+      <div style="display:flex;gap:24px;align-items:flex-start;">
+        <div style="flex:1;">
+          <div class="label">TODAY (broken)</div>
+          <div style="border:1px solid #555;border-radius:8px;padding:10px;margin:8px 0;">📅 Monthly Goal<br><span style="opacity:.6">"Launch Intentional"</span></div>
+          <div style="margin-left:24px;border:1px solid #555;border-radius:8px;padding:10px;margin-top:8px;">🎯 Weekly Goal<br><span style="opacity:.6">"Ship the coach"</span><br><span style="color:#f38b5c">⚠️ + "finish ingest fix" ⚠️ + "idk what to do" — everything you type lands here, forever</span></div>
+          <div style="margin-left:48px;border:1px dashed #555;border-radius:8px;padding:10px;margin-top:8px;">⏱ Session<br><span style="opacity:.6">nameless, invisible, counts down to midnight</span></div>
+        </div>
+        <div style="flex:1;">
+          <div class="label">TARGET (this design)</div>
+          <div style="border:1px solid #555;border-radius:8px;padding:10px;margin:8px 0;">📅 Monthly Goal</div>
+          <div style="margin-left:24px;border:1px solid #555;border-radius:8px;padding:10px;margin-top:8px;">🎯 Weekly Goal<br><span style="opacity:.6">only created deliberately, in the Goals tab</span></div>
+          <div style="margin-left:48px;border:2px solid #6ee7a0;border-radius:8px;padding:10px;margin-top:8px;">☀️ <b>Daily Focus</b> — "finish ingest fix"<br><span style="opacity:.6">what you type to the coach. Bounded to today. THIS is the open question →</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>After the session ends, what happens to "finish the ingest fix"?</h3>
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Just a session name (throwaway)</h3>
+      <p>The text only names the session. It shows on the pill while you work and in session history afterward. No new object anywhere. Simplest possible fix — but the coach can't say "yesterday you said you'd finish the ingest fix" without digging through history, and there's no "today's focus" anywhere on the dashboard.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>A real "Daily Focus" for today (recommended)</h3>
+      <p>It becomes today's focus — visible on the Today tab and the pill, can have multiple sessions against it during the day, and expires tonight. The coach can reference it all day ("you committed to the ingest fix this morning"). If it turns out to be bigger than a day, one click promotes it to a Weekly Goal. This is the "morning commitment" from your parent-teen core loop.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Still a Weekly Goal, but cleaned up</h3>
+      <p>Keep creating Weekly Goals but mark them "ad-hoc" so they auto-archive at week's end and don't clutter the Goals tab. Least new machinery — but "idk" still becomes a goal, and a daily commitment masquerading as a weekly goal is exactly the confusion we're trying to kill.</p>
+    </div>
+  </div>
+</div>

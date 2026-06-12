@@ -1,0 +1,52 @@
+<h2>Q2: Chat with the coach → structured suggestion → you confirm</h2>
+<p class="subtitle">Your idea, drawn out. The chat is how everything gets made — but tapping the suggestion still creates a concrete object. Does this flow feel right?</p>
+
+<div class="section">
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">Morning: the "idk" case (no more dead end)</div>
+      <div class="mockup-body" style="font-size:14px;">
+        <div style="background:#2a2a35;border-radius:12px;padding:10px 14px;margin:6px 0;max-width:85%;">🧭 <b>Coach:</b> You've been bouncing around for 2 hours. What's the one thing you want to move today?</div>
+        <div style="background:#3b3b4f;border-radius:12px;padding:10px 14px;margin:6px 0 6px auto;max-width:70%;text-align:right;">idk honestly</div>
+        <div style="background:#2a2a35;border-radius:12px;padding:10px 14px;margin:6px 0;max-width:85%;">🧭 <b>Coach:</b> Fair. Yesterday you stopped mid-way through the ingest fix. Want to just pick that back up, or is something else more urgent?</div>
+        <div style="background:#3b3b4f;border-radius:12px;padding:10px 14px;margin:6px 0 6px auto;max-width:70%;text-align:right;">yeah ingest fix</div>
+        <div style="background:#2a2a35;border-radius:12px;padding:10px 14px;margin:6px 0;max-width:85%;">🧭 <b>Coach:</b> Good. 50 minutes on it?
+          <div style="border:2px solid #6ee7a0;border-radius:10px;padding:10px;margin-top:8px;background:#1d2b22;">
+            ☀️ <b>Today's focus: Finish the ingest fix</b><br>
+            <span style="opacity:.7">50 min session · scores against this intent</span><br>
+            <button class="mock-button" style="margin-top:6px;">▶ Start</button>
+            <button class="mock-button" style="margin-top:6px;opacity:.6;">Not now</button>
+          </div>
+        </div>
+        <div class="label" style="margin-top:10px;">NOTHING IS CREATED UNTIL YOU TAP START</div>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">What tapping Start actually creates</div>
+      <div class="mockup-body" style="font-size:14px;">
+        <div style="border:2px solid #6ee7a0;border-radius:8px;padding:12px;margin:8px 0;">☀️ <b>Daily Focus</b> — "Finish the ingest fix"<br><span style="opacity:.6">lives on the Today tab · expires tonight · coach references it all day · promotable to a Weekly Goal with one tap</span></div>
+        <div style="margin-left:24px;border:1px solid #555;border-radius:8px;padding:12px;margin-top:8px;">⏱ <b>Session #1</b> — 50 min countdown on the pill<br><span style="opacity:.6">visible in Today timeline · killable · survives app restart</span></div>
+        <div style="margin-left:24px;border:1px dashed #555;border-radius:8px;padding:12px;margin-top:8px;opacity:.6;">⏱ Session #2 later that day → attaches to the same Daily Focus</div>
+        <div class="label" style="margin-top:14px;">NOT created: a Weekly Goal. Those are only made deliberately in the Goals tab — or when the coach explicitly asks "this looks bigger than today, make it a weekly goal?" and you say yes.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>Does this match what you meant?</h3>
+<div class="options">
+  <div class="option" data-choice="yes" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Yes — chat everywhere, suggestion chips create Daily Focus + session</h3>
+      <p>Every coach card becomes a conversation you can reply to. Accepted suggestions create a today-scoped Daily Focus (option B from before) and a real, bounded session.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="mostly" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Mostly — but I want to tweak something</h3>
+      <p>Tell me in the terminal what's off (e.g., where the chat lives, what suggestions can do, the confirm step).</p>
+    </div>
+  </div>
+</div>

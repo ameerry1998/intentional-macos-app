@@ -1,0 +1,60 @@
+<h2>Q4: The revised card + how it knows what you're doing</h2>
+<p class="subtitle">Your presets added, and the answer to "can it tell I'm on the ingest fix?"</p>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">1 · The plan card, revised — presets are ALWAYS there, not coach's choice</div>
+    <div class="mockup-body" style="font-size:14px;max-width:480px;">
+      <div style="background:#2a2a35;border-radius:12px;padding:10px 14px;">🧭 You stopped mid-way through the <b>ingest fix</b> yesterday. Pick it back up?</div>
+      <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">
+        <button class="mock-button" style="text-align:left;border:2px solid #6ee7a0;">▶ Resume: ingest fix · 50 min</button>
+        <div style="display:flex;gap:6px;">
+          <button class="mock-button" style="flex:1;">🎯 My weekly goals</button>
+          <button class="mock-button" style="flex:1;">🤷 I'm not sure</button>
+        </div>
+        <input class="mock-input" placeholder="or type what you're on…" style="width:92%;">
+      </div>
+      <div style="margin-top:10px;opacity:.7;font-size:13px;">
+        <b>🎯 My weekly goals</b> → expands the list inline, one tap picks → becomes today's focus.<br>
+        <b>🤷 I'm not sure</b> → coach proposes from your real data (yesterday's unfinished work, most-touched project) or offers the 10-min sort-it-out session. Never a blank box, never a dead end.
+      </div>
+      <div class="label" style="margin-top:8px;">TOP SUGGESTION ONLY APPEARS WHEN THE COACH HAS REAL CONTEXT — OTHERWISE THE TWO PRESETS + TEXT ARE THE WHOLE CARD</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">2 · "Does it know I'm actually on the ingest fix?" — yes, already built, two layers</div>
+    <div class="mockup-body" style="font-size:14px;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;">
+        <div style="flex:1;min-width:230px;border:1px solid #6ee7a0;border-radius:8px;padding:12px;">
+          <div class="label">LAYER 1 · EVERY APP/TAB SWITCH (live today)</div>
+          Your daily focus text — <i>"finish the ingest fix"</i> — becomes the session intent. The on-device AI scores each app/tab against it.<br><br>
+          <span style="opacity:.7">→ drives the pill focus %, the red tint, the nudges. Same path weekly goals use.</span>
+        </div>
+        <div style="flex:1;min-width:230px;border:1px solid #6ee7a0;border-radius:8px;padding:12px;">
+          <div class="label">LAYER 2 · EVERY ~60s (live today)</div>
+          The vision model looks at the screen and writes one sentence — <i>"Code editor showing a Python data-ingest module"</i> — which the coach reads alongside your commitment.<br><br>
+          <span style="opacity:.7">→ lets the coach judge drift in context, e.g. reading docs is fine, X is not.</span>
+        </div>
+        <div style="flex:1;min-width:230px;border:1px dashed #f38b5c;border-radius:8px;padding:12px;">
+          <div class="label">HONEST LIMIT</div>
+          Dev work in terminals/editors is the historical weak spot — scoring reads titles + descriptions, not your intent. Good, not perfect. The asymmetric rule applies: when unsure, assume on-task (false accusations cost 5× ).
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>Card right now?</h3>
+<div class="options">
+  <div class="option" data-choice="lock" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content"><h3>Lock the card — move to the next design question</h3><p>Presets (weekly goals / not sure) + optional top suggestion + typed fallback.</p></div>
+  </div>
+  <div class="option" data-choice="tweak" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content"><h3>Still off — tell me what in the terminal</h3><p>Wording, buttons, what "I'm not sure" leads to, anything.</p></div>
+  </div>
+</div>
