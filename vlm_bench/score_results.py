@@ -29,6 +29,9 @@ def main():
         if not recs:
             continue
         model = recs[0]["model"]
+        variant = recs[0].get("variant")
+        if variant and variant != "v0":
+            model = f"{model}__{variant}"  # Round-2 prompt variants
         mg = grades.get(model, {})
 
         n = cat_ok = cat_ok_alt = errors = 0

@@ -23,6 +23,69 @@ PROMPT = (
     "work | communication | entertainment | shopping | neutral."
 )
 
+# Round 2 (2026-06-12): prompt variants for Qwen3.5-4B category tuning.
+# labels.json + rubric are ground truth and untouched; only the prompt changes.
+_CATEGORY_DEFS = (
+    "Categories (pick exactly ONE):\n"
+    "- work: coding, terminals, IDEs, code-assistant sessions, documents, "
+    "professional tools, job tasks\n"
+    "- communication: actively reading or writing email, chat, or messages "
+    "in an inbox or conversation view\n"
+    "- entertainment: watching any video (YouTube etc.), browsing video or "
+    "social feeds, games, streaming\n"
+    "- shopping: browsing online stores or products\n"
+    "- neutral: app settings or configuration pages, onboarding/setup/signup "
+    "screens, system dialogs, idle desktops\n"
+    "\n"
+    "Rules:\n"
+    "- Watching a YouTube video or browsing a video feed is entertainment "
+    "even if the topic seems serious, educational, or news-like.\n"
+    "- A settings page that merely lists or mentions websites/apps is "
+    "neutral, not the category of the sites it lists.\n"
+    "- Signup, verification-code, and onboarding screens are neutral, not "
+    "communication.\n"
+    "- A terminal or coding session is work even if the text is hard to read."
+)
+
+PROMPT_VARIANTS = {
+    "v0": PROMPT,
+    # v1: same ordering, category definitions + decision rules inline
+    "v1_defs": (
+        "Describe in one sentence what the user is doing on this screen, "
+        "then on a new line output exactly one category word.\n\n"
+        + _CATEGORY_DEFS
+    ),
+    # v2: category FIRST, then the sentence (decide before describing)
+    "v2_catfirst": (
+        "Classify what the user is doing on this screen.\n\n"
+        + _CATEGORY_DEFS
+        + "\n\nOutput format — exactly two lines:\n"
+        "Line 1: the single category word.\n"
+        "Line 2: one sentence describing what the user is doing."
+    ),
+    # v3: definitions + few-shot worked examples of the output format
+    "v3_fewshot": (
+        "Describe in one sentence what the user is doing on this screen, "
+        "then on a new line output exactly one category word.\n\n"
+        + _CATEGORY_DEFS
+        + "\n\nExample outputs:\n"
+        "The user is watching a YouTube video about a news documentary in Chrome.\n"
+        "entertainment\n\n"
+        "The user is running an AI coding session in a dark full-screen terminal.\n"
+        "work\n\n"
+        "The user is reviewing blocked-site settings in a productivity app.\n"
+        "neutral"
+    ),
+    # v4: terse format-anchored ask, definitions only (no rules paragraph)
+    "v4_anchor": (
+        "Look at this screenshot of the user's screen.\n"
+        "First line: one sentence — what is the user doing?\n"
+        "Second line: 'Category: <word>' where <word> is exactly one of "
+        "work, communication, entertainment, shopping, neutral.\n\n"
+        + _CATEGORY_DEFS
+    ),
+}
+
 CATEGORIES = {"work", "communication", "entertainment", "shopping", "neutral"}
 
 THINK_RE = re.compile(r"<think>.*?(</think>|$)", re.DOTALL)
@@ -64,7 +127,10 @@ def main():
     ap.add_argument("--limit", type=int, default=0, help="only run N shots (smoke test)")
     ap.add_argument("--no-think", action="store_true",
                     help="pass enable_thinking=False to the chat template (Qwen3.5 hybrid)")
+    ap.add_argument("--variant", default="v0", choices=sorted(PROMPT_VARIANTS),
+                    help="prompt variant (Round 2 category tuning)")
     args = ap.parse_args()
+    prompt = PROMPT_VARIANTS[args.variant]
 
     bench_dir = Path(__file__).parent
     shots = sorted((bench_dir / args.shots).glob("*.png"))
@@ -74,6 +140,8 @@ def main():
         sys.exit("no shots found")
 
     safe = args.model.replace("/", "__")
+    if args.variant != "v0":
+        safe += f"__{args.variant}"
     out_path = Path(args.out) if args.out else bench_dir / "results" / f"{safe}.jsonl"
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -120,10 +188,10 @@ def main():
         for i, shot in enumerate(shots):
             try:
                 formatted = apply_chat_template(
-                    processor, config, PROMPT, num_images=1, **template_kwargs
+                    processor, config, prompt, num_images=1, **template_kwargs
                 )
             except TypeError:
-                formatted = apply_chat_template(processor, config, PROMPT, num_images=1)
+                formatted = apply_chat_template(processor, config, prompt, num_images=1)
             t0 = time.perf_counter()
             try:
                 result = generate(
@@ -139,6 +207,7 @@ def main():
             sentence, category = parse_output(text)
             rec = {
                 "model": args.model,
+                "variant": args.variant,
                 "file": shot.name,
                 "warmup": i == 0,
                 "wall_s": round(wall, 3),

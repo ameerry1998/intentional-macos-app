@@ -486,5 +486,249 @@
    "grade": 1,
    "hallucination": false
   }
+ },
+ "mlx-community/Qwen3.5-4B-4bit__v2_catfirst": {
+  "existing-coldwalk-1-email.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-coldwalk-2-code.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-coldwalk-3-postcode.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-coldwalk-vm-final.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-ob-s1.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-ob-s5.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-ob-s7.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-ob-s9.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-td-Accountability.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-td-Goals.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-td-Rules.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-td-Settings.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-td-Today.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-walk-final.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-walk-s4.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "live-1.png": {
+   "grade": 0,
+   "hallucination": false
+  },
+  "live-2.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "live-3.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "live-4.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "live-5.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "live-6.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "live-7.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "live-8.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "live-9.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "live-10.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "live-11.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "live-12.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "live-13.png": {
+   "grade": 1,
+   "hallucination": false
+  },
+  "live-14.png": {
+   "grade": 1,
+   "hallucination": false
+  },
+  "live-15.png": {
+   "grade": 2,
+   "hallucination": false
+  }
+ },
+ "ocr-text/mlx-community/Qwen3-4B-Instruct-2507-4bit": {
+  "existing-coldwalk-1-email.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-coldwalk-2-code.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-coldwalk-3-postcode.png": {
+   "grade": 1,
+   "hallucination": false
+  },
+  "existing-coldwalk-vm-final.png": {
+   "grade": 1,
+   "hallucination": false
+  },
+  "existing-ob-s1.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-ob-s5.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-ob-s7.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-ob-s9.png": {
+   "grade": 1,
+   "hallucination": false
+  },
+  "existing-td-Accountability.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-td-Goals.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-td-Rules.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-td-Settings.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-td-Today.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-walk-final.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "existing-walk-s4.png": {
+   "grade": 1,
+   "hallucination": false
+  },
+  "live-1.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "live-2.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "live-3.png": {
+   "grade": 1,
+   "hallucination": false
+  },
+  "live-4.png": {
+   "grade": 0,
+   "hallucination": false
+  },
+  "live-5.png": {
+   "grade": 1,
+   "hallucination": false
+  },
+  "live-6.png": {
+   "grade": 0,
+   "hallucination": false
+  },
+  "live-7.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "live-8.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "live-9.png": {
+   "grade": 1,
+   "hallucination": false
+  },
+  "live-10.png": {
+   "grade": 2,
+   "hallucination": false
+  },
+  "live-11.png": {
+   "grade": 1,
+   "hallucination": false
+  },
+  "live-12.png": {
+   "grade": 1,
+   "hallucination": false
+  },
+  "live-13.png": {
+   "grade": 0,
+   "hallucination": false
+  },
+  "live-14.png": {
+   "grade": 0,
+   "hallucination": false
+  },
+  "live-15.png": {
+   "grade": 0,
+   "hallucination": false
+  }
  }
 }
