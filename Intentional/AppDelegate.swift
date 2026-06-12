@@ -821,20 +821,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // transition. Schedule-driven activations already have
             // currentBlock set; this is a no-op for them.
             if new == .focus && old != .focus && self.scheduleManager?.currentBlock == nil {
-                let now = Date()
-                let cal = Calendar.current
-                let synthetic = ScheduleManager.FocusBlock(
-                    id: UUID().uuidString,
-                    title: period?.intention ?? "Focus",
-                    description: "",
-                    startHour: cal.component(.hour, from: now),
-                    startMinute: cal.component(.minute, from: now),
-                    endHour: 23, endMinute: 59,
-                    blockType: .focusHours,
-                    intentionId: period?.intentionId
-                )
-                self.scheduleManager?.injectFocusSessionBlock(synthetic)
-                self.postLog("🎯 Injected synthetic block for sessionless .focus activation: \"\(synthetic.title)\"")
+                self.injectSyntheticBlockForCurrentPeriod()
             }
 
             // (R6: the earnedBrowseManager.onBlockChanged ordering invariant
@@ -971,6 +958,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // Weekly Goal's own block/allow enforcement.
             if let goalId = focusModeController?.currentPeriod?.intentionId {
                 Task { await self.refreshIntentionEnforcement(for: goalId) }
+            }
+            // Restart survival (Daily Focus C1): a floored manual session has
+            // no schedule block after a restart — re-inject the synthetic block
+            // so enforcement + the pill re-engage. Must run BEFORE the
+            // onBlockChanged below so it sees the block.
+            if focusModeController?.currentPeriod?.floorMinutes != nil,
+               scheduleManager?.currentBlock == nil {
+                injectSyntheticBlockForCurrentPeriod()
             }
             focusMonitor?.onBlockChanged()
         }
@@ -1958,6 +1953,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             scheduleManager?.injectFocusSessionBlock(block)
         }
         focusMonitor?.onBlockChanged()
+    }
+
+    /// Inject a synthetic schedule block backing the current sessionless
+    /// `.focus` period so the AI scoring + enforcement paths (which all
+    /// `guard let block = manager.currentBlock`) have context to work with.
+    /// Called from the onStateChanged `.off → .focus` site AND the boot
+    /// reconcile (a restart mid-manual-session used to lose the block, so the
+    /// pill died). No-op when a real schedule block is already current.
+    /// The 23:59 end is enforcement plumbing only — the pill renders from the
+    /// Period (floor → count-up), never from this block's end time.
+    func injectSyntheticBlockForCurrentPeriod() {
+        guard scheduleManager?.currentBlock == nil else { return }
+        let period = focusModeController?.currentPeriod
+        let now = Date()
+        let cal = Calendar.current
+        let synthetic = ScheduleManager.FocusBlock(
+            id: UUID().uuidString,
+            title: period?.intention ?? "Focus",
+            description: "",
+            startHour: cal.component(.hour, from: now),
+            startMinute: cal.component(.minute, from: now),
+            endHour: 23, endMinute: 59,
+            blockType: .focusHours,
+            intentionId: period?.intentionId
+        )
+        scheduleManager?.injectFocusSessionBlock(synthetic)
+        postLog("🎯 Injected synthetic block for sessionless .focus activation: \"\(synthetic.title)\"")
     }
 
     func endFocusSession() {

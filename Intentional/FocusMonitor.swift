@@ -952,6 +952,20 @@ class FocusMonitor {
 
     /// Show the floating timer pill for the current block (extracted for reuse by ritual flow).
     private func showTimerForCurrentBlock() {
+        // Daily Focus C1: a floored session drives the pill from the Period
+        // (floor countdown → count-up), NOT from the synthetic block's 23:59
+        // end — that's what produced the famous "709:35" countdown and the
+        // midnight `.blockComplete` wedge.
+        if let period = focusModeController?.currentPeriod, period.floorMinutes != nil {
+            deepWorkTimerController?.show(session: SessionTimerData(
+                label: period.label ?? period.intention ?? "Focus",
+                startedAt: period.startedAt,
+                floorEndsAt: period.floorEndsAt
+            ))
+            deepWorkTimerController?.update(isDistracted: false)
+            pushFocusStatsToTimer()
+            return
+        }
         if let block = scheduleManager?.currentBlock {
             let now = Date()
             let endOfBlock = Calendar.current.date(

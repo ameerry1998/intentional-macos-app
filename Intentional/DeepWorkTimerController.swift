@@ -109,10 +109,29 @@ struct NoPlanData {
 /// `onStart` receives the task text the user typed; `onLater` is the quiet
 /// dismissal. Both are set by AppDelegate, which owns outcome reporting and
 /// the goal-create + session-start chain.
+///
+/// Daily Focus C4 added `.confirm` style: no text field, one confirm button
+/// ("End session") + a "Keep going" secondary — used for the post-floor
+/// clean-end card. `.planPrompt` (default) is the original task-input card.
 struct CoachCardData {
+    enum Style {
+        case planPrompt   // text field + "Start 25 min" (Focus Agent S3)
+        case confirm      // confirm/keep-going pair, no text field (Daily Focus C4)
+    }
     let message: String
+    var style: Style = .planPrompt
     var onStart: (String) -> Void
     var onLater: () -> Void
+}
+
+/// Daily Focus C1 (2026-06-12): drives the pill for a floored session.
+/// While `floorEndsAt` is in the future the pill counts DOWN (the 25-min
+/// commitment); once the floor passes it counts UP from `startedAt` silently
+/// — no `.blockComplete`, no end-of-block sounds (flow protection).
+struct SessionTimerData {
+    let label: String
+    let startedAt: Date
+    let floorEndsAt: Date?
 }
 
 // MARK: - Controller
@@ -237,6 +256,34 @@ class DeepWorkTimerController {
         // Start 1s countdown
         countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self = self, let vm = self.viewModel else { return }
+
+            // ── Floored session (Daily Focus C1): floor countdown → count-up ──
+            if let startedAt = vm.sessionStartedAt {
+                let floorRemaining = vm.sessionFloorEndsAt?.timeIntervalSinceNow ?? 0
+                if floorRemaining > 0 {
+                    // Floor countdown — same presentation as the block countdown.
+                    let secs = Int(ceil(floorRemaining))
+                    vm.timeDisplay = String(format: "%d:%02d", secs / 60, secs % 60)
+                    vm.isApproachingEnd = floorRemaining <= 60
+                    // Countdown tones at 3, 2, 1 — but ONLY for floors ≥ 10 min.
+                    // A short "sort it out" floor shouldn't beep at the user.
+                    let floorTotal = vm.sessionFloorEndsAt.map { $0.timeIntervalSince(startedAt) } ?? 0
+                    if secs >= 1 && secs <= 3 && vm.mode == .timer && floorTotal >= 600 {
+                        Self.playSound("Morse")
+                    }
+                } else {
+                    // Floor met → count UP silently (flow protection). No mode
+                    // flip — `.blockComplete` is unreachable from this branch;
+                    // sessions only end via an explicit user action.
+                    let elapsed = max(0, Int(Date().timeIntervalSince(startedAt)))
+                    vm.timeDisplay = String(format: "%d:%02d:%02d ↑",
+                                            elapsed / 3600, (elapsed % 3600) / 60, elapsed % 60)
+                    vm.isApproachingEnd = false
+                }
+                return
+            }
+
+            // ── Scheduled block: countdown to block end (unchanged) ──
             let remaining = vm.endsAt.timeIntervalSinceNow
             if remaining <= 0 {
                 vm.timeDisplay = "0:00"
@@ -256,6 +303,29 @@ class DeepWorkTimerController {
                 if secs >= 1 && secs <= 3 && vm.mode == .timer {
                     Self.playSound("Morse")
                 }
+            }
+        }
+    }
+
+    /// Show the floating timer widget for a floored session (Daily Focus C1).
+    /// Reuses the `show(intention:endsAt:)` plumbing, then stashes the session
+    /// anchors on the view model so the tick takes the floor→count-up branch.
+    func show(session: SessionTimerData) {
+        show(intention: session.label, endsAt: session.floorEndsAt ?? session.startedAt)
+        viewModel?.sessionStartedAt = session.startedAt
+        viewModel?.sessionFloorEndsAt = session.floorEndsAt
+        // Seed the display immediately (the init computed it from endsAt,
+        // which is wrong once the floor has already passed — e.g. restart
+        // mid-session).
+        if let vm = viewModel {
+            let floorRemaining = session.floorEndsAt?.timeIntervalSinceNow ?? 0
+            if floorRemaining > 0 {
+                let secs = Int(ceil(floorRemaining))
+                vm.timeDisplay = String(format: "%d:%02d", secs / 60, secs % 60)
+            } else {
+                let elapsed = max(0, Int(Date().timeIntervalSince(session.startedAt)))
+                vm.timeDisplay = String(format: "%d:%02d:%02d ↑",
+                                        elapsed / 3600, (elapsed % 3600) / 60, elapsed % 60)
             }
         }
     }
@@ -812,6 +882,12 @@ class DeepWorkTimerViewModel: ObservableObject {
 
     // R5: allowance balance ("⏳ N min") for .allowanceBalance mode
     @Published var allowanceMinutes: Int = 0
+
+    // Daily Focus C1: floored-session anchors. Non-nil sessionStartedAt makes
+    // the tick take the floor-countdown → count-up branch instead of the
+    // block countdown. Set by show(session:); nil for scheduled blocks.
+    var sessionStartedAt: Date? = nil
+    var sessionFloorEndsAt: Date? = nil
 
     // Focus Agent S3: coach plan-prompt card (.coachCard mode)
     @Published var coachCardData: CoachCardData? = nil
