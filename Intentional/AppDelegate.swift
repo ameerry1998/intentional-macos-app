@@ -2002,12 +2002,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let fmc = focusModeController, fmc.state != .off else { return }
         let period = fmc.currentPeriod
 
-        // Daily Focus row → done (best-effort, fire-and-forget).
-        if let dailyFocusId = period?.dailyFocusId {
-            Task { [weak self] in
-                await self?.backendClient?.setDailyFocusStatus(id: dailyFocusId, status: "done")
-            }
-        }
+        // NOTE: the Daily Focus row stays "active" — several sessions can run
+        // against one focus across the day (spec §1). "done" is an explicit
+        // user action (later slice); "expired" is the day boundary.
 
         let minutes = period.map { Int(Date().timeIntervalSince($0.startedAt) / 60) } ?? 0
         // Triggers the onStateChanged fanout: backend stop POST (with score),
