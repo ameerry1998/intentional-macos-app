@@ -705,14 +705,25 @@ class FocusMonitor {
     /// during sessions). Completion fires on the AppleScript queue with nil
     /// when the frontmost app isn't a readable browser.
     func fetchTabHostForTelemetry(completion: @escaping (String?) -> Void) {
+        fetchTabInfoForTelemetry { host, _ in completion(host) }
+    }
+
+    /// Richer variant: host + tab title (titles are content-derived — gated by
+    /// the telemetry privacy level at the CoachTelemetry call site).
+    func fetchTabInfoForTelemetry(completion: @escaping (String?, String?) -> Void) {
         guard let bid = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
               Self.browserBundleIds.contains(bid) else {
-            completion(nil)
+            completion(nil, nil)
             return
         }
         appleScriptQueue.async { [weak self] in
-            let hostname = self?.readActiveTabInfo(for: bid)?.hostname
-            completion((hostname?.isEmpty == false) ? hostname : nil)
+            guard let info = self?.readActiveTabInfo(for: bid) else {
+                completion(nil, nil)
+                return
+            }
+            let host = info.hostname.isEmpty ? nil : info.hostname
+            let title = info.title.isEmpty ? nil : String(info.title.prefix(100))
+            completion(host, title)
         }
     }
 

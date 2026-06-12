@@ -26,7 +26,7 @@ final class CoachTelemetry {
     static let flushInterval: TimeInterval = 180
 
     var enabled: Bool {
-        (UserDefaults.standard.string(forKey: "coachTelemetryLevel") ?? "names") != "off"
+        (UserDefaults.standard.string(forKey: "coachTelemetryLevel") ?? "titles") != "off"
     }
 
     init(backendClient: BackendClient?, focusModeController: FocusModeController?,
@@ -70,20 +70,46 @@ final class CoachTelemetry {
         if let mins = AllowanceBalance.shared.availableMinutesAfterPending {
             payload["allowance_minutes_left"] = mins
         }
+        // Window title via Accessibility — covers native apps (iTerm shows
+        // cwd/command, Cursor shows the file, etc.). Content-derived: gated
+        // by the privacy level ("titles" default; "names" strips it).
+        if titlesEnabled, let winTitle = Self.frontmostWindowTitle() {
+            payload["title"] = String(winTitle.prefix(100))
+        }
         let ts = Date()
-        // Host only (never title/path) — privacy level "names". Read live via
-        // the AppleScript queue: FocusMonitor's cached tab state is enforcement-
-        // gated and empty outside sessions, which left the coach blind to sites
-        // exactly when it matters (verified live 2026-06-12: host=- all day).
+        // Browser tab host (+ title, replacing the window title — it's more
+        // specific) read live on the AppleScript queue: FocusMonitor's cached
+        // tab state is enforcement-gated and empty outside sessions, which
+        // left the coach blind to sites (verified live 2026-06-12).
         if let fm = focusMonitor {
-            fm.fetchTabHostForTelemetry { [weak self] host in
+            fm.fetchTabInfoForTelemetry { [weak self] host, tabTitle in
+                guard let self else { return }
                 var p = payload
                 if let host { p["host"] = host }
-                self?.append(Event(ts: ts, kind: "sample", payload: p))
+                if self.titlesEnabled, let tabTitle { p["title"] = tabTitle }
+                self.append(Event(ts: ts, kind: "sample", payload: p))
             }
         } else {
             append(Event(ts: ts, kind: "sample", payload: payload))
         }
+    }
+
+    /// Privacy: "titles" (default — app/site names + window/tab titles) or
+    /// "names" (names only) or "off".
+    private var titlesEnabled: Bool {
+        (UserDefaults.standard.string(forKey: "coachTelemetryLevel") ?? "titles") != "names"
+    }
+
+    private static func frontmostWindowTitle() -> String? {
+        guard let app = NSWorkspace.shared.frontmostApplication else { return nil }
+        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+        var win: AnyObject?
+        guard AXUIElementCopyAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, &win) == .success,
+              let w = win, CFGetTypeID(w as CFTypeRef) == AXUIElementGetTypeID() else { return nil }
+        var title: AnyObject?
+        guard AXUIElementCopyAttributeValue(w as! AXUIElement, kAXTitleAttribute as CFString, &title) == .success else { return nil }
+        let s = title as? String
+        return (s?.isEmpty == false) ? s : nil
     }
 
     private func append(_ e: Event) {
