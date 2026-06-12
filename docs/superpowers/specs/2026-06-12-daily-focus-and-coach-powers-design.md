@@ -1,7 +1,8 @@
 # Daily Focus + Coach With Hands — Design Spec
 
-**Date:** 2026-06-12
-**Status:** approved-pending-review (brainstormed live with Ameer, visual companion session `.superpowers/brainstorm/83991-1781283630/`)
+**Date:** 2026-06-12 (consolidated v2, same evening)
+**Status:** APPROVED — Ameer greenlit implementation 2026-06-12 evening ("start implementing and let me test")
+**Read WITH:** `2026-06-12-adhd-critique-loop.md` (7 self-critique rounds) and `2026-06-12-icp-adversarial-review.md` (6 evidence-backed rounds, 23 deltas). **Where those documents conflict with the sections below, the §CONVERGED BEHAVIOR section at the end of this file wins** — it is the final, locked behavior.
 **Supersedes:** the session/goal "design debt" flagged in `docs/PROJECT-STATE-2026-06-12.md` and diagnosed in `docs/superpowers/debugging/2026-06-11-pill-blockless-manual-session.md`
 **Builds on:** `2026-06-12-focus-agent-design.md` (the coach), `2026-05-18-deep-work-protocol.md` (five stages)
 
@@ -116,3 +117,68 @@ Each slice: bench gate where coach behavior changes, live GUI verification per `
 
 - Ameer to confirm: dial = Standard for his machine; 50/10-min defaults; midnight expiry.
 - Spotify/SoundCloud are now blocked by the re-enabled rules — demoting them is partner-gated under strict mode; handle when asked.
+
+---
+
+# §CONVERGED BEHAVIOR (v2 — FINAL, locked with Ameer 2026-06-12 evening)
+
+This section supersedes anything above or in the companion docs that conflicts with it. Sources: the ADHD critique loop, the adversarial review's 23 deltas, and Ameer's direct corrections (no pre-filled morning answer; clear end-of-session semantics; non-coachy tone; the decision tree).
+
+## C1 · Sessions: floor, not box
+- A session = commitment to a **25-min minimum** (floor). No ceiling. At the floor, NOTHING happens while on-task — the pill rolls into count-up ("flow protection"). Celebration/credit only at a natural stop.
+- **End semantics (the "how does it know I'm done" rules):**
+  - Mid-session drift (pre-floor) → pull BACK on task (ladder), never "done".
+  - Hedonic drift ≥5 min AFTER the floor is met → clean-end offer: "Calling it here? 1h10 counted." Full credit, no moralizing.
+  - Away/idle >5 min (lid close, lock, walk-off) → session ends at last activity, credit kept; warm re-entry card on return ("31 min counted. Back for more?").
+  - Ending early (pre-floor) is one tap, factual, keeps earned minutes. The floor is a default and a streak-credit threshold, never a cage.
+- No day-grid. **Rolling plan**: morning sets the focus + a session COUNT ("how many rounds feel realistic?"); the pill proposes the next session after each break (3-min auto-start, Edit visible). Mornings never schedule clock times.
+
+## C2 · Morning (first sustained Mac use in the work window)
+- Optional sweep ("Close yesterday's noise?") → then ONE screen: **weekly goals with progress, rendered beautifully** (this screen carries the aesthetic budget — big type, pace bars, calm) + an EMPTY "What matters today?" where each goal is a tappable answer. **Nothing pre-filled, nothing prescribed.** 🤷 path remains.
+- Day-1 degenerate form: just the question. 4am local day boundary.
+
+## C3 · Coach tone (hard rule, bench-enforced)
+- Never performs humanity, never cheerleads, never therapizes. Plain questions with real options the user can act on: "Stuck on getting started? Want to talk it through — or park this and do something else first?" Facts are stated flat ("1h10 counted."). Wrong tone = wrong-speak in the bench.
+
+## C4 · The decision tree (the brain's contract — implement exactly)
+Parameters read before any action: (1) call/screen-share/presenting → suppress all; (2) muted-today → structure acts, voice never; (3) work window (the ONE onboarding decision, default Mon–Fri 9–18) → outside = witness only; (4) dial Soft/Standard/Strict = max force; (5) session state none/running/overtime/just-ended(<15m grace); (6) plan state: focus declared? sessions done vs count; (7) content class on-task/neutral/hedonic/blocked; (8) pattern steady/brief-hop(<90s)/sustained/thrash/frozen/idle/away; (9) accumulated drift + actions used this stretch (caps); (10) break state + overrun; (11) history: slump hours, yesterday-bad→softer, stuck-question already asked this hour.
+
+```
+ALWAYS: call/share/present → nothing (pill "paused — presenting")
+        outside window → witness only        muted → no voice, structure still acts
+IN SESSION: on-task → SILENCE always (overtime counts up)
+        away/idle>5m → end at last activity, credit, warm re-entry
+        hedonic pre-floor: <90s none → 90s tint+pill → 3m one nudge → 5m soft-close (Standard+)
+                           → repeat → "back to it, or end this round honestly?"
+        hedonic ≥5m post-floor → clean-end offer (credited)
+        thrash/frozen → stuck path: ONE plain question, ≤1/hour, never friction
+NO SESSION: sanctioned break → free; end+5m "another round?" card; +15m overlay (Standard+)
+        planless stretch: one card per stretch → pill state "unplanned" (STATE not math; tank number only when ≤10 min left)
+            drift accumulates 20–30m → overlay [session] [real break 15] [done for today → rest]
+            2nd consecutive break-escape → "take the afternoon off?" (recorded as rest, neutral)
+            Strict: distractions locked until focus declared; lock = session key not day pass;
+                    re-arms on renewed drift, max 2 re-arms/window, then witness mode
+        session count met → "you're free" → witness only
+```
+- Stuck ≠ slacking: hedonic = feeds/video/games by content class; stuck = thrash between WORK surfaces / frozen on a work doc. Stuck never gets friction.
+
+## C5 · Safety valves (ship BEFORE any overlay goes live)
+- Suppression contexts (C4 gate 1) are a hard precondition for Slice 2 visibility.
+- "I need this" escape on every enforcement surface: honored instantly, logged as a bench label; 2 uses on one target in a stretch → that target witness-only for the day. Pauses coach actions only, never standing rules.
+- Mute valve: one tap silences voice for the day at EVERY dial level; chronic mute → coach offers quiet-by-default once.
+
+## C6 · Mirror, not report card
+- Copy: "breaks are covered" — never "earn screen time" (research: screens-as-reward backfires). 5:1 earning continuous, never a celebration headline.
+- Streaks: weekly view only, decay-don't-break, rest days pause. Bad day → factual line + softer next morning ("Yesterday was a wash. One 25 and today's already better."). Fresh-start: coach-proposed only, ≥4 bad days in 7, ≤1/30 days. Cumulative-deficit displays banned.
+- Witnessed off-switch (with reports consented): telemetry-dark → ONE factual partner note ("stopped reporting as of Tuesday"); disclosed at setup. The one pre-consented partner-touching event.
+- Strict is earned: never offered at onboarding; 7 days + 24h cooling-off (parent-admin exception = open Q).
+
+## C7 · Slice 1 build list (what Ameer tests first)
+1. DailyFocus entity (backend table + Mac store) — typed/tapped text NEVER creates an Intention; promotion is explicit.
+2. Session rebuild: floor+count-up pill, flow protection, end semantics (C1), restart survival, kill affordance (pill menu + Today), no synthetic 23:59 block.
+3. Plan card v2: weekly-goals-as-answers (no prefill), 🤷 triage, sort-it-out session (one per stretch), session-count question.
+4. Idle/away detection → clean end + warm re-entry.
+5. Copy sweep on touched surfaces: states not math, "breaks are covered".
+6. GUI-verified on the dev build per verifier-intentional-gui; "Idk" scenario regression-tested end-to-end.
+
+Slice 2 = unmute + suppression contexts + escape/mute valves + ladder + stuck-rescue. Slice 3 = Strict lock semantics + morning ritual screen (the beautiful one) + witnessed off-switch + streak surfaces.
