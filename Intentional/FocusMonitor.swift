@@ -1020,15 +1020,30 @@ class FocusMonitor {
             return
         }
         if let block = scheduleManager?.currentBlock {
-            // Belt-and-braces (zombie-pill fix, 2026-06-12): the injected
-            // synthetic block must never drive a timer pill when no session
-            // is live — that's the "pill re-shown on a dead session after a
-            // clean idle end" bug. The primary fix is fanout ordering in
-            // AppDelegate (clear-injected-before-fanout); this guard makes
-            // the pill safe even if a stale synthetic block survives.
-            if scheduleManager?.injectedFocusBlock?.id == block.id,
-               focusModeController?.state != .focus {
-                deepWorkTimerController?.dismiss()
+            // The injected synthetic block ends 23:59 — its countdown must
+            // NEVER reach the pill (that's the "327:09" legacy display).
+            if scheduleManager?.injectedFocusBlock?.id == block.id {
+                // Belt-and-braces (zombie-pill fix, 2026-06-12): no live
+                // session → no timer pill for the synthetic block. The
+                // primary fix is fanout ordering in AppDelegate
+                // (clear-injected-before-fanout); this guard makes the pill
+                // safe even if a stale synthetic block survives.
+                guard focusModeController?.state == .focus,
+                      let period = focusModeController?.currentPeriod else {
+                    deepWorkTimerController?.dismiss()
+                    return
+                }
+                // Floor-less session backed by the synthetic block (e.g. a
+                // legacy/cross-device start): Period-driven display — straight
+                // count-up since there's no floor. Floored sessions were
+                // already caught by the branch at the top of this method.
+                deepWorkTimerController?.show(session: SessionTimerData(
+                    label: period.label ?? period.intention ?? block.title,
+                    startedAt: period.startedAt,
+                    floorEndsAt: period.floorEndsAt
+                ))
+                deepWorkTimerController?.update(isDistracted: false)
+                pushFocusStatsToTimer()
                 return
             }
             let now = Date()
