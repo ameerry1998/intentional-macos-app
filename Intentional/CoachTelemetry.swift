@@ -56,7 +56,7 @@ final class CoachTelemetry {
     // returns true only when the card was actually presented (guards may
     // refuse: session active, bedtime, pill busy). We only mark a decision
     // id as presented on true, so refused decisions retry next poll.
-    var onCoachDecision: (([String: Any]) -> Bool)?
+    var onCoachDecision: (([String: Any]) async -> Bool)?
     private var decisionTimer: Timer?
     private var decisionPollInFlight = false
     /// In-memory only — deliberately NOT persisted. Survival rule: a decision
@@ -169,8 +169,9 @@ final class CoachTelemetry {
             let alreadyPresented = self.presentedDecisionIds.contains(id)
             self.lock.unlock()
             guard !alreadyPresented else { return }
-            // Present on main; mark presented only when the card actually rendered.
-            let presented = await MainActor.run { self.onCoachDecision?(decision) ?? false }
+            // Present (the handler is @MainActor); mark presented only when
+            // the card actually rendered.
+            let presented = await self.onCoachDecision?(decision) ?? false
             if presented {
                 self.lock.lock()
                 self.presentedDecisionIds.insert(id)

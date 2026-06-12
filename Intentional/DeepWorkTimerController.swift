@@ -105,14 +105,27 @@ struct NoPlanData {
     var onSnooze: (() -> Void)?
 }
 
+/// One tappable weekly-goal answer on the plan-prompt coach card (card v2).
+/// Tapping it starts a Daily Focus session linked to that goal — it never
+/// creates anything new.
+struct CoachCardChip {
+    let title: String
+    let intentionId: UUID?
+}
+
 /// Focus Agent S3: data for the plan-prompt coach card (.coachCard mode).
 /// `onStart` receives the task text the user typed; `onLater` is the quiet
 /// dismissal. Both are set by AppDelegate, which owns outcome reporting and
-/// the goal-create + session-start chain.
+/// the Daily-Focus session-start chain (typed/tapped text NEVER creates an
+/// Intention — spec §CONVERGED C2).
 ///
 /// Daily Focus C4 added `.confirm` style: no text field, one confirm button
 /// ("End session") + a "Keep going" secondary — used for the post-floor
 /// clean-end card. `.planPrompt` (default) is the original task-input card.
+///
+/// Card v2 (spec §3) added `chips` (in-progress weekly goals as one-tap
+/// answers) + `onNotSure` (the 🤷 triage path). `.planPrompt` only —
+/// `.confirm` ignores all three.
 struct CoachCardData {
     enum Style {
         case planPrompt   // text field + "Start 25 min" (Focus Agent S3)
@@ -127,6 +140,18 @@ struct CoachCardData {
     var secondaryTitle: String? = nil
     var onStart: (String) -> Void
     var onLater: () -> Void
+    // Card v2 (defaulted so the .confirm call sites keep compiling unchanged)
+    var chips: [CoachCardChip] = []
+    var onChipTap: ((CoachCardChip) -> Void)? = nil
+    var onNotSure: (() -> Void)? = nil
+
+    /// Extra card height the chip rows (+ "I'm not sure") need on
+    /// `.planPrompt`. Used by both the window sizing and the SwiftUI frame.
+    var planPromptExtraHeight: CGFloat {
+        guard style == .planPrompt else { return 0 }
+        let rows = chips.count + (onNotSure != nil ? 1 : 0)
+        return CGFloat(rows) * 38
+    }
 }
 
 /// Daily Focus C1 (2026-06-12): drives the pill for a floored session.
@@ -686,8 +711,10 @@ class DeepWorkTimerController {
         hostingView.layer?.backgroundColor = .clear
 
         let windowWidth: CGFloat = 460
-        // .confirm has no text field — shorter card.
-        let windowHeight: CGFloat = data.style == .confirm ? 170 : 250
+        // .confirm has no text field — shorter card. Chip rows (card v2)
+        // grow the .planPrompt card.
+        let windowHeight: CGFloat = (data.style == .confirm ? 170 : 250)
+            + data.planPromptExtraHeight
         hostingView.frame = NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight)
 
         let window = KeyablePanel(
@@ -2595,9 +2622,66 @@ struct DeepWorkTimerView: View {
                     .padding(.bottom, 14)
             }
 
-            // Task input (.planPrompt only)
+            // Card v2: weekly-goal chips + "I'm not sure" (.planPrompt only)
+            if !isConfirm, let data = viewModel.coachCardData,
+               !data.chips.isEmpty || data.onNotSure != nil {
+                VStack(spacing: 6) {
+                    ForEach(Array(data.chips.enumerated()), id: \.offset) { _, chip in
+                        Button(action: {
+                            guard !viewModel.coachCardBusy else { return }
+                            data.onChipTap?(chip)
+                        }) {
+                            HStack(spacing: 8) {
+                                Text("🎯")
+                                    .font(.system(size: 12))
+                                Text(chip.title)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(textPrimary)
+                                    .lineLimit(1)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(fieldBg)
+                            .cornerRadius(8)
+                            .overlay(RoundedRectangle(cornerRadius: 8)
+                                .stroke(fieldBorder, lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(viewModel.coachCardBusy)
+                        .opacity(viewModel.coachCardBusy ? 0.5 : 1.0)
+                    }
+                    if data.onNotSure != nil {
+                        Button(action: {
+                            guard !viewModel.coachCardBusy else { return }
+                            data.onNotSure?()
+                        }) {
+                            HStack(spacing: 8) {
+                                Text("🤷")
+                                    .font(.system(size: 12))
+                                Text("I'm not sure")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(textSecondary)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(fieldBg)
+                            .cornerRadius(8)
+                            .overlay(RoundedRectangle(cornerRadius: 8)
+                                .stroke(fieldBorder, lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(viewModel.coachCardBusy)
+                        .opacity(viewModel.coachCardBusy ? 0.5 : 1.0)
+                    }
+                }
+                .padding(.bottom, 10)
+            }
+
+            // Task input (.planPrompt only) — never pre-filled
             if !isConfirm {
-                TextField("e.g. Send 10 recruiter emails", text: $viewModel.coachTaskInput)
+                TextField("or type what you're on…", text: $viewModel.coachTaskInput)
                     .textFieldStyle(.plain)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(textPrimary)
@@ -2660,7 +2744,11 @@ struct DeepWorkTimerView: View {
             }
         }
         .padding(18)
-        .frame(width: 460, height: isConfirm ? 170 : 250, alignment: .top)
+        .frame(width: 460,
+               height: isConfirm
+                   ? 170
+                   : 250 + (viewModel.coachCardData?.planPromptExtraHeight ?? 0),
+               alignment: .top)
         .background(bgColor)
         .cornerRadius(18)
         .overlay(
