@@ -693,13 +693,27 @@ class FocusMonitor {
 
     /// Focus Agent S2 (CoachTelemetry): host of the current browser tab.
     /// Names-only privacy — exposes the host, never the title or full URL/path.
-    /// Prefers the always-on browser-poll cache (updates ~10s in AND out of
-    /// sessions); lastScoredURL only populates while relevance scoring runs,
-    /// which left the coach blind to sites outside sessions.
     var currentTabHost: String? {
         if let host = lastSeenBrowserTab?.host, !host.isEmpty { return host }
         guard let url = lastScoredURL else { return nil }
         return URL(string: url)?.host
+    }
+
+    /// Focus Agent telemetry: read the frontmost browser tab's host LIVE on the
+    /// AppleScript queue, independent of enforcement gating (the cached state
+    /// above is only maintained while enforcement drives browser polling, i.e.
+    /// during sessions). Completion fires on the AppleScript queue with nil
+    /// when the frontmost app isn't a readable browser.
+    func fetchTabHostForTelemetry(completion: @escaping (String?) -> Void) {
+        guard let bid = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
+              Self.browserBundleIds.contains(bid) else {
+            completion(nil)
+            return
+        }
+        appleScriptQueue.async { [weak self] in
+            let hostname = self?.readActiveTabInfo(for: bid)?.hostname
+            completion((hostname?.isEmpty == false) ? hostname : nil)
+        }
     }
 
     /// Last relevant browser tab URL for smart "Back to work" navigation

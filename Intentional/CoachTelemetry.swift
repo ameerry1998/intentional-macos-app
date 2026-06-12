@@ -66,15 +66,24 @@ final class CoachTelemetry {
         var payload: [String: Any] = [:]
         let frontmost = NSWorkspace.shared.frontmostApplication
         payload["app"] = frontmost?.bundleIdentifier ?? "unknown"
-        // Host only (never title/path) — privacy level "names".
-        if let host = focusMonitor?.currentTabHost {
-            payload["host"] = host
-        }
         payload["in_session"] = focusModeController?.isOn == true
         if let mins = AllowanceBalance.shared.availableMinutesAfterPending {
             payload["allowance_minutes_left"] = mins
         }
-        append(Event(ts: Date(), kind: "sample", payload: payload))
+        let ts = Date()
+        // Host only (never title/path) — privacy level "names". Read live via
+        // the AppleScript queue: FocusMonitor's cached tab state is enforcement-
+        // gated and empty outside sessions, which left the coach blind to sites
+        // exactly when it matters (verified live 2026-06-12: host=- all day).
+        if let fm = focusMonitor {
+            fm.fetchTabHostForTelemetry { [weak self] host in
+                var p = payload
+                if let host { p["host"] = host }
+                self?.append(Event(ts: ts, kind: "sample", payload: p))
+            }
+        } else {
+            append(Event(ts: ts, kind: "sample", payload: payload))
+        }
     }
 
     private func append(_ e: Event) {
