@@ -34,13 +34,26 @@ final class FocusModeController {
         let intention: String?
         let intentionId: UUID?   // Spec 1 — backend-resident Intention id (nil for legacy/manual no-id activations)
         let source: ActivationSource
+        // Daily Focus / floor-not-box (C1, 2026-06-12). All nil for legacy
+        // sessions — a session works identically without them.
+        let floorMinutes: Int?     // 25-min minimum commitment; nil = no floor
+        let dailyFocusId: UUID?    // backend daily_focus row id (best-effort sync)
+        let label: String?         // short user-facing session label
 
-        init(id: UUID, startedAt: Date, intention: String?, intentionId: UUID? = nil, source: ActivationSource) {
+        /// When the floor commitment is met; nil when no floor was declared.
+        var floorEndsAt: Date? { floorMinutes.map { startedAt.addingTimeInterval(TimeInterval($0 * 60)) } }
+
+        init(id: UUID, startedAt: Date, intention: String?, intentionId: UUID? = nil,
+             source: ActivationSource, floorMinutes: Int? = nil,
+             dailyFocusId: UUID? = nil, label: String? = nil) {
             self.id = id
             self.startedAt = startedAt
             self.intention = intention
             self.intentionId = intentionId
             self.source = source
+            self.floorMinutes = floorMinutes
+            self.dailyFocusId = dailyFocusId
+            self.label = label
         }
     }
 
@@ -69,7 +82,16 @@ final class FocusModeController {
 
     // MARK: Lifecycle
 
-    init() {
+    /// `stateDirectory` is a test seam — production callers use the default
+    /// (Application Support/Intentional). When provided, state persists to
+    /// `<stateDirectory>/focus_mode_state.json` instead.
+    init(stateDirectory: URL? = nil) {
+        if let dir = stateDirectory {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            persistencePath = dir.appendingPathComponent("focus_mode_state.json")
+        } else {
+            persistencePath = Self.defaultPersistencePath
+        }
         loadFromDisk()
     }
 
@@ -85,16 +107,26 @@ final class FocusModeController {
         let periodIntention: String?
         let periodIntentionId: String?   // Spec 1 — added in schemaVersion=2
         let periodSourceRaw: String?
+        // schemaVersion=3 (Daily Focus C1). All optional — synthesized Codable
+        // uses decodeIfPresent, so v1/v2 blobs decode with nils here.
+        let periodFloorMinutes: Int?
+        let periodDailyFocusId: String?
+        let periodLabel: String?
     }
-    /// schemaVersion=2 added periodIntentionId (Spec 1). v1 deserialization is forward-compat
-    /// because all new fields are optional Strings — older blobs decode with nil intentionId.
-    private static let persistenceSchemaVersion = 2
+    /// schemaVersion=2 added periodIntentionId (Spec 1); schemaVersion=3 added
+    /// floorMinutes/dailyFocusId/label (Daily Focus C1). Older blobs decode
+    /// fine because every added field is optional and decoded tolerantly.
+    private static let persistenceSchemaVersion = 3
 
-    /// Cached path. Resolved (with directory creation) once per process; nil if
-    /// the Application Support directory itself is unreachable (sandbox edge
-    /// case). Reused for every saveToDisk()/loadFromDisk() to avoid a syscall
-    /// per state transition.
-    private static let persistencePath: URL? = {
+    /// Per-instance resolved path (default production path, or the test-seam
+    /// directory passed to init). nil if Application Support is unreachable.
+    private let persistencePath: URL?
+
+    /// Cached default path. Resolved (with directory creation) once per process;
+    /// nil if the Application Support directory itself is unreachable (sandbox
+    /// edge case). Reused for every saveToDisk()/loadFromDisk() to avoid a
+    /// syscall per state transition.
+    private static let defaultPersistencePath: URL? = {
         guard let support = try? FileManager.default.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,
@@ -123,10 +155,10 @@ final class FocusModeController {
     /// rather than waiting up to 2s for the first /focus/active poll. The poll
     /// will reconcile if disk and backend disagree (backend wins).
     private func loadFromDisk() {
-        guard let path = Self.persistencePath,
+        guard let path = persistencePath,
               let data = try? Data(contentsOf: path),
               let persisted = try? Self.persistenceDecoder.decode(PersistedState.self, from: data),
-              // Accept both v1 and v2 — v2 added an optional field.
+              // Accept v1/v2/v3 — every version bump only added optional fields.
               persisted.schemaVersion <= Self.persistenceSchemaVersion,
               let restoredState = State(rawValue: persisted.stateRaw),
               restoredState != .off else { return }
@@ -139,13 +171,16 @@ final class FocusModeController {
                 startedAt: startedAt,
                 intention: persisted.periodIntention,
                 intentionId: persisted.periodIntentionId.flatMap(UUID.init),
-                source: source
+                source: source,
+                floorMinutes: persisted.periodFloorMinutes,
+                dailyFocusId: persisted.periodDailyFocusId.flatMap(UUID.init),
+                label: persisted.periodLabel
             )
         }
     }
 
     private func saveToDisk() {
-        guard let path = Self.persistencePath else { return }
+        guard let path = persistencePath else { return }
         let persisted = PersistedState(
             schemaVersion: Self.persistenceSchemaVersion,
             stateRaw: state.rawValue,
@@ -153,7 +188,10 @@ final class FocusModeController {
             periodStartedAt: currentPeriod?.startedAt,
             periodIntention: currentPeriod?.intention,
             periodIntentionId: currentPeriod?.intentionId?.uuidString,
-            periodSourceRaw: currentPeriod?.source.rawValue
+            periodSourceRaw: currentPeriod?.source.rawValue,
+            periodFloorMinutes: currentPeriod?.floorMinutes,
+            periodDailyFocusId: currentPeriod?.dailyFocusId?.uuidString,
+            periodLabel: currentPeriod?.label
         )
         if let data = try? Self.persistenceEncoder.encode(persisted) {
             try? data.write(to: path, options: .atomic)
@@ -166,7 +204,8 @@ final class FocusModeController {
     /// updates the intention/source on the current period. Fires onStateChanged if
     /// the intention changes (e.g., Deep Work A → Deep Work B with same .focus state)
     /// so downstream consumers (cache clear, focusMonitor re-eval) still run.
-    func activate(intention: String?, intentionId: UUID? = nil, source: ActivationSource) {
+    func activate(intention: String?, intentionId: UUID? = nil, source: ActivationSource,
+                  floorMinutes: Int? = nil, dailyFocusId: UUID? = nil, label: String? = nil) {
         let old = state
         if state == .focus {
             // Already on; refresh metadata. Notify only if intention actually
@@ -178,15 +217,26 @@ final class FocusModeController {
             // Preserve the ORIGINAL source — represents "what kicked off this session."
             // If puck started a session, a subsequent schedule tick that refreshes
             // intention shouldn't relabel it as schedule-driven (Task 8 review #1).
+            // Daily Focus fields follow the same nil-coalescing refresh rule:
+            // a metadata refresh never wipes the floor/label of a live session.
             currentPeriod = Period(
                 id: existing.id,
                 startedAt: existing.startedAt,
                 intention: newIntention,
                 intentionId: newIntentionId,
-                source: existing.source
+                source: existing.source,
+                floorMinutes: floorMinutes ?? existing.floorMinutes,
+                dailyFocusId: dailyFocusId ?? existing.dailyFocusId,
+                label: label ?? existing.label
             )
             if intentionChanged {
                 notify(old: old, new: state, period: currentPeriod)
+            } else if currentPeriod?.floorMinutes != existing.floorMinutes
+                        || currentPeriod?.dailyFocusId != existing.dailyFocusId
+                        || currentPeriod?.label != existing.label {
+                // Daily Focus metadata changed without an intention change —
+                // no fan-out needed, but persist so a restart doesn't lose it.
+                saveToDisk()
             }
             return
         }
@@ -195,7 +245,10 @@ final class FocusModeController {
             startedAt: Date(),
             intention: intention,
             intentionId: intentionId,
-            source: source
+            source: source,
+            floorMinutes: floorMinutes,
+            dailyFocusId: dailyFocusId,
+            label: label
         )
         state = .focus
         currentPeriod = period
