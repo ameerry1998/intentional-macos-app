@@ -1397,6 +1397,39 @@ class FocusMonitor {
             appDelegate?.endCurrentSession(reason: "pill End tapped")
             return
         }
+        // Floor-less SESSION ends flow through the single end path too
+        // (2026-06-12). The old legacy branch (vm.mode = .blockComplete +
+        // mutate block end) wedged for session-backed blocks: the recalc's
+        // deactivate(.schedule) was REFUSED while the backend session stayed
+        // active (FocusModeController's Spec-1 guard), state stayed .focus,
+        // and nothing ever rescued the `.blockComplete` pill. When the user's
+        // End tap is what ends the block, end the session directly — never
+        // enter .blockComplete — and additionally close a REAL scheduled
+        // block at now so the schedule agrees.
+        if focusModeController?.state == .focus {
+            let block = scheduleManager?.currentBlock
+            let isInjected = block != nil
+                && scheduleManager?.injectedFocusBlock?.id == block?.id
+            appDelegate?.postLog("👁️ End tapped on pill — ending session (no floor, \(isInjected ? "synthetic" : "scheduled") block)")
+            // endCurrentSession deactivates with source .manual (never refused),
+            // posts the backend stop, clears the synthetic block, and the
+            // fanout dismisses the pill.
+            appDelegate?.endCurrentSession(reason: "pill End tapped")
+            if let block = block, !isInjected {
+                // Real scheduled block: also close it at now so ScheduleManager
+                // doesn't immediately re-activate the still-current block.
+                let now = Date()
+                let cal = Calendar.current
+                var updated = block
+                updated.endHour = cal.component(.hour, from: now)
+                updated.endMinute = cal.component(.minute, from: now)
+                scheduleManager?.updateBlock(updated)
+            }
+            return
+        }
+        // Legacy path: pill End with no live focus session (e.g. pill still up
+        // while state is already .off). Mutate the block end so the schedule
+        // closes it; natural-end celebration semantics unchanged.
         appDelegate?.postLog("👁️ End Block tapped on pill — triggering early block end")
         if let vm = deepWorkTimerController?.viewModel, vm.mode == .timer {
             vm.mode = .blockComplete
