@@ -35,15 +35,51 @@ Pill renders decision ←── poll/push ←─ coach_decisions│
 
 **Observation cadence:** telemetry batch every ~2–5 min during free time; immediate on boundary events (session start/end, allowance zero, morning first-activity, 8pm settle). Cost makes cadence a non-issue (see Costs); the local gate exists for signal quality, not budget.
 
-**Action space (closed set, v1):**
-| Action | Example | Surface |
+**Action space (closed set, v1):** `silence` (default) · `credit` · `nudge` · `rescue` · `converse` · `celebrate` — each action renders via the tools below.
+
+### The toolbox (approved 2026-06-12 — each tool answers a specific ADHD failure mode)
+
+**Starting & momentum**
+1. `start_session(goal, minutes, mode)` — incl. **starter mode**: 10 min, nudges off, "anything counts" (shrink-the-step).
+2. `extend_session(+min)` — offered at session end while momentum exists; rides hyperfocus.
+3. `credit_session(goal, span)` — retroactive: noticed real work outside a session, offers to count it.
+4. `revise_contract(new_terms)` — honest mid-day renegotiation ("3h isn't happening — one real hour?"). A renegotiated contract kept beats a heroic one broken; keeps tomorrow's ritual shame-free.
+5. `set_anchor(time, message)` — the agent schedules its own future check-in ("Go eat. I'll check on you at 1:30") and keeps the promise.
+
+**Environment (confirm-first, agency rule)**
+6. `prepare_workspace(apps, urls)` — opens the work (Figma + the spec), optionally sweeps the rest: removes the activation step.
+7. `sweep()` — existing close-the-noise review, now invoked with judgment.
+8. `shield_phone(during_session)` — pre-consented: Mac session start + phone pickup of a blocked app → iOS shield extends the session to the phone. THE cross-device moat (iOS shield machinery exists in puck-ios). **Deferred: phone work not active this cycle.**
+
+**Memory**
+9. `park_thought(text)` / `surface_parked()` — mid-session capture; resurfaced at the relevant moment.
+10. `write_diary(entry)` / `update_profile(fact, evidence)` — the agent's self-maintaining memory.
+
+**Voice**
+11. `show_card(message, buttons)` — pill card on Mac.
+12. `notify_phone(message)` — incl. the 7:30am in-bed ritual moment. **Deferred with phone work.**
+13. `open_conversation()` — two-way pill chat.
+
+### Constitution (deliberate non-tools)
+Cannot: change rules/blocklists · unlock strict mode · **mint allowance** (economy stays deterministic and non-negotiable) · message the partner (v1.1, separately consented) · read content (app/site names only, never text) · act destructively without a tap.
+
+### Build status (Mac-first, audited 2026-06-12)
+| Tool | Status | Notes |
 |---|---|---|
-| `silence` | (the default — most observations) | — |
-| `credit` | "Deep in Figma for 25 min — count it toward Ship v1?" → retroactive session | pill card |
-| `nudge` | contract reminder in the user's own words, beautifully rendered | pill card |
-| `rescue` | zero-allowance ramp / stuck ramp: 10-min starter, sweep-first, guilt-free break | pill card |
-| `converse` | user typed/spoke "I can't focus" → triage dialogue (tired/anxious/bored/task-too-big → matched move) | pill chat |
-| `celebrate` | contract met: "You did the thing. The evening's yours." | pill card |
+| `start_session` | ✅ HAVE → update | Manual goal sessions exist (START_INTENTION_SESSION). Add: starter mode (planned duration, nudges suppressed, "anything counts"). |
+| `sweep` | ✅ HAVE → update | Close-the-noise review exists; make it agent-invokable (currently fires only on session-start transition). |
+| `show_card` | 🔶 PARTIAL | Pill has card modes (distraction card, celebration carousel, noPlan). Add: generic coach-card mode (server-supplied message + buttons) with the motion language. |
+| `extend_session` | 🔶 PARTIAL | Sessions are open-ended today; "extend" matters once starter mode has planned ends. Small. |
+| `park_thought` | 🔶 PARTIAL | Journal store + bridge exist; needs pill quick-capture input + agent read access. (= the May 18 quick-capture ask.) |
+| `credit_session` | 🆕 NEW | Needs backdated session records (backend accepts start/stop on stop today — verify backdating) + attribution. |
+| `revise_contract` | 🆕 NEW | The daily-contract concept itself is new (morning ritual ask). |
+| `set_anchor` | 🆕 NEW | Small: scheduled coach event, survives app restart. |
+| `prepare_workspace` | 🆕 NEW | Small-medium: NSWorkspace open apps/URLs behind a confirm card. |
+| `open_conversation` | 🆕 NEW | Pill chat UI (text first). |
+| `write_diary` / `update_profile` | 🆕 NEW | Backend, part of agent core. |
+| Agent core (telemetry pipe, reasoning loop, decisions channel, eval bench) | 🆕 NEW | The S1–S2 slices. |
+| `shield_phone` | ⏸ DEFERRED | iOS shields exist (puck-ios ManagedSettingsStore); needs backend push + iOS handling. Not this cycle. |
+| `notify_phone` | ⏸ DEFERRED | APNs plumbing exists for focus sync; coach messages deferred with phone work. |
 
 **Memory (plain Postgres, no vector DB in v1):**
 - *Working:* today's narrative log (sessions, drifts, interventions + outcomes, conversation turns).
