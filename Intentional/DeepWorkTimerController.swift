@@ -1159,15 +1159,14 @@ struct DeepWorkTimerView: View {
         viewModel.hasFocusData ? "\(viewModel.focusPercent)% focused" : "Focusing"
     }
 
-    private var earnedText: String {
-        // No honest live earned-minutes source mid-session (allowance earn lands
-        // once on session stop), so suppress the chip until real data exists
-        // rather than show a fake "+0m" the whole session.
-        guard viewModel.hasEarnedData else { return "" }
-        let mins = viewModel.earnedMinutes
-        if mins < 0.1 { return "+0m" }
-        if mins < 10 { return String(format: "+%.1fm", mins) }
-        return "+\(Int(mins))m"
+    /// C6 (mirror, not report card): state, not math. The old "+Nm" earned
+    /// arithmetic is gone — once the session has banked ≥1 real minute the
+    /// chip says so plainly ("break's covered", never "earn screen time").
+    /// Suppressed until real data exists (no honest live earned-minutes
+    /// source mid-session — allowance earn lands once, on session stop).
+    private var breaksCoveredText: String {
+        guard viewModel.hasEarnedData, viewModel.earnedMinutes >= 1 else { return "" }
+        return "break's covered"
     }
 
     var body: some View {
@@ -1487,8 +1486,8 @@ struct DeepWorkTimerView: View {
 
                     Spacer()
 
-                    Text(earnedText)
-                        .font(.system(size: 11, weight: .medium).monospacedDigit())
+                    Text(breaksCoveredText)
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundColor(Color(red: 0.3, green: 0.8, blue: 0.5))
                 }
                 .padding(.horizontal, 14)
@@ -1534,8 +1533,8 @@ struct DeepWorkTimerView: View {
 
                 Spacer()
 
-                Text(earnedText)
-                    .font(.system(size: 11, weight: .medium).monospacedDigit())
+                Text(breaksCoveredText)
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(Color(red: 0.3, green: 0.8, blue: 0.5))
             }
             .padding(.horizontal, 14)
