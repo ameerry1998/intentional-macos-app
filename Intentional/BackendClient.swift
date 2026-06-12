@@ -1987,6 +1987,23 @@ class BackendClient {
         }
     }
 
+    /// Focus Agent S2: batch-post abstracted telemetry (names-only privacy —
+    /// app bundle ids + hosts + durations, never titles/paths). Returns success.
+    func postCoachTelemetry(events: [[String: Any]]) async -> Bool {
+        guard let url = URL(string: "\(baseURL)/coach/telemetry") else { return false }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: ["events": events])
+            let (_, response) = try await URLSession.shared.data(for: request)
+            return (response as? HTTPURLResponse)?.statusCode == 200
+        } catch {
+            return false
+        }
+    }
+
     // MARK: - Intention Strictness (Spec 3 — May 2026)
 
     enum StrictnessUpdateError: Error, LocalizedError {

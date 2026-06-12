@@ -35,6 +35,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var focusModeController: FocusModeController?
     var nudgeController: NudgeWindowController?
 
+    // Focus Agent S2 (shadow mode) — abstracted telemetry collector
+    var coachTelemetry: CoachTelemetry?
+
     // Earn Your Browse budget system: DELETED (R6, June 2026) — replaced by
     // the shared daily allowance (RuleStore + backend /allowance/*).
 
@@ -684,6 +687,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         focusMonitor?.focusModeController = focusModeController
         self.switchCoordinator?.focusModeController = focusModeController
 
+        // Focus Agent S2 — shadow-mode telemetry collector (names-only privacy;
+        // nothing renders). Samples every 60s, flushes every 180s + on boundaries.
+        coachTelemetry = CoachTelemetry(
+            backendClient: backendClient,
+            focusModeController: focusModeController,
+            focusMonitor: focusMonitor
+        )
+        coachTelemetry?.start()
+        postLog("📡 CoachTelemetry started (shadow mode, names-only)")
+
         // R5 earn: if a session was rehydrated from disk (boot reconcile), the
         // .off→.focus transition never fires, so capture the restored period
         // here — otherwise the eventual session end would have nothing to
@@ -721,6 +734,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
             if new == .focus, let period {
                 self.pendingAllowanceEarnPeriod = period
+            }
+
+            // Focus Agent S2 — boundary telemetry (shadow mode; nothing renders).
+            // session_end uses the snapshot taken above: the period param is nil
+            // on deactivate (FocusModeController clears it before notify).
+            if new == .focus && old == .off {
+                self.coachTelemetry?.recordBoundary(kind: "session_start",
+                    payload: ["goal": period?.intention ?? ""])
+            } else if new == .off && old == .focus {
+                self.coachTelemetry?.recordBoundary(kind: "session_end",
+                    payload: ["goal": endedPeriod?.intention ?? ""])
             }
 
             // Backend sync — single source of truth. Previously the post was

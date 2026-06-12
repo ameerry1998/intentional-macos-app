@@ -691,6 +691,13 @@ class FocusMonitor {
     private var lastScoredTitle: String?
     private var lastScoredURL: String?
 
+    /// Focus Agent S2 (CoachTelemetry): host of the last-scored browser tab.
+    /// Names-only privacy — exposes the host, never the title or full URL/path.
+    var currentTabHost: String? {
+        guard let url = lastScoredURL else { return nil }
+        return URL(string: url)?.host
+    }
+
     /// Last relevant browser tab URL for smart "Back to work" navigation
     private var lastRelevantTabURL: String?
 
