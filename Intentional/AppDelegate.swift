@@ -1140,7 +1140,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 // (docs/superpowers/plans/2026-04-27-bedtime-cross-device.md).
                 // Don't reuse /focus/toggle for bedtime; semantically different.
             case .off:
-                self.focusModeController?.deactivate(source: .schedule)
+                // Manual sessions outlive schedule churn (2026-06-12): a
+                // backend /time_blocks pull returning 0 blocks — or a stale
+                // block expiring — says NOTHING about a manual-source session
+                // (it lives in /focus/active, not /time_blocks). The old
+                // unconditional deactivate killed restored floored sessions
+                // ~13s after boot when the schedule pull came back empty.
+                // (FocusModeController has its own .schedule-refusal guard,
+                // but it depends on the poller's lastKnownActive which is
+                // false/unknown right after boot — guard here too.)
+                if self.focusModeController?.state == .focus,
+                   self.focusModeController?.currentPeriod?.source == .manual {
+                    self.postLog("📋 Schedule → off ignored — manual session active (outlives schedule churn)")
+                    // The session may have just lost its backing block (stale
+                    // real block expired). Re-inject the synthetic block so
+                    // enforcement + the pill keep their context. No-op when a
+                    // block is still current.
+                    if self.scheduleManager?.currentBlock == nil {
+                        self.injectSyntheticBlockForCurrentPeriod()
+                    }
+                } else {
+                    self.focusModeController?.deactivate(source: .schedule)
+                }
             }
             // Backend post happens inside focusModeController.onStateChanged
             // — keyed off the period's source so .schedule transitions sync
