@@ -1480,6 +1480,7 @@ class RelevanceScorer {
         // Yield to scoring: skip rather than queue.
         guard !isInferenceBusy else { return nil }
 
+        let t0 = Date()
         // Capture frontmost window first (cheap, no model contention). nil ==
         // no screen-recording permission or no capturable window — fail
         // silently (telemetry never prompts; the OCR verification path owns
@@ -1488,14 +1489,19 @@ class RelevanceScorer {
             return nil
         }
         await MainActor.run { self.hasCapturedBefore = true }
+        let captureMs = Int(Date().timeIntervalSince(t0) * 1000)
 
         // ── Primary: vision model ──
         if vlmDescriber.isLoaded {
             guard !isInferenceBusy else { return nil }
             beginInference()
+            let tInfer = Date()
             let vlmDescription = await vlmDescriber.describe(image: capture.image)
+            let inferMs = Int(Date().timeIntervalSince(tInfer) * 1000)
             endInference()
             if let vlmDescription {
+                NSLog("🫆 DESCRIBE [vlm] capture=%dms infer=%dms total=%dms → \"%@\"",
+                      captureMs, inferMs, Int(Date().timeIntervalSince(t0) * 1000), vlmDescription)
                 return (vlmDescription, VLMDescriber.engineTag)
             }
             // Degenerate even after retry → fall through to OCR+text.
@@ -1549,6 +1555,8 @@ class RelevanceScorer {
 
         guard let raw = try? await session.respond(to: prompt) else { return nil }
         guard let parsed = Self.parseDescriptionResponse(raw) else { return nil }
+        NSLog("🫆 DESCRIBE [ocr-text] capture=%dms total=%dms → \"%@\"",
+              captureMs, Int(Date().timeIntervalSince(t0) * 1000), parsed)
         return (parsed, "ocr-text")
     }
 
