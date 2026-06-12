@@ -90,6 +90,32 @@ class RelevanceScorer {
     /// Used to skip the `CGPreflightScreenCaptureAccess` gate once we know permission exists.
     private var hasCapturedBefore: Bool = false
 
+    // MARK: - Inference busy tracking (telemetry yields to scoring)
+
+    /// Count of scoring/inference passes currently in flight (scoreRelevance,
+    /// batch sweep, justification). There is no explicit queue around the shared
+    /// `mlxSession` — serialization is de-facto (FocusMonitor's evaluation loop
+    /// is the single scoring caller). Telemetry screen descriptions check this
+    /// counter and SKIP (never queue) when anything is mid-flight: in-session
+    /// scoring always has priority over telemetry.
+    private let inferenceLock = NSLock()
+    private var inferenceInFlight = 0
+
+    private func beginInference() {
+        inferenceLock.lock(); inferenceInFlight += 1; inferenceLock.unlock()
+    }
+
+    private func endInference() {
+        inferenceLock.lock(); inferenceInFlight -= 1; inferenceLock.unlock()
+    }
+
+    /// True while any scoring pass (metadata, OCR rescore, batch, justification)
+    /// is running.
+    var isInferenceBusy: Bool {
+        inferenceLock.lock(); defer { inferenceLock.unlock() }
+        return inferenceInFlight > 0
+    }
+
     // Stop words excluded from keyword overlap matching
     private static let stopWords: Set<String> = [
         "the", "and", "for", "with", "this", "that", "from", "have", "some",
@@ -554,6 +580,10 @@ class RelevanceScorer {
         contentType: ContentType = .webpage,
         bundleIdentifier: String = ""
     ) async -> Result {
+        // Mark the whole pass busy (incl. OCR capture) so telemetry descriptions
+        // yield — skip, never queue — while enforcement scoring runs.
+        beginInference()
+        defer { endInference() }
         let tracer = ScoringTracer()
         // Helper that stamps the terminal "final" step, attaches the trace to the result,
         // and emits a one-line trace summary to postLog. Every return path goes through this
@@ -1298,6 +1328,8 @@ class RelevanceScorer {
     /// macOS 26+ if Qwen isn't loaded. Fail-closed: returns empty string on
     /// any failure (caller will default-stash all tabs).
     private func runBatchPrompt(prompt: String) async -> String {
+        beginInference()
+        defer { endInference() }
         // Ensure MLX model is loaded before the first scoring call. Without
         // this await, scoreTabBatch races the lazy load and returns empty on
         // first invocation (every tab default-stashes / default-keeps).
@@ -1362,6 +1394,8 @@ class RelevanceScorer {
     /// (R6: former EarnedBrowseManager consumer deleted; still used by the
     /// justification flow in FocusMonitor.)
     func assessJustification(text: String, intention: String, intentionDescription: String = "") async -> (approved: Bool, reason: String) {
+        beginInference()
+        defer { endInference() }
         let userMessage = """
         The user is working on: "\(intention)"\(intentionDescription.isEmpty ? "" : " — \(intentionDescription)")
         They want to visit social media and gave this reason: "\(text)"
@@ -1412,5 +1446,105 @@ class RelevanceScorer {
 
         // Fallback: deny by default (conservative)
         return (approved: false, reason: "Scoring unavailable — defaulting to standard rate")
+    }
+
+    // MARK: - Telemetry Screen Description (Focus Agent)
+
+    /// ONE locally-generated sentence about what the user appears to be doing
+    /// on screen, for coach telemetry. Pipeline: ScreenCapture → Vision OCR →
+    /// Qwen3-4B (text) — the on-device bridge until a VLM replaces the
+    /// capture→understand step.
+    ///
+    /// Guarantees:
+    /// - Never throws, never blocks the caller's cadence — returns nil on ANY
+    ///   failure (no model, no permission, empty OCR, unparseable output).
+    /// - Never races in-session scoring: checks `isInferenceBusy` before AND
+    ///   after the model-load await and SKIPs (returns nil) if scoring is
+    ///   mid-flight. Scoring has priority; descriptions are best-effort.
+    /// - Uses a fresh one-shot ChatSession so the shared scoring session's
+    ///   conversation history stays clean, with temperature 0 pinned
+    ///   (clearCache resets the shared session to 0.2).
+    func describeScreenForTelemetry() async -> String? {
+        // Yield to scoring: skip rather than queue.
+        guard !isInferenceBusy else { return nil }
+
+        // MLX lazy load does NOT auto-await — mirror scoreRelevance's guard.
+        await loadMLXModelIfNeeded()
+        guard mlxModelLoaded, let context = mlxContext else { return nil }
+
+        // Re-check after the (potentially long) model-load suspension.
+        guard !isInferenceBusy else { return nil }
+        beginInference()
+        defer { endInference() }
+
+        // Capture frontmost window. nil == no screen-recording permission or no
+        // capturable window — fail silently (telemetry never prompts; the OCR
+        // verification path owns the permission prompt).
+        guard let capture = (try? await ScreenCapture().captureFrontmostWindow()) ?? nil else {
+            return nil
+        }
+        await MainActor.run { self.hasCapturedBefore = true }
+
+        let ocrText = (try? await OCREngine().extractText(from: capture.image)) ?? ""
+        guard !ocrText.isEmpty else { return nil }
+        let excerpt = String(ocrText.prefix(600))
+
+        // App name + window title — cheap context, read on the main actor
+        // (NSWorkspace + AX, mirroring scoreRelevance's frontmost-PID read).
+        let (appName, windowTitle): (String, String?) = await MainActor.run {
+            let front = NSWorkspace.shared.frontmostApplication
+            let name = front?.localizedName ?? front?.bundleIdentifier ?? "unknown app"
+            let title = CoachTelemetry.frontmostWindowTitle().map { String($0.prefix(100)) }
+            return (name, title)
+        }
+        let titleLine = windowTitle.map { "\nWindow title: \($0)" } ?? ""
+
+        let prompt = """
+        In one short sentence, state what the user appears to be doing based on this screen text. Then on a new line one category: work | communication | entertainment | shopping | neutral.
+
+        App: \(appName)\(titleLine)
+        Screen text: \(excerpt)
+
+        /no_think
+        """
+
+        // One-shot session: temp=0 (deterministic), ~60-token cap (one sentence
+        // + one category word), no shared-session history pollution.
+        let session = ChatSession(context)
+        session.generateParameters.temperature = 0.0
+        session.generateParameters.maxTokens = 60
+
+        guard let raw = try? await session.respond(to: prompt) else { return nil }
+        return Self.parseDescriptionResponse(raw)
+    }
+
+    /// Parse the model's "sentence\ncategory" output into a single
+    /// "sentence [category]" string. Returns nil if no usable sentence.
+    /// Internal (not private) for testability.
+    static func parseDescriptionResponse(_ raw: String) -> String? {
+        // Strip any <think>...</think> blocks that appear despite /no_think.
+        var cleaned = raw
+        while let thinkStart = cleaned.range(of: "<think>"),
+              let thinkEnd = cleaned.range(of: "</think>"),
+              thinkStart.lowerBound < thinkEnd.upperBound {
+            cleaned.removeSubrange(thinkStart.lowerBound..<thinkEnd.upperBound)
+        }
+        let lines = cleaned
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        guard let sentence = lines.first, sentence.count >= 3 else { return nil }
+
+        let categories: Set<String> = ["work", "communication", "entertainment", "shopping", "neutral"]
+        var category = "neutral"
+        for line in lines.dropFirst() {
+            let token = line.lowercased()
+                .trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+            if categories.contains(token) {
+                category = token
+                break
+            }
+        }
+        return "\(String(sentence.prefix(200))) [\(category)]"
     }
 }

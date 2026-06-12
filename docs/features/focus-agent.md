@@ -5,6 +5,7 @@ owner: Shared
 last_verified: 2026-06-12
 files:
   - Intentional/CoachTelemetry.swift
+  - Intentional/RelevanceScorer.swift
   - Intentional/BackendClient.swift
   - Intentional/AppDelegate.swift
 related:
@@ -19,7 +20,8 @@ A cloud "coach" agent (DeepSeek, on intentional-backend) reasons over abstracted
 ## User-visible behavior
 
 - **None, by design (S2 = shadow).** The Mac samples frontmost app + browser host + session/allowance state every 60s and batch-posts every 180s; boundary events (session start/end) flush immediately.
-- Privacy contract: **names and minutes only** — bundle ids, hosts, durations. No titles, no URL paths, no OCR text, no content. Gate: UserDefaults `coachTelemetryLevel` ("names" default | "off").
+- **Screen descriptions (default tier, 2026-06-12):** out-of-session, each sample may also emit ONE locally-generated sentence about what's on screen — ScreenCapture → Vision OCR → Qwen3-4B, fully on-device (`RelevanceScorer.describeScreenForTelemetry`) — as a separate `description` event `{app, host?, description}`. Never in-session (the scorer already produces relevance data there), never racing scoring (skip-not-queue via `isInferenceBusy`), throttled to one per 60s, single-flight.
+- Privacy gate: UserDefaults `coachTelemetryLevel` — `"descriptions"` (default: names + titles + on-device screen descriptions) | `"titles"` | `"names"` | `"off"`. Only the generated sentence leaves the device; raw OCR text and screenshots never do.
 - Shadow verdicts are reviewable at `GET /coach/decisions` (dual-auth) — this becomes the "what your coach can see" transparency surface later.
 
 ## Architecture
@@ -62,7 +64,9 @@ Backend (intentional-backend): `coach_prompts.py` (charter), `coach_agent.py` (d
 
 | Function | What it does | Called by |
 |----------|-------------|-----------|
-| `CoachTelemetry.sample()` | 60s snapshot: app/host/in_session/allowance | sample timer |
+| `CoachTelemetry.sample()` | 60s snapshot: app/host/in_session/allowance; kicks off description | sample timer |
+| `CoachTelemetry.maybeDescribeScreen()` | fire-and-forget `description` event; tier + session + throttle + single-flight gates | sample() |
+| `RelevanceScorer.describeScreenForTelemetry()` | capture → OCR (600ch) → Qwen one-shot (temp 0, ≤60 tok) → "sentence [category]" | CoachTelemetry |
 | `CoachTelemetry.flush()` | batch POST; re-queue on failure | flush timer + boundaries |
 | `coach_agent.decide()` (py) | one reasoning pass; never raises; fail-closed to silence | /coach/telemetry |
 | `caps_from_decisions` (py) | code-level daily caps (nudge 3, rescue 2, celebrate 1, credit 2) | decide path |
@@ -72,7 +76,7 @@ Backend (intentional-backend): `coach_prompts.py` (charter), `coach_agent.py` (d
 
 | Key | Where | Default | Notes |
 |-----|-------|---------|-------|
-| `coachTelemetryLevel` | UserDefaults (Mac) | `"names"` | `"off"` disables collection entirely |
+| `coachTelemetryLevel` | UserDefaults (Mac) | `"descriptions"` | tiers: descriptions / titles / names / off |
 | `DEEPSEEK_API_KEY` / `DEEPSEEK_MODEL` | Railway env | — / `deepseek-chat` | reasoner scored worse (token-cap truncation) |
 | Throttle / caps | code | 300s; 3/2/1/2 per day | guardrails in code, not prompt |
 
@@ -85,5 +89,6 @@ Backend (intentional-backend): `coach_prompts.py` (charter), `coach_agent.py` (d
 
 ## Decision history
 
+- **2026-06-12** — Screen-understanding layer: `description` telemetry events (one on-device OCR+Qwen sentence per 60s, out-of-session only; new default privacy tier `"descriptions"`). Backend renders them as `{t} >> {description}` in `compact_today_log`; requires migration 030 (kind CHECK). Bridge until a VLM replaces capture→understand.
 - **2026-06-12** — S1+S2 shipped + verified live: first real shadow verdict at 09:00 ("silence — user switching iTerm2/Chrome, no commitment exists, silence is safest", 953 tokens, ~0.02¢). Charter tuned 86%→100% / wrong-speak 7→0 in 3 bench iterations. Spec: `docs/superpowers/specs/2026-06-12-focus-agent-design.md`. Plan: `docs/superpowers/plans/2026-06-12-focus-agent-s1-s2.md`.
 - **2026-06-12** — Design locked: local senses / cloud brain, silence-biased, constitution (can't touch rules/strict-mode/allowance), 13-tool roadmap, phone tools deferred.

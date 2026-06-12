@@ -687,15 +687,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         focusMonitor?.focusModeController = focusModeController
         self.switchCoordinator?.focusModeController = focusModeController
 
-        // Focus Agent S2 — shadow-mode telemetry collector (names-only privacy;
-        // nothing renders). Samples every 60s, flushes every 180s + on boundaries.
+        // Focus Agent S2 — shadow-mode telemetry collector (nothing renders).
+        // Samples every 60s, flushes every 180s + on boundaries. At the default
+        // "descriptions" privacy tier, also emits one on-device screen
+        // description per sample (ScreenCapture → OCR → Qwen), out-of-session
+        // only — never contends with in-session relevance scoring.
         coachTelemetry = CoachTelemetry(
             backendClient: backendClient,
             focusModeController: focusModeController,
-            focusMonitor: focusMonitor
+            focusMonitor: focusMonitor,
+            relevanceScorer: relevanceScorer
         )
         coachTelemetry?.start()
-        postLog("📡 CoachTelemetry started (shadow mode, names-only)")
+        postLog("📡 CoachTelemetry started (shadow mode, descriptions tier)")
 
         // R5 earn: if a session was rehydrated from disk (boot reconcile), the
         // .off→.focus transition never fires, so capture the restored period

@@ -1,16 +1,20 @@
 import Foundation
 import AppKit
 
-/// Focus Agent S2 (shadow mode): samples abstracted activity — app/host names
-/// and durations only, never titles or content — buffers it, and flushes to
-/// the backend every few minutes. Privacy gate: `coachTelemetryLevel`
-/// UserDefaults ("names" default | "off").
+/// Focus Agent S2 (shadow mode): samples abstracted activity — app/host names,
+/// window/tab titles, and (at the default tier) one locally-generated sentence
+/// describing what's on screen — buffers it, and flushes to the backend every
+/// few minutes. Privacy gate: `coachTelemetryLevel` UserDefaults
+/// ("descriptions" default | "titles" | "names" | "off").
+/// Descriptions are produced fully on-device: ScreenCapture → Vision OCR →
+/// Qwen3-4B (see RelevanceScorer.describeScreenForTelemetry). Never in-session
+/// (the scorer already produces relevance data there) and never racing scoring.
 /// Spec: docs/superpowers/specs/2026-06-12-focus-agent-design.md
 final class CoachTelemetry {
 
     struct Event {
         let ts: Date
-        let kind: String          // sample | session_start | session_end | allowance_zero | idle
+        let kind: String          // sample | session_start | session_end | allowance_zero | idle | description
         let payload: [String: Any]
     }
 
@@ -21,19 +25,29 @@ final class CoachTelemetry {
     private weak var backendClient: BackendClient?
     private weak var focusModeController: FocusModeController?
     private weak var focusMonitor: FocusMonitor?
+    private weak var relevanceScorer: RelevanceScorer?
+
+    // Screen-description single-flight + throttle (one per 60s max).
+    private var descriptionInFlight = false
+    private var lastDescriptionAt: Date?
 
     static let sampleInterval: TimeInterval = 60
     static let flushInterval: TimeInterval = 180
+    static let descriptionInterval: TimeInterval = 60
 
-    var enabled: Bool {
-        (UserDefaults.standard.string(forKey: "coachTelemetryLevel") ?? "titles") != "off"
+    /// Current privacy tier. Default is "descriptions" (new top tier).
+    private var level: String {
+        UserDefaults.standard.string(forKey: "coachTelemetryLevel") ?? "descriptions"
     }
 
+    var enabled: Bool { level != "off" }
+
     init(backendClient: BackendClient?, focusModeController: FocusModeController?,
-         focusMonitor: FocusMonitor?) {
+         focusMonitor: FocusMonitor?, relevanceScorer: RelevanceScorer? = nil) {
         self.backendClient = backendClient
         self.focusModeController = focusModeController
         self.focusMonitor = focusMonitor
+        self.relevanceScorer = relevanceScorer
     }
 
     func start() {
@@ -81,6 +95,7 @@ final class CoachTelemetry {
         // specific) read live on the AppleScript queue: FocusMonitor's cached
         // tab state is enforcement-gated and empty outside sessions, which
         // left the coach blind to sites (verified live 2026-06-12).
+        let appId = payload["app"] as? String ?? "unknown"
         if let fm = focusMonitor {
             fm.fetchTabInfoForTelemetry { [weak self] host, tabTitle in
                 guard let self else { return }
@@ -88,19 +103,59 @@ final class CoachTelemetry {
                 if let host { p["host"] = host }
                 if self.titlesEnabled, let tabTitle { p["title"] = tabTitle }
                 self.append(Event(ts: ts, kind: "sample", payload: p))
+                self.maybeDescribeScreen(app: appId, host: host)
             }
         } else {
             append(Event(ts: ts, kind: "sample", payload: payload))
+            maybeDescribeScreen(app: appId, host: nil)
         }
     }
 
-    /// Privacy: "titles" (default — app/site names + window/tab titles) or
-    /// "names" (names only) or "off".
-    private var titlesEnabled: Bool {
-        (UserDefaults.standard.string(forKey: "coachTelemetryLevel") ?? "titles") != "names"
+    /// Fire-and-forget screen description: ONE on-device sentence about what
+    /// the user is doing (ScreenCapture → OCR → Qwen), appended as a separate
+    /// "description" event so the regular sample is never delayed.
+    /// Gates: privacy tier == "descriptions" (default) AND not in a focus
+    /// session (in-session, the scorer already produces relevance data — and
+    /// telemetry must never contend with it for the model). Throttled to one
+    /// per 60s with a single-flight guard (skip, never queue).
+    private func maybeDescribeScreen(app: String, host: String?) {
+        guard descriptionsEnabled else { return }
+        guard focusModeController?.isOn != true else { return }
+        lock.lock()
+        let throttled = lastDescriptionAt.map { Date().timeIntervalSince($0) < Self.descriptionInterval } ?? false
+        if descriptionInFlight || throttled {
+            lock.unlock()
+            return
+        }
+        descriptionInFlight = true
+        lastDescriptionAt = Date()   // stamp at start — failures still throttle
+        lock.unlock()
+
+        Task { [weak self] in
+            defer {
+                if let self {
+                    self.lock.lock()
+                    self.descriptionInFlight = false
+                    self.lock.unlock()
+                }
+            }
+            guard let scorer = self?.relevanceScorer else { return }
+            guard let description = await scorer.describeScreenForTelemetry() else { return }
+            // Re-check session state: a session may have started mid-generation.
+            guard self?.focusModeController?.isOn != true else { return }
+            var p: [String: Any] = ["app": app, "description": description]
+            if let host { p["host"] = host }
+            self?.append(Event(ts: Date(), kind: "description", payload: p))
+        }
     }
 
-    private static func frontmostWindowTitle() -> String? {
+    /// Privacy tiers: "descriptions" (default — names + titles + on-device
+    /// screen descriptions), "titles" (names + window/tab titles), "names"
+    /// (names only), "off".
+    private var titlesEnabled: Bool { level != "names" }
+    private var descriptionsEnabled: Bool { level == "descriptions" }
+
+    static func frontmostWindowTitle() -> String? {
         guard let app = NSWorkspace.shared.frontmostApplication else { return nil }
         let axApp = AXUIElementCreateApplication(app.processIdentifier)
         var win: AnyObject?
