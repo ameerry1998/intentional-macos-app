@@ -6,9 +6,13 @@ import AppKit
 /// describing what's on screen — buffers it, and flushes to the backend every
 /// few minutes. Privacy gate: `coachTelemetryLevel` UserDefaults
 /// ("descriptions" default | "titles" | "names" | "off").
-/// Descriptions are produced fully on-device: ScreenCapture → Vision OCR →
-/// Qwen3-4B (see RelevanceScorer.describeScreenForTelemetry). Never in-session
-/// (the scorer already produces relevance data there) and never racing scoring.
+/// Descriptions are produced fully on-device: ScreenCapture → Qwen3-VL vision
+/// model (OCR+Qwen3-4B text as fallback — see
+/// RelevanceScorer.describeScreenForTelemetry; the event payload's "engine"
+/// field says which pipeline produced each one). Never in-session (the scorer
+/// already produces relevance data there) and never racing scoring.
+/// Triggers: 60s sample timer (60s min-gap floor) + app-switch (different
+/// bundle id than the last described one, 2s settle delay, 15s min-gap).
 /// Spec: docs/superpowers/specs/2026-06-12-focus-agent-design.md
 final class CoachTelemetry {
 
@@ -27,13 +31,24 @@ final class CoachTelemetry {
     private weak var focusMonitor: FocusMonitor?
     private weak var relevanceScorer: RelevanceScorer?
 
-    // Screen-description single-flight + throttle (one per 60s max).
+    // Screen-description single-flight + throttle (timer floor 60s;
+    // app-switch trigger may shrink the gap to 15s, never below).
     private var descriptionInFlight = false
     private var lastDescriptionAt: Date?
+    /// Bundle id the most recent description event covered — app-switch
+    /// triggers only fire when the activated app differs from this.
+    private var lastDescribedBundleId: String?
+    /// 2s settle delay after app activation before describing — rapid
+    /// Cmd-Tab chains keep pushing it out so only the landing app is described.
+    /// Main-thread only (observer queue is .main).
+    private var appSwitchSettleTimer: Timer?
+    private var appActivationObserver: NSObjectProtocol?
 
     static let sampleInterval: TimeInterval = 60
     static let flushInterval: TimeInterval = 180
-    static let descriptionInterval: TimeInterval = 60
+    static let descriptionInterval: TimeInterval = 60          // timer-driven floor
+    static let appSwitchDescriptionMinGap: TimeInterval = 15   // app-switch-triggered
+    static let appSwitchSettleDelay: TimeInterval = 2
     static let decisionPollInterval: TimeInterval = 60
 
     // Focus Agent S3: pending coach-decision poll (plan_prompt card).
@@ -79,13 +94,55 @@ final class CoachTelemetry {
         RunLoop.main.add(sampleTimer!, forMode: .common)
         RunLoop.main.add(flushTimer!, forMode: .common)
         RunLoop.main.add(decisionTimer!, forMode: .common)
-        NSLog("📡 CoachTelemetry started (sample \(Int(Self.sampleInterval))s, flush \(Int(Self.flushInterval))s, decision poll \(Int(Self.decisionPollInterval))s)")
+        // App-switch description trigger: a different app coming frontmost is
+        // exactly the moment the coach wants fresh eyes (timer floor stays).
+        appActivationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil, queue: .main
+        ) { [weak self] note in
+            self?.handleAppActivation(note)
+        }
+        NSLog("📡 CoachTelemetry started (sample \(Int(Self.sampleInterval))s, flush \(Int(Self.flushInterval))s, decision poll \(Int(Self.decisionPollInterval))s, app-switch describe gap \(Int(Self.appSwitchDescriptionMinGap))s)")
     }
 
     func stop() {
         sampleTimer?.invalidate(); sampleTimer = nil
         flushTimer?.invalidate(); flushTimer = nil
         decisionTimer?.invalidate(); decisionTimer = nil
+        appSwitchSettleTimer?.invalidate(); appSwitchSettleTimer = nil
+        if let obs = appActivationObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(obs)
+            appActivationObserver = nil
+        }
+    }
+
+    /// App-switch description trigger (descriptions tier only, never
+    /// in-session — maybeDescribeScreen re-checks both). Fires only when the
+    /// activated bundle id differs from the last DESCRIBED one, after a 2s
+    /// settle delay, with a 15s min-gap instead of the 60s timer floor.
+    /// Single-flight + throttle live in maybeDescribeScreen, unchanged.
+    private func handleAppActivation(_ note: Notification) {
+        guard descriptionsEnabled else { return }
+        guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+              let bundleId = app.bundleIdentifier else { return }
+        lock.lock()
+        let last = lastDescribedBundleId
+        lock.unlock()
+        guard bundleId != last else { return }
+        appSwitchSettleTimer?.invalidate()
+        let timer = Timer(timeInterval: Self.appSwitchSettleDelay, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            // Re-read frontmost at fire time — the user may have moved on
+            // during the settle window; describe what they landed on.
+            let frontId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? bundleId
+            self.lock.lock()
+            let lastDescribed = self.lastDescribedBundleId
+            self.lock.unlock()
+            guard frontId != lastDescribed else { return }
+            self.maybeDescribeScreen(app: frontId, host: nil, minGap: Self.appSwitchDescriptionMinGap)
+        }
+        appSwitchSettleTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
     }
 
     /// Focus Agent S3: fetch the pending coach decision and hand it to the
@@ -167,17 +224,20 @@ final class CoachTelemetry {
     }
 
     /// Fire-and-forget screen description: ONE on-device sentence about what
-    /// the user is doing (ScreenCapture → OCR → Qwen), appended as a separate
+    /// the user is doing (ScreenCapture → vision model, OCR+text fallback —
+    /// the payload's "engine" says which), appended as a separate
     /// "description" event so the regular sample is never delayed.
     /// Gates: privacy tier == "descriptions" (default) AND not in a focus
     /// session (in-session, the scorer already produces relevance data — and
     /// telemetry must never contend with it for the model). Throttled to one
-    /// per 60s with a single-flight guard (skip, never queue).
-    private func maybeDescribeScreen(app: String, host: String?) {
+    /// per `minGap` (60s timer floor; 15s for app-switch triggers) with a
+    /// single-flight guard (skip, never queue).
+    private func maybeDescribeScreen(app: String, host: String?,
+                                     minGap: TimeInterval = CoachTelemetry.descriptionInterval) {
         guard descriptionsEnabled else { return }
         guard focusModeController?.isOn != true else { return }
         lock.lock()
-        let throttled = lastDescriptionAt.map { Date().timeIntervalSince($0) < Self.descriptionInterval } ?? false
+        let throttled = lastDescriptionAt.map { Date().timeIntervalSince($0) < minGap } ?? false
         if descriptionInFlight || throttled {
             lock.unlock()
             return
@@ -195,12 +255,19 @@ final class CoachTelemetry {
                 }
             }
             guard let scorer = self?.relevanceScorer else { return }
-            guard let description = await scorer.describeScreenForTelemetry() else { return }
+            guard let result = await scorer.describeScreenForTelemetry() else { return }
             // Re-check session state: a session may have started mid-generation.
-            guard self?.focusModeController?.isOn != true else { return }
-            var p: [String: Any] = ["app": app, "description": description]
+            guard let self, self.focusModeController?.isOn != true else { return }
+            var p: [String: Any] = [
+                "app": app,
+                "description": result.description,
+                "engine": result.engine,
+            ]
             if let host { p["host"] = host }
-            self?.append(Event(ts: Date(), kind: "description", payload: p))
+            self.append(Event(ts: Date(), kind: "description", payload: p))
+            self.lock.lock()
+            self.lastDescribedBundleId = app
+            self.lock.unlock()
         }
     }
 

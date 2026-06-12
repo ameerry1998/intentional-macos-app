@@ -1450,24 +1450,65 @@ class RelevanceScorer {
 
     // MARK: - Telemetry Screen Description (Focus Agent)
 
+    /// Vision-model describer (Qwen3-VL via MLXVLM). Lazy: weights download on
+    /// first use; until loaded, describes fall back to the OCR+text path below.
+    let vlmDescriber = VLMDescriber()
+
     /// ONE locally-generated sentence about what the user appears to be doing
-    /// on screen, for coach telemetry. Pipeline: ScreenCapture → Vision OCR →
-    /// Qwen3-4B (text) — the on-device bridge until a VLM replaces the
-    /// capture→understand step.
+    /// on screen, for coach telemetry. Primary pipeline: ScreenCapture →
+    /// downscale (≤1440 px wide) → Qwen3-VL-4B vision model with the bench-
+    /// winning v2_catfirst prompt (vlm_bench/RESULTS.md — OCR+text scored 23%
+    /// categories vs 90%+ for the VLM, 0/11 on entertainment shots). Fallback
+    /// pipeline (VLM not yet downloaded, load failed, or degenerate output
+    /// after retry): ScreenCapture → Vision OCR → Qwen3-4B (text).
+    ///
+    /// Returns (description, engine) where engine is "vlm:<model>" or
+    /// "ocr-text" so the feed can compare quality.
     ///
     /// Guarantees:
     /// - Never throws, never blocks the caller's cadence — returns nil on ANY
     ///   failure (no model, no permission, empty OCR, unparseable output).
-    /// - Never races in-session scoring: checks `isInferenceBusy` before AND
-    ///   after the model-load await and SKIPs (returns nil) if scoring is
-    ///   mid-flight. Scoring has priority; descriptions are best-effort.
-    /// - Uses a fresh one-shot ChatSession so the shared scoring session's
+    /// - Never races in-session scoring: checks `isInferenceBusy` before
+    ///   capture, before the VLM pass, and after the text-model-load await,
+    ///   and SKIPs (returns nil) if scoring is mid-flight. Scoring has
+    ///   priority; descriptions are best-effort. (Scoring does NOT yield to
+    ///   descriptions — that direction is intentionally not required.)
+    /// - Uses fresh one-shot sessions so the shared scoring session's
     ///   conversation history stays clean, with temperature 0 pinned
     ///   (clearCache resets the shared session to 0.2).
-    func describeScreenForTelemetry() async -> String? {
+    func describeScreenForTelemetry() async -> (description: String, engine: String)? {
         // Yield to scoring: skip rather than queue.
         guard !isInferenceBusy else { return nil }
 
+        // Capture frontmost window first (cheap, no model contention). nil ==
+        // no screen-recording permission or no capturable window — fail
+        // silently (telemetry never prompts; the OCR verification path owns
+        // the permission prompt).
+        guard let capture = (try? await ScreenCapture().captureFrontmostWindow()) ?? nil else {
+            return nil
+        }
+        await MainActor.run { self.hasCapturedBefore = true }
+
+        // ── Primary: vision model ──
+        if vlmDescriber.isLoaded {
+            guard !isInferenceBusy else { return nil }
+            beginInference()
+            let vlmDescription = await vlmDescriber.describe(image: capture.image)
+            endInference()
+            if let vlmDescription {
+                return (vlmDescription, VLMDescriber.engineTag)
+            }
+            // Degenerate even after retry → fall through to OCR+text.
+            appDelegate?.postLog("🖼️ VLMDescriber: degenerate output after retry — falling back to ocr-text for this describe")
+        } else {
+            // Kick off the download/load without blocking this describe;
+            // OCR+text covers the gap until the weights are resident.
+            vlmDescriber.startLoadingIfNeeded { [weak self] msg in
+                self?.appDelegate?.postLog(msg)
+            }
+        }
+
+        // ── Fallback: OCR + text model ──
         // MLX lazy load does NOT auto-await — mirror scoreRelevance's guard.
         await loadMLXModelIfNeeded()
         guard mlxModelLoaded, let context = mlxContext else { return nil }
@@ -1476,14 +1517,6 @@ class RelevanceScorer {
         guard !isInferenceBusy else { return nil }
         beginInference()
         defer { endInference() }
-
-        // Capture frontmost window. nil == no screen-recording permission or no
-        // capturable window — fail silently (telemetry never prompts; the OCR
-        // verification path owns the permission prompt).
-        guard let capture = (try? await ScreenCapture().captureFrontmostWindow()) ?? nil else {
-            return nil
-        }
-        await MainActor.run { self.hasCapturedBefore = true }
 
         let ocrText = (try? await OCREngine().extractText(from: capture.image)) ?? ""
         guard !ocrText.isEmpty else { return nil }
@@ -1515,7 +1548,8 @@ class RelevanceScorer {
         session.generateParameters.maxTokens = 60
 
         guard let raw = try? await session.respond(to: prompt) else { return nil }
-        return Self.parseDescriptionResponse(raw)
+        guard let parsed = Self.parseDescriptionResponse(raw) else { return nil }
+        return (parsed, "ocr-text")
     }
 
     /// Parse the model's "sentence\ncategory" output into a single
