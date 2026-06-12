@@ -691,9 +691,13 @@ class FocusMonitor {
     private var lastScoredTitle: String?
     private var lastScoredURL: String?
 
-    /// Focus Agent S2 (CoachTelemetry): host of the last-scored browser tab.
+    /// Focus Agent S2 (CoachTelemetry): host of the current browser tab.
     /// Names-only privacy — exposes the host, never the title or full URL/path.
+    /// Prefers the always-on browser-poll cache (updates ~10s in AND out of
+    /// sessions); lastScoredURL only populates while relevance scoring runs,
+    /// which left the coach blind to sites outside sessions.
     var currentTabHost: String? {
+        if let host = lastSeenBrowserTab?.host, !host.isEmpty { return host }
         guard let url = lastScoredURL else { return nil }
         return URL(string: url)?.host
     }
