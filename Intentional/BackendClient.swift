@@ -1955,7 +1955,10 @@ class BackendClient {
     func postFocusToggle(
         action: FocusToggleAction,
         intentionId: UUID? = nil,
-        triggeredBy: String = "mac_manual"
+        triggeredBy: String = "mac_manual",
+        dailyFocusId: UUID? = nil,
+        floorMinutes: Int? = nil,
+        label: String? = nil
     ) async -> FocusToggleResult? {
         guard let url = URL(string: "\(baseURL)/focus/toggle") else { return nil }
         var req = URLRequest(url: url)
@@ -1968,6 +1971,17 @@ class BackendClient {
         ]
         if let intentionId {
             body["intention_id"] = intentionId.uuidString
+        }
+        // Daily Focus (C1, 2026-06-12) — sent on start so the backend links
+        // the focus_sessions row to the daily_focus row + floor/label.
+        if let dailyFocusId {
+            body["daily_focus_id"] = dailyFocusId.uuidString
+        }
+        if let floorMinutes {
+            body["floor_minutes"] = floorMinutes
+        }
+        if let label {
+            body["label"] = label
         }
         do {
             req.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -1985,6 +1999,56 @@ class BackendClient {
         } catch {
             return nil
         }
+    }
+
+    // MARK: - Daily Focus (C1, 2026-06-12)
+
+    /// POST /daily_focus — create today's Daily Focus row. Best-effort:
+    /// returns nil on ANY failure (offline, non-200, unparseable id) — the
+    /// session works identically without a backend row.
+    func createDailyFocus(localDate: String, title: String, intentText: String?,
+                          linkedIntentionId: UUID?, createdVia: String) async -> UUID? {
+        guard let url = URL(string: "\(baseURL)/daily_focus") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        var body: [String: Any] = [
+            "local_date": localDate,
+            "title": title,
+            "created_via": createdVia,
+        ]
+        if let intentText {
+            body["intent_text"] = intentText
+        }
+        if let linkedIntentionId {
+            body["linked_intention_id"] = linkedIntentionId.uuidString
+        }
+        do {
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode),
+                  let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let idString = json["id"] as? String else {
+                return nil
+            }
+            return UUID(uuidString: idString)
+        } catch {
+            return nil
+        }
+    }
+
+    /// POST /daily_focus/{id}/status — flip the row's status
+    /// (e.g. "in_progress" | "done" | "abandoned"). Fire-and-forget:
+    /// failures are ignored (offline-safe).
+    func setDailyFocusStatus(id: UUID, status: String) async {
+        guard let url = URL(string: "\(baseURL)/daily_focus/\(id.uuidString)/status") else { return }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: ["status": status])
+        _ = try? await URLSession.shared.data(for: req)
     }
 
     /// Focus Agent S2: batch-post abstracted telemetry (names-only privacy —

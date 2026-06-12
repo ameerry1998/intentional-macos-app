@@ -82,6 +82,7 @@
 		BD00011300000000000001 /* GoalSessionHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00011400000000000001 /* GoalSessionHistory.swift */; };
 		BD00011700000000000001 /* CoachTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00011800000000000001 /* CoachTelemetry.swift */; };
 		BD00011900000000000001 /* VLMDescriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00011A00000000000001 /* VLMDescriber.swift */; };
+		BD00011B00000000000001 /* DailyFocusClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00011C00000000000001 /* DailyFocusClient.swift */; };
 		BD00010700000000000001 /* EnforcementResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00010800000000000001 /* EnforcementResolver.swift */; };
 		BD00000300000000000001 /* IntentionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD00000400000000000001 /* IntentionStore.swift */; };
 		BD0000F500000000000001 /* IntentTextMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0000F600000000000001 /* IntentTextMigration.swift */; };
@@ -224,6 +225,7 @@
 		BD00011400000000000001 /* GoalSessionHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalSessionHistory.swift; sourceTree = "<group>"; };
 		BD00011800000000000001 /* CoachTelemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachTelemetry.swift; sourceTree = "<group>"; };
 		BD00011A00000000000001 /* VLMDescriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VLMDescriber.swift; sourceTree = "<group>"; };
+		BD00011C00000000000001 /* DailyFocusClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyFocusClient.swift; sourceTree = "<group>"; };
 		BD00010800000000000001 /* EnforcementResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnforcementResolver.swift; sourceTree = "<group>"; };
 		BD00000400000000000001 /* IntentionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentionStore.swift; sourceTree = "<group>"; };
 		BD0000F600000000000001 /* IntentTextMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentTextMigration.swift; sourceTree = "<group>"; };
@@ -338,6 +340,7 @@
 				BD00011400000000000001 /* GoalSessionHistory.swift */,
 				BD00011800000000000001 /* CoachTelemetry.swift */,
 				BD00011A00000000000001 /* VLMDescriber.swift */,
+				BD00011C00000000000001 /* DailyFocusClient.swift */,
 				BD00010800000000000001 /* EnforcementResolver.swift */,
 				BD0000F600000000000001 /* IntentTextMigration.swift */,
 				BD00010200000000000001 /* BlockRuleEnforcer.swift */,
@@ -603,6 +606,7 @@
 				BD00011300000000000001 /* GoalSessionHistory.swift in Sources */,
 				BD00011700000000000001 /* CoachTelemetry.swift in Sources */,
 				BD00011900000000000001 /* VLMDescriber.swift in Sources */,
+				BD00011B00000000000001 /* DailyFocusClient.swift in Sources */,
 				BD00010700000000000001 /* EnforcementResolver.swift in Sources */,
 				BD0000F500000000000001 /* IntentTextMigration.swift in Sources */,
 				BD00010100000000000001 /* BlockRuleEnforcer.swift in Sources */,
