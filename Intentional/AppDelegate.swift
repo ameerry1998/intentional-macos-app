@@ -1909,7 +1909,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     func presentCoachDecision(_ decision: [String: Any]) async -> Bool {
         guard let decisionId = decision["id"] as? String else { return false }
-        guard (decision["action"] as? String ?? "plan_prompt") == "plan_prompt" else { return false }
+        // Coach Slice 2: nudge (drift reminder) + rescue (stuck → tiny step).
+        // Only reachable when the backend marks them shadow=false (env-gated);
+        // the suppression gate in CoachTelemetry already ran upstream.
+        switch (decision["action"] as? String ?? "plan_prompt") {
+        case "nudge":  return await presentCoachNudge(decision)
+        case "rescue": return await presentCoachRescue(decision)
+        case "plan_prompt": break  // fall through to the existing plan-prompt body
+        default: return false
+        }
 
         // Card v2 chips: in-progress weekly goals as one-tap answers (≤4).
         let chips = await IntentionStore.shared.active()
@@ -1957,6 +1965,127 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         return presented
+    }
+
+    // MARK: - Coach nudge + rescue (Slice 2 C4/C5/C6)
+
+    /// First label in the decision's `buttons` array, if present. Backend may
+    /// send `buttons: ["Okay", …]` or `buttons: [{title: "Okay"}, …]`.
+    private func firstButtonLabel(_ decision: [String: Any]) -> String? {
+        guard let buttons = decision["buttons"] as? [Any], let first = buttons.first else { return nil }
+        if let s = first as? String {
+            let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+            return t.isEmpty ? nil : t
+        }
+        if let dict = first as? [String: Any],
+           let title = (dict["title"] ?? dict["label"]) as? String {
+            let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            return t.isEmpty ? nil : t
+        }
+        return nil
+    }
+
+    /// Mute the coach's VOICE for the rest of today (auto-resets at the next
+    /// day boundary via the launch reset). VOICE ONLY — a UserDefaults flag the
+    /// suppression gate reads; never touches rules/blocking/enforcement.
+    func setCoachVoiceMuted(_ muted: Bool) {
+        UserDefaults.standard.set(muted, forKey: "coachVoiceMutedToday")
+        postLog("🧭 Coach: voice \(muted ? "muted for today" : "unmuted") (rules untouched)")
+    }
+
+    /// Set the 30-min "I need this" escape window the suppression gate reads.
+    /// VOICE ONLY — a UserDefaults timestamp; never touches rules/blocking.
+    private func setCoachEscape() {
+        let until = Date().addingTimeInterval(1800)  // 30 min
+        UserDefaults.standard.set(until, forKey: "coachEscapeUntil")
+        postLog("🧭 Coach: 'I need this' — voice muted for 30 min (rules untouched)")
+    }
+
+    /// Present a coach NUDGE as the external red toast (the same surface
+    /// FocusMonitor uses for escalated relevance nudges). A drift reminder —
+    /// in-session only; plan_prompt owns the planless case. On show: stamp
+    /// `lastCoachNudgeAt` (rate-limit input) + POST "shown".
+    @MainActor
+    func presentCoachNudge(_ decision: [String: Any]) async -> Bool {
+        guard let decisionId = decision["id"] as? String else { return false }
+        // A nudge is a drift reminder DURING a session. Out of session,
+        // plan_prompt owns the surface — don't nudge against nothing.
+        guard focusModeController?.isOn == true else { return false }
+        guard let nudgeController = focusMonitor?.nudgeController else { return false }
+
+        let raw = (decision["message"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !raw.isEmpty else { return false }
+
+        // Rate-limit input: record this nudge so the gate enforces ≤1/hour.
+        UserDefaults.standard.set(Date(), forKey: "lastCoachNudgeAt")
+
+        nudgeController.pillWindow = focusMonitor?.deepWorkTimerController?.timerWindow
+        nudgeController.showCoachNudge(
+            message: raw,
+            onMute: { [weak self] in
+                self?.setCoachVoiceMuted(true)
+                self?.postCoachDecisionOutcome(decisionId, "dismissed")
+            },
+            onINeedThis: { [weak self] in
+                self?.setCoachEscape()
+                self?.postCoachDecisionOutcome(decisionId, "dismissed")
+            },
+            onDismiss: { [weak self] in
+                self?.postCoachDecisionOutcome(decisionId, "dismissed")
+            }
+        )
+        postLog("🧭 Coach nudge presented — decision \(decisionId.prefix(8))")
+        postCoachDecisionOutcome(decisionId, "shown")
+        return true
+    }
+
+    /// Present a coach RESCUE as a gentle two-button card (no text field, no
+    /// chips, no enforcement, no session start in Slice 2). Primary = an
+    /// acknowledge ("Okay" or the decision's first button label) → POST
+    /// "tapped_start". Secondary = "I need this" → 30-min escape + POST
+    /// "dismissed". Shown regardless of session state.
+    @MainActor
+    func presentCoachRescue(_ decision: [String: Any]) async -> Bool {
+        guard let decisionId = decision["id"] as? String else { return false }
+        guard let pill = focusMonitor?.deepWorkTimerController else { return false }
+
+        let raw = (decision["message"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !raw.isEmpty else { return false }
+
+        var data = CoachCardData(
+            message: raw,
+            onStart: { [weak self] _ in
+                // Slice-2 rescue: acknowledge only — no session, no enforcement.
+                self?.focusMonitor?.deepWorkTimerController?.dismissCoachCard()
+                self?.postLog("🧭 Coach rescue: acknowledged — decision \(decisionId.prefix(8))")
+                self?.postCoachDecisionOutcome(decisionId, "tapped_start")
+            },
+            onLater: { [weak self] in
+                // "I need this" → 30-min escape (voice only) + dismiss.
+                self?.setCoachEscape()
+                self?.focusMonitor?.deepWorkTimerController?.dismissCoachCard()
+                self?.postCoachDecisionOutcome(decisionId, "dismissed")
+            }
+        )
+        data.style = .rescue
+        data.primaryTitle = firstButtonLabel(decision) ?? "Okay"
+        data.secondaryTitle = "I need this"
+
+        let presented = pill.showCoachCard(data: data, replacingSessionTimer: true)
+        if presented {
+            postLog("🧭 Coach rescue presented — decision \(decisionId.prefix(8))")
+            postCoachDecisionOutcome(decisionId, "shown")
+        }
+        return presented
+    }
+
+    /// Fire-and-forget coach decision outcome POST.
+    private func postCoachDecisionOutcome(_ id: String, _ outcome: String) {
+        Task { [weak self] in
+            _ = await self?.backendClient?.postCoachDecisionOutcome(id: id, outcome: outcome)
+        }
     }
 
     /// "Start 25 min" with typed text: report tapped_start once, then start a

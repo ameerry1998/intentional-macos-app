@@ -130,6 +130,7 @@ struct CoachCardData {
     enum Style {
         case planPrompt   // text field + "Start 25 min" (Focus Agent S3)
         case confirm      // confirm/keep-going pair, no text field (Daily Focus C4)
+        case rescue       // gentle two-button acknowledge, no text field (Coach Slice 2 C4)
     }
     let message: String
     var style: Style = .planPrompt
@@ -711,10 +712,14 @@ class DeepWorkTimerController {
         hostingView.layer?.backgroundColor = .clear
 
         let windowWidth: CGFloat = 460
-        // .confirm has no text field — shorter card. Chip rows (card v2)
-        // grow the .planPrompt card.
-        let windowHeight: CGFloat = (data.style == .confirm ? 170 : 250)
-            + data.planPromptExtraHeight
+        // .confirm / .rescue have no text field — shorter cards. Chip rows
+        // (card v2) grow the .planPrompt card.
+        let windowHeight: CGFloat
+        switch data.style {
+        case .confirm: windowHeight = 170
+        case .rescue:  windowHeight = 150
+        case .planPrompt: windowHeight = 250 + data.planPromptExtraHeight
+        }
         hostingView.frame = NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight)
 
         let window = KeyablePanel(
@@ -2594,7 +2599,13 @@ struct DeepWorkTimerView: View {
             .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         // Daily Focus C4: `.confirm` hides the text field and renders an
         // "End session" / "Keep going" pair (post-floor clean-end card).
-        let isConfirm = viewModel.coachCardData?.style == .confirm
+        // Coach Slice 2 C4: `.rescue` is a gentle two-button acknowledge card —
+        // also no text field, no chips; defaults to "Okay" / "I need this".
+        let style = viewModel.coachCardData?.style ?? .planPrompt
+        let isConfirm = style == .confirm
+        let isRescue = style == .rescue
+        // Both .confirm and .rescue suppress the text field + chips.
+        let noFieldStyle = isConfirm || isRescue
 
         return VStack(alignment: .leading, spacing: 0) {
             // Kicker
@@ -2622,7 +2633,7 @@ struct DeepWorkTimerView: View {
             }
 
             // Card v2: weekly-goal chips + "I'm not sure" (.planPrompt only)
-            if !isConfirm, let data = viewModel.coachCardData,
+            if !noFieldStyle, let data = viewModel.coachCardData,
                !data.chips.isEmpty || data.onNotSure != nil {
                 VStack(spacing: 6) {
                     ForEach(Array(data.chips.enumerated()), id: \.offset) { _, chip in
@@ -2678,8 +2689,9 @@ struct DeepWorkTimerView: View {
                 .padding(.bottom, 10)
             }
 
-            // Task input (.planPrompt only) — never pre-filled
-            if !isConfirm {
+            // Task input (.planPrompt only) — never pre-filled.
+            // .confirm and .rescue have no text field.
+            if !noFieldStyle {
                 TextField("or type what you're on…", text: $viewModel.coachTaskInput)
                     .textFieldStyle(.plain)
                     .font(.system(size: 14, weight: .medium))
@@ -2708,12 +2720,14 @@ struct DeepWorkTimerView: View {
                     guard !viewModel.coachCardBusy else { return }
                     let task = viewModel.coachTaskInput
                         .trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard isConfirm || !task.isEmpty else { return }
+                    // No-field styles (.confirm/.rescue) acknowledge without text.
+                    guard noFieldStyle || !task.isEmpty else { return }
                     viewModel.coachCardData?.onStart(task)
                 }) {
                     Text(viewModel.coachCardData?.primaryTitle
                          ?? (isConfirm ? "End session"
-                             : (viewModel.coachCardBusy ? "Starting…" : "Start 25 min")))
+                             : (isRescue ? "Okay"
+                                : (viewModel.coachCardBusy ? "Starting…" : "Start 25 min"))))
                         .font(.system(size: 13, weight: .bold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
@@ -2721,19 +2735,20 @@ struct DeepWorkTimerView: View {
                         .background(
                             LinearGradient(colors: [focusedStart, focusedEnd],
                                            startPoint: .leading, endPoint: .trailing)
-                                .opacity((!isConfirm && inputEmpty) || viewModel.coachCardBusy ? 0.35 : 1.0)
+                                .opacity((!noFieldStyle && inputEmpty) || viewModel.coachCardBusy ? 0.35 : 1.0)
                         )
                         .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
-                .disabled((!isConfirm && inputEmpty) || viewModel.coachCardBusy)
+                .disabled((!noFieldStyle && inputEmpty) || viewModel.coachCardBusy)
 
                 Button(action: {
                     guard !viewModel.coachCardBusy else { return }
                     viewModel.coachCardData?.onLater()
                 }) {
                     Text(viewModel.coachCardData?.secondaryTitle
-                         ?? (isConfirm ? "Keep going" : "later"))
+                         ?? (isConfirm ? "Keep going"
+                             : (isRescue ? "I need this" : "later")))
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(textSecondary)
                         .underline()
@@ -2744,9 +2759,14 @@ struct DeepWorkTimerView: View {
         }
         .padding(18)
         .frame(width: 460,
-               height: isConfirm
-                   ? 170
-                   : 250 + (viewModel.coachCardData?.planPromptExtraHeight ?? 0),
+               height: {
+                   switch style {
+                   case .confirm: return 170
+                   case .rescue:  return 150
+                   case .planPrompt:
+                       return 250 + (viewModel.coachCardData?.planPromptExtraHeight ?? 0)
+                   }
+               }(),
                alignment: .top)
         .background(bgColor)
         .cornerRadius(18)

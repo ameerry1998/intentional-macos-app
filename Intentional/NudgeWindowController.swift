@@ -155,6 +155,96 @@ class NudgeWindowController {
         appDelegate?.postLog("💬 Nudge shown: \"\(appOrPage)\" vs \"\(intention)\" (escalated: \(escalated))")
     }
 
+    /// Coach Slice 2: show a COACH nudge toast — a drift reminder whose body
+    /// is the coach's raw `message` (a full sentence from the LLM), not the
+    /// relevance-nudge template. Renders "Got it", a "Mute coach today" link,
+    /// and an "I need this" link. All three only set UserDefaults flags the
+    /// suppression gate reads — they NEVER touch rules/blocking/enforcement.
+    ///
+    /// - Parameters:
+    ///   - message: the coach's full sentence (already drift-aware)
+    ///   - onMute: tap "Mute coach today" (voice valve)
+    ///   - onINeedThis: tap "I need this" (30-min escape)
+    ///   - onDismiss: tap "Got it" / dismiss
+    func showCoachNudge(message: String,
+                        onMute: @escaping () -> Void,
+                        onINeedThis: @escaping () -> Void,
+                        onDismiss: @escaping () -> Void) {
+        dismiss()
+
+        let vm = NudgeViewModel(
+            intention: "",
+            appOrPage: "",
+            escalated: true,   // stays until the user interacts (no auto-dismiss)
+            distractionMinutes: 0,
+            warning: false,
+            showJustificationExpanded: false,
+            onGotIt: { [weak self] in
+                onDismiss()
+                self?.dismiss()
+            },
+            onThisIsRelevant: { _ in }  // not used on coach nudges
+        )
+        vm.coachMessage = message
+        vm.onMute = { [weak self] in
+            onMute()
+            self?.dismiss()
+        }
+        vm.onINeedThis = { [weak self] in
+            onINeedThis()
+            self?.dismiss()
+        }
+        self.viewModel = vm
+
+        let view = NudgeView(viewModel: vm)
+        let hostingView = NSHostingView(rootView: view)
+        let windowWidth: CGFloat = 300
+        hostingView.frame = NSRect(x: 0, y: 0, width: windowWidth, height: 10)
+        let fittingSize = hostingView.fittingSize
+        let windowHeight = max(fittingSize.height, 40)
+        hostingView.frame = NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight)
+
+        let window = KeyablePanel(
+            contentRect: NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        window.allowKeyboardInput = false
+        window.contentView = hostingView
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.hasShadow = true
+        window.level = .floating
+        window.isReleasedWhenClosed = false
+        window.isMovableByWindowBackground = false
+        window.animationBehavior = .utilityWindow
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+
+        // Position below the pill (right-aligned), or top-right fallback.
+        if let pill = pillWindow {
+            let pillFrame = pill.frame
+            let newOrigin = NSPoint(
+                x: pillFrame.maxX - windowWidth,
+                y: pillFrame.minY - windowHeight - 6
+            )
+            window.setFrameOrigin(newOrigin)
+            pill.addChildWindow(window, ordered: .below)
+        } else if let screenFrame = NSScreen.main?.visibleFrame {
+            let newOrigin = NSPoint(
+                x: screenFrame.maxX - windowWidth - 20,
+                y: screenFrame.maxY - windowHeight - 20
+            )
+            window.setFrameOrigin(newOrigin)
+        }
+
+        print("🚨 ACTIVATE: NudgeWindowController.showCoachNudge — orderFrontRegardless")
+        window.orderFrontRegardless()
+        nudgeWindow = window
+
+        appDelegate?.postLog("🧭 Coach nudge shown: \"\(message)\"")
+    }
+
     /// Dismiss the nudge window if showing.
     func dismiss() {
         autoDismissTimer?.invalidate()
@@ -183,6 +273,20 @@ class NudgeViewModel: ObservableObject {
     let warning: Bool
     let onGotIt: () -> Void
     let onThisIsRelevant: (String) -> Void
+
+    /// Coach Slice 2: when set, this nudge renders the coach's raw `message`
+    /// (a full sentence) instead of the relevance-nudge template, and shows
+    /// "Mute coach today" + "I need this" links instead of "This is relevant"
+    /// / "Override AI". nil = a normal relevance nudge (unchanged).
+    var coachMessage: String? = nil
+    /// Coach nudge "Mute coach today" (voice valve — sets UserDefaults, never
+    /// touches rules). Only present on coach nudges.
+    var onMute: (() -> Void)? = nil
+    /// Coach nudge "I need this" (30-min escape — sets UserDefaults, never
+    /// touches rules). Only present on coach nudges.
+    var onINeedThis: (() -> Void)? = nil
+    /// True when this is a coach nudge (drives the dedicated render branch).
+    var isCoachNudge: Bool { coachMessage != nil }
 
     /// Called when the view needs to resize (e.g., justification field appears)
     var onNeedsResize: (() -> Void)?
@@ -278,6 +382,74 @@ struct NudgeView: View {
     private let warningTint = Color(red: 0.60, green: 0.08, blue: 0.08)
 
     var body: some View {
+        if let coachMessage = viewModel.coachMessage {
+            coachBody(coachMessage)
+        } else {
+            relevanceBody
+        }
+    }
+
+    // Coach Slice 2: raw-message toast with "Got it" + "Mute coach today" +
+    // "I need this". Plain, factual tone — the message text comes from the LLM.
+    @ViewBuilder
+    private func coachBody(_ message: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 8) {
+                Text(message)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 4)
+
+                Button(action: viewModel.onGotIt) {
+                    Text("Got it")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(textPrimary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.white.opacity(0.2))
+                        .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+
+            HStack(spacing: 14) {
+                Button(action: { viewModel.onINeedThis?() }) {
+                    Text("I need this")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(textTertiary)
+                        .underline()
+                }
+                .buttonStyle(.plain)
+
+                Button(action: { viewModel.onMute?() }) {
+                    Text("Mute coach today")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(textTertiary)
+                        .underline()
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.bottom, 8)
+        }
+        .frame(width: 300)
+        .background(
+            ZStack {
+                VisualEffectBlur(material: .hudWindow, blendingMode: .behindWindow)
+                redTint.opacity(0.72)
+            }
+        )
+        .cornerRadius(18)
+        .shadow(color: .black.opacity(0.35), radius: 10, x: 0, y: 3)
+    }
+
+    private var relevanceBody: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Main row: message + Got it button
             HStack(spacing: 8) {
