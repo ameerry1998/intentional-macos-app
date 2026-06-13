@@ -2062,6 +2062,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             onStart: { [weak self] _ in
                 // Slice-2 rescue: acknowledge only — no session, no enforcement.
                 self?.focusMonitor?.deepWorkTimerController?.dismissCoachCard()
+                // If a floored session is still live, the rescue card replaced
+                // the timer pill — restore it (no-op out of session).
+                self?.focusMonitor?.restoreSessionTimerAfterCoachCard()
                 self?.postLog("🧭 Coach rescue: acknowledged — decision \(decisionId.prefix(8))")
                 self?.postCoachDecisionOutcome(decisionId, "tapped_start")
             },
@@ -2069,6 +2072,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 // "I need this" → 30-min escape (voice only) + dismiss.
                 self?.setCoachEscape()
                 self?.focusMonitor?.deepWorkTimerController?.dismissCoachCard()
+                // Restore the session timer pill if a floored session is live.
+                self?.focusMonitor?.restoreSessionTimerAfterCoachCard()
                 self?.postCoachDecisionOutcome(decisionId, "dismissed")
             }
         )

@@ -1058,6 +1058,19 @@ class FocusMonitor {
         }
     }
 
+    /// Restore the live session timer pill after a coach card dismisses
+    /// mid-session. Mirrors the clean-end card's onLater (dismissCoachCard →
+    /// showTimerForCurrentBlock) so a rescue card that replaced the timer pill
+    /// during a floored session doesn't leave the pill gone until next refresh.
+    /// No-op unless a floored session is still live — out-of-session rescues
+    /// had no pill to restore.
+    func restoreSessionTimerAfterCoachCard() {
+        guard focusModeController?.state == .focus,
+              focusModeController?.currentPeriod?.floorMinutes != nil else { return }
+        deepWorkTimerController?.dismissCoachCard()
+        showTimerForCurrentBlock()
+    }
+
     /// Signal the switch coordinator about a block change.
     /// Work blocks start a session; non-work blocks end it. If an overlay is up
     /// when the session changes, it's dismissed with a sessionEndedMidCountdown resolution.
