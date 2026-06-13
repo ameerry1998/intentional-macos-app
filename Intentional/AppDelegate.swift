@@ -371,8 +371,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             "planFirstPromptEnabled": false,
             "sessionStartPromptEnabled": false,
             // Coach suppression gate (C5 safety rail, 2026-06-12): mute valve +
-            // last-nudge rate limit. coachMuteResetDate drives the daily un-mute.
+            // "I need this" 30-min escape + last-nudge rate limit.
+            // coachMuteResetDate drives the daily un-mute. These are VOICE-ONLY
+            // flags the suppression gate reads — they never touch rules.
             "coachVoiceMutedToday": false,
+            "coachEscapeUntil": Date(timeIntervalSince1970: 0),
             "lastCoachNudgeAt": Date(timeIntervalSince1970: 0),
             "coachMuteResetDate": Date(timeIntervalSince1970: 0),
         ])
