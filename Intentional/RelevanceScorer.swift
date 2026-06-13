@@ -1244,6 +1244,17 @@ class RelevanceScorer {
                        tabs: [(title: String, url: String)]) async -> [TabVerdict] {
         guard !tabs.isEmpty else { return [] }
 
+        // Cloud sweep (DeepSeek) — smarter than local Qwen for this reasoning
+        // task. Gated by a default-ON UserDefaults toggle so it can be turned
+        // off; falls back to local Qwen on ANY failure.
+        if UserDefaults.standard.object(forKey: "sweepUseCloud") as? Bool ?? true {
+            if let cloud = await appDelegate?.backendClient?.scoreSweepTabs(intent: intent, tabs: tabs) {
+                appDelegate?.postLog("🧹 Sweep scored \(cloud.count) tabs via DeepSeek (cloud)")
+                return cloud
+            }
+            appDelegate?.postLog("🧹 Sweep cloud scoring unavailable — falling back to local Qwen")
+        }
+
         var lines = [String]()
         for (i, t) in tabs.enumerated() {
             let trimmedTitle = String(t.title.prefix(140))

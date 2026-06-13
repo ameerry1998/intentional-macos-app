@@ -378,6 +378,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             "coachEscapeUntil": Date(timeIntervalSince1970: 0),
             "lastCoachNudgeAt": Date(timeIntervalSince1970: 0),
             "coachMuteResetDate": Date(timeIntervalSince1970: 0),
+            // Close-the-noise sweep: score tabs via the backend DeepSeek
+            // endpoint (/sweep/score) by default, falling back to local Qwen
+            // on any failure. Default-ON; toggle off to force local-only.
+            "sweepUseCloud": true,
         ])
 
         // Daily reset: a coach muted yesterday speaks again today.

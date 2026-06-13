@@ -618,6 +618,73 @@ class BackendClient {
         }
     }
 
+    // MARK: - Close-the-Noise Sweep (cloud tab scoring)
+
+    /// POST /sweep/score — score open browser tabs against the focus intent
+    /// using the backend's DeepSeek model (smarter than local Qwen for this
+    /// reasoning task). Returns verdicts IN THE SAME ORDER as the input tabs.
+    ///
+    /// Returns nil on ANY failure (non-200, parse error, offline, timeout) so
+    /// the caller falls back to local Qwen scoring. If the backend returns
+    /// fewer verdicts than tabs, the missing tail is padded with
+    /// relevant=false, confidence=0 — matches the sweep's "default-stash for
+    /// unsure" rule (a stash is recoverable; a false-keep is noise).
+    ///
+    /// Tabs capped to 80 to match the backend's cap. 20s timeout: DeepSeek
+    /// batch scoring of ~50 tabs takes a few seconds; we don't let it hang the
+    /// sweep forever.
+    func scoreSweepTabs(intent: String,
+                        tabs: [(title: String, url: String)]) async -> [RelevanceScorer.TabVerdict]? {
+        guard !tabs.isEmpty else { return [] }
+        let endpoint = "\(baseURL)/sweep/score"
+        guard let url = URL(string: endpoint) else { return nil }
+
+        let cappedTabs = Array(tabs.prefix(80))
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        request.timeoutInterval = 20
+
+        let body: [String: Any] = [
+            "intent": intent,
+            "tabs": cappedTabs.map { ["title": $0.title, "url": $0.url] }
+        ]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, isSuccess(http.statusCode),
+                  let json = parseJSON(data),
+                  let rawVerdicts = json["verdicts"] as? [[String: Any]] else {
+                return nil
+            }
+
+            var verdicts = [RelevanceScorer.TabVerdict]()
+            verdicts.reserveCapacity(cappedTabs.count)
+            // Map IN ORDER, pairing each input tab with its positional verdict.
+            // We trust the input tab's title/url (backend echoes them) so the
+            // mapping back into the sweep's URL-keyed dict stays exact.
+            for (i, tab) in cappedTabs.enumerated() {
+                if i < rawVerdicts.count {
+                    let v = rawVerdicts[i]
+                    let relevant = v["relevant"] as? Bool ?? false
+                    let confidence = v["confidence"] as? Int ?? 0
+                    verdicts.append(.init(title: tab.title, url: tab.url,
+                                          relevant: relevant, confidence: confidence))
+                } else {
+                    // Fewer verdicts than tabs — default-stash the remainder.
+                    verdicts.append(.init(title: tab.title, url: tab.url,
+                                          relevant: false, confidence: 0))
+                }
+            }
+            return verdicts
+        } catch {
+            return nil
+        }
+    }
+
     // MARK: - Bedtime Unlock
 
     /// Errors specific to the bedtime-unlock flow. Surfaced to the UI so
