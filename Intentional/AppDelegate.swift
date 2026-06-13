@@ -370,7 +370,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // the user deliberately enables them.
             "planFirstPromptEnabled": false,
             "sessionStartPromptEnabled": false,
+            // Coach suppression gate (C5 safety rail, 2026-06-12): mute valve +
+            // last-nudge rate limit. coachMuteResetDate drives the daily un-mute.
+            "coachVoiceMutedToday": false,
+            "lastCoachNudgeAt": Date(timeIntervalSince1970: 0),
+            "coachMuteResetDate": Date(timeIntervalSince1970: 0),
         ])
+
+        // Daily reset: a coach muted yesterday speaks again today.
+        let coachMuteResetDate = UserDefaults.standard.object(forKey: "coachMuteResetDate") as? Date
+            ?? Date(timeIntervalSince1970: 0)
+        if !Calendar.current.isDateInToday(coachMuteResetDate) {
+            UserDefaults.standard.set(false, forKey: "coachVoiceMutedToday")
+            UserDefaults.standard.set(Date(), forKey: "coachMuteResetDate")
+        }
 
         // Always-Allowed store (used by close-the-noise sweep + Settings UI).
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!

@@ -169,6 +169,20 @@ final class CoachTelemetry {
             let alreadyPresented = self.presentedDecisionIds.contains(id)
             self.lock.unlock()
             guard !alreadyPresented else { return }
+            // Suppression gate (C5 safety rail): withhold VISIBLE coach actions
+            // (nudge/rescue) when on a call / screen-sharing / coach muted today
+            // / a nudge fired <1h ago. plan_prompt is never suppressed here.
+            let action = decision["action"] as? String ?? "plan_prompt"
+            let muted = UserDefaults.standard.bool(forKey: "coachVoiceMutedToday")
+            let escapeUntil = UserDefaults.standard.object(forKey: "coachEscapeUntil") as? Date
+            let lastNudge = UserDefaults.standard.object(forKey: "lastCoachNudgeAt") as? Date
+            if CoachSuppression.isSuppressed(action: action, muted: muted, escapeUntil: escapeUntil, lastNudgeAt: lastNudge) {
+                NSLog("📡 CoachTelemetry: \(action) \(id.prefix(8)) suppressed (context/mute/rate)")
+                if let bc = self.backendClient {
+                    Task { _ = await bc.postCoachDecisionOutcome(id: id, outcome: "dismissed") }
+                }
+                return
+            }
             // Present (the handler is @MainActor); mark presented only when
             // the card actually rendered.
             let presented = await self.onCoachDecision?(decision) ?? false
